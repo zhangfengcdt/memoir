@@ -467,7 +467,9 @@ class DynamicTaxonomy(BaseTaxonomy):
                         await self.expand_taxonomy(node.path)
 
                 # Sleep before next check
-                await asyncio.sleep(EXPANSION_WORKER_SLEEP_SECONDS)  # Check periodically
+                await asyncio.sleep(
+                    EXPANSION_WORKER_SLEEP_SECONDS
+                )  # Check periodically
 
             except asyncio.CancelledError:
                 break

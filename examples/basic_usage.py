@@ -161,7 +161,7 @@ async def main():
 
         print(f"Storing {len(memories)} memories for user {user_id}...")
 
-        for i, memory_content in enumerate(memories):
+        for _i, memory_content in enumerate(memories):
             start_time = time.time()
 
             # Store memory with semantic classification
@@ -233,7 +233,7 @@ async def main():
         # Group memories by semantic path - use search to get all memories
         search_results = store.search((user_id,), limit=1000)
         all_memories = []
-        for namespace, key, data in search_results:
+        for _namespace, key, data in search_results:
             if isinstance(data, dict) and "content" in data:
                 memory_item = MemoryItem(
                     key=key,
@@ -269,7 +269,7 @@ async def main():
         print(
             f"  📈 Classification performance: {stats.get('avg_classification_time', 'N/A')}"
         )
-        print(f"  🌳 Taxonomy paths used: {len(set(m.key for m in all_memories))}")
+        print(f"  🌳 Taxonomy paths used: {len({m.key for m in all_memories})}")
 
         # Show versioning info
         if "versioning" in stats:

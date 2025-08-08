@@ -71,7 +71,9 @@ class SemanticClassifier:
 
             # Group paths by top-level category for better organization
             categories = {}
-            for path in all_paths[:MAX_PROMPT_PATHS]:  # Limit to prevent prompt overflow
+            for path in all_paths[
+                :MAX_PROMPT_PATHS
+            ]:  # Limit to prevent prompt overflow
                 parts = path.split(".")
                 if parts:
                     category = parts[0]
@@ -84,7 +86,9 @@ class SemanticClassifier:
             for category, paths in sorted(categories.items()):
                 structure_lines.append(f"\n• {category}:")
                 # Show a few example paths from each category
-                example_paths = sorted(paths)[:MAX_EXAMPLE_PATHS_PER_CATEGORY]  # Show limited examples
+                example_paths = sorted(paths)[
+                    :MAX_EXAMPLE_PATHS_PER_CATEGORY
+                ]  # Show limited examples
                 for path in example_paths:
                     structure_lines.append(f"  - {path}")
                 if len(paths) > MAX_EXAMPLE_PATHS_PER_CATEGORY:

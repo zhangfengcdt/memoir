@@ -119,3 +119,9 @@ The ProllyTreeStore implements LangGraph's BaseStore with these key methods:
 - **Example scripts**: Self-contained in `examples/` directory
 - **Test organization**: Mirrors source structure with clear test naming
 - **Configuration**: Single pyproject.toml with all tool configs centralized
+
+### Please also Follow These Instructions
+- make sure black formats the code correctly
+- make sure ruff passes without errors
+- Verify that everything still works after the black formatting
+- Run all tests to ensure no regressions before warming up

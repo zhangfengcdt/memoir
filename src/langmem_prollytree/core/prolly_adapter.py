@@ -290,7 +290,7 @@ class ProllyTreeStore(BaseStore):
 
         # Check if we're already in an event loop
         try:
-            loop = asyncio.get_running_loop()
+            asyncio.get_running_loop()
             # We're in an event loop, use fallback
             in_event_loop = True
         except RuntimeError:
