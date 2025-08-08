@@ -13,7 +13,7 @@ from langgraph.store.base import BaseStore
 from prollytree import ProllyTree, VersionedKvStore
 from pydantic import BaseModel, Field
 
-from langmem_prollytree.taxonomy.semantic_classifier import OptimizedClassifier
+from langmem_prollytree.taxonomy.semantic_classifier import SemanticClassifier
 from langmem_prollytree.taxonomy.semantic_taxonomy import get_taxonomy
 
 logger = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ class ProllyTreeStore(BaseStore):
     def __init__(
         self,
         path: str,
-        classifier: Optional[OptimizedClassifier] = None,
+        classifier: Optional[SemanticClassifier] = None,
         enable_versioning: bool = True,
         cache_size: int = 10000,
     ):
@@ -100,7 +100,11 @@ class ProllyTreeStore(BaseStore):
 
         self.enable_versioning = enable_versioning
         self.taxonomy = get_taxonomy()
-        self.classifier = classifier or OptimizedClassifier(cache_size=cache_size)
+        if classifier is None:
+            raise ValueError(
+                "SemanticClassifier with LLM is required for production use"
+            )
+        self.classifier = classifier
 
         # Performance tracking
         self._stats = {"reads": 0, "writes": 0, "searches": 0, "classifications": 0}

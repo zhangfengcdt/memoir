@@ -1,269 +1,369 @@
 """
-Example of integrating ProllyTreeMemoryStoreManager with LangGraph agents.
-Demonstrates how to use the enhanced memory system in production workflows.
+Example of integrating semantic classification with agent workflows.
+Demonstrates how to use the LLM-based taxonomy system in production agents.
 """
 
+import asyncio
 import time
-from typing import Any
+from typing import Any, Optional
 
-from langmem_prollytree import ProllyTreeMemoryStoreManager
+from langmem_prollytree.taxonomy.semantic_classifier import SemanticClassifier
+from langmem_prollytree.taxonomy.dynamic_taxonomy import DynamicTaxonomy
 
 
-class AgentWithEnhancedMemory:
-    """
-    Example agent using ProllyTree-enhanced memory system.
-    Shows how to integrate with existing LangGraph workflows.
-    """
+class MockLLMResponse:
+    """Mock response object for agent demonstration."""
+    def __init__(self, content: str):
+        self.content = content
 
-    def __init__(self, model_name: str = "gpt-4"):
-        # Initialize the enhanced memory manager
-        self.memory_manager = ProllyTreeMemoryStoreManager(
-            prolly_path="./agent_memory_db",
-            enable_versioning=True,
-            enable_fast_classification=True,
-        )
 
-        # Direct access to the store for synchronous operations
-        self.store = self.memory_manager.prolly_store
-
-        self.user_id = None
-        self.conversation_history = []
-
-    def initialize_user(self, user_id: str):
-        """Initialize or load user context."""
-        self.user_id = user_id
-
-        # Load recent memories for the user using synchronous methods
-        memories = self.store.retrieve_memories(user_id, "recent context", limit=5)
-
-        print(f"Loaded {len(memories)} context memories for {user_id}")
-        return memories
-
-    def process_conversation(self, message: str) -> dict[str, Any]:
-        """Process a conversation turn with memory integration."""
-        if not self.user_id:
-            raise ValueError("Must initialize user first")
-
-        start_time = time.time()
-
-        # Step 1: Retrieve relevant memories (< 1ms)
-        search_start = time.time()
-        relevant_memories = self.store.retrieve_memories(
-            self.user_id, message, limit=10
-        )
-        search_time = (time.time() - search_start) * 1000
-
-        # Step 2: Build context from memories
-        memory_context = self._build_memory_context(relevant_memories)
-
-        # Step 3: Store the user message
-        store_start = time.time()
-        self.store.store_memory(self.user_id, f"User said: {message}")
-        store_time = (time.time() - store_start) * 1000
-
-        # Step 4: Generate response (simulated)
-        response = self._generate_response(message, memory_context)
-
-        # Step 5: Store the response
-        self.store.store_memory(self.user_id, f"Assistant responded: {response}")
-
-        processing_time = (time.time() - start_time) * 1000
-
-        return {
-            "response": response,
-            "relevant_memories": len(relevant_memories),
-            "search_time_ms": search_time,
-            "store_time_ms": store_time,
-            "total_time_ms": processing_time,
-            "memory_context": memory_context,
-        }
-
-    def _build_memory_context(self, memories: list) -> str:
-        """Build a context string from retrieved memories."""
-        if not memories:
-            return "No relevant context found."
-
-        context_parts = []
-        for i, memory in enumerate(memories[:5], 1):
-            context_parts.append(
-                f"{i}. {memory.content} (confidence: {memory.confidence:.2f})"
-            )
-
-        return "\n".join(context_parts)
-
-    def _generate_response(self, message: str, context: str) -> str:
-        """Simulate response generation with context."""
-        # In a real implementation, this would call an LLM
-        # For demo purposes, we'll return a contextual response
-
-        if "programming" in message.lower() or "code" in message.lower():
-            return "Based on your experience with Python and other languages, I can help with that programming question."
-        elif "work" in message.lower() or "job" in message.lower():
-            return "As a senior software engineer, you have extensive experience in that area."
-        elif "preference" in message.lower():
-            return "I understand your preferences, including your preference for dark mode and VS Code."
+class AgentLLM:
+    """Mock LLM that simulates agent-style responses."""
+    
+    async def ainvoke(self, prompt: str) -> MockLLMResponse:
+        """Simulate agent LLM with context-aware responses."""
+        content_lower = prompt.lower()
+        
+        # Agent-specific classifications
+        if "user" in content_lower and ("said" in content_lower or "told" in content_lower):
+            return MockLLMResponse("""{
+                "primary_path": "context.current.conversation.user_input",
+                "confidence": 0.85,
+                "alternative_paths": ["context.current.session"],
+                "reasoning": "User input during conversation"
+            }""")
+        elif "agent" in content_lower and ("responded" in content_lower or "replied" in content_lower):
+            return MockLLMResponse("""{
+                "primary_path": "context.current.conversation.agent_response", 
+                "confidence": 0.85,
+                "alternative_paths": ["context.current.session"],
+                "reasoning": "Agent response during conversation"
+            }""")
+        elif "task" in content_lower or "goal" in content_lower or "objective" in content_lower:
+            return MockLLMResponse("""{
+                "primary_path": "goals.current.task.primary",
+                "confidence": 0.90,
+                "alternative_paths": ["goals.current"],
+                "reasoning": "Current task or objective"
+            }""")
+        elif "error" in content_lower or "failed" in content_lower or "problem" in content_lower:
+            return MockLLMResponse("""{
+                "primary_path": "context.system.errors.runtime",
+                "confidence": 0.85,
+                "alternative_paths": ["context.system"],
+                "reasoning": "System error or failure"
+            }""")
+        elif "learned" in content_lower or "discovered" in content_lower or "found" in content_lower:
+            return MockLLMResponse("""{
+                "primary_path": "knowledge.discovered.session",
+                "confidence": 0.80,
+                "alternative_paths": ["knowledge.discovered"],
+                "reasoning": "New knowledge or discovery"
+            }""")
+        elif "preference" in content_lower or "like" in content_lower or "prefer" in content_lower:
+            return MockLLMResponse("""{
+                "primary_path": "preferences.user.behavior.interaction",
+                "confidence": 0.75,
+                "alternative_paths": ["preferences.user"],
+                "reasoning": "User preferences and behavior"
+            }""")
         else:
-            return "I understand. Let me help you with that based on what I know about you."
+            return MockLLMResponse("""{
+                "primary_path": "context.current.session.topic.main",
+                "confidence": 0.60,
+                "alternative_paths": ["context.current.session"],
+                "reasoning": "General session context"
+            }""")
 
-    def demonstrate_versioning(self):
-        """Demonstrate git-like versioning capabilities."""
-        if not self.user_id:
-            raise ValueError("Must initialize user first")
 
-        print("\n--- VERSIONING DEMONSTRATION ---")
+class AgentWithSemanticMemory:
+    """
+    Example agent using semantic classification for memory organization.
+    Shows how to integrate with production agent workflows.
+    """
 
-        # Store initial memory
-        key = "profile.professional.skills.main"
-        self.store.store_memory(
-            self.user_id, "Primary skill: Python development", key=key
+    def __init__(self, agent_id: str = "agent_001"):
+        self.agent_id = agent_id
+        
+        # Initialize semantic classification system
+        print(f"🤖 Initializing agent {agent_id} with semantic memory...")
+        llm = AgentLLM()
+        classifier = SemanticClassifier(llm=llm)
+        self.taxonomy = DynamicTaxonomy(
+            classifier=classifier,
+            confidence_threshold=0.65,  # Higher threshold for agent contexts
+            expansion_threshold=8,      # Smaller threshold for quicker expansion
+            enable_other_categories=True
+        )
+        
+        # Agent state
+        self.current_user = None
+        self.session_context = {}
+        self.memory_buffer = []
+        
+        print(f"   ✅ Agent {agent_id} ready with {self.taxonomy.get_statistics()['total_paths']} taxonomy paths")
+
+    async def start_user_session(self, user_id: str, context: Optional[dict] = None):
+        """Start a new user session."""
+        self.current_user = user_id
+        self.session_context = context or {}
+        
+        # Store session start
+        session_memory = f"User session started for {user_id}"
+        if context:
+            session_memory += f" with context: {context}"
+            
+        await self.store_memory(session_memory, memory_type="session_start")
+        
+        print(f"🚀 Started session for user {user_id}")
+
+    async def store_memory(self, content: str, memory_type: str = "general", metadata: Optional[dict] = None):
+        """Store a memory with semantic classification."""
+        # Enhance content with type information for better classification
+        enhanced_content = f"{memory_type}: {content}"
+        
+        # Add session context
+        full_metadata = {
+            "user_id": self.current_user,
+            "agent_id": self.agent_id,
+            "memory_type": memory_type,
+            "session_context": self.session_context,
+            **(metadata or {})
+        }
+        
+        start_time = time.time()
+        
+        # Classify and store
+        path, confidence = await self.taxonomy.classify_with_fallback(enhanced_content, full_metadata)
+        
+        classification_time = (time.time() - start_time) * 1000
+        
+        # Add to memory buffer
+        memory_entry = {
+            "content": content,
+            "enhanced_content": enhanced_content,
+            "path": path,
+            "confidence": confidence,
+            "metadata": full_metadata,
+            "timestamp": time.time(),
+            "classification_time_ms": classification_time
+        }
+        
+        self.memory_buffer.append(memory_entry)
+        
+        status = "✅" if confidence >= self.taxonomy.confidence_threshold else "⚠️"
+        print(f"   {status} Stored '{content[:50]}...' → {path} ({confidence:.2f}, {classification_time:.1f}ms)")
+        
+        return memory_entry
+
+    async def process_user_input(self, user_input: str):
+        """Process user input and store relevant memories."""
+        await self.store_memory(
+            f"User said: {user_input}",
+            memory_type="user_input",
+            metadata={"input_length": len(user_input)}
         )
 
-        # Update the memory
-        self.store.store_memory(
-            self.user_id,
-            "Primary skill: Python development with 5 years experience",
-            key=key,
+    async def process_agent_response(self, agent_response: str, reasoning: Optional[str] = None):
+        """Process agent response and store relevant memories."""
+        await self.store_memory(
+            f"Agent responded: {agent_response}",
+            memory_type="agent_response",
+            metadata={"reasoning": reasoning, "response_length": len(agent_response)}
         )
 
-        # Update again
-        self.store.store_memory(
-            self.user_id,
-            "Primary skill: Python development with 5 years experience, team lead",
-            key=key,
+    async def handle_task_completion(self, task_description: str, result: str, success: bool):
+        """Handle task completion and store results."""
+        status = "successfully completed" if success else "failed"
+        memory_content = f"Task '{task_description}' {status}: {result}"
+        
+        await self.store_memory(
+            memory_content,
+            memory_type="task_completion",
+            metadata={"task": task_description, "success": success, "result": result}
         )
 
-        print(f"✓ Created version history for {key}")
+    async def handle_error(self, error_type: str, error_message: str, context: Optional[dict] = None):
+        """Handle and store error information."""
+        await self.store_memory(
+            f"Error occurred - {error_type}: {error_message}",
+            memory_type="error",
+            metadata={"error_type": error_type, "error_context": context}
+        )
 
-        # Get statistics
-        stats = self.store.get_statistics()
-        if "versioning" in stats:
-            print(f"  Total commits: {stats['versioning'].get('total_commits', 'N/A')}")
+    async def learn_from_interaction(self, discovery: str, source: str = "user_interaction"):
+        """Store learning and discoveries."""
+        await self.store_memory(
+            f"Learned: {discovery}",
+            memory_type="learning",
+            metadata={"source": source}
+        )
 
-    def show_performance_metrics(self) -> dict[str, Any]:
-        """Show performance comparison with vanilla LangMem."""
-        metrics = {
-            "search_performance": {
-                "prollytree": "0.1-1ms",
-                "vanilla_langmem": "150-750ms",
-                "improvement": "150-1500x faster",
-            },
-            "storage_performance": {
-                "prollytree": "20-30ms",
-                "vanilla_langmem": "200-600ms",
-                "improvement": "10-20x faster",
-            },
-            "classification_performance": {
-                "prollytree": "1-5ms",
-                "vanilla_langmem": "2-5 seconds",
-                "improvement": "400-1000x faster",
-            },
-            "total_conversation_latency": {
-                "prollytree": "0.5-3 seconds",
-                "vanilla_langmem": "10-60 seconds",
-                "improvement": "10-20x faster",
-            },
+    async def get_memory_summary(self) -> dict:
+        """Get a summary of stored memories."""
+        if not self.memory_buffer:
+            return {"total": 0, "message": "No memories stored"}
+        
+        # Analyze memory buffer
+        total_memories = len(self.memory_buffer)
+        avg_confidence = sum(m["confidence"] for m in self.memory_buffer) / total_memories
+        avg_classification_time = sum(m["classification_time_ms"] for m in self.memory_buffer) / total_memories
+        
+        # Group by path
+        path_counts = {}
+        type_counts = {}
+        for memory in self.memory_buffer:
+            path = memory["path"]
+            memory_type = memory["metadata"].get("memory_type", "unknown")
+            path_counts[path] = path_counts.get(path, 0) + 1
+            type_counts[memory_type] = type_counts.get(memory_type, 0) + 1
+        
+        # Taxonomy statistics
+        taxonomy_stats = self.taxonomy.get_statistics()
+        
+        return {
+            "total_memories": total_memories,
+            "avg_confidence": avg_confidence,
+            "avg_classification_time_ms": avg_classification_time,
+            "path_distribution": dict(sorted(path_counts.items(), key=lambda x: x[1], reverse=True)),
+            "type_distribution": dict(sorted(type_counts.items(), key=lambda x: x[1], reverse=True)),
+            "taxonomy_stats": taxonomy_stats,
+            "high_confidence_count": sum(1 for m in self.memory_buffer if m["confidence"] >= 0.8),
+            "low_confidence_count": sum(1 for m in self.memory_buffer if m["confidence"] < 0.6)
         }
 
-        return metrics
+    async def end_session(self):
+        """End the current session and provide summary."""
+        if self.current_user:
+            await self.store_memory(
+                f"User session ended for {self.current_user}",
+                memory_type="session_end"
+            )
+        
+        summary = await self.get_memory_summary()
+        
+        print(f"📊 Session ended for user {self.current_user}")
+        print(f"   • Total memories: {summary['total_memories']}")
+        print(f"   • Average confidence: {summary['avg_confidence']:.2f}")
+        print(f"   • Average classification time: {summary['avg_classification_time_ms']:.1f}ms")
+        
+        # Clear session data
+        self.current_user = None
+        self.session_context = {}
+        
+        return summary
 
 
-def demo_enhanced_agent():
-    """Demonstrate the enhanced agent with ProllyTree memory."""
-
-    print("=" * 60)
-    print("LANGGRAPH AGENT WITH PROLLYTREE MEMORY DEMO")
-    print("=" * 60)
-
+async def demonstrate_agent_workflow():
+    """Demonstrate agent workflow with semantic memory."""
+    print("=" * 80)
+    print("Agent Workflow with Semantic Memory Demonstration")
+    print("=" * 80)
+    
     # Initialize agent
-    agent = AgentWithEnhancedMemory()
-
-    # Initialize user
-    user_id = "demo_user_123"
-    agent.initialize_user(user_id)
-
-    print("\n1. CONVERSATION WITH MEMORY CONTEXT")
+    agent = AgentWithSemanticMemory("customer_support_agent")
+    
+    # Simulate customer support session
+    await agent.start_user_session(
+        "customer_123",
+        context={"channel": "web_chat", "tier": "premium"}
+    )
+    
+    print(f"\n1. CUSTOMER INTERACTION SIMULATION")
     print("-" * 50)
-
-    # Simulate conversation turns
-    conversation = [
-        "I've been working with Python for 5 years",
-        "What programming languages do you recommend I learn next?",
-        "Tell me about my work experience",
-        "What are my preferences?",
+    
+    # Simulate conversation flow
+    interactions = [
+        ("user_input", "I'm having trouble with my account login"),
+        ("agent_response", "I understand you're having login issues. Let me help you with that.", "troubleshoot_login"),
+        ("user_input", "I tried resetting my password but didn't receive the email"),
+        ("agent_response", "Let me check your email settings and resend that reset link.", "email_verification"),
+        ("learning", "Customer prefers immediate email notifications", "interaction_pattern"),
+        ("task_completion", "Password reset email resent", "Email delivered successfully", True),
+        ("user_input", "Perfect! I got the email and reset my password"),
+        ("agent_response", "Great! Is there anything else I can help you with today?", "session_wrap_up"),
+        ("learning", "Password reset emails may have delivery delays", "system_observation")
     ]
-
-    for message in conversation:
-        print(f"\n🧑 User: {message}")
-        result = agent.process_conversation(message)
-        print(f"🤖 Assistant: {result['response']}")
-        print(
-            f"   ⚡ Search: {result['search_time_ms']:.2f}ms | Store: {result['store_time_ms']:.2f}ms"
-        )
-        print(f"   📚 Used {result['relevant_memories']} relevant memories")
-
-    print("\n2. MEMORY ORGANIZATION")
+    
+    for interaction_type, content, *extra in interactions:
+        if interaction_type == "user_input":
+            await agent.process_user_input(content)
+        elif interaction_type == "agent_response":
+            reasoning = extra[0] if extra else None
+            await agent.process_agent_response(content, reasoning)
+        elif interaction_type == "task_completion":
+            result, success = extra[0], extra[1]
+            await agent.handle_task_completion("Password reset assistance", result, success)
+        elif interaction_type == "learning":
+            source = extra[0] if extra else "interaction"
+            await agent.learn_from_interaction(content, source)
+    
+    print(f"\n2. ERROR HANDLING SIMULATION")
     print("-" * 50)
-
-    # Show how memories are organized
-    sample_memories = [
-        ("I prefer VS Code", "preferences.technology.tools.ide"),
-        ("I work at TechCorp", "profile.professional.current.company"),
-        ("I graduated from MIT", "profile.professional.education.university"),
-        ("I enjoy hiking", "experience.activities.outdoor.hiking"),
-    ]
-
-    print("Memory organization by semantic paths:")
-    for content, _path in sample_memories:
-        memory = agent.store.store_memory(user_id, content)
-        print(f"  • '{content}' → {memory.key}")
-
-    print("\n3. VERSION CONTROL")
+    
+    # Simulate some errors
+    await agent.handle_error("api_timeout", "Email service timeout after 30s", {"service": "email_api", "timeout_ms": 30000})
+    await agent.handle_error("validation_error", "Invalid email format provided", {"email": "invalid_format"})
+    
+    print(f"\n3. MEMORY ANALYSIS")
     print("-" * 50)
-
-    agent.demonstrate_versioning()
-
-    print("\n4. PERFORMANCE METRICS")
+    
+    summary = await agent.get_memory_summary()
+    
+    print(f"Session Memory Summary:")
+    print(f"   • Total memories stored: {summary['total_memories']}")
+    print(f"   • Average confidence: {summary['avg_confidence']:.2f}")
+    print(f"   • Average classification time: {summary['avg_classification_time_ms']:.1f}ms")
+    print(f"   • High confidence (≥0.8): {summary['high_confidence_count']}")
+    print(f"   • Low confidence (<0.6): {summary['low_confidence_count']}")
+    
+    print(f"\nMemory Types Distribution:")
+    for memory_type, count in summary['type_distribution'].items():
+        percentage = (count / summary['total_memories']) * 100
+        print(f"   • {memory_type}: {count} ({percentage:.1f}%)")
+    
+    print(f"\nTop Semantic Paths:")
+    for path, count in list(summary['path_distribution'].items())[:5]:
+        percentage = (count / summary['total_memories']) * 100
+        print(f"   • {path}: {count} ({percentage:.1f}%)")
+    
+    print(f"\nTaxonomy State:")
+    taxonomy_stats = summary['taxonomy_stats']
+    print(f"   • Total paths: {taxonomy_stats['total_paths']}")
+    print(f"   • Items in 'other': {taxonomy_stats['unclassified_items']}")
+    
+    if taxonomy_stats['unclassified_items'] > 0:
+        expansion_ready = taxonomy_stats['unclassified_items'] >= agent.taxonomy.expansion_threshold
+        print(f"   • Expansion ready: {'Yes' if expansion_ready else 'No'}")
+        if expansion_ready:
+            print("     🔄 Taxonomy would be expanded in production")
+    
+    print(f"\n4. PRODUCTION INTEGRATION NOTES")
     print("-" * 50)
+    print("✅ Agent memories are semantically organized")
+    print("✅ Classification adapts to agent-specific contexts")
+    print("✅ Error handling creates searchable knowledge base")
+    print("✅ Learning insights are automatically categorized")
+    print("✅ Session context enhances classification accuracy")
+    
+    print(f"\n💡 Integration Tips:")
+    print("   1. Replace AgentLLM with your production LLM")
+    print("   2. Connect to actual memory storage (database, vector store)")
+    print("   3. Use agent-specific confidence thresholds")
+    print("   4. Implement background taxonomy expansion")
+    print("   5. Add memory retrieval for context-aware responses")
+    
+    # End session
+    final_summary = await agent.end_session()
+    
+    print(f"\n🎉 Agent workflow demonstration completed!")
+    print(f"   Processed {final_summary['total_memories']} memories in session")
 
-    metrics = agent.show_performance_metrics()
-    for category, data in metrics.items():
-        print(f"\n{category.replace('_', ' ').title()}:")
-        for key, value in data.items():
-            if key != "improvement":
-                print(f"  • {key.replace('_', ' ').title()}: {value}")
-        print(f"  🚀 {data['improvement']}")
 
-    print("\n5. SEMANTIC SEARCH DEMONSTRATION")
-    print("-" * 50)
-
-    test_queries = [
-        "programming experience",
-        "personal preferences",
-        "work history",
-    ]
-
-    for query in test_queries:
-        start_time = time.time()
-        results = agent.store.retrieve_memories(user_id, query, limit=3)
-        search_time = (time.time() - start_time) * 1000
-
-        print(f"\nQuery: '{query}' ({search_time:.2f}ms)")
-        for i, memory in enumerate(results, 1):
-            print(f"  {i}. {memory.content[:50]}...")
-
-    print("\n" + "=" * 60)
-    print("SUMMARY")
-    print("=" * 60)
-    print("✅ Sub-millisecond semantic search")
-    print("✅ Fast memory classification (1-5ms)")
-    print("✅ Git-like versioning with history")
-    print("✅ 10-20x overall performance improvement")
-    print("\nKey advantages demonstrated:")
-    print("  • Deterministic semantic keys")
-    print("  • O(log n) prefix queries")
-    print("  • No expensive embeddings")
-    print("  • Complete version history")
+async def main():
+    """Run the complete agent integration demonstration."""
+    await demonstrate_agent_workflow()
 
 
 if __name__ == "__main__":
-    demo_enhanced_agent()
+    asyncio.run(main())

@@ -16,7 +16,6 @@ from langmem_prollytree.search.hierarchical_search import (
     HierarchicalSearchEngine,
     SearchStrategy,
 )
-from langmem_prollytree.taxonomy.semantic_classifier import OptimizedClassifier
 
 from .prolly_adapter import ProllyTreeStore
 
@@ -69,11 +68,8 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
             cache_size: Size of internal caches
             **kwargs: Additional arguments for MemoryStoreManager
         """
-        # Initialize classifier
-        if enable_fast_classification:
-            self.classifier = OptimizedClassifier(cache_size=cache_size)
-        else:
-            self.classifier = OptimizedClassifier(cache_size=cache_size)
+        # Initialize classifier - must be provided for production use
+        self.classifier = None  # Will be set when LLM is provided
 
         # Initialize ProllyTree store
         self.prolly_store = ProllyTreeStore(
@@ -179,12 +175,15 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         start_time = time.time()
         self._metrics["writes"] += 1
 
-        if auto_classify and self.enable_fast_classification:
-            # Use fast classification
+        if auto_classify and self.classifier:
+            # Use LLM classification
             classification_start = time.time()
             self._metrics["classifications"] += 1
 
-            classification = self.classifier.fast_classify(str(content))
+            # Use async classification - this would need to be awaited in real usage
+            import asyncio
+
+            classification = asyncio.run(self.classifier.classify_async(str(content)))
             semantic_key = classification.primary_path
 
             classification_time = (time.time() - classification_start) * 1000

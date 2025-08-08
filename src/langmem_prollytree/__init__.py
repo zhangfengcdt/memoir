@@ -14,7 +14,6 @@ from .search.hierarchical_search import (
 )
 from .taxonomy.semantic_classifier import (
     ClassificationResult,
-    OptimizedClassifier,
     SemanticClassifier,
 )
 from .taxonomy.semantic_taxonomy import SemanticTaxonomy, TaxonomyCategory, get_taxonomy
@@ -24,7 +23,6 @@ __all__ = [
     # Search
     "HierarchicalSearchEngine",
     "MemoryItem",
-    "OptimizedClassifier",
     # Core
     "ProllyTreeMemoryStoreManager",
     "ProllyTreeStore",

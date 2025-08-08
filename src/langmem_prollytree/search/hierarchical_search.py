@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
 
-from langmem_prollytree.taxonomy.semantic_classifier import OptimizedClassifier
+from langmem_prollytree.taxonomy.semantic_classifier import SemanticClassifier
 from langmem_prollytree.taxonomy.semantic_taxonomy import get_taxonomy
 
 logger = logging.getLogger(__name__)
@@ -46,7 +46,7 @@ class HierarchicalSearchEngine:
     def __init__(
         self,
         store: Any,  # Any store with asearch and alist methods
-        classifier: Optional[OptimizedClassifier] = None,
+        classifier: Optional[SemanticClassifier] = None,
         min_results: int = 5,
         max_results: int = 20,
     ):
@@ -61,7 +61,11 @@ class HierarchicalSearchEngine:
         """
         self.store = store
         self.taxonomy = get_taxonomy()
-        self.classifier = classifier or OptimizedClassifier()
+        if classifier is None:
+            raise ValueError(
+                "SemanticClassifier with LLM is required for production search"
+            )
+        self.classifier = classifier
         self.min_results = min_results
         self.max_results = max_results
 
