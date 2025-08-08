@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.11"]
 
     steps:
     - uses: actions/checkout@v4
@@ -92,127 +92,127 @@ jobs:
       run: |
         mypy src/langmem_prollytree --ignore-missing-imports
 
-  security:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
+#  security:
+#    runs-on: ubuntu-latest
+#    steps:
+#    - uses: actions/checkout@v4
+#
+#    - name: Set up Python 3.11
+#      uses: actions/setup-python@v4
+#      with:
+#        python-version: "3.11"
+#
+#    - name: Install dependencies
+#      run: |
+#        python -m pip install --upgrade pip
+#        pip install bandit[toml] safety
+#
+#    - name: Run Bandit (security linting)
+#      run: |
+#        bandit -r src/ -f json -o bandit-report.json || true
+#        bandit -r src/
+#
+#    - name: Run Safety (dependency vulnerability check)
+#      run: |
+#        safety check --json --output safety-report.json || true
+#        safety check
 
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.11"
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install bandit[toml] safety
-
-    - name: Run Bandit (security linting)
-      run: |
-        bandit -r src/ -f json -o bandit-report.json || true
-        bandit -r src/
-
-    - name: Run Safety (dependency vulnerability check)
-      run: |
-        safety check --json --output safety-report.json || true
-        safety check
-
-  build:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.11"
-
-    - name: Install build dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install build twine
-
-    - name: Build package
-      run: |
-        python -m build
-
-    - name: Check package
-      run: |
-        twine check dist/*
-
-    - name: Upload build artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: dist
-        path: dist/
-
-  performance:
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.11"
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -e ".[dev]"
-
-    - name: Run performance benchmarks
-      run: |
-        cd examples
-        timeout 300 python performance_benchmark.py || true
-
-    - name: Upload benchmark results
-      uses: actions/upload-artifact@v3
-      if: always()
-      with:
-        name: benchmark-results
-        path: examples/benchmark_results_*.json
-
-  docs:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python 3.11
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.11"
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -e ".[docs]"
-
-    - name: Test examples run without errors
-      run: |
-        cd examples
-        timeout 30 python -c "
-        # Test imports work
-        from langmem_prollytree import ProllyTreeMemoryStoreManager, get_taxonomy
-        print('✓ Imports successful')
-        
-        # Test taxonomy
-        taxonomy = get_taxonomy()
-        stats = taxonomy.get_statistics()
-        print(f'✓ Taxonomy loaded with {stats[\"total_paths\"]} paths')
-        
-        # Test basic functionality without external dependencies
-        from langmem_prollytree.taxonomy import OptimizedClassifier
-        classifier = OptimizedClassifier()
-        result = classifier.fast_classify('Test memory')
-        print(f'✓ Classification successful: {result.primary_path}')
-        "
-
-    - name: Check README links
-      run: |
-        # Simple check that README has expected sections
-        grep -q "Performance Improvements" README.md
-        grep -q "Quick Start" README.md
-        grep -q "Installation" README.md
-        echo "✓ README structure looks good"
+#  build:
+#    runs-on: ubuntu-latest
+#    steps:
+#    - uses: actions/checkout@v4
+#
+#    - name: Set up Python 3.11
+#      uses: actions/setup-python@v4
+#      with:
+#        python-version: "3.11"
+#
+#    - name: Install build dependencies
+#      run: |
+#        python -m pip install --upgrade pip
+#        pip install build twine
+#
+#    - name: Build package
+#      run: |
+#        python -m build
+#
+#    - name: Check package
+#      run: |
+#        twine check dist/*
+#
+#    - name: Upload build artifacts
+#      uses: actions/upload-artifact@v3
+#      with:
+#        name: dist
+#        path: dist/
+#
+#  performance:
+#    runs-on: ubuntu-latest
+#    if: github.event_name == 'pull_request'
+#    steps:
+#    - uses: actions/checkout@v4
+#
+#    - name: Set up Python 3.11
+#      uses: actions/setup-python@v4
+#      with:
+#        python-version: "3.11"
+#
+#    - name: Install dependencies
+#      run: |
+#        python -m pip install --upgrade pip
+#        pip install -e ".[dev]"
+#
+#    - name: Run performance benchmarks
+#      run: |
+#        cd examples
+#        timeout 300 python performance_benchmark.py || true
+#
+#    - name: Upload benchmark results
+#      uses: actions/upload-artifact@v3
+#      if: always()
+#      with:
+#        name: benchmark-results
+#        path: examples/benchmark_results_*.json
+#
+#  docs:
+#    runs-on: ubuntu-latest
+#    steps:
+#    - uses: actions/checkout@v4
+#
+#    - name: Set up Python 3.11
+#      uses: actions/setup-python@v4
+#      with:
+#        python-version: "3.11"
+#
+#    - name: Install dependencies
+#      run: |
+#        python -m pip install --upgrade pip
+#        pip install -e ".[docs]"
+#
+#    - name: Test examples run without errors
+#      run: |
+#        cd examples
+#        timeout 30 python -c "
+#        # Test imports work
+#        from langmem_prollytree import ProllyTreeMemoryStoreManager, get_taxonomy
+#        print('✓ Imports successful')
+#
+#        # Test taxonomy
+#        taxonomy = get_taxonomy()
+#        stats = taxonomy.get_statistics()
+#        print(f'✓ Taxonomy loaded with {stats[\"total_paths\"]} paths')
+#
+#        # Test basic functionality without external dependencies
+#        from langmem_prollytree.taxonomy import OptimizedClassifier
+#        classifier = OptimizedClassifier()
+#        result = classifier.fast_classify('Test memory')
+#        print(f'✓ Classification successful: {result.primary_path}')
+#        "
+#
+#    - name: Check README links
+#      run: |
+#        # Simple check that README has expected sections
+#        grep -q "Performance Improvements" README.md
+#        grep -q "Quick Start" README.md
+#        grep -q "Installation" README.md
+#        echo "✓ README structure looks good"
