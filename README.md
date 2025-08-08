@@ -24,9 +24,10 @@ This project integrates [LangMem](https://github.com/langchain-ai/langmem)'s sop
 ## 🎯 Key Features
 
 ### 🧠 Semantic Memory Classification
-- **Fixed taxonomy** with ~800 predefined paths
+- **Flexible taxonomy system** with ~800 predefined paths loaded from JSON
 - **Hierarchical organization**: `profile.professional.skills.technical.programming.python`
-- **Fast classification**: 1-5ms vs 2-5 seconds
+- **LLM-based classification**: Accurate semantic understanding
+- **Dynamic expansion**: Falls back to "other" categories for unclassified content
 - **Deterministic keys** instead of random UUIDs
 
 ### 🔍 Hierarchical Search
@@ -41,11 +42,18 @@ This project integrates [LangMem](https://github.com/langchain-ai/langmem)'s sop
 - **Branching & merging** for experimental memory states
 - **Content-addressed storage** with automatic deduplication
 
+### 🔧 Flexible Data Sources
+- **JSON-based taxonomy**: Easy to modify without code changes
+- **Database-ready**: Framework for loading taxonomy from databases
+- **Multiple fallbacks**: Graceful degradation with simplified taxonomy
+- **Hot-reloading**: Update taxonomy structure without restarts
+
 ### ⚡ Production-Ready Performance
 - **Bounded complexity**: ~800 paths vs infinite embedding space
 - **Efficient caching** at multiple levels
-- **Concurrent operations** with thread safety
-- **Minimal API costs**: 80-90% reduction in LLM calls
+- **Thread-safe operations** with proper locking mechanisms
+- **Secure hashing**: SHA-256 for all internal operations
+- **Minimal API costs**: Intelligent LLM usage with fallback chains
 
 ## 🏗️ Architecture
 
@@ -65,11 +73,12 @@ search = prolly_tree.range_query("*.programming.*")  # 0.1ms prefix query
 
 ### Core Components
 
-1. **SemanticTaxonomy**: Fixed hierarchy of ~800 meaningful paths
-2. **OptimizedClassifier**: 1-5ms classification using keyword patterns
-3. **HierarchicalSearchEngine**: Multi-strategy search with relevance scoring
-4. **ProllyTreeStore**: High-performance storage with versioning
-5. **ProllyTreeMemoryStoreManager**: Drop-in LangMem replacement
+1. **SemanticTaxonomy**: Flexible hierarchy of ~800 meaningful paths loaded from JSON
+2. **SemanticClassifier**: LLM-based classification with intelligent fallback logic
+3. **DynamicTaxonomy**: Expandable taxonomy with "other" categories for edge cases
+4. **HierarchicalSearchEngine**: Multi-strategy search with relevance scoring
+5. **ProllyTreeStore**: High-performance storage with git-like versioning
+6. **ProllyTreeMemoryStoreManager**: Drop-in LangMem replacement
 
 ## 🚀 Quick Start
 
@@ -83,98 +92,103 @@ pip install langmem-prollytree
 
 ```python
 import asyncio
-from langmem_prollytree import ProllyTreeMemoryStoreManager, SearchStrategy
+from langchain_openai import ChatOpenAI
+from langmem_prollytree import ProllyTreeMemoryStoreManager
+from langmem_prollytree.taxonomy.semantic_classifier import SemanticClassifier
+from langmem_prollytree.taxonomy.dynamic_taxonomy import DynamicTaxonomy
 
 async def main():
-    # Initialize enhanced memory manager
+    # Initialize LLM
+    llm = ChatOpenAI(model="gpt-4", temperature=0)
+    
+    # Create expandable taxonomy
+    taxonomy = DynamicTaxonomy()
+    classifier = SemanticClassifier(llm=llm, taxonomy=taxonomy)
+    
+    # Initialize memory manager
     memory_manager = ProllyTreeMemoryStoreManager(
         prolly_path="./memory_db",
-        enable_versioning=True,
-        enable_fast_classification=True
+        classifier=classifier,
+        enable_versioning=True
     )
     
     user_id = "user123"
     
-    # Store memories with automatic semantic classification
+    # Store memories with automatic classification
     await memory_manager.store_memory(
         content="I have 5 years of Python experience",
         namespace=user_id
     )
-    # → Automatically classified to: profile.professional.skills.technical.programming.python
+    # → Automatically classified to: profile.professional.skills.technical.programming
     
     await memory_manager.store_memory(
-        content="I prefer dark mode in my IDE", 
+        content="I prefer dark mode in my IDE",
         namespace=user_id
     )
-    # → Automatically classified to: preferences.technology.ui.theme.dark
+    # → Automatically classified to: preferences.technology.ui.theme
     
-    # Fast hierarchical search
+    # Search memories semantically
     results = await memory_manager.search_memories(
-        query="What programming languages do I know?",
+        query="What programming skills do I have?",
         namespace=user_id,
-        strategy=SearchStrategy.SPECIFIC_TO_GENERAL,
         limit=5
     )
     
     for memory in results:
-        print(f"Memory: {memory.content}")
-        print(f"Relevance: {memory.metadata['relevance_score']:.2f}")
+        print(f"{memory.content} (relevance: {memory.metadata['relevance_score']:.2f})")
 
 if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-## 🔧 Installation & Setup
+### Alternative LLM Providers
 
-### Requirements
-- Python 3.9+
-- LangMem ≥0.0.29
-- ProllyTree ≥0.2.1
-- LangGraph ≥0.6.0
+```python
+# OpenAI
+from langchain_openai import ChatOpenAI
+llm = ChatOpenAI(model="gpt-4", temperature=0)
 
-### Development Installation
-```bash
-git clone https://github.com/yourusername/langmem-prollytree
-cd langmem-prollytree
-pip install -e ".[dev]"
+# Anthropic Claude
+from langchain_anthropic import ChatAnthropic  
+llm = ChatAnthropic(model="claude-3-sonnet-20240229", temperature=0)
+
+# Then use with any classifier
+classifier = SemanticClassifier(llm=llm, taxonomy=DynamicTaxonomy())
 ```
 
-## 📖 Semantic Taxonomy
+## 🆕 Recent Improvements
 
-Our semantic taxonomy provides deterministic classification into meaningful hierarchical paths with ~800 predefined categories across 8 main domains:
+### Version 0.2.0 - Enhanced Architecture & Security
+- **🔒 Security**: Upgraded from MD5 to SHA-256 hashing for all internal operations
+- **🧵 Thread Safety**: Added proper locking mechanisms for concurrent operations
+- **🔧 Flexible Data Sources**: Taxonomy now loads from JSON files with database-ready framework
+- **🎯 Dynamic Expansion**: Added "other" categories for handling edge cases
+- **📊 Better Constants**: Eliminated magic numbers with named configuration constants
+- **🛡️ Robust Fallbacks**: Enhanced error handling with graceful degradation
+- **🏗️ Protocol-Based Design**: Replaced duck typing with proper interfaces
 
-- **`profile`**: Personal and professional information
-- **`preferences`**: User preferences and settings  
-- **`experience`**: Past projects, achievements, memories
-- **`context`**: Current session and temporal information
-- **`knowledge`**: Domain expertise and learned facts
-- **`relationships`**: People and social connections
-- **`goals`**: Objectives and aspirations
-- **`behavior`**: Patterns and decision-making styles
+### Migration from 0.1.x
+The API remains backward compatible, but for new projects we recommend:
+- Use `SemanticClassifier` with a real LLM (OpenAI, Anthropic, etc.)
+- Consider `DynamicTaxonomy` for expandable classification  
+- Take advantage of the new JSON-based taxonomy configuration
+- Replace hardcoded configuration with the new named constants
 
-## 🧪 Examples
+### Key API Methods
+```python
+# Store memories with automatic classification
+semantic_key = await memory_manager.store_memory(
+    content="Your memory content here",
+    namespace="user_id"
+)
 
-### Basic Demo
-```bash
-python examples/basic_usage.py
+# Search memories semantically  
+results = await memory_manager.search_memories(
+    query="Your search query",
+    namespace="user_id",
+    limit=10
+)
 ```
-
-### Performance Benchmark
-```bash
-python examples/performance_benchmark.py
-```
-
-## 🧪 Testing
-
-```bash
-pytest tests/ -v --cov=langmem_prollytree
-```
-
-## 📚 Documentation
-
-- [Full Documentation](https://langmem-prollytree.readthedocs.io)
-- [API Reference](https://langmem-prollytree.readthedocs.io/api/)
-- [Examples](examples/)
 
 ## 🤝 Contributing
 
