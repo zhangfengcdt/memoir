@@ -156,24 +156,6 @@ llm = ChatAnthropic(model="claude-3-sonnet-20240229", temperature=0)
 classifier = SemanticClassifier(llm=llm, taxonomy=DynamicTaxonomy())
 ```
 
-## 🆕 Recent Improvements
-
-### Version 0.2.0 - Enhanced Architecture & Security
-- **🔒 Security**: Upgraded from MD5 to SHA-256 hashing for all internal operations
-- **🧵 Thread Safety**: Added proper locking mechanisms for concurrent operations
-- **🔧 Flexible Data Sources**: Taxonomy now loads from JSON files with database-ready framework
-- **🎯 Dynamic Expansion**: Added "other" categories for handling edge cases
-- **📊 Better Constants**: Eliminated magic numbers with named configuration constants
-- **🛡️ Robust Fallbacks**: Enhanced error handling with graceful degradation
-- **🏗️ Protocol-Based Design**: Replaced duck typing with proper interfaces
-
-### Migration from 0.1.x
-The API remains backward compatible, but for new projects we recommend:
-- Use `SemanticClassifier` with a real LLM (OpenAI, Anthropic, etc.)
-- Consider `DynamicTaxonomy` for expandable classification  
-- Take advantage of the new JSON-based taxonomy configuration
-- Replace hardcoded configuration with the new named constants
-
 ### Key API Methods
 ```python
 # Store memories with automatic classification
