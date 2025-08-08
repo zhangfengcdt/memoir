@@ -13,6 +13,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
+from .base import AdvancedTaxonomyInterface, BaseTaxonomy
 from .semantic_taxonomy import SemanticTaxonomy, TaxonomyCategory, get_taxonomy
 
 logger = logging.getLogger(__name__)
@@ -52,16 +53,16 @@ class TaxonomyExpansionResult(BaseModel):
     reasoning: str = Field(description="Explanation of the expansion")
 
 
-class DynamicTaxonomy:
+class DynamicTaxonomy(BaseTaxonomy):
     """
     Dynamic taxonomy that expands based on unclassified memories.
     Maintains compatibility with the base taxonomy while allowing growth.
+    Implements AdvancedTaxonomyInterface for intelligent path selection.
     """
 
     def __init__(
         self,
         base_taxonomy: Optional[SemanticTaxonomy] = None,
-        classifier: Optional[Any] = None,
         expansion_threshold: int = 10,
         strategy: ExpansionStrategy = ExpansionStrategy.THRESHOLD_BASED,
         enable_other_categories: bool = True,
@@ -72,7 +73,6 @@ class DynamicTaxonomy:
 
         Args:
             base_taxonomy: Base taxonomy to start with
-            classifier: Semantic classifier instance (creates one if not provided)
             expansion_threshold: Number of items in 'other' before expansion
             strategy: Expansion strategy to use
             enable_other_categories: Whether to add 'other' categories
@@ -83,17 +83,6 @@ class DynamicTaxonomy:
         self.strategy = strategy
         self.enable_other_categories = enable_other_categories
         self.confidence_threshold = confidence_threshold
-
-        # Initialize or use provided classifier
-        if classifier:
-            self.classifier = classifier
-        else:
-
-            # Require LLM for production use
-            raise ValueError(
-                "No classifier provided. In production, you must provide a SemanticClassifier "
-                "instance with a valid LLM. Example: SemanticClassifier(llm=your_llm_instance)"
-            )
 
         # Build dynamic tree from base taxonomy
         self.root = self._build_dynamic_tree()
@@ -196,22 +185,21 @@ class DynamicTaxonomy:
 
         traverse(self.root)
 
-    async def classify_with_fallback(
-        self, memory_content: str, metadata: Optional[dict] = None
+    def select_path_with_fallback(
+        self, classification_result: Any, memory_content: str, metadata: Optional[dict] = None
     ) -> tuple[str, float]:
         """
-        Classify memory with fallback to 'other' categories using LLM.
+        Select taxonomy path with fallback to 'other' categories based on classification result.
 
         Args:
-            memory_content: The memory to classify
+            classification_result: Result from SemanticClassifier
+            memory_content: The memory content (for tracking)
             metadata: Optional metadata about the memory
 
         Returns:
             Tuple of (taxonomy path, confidence score)
         """
-        # Use the LLM classifier to get the best match
-        context = {"metadata": metadata} if metadata else None
-        result = await self.classifier.classify_async(memory_content, context)
+        result = classification_result
 
         # Check if the path exists and confidence is high enough
         if (
@@ -286,62 +274,14 @@ class DynamicTaxonomy:
         # Ultimate fallback to root 'other'
         return "other" if "other" in self.path_index else None
 
-    async def classify_with_llm(
-        self, memory_content: str, metadata: Optional[dict] = None
-    ) -> tuple[str, float]:
-        """
-        Classify using LLM for better accuracy on complex content.
 
-        Args:
-            memory_content: The memory to classify
-            metadata: Optional metadata about the memory
+    def is_valid_path(self, path: str) -> bool:
+        """Check if a path exists in the dynamic taxonomy."""
+        return path in self.path_index
 
-        Returns:
-            Tuple of (taxonomy path, confidence score)
-        """
-        # Use async classification with LLM
-        context = {"metadata": metadata} if metadata else None
-        result = await self.classifier.classify_async(memory_content, context)
-
-        # Check if path exists in dynamic taxonomy
-        if (
-            result.primary_path in self.path_index
-            and result.confidence >= self.confidence_threshold
-        ):
-            node = self.path_index[result.primary_path]
-            node.item_count += 1
-            node.last_accessed = datetime.now()
-            return result.primary_path, result.confidence
-
-        # Fallback to 'other' category based on LLM's attempted classification
-        other_path = self._find_best_other_category(result, memory_content, metadata)
-
-        if other_path and other_path in self.path_index:
-            node = self.path_index[other_path]
-            node.item_count += 1
-            node.last_accessed = datetime.now()
-
-            # Store with LLM's reasoning for better expansion later
-            node.other_items.append(
-                {
-                    "content": memory_content,
-                    "metadata": metadata,
-                    "original_classification": result.primary_path,
-                    "confidence": result.confidence,
-                    "reasoning": result.reasoning,
-                    "alternatives": result.alternative_paths,
-                    "timestamp": datetime.now().isoformat(),
-                }
-            )
-
-            # Check expansion threshold
-            if (
-                self.strategy == ExpansionStrategy.THRESHOLD_BASED
-                and len(node.other_items) >= self.expansion_threshold
-            ):
-                self._queue_expansion(node)
-
-        return other_path or "other", result.confidence
+    def get_all_paths(self) -> list[str]:
+        """Get all available paths in the dynamic taxonomy."""
+        return list(self.path_index.keys())
 
     def _queue_expansion(self, node: DynamicNode):
         """Queue a node for expansion analysis."""

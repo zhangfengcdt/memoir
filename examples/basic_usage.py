@@ -110,14 +110,19 @@ async def main():
         print("   📝 In production, replace with real LLM (OpenAI, Anthropic, etc.)")
         
         llm = MockLLM()
-        classifier = SemanticClassifier(llm=llm)
+        
+        # Create DynamicTaxonomy (no longer needs classifier)
         taxonomy = DynamicTaxonomy(
-            classifier=classifier,
             confidence_threshold=0.6,
             expansion_threshold=5
         )
         
+        # Create classifier with the DynamicTaxonomy
+        classifier = SemanticClassifier(llm=llm, taxonomy=taxonomy)
+        
         print("   ✅ Classification system initialized")
+        print("   🔄 Using DynamicTaxonomy with expansion capabilities")
+        print(f"   📊 Initial paths: {taxonomy.get_statistics()['base_paths']}, Other categories: {taxonomy.get_statistics()['other_categories']}")
         
         # Initialize the ProllyTreeMemoryStoreManager
         print("\n2. INITIALIZING PROLLYTREE MEMORY STORE MANAGER")

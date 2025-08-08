@@ -11,6 +11,7 @@ from typing import Any, Optional
 # from langmem.prompts import Prompt  # Not available in current version
 from pydantic import BaseModel, Field
 
+from .base import TaxonomyInterface, AdvancedTaxonomyInterface
 from .semantic_taxonomy import TaxonomyCategory, get_taxonomy
 
 logger = logging.getLogger(__name__)
@@ -34,6 +35,7 @@ class SemanticClassifier:
     def __init__(
         self,
         llm: Optional[Any] = None,
+        taxonomy: Optional[TaxonomyInterface] = None,
         cache_size: int = 10000,
         use_examples: bool = True,
     ):
@@ -42,19 +44,73 @@ class SemanticClassifier:
 
         Args:
             llm: Language model for classification (optional, will use default)
+            taxonomy: Taxonomy instance implementing TaxonomyInterface
+                     If None, uses default SemanticTaxonomy
             cache_size: Size of the classification cache
             use_examples: Whether to include examples in prompts
         """
-        self.taxonomy = get_taxonomy()
+        self.taxonomy = taxonomy if taxonomy is not None else get_taxonomy()
         self.llm = llm
         self.use_examples = use_examples
         self._cache = {}
         self._setup_classification_prompt()
 
+    def _get_taxonomy_structure_info(self) -> str:
+        """Generate taxonomy structure information for the prompt."""
+        try:
+            # All taxonomies should implement TaxonomyInterface
+            all_paths = self.taxonomy.get_all_paths()
+                
+            if not all_paths:
+                return "The taxonomy structure is available but paths could not be enumerated."
+            
+            # Group paths by top-level category for better organization
+            categories = {}
+            for path in all_paths[:100]:  # Limit to prevent prompt overflow
+                parts = path.split('.')
+                if parts:
+                    category = parts[0]
+                    if category not in categories:
+                        categories[category] = []
+                    categories[category].append(path)
+            
+            # Generate structured description
+            structure_lines = ["Available taxonomy categories and example paths:"]
+            for category, paths in sorted(categories.items()):
+                structure_lines.append(f"\n• {category}:")
+                # Show a few example paths from each category
+                example_paths = sorted(paths)[:5]  # Show up to 5 examples
+                for path in example_paths:
+                    structure_lines.append(f"  - {path}")
+                if len(paths) > 5:
+                    structure_lines.append(f"  - ... and {len(paths) - 5} more {category} paths")
+            
+            structure_lines.append(f"\nTotal paths available: {len(all_paths)}")
+            
+            # Add info about 'other' categories if this is an AdvancedTaxonomy
+            if isinstance(self.taxonomy, AdvancedTaxonomyInterface):
+                structure_lines.append("\nThis taxonomy includes 'other' categories at various levels for unclassified content.")
+                structure_lines.append("Use 'other' categories when content doesn't fit existing specific paths.")
+                
+            return "\n".join(structure_lines)
+            
+        except Exception as e:
+            logger.warning(f"Could not generate taxonomy structure info: {e}")
+            return "Taxonomy structure is available. Please classify using the most appropriate path."
+
+    def _is_valid_path(self, path: str) -> bool:
+        """Check if a path is valid in the current taxonomy."""
+        try:
+            # All taxonomies should implement TaxonomyInterface
+            return self.taxonomy.is_valid_path(path)
+        except Exception as e:
+            logger.warning(f"Error validating path {path}: {e}")
+            return False
+
     def _setup_classification_prompt(self):
         """Setup the classification prompt template."""
-        # Simplified version without Prompt class
-        self.classification_template = """You are a semantic memory classifier. Your task is to classify the given memory content into the most appropriate path(s) from a taxonomy with predefined paths and 'other' fallback categories.
+        # Dynamic template that works with different taxonomy types
+        self.classification_template = """You are a semantic memory classifier. Your task is to classify the given memory content into the most appropriate path(s) from the provided taxonomy.
 
 MEMORY CONTENT:
 {memory_content}
@@ -62,42 +118,23 @@ MEMORY CONTENT:
 {context_info}
 
 AVAILABLE TAXONOMY STRUCTURE:
-Main categories with 'other' fallbacks at each level:
-- profile: Personal and professional information
-  - profile.other: Uncategorized profile information
-- preferences: User preferences and settings
-  - preferences.other: Uncategorized preferences
-- experience: Past projects, achievements, and memories
-  - experience.other: Uncategorized experiences
-- context: Current session and temporal context
-  - context.other: Uncategorized context
-- knowledge: Domain expertise and facts
-  - knowledge.other: Uncategorized knowledge
-- relationships: People and social connections
-  - relationships.other: Uncategorized relationships
-- goals: Short and long-term objectives
-  - goals.other: Uncategorized goals
-- behavior: Patterns and decision-making
-  - behavior.other: Uncategorized behaviors
-- other: Content that doesn't fit any main category
+{taxonomy_structure}
 
 CLASSIFICATION GUIDELINES:
-1. If the memory clearly fits a specific predefined path, use it
-2. If unsure or the content is edge-case/novel, use the appropriate '.other' path
+1. Choose the most specific path that accurately fits the memory content
+2. If the content doesn't clearly fit existing paths, use an appropriate 'other' category if available
 3. Consider confidence level:
-   - High confidence (0.8-1.0): Specific predefined path
-   - Medium confidence (0.5-0.7): May use broader path or category.other
-   - Low confidence (0.0-0.4): Use category.other or root 'other'
-4. When using 'other', choose the most specific level:
-   - profile.personal.other for unclear personal info
-   - profile.other for unclear profile info
-   - other for completely unclassifiable content
+   - High confidence (0.8-1.0): Very specific and accurate path match
+   - Medium confidence (0.5-0.7): Reasonable fit but could be broader
+   - Low confidence (0.0-0.4): Content is unclear or doesn't fit well
+4. When unsure, prefer broader/higher-level categories over forcing specific ones
 
 {examples}
 
 IMPORTANT:
-- The taxonomy has ~800 predefined paths plus 'other' categories at each level
-- It's better to use an 'other' category than force-fit into wrong path
+- Only use paths that exist in the provided taxonomy
+- Prefer accuracy over specificity
+- Return a valid JSON response with the required fields
 - 'Other' categories help the system learn and expand over time
 
 Return your classification as a JSON object with:
@@ -220,6 +257,7 @@ Think step by step:
         prompt_vars = {
             "memory_content": memory_content,
             "context_info": self._get_context_info(context),
+            "taxonomy_structure": self._get_taxonomy_structure_info(),
             "examples": self._get_classification_examples(),
         }
 
@@ -238,10 +276,24 @@ Think step by step:
 
             result = ClassificationResult(**result_dict)
 
-            # Validate paths
-            if not self.taxonomy.is_valid_path(result.primary_path):
-                # Find closest valid path
-                result.primary_path = self._find_closest_valid_path(result.primary_path)
+            # Use advanced taxonomy logic if available
+            if isinstance(self.taxonomy, AdvancedTaxonomyInterface):
+                # Advanced taxonomy (e.g., DynamicTaxonomy) - use smart path selection
+                selected_path, final_confidence = self.taxonomy.select_path_with_fallback(
+                    classification_result=result,
+                    memory_content=memory_content,
+                    metadata=context.get('metadata') if context else None
+                )
+                
+                # Update result with advanced taxonomy's selection
+                result.primary_path = selected_path
+                result.confidence = final_confidence
+                
+            else:
+                # Standard taxonomy - just validate paths
+                if not self._is_valid_path(result.primary_path):
+                    # Find closest valid path
+                    result.primary_path = self._find_closest_valid_path(result.primary_path)
 
             # Cache result
             if use_cache:
@@ -274,7 +326,7 @@ Think step by step:
         # Try progressively shorter paths
         for i in range(len(parts), 0, -1):
             test_path = ".".join(parts[:i])
-            if self.taxonomy.is_valid_path(test_path):
+            if self._is_valid_path(test_path):
                 return test_path
 
         # Default to context if nothing matches
@@ -310,8 +362,15 @@ Think step by step:
 
     def get_statistics(self) -> dict:
         """Get classifier statistics."""
+        # Get taxonomy path count using the interface
+        try:
+            path_count = len(self.taxonomy.get_all_paths())
+        except Exception:
+            path_count = 0
+
         return {
             "cache_size": len(self._cache),
-            "taxonomy_paths": len(self.taxonomy.get_all_paths()),
+            "taxonomy_paths": path_count,
+            "taxonomy_type": type(self.taxonomy).__name__,
             "categories": len(list(TaxonomyCategory)),
         }

@@ -6,6 +6,8 @@ Defines ~800 hierarchical paths for deterministic memory organization.
 from dataclasses import dataclass
 from enum import Enum
 
+from .base import BaseTaxonomy, TaxonomyInterface
+
 
 class TaxonomyCategory(Enum):
     """Top-level taxonomy categories."""
@@ -32,10 +34,11 @@ class TaxonomyNode:
     examples: list[str]
 
 
-class SemanticTaxonomy:
+class SemanticTaxonomy(BaseTaxonomy):
     """
     Fixed semantic taxonomy with approximately 800 predefined paths.
     Provides hierarchical organization for AI memory classification.
+    Implements TaxonomyInterface for standardized access.
     """
 
     def __init__(self):
