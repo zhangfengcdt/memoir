@@ -13,7 +13,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
-from .base import AdvancedTaxonomyInterface, BaseTaxonomy
+from .base import BaseTaxonomy
 from .semantic_taxonomy import SemanticTaxonomy, TaxonomyCategory, get_taxonomy
 
 logger = logging.getLogger(__name__)
@@ -186,7 +186,10 @@ class DynamicTaxonomy(BaseTaxonomy):
         traverse(self.root)
 
     def select_path_with_fallback(
-        self, classification_result: Any, memory_content: str, metadata: Optional[dict] = None
+        self,
+        classification_result: Any,
+        memory_content: str,
+        metadata: Optional[dict] = None,
     ) -> tuple[str, float]:
         """
         Select taxonomy path with fallback to 'other' categories based on classification result.
@@ -273,7 +276,6 @@ class DynamicTaxonomy(BaseTaxonomy):
 
         # Ultimate fallback to root 'other'
         return "other" if "other" in self.path_index else None
-
 
     def is_valid_path(self, path: str) -> bool:
         """Check if a path exists in the dynamic taxonomy."""

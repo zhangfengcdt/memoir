@@ -287,7 +287,7 @@ class ProllyTreeStore(BaseStore):
     ) -> MemoryItem:
         """Synchronous wrapper for store_memory_async."""
         import asyncio
-        
+
         # Check if we're already in an event loop
         try:
             loop = asyncio.get_running_loop()
@@ -296,7 +296,7 @@ class ProllyTreeStore(BaseStore):
         except RuntimeError:
             # No event loop running, we can use asyncio.run
             in_event_loop = False
-        
+
         if not in_event_loop:
             return asyncio.run(self.store_memory_async(namespace, content, key))
         else:
@@ -310,7 +310,7 @@ class ProllyTreeStore(BaseStore):
                 semantic_key = "context.current.session.topic.main"
                 confidence = 0.5
                 self._stats["classifications"] += 1
-            
+
             # Create memory item
             item = MemoryItem(
                 key=semantic_key,
@@ -319,13 +319,13 @@ class ProllyTreeStore(BaseStore):
                 confidence=confidence,
                 timestamp=time.time(),
             )
-            
+
             # Store using BaseStore interface
             self.put((namespace,), semantic_key, item.model_dump())
-            
+
             if self.enable_versioning and hasattr(self.tree, "get_head"):
                 item.version = self.tree.get_head()
-                
+
             return item
 
     def retrieve_memories(

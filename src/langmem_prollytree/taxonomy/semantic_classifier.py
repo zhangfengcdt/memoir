@@ -11,7 +11,7 @@ from typing import Any, Optional
 # from langmem.prompts import Prompt  # Not available in current version
 from pydantic import BaseModel, Field
 
-from .base import TaxonomyInterface, AdvancedTaxonomyInterface
+from .base import AdvancedTaxonomyInterface, TaxonomyInterface
 from .semantic_taxonomy import TaxonomyCategory, get_taxonomy
 
 logger = logging.getLogger(__name__)
@@ -60,20 +60,20 @@ class SemanticClassifier:
         try:
             # All taxonomies should implement TaxonomyInterface
             all_paths = self.taxonomy.get_all_paths()
-                
+
             if not all_paths:
                 return "The taxonomy structure is available but paths could not be enumerated."
-            
+
             # Group paths by top-level category for better organization
             categories = {}
             for path in all_paths[:100]:  # Limit to prevent prompt overflow
-                parts = path.split('.')
+                parts = path.split(".")
                 if parts:
                     category = parts[0]
                     if category not in categories:
                         categories[category] = []
                     categories[category].append(path)
-            
+
             # Generate structured description
             structure_lines = ["Available taxonomy categories and example paths:"]
             for category, paths in sorted(categories.items()):
@@ -83,17 +83,23 @@ class SemanticClassifier:
                 for path in example_paths:
                     structure_lines.append(f"  - {path}")
                 if len(paths) > 5:
-                    structure_lines.append(f"  - ... and {len(paths) - 5} more {category} paths")
-            
+                    structure_lines.append(
+                        f"  - ... and {len(paths) - 5} more {category} paths"
+                    )
+
             structure_lines.append(f"\nTotal paths available: {len(all_paths)}")
-            
+
             # Add info about 'other' categories if this is an AdvancedTaxonomy
             if isinstance(self.taxonomy, AdvancedTaxonomyInterface):
-                structure_lines.append("\nThis taxonomy includes 'other' categories at various levels for unclassified content.")
-                structure_lines.append("Use 'other' categories when content doesn't fit existing specific paths.")
-                
+                structure_lines.append(
+                    "\nThis taxonomy includes 'other' categories at various levels for unclassified content."
+                )
+                structure_lines.append(
+                    "Use 'other' categories when content doesn't fit existing specific paths."
+                )
+
             return "\n".join(structure_lines)
-            
+
         except Exception as e:
             logger.warning(f"Could not generate taxonomy structure info: {e}")
             return "Taxonomy structure is available. Please classify using the most appropriate path."
@@ -279,21 +285,25 @@ Think step by step:
             # Use advanced taxonomy logic if available
             if isinstance(self.taxonomy, AdvancedTaxonomyInterface):
                 # Advanced taxonomy (e.g., DynamicTaxonomy) - use smart path selection
-                selected_path, final_confidence = self.taxonomy.select_path_with_fallback(
-                    classification_result=result,
-                    memory_content=memory_content,
-                    metadata=context.get('metadata') if context else None
+                selected_path, final_confidence = (
+                    self.taxonomy.select_path_with_fallback(
+                        classification_result=result,
+                        memory_content=memory_content,
+                        metadata=context.get("metadata") if context else None,
+                    )
                 )
-                
+
                 # Update result with advanced taxonomy's selection
                 result.primary_path = selected_path
                 result.confidence = final_confidence
-                
+
             else:
                 # Standard taxonomy - just validate paths
                 if not self._is_valid_path(result.primary_path):
                     # Find closest valid path
-                    result.primary_path = self._find_closest_valid_path(result.primary_path)
+                    result.primary_path = self._find_closest_valid_path(
+                        result.primary_path
+                    )
 
             # Cache result
             if use_cache:
