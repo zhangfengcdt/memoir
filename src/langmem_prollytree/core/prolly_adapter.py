@@ -3,20 +3,19 @@ ProllyTree adapter implementing LangGraph's BaseStore interface.
 Provides high-performance semantic memory storage with versioning.
 """
 
+import builtins
 import json
-import time
-from typing import Any, Dict, List, Optional, Tuple, Iterator
-from datetime import datetime
-from pathlib import Path
 import logging
+import time
+from pathlib import Path
+from typing import Any, Optional
 
 from langgraph.checkpoint.base import BaseStore
 from prollytree import ProllyTree, VersionedStore
 from pydantic import BaseModel, Field
 
-from ..taxonomy.semantic_taxonomy import get_taxonomy
-from ..taxonomy.semantic_classifier import OptimizedClassifier, ClassificationResult
-
+from langmem_prollytree.taxonomy.semantic_classifier import OptimizedClassifier
+from langmem_prollytree.taxonomy.semantic_taxonomy import get_taxonomy
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +26,7 @@ class MemoryItem(BaseModel):
     key: str = Field(description="Semantic taxonomy key")
     namespace: str = Field(description="User/agent namespace")
     content: Any = Field(description="Memory content")
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="Additional metadata"
     )
     timestamp: float = Field(
@@ -79,7 +78,7 @@ class ProllyTreeStore(BaseStore):
         """Create a full key from namespace and semantic path."""
         return f"{namespace}.{semantic_key}"
 
-    def _parse_key(self, full_key: str) -> Tuple[str, str]:
+    def _parse_key(self, full_key: str) -> tuple[str, str]:
         """Parse namespace and semantic key from full key."""
         parts = full_key.split(".", 1)
         if len(parts) == 2:
@@ -88,7 +87,7 @@ class ProllyTreeStore(BaseStore):
 
     async def aget(
         self,
-        namespace: Tuple[str, ...],
+        namespace: tuple[str, ...],
         key: str,
         *,
         refresh_ttl: Optional[bool] = None,
@@ -217,7 +216,7 @@ class ProllyTreeStore(BaseStore):
 
         asyncio.run(self.adelete(namespace, key))
 
-    async def asearch(self, namespace: str, prefix: str) -> List[Tuple[str, Any]]:
+    async def asearch(self, namespace: str, prefix: str) -> list[tuple[str, Any]]:
         """
         Search for memories by prefix.
 
@@ -251,13 +250,13 @@ class ProllyTreeStore(BaseStore):
 
         return results
 
-    def search(self, namespace: str, prefix: str) -> List[Tuple[str, Any]]:
+    def search(self, namespace: str, prefix: str) -> list[tuple[str, Any]]:
         """Synchronous version of asearch."""
         import asyncio
 
         return asyncio.run(self.asearch(namespace, prefix))
 
-    async def alist(self, namespace: str) -> List[str]:
+    async def alist(self, namespace: str) -> list[str]:
         """
         List all keys in a namespace.
 
@@ -285,7 +284,7 @@ class ProllyTreeStore(BaseStore):
 
         return keys
 
-    def list(self, namespace: str) -> List[str]:
+    def list(self, namespace: str) -> list[str]:
         """Synchronous version of alist."""
         import asyncio
 
@@ -295,7 +294,7 @@ class ProllyTreeStore(BaseStore):
 
     async def get_history(
         self, namespace: str, key: str, limit: int = 10
-    ) -> List[MemoryItem]:
+    ) -> builtins.list[MemoryItem]:
         """
         Get version history for a memory.
 
@@ -339,7 +338,7 @@ class ProllyTreeStore(BaseStore):
 
         return history
 
-    async def time_travel(self, namespace: str, timestamp: float) -> Dict[str, Any]:
+    async def time_travel(self, namespace: str, timestamp: float) -> dict[str, Any]:
         """
         Get all memories as they were at a specific time.
 
@@ -380,7 +379,7 @@ class ProllyTreeStore(BaseStore):
 
         return memories
 
-    async def get_statistics(self) -> Dict[str, Any]:
+    async def get_statistics(self) -> dict[str, Any]:
         """Get store statistics."""
         stats = {
             "performance": self._stats.copy(),
@@ -396,7 +395,7 @@ class ProllyTreeStore(BaseStore):
 
         return stats
 
-    def batch_put(self, items: List[Tuple[str, str, Any]]) -> None:
+    def batch_put(self, items: builtins.list[tuple[str, str, Any]]) -> None:
         """
         Batch insert multiple items.
 
@@ -451,7 +450,7 @@ class ProllyTreeStore(BaseStore):
             input_path: Path to JSON file
             namespace: Override namespace (uses file namespace if None)
         """
-        with open(input_path, "r") as f:
+        with open(input_path) as f:
             data = json.load(f)
 
         ns = namespace or data["namespace"]

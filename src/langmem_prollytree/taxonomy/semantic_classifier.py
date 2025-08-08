@@ -6,12 +6,12 @@ Uses LLM-based classification with caching and optimization.
 import hashlib
 import json
 import logging
-from typing import List, Dict, Optional, Any
+from typing import Any, Optional
 
 # from langmem.prompts import Prompt  # Not available in current version
 from pydantic import BaseModel, Field
 
-from .semantic_taxonomy import get_taxonomy, TaxonomyCategory
+from .semantic_taxonomy import TaxonomyCategory, get_taxonomy
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class ClassificationResult(BaseModel):
 
     primary_path: str = Field(description="Primary taxonomy path for the memory")
     confidence: float = Field(description="Confidence score (0-1)")
-    alternative_paths: List[str] = Field(description="Alternative relevant paths")
+    alternative_paths: list[str] = Field(description="Alternative relevant paths")
     reasoning: str = Field(description="Brief reasoning for classification")
 
 
@@ -63,7 +63,7 @@ MEMORY CONTENT:
 
 AVAILABLE TAXONOMY PATHS (showing top-level categories):
 - profile: Personal and professional information
-- preferences: User preferences and settings  
+- preferences: User preferences and settings
 - experience: Past projects, achievements, and memories
 - context: Current session and temporal context
 - knowledge: Domain expertise and facts
@@ -134,7 +134,7 @@ Think step by step:
 
         return examples_text
 
-    def _get_context_info(self, context: Optional[Dict] = None) -> str:
+    def _get_context_info(self, context: Optional[dict] = None) -> str:
         """Format context information for classification."""
         if not context:
             return ""
@@ -154,7 +154,7 @@ Think step by step:
         return ""
 
     def _compute_cache_key(
-        self, memory_content: str, context: Optional[Dict] = None
+        self, memory_content: str, context: Optional[dict] = None
     ) -> str:
         """Compute a cache key for the classification."""
         content_hash = hashlib.md5(memory_content.encode()).hexdigest()
@@ -165,7 +165,7 @@ Think step by step:
     async def classify_async(
         self,
         memory_content: str,
-        context: Optional[Dict] = None,
+        context: Optional[dict] = None,
         use_cache: bool = True,
     ) -> ClassificationResult:
         """
@@ -225,7 +225,7 @@ Think step by step:
     def classify(
         self,
         memory_content: str,
-        context: Optional[Dict] = None,
+        context: Optional[dict] = None,
         use_cache: bool = True,
     ) -> ClassificationResult:
         """
@@ -235,7 +235,7 @@ Think step by step:
 
         return asyncio.run(self.classify_async(memory_content, context, use_cache))
 
-    def _mock_classify(self, memory_content: str) -> Dict:
+    def _mock_classify(self, memory_content: str) -> dict:
         """Mock classification for testing without LLM."""
         # Simple keyword-based classification
         content_lower = memory_content.lower()
@@ -293,8 +293,8 @@ Think step by step:
         )
 
     def batch_classify(
-        self, memories: List[str], context: Optional[Dict] = None
-    ) -> List[ClassificationResult]:
+        self, memories: list[str], context: Optional[dict] = None
+    ) -> list[ClassificationResult]:
         """
         Classify multiple memories in batch.
 
@@ -311,12 +311,12 @@ Think step by step:
             results.append(result)
         return results
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> dict:
         """Get classifier statistics."""
         return {
             "cache_size": len(self._cache),
             "taxonomy_paths": len(self.taxonomy.get_all_paths()),
-            "categories": len([c for c in TaxonomyCategory]),
+            "categories": len(list(TaxonomyCategory)),
         }
 
 

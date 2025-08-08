@@ -3,15 +3,14 @@ Hierarchical search implementation for semantic memory retrieval.
 Implements specific → general search strategy with relevance scoring.
 """
 
+import logging
 import time
-from typing import List, Dict, Any, Optional, Tuple, Set
 from dataclasses import dataclass
 from enum import Enum
-import logging
+from typing import Any, Optional
 
-from ..taxonomy.semantic_taxonomy import get_taxonomy
-from ..taxonomy.semantic_classifier import OptimizedClassifier
-
+from langmem_prollytree.taxonomy.semantic_classifier import OptimizedClassifier
+from langmem_prollytree.taxonomy.semantic_taxonomy import get_taxonomy
 
 logger = logging.getLogger(__name__)
 
@@ -111,8 +110,8 @@ class HierarchicalSearchEngine:
         query: str,
         namespace: str,
         strategy: SearchStrategy = SearchStrategy.SPECIFIC_TO_GENERAL,
-        context: Optional[Dict] = None,
-    ) -> List[SearchResult]:
+        context: Optional[dict] = None,
+    ) -> list[SearchResult]:
         """
         Perform hierarchical search for memories.
 
@@ -155,8 +154,8 @@ class HierarchicalSearchEngine:
         return final_results
 
     async def _map_query_to_paths(
-        self, query: str, context: Optional[Dict]
-    ) -> List[str]:
+        self, query: str, context: Optional[dict]
+    ) -> list[str]:
         """Map natural language query to taxonomy paths."""
         paths = []
         query_lower = query.lower()
@@ -185,8 +184,8 @@ class HierarchicalSearchEngine:
         return unique_paths or ["context.current.session.topic"]
 
     async def _search_specific_to_general(
-        self, namespace: str, search_paths: List[str]
-    ) -> List[SearchResult]:
+        self, namespace: str, search_paths: list[str]
+    ) -> list[SearchResult]:
         """
         Search from specific paths to more general ones.
         Most common strategy for precise retrieval.
@@ -235,8 +234,8 @@ class HierarchicalSearchEngine:
         return results
 
     async def _search_general_to_specific(
-        self, namespace: str, search_paths: List[str]
-    ) -> List[SearchResult]:
+        self, namespace: str, search_paths: list[str]
+    ) -> list[SearchResult]:
         """
         Search from general to specific paths.
         Useful for exploratory queries.
@@ -275,8 +274,8 @@ class HierarchicalSearchEngine:
         return results
 
     async def _search_breadth_first(
-        self, namespace: str, search_paths: List[str]
-    ) -> List[SearchResult]:
+        self, namespace: str, search_paths: list[str]
+    ) -> list[SearchResult]:
         """
         Search all paths at the same depth level first.
         Balances precision and recall.
@@ -320,8 +319,8 @@ class HierarchicalSearchEngine:
         return results
 
     async def _search_best_match(
-        self, namespace: str, search_paths: List[str]
-    ) -> List[SearchResult]:
+        self, namespace: str, search_paths: list[str]
+    ) -> list[SearchResult]:
         """
         Find the best matching depth level directly.
         Fastest strategy but may miss relevant results.
@@ -347,8 +346,8 @@ class HierarchicalSearchEngine:
         return results
 
     def _rank_results(
-        self, results: List[SearchResult], query: str
-    ) -> List[SearchResult]:
+        self, results: list[SearchResult], query: str
+    ) -> list[SearchResult]:
         """
         Rank search results by relevance.
         Combines semantic distance, recency, and confidence.
@@ -384,8 +383,8 @@ class HierarchicalSearchEngine:
         return results
 
     async def search_with_fallback(
-        self, query: str, namespace: str, context: Optional[Dict] = None
-    ) -> List[SearchResult]:
+        self, query: str, namespace: str, context: Optional[dict] = None
+    ) -> list[SearchResult]:
         """
         Search with automatic fallback strategies.
         Tries specific first, then broadens if needed.
@@ -412,8 +411,8 @@ class HierarchicalSearchEngine:
         return results[: self.max_results]
 
     async def multi_hop_search(
-        self, queries: List[str], namespace: str, combine_strategy: str = "union"
-    ) -> List[SearchResult]:
+        self, queries: list[str], namespace: str, combine_strategy: str = "union"
+    ) -> list[SearchResult]:
         """
         Perform multi-hop search across multiple queries.
         Useful for complex information needs.

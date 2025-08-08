@@ -1,8 +1,9 @@
 """Tests for semantic classifier."""
 
+
 import pytest
-import asyncio
-from langmem_prollytree.taxonomy import OptimizedClassifier, ClassificationResult
+
+from langmem_prollytree.taxonomy import ClassificationResult, OptimizedClassifier
 
 
 class TestOptimizedClassifier:

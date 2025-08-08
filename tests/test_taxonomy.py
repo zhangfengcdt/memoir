@@ -1,7 +1,6 @@
 """Tests for semantic taxonomy."""
 
-import pytest
-from langmem_prollytree.taxonomy import SemanticTaxonomy, get_taxonomy, TaxonomyCategory
+from langmem_prollytree.taxonomy import TaxonomyCategory, get_taxonomy
 
 
 class TestSemanticTaxonomy:
@@ -111,7 +110,7 @@ class TestSemanticTaxonomy:
         stats = taxonomy.get_statistics()
 
         assert stats["total_paths"] >= 500
-        assert stats["categories"] == len([c for c in TaxonomyCategory])
+        assert stats["categories"] == len(list(TaxonomyCategory))
         assert stats["max_depth"] >= 4
         assert "paths_by_category" in stats
         assert "paths_by_depth" in stats

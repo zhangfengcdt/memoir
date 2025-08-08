@@ -1,7 +1,6 @@
-[tool.ruff]
 target-version = "py39"
 line-length = 88
-select = [
+lint.select = [
     "E",  # pycodestyle errors
     "W",  # pycodestyle warnings
     "F",  # pyflakes
@@ -14,11 +13,10 @@ select = [
     "TCH", # flake8-type-checking
     "TID", # flake8-tidy-imports
     "Q", # flake8-quotes
-    "UP", # pyupgrade
     "PT", # flake8-pytest-style
     "RUF", # Ruff-specific rules
 ]
-ignore = [
+lint.ignore = [
     "E501",  # line too long, handled by black
     "B008",  # do not perform function calls in argument defaults
     "C901",  # too complex
@@ -26,9 +24,9 @@ ignore = [
     "B006",  # Allow mutable default arguments
 ]
 
-[tool.ruff.per-file-ignores]
+[lint.per-file-ignores]
 "tests/**/*" = ["ARG", "S101", "S106", "S113"]
 "examples/**/*" = ["T201", "S101", "S106"]
 
-[tool.ruff.isort]
+[lint.isort]
 known-first-party = ["langmem_prollytree"]

@@ -4,12 +4,11 @@ Demonstrates how to use the enhanced memory system in production workflows.
 """
 
 import asyncio
-from typing import Dict, Any, List
 from datetime import datetime
+from typing import Any
 
-from langgraph.prebuilt import create_react_agent
-from langmem import MemoryStoreManager
 from langchain_openai import ChatOpenAI
+from langgraph.prebuilt import create_react_agent
 
 from langmem_prollytree import ProllyTreeMemoryStoreManager, SearchStrategy
 
@@ -56,7 +55,7 @@ class AgentWithEnhancedMemory:
         print(f"Loaded {len(context_memories)} context memories for {user_id}")
         return context_memories
 
-    async def process_conversation(self, message: str) -> Dict[str, Any]:
+    async def process_conversation(self, message: str) -> dict[str, Any]:
         """Process a conversation turn with memory integration."""
         if not self.user_id:
             raise ValueError("Must initialize user first")
@@ -104,7 +103,7 @@ Please respond taking into account this context about the user.
             "memory_context": memory_context[:200] + "..." if memory_context else "",
         }
 
-    def _build_memory_context(self, memories: List) -> str:
+    def _build_memory_context(self, memories: list) -> str:
         """Build context string from retrieved memories."""
         if not memories:
             return ""
@@ -148,7 +147,7 @@ Please respond taking into account this context about the user.
 
     async def _extract_insights(
         self, user_message: str, assistant_response: str
-    ) -> List[str]:
+    ) -> list[str]:
         """Extract insights about the user from conversation."""
         # Simple pattern-based extraction
         # In production, this could use a more sophisticated LLM-based approach
@@ -174,7 +173,7 @@ Please respond taking into account this context about the user.
 
         return insights
 
-    async def get_user_profile(self) -> Dict[str, Any]:
+    async def get_user_profile(self) -> dict[str, Any]:
         """Get comprehensive user profile from memory."""
         if not self.user_id:
             raise ValueError("Must initialize user first")
@@ -208,7 +207,7 @@ Please respond taking into account this context about the user.
 
         return profile
 
-    async def get_memory_statistics(self) -> Dict[str, Any]:
+    async def get_memory_statistics(self) -> dict[str, Any]:
         """Get memory system performance statistics."""
         metrics = self.memory_manager.get_performance_metrics()
 
@@ -261,7 +260,6 @@ async def demo_enhanced_agent():
     print(f"\nProcessing {len(conversation_turns)} conversation turns...")
     print("-" * 50)
 
-    total_memory_retrieval_time = 0
     total_processing_time = 0
 
     for i, message in enumerate(conversation_turns, 1):
@@ -284,7 +282,7 @@ async def demo_enhanced_agent():
             continue
 
     # Show user profile built up over conversation
-    print(f"\n" + "=" * 60)
+    print("\n" + "=" * 60)
     print("USER PROFILE EXTRACTED FROM CONVERSATION")
     print("=" * 60)
 
@@ -299,7 +297,7 @@ async def demo_enhanced_agent():
                 )
 
     # Show memory system statistics
-    print(f"\n" + "=" * 60)
+    print("\n" + "=" * 60)
     print("MEMORY SYSTEM PERFORMANCE")
     print("=" * 60)
 
@@ -324,8 +322,8 @@ async def demo_enhanced_agent():
     for category, count in sorted(user_cats.items()):
         print(f"  • {category}: {count} memories")
 
-    print(f"\n✅ Demo completed successfully!")
-    print(f"💡 Memory operations were 10-20x faster than vanilla LangMem!")
+    print("\n✅ Demo completed successfully!")
+    print("💡 Memory operations were 10-20x faster than vanilla LangMem!")
 
 
 if __name__ == "__main__":

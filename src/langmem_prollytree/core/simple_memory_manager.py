@@ -3,22 +3,19 @@ Simplified memory manager for testing taxonomy and classification.
 This version focuses on the core semantic functionality without full LangMem integration.
 """
 
-import time
-import json
-from typing import Any, Dict, List, Optional, Tuple
-from datetime import datetime
 import logging
+import time
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
-from .mock_store import MockProllyTreeStore
-from ..taxonomy.semantic_classifier import OptimizedClassifier
-from ..search.hierarchical_search import (
+from langmem_prollytree.search.hierarchical_search import (
     HierarchicalSearchEngine,
     SearchStrategy,
-    SearchResult,
 )
+from langmem_prollytree.taxonomy.semantic_classifier import OptimizedClassifier
 
+from .mock_store import MockProllyTreeStore
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +25,7 @@ class Memory(BaseModel):
 
     id: str = Field(description="Memory identifier")
     content: Any = Field(description="Memory content")
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="Memory metadata"
     )
 
@@ -77,9 +74,9 @@ class SimpleMemoryManager:
         query: str,
         namespace: str,
         strategy: SearchStrategy = SearchStrategy.SPECIFIC_TO_GENERAL,
-        context: Optional[Dict] = None,
+        context: Optional[dict] = None,
         limit: int = 10,
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """
         Search memories using hierarchical semantic search.
 
@@ -134,7 +131,7 @@ class SimpleMemoryManager:
         self,
         content: Any,
         namespace: str,
-        metadata: Optional[Dict] = None,
+        metadata: Optional[dict] = None,
         auto_classify: bool = True,
     ) -> str:
         """
@@ -192,7 +189,7 @@ class SimpleMemoryManager:
 
         return semantic_key
 
-    def get_performance_metrics(self) -> Dict[str, Any]:
+    def get_performance_metrics(self) -> dict[str, Any]:
         """Get performance metrics for the memory system."""
         metrics = self._metrics.copy()
 
@@ -226,7 +223,7 @@ class SimpleMemoryManager:
         return metrics
 
     # Store interface methods for search engine
-    async def asearch(self, namespace: str, prefix: str) -> List[Tuple[str, Any]]:
+    async def asearch(self, namespace: str, prefix: str) -> list[tuple[str, Any]]:
         """Search interface for hierarchical search engine."""
         results = await self.store.asearch((namespace,), query=prefix, limit=50)
 
@@ -235,7 +232,7 @@ class SimpleMemoryManager:
             for result in results
         ]
 
-    async def alist(self, namespace: str) -> List[str]:
+    async def alist(self, namespace: str) -> list[str]:
         """List interface for search engine."""
         results = await self.store.asearch((namespace,), limit=1000)
         return [result.key for result in results]

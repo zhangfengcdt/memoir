@@ -3,11 +3,11 @@ Enhanced MemoryStoreManager integrating LangMem with ProllyTree.
 Provides high-performance semantic memory with versioning capabilities.
 """
 
-import time
 import json
-from typing import Any, Dict, List, Optional, Tuple, Union
-from datetime import datetime, timedelta
 import logging
+import time
+from datetime import datetime
+from typing import Any, Optional, Union
 
 from langmem.knowledge.extraction import MemoryStoreManager
 from pydantic import BaseModel, Field
@@ -17,13 +17,11 @@ try:
 except ImportError:
     # Fall back to mock for testing
     from .mock_store import MockProllyTreeStore as ProllyTreeStore
-from ..taxonomy.semantic_classifier import OptimizedClassifier
-from ..search.hierarchical_search import (
+from langmem_prollytree.search.hierarchical_search import (
     HierarchicalSearchEngine,
     SearchStrategy,
-    SearchResult,
 )
-
+from langmem_prollytree.taxonomy.semantic_classifier import OptimizedClassifier
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +31,7 @@ class Memory(BaseModel):
 
     id: str = Field(description="Memory identifier")
     content: Any = Field(description="Memory content")
-    metadata: Dict[str, Any] = Field(
+    metadata: dict[str, Any] = Field(
         default_factory=dict, description="Memory metadata"
     )
 
@@ -44,7 +42,7 @@ class MemoryVersion(BaseModel):
     commit_id: str
     timestamp: float
     content: Any
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
     message: str
     author: Optional[str] = None
 
@@ -113,9 +111,9 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         query: str,
         namespace: str,
         strategy: SearchStrategy = SearchStrategy.SPECIFIC_TO_GENERAL,
-        context: Optional[Dict] = None,
+        context: Optional[dict] = None,
         limit: int = 10,
-    ) -> List[Memory]:
+    ) -> list[Memory]:
         """
         Search memories using hierarchical semantic search.
 
@@ -165,7 +163,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         self,
         content: Any,
         namespace: str,
-        metadata: Optional[Dict] = None,
+        metadata: Optional[dict] = None,
         auto_classify: bool = True,
     ) -> str:
         """
@@ -218,7 +216,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
 
     async def get_memory_versions(
         self, semantic_key: str, namespace: str, limit: int = 10
-    ) -> List[MemoryVersion]:
+    ) -> list[MemoryVersion]:
         """
         Get version history for a memory.
 
@@ -251,7 +249,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
 
     async def time_travel(
         self, namespace: str, target_time: Union[datetime, float]
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Get all memories as they were at a specific time.
 
@@ -274,7 +272,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         namespace: str,
         time1: Union[datetime, float],
         time2: Union[datetime, float],
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Compare memory states between two points in time.
 
@@ -341,7 +339,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         source_branch: str,
         target_branch: str = "main",
         strategy: str = "ours",
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Merge memories from one branch to another.
 
@@ -364,7 +362,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
 
         return merge_result
 
-    def get_performance_metrics(self) -> Dict[str, Any]:
+    def get_performance_metrics(self) -> dict[str, Any]:
         """Get performance metrics for the memory system."""
         metrics = self._metrics.copy()
 
@@ -399,7 +397,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
 
         return metrics
 
-    async def optimize_memory_layout(self, namespace: str) -> Dict[str, Any]:
+    async def optimize_memory_layout(self, namespace: str) -> dict[str, Any]:
         """
         Optimize memory layout for better performance.
         Reorganizes memories based on access patterns.
@@ -478,7 +476,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
             count = len(await self.prolly_store.alist(namespace))
         else:
             # Parse file to get count
-            with open(input_path, "r") as f:
+            with open(input_path) as f:
                 data = json.load(f)
                 count = len(data.get("memories", {}))
 

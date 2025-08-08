@@ -3,7 +3,6 @@ Comprehensive semantic taxonomy for AI memory classification.
 Defines ~800 hierarchical paths for deterministic memory organization.
 """
 
-from typing import Dict, List, Set, Tuple
 from dataclasses import dataclass
 from enum import Enum
 
@@ -30,7 +29,7 @@ class TaxonomyNode:
     depth: int
     is_leaf: bool
     description: str
-    examples: List[str]
+    examples: list[str]
 
 
 class SemanticTaxonomy:
@@ -44,7 +43,7 @@ class SemanticTaxonomy:
         self._all_paths = self._generate_all_paths()
         self._path_index = self._build_path_index()
 
-    def _build_taxonomy(self) -> Dict:
+    def _build_taxonomy(self) -> dict:
         """Build the complete semantic taxonomy structure."""
         return {
             "profile": {
@@ -611,7 +610,7 @@ class SemanticTaxonomy:
             },
         }
 
-    def _generate_all_paths(self) -> Set[str]:
+    def _generate_all_paths(self) -> set[str]:
         """Generate all valid paths from the taxonomy."""
         paths = set()
 
@@ -629,7 +628,7 @@ class SemanticTaxonomy:
         traverse(self._taxonomy)
         return paths
 
-    def _build_path_index(self) -> Dict[str, List[str]]:
+    def _build_path_index(self) -> dict[str, list[str]]:
         """Build an index for efficient path lookups."""
         index = {}
         for path in self._all_paths:
@@ -642,11 +641,11 @@ class SemanticTaxonomy:
                     index[prefix].append(path)
         return index
 
-    def get_all_paths(self) -> List[str]:
+    def get_all_paths(self) -> list[str]:
         """Return all valid taxonomy paths."""
-        return sorted(list(self._all_paths))
+        return sorted(self._all_paths)
 
-    def get_children(self, path: str) -> List[str]:
+    def get_children(self, path: str) -> list[str]:
         """Get immediate children of a path."""
         if path not in self._path_index:
             return []
@@ -658,7 +657,7 @@ class SemanticTaxonomy:
                 children.append(child)
         return sorted(children)
 
-    def get_descendants(self, path: str) -> List[str]:
+    def get_descendants(self, path: str) -> list[str]:
         """Get all descendants of a path."""
         if path not in self._path_index:
             return []
@@ -682,7 +681,7 @@ class SemanticTaxonomy:
         except ValueError:
             return None
 
-    def get_related_paths(self, path: str, max_distance: int = 2) -> List[str]:
+    def get_related_paths(self, path: str, max_distance: int = 2) -> list[str]:
         """Get paths related to the given path within a certain distance."""
         if not self.is_valid_path(path):
             return []
@@ -711,9 +710,9 @@ class SemanticTaxonomy:
                     related.add(desc)
 
         related.discard(path)  # Remove the path itself
-        return sorted(list(related))
+        return sorted(related)
 
-    def get_statistics(self) -> Dict:
+    def get_statistics(self) -> dict:
         """Get statistics about the taxonomy."""
         category_counts = {}
         depth_counts = {}
@@ -729,7 +728,7 @@ class SemanticTaxonomy:
 
         return {
             "total_paths": len(self._all_paths),
-            "categories": len([c for c in TaxonomyCategory]),
+            "categories": len(list(TaxonomyCategory)),
             "max_depth": max(depth_counts.keys()),
             "paths_by_category": category_counts,
             "paths_by_depth": depth_counts,

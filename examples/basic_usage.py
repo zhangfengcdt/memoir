@@ -6,6 +6,7 @@ Demonstrates the dramatic performance improvements over vanilla LangMem.
 import asyncio
 import time
 from datetime import datetime
+
 from langmem_prollytree import (
     ProllyTreeMemoryStoreManager,
     SearchStrategy,
@@ -102,7 +103,7 @@ async def main():
     )
 
     if versions:
-        print(f"\nVersion history for professional position:")
+        print("\nVersion history for professional position:")
         for v in versions:
             timestamp = datetime.fromtimestamp(v.timestamp)
             print(f"  • {timestamp}: {v.content[:60]}...")
@@ -131,11 +132,11 @@ async def main():
     taxonomy = get_taxonomy()
     stats = taxonomy.get_statistics()
 
-    print(f"Semantic Taxonomy:")
+    print("Semantic Taxonomy:")
     print(f"  • Total paths: {stats['total_paths']}")
     print(f"  • Categories: {stats['categories']}")
     print(f"  • Max depth: {stats['max_depth']}")
-    print(f"\nPaths by category:")
+    print("\nPaths by category:")
     for category, count in sorted(stats["paths_by_category"].items()):
         print(f"  • {category}: {count} paths")
 
@@ -147,7 +148,7 @@ async def main():
 
     print(f"Memory Organization for {user_id}:")
     print(f"  • Total memories: {optimization['total_memories']}")
-    print(f"\nMemories by category:")
+    print("\nMemories by category:")
     for category, count in sorted(optimization["categories"].items()):
         print(f"  • {category}: {count}")
 

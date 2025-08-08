@@ -3,10 +3,10 @@ Mock implementations for testing without full ProllyTree integration.
 This allows tests to run while we develop the full integration.
 """
 
-import time
-from typing import Any, Dict, List, Optional, Tuple
-from langgraph.store.base import BaseStore, Item, SearchItem
 from datetime import datetime
+from typing import Any, Optional
+
+from langgraph.store.base import BaseStore, Item, SearchItem
 
 
 class MockProllyTreeStore(BaseStore):
@@ -16,16 +16,16 @@ class MockProllyTreeStore(BaseStore):
     """
 
     def __init__(self):
-        self._data: Dict[str, Dict[str, Any]] = {}
+        self._data: dict[str, dict[str, Any]] = {}
         self._stats = {"reads": 0, "writes": 0, "searches": 0}
 
-    def _namespace_key(self, namespace: Tuple[str, ...], key: str) -> str:
+    def _namespace_key(self, namespace: tuple[str, ...], key: str) -> str:
         """Create a compound key from namespace and key."""
         return ".".join(namespace) + ":" + key
 
     async def aget(
         self,
-        namespace: Tuple[str, ...],
+        namespace: tuple[str, ...],
         key: str,
         *,
         refresh_ttl: Optional[bool] = None,
@@ -48,7 +48,7 @@ class MockProllyTreeStore(BaseStore):
 
     def get(
         self,
-        namespace: Tuple[str, ...],
+        namespace: tuple[str, ...],
         key: str,
         *,
         refresh_ttl: Optional[bool] = None,
@@ -60,10 +60,10 @@ class MockProllyTreeStore(BaseStore):
 
     async def aput(
         self,
-        namespace: Tuple[str, ...],
+        namespace: tuple[str, ...],
         key: str,
-        value: Dict[str, Any],
-        index: Optional[List[str]] = None,
+        value: dict[str, Any],
+        index: Optional[list[str]] = None,
         *,
         ttl: Optional[float] = None,
     ) -> None:
@@ -87,10 +87,10 @@ class MockProllyTreeStore(BaseStore):
 
     def put(
         self,
-        namespace: Tuple[str, ...],
+        namespace: tuple[str, ...],
         key: str,
-        value: Dict[str, Any],
-        index: Optional[List[str]] = None,
+        value: dict[str, Any],
+        index: Optional[list[str]] = None,
         *,
         ttl: Optional[float] = None,
     ) -> None:
@@ -99,13 +99,13 @@ class MockProllyTreeStore(BaseStore):
 
         asyncio.run(self.aput(namespace, key, value, index, ttl=ttl))
 
-    async def adelete(self, namespace: Tuple[str, ...], key: str) -> None:
+    async def adelete(self, namespace: tuple[str, ...], key: str) -> None:
         """Delete an item from the store."""
         full_key = self._namespace_key(namespace, key)
         if full_key in self._data:
             del self._data[full_key]
 
-    def delete(self, namespace: Tuple[str, ...], key: str) -> None:
+    def delete(self, namespace: tuple[str, ...], key: str) -> None:
         """Synchronous version of adelete."""
         import asyncio
 
@@ -113,15 +113,15 @@ class MockProllyTreeStore(BaseStore):
 
     async def asearch(
         self,
-        namespace_prefix: Tuple[str, ...],
+        namespace_prefix: tuple[str, ...],
         /,
         *,
         query: Optional[str] = None,
-        filter: Optional[Dict[str, Any]] = None,
+        filter: Optional[dict[str, Any]] = None,
         limit: int = 10,
         offset: int = 0,
         refresh_ttl: Optional[bool] = None,
-    ) -> List[SearchItem]:
+    ) -> list[SearchItem]:
         """Search for items in the store."""
         self._stats["searches"] += 1
 
@@ -137,10 +137,7 @@ class MockProllyTreeStore(BaseStore):
                 score = 1.0
                 if query:
                     value_str = str(data["value"]).lower()
-                    if query.lower() in value_str:
-                        score = 1.0
-                    else:
-                        score = 0.5
+                    score = 1.0 if query.lower() in value_str else 0.5
 
                 results.append(
                     SearchItem(
@@ -162,15 +159,15 @@ class MockProllyTreeStore(BaseStore):
 
     def search(
         self,
-        namespace_prefix: Tuple[str, ...],
+        namespace_prefix: tuple[str, ...],
         /,
         *,
         query: Optional[str] = None,
-        filter: Optional[Dict[str, Any]] = None,
+        filter: Optional[dict[str, Any]] = None,
         limit: int = 10,
         offset: int = 0,
         refresh_ttl: Optional[bool] = None,
-    ) -> List[SearchItem]:
+    ) -> list[SearchItem]:
         """Synchronous version of asearch."""
         import asyncio
 
@@ -186,8 +183,8 @@ class MockProllyTreeStore(BaseStore):
         )
 
     async def alist_namespaces(
-        self, prefix: Tuple[str, ...] = ()
-    ) -> List[Tuple[str, ...]]:
+        self, prefix: tuple[str, ...] = ()
+    ) -> list[tuple[str, ...]]:
         """List all namespaces with the given prefix."""
         prefixes = set()
         prefix_str = ".".join(prefix)
@@ -199,7 +196,7 @@ class MockProllyTreeStore(BaseStore):
 
         return list(prefixes)
 
-    def list_namespaces(self, prefix: Tuple[str, ...] = ()) -> List[Tuple[str, ...]]:
+    def list_namespaces(self, prefix: tuple[str, ...] = ()) -> list[tuple[str, ...]]:
         """Synchronous version of alist_namespaces."""
         import asyncio
 
@@ -213,6 +210,6 @@ class MockProllyTreeStore(BaseStore):
         """Synchronous batch operations (not implemented)."""
         pass
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """Get store statistics."""
         return {"total_items": len(self._data), "stats": self._stats.copy()}

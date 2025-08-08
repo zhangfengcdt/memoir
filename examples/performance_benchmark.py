@@ -4,15 +4,15 @@ Demonstrates the dramatic performance improvements achieved.
 """
 
 import asyncio
-import time
 import random
+import time
 from statistics import mean, median
-from typing import List, Dict, Any
+from typing import Any
 
 from langmem_prollytree import (
+    OptimizedClassifier,
     ProllyTreeMemoryStoreManager,
     SearchStrategy,
-    OptimizedClassifier,
 )
 
 
@@ -72,7 +72,7 @@ class BenchmarkSuite:
 
     async def benchmark_storage_performance(
         self, memory_manager: ProllyTreeMemoryStoreManager
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Benchmark memory storage performance."""
         print("Benchmarking storage performance...")
 
@@ -81,7 +81,6 @@ class BenchmarkSuite:
 
         # Measure individual storage times
         storage_times = []
-        classification_times = []
 
         start_total = time.time()
 
@@ -113,7 +112,7 @@ class BenchmarkSuite:
 
     async def benchmark_search_performance(
         self, memory_manager: ProllyTreeMemoryStoreManager, user_id: str
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Benchmark search performance."""
         print("Benchmarking search performance...")
 
@@ -175,7 +174,7 @@ class BenchmarkSuite:
 
         return results
 
-    async def benchmark_classification_performance(self) -> Dict[str, Any]:
+    async def benchmark_classification_performance(self) -> dict[str, Any]:
         """Benchmark classification performance."""
         print("Benchmarking classification performance...")
 
@@ -186,7 +185,7 @@ class BenchmarkSuite:
         fast_times = []
         for memory in memories:
             start_time = time.time()
-            result = classifier.fast_classify(memory)
+            classifier.fast_classify(memory)
             classify_time = (time.time() - start_time) * 1000
             fast_times.append(classify_time)
 
@@ -202,7 +201,7 @@ class BenchmarkSuite:
             "classification_times": fast_times,
         }
 
-    async def run_full_benchmark(self) -> Dict[str, Any]:
+    async def run_full_benchmark(self) -> dict[str, Any]:
         """Run the complete benchmark suite."""
         print("=" * 60)
         print("LANGMEM-PROLLYTREE PERFORMANCE BENCHMARK")
@@ -242,7 +241,7 @@ class BenchmarkSuite:
 
         return benchmark_results
 
-    def print_results(self, results: Dict[str, Any]):
+    def print_results(self, results: dict[str, Any]):
         """Print benchmark results in a readable format."""
         print("\n" + "=" * 60)
         print("BENCHMARK RESULTS")
@@ -250,7 +249,7 @@ class BenchmarkSuite:
 
         # Storage performance
         storage = results["storage"]
-        print(f"\nSTORAGE PERFORMANCE:")
+        print("\nSTORAGE PERFORMANCE:")
         print(f"  • Total memories stored: {storage['total_memories']}")
         print(f"  • Average storage time: {storage['avg_storage_time_ms']:.2f}ms")
         print(f"  • Median storage time: {storage['median_storage_time_ms']:.2f}ms")
@@ -261,7 +260,7 @@ class BenchmarkSuite:
 
         # Search performance
         search = results["search"]
-        print(f"\nSEARCH PERFORMANCE:")
+        print("\nSEARCH PERFORMANCE:")
         for strategy, metrics in search.items():
             print(f"\n  {strategy.upper().replace('_', ' ')}:")
             print(f"    • Average time: {metrics['avg_search_time_ms']:.2f}ms")
@@ -271,14 +270,14 @@ class BenchmarkSuite:
 
         # Classification performance
         classify = results["classification"]
-        print(f"\nCLASSIFICATION PERFORMANCE:")
+        print("\nCLASSIFICATION PERFORMANCE:")
         print(f"  • Total classifications: {classify['total_classifications']}")
         print(f"  • Average time: {classify['avg_fast_classify_time_ms']:.2f}ms")
         print(f"  • Median time: {classify['median_fast_classify_time_ms']:.2f}ms")
         print(f"  • 95th percentile: {classify['p95_fast_classify_time_ms']:.2f}ms")
 
         # Performance comparison
-        print(f"\n" + "=" * 60)
+        print("\n" + "=" * 60)
         print("PERFORMANCE COMPARISON WITH VANILLA LANGMEM")
         print("=" * 60)
 
@@ -286,8 +285,8 @@ class BenchmarkSuite:
         avg_search = min(metrics["avg_search_time_ms"] for metrics in search.values())
         avg_classify = classify["avg_fast_classify_time_ms"]
 
-        print(f"\nOperation          | Vanilla LangMem | ProllyTree    | Improvement")
-        print(f"-" * 65)
+        print("\nOperation          | Vanilla LangMem | ProllyTree    | Improvement")
+        print("-" * 65)
         print(
             f"Memory Storage     | 200-600ms       | {avg_storage:>8.1f}ms   | {300/avg_storage:>6.0f}x faster"
         )
