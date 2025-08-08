@@ -210,6 +210,7 @@ __marimo__/
 memory_db/
 agent_memory_db/
 benchmark_db_*/
+benchmark_memory_*/
 *.db
 *.sqlite
 
