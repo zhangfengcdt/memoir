@@ -144,10 +144,10 @@ class DynamicTaxonomy:
                 # Create new node
                 category = None
                 if i == 0:
-                    try:
+                    from contextlib import suppress
+
+                    with suppress(ValueError):
                         category = TaxonomyCategory(part)
-                    except ValueError:
-                        pass
 
                 current.children[part] = DynamicNode(
                     path=current_path,
@@ -304,12 +304,14 @@ class DynamicTaxonomy:
         result = await self.classifier.classify_async(memory_content, context)
 
         # Check if path exists in dynamic taxonomy
-        if result.primary_path in self.path_index:
-            if result.confidence >= self.confidence_threshold:
-                node = self.path_index[result.primary_path]
-                node.item_count += 1
-                node.last_accessed = datetime.now()
-                return result.primary_path, result.confidence
+        if (
+            result.primary_path in self.path_index
+            and result.confidence >= self.confidence_threshold
+        ):
+            node = self.path_index[result.primary_path]
+            node.item_count += 1
+            node.last_accessed = datetime.now()
+            return result.primary_path, result.confidence
 
         # Fallback to 'other' category based on LLM's attempted classification
         other_path = self._find_best_other_category(result, memory_content, metadata)
@@ -496,10 +498,10 @@ class DynamicTaxonomy:
         """Stop the background expansion task."""
         if self.expansion_task:
             self.expansion_task.cancel()
-            try:
+            from contextlib import suppress
+
+            with suppress(asyncio.CancelledError):
                 await self.expansion_task
-            except asyncio.CancelledError:
-                pass
             logger.info("Stopped background taxonomy expansion worker")
 
     async def _expansion_worker(self):
