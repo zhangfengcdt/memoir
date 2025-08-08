@@ -147,23 +147,25 @@ class JSONTaxonomyDataSource(FileBasedTaxonomyDataSource):
             )
 
 
-class HardcodedTaxonomyDataSource(TaxonomyDataSource):
+class SimplifiedTaxonomyDataSource(TaxonomyDataSource):
     """
-    Fallback data source with hardcoded taxonomy data.
+    Simplified fallback data source with minimal taxonomy data.
 
     Used as a last resort when no other data sources are available.
-    Contains a minimal but functional taxonomy structure.
+    Contains a minimal but functional taxonomy structure covering
+    the core categories with essential paths.
     """
 
     def is_available(self) -> bool:
-        """Hardcoded data is always available."""
+        """Simplified data is always available."""
         return True
 
     def load_taxonomy_data(self) -> dict[str, Any]:
         """
-        Return hardcoded minimal taxonomy structure.
+        Return simplified minimal taxonomy structure.
 
-        This is a simplified version for fallback use.
+        This is a streamlined version for fallback use, containing
+        only the essential paths needed for basic functionality.
         """
         return {
             "profile": {
@@ -243,11 +245,11 @@ class HardcodedTaxonomyDataSource(TaxonomyDataSource):
         }
 
     def get_metadata(self) -> dict[str, Any]:
-        """Get hardcoded data source metadata."""
+        """Get simplified data source metadata."""
         metadata = super().get_metadata()
         metadata.update(
             {
-                "description": "Fallback hardcoded taxonomy data",
+                "description": "Simplified fallback taxonomy data",
                 "version": "1.0.0",
                 "categories": 8,
             }
@@ -351,8 +353,8 @@ class TaxonomyDataSourceManager:
             json_source = JSONTaxonomyDataSource(json_path)
             sources.append(json_source)
 
-        # Always add hardcoded fallback as last resort
-        sources.append(HardcodedTaxonomyDataSource())
+        # Always add simplified fallback as last resort
+        sources.append(SimplifiedTaxonomyDataSource())
 
         return sources
 

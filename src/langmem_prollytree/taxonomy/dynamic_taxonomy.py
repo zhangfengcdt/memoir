@@ -18,6 +18,12 @@ from .semantic_taxonomy import SemanticTaxonomy, TaxonomyCategory, get_taxonomy
 
 logger = logging.getLogger(__name__)
 
+# Configuration constants
+OTHER_CATEGORY_NAME = "other"  # Name for fallback categories
+DEFAULT_EXPANSION_THRESHOLD = 10  # Default threshold for expansion
+DEFAULT_CONFIDENCE_THRESHOLD = 0.7  # Default confidence threshold
+EXPANSION_WORKER_SLEEP_SECONDS = 60  # Background worker sleep interval
+
 
 class ExpansionStrategy(Enum):
     """Strategies for expanding the taxonomy."""
@@ -63,10 +69,10 @@ class DynamicTaxonomy(BaseTaxonomy):
     def __init__(
         self,
         base_taxonomy: Optional[SemanticTaxonomy] = None,
-        expansion_threshold: int = 10,
+        expansion_threshold: int = DEFAULT_EXPANSION_THRESHOLD,
         strategy: ExpansionStrategy = ExpansionStrategy.THRESHOLD_BASED,
         enable_other_categories: bool = True,
-        confidence_threshold: float = 0.7,
+        confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD,
     ):
         """
         Initialize the dynamic taxonomy.
@@ -157,9 +163,9 @@ class DynamicTaxonomy(BaseTaxonomy):
             return
 
         # Add 'other' child if it doesn't exist
-        if "other" not in node.children:
-            other_path = f"{node.path}.other" if node.path else "other"
-            node.children["other"] = DynamicNode(
+        if OTHER_CATEGORY_NAME not in node.children:
+            other_path = f"{node.path}.other" if node.path else OTHER_CATEGORY_NAME
+            node.children[OTHER_CATEGORY_NAME] = DynamicNode(
                 path=other_path,
                 category=node.category,
                 depth=node.depth + 1,
@@ -242,7 +248,7 @@ class DynamicTaxonomy(BaseTaxonomy):
             ):
                 self._queue_expansion(node)
 
-        return other_path or "other", result.confidence
+        return other_path or OTHER_CATEGORY_NAME, result.confidence
 
     def _find_best_other_category(
         self, classification_result: Any, memory_content: str, metadata: Optional[dict]
@@ -275,7 +281,7 @@ class DynamicTaxonomy(BaseTaxonomy):
                     return root_other
 
         # Ultimate fallback to root 'other'
-        return "other" if "other" in self.path_index else None
+        return OTHER_CATEGORY_NAME if OTHER_CATEGORY_NAME in self.path_index else None
 
     def is_valid_path(self, path: str) -> bool:
         """Check if a path exists in the dynamic taxonomy."""
@@ -461,13 +467,13 @@ class DynamicTaxonomy(BaseTaxonomy):
                         await self.expand_taxonomy(node.path)
 
                 # Sleep before next check
-                await asyncio.sleep(60)  # Check every minute
+                await asyncio.sleep(EXPANSION_WORKER_SLEEP_SECONDS)  # Check periodically
 
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.error(f"Error in expansion worker: {e}")
-                await asyncio.sleep(60)
+                await asyncio.sleep(EXPANSION_WORKER_SLEEP_SECONDS)
 
     def get_statistics(self) -> dict[str, Any]:
         """Get statistics about the dynamic taxonomy."""

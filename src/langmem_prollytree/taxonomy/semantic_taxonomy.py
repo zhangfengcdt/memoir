@@ -3,6 +3,7 @@ Comprehensive semantic taxonomy for AI memory classification.
 Defines ~800 hierarchical paths for deterministic memory organization.
 """
 
+import threading
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
@@ -205,13 +206,17 @@ class SemanticTaxonomy(BaseTaxonomy):
         }
 
 
-# Singleton instance
+# Thread-safe singleton instance
 _taxonomy_instance = None
+_taxonomy_lock = threading.Lock()
 
 
 def get_taxonomy() -> SemanticTaxonomy:
-    """Get the singleton taxonomy instance."""
+    """Get the thread-safe singleton taxonomy instance."""
     global _taxonomy_instance
     if _taxonomy_instance is None:
-        _taxonomy_instance = SemanticTaxonomy()
+        with _taxonomy_lock:
+            # Double-check locking pattern
+            if _taxonomy_instance is None:
+                _taxonomy_instance = SemanticTaxonomy()
     return _taxonomy_instance

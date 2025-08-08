@@ -8,13 +8,18 @@ import json
 import logging
 from typing import Any, Optional
 
-# from langmem.prompts import Prompt  # Not available in current version
 from pydantic import BaseModel, Field
 
 from .base import AdvancedTaxonomyInterface, TaxonomyInterface
 from .semantic_taxonomy import TaxonomyCategory, get_taxonomy
 
 logger = logging.getLogger(__name__)
+
+# Configuration constants
+MAX_PROMPT_PATHS = 100  # Maximum paths to include in classification prompt
+MAX_EXAMPLE_PATHS_PER_CATEGORY = 5  # Max example paths shown per category
+DEFAULT_CACHE_SIZE = 10000  # Default classification cache size
+FALLBACK_PATH = "context.current.session.topic.main"  # Default fallback path
 
 
 class ClassificationResult(BaseModel):
@@ -36,7 +41,7 @@ class SemanticClassifier:
         self,
         llm: Optional[Any] = None,
         taxonomy: Optional[TaxonomyInterface] = None,
-        cache_size: int = 10000,
+        cache_size: int = DEFAULT_CACHE_SIZE,
         use_examples: bool = True,
     ):
         """
@@ -66,7 +71,7 @@ class SemanticClassifier:
 
             # Group paths by top-level category for better organization
             categories = {}
-            for path in all_paths[:100]:  # Limit to prevent prompt overflow
+            for path in all_paths[:MAX_PROMPT_PATHS]:  # Limit to prevent prompt overflow
                 parts = path.split(".")
                 if parts:
                     category = parts[0]
@@ -79,12 +84,12 @@ class SemanticClassifier:
             for category, paths in sorted(categories.items()):
                 structure_lines.append(f"\n• {category}:")
                 # Show a few example paths from each category
-                example_paths = sorted(paths)[:5]  # Show up to 5 examples
+                example_paths = sorted(paths)[:MAX_EXAMPLE_PATHS_PER_CATEGORY]  # Show limited examples
                 for path in example_paths:
                     structure_lines.append(f"  - {path}")
-                if len(paths) > 5:
+                if len(paths) > MAX_EXAMPLE_PATHS_PER_CATEGORY:
                     structure_lines.append(
-                        f"  - ... and {len(paths) - 5} more {category} paths"
+                        f"  - ... and {len(paths) - MAX_EXAMPLE_PATHS_PER_CATEGORY} more {category} paths"
                     )
 
             structure_lines.append(f"\nTotal paths available: {len(all_paths)}")
@@ -230,9 +235,9 @@ Think step by step:
         self, memory_content: str, context: Optional[dict] = None
     ) -> str:
         """Compute a cache key for the classification."""
-        content_hash = hashlib.md5(memory_content.encode()).hexdigest()
+        content_hash = hashlib.sha256(memory_content.encode()).hexdigest()
         context_str = json.dumps(context, sort_keys=True) if context else ""
-        context_hash = hashlib.md5(context_str.encode()).hexdigest()
+        context_hash = hashlib.sha256(context_str.encode()).hexdigest()
         return f"{content_hash}:{context_hash}"
 
     async def classify_async(
@@ -339,13 +344,23 @@ Think step by step:
             if self._is_valid_path(test_path):
                 return test_path
 
-        # Default to context if nothing matches
-        return "context.current.session.topic.main"
+        # Fallback to default path, but validate it exists first
+        if self._is_valid_path(FALLBACK_PATH):
+            return FALLBACK_PATH
+
+        # Ultimate fallback: find any valid path from the first category
+        all_paths = self.taxonomy.get_all_paths()
+        if all_paths:
+            return all_paths[0]
+
+        # Should never reach here if taxonomy is properly initialized
+        raise RuntimeError("No valid paths found in taxonomy")
 
     def _fallback_classification(self, memory_content: str) -> ClassificationResult:
         """Provide a fallback classification when normal classification fails."""
+        fallback_path = self._find_closest_valid_path(FALLBACK_PATH)
         return ClassificationResult(
-            primary_path="context.current.session.topic.main",
+            primary_path=fallback_path,
             confidence=0.5,
             alternative_paths=[],
             reasoning="Fallback classification due to processing error",
