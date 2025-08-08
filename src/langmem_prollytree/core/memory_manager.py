@@ -53,6 +53,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         self,
         prolly_path: str,
         model: Union[str, Any] = "gpt-3.5-turbo",  # Default model
+        classifier: Optional[Any] = None,  # SemanticClassifier instance
         enable_versioning: bool = True,
         enable_fast_classification: bool = True,
         cache_size: int = 10000,
@@ -63,13 +64,14 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
 
         Args:
             prolly_path: Path to ProllyTree database
+            classifier: SemanticClassifier instance with LLM
             enable_versioning: Enable git-like versioning
             enable_fast_classification: Use optimized classifier
             cache_size: Size of internal caches
             **kwargs: Additional arguments for MemoryStoreManager
         """
         # Initialize classifier - must be provided for production use
-        self.classifier = None  # Will be set when LLM is provided
+        self.classifier = classifier
 
         # Initialize ProllyTree store
         self.prolly_store = ProllyTreeStore(
@@ -180,10 +182,8 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
             classification_start = time.time()
             self._metrics["classifications"] += 1
 
-            # Use async classification - this would need to be awaited in real usage
-            import asyncio
-
-            classification = asyncio.run(self.classifier.classify_async(str(content)))
+            # Use async classification
+            classification = await self.classifier.classify_async(str(content))
             semantic_key = classification.primary_path
 
             classification_time = (time.time() - classification_start) * 1000
@@ -386,11 +386,13 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
                 metrics["classification_time_ms"]
             ) / len(metrics["classification_time_ms"])
 
-        # Add store statistics
-        import asyncio
-
-        store_stats = asyncio.run(self.prolly_store.get_statistics())
-        metrics["store"] = store_stats
+        # Add store statistics (synchronous method)
+        try:
+            store_stats = self.prolly_store.get_statistics()
+            metrics["store"] = store_stats
+        except Exception as e:
+            logger.warning(f"Failed to get store statistics: {e}")
+            metrics["store"] = {}
 
         return metrics
 
