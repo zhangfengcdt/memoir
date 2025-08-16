@@ -6,21 +6,6 @@
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-Alpha-orange.svg)]()
 
-## 🚀 Executive Summary
-
-This project integrates [LangMem](https://github.com/langchain-ai/langmem)'s sophisticated memory extraction capabilities with [ProllyTree](https://github.com/dottxt-ai/prollytree)'s high-performance versioned storage to create a revolutionary AI memory system.
-
-**Key Achievement**: Reduced memory operation latency from **60 seconds p95** to **0.5-3 seconds total** while preserving all LangMem functionality.
-
-## 📊 Performance Improvements
-
-| Operation | Vanilla LangMem | With ProllyTree | Improvement |
-|-----------|-----------------|------------------|-------------|
-| **Memory Search** | 150-750ms | 0.1-1ms | **150-1500x faster** |
-| **Memory Storage** | 200-600ms | 20-30ms | **10-20x faster** |
-| **Classification** | 2-5 seconds | 1-5ms | **400-1000x faster** |
-| **Total per conversation** | 10-60 seconds | 0.5-3 seconds | **10-20x faster** |
-
 ## 🎯 Key Features
 
 ### 🧠 Semantic Memory Classification
