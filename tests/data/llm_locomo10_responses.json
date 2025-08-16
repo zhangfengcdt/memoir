@@ -1,0 +1,67 @@
+{
+  "conversation_personal_identity": {
+    "context_keywords": ["transgender", "LGBTQ", "identity", "support group", "coming out", "gender"],
+    "response": "identity_exploration\ntransgender_experience\nsupport_groups\nLGBTQ_community\ncoming_out_process\ngender_transition\nself_acceptance\nadvocacy_activities\ncommunity_involvement\npride_events"
+  },
+  "conversation_relationships_family": {
+    "context_keywords": ["kids", "children", "daughter", "family", "parenting", "mother", "father"],
+    "response": "family_dynamics\nparenting_experiences\nchildren_activities\nfamily_outings\nparent_child_relationships\nfamily_traditions\nhome_life\nchildcare_responsibilities\nfamily_planning\nparental_concerns"
+  },
+  "conversation_hobbies_creative": {
+    "context_keywords": ["painting", "art", "pottery", "creative", "drawing", "abstract", "sunrise", "sunset"],
+    "response": "artistic_pursuits\npainting_activities\ncreative_expression\nart_techniques\nvisual_arts\ncrafts_hobbies\nartistic_inspiration\ncreative_projects\nart_supplies\nartistic_growth"
+  },
+  "conversation_outdoor_activities": {
+    "context_keywords": ["camping", "hiking", "beach", "mountains", "forest", "nature", "outdoors", "swimming"],
+    "response": "outdoor_adventures\ncamping_experiences\nnature_activities\nhiking_trails\nbeach_visits\nmountain_excursions\nforest_exploration\noutdoor_sports\nnature_photography\nenvironmental_appreciation"
+  },
+  "conversation_career_education": {
+    "context_keywords": ["counselor", "psychology", "education", "school", "speech", "teaching", "certification", "career"],
+    "response": "career_development\neducational_pursuits\nprofessional_goals\npsychology_studies\ncounseling_career\nteaching_activities\ncertification_programs\nworkplace_experiences\nprofessional_networking\nskill_development"
+  },
+  "conversation_social_events": {
+    "context_keywords": ["friends", "meeting", "social", "gathering", "party", "celebration", "community"],
+    "response": "social_gatherings\nfriend_meetups\ncommunity_events\nsocial_activities\nnetworking_events\ncelebrations\ngroup_activities\nsocial_connections\ncommunity_involvement\nfriendship_maintenance"
+  },
+  "conversation_health_wellness": {
+    "context_keywords": ["running", "exercise", "destress", "health", "wellness", "fitness", "race", "training"],
+    "response": "fitness_activities\nexercise_routines\nhealth_maintenance\nwellness_practices\nrunning_activities\nstress_management\nphysical_health\nmental_wellness\nfitness_goals\nhealthy_lifestyle"
+  },
+  "conversation_reading_books": {
+    "context_keywords": ["book", "reading", "Charlotte's Web", "Nothing is Impossible", "Dr. Seuss", "literature"],
+    "response": "reading_habits\nbook_preferences\nliterature_interests\nchildren_books\nreading_activities\nbook_collections\nliterary_discussions\nreading_recommendations\nbook_clubs\neducational_reading"
+  },
+  "conversation_adoption_planning": {
+    "context_keywords": ["adoption", "agencies", "meeting", "research", "single", "relationship", "planning"],
+    "response": "adoption_process\nfamily_planning\nadoption_research\nagency_meetings\nparenting_goals\nfamily_expansion\nadoption_preparation\nlegal_processes\nfamily_structure\nparenting_readiness"
+  },
+  "conversation_location_relocation": {
+    "context_keywords": ["moved", "Sweden", "4 years ago", "location", "country", "relocation", "immigration"],
+    "response": "relocation_experiences\ninternational_moves\ncultural_adaptation\nlocation_changes\nimmigration_stories\ncountry_transitions\ngeographic_mobility\ncultural_differences\nliving_abroad\nresettlement_experiences"
+  },
+  "conversation_time_scheduling": {
+    "context_keywords": ["Monday", "Tuesday", "Wednesday", "May", "June", "July", "August", "weekend", "week"],
+    "response": "schedule_management\ntime_planning\nweekly_activities\nmonthly_events\nseasonal_activities\nappointment_scheduling\ncalendar_events\ntemporal_references\ndate_planning\ntime_organization"
+  },
+  "conversation_emotional_support": {
+    "context_keywords": ["support", "inspiring", "thankful", "powerful", "emotional", "feelings", "grateful"],
+    "response": "emotional_support\nfeelings_expression\ninspirational_moments\ngratitude_expressions\nemotional_processing\nsupport_systems\nemotional_wellness\nfeelings_sharing\nemotional_growth\nsupport_networks"
+  },
+  "conversation_activism_advocacy": {
+    "context_keywords": ["activist", "pride", "LGBTQ", "mentorship", "advocacy", "community", "volunteer"],
+    "response": "activism_involvement\nadvocacy_work\ncommunity_organizing\nvolunteer_activities\nsocial_justice\nLGBTQ_advocacy\nmentorship_programs\ncommunity_leadership\nsocial_causes\nactivist_engagement"
+  },
+  "conversation_entertainment_media": {
+    "context_keywords": ["museum", "dinosaurs", "theme park", "national park", "entertainment", "cultural"],
+    "response": "entertainment_activities\ncultural_experiences\nmuseum_visits\neducational_outings\nrecreational_activities\ncultural_events\nentertainment_preferences\nleisure_activities\ncultural_interests\nfun_activities"
+  },
+  "conversation_daily_life": {
+    "context_keywords": ["busy", "swamped", "work", "daily", "routine", "life", "everyday", "regular"],
+    "response": "daily_routines\nwork_life_balance\neveryday_activities\nlife_management\nroutine_activities\ndaily_experiences\nlife_updates\nregular_activities\nlifestyle_patterns\ndaily_challenges"
+  },
+  "defaults": {
+    "conversation_general": "personal_updates\nlife_events\nsocial_interactions\ngeneral_conversation\ntopic_transitions\ngreetings_closings\nsmall_talk\ncasual_conversation\nfriendship_maintenance\ngeneral_sharing",
+    "conversation_context": "current_activities\nrecent_events\nupcoming_plans\nlife_updates\npersonal_news\nshared_experiences\nconversation_topics\nsocial_updates\npersonal_stories\nlife_moments",
+    "fallback": "conversation_topic\nlife_event\npersonal_experience\nsocial_interaction\ndaily_activity"
+  }
+}

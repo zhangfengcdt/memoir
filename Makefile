@@ -69,7 +69,7 @@ benchmark:
 examples:
 	@echo "Running basic usage example..."
 	cd examples && python basic_usage.py || echo "✓ Basic example completed"
-	
+
 	@echo "Running LangGraph integration example..."
 	cd examples && python langgraph_integration.py || echo "✓ LangGraph example completed"
 
@@ -98,7 +98,7 @@ ci: clean install-dev lint type-check security test-cov examples docs
 	@echo ""
 	@echo "Performance Summary:"
 	@echo "- Memory Search: 0.1-1ms (vs 150-750ms vanilla LangMem)"
-	@echo "- Memory Storage: 20-30ms (vs 200-600ms vanilla LangMem)"  
+	@echo "- Memory Storage: 20-30ms (vs 200-600ms vanilla LangMem)"
 	@echo "- Classification: 1-5ms (vs 2-5 seconds vanilla LangMem)"
 	@echo "- Total Improvement: 10-20x faster overall!"
 

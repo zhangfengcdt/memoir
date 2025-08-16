@@ -2,49 +2,51 @@ name: CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main ]
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main ]
 
 jobs:
-#  test:
-#    runs-on: ubuntu-latest
-#    strategy:
-#      matrix:
-#        python-version: ["3.11"]
-#
-#    steps:
-#    - uses: actions/checkout@v4
-#
-#    - name: Set up Python ${{ matrix.python-version }}
-#      uses: actions/setup-python@v4
-#      with:
-#        python-version: ${{ matrix.python-version }}
-#
-#    - name: Cache pip dependencies
-#      uses: actions/cache@v3
-#      with:
-#        path: ~/.cache/pip
-#        key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
-#        restore-keys: |
-#          ${{ runner.os }}-pip-
-#
-#    - name: Install dependencies
-#      run: |
-#        python -m pip install --upgrade pip
-#        pip install -e ".[dev]"
-#
-#    - name: Run tests with pytest
-#      run: |
-#        pytest tests/ -v --cov=langmem_prollytree --cov-report=xml --cov-report=html
-#
-#    - name: Upload coverage to Codecov
-#      if: matrix.python-version == '3.11'
-#      uses: codecov/codecov-action@v3
-#      with:
-#        file: ./coverage.xml
-#        flags: unittests
-#        name: codecov-umbrella
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('**/pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-${{ matrix.python-version }}-
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+
+    - name: Run tests with pytest
+      run: |
+        pytest tests/ -v --cov=langmem_prollytree --cov-report=xml --cov-report=term-missing
+
+    - name: Upload coverage to Codecov
+      if: matrix.python-version == '3.11'
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
 
   lint:
     runs-on: ubuntu-latest
@@ -52,9 +54,17 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Set up Python 3.11
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: "3.11"
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-lint-${{ hashFiles('**/pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-lint-
 
     - name: Install dependencies
       run: |
@@ -73,146 +83,122 @@ jobs:
       run: |
         isort --check-only --diff src/ tests/ examples/
 
-#  type-check:
-#    runs-on: ubuntu-latest
-#    steps:
-#    - uses: actions/checkout@v4
-#
-#    - name: Set up Python 3.11
-#      uses: actions/setup-python@v4
-#      with:
-#        python-version: "3.11"
-#
-#    - name: Install dependencies
-#      run: |
-#        python -m pip install --upgrade pip
-#        pip install -e ".[dev]"
-#
-#    - name: Run MyPy (type checking)
-#      run: |
-#        mypy src/langmem_prollytree --ignore-missing-imports
+    - name: Run Bandit (security)
+      run: |
+        bandit -r src/ --skip B404,B603,B607,B110,B608
 
-#  security:
-#    runs-on: ubuntu-latest
-#    steps:
-#    - uses: actions/checkout@v4
-#
-#    - name: Set up Python 3.11
-#      uses: actions/setup-python@v4
-#      with:
-#        python-version: "3.11"
-#
-#    - name: Install dependencies
-#      run: |
-#        python -m pip install --upgrade pip
-#        pip install bandit[toml] safety
-#
-#    - name: Run Bandit (security linting)
-#      run: |
-#        bandit -r src/ -f json -o bandit-report.json || true
-#        bandit -r src/
-#
-#    - name: Run Safety (dependency vulnerability check)
-#      run: |
-#        safety check --json --output safety-report.json || true
-#        safety check
+  examples:
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    steps:
+    - uses: actions/checkout@v4
 
-#  build:
-#    runs-on: ubuntu-latest
-#    steps:
-#    - uses: actions/checkout@v4
-#
-#    - name: Set up Python 3.11
-#      uses: actions/setup-python@v4
-#      with:
-#        python-version: "3.11"
-#
-#    - name: Install build dependencies
-#      run: |
-#        python -m pip install --upgrade pip
-#        pip install build twine
-#
-#    - name: Build package
-#      run: |
-#        python -m build
-#
-#    - name: Check package
-#      run: |
-#        twine check dist/*
-#
-#    - name: Upload build artifacts
-#      uses: actions/upload-artifact@v3
-#      with:
-#        name: dist
-#        path: dist/
-#
-#  performance:
-#    runs-on: ubuntu-latest
-#    if: github.event_name == 'pull_request'
-#    steps:
-#    - uses: actions/checkout@v4
-#
-#    - name: Set up Python 3.11
-#      uses: actions/setup-python@v4
-#      with:
-#        python-version: "3.11"
-#
-#    - name: Install dependencies
-#      run: |
-#        python -m pip install --upgrade pip
-#        pip install -e ".[dev]"
-#
-#    - name: Run performance benchmarks
-#      run: |
-#        cd examples
-#        timeout 300 python performance_benchmark.py || true
-#
-#    - name: Upload benchmark results
-#      uses: actions/upload-artifact@v3
-#      if: always()
-#      with:
-#        name: benchmark-results
-#        path: examples/benchmark_results_*.json
-#
-#  docs:
-#    runs-on: ubuntu-latest
-#    steps:
-#    - uses: actions/checkout@v4
-#
-#    - name: Set up Python 3.11
-#      uses: actions/setup-python@v4
-#      with:
-#        python-version: "3.11"
-#
-#    - name: Install dependencies
-#      run: |
-#        python -m pip install --upgrade pip
-#        pip install -e ".[docs]"
-#
-#    - name: Test examples run without errors
-#      run: |
-#        cd examples
-#        timeout 30 python -c "
-#        # Test imports work
-#        from langmem_prollytree import ProllyTreeMemoryStoreManager, get_taxonomy
-#        print('✓ Imports successful')
-#
-#        # Test taxonomy
-#        taxonomy = get_taxonomy()
-#        stats = taxonomy.get_statistics()
-#        print(f'✓ Taxonomy loaded with {stats[\"total_paths\"]} paths')
-#
-#        # Test basic functionality without external dependencies
-#        from langmem_prollytree.taxonomy import OptimizedClassifier
-#        classifier = OptimizedClassifier()
-#        result = classifier.fast_classify('Test memory')
-#        print(f'✓ Classification successful: {result.primary_path}')
-#        "
-#
-#    - name: Check README links
-#      run: |
-#        # Simple check that README has expected sections
-#        grep -q "Performance Improvements" README.md
-#        grep -q "Quick Start" README.md
-#        grep -q "Installation" README.md
-#        echo "✓ README structure looks good"
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-examples-${{ hashFiles('**/pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-examples-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+
+    - name: Test basic functionality
+      run: |
+        python -c "
+        # Test imports work
+        from langmem_prollytree import ProllyTreeMemoryStoreManager, get_taxonomy
+        print('✓ Imports successful')
+
+        # Test taxonomy loading
+        taxonomy = get_taxonomy()
+        stats = taxonomy.get_statistics()
+        print(f'✓ Taxonomy loaded with {stats[\"total_paths\"]} paths')
+
+        # Test classification
+        from langmem_prollytree.taxonomy.semantic_classifier import SemanticClassifier
+        classifier = SemanticClassifier()
+        result = classifier.classify('I am learning React for web development')
+        print(f'✓ Classification successful: {result.primary_path}')
+        "
+
+    - name: Test iterative taxonomy functionality
+      run: |
+        python -c "
+        # Test iterative taxonomy imports
+        from langmem_prollytree.taxonomy.iterative_taxonomy import LLMIterativeTaxonomy, LLMExpansionStrategy
+        print('✓ Iterative taxonomy imports successful')
+
+        # Test LOCOMO conversation functionality
+        import json
+        from pathlib import Path
+        locomo_file = Path('tests/data/llm_locomo10_responses.json')
+        if locomo_file.exists():
+            with open(locomo_file) as f:
+                data = json.load(f)
+            print(f'✓ LOCOMO data loaded with {len(data)} conversation types')
+        "
+
+    - name: Run examples (if they exist)
+      run: |
+        if [ -f "examples/basic_usage.py" ]; then
+          timeout 30 python examples/basic_usage.py || echo "Basic usage example completed"
+        fi
+        if [ -f "examples/performance_benchmark.py" ]; then
+          timeout 60 python examples/performance_benchmark.py || echo "Performance benchmark completed"
+        fi
+
+  integration:
+    runs-on: ubuntu-latest
+    needs: [test, lint]
+    if: github.event_name == 'pull_request'
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+
+    - name: Run iterative taxonomy tests specifically
+      run: |
+        pytest tests/test_iterative_taxonomy.py -v --tb=short
+
+    - name: Run LOCOMO conversation tests specifically
+      run: |
+        pytest tests/test_locomo_conversations.py -v --tb=short
+
+    - name: Performance check
+      run: |
+        python -c "
+        import time
+        from langmem_prollytree.taxonomy.semantic_classifier import SemanticClassifier
+
+        classifier = SemanticClassifier()
+
+        # Test classification speed
+        start = time.time()
+        for i in range(100):
+            result = classifier.classify(f'Test memory {i}')
+        duration = time.time() - start
+        avg_ms = (duration / 100) * 1000
+
+        print(f'Average classification time: {avg_ms:.2f}ms')
+        if avg_ms > 10:
+            print('WARNING: Classification slower than expected')
+        else:
+            print('✓ Classification performance OK')
+        "

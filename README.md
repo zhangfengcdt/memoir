@@ -6,21 +6,6 @@
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-Alpha-orange.svg)]()
 
-## 🚀 Executive Summary
-
-This project integrates [LangMem](https://github.com/langchain-ai/langmem)'s sophisticated memory extraction capabilities with [ProllyTree](https://github.com/dottxt-ai/prollytree)'s high-performance versioned storage to create a revolutionary AI memory system.
-
-**Key Achievement**: Reduced memory operation latency from **60 seconds p95** to **0.5-3 seconds total** while preserving all LangMem functionality.
-
-## 📊 Performance Improvements
-
-| Operation | Vanilla LangMem | With ProllyTree | Improvement |
-|-----------|-----------------|------------------|-------------|
-| **Memory Search** | 150-750ms | 0.1-1ms | **150-1500x faster** |
-| **Memory Storage** | 200-600ms | 20-30ms | **10-20x faster** |
-| **Classification** | 2-5 seconds | 1-5ms | **400-1000x faster** |
-| **Total per conversation** | 10-60 seconds | 0.5-3 seconds | **10-20x faster** |
-
 ## 🎯 Key Features
 
 ### 🧠 Semantic Memory Classification
@@ -100,40 +85,40 @@ from langmem_prollytree.taxonomy.dynamic_taxonomy import DynamicTaxonomy
 async def main():
     # Initialize LLM
     llm = ChatOpenAI(model="gpt-4", temperature=0)
-    
+
     # Create expandable taxonomy
     taxonomy = DynamicTaxonomy()
     classifier = SemanticClassifier(llm=llm, taxonomy=taxonomy)
-    
+
     # Initialize memory manager
     memory_manager = ProllyTreeMemoryStoreManager(
         prolly_path="./memory_db",
         classifier=classifier,
         enable_versioning=True
     )
-    
+
     user_id = "user123"
-    
+
     # Store memories with automatic classification
     await memory_manager.store_memory(
         content="I have 5 years of Python experience",
         namespace=user_id
     )
     # → Automatically classified to: profile.professional.skills.technical.programming
-    
+
     await memory_manager.store_memory(
         content="I prefer dark mode in my IDE",
         namespace=user_id
     )
     # → Automatically classified to: preferences.technology.ui.theme
-    
+
     # Search memories semantically
     results = await memory_manager.search_memories(
         query="What programming skills do I have?",
         namespace=user_id,
         limit=5
     )
-    
+
     for memory in results:
         print(f"{memory.content} (relevance: {memory.metadata['relevance_score']:.2f})")
 
@@ -149,7 +134,7 @@ from langchain_openai import ChatOpenAI
 llm = ChatOpenAI(model="gpt-4", temperature=0)
 
 # Anthropic Claude
-from langchain_anthropic import ChatAnthropic  
+from langchain_anthropic import ChatAnthropic
 llm = ChatAnthropic(model="claude-3-sonnet-20240229", temperature=0)
 
 # Then use with any classifier
@@ -164,7 +149,7 @@ semantic_key = await memory_manager.store_memory(
     namespace="user_id"
 )
 
-# Search memories semantically  
+# Search memories semantically
 results = await memory_manager.search_memories(
     query="Your search query",
     namespace="user_id",
