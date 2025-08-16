@@ -316,10 +316,7 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
 
         for item in context.unclassified_items[:10]:
             content = item.get("content", "")
-            if isinstance(content, str):
-                content = content[:100]
-            else:
-                content = str(content)[:100]
+            content = content[:100] if isinstance(content, str) else str(content)[:100]
             prompt_parts.append(f"  - {content}")
 
         prompt_parts.extend(
@@ -421,28 +418,106 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
         """Find the best category for an item among candidates."""
         # Enhanced heuristic with keyword matching
         content = item.get("content", "").lower()
-        
+
         # Define keyword mappings for better matching
         category_keywords = {
             "frontend": ["react", "vue", "angular", "component", "ui", "interface"],
-            "backend": ["express", "node", "api", "server", "middleware", "authentication"],
-            "machine_learning": ["ml", "model", "training", "tensorflow", "pytorch", "neural"],
+            "backend": [
+                "express",
+                "node",
+                "api",
+                "server",
+                "middleware",
+                "authentication",
+            ],
+            "machine_learning": [
+                "ml",
+                "model",
+                "training",
+                "tensorflow",
+                "pytorch",
+                "neural",
+            ],
             "api_design": ["graphql", "rest", "resolver", "endpoint", "schema"],
-            "real_time": ["websocket", "socket", "realtime", "live", "streaming"]
+            "real_time": ["websocket", "socket", "realtime", "live", "streaming"],
+            # Conversation-specific keywords
+            "outdoor_adventures": [
+                "hiking",
+                "camping",
+                "mountain",
+                "trail",
+                "nature",
+                "outdoor",
+            ],
+            "artistic_pursuits": [
+                "painting",
+                "painted",
+                "art",
+                "artist",
+                "creative",
+                "draw",
+                "canvas",
+            ],
+            "fitness_activities": [
+                "running",
+                "exercise",
+                "workout",
+                "fitness",
+                "training",
+                "gym",
+            ],
+            "reading_habits": [
+                "reading",
+                "book",
+                "novel",
+                "literature",
+                "story",
+                "chapter",
+            ],
+            "outdoor_activities": [
+                "hiking",
+                "camping",
+                "beach",
+                "outdoor",
+                "nature",
+                "mountain",
+            ],
+            "creative_expression": [
+                "painting",
+                "art",
+                "creative",
+                "artistic",
+                "draw",
+                "design",
+            ],
+            "painting_activities": [
+                "painting",
+                "painted",
+                "paint",
+                "brush",
+                "canvas",
+                "color",
+            ],
+            "hiking_trails": ["hiking", "trail", "mountain", "hike", "trek", "climb"],
         }
 
         for path in candidate_paths:
             category = path.split(".")[-1].lower()
-            
+
             # Direct category name match
             if category in content:
                 return path
-            
+
             # Keyword-based matching
             if category in category_keywords:
                 keywords = category_keywords[category]
                 if any(keyword in content for keyword in keywords):
                     return path
+
+            # Generic matching for common patterns
+            category_parts = category.split("_")
+            if any(part in content for part in category_parts if len(part) > 3):
+                return path
 
         return None
 
