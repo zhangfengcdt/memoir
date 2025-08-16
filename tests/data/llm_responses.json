@@ -1,0 +1,49 @@
+{
+  "knowledge_technical_web": {
+    "context_keywords": ["React", "Vue", "Angular", "web", "frontend", "backend"],
+    "response": "frontend\nbackend\nweb_frameworks\napi_design\nreal_time\nbuild_tools\nstate_management\nweb_standards\nmobile_web\nperformance_optimization"
+  },
+  "profile_professional_career": {
+    "context_keywords": ["Freelance", "Remote", "career", "professional", "consultant"],
+    "response": "employment_type\nwork_arrangement\nleadership_role\nindustry_sector\ncompany_stage\nspecialization\nside_projects\npublic_engagement\nconsulting_areas\nteam_structure"
+  },
+  "preferences_work_environment": {
+    "context_keywords": ["standing desk", "ergonomic", "office", "workspace", "environment"],
+    "response": "workspace_design\noffice_layout\nenvironmental_factors\namenities\nwellness_facilities\ncommute_options\ncomfort_features\nnoise_level\noffice_policies\nsustainability"
+  },
+  "experience_projects_types": {
+    "context_keywords": ["machine learning", "mobile app", "data pipeline", "microservices"],
+    "response": "machine_learning\nmobile_development\ndata_engineering\narchitecture_design\ndatabase_design\ndevops_automation\nblockchain\naugmented_reality\nrecommendation_systems\nanalytics"
+  },
+  "context_current_activities": {
+    "context_keywords": ["Debugging", "unit tests", "code review", "meeting"],
+    "response": "debugging_activity\ntesting_activity\ncode_review\nmeetings\nresearch\nrefactoring\ndocumentation\nrecruiting\nlearning\noptimization"
+  },
+  "relationships_professional_types": {
+    "context_keywords": ["mentor", "recruiter", "GitHub", "collaborator", "networking"],
+    "response": "mentors\nindustry_experts\nrecruiters\nopen_source_collaborators\nnetworking_connections\nalumni\nonline_connections\nadvisors\ninvestors\ncommunity_leaders"
+  },
+  "goals_career_aspirations": {
+    "context_keywords": ["technical lead", "SaaS product", "conference", "publication"],
+    "response": "leadership_goals\npublication_goals\nentrepreneurship\nopen_source_contribution\npublic_speaking\ncertifications_target\nrole_transition\nbusiness_ventures\nauthorship\nbrand_building"
+  },
+  "behavior_communication_patterns": {
+    "context_keywords": ["async communication", "emojis", "documentation", "feedback"],
+    "response": "async_preferences\nexpression_methods\ndocumentation_style\nfeedback_approach\nknowledge_sharing\nvisual_communication\nwriting_patterns\nteaching_methods\ncollaboration_style\nmeeting_preferences"
+  },
+  "combinations_location_technology": {
+    "context_keywords": ["Location", "Technology", "combination", "pattern"],
+    "response": "ai_in_silicon_valley\nblockchain_in_london\ncloud_computing_in_seattle\ncybersecurity_in_new_york\nquantum_computing_in_austin\nfintech_in_london\nbiotech_in_boston\ngaming_in_seattle\nadtech_in_new_york\ncleantech_in_silicon_valley"
+  },
+  "edge_case_mixed_items": {
+    "context_keywords": ["Cryptocurrency", "NFT", "interdisciplinary", "sustainability", "bioinformatics"],
+    "response": "interdisciplinary\nemerging_fields\napplied_sciences\ndigital_economy\nsustainability\ncomputational_fields\nsocial_sciences\nurban_studies\nfinancial_technology\ncreative_technology"
+  },
+  "defaults": {
+    "knowledge_technical_general": "frontend\nbackend\ndevops\ndata_science\nmachine_learning\ninfrastructure\nsecurity",
+    "profile_professional_general": "consultant\nfreelancer\nentrepreneur\nresearcher\ncontributor\nspecialist",
+    "goals_career_general": "leadership_goals\npublication_goals\nentrepreneurship\ncertifications_target\nrole_transition",
+    "preferences_work_general": "remote_work\nhybrid_work\noffice_environment\nteam_size\nwork_life_balance",
+    "fallback": "category1\ncategory2\ncategory3\ncategory4\ncategory5"
+  }
+}
