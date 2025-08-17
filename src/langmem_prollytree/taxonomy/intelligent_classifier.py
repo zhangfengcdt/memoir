@@ -825,52 +825,55 @@ class IntelligentClassifier:
         return analysis
 
     def _suggest_hierarchical_path(self, content: str, initial_path: str) -> str:
-        """Suggest a better hierarchical path based on content and existing structure."""
+        """Suggest a better hierarchical path based on content and existing taxonomy structure."""
         path_parts = initial_path.split(".")
-
-        # Analyze content for conceptual hierarchy
         content_lower = content.lower()
+        content_words = set(content_lower.split())
 
-        # Common domain patterns for better hierarchy
-        hierarchy_patterns = {
-            "knowledge": {
-                "music": ["instruments", "theory", "genres", "techniques"],
-                "programming": ["languages", "frameworks", "paradigms", "tools"],
-                "science": ["physics", "chemistry", "biology", "mathematics"],
-                "arts": ["visual", "performing", "literature", "crafts"],
-                "sports": ["team", "individual", "water", "winter", "combat"],
-            },
-            "preferences": {
-                "interface": ["theme", "layout", "controls", "accessibility"],
-                "tools": ["development", "productivity", "creative", "system"],
-                "lifestyle": ["food", "entertainment", "travel", "hobbies"],
-            },
-            "profile": {
-                "skills": ["technical", "creative", "interpersonal", "physical"],
-                "experience": ["professional", "educational", "personal", "volunteer"],
-            },
-        }
+        # Get all existing paths to learn hierarchy patterns
+        all_paths = self.taxonomy.get_all_paths()
 
-        # Try to map content to better hierarchy
+        # Analyze existing structure to find better hierarchical patterns
         if len(path_parts) >= 2:
             domain = path_parts[0]
-            area = path_parts[1] if len(path_parts) > 1 else None
 
-            if domain in hierarchy_patterns:
-                # Look for better intermediate categories
-                for pattern_area, subcategories in hierarchy_patterns[domain].items():
-                    if any(
-                        keyword in content_lower
-                        for keyword in [pattern_area, *subcategories]
-                    ):
-                        if len(path_parts) == 2:
-                            # Add intermediate level
-                            return f"{domain}.{pattern_area}.{area}"
-                        elif len(path_parts) > 3:
-                            # Restructure to use proper intermediate
-                            return f"{domain}.{pattern_area}.{'.'.join(path_parts[2:])}"
+            # Find similar content-based paths in the same domain
+            domain_paths = [p for p in all_paths if p.startswith(f"{domain}.")]
 
-        return initial_path  # Return original if no improvement found
+            best_match = None
+            best_score = 0
+
+            for existing_path in domain_paths:
+                existing_parts = existing_path.split(".")
+                if len(existing_parts) >= 3:  # Has intermediate levels
+                    # Score based on content word overlap
+                    path_words = set()
+                    for part in existing_parts:
+                        path_words.update(part.replace("_", " ").split())
+
+                    overlap = content_words.intersection(path_words)
+                    if overlap:
+                        score = len(overlap) / len(content_words.union(path_words))
+                        if score > best_score and score > 0.2:  # Minimum threshold
+                            best_match = existing_path
+                            best_score = score
+
+            # If we found a good match, suggest using its intermediate structure
+            if best_match:
+                match_parts = best_match.split(".")
+                if len(match_parts) >= 3 and len(path_parts) == 2:
+                    # Use the intermediate structure from the matching path
+                    intermediate = match_parts[1]  # Use the area from matching path
+                    final_part = path_parts[1]  # Keep our specific category
+                    return f"{domain}.{intermediate}.{final_part}"
+                elif len(match_parts) >= 3 and len(path_parts) > 3:
+                    # Restructure to use the better intermediate from matching path
+                    intermediate = match_parts[1]
+                    remaining = ".".join(path_parts[2:])
+                    return f"{domain}.{intermediate}.{remaining}"
+
+        # No improvement found based on existing structure
+        return initial_path
 
     def get_category_structure(self) -> dict:
         """Get the current category structure for passing to LLM context."""

@@ -79,117 +79,120 @@ def show_taxonomy_structure(taxonomy, title="Current Taxonomy Structure"):
             print("    └─ (empty)")
 
 
-async def demonstrate_specific_action(
-    intelligent_classifier, action_type: str, content: str
-):
-    """Demonstrate a specific classification action by manually setting confidence."""
-    from langmem_prollytree.taxonomy.intelligent_classifier import (
-        ClassificationAction,
-        ClassificationConfidence,
-        ClassificationResult,
-        MemoryAction,
-        MemoryProcessingResult,
-    )
+async def demonstrate_memory_update_actions(intelligent_classifier):
+    """Demonstrate REPLACE, APPEND, and MERGE memory actions with REAL LLM calls."""
+    print("\n" + "=" * 80)
+    print("💾 Memory Update Actions Demo (REAL LLM RESPONSES)")
+    print("=" * 80)
+    print("🤖 Using REAL LLM to decide how to handle memory updates when content")
+    print("   is stored to the same memory path multiple times...")
+    print("   (The LLM will determine whether to REPLACE, APPEND, or MERGE)")
 
-    print(f"\n🎯 Demonstrating {action_type.upper()} action:")
-    print(f'Content: "{content}"')
-    print("-" * 40)
+    # Test content for the same memory path
+    memory_path = "profile.personal.location"
+    namespace = ("memory", intelligent_classifier.taxonomy_version.value)
 
-    if action_type == "skip":
-        # Manually create a skip result
-        classification = ClassificationResult(
-            is_memory=False,
-            path=None,
-            confidence=0.0,
-            confidence_level=ClassificationConfidence.LOW,
-            reasoning="This is a simple greeting that doesn't contain memory-worthy information",
-            suggested_action=ClassificationAction.SKIP,
-        )
+    test_contents = [
+        {
+            "content": "I live in San Francisco, California",
+            "description": "Initial location storage",
+            "expected_action": "STORE",
+        },
+        {
+            "content": "I just moved to New York City",
+            "description": "Updated location - should REPLACE old location",
+            "expected_action": "REPLACE",
+        },
+        {
+            "content": "I also have a vacation home in Miami",
+            "description": "Additional location info - should APPEND",
+            "expected_action": "APPEND",
+        },
+        {
+            "content": "I frequently travel between NYC and Miami for work",
+            "description": "Related travel info - should MERGE with existing",
+            "expected_action": "MERGE",
+        },
+    ]
 
-        result = MemoryProcessingResult(
-            classification=classification,
-            memory_action=MemoryAction.SKIP,
-            storage_reasoning="Content not memory-worthy",
-        )
+    print(f"\n📍 Testing memory updates for path: {memory_path}")
+    print("-" * 50)
 
-    elif action_type == "expand":
-        # Create an expansion scenario
-        classification = ClassificationResult(
-            is_memory=True,
-            path="knowledge.quantum_computing.protocols",
-            confidence=0.3,  # Low confidence
-            confidence_level=ClassificationConfidence.LOW,
-            reasoning="Content is highly specialized and needs specific subcategories for quantum entanglement protocols",
-            suggested_action=ClassificationAction.EXPAND,
-            suggested_expansion="quantum_entanglement_protocols",
-        )
+    for i, test in enumerate(test_contents, 1):
+        print(f"\n[{i}] {test['description']}")
+        print(f'Content: "{test["content"]}"')
+        print(f"🎯 Expected action: {test['expected_action']}")
+        print("-" * 40)
 
-        result = MemoryProcessingResult(
-            classification=classification,
-            memory_action=MemoryAction.STORE,
-            memory_path="knowledge.quantum_computing.protocols",
-            new_content=content,
-            storage_reasoning="Expansion suggested due to specialized content requiring detailed categorization",
-        )
+        # Show existing content before update
+        try:
+            existing = intelligent_classifier.memory_store.get(namespace, memory_path)
+            if existing:
+                existing_content = existing.get("content", "")
+                print(
+                    f'📖 Existing content: "{existing_content[:50]}{"..." if len(existing_content) > 50 else ""}"'
+                )
+            else:
+                print("📖 No existing content")
+        except Exception:
+            print("📖 No existing content")
 
-        # Store the content
-        if intelligent_classifier.memory_store:
-            namespace = ("memory", intelligent_classifier.taxonomy_version.value)
-            intelligent_classifier.memory_store.put(
-                namespace, "knowledge.quantum_computing.protocols", {"content": content}
-            )
+        # Store content directly to trigger update logic
+        try:
+            # First store the content
+            if i == 1:
+                # First item - just store it
+                intelligent_classifier.memory_store.put(
+                    namespace,
+                    memory_path,
+                    {
+                        "content": test["content"],
+                        "metadata": {"source": "demo", "step": i},
+                    },
+                )
+                print("   ✅ Action: STORE (new memory)")
+            else:
+                # Subsequent items - use the memory update logic
+                existing_data = intelligent_classifier.memory_store.get(
+                    namespace, memory_path
+                )
+                if existing_data:
+                    # Call the update handler directly
+                    update_result = await intelligent_classifier._handle_memory_update(
+                        test["content"],
+                        existing_data,
+                        memory_path,
+                        namespace,
+                        {"source": "demo", "step": i},
+                    )
+                    actual_action = update_result["action"].value
+                    print(f"   ✅ Action: {actual_action.upper()}")
+                    print(f"   📝 Reasoning: {update_result['reasoning']}")
 
-    elif action_type == "use_parent":
-        # Create a scenario that uses parent category
-        classification = ClassificationResult(
-            is_memory=True,
-            path="preferences",  # Use broader parent instead of specific subcategory
-            confidence=0.6,
-            confidence_level=ClassificationConfidence.MEDIUM,
-            reasoning="Content is general creative activities, better suited to broader 'preferences' category rather than specific subcategory",
-            suggested_action=ClassificationAction.USE_PARENT,
-            use_parent=True,
-        )
+                    # Show the updated content
+                    updated = intelligent_classifier.memory_store.get(
+                        namespace, memory_path
+                    )
+                    if updated:
+                        new_content = updated.get("content", "")
+                        print(
+                            f'   📄 Updated content: "{new_content[:100]}{"..." if len(new_content) > 100 else ""}"'
+                        )
 
-        result = MemoryProcessingResult(
-            classification=classification,
-            memory_action=MemoryAction.STORE,
-            memory_path="preferences",
-            new_content=content,
-            storage_reasoning="Used parent category due to general nature of content",
-        )
+        except Exception as e:
+            print(f"   ❌ Error: {e}")
 
-        # Store the content
-        if intelligent_classifier.memory_store:
-            namespace = ("memory", intelligent_classifier.taxonomy_version.value)
-            intelligent_classifier.memory_store.put(
-                namespace, "preferences_general", {"content": content}
-            )
-
-    else:  # classify
-        # Normal classification
-        result = await intelligent_classifier.process_memory_with_storage(content)
-
-    # Display results
-    print("📊 Classification Results:")
-    print(f"   Memory-worthy: {result.classification.is_memory}")
-    if result.classification.is_memory:
-        print(f"   Path: {result.classification.path}")
-        print(f"   Confidence: {result.classification.confidence:.2f}")
-        print(f"   Action: {result.classification.suggested_action.value}")
-
-        if result.classification.suggested_action == ClassificationAction.EXPAND:
-            print(f"   🔄 Expansion suggested: {result.classification.reasoning}")
-        elif result.classification.suggested_action == ClassificationAction.USE_PARENT:
-            print(f"   📈 Using parent category: {result.classification.reasoning}")
-
-    print(f"   💭 Reasoning: {result.classification.reasoning}")
-
-    print("\n💾 Memory Storage Results:")
-    print(f"   Memory action: {result.memory_action.value}")
-    print(f"   Storage reasoning: {result.storage_reasoning}")
-
-    return result
+    # Show final memory state
+    print(f"\n📋 Final memory state for {memory_path}:")
+    try:
+        final_memory = intelligent_classifier.memory_store.get(namespace, memory_path)
+        if final_memory:
+            final_content = final_memory.get("content", "")
+            print(f"   {final_content}")
+        else:
+            print("   (no content)")
+    except Exception:
+        print("   (unable to retrieve)")
 
 
 async def demonstrate_intelligent_taxonomy():
@@ -295,7 +298,8 @@ async def demonstrate_intelligent_taxonomy():
         },
     ]
 
-    print(f"\n🧪 Testing {len(test_cases)} classification scenarios:")
+    print(f"\n🧪 Testing {len(test_cases)} classification scenarios with REAL LLM:")
+    print("🤖 ALL responses below come from actual GPT-4o-mini calls")
     print("📋 Demonstrating all four classification actions:")
     print("   • SKIP: Not memory-worthy content")
     print("   • CLASSIFY: High confidence, existing categories")
@@ -319,8 +323,10 @@ async def demonstrate_intelligent_taxonomy():
         stored_memories = intelligent_classifier.get_stored_memories(limit=5)
         print(f"📚 Current stored memories: {len(stored_memories)}")
 
-        # Perform complete memory processing
-        print("🤖 Processing with LLM classification and memory storage...")
+        # Perform complete memory processing with REAL LLM
+        print(
+            "🤖 REAL LLM CALL: Processing with GPT-4o-mini classification and memory storage..."
+        )
         result = await intelligent_classifier.process_memory_with_storage(
             test["content"], {"source": "demo", "step": i}
         )
@@ -448,29 +454,8 @@ async def demonstrate_intelligent_taxonomy():
     else:
         print("\n📚 No automatic expansions occurred during this demo")
 
-    # Now demonstrate each action type explicitly
-    print("\n" + "=" * 80)
-    print("🎯 EXPLICIT DEMONSTRATION OF ALL FOUR ACTIONS")
-    print("=" * 80)
-    print("The LLM sometimes gives high confidence to everything. Let's explicitly")
-    print("demonstrate each action type with controlled examples:")
-
-    explicit_demos = [
-        ("skip", "Hello there!", None),
-        ("classify", "I prefer Python for backend development", "preferences"),
-        ("use_parent", "I sometimes do creative things in my free time", "preferences"),
-        (
-            "expand",
-            "I specialize in quantum entanglement protocols for distributed systems",
-            "knowledge",
-        ),
-    ]
-
-    for action_type, content, _expected_path in explicit_demos:
-        result = await demonstrate_specific_action(
-            intelligent_classifier, action_type, content
-        )
-        print("=" * 60)
+    # Demonstrate memory update actions with real LLM calls
+    await demonstrate_memory_update_actions(intelligent_classifier)
 
     # Final analysis of hierarchical consistency
     print("\n" + "=" * 80)

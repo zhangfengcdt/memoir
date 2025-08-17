@@ -360,9 +360,14 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
             "",
             f"Current path: {context.node_path or 'root'}",
             f"Depth level: {context.current_depth}",
-            "",
-            "Existing sibling categories:",
         ]
+
+        # Add domain-specific guidance
+        domain_guidance = self._get_domain_guidance(context.node_path)
+        if domain_guidance:
+            prompt_parts.extend(["", "Domain-specific guidance:", domain_guidance])
+
+        prompt_parts.extend(["", "Existing sibling categories:"])
 
         for sibling in context.sibling_categories[:10]:
             prompt_parts.append(f"  - {sibling}")
@@ -384,16 +389,472 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
                 "",
                 f"Suggest up to {self.max_categories_per_expansion} new category names that would logically group these items.",
                 "Categories should:",
-                "1. Be semantically coherent with existing siblings",
+                "1. Be semantically coherent with existing siblings AND maintain domain consistency",
                 "2. Be at the appropriate level of specificity for this depth",
                 "3. Not duplicate existing categories",
                 "4. Follow the naming convention of siblings",
+                "5. Ensure categories belong semantically to the domain/area context",
+                "",
+                "IMPORTANT: Only suggest categories that truly belong in this domain/area.",
+                "If items seem to belong elsewhere, suggest 'needs_reclassification' instead.",
                 "",
                 "Return only the category names, one per line.",
             ]
         )
 
         return "\n".join(prompt_parts)
+
+    def _get_domain_guidance(self, node_path: str) -> str:
+        """Get dynamic domain-specific guidance for expansion based on existing taxonomy structure."""
+        if not node_path:
+            return ""
+
+        path_parts = node_path.split(".")
+        if len(path_parts) < 1:
+            return ""
+
+        domain = path_parts[0]
+        area = path_parts[1] if len(path_parts) > 1 else None
+
+        # Dynamically analyze existing taxonomy structure for this domain
+        domain_analysis = self._analyze_domain_patterns(domain, area)
+
+        guidance_parts = [f"This expansion is in the {domain}"]
+        if area:
+            guidance_parts[0] += f".{area}"
+        guidance_parts[0] += " domain."
+
+        # Add context from existing sibling areas
+        if domain_analysis["sibling_areas"]:
+            guidance_parts.append(
+                f"Related areas in {domain}: {', '.join(domain_analysis['sibling_areas'][:5])}."
+            )
+
+        # Add semantic consistency guidance based on actual taxonomy diversity
+        if domain_analysis["concept_diversity"] > 0.5:
+            guidance_parts.append(
+                "Maintain semantic consistency - avoid mixing unrelated concepts from other domains."
+            )
+
+        # Add depth-appropriate guidance
+        current_depth = len(path_parts)
+        if current_depth <= 2:
+            guidance_parts.append(
+                "Focus on creating intermediate categories that logically group related concepts."
+            )
+        else:
+            guidance_parts.append(
+                "Create specific categories that maintain the hierarchical progression."
+            )
+
+        return " ".join(guidance_parts)
+
+    def suggest_intermediate_levels(self, path: str, content: str) -> dict:
+        """
+        Dynamically suggest intermediate levels based on existing taxonomy structure and content analysis.
+
+        Args:
+            path: Current taxonomy path
+            content: Content being classified
+
+        Returns:
+            Dict with intermediate level suggestions
+        """
+        path_parts = path.split(".")
+        suggestions = []
+        reasoning = ""
+
+        # Only suggest intermediates for shallow paths (depth 1-2)
+        if len(path_parts) <= 2:
+            # Analyze existing taxonomy to find common intermediate patterns
+            intermediate_analysis = self._analyze_intermediate_patterns(path, content)
+
+            suggestions = intermediate_analysis["suggestions"]
+            reasoning = intermediate_analysis["reasoning"]
+
+        return {
+            "suggestions": suggestions,
+            "reasoning": reasoning,
+        }
+
+    def _analyze_domain_patterns(self, domain: str, area: Optional[str] = None) -> dict:
+        """
+        Dynamically analyze existing taxonomy patterns for a domain/area.
+
+        Args:
+            domain: The domain to analyze
+            area: Optional specific area within the domain
+
+        Returns:
+            Dict with domain pattern analysis
+        """
+        all_paths = self.get_all_paths()
+
+        # Find all paths in this domain
+        domain_paths = [p for p in all_paths if p.startswith(f"{domain}.")]
+
+        # Extract areas (second level categories)
+        areas = set()
+        for path in domain_paths:
+            parts = path.split(".")
+            if len(parts) >= 2:
+                areas.add(parts[1])
+
+        # Calculate concept diversity (how varied the domain is)
+        concept_diversity = (
+            len(areas) / max(len(domain_paths), 1) if domain_paths else 0
+        )
+
+        # Find sibling areas if we're analyzing a specific area
+        sibling_areas = list(areas)
+        if area and area in sibling_areas:
+            sibling_areas.remove(area)
+
+        return {
+            "sibling_areas": sibling_areas,
+            "concept_diversity": concept_diversity,
+            "total_paths": len(domain_paths),
+            "depth_distribution": self._get_depth_distribution(domain_paths),
+        }
+
+    def _analyze_intermediate_patterns(self, path: str, content: str) -> dict:
+        """
+        Analyze existing taxonomy structure to suggest intermediate levels dynamically.
+
+        Args:
+            path: Current path (domain or domain.area)
+            content: Content being classified
+
+        Returns:
+            Dict with suggested intermediate patterns
+        """
+        path_parts = path.split(".")
+        suggestions = []
+        reasoning = ""
+
+        if len(path_parts) == 1:
+            # Domain level - suggest areas based on existing taxonomy
+            domain = path_parts[0]
+            domain_analysis = self._analyze_domain_patterns(domain)
+
+            # Suggest existing areas that might match content
+            content_words = set(content.lower().split())
+            for area in domain_analysis["sibling_areas"]:
+                area_words = set(area.replace("_", " ").split())
+                if content_words.intersection(area_words):
+                    suggestions.append(f"{path}.{area}")
+
+            if suggestions:
+                reasoning = f"Suggested existing areas in {domain} domain that match content keywords"
+
+        elif len(path_parts) == 2:
+            # Area level - suggest intermediate categories based on similar paths
+            domain, area = path_parts
+
+            # Find existing paths that go deeper than current path
+            all_paths = self.get_all_paths()
+            deeper_paths = [
+                p
+                for p in all_paths
+                if p.startswith(f"{path}.") and len(p.split(".")) == 3
+            ]
+
+            if deeper_paths:
+                # Extract third-level categories
+                third_levels = [p.split(".")[2] for p in deeper_paths]
+
+                # Check which ones might match the content
+                content_lower = content.lower()
+                for third_level in set(third_levels):
+                    if third_level.lower() in content_lower or any(
+                        word in content_lower
+                        for word in third_level.replace("_", " ").split()
+                    ):
+                        suggestions.append(f"{path}.{third_level}")
+
+                if suggestions:
+                    reasoning = (
+                        f"Suggested existing subcategories in {area} that match content"
+                    )
+            else:
+                # No existing deeper paths, suggest based on common patterns
+                suggestions = self._suggest_common_intermediates(path, content)
+                if suggestions:
+                    reasoning = (
+                        "Suggested common intermediate patterns for better specificity"
+                    )
+
+        return {
+            "suggestions": suggestions,
+            "reasoning": reasoning,
+        }
+
+    def _suggest_common_intermediates(self, path: str, content: str) -> list[str]:
+        """
+        Suggest intermediate patterns based purely on learned patterns from existing taxonomy.
+        No hard-coded assumptions - only learns from actual taxonomy structure.
+        """
+        suggestions = []
+        content_lower = content.lower()
+        content_words = set(content_lower.split())
+
+        # Find similar paths in the taxonomy to learn patterns from
+        all_paths = self.get_all_paths()
+        path_parts = path.split(".")
+
+        if len(path_parts) >= 2:
+            _, area = path_parts[0], path_parts[1]
+
+            # Look for similar area patterns in any domain
+            similar_patterns = []
+            for existing_path in all_paths:
+                existing_parts = existing_path.split(".")
+                if len(existing_parts) >= 3:
+                    existing_domain, existing_area, existing_sub = existing_parts[:3]
+
+                    # Find areas with similar naming patterns or content overlap
+                    area_words = set(area.replace("_", " ").split())
+                    existing_area_words = set(existing_area.replace("_", " ").split())
+
+                    # Check for word overlap or semantic similarity
+                    word_overlap = area_words.intersection(existing_area_words)
+                    content_overlap = content_words.intersection(
+                        set(existing_sub.replace("_", " ").split())
+                    )
+
+                    if word_overlap or content_overlap:
+                        similar_patterns.append(existing_sub)
+
+            # Extract the most relevant patterns based on content matching
+            pattern_scores = {}
+            for pattern in set(similar_patterns):
+                pattern_words = set(pattern.replace("_", " ").split())
+                overlap = content_words.intersection(pattern_words)
+                if overlap:
+                    pattern_scores[pattern] = len(overlap)
+
+            # Suggest top scoring patterns
+            if pattern_scores:
+                sorted_patterns = sorted(
+                    pattern_scores.items(), key=lambda x: x[1], reverse=True
+                )
+                for pattern, _score in sorted_patterns[:3]:  # Top 3 suggestions
+                    suggestions.append(f"{path}.{pattern}")
+
+        return suggestions
+
+    def _get_depth_distribution(self, paths: list[str]) -> dict:
+        """Get the distribution of path depths."""
+        depth_counts = {}
+        for path in paths:
+            depth = len(path.split("."))
+            depth_counts[depth] = depth_counts.get(depth, 0) + 1
+        return depth_counts
+
+    def _validate_with_learned_patterns(
+        self, domain: str, area: str, content_lower: str
+    ) -> dict:
+        """
+        Validate domain/area using purely learned patterns from existing taxonomy structure.
+        No hard-coded rules - everything is learned from actual usage patterns.
+
+        Args:
+            domain: Domain to validate
+            area: Area within domain to validate
+            content_lower: Lowercase content to check
+
+        Returns:
+            Dict with validation info and keywords to use
+        """
+        # Only use learned patterns from existing taxonomy - no hard-coded rules
+        learned_keywords = self._extract_keywords_from_taxonomy(domain, area)
+
+        return {
+            "has_rules": len(learned_keywords) > 0,
+            "keywords": learned_keywords,
+        }
+
+    def _extract_keywords_from_taxonomy(self, domain: str, area: str) -> list[str]:
+        """
+        Extract keywords from existing taxonomy paths and content for this domain.area.
+
+        This allows the system to learn validation patterns from actual usage.
+        """
+        keywords = []
+        all_paths = self.get_all_paths()
+
+        # Find paths in this domain.area
+        area_paths = [p for p in all_paths if p.startswith(f"{domain}.{area}.")]
+
+        # Extract keywords from path components
+        for path in area_paths:
+            parts = path.split(".")[2:]  # Skip domain.area
+            for part in parts:
+                # Convert underscore/camelCase to words
+                words = part.replace("_", " ").lower().split()
+                keywords.extend(words)
+
+        # Could also extract from stored content in 'other' nodes (future enhancement)
+
+        return list(set(keywords))
+
+    def _validate_with_structure_analysis(self, path: str, content: str) -> dict:
+        """
+        Validate using structural analysis when no specific rules exist.
+
+        This is the fallback for completely new domains/areas.
+        """
+        path_parts = path.split(".")
+        domain = path_parts[0]
+
+        # Check if content seems related to any existing paths in this domain
+        all_paths = self.get_all_paths()
+        domain_paths = [p for p in all_paths if p.startswith(f"{domain}.")]
+
+        if not domain_paths:
+            # Brand new domain - assume valid
+            return {"valid": True, "confidence": 0.5, "issues": [], "suggestions": []}
+
+        # Analyze similarity to existing paths
+        content_words = set(content.lower().split())
+
+        # Find most similar existing paths
+        similarities = []
+        for existing_path in domain_paths:
+            path_words = set()
+            for part in existing_path.split("."):
+                path_words.update(part.replace("_", " ").split())
+
+            intersection = content_words.intersection(path_words)
+            if intersection:
+                similarity = len(intersection) / len(content_words.union(path_words))
+                similarities.append((existing_path, similarity))
+
+        if similarities:
+            similarities.sort(key=lambda x: x[1], reverse=True)
+            best_match = similarities[0]
+
+            if best_match[1] > 0.3:  # Good similarity
+                return {
+                    "valid": True,
+                    "confidence": 0.8,
+                    "issues": [],
+                    "suggestions": [],
+                }
+            else:
+                # Suggest the best matching path
+                return {
+                    "valid": False,
+                    "confidence": 0.4,
+                    "issues": [
+                        f"Content doesn't seem to match {path} based on structural analysis"
+                    ],
+                    "suggestions": [best_match[0]],
+                }
+
+        # No similar paths found - might be misclassified
+        return {
+            "valid": False,
+            "confidence": 0.2,
+            "issues": [f"Content doesn't seem to match existing patterns in {domain}"],
+            "suggestions": [],
+        }
+
+    def analyze_path_quality(self, path: str, content: str) -> dict:
+        """
+        Comprehensive analysis of classification path quality.
+
+        Args:
+            path: Taxonomy path to analyze
+            content: Content being classified
+
+        Returns:
+            Dict with comprehensive quality analysis
+        """
+        analysis = {
+            "overall_score": 0.0,
+            "domain_consistency": {},
+            "intermediate_suggestions": {},
+            "depth_analysis": {},
+            "recommendations": [],
+        }
+
+        # 1. Domain consistency analysis
+        domain_validation = self.validate_domain_consistency(path, content)
+        analysis["domain_consistency"] = domain_validation
+
+        # 2. Intermediate level suggestions
+        intermediate_analysis = self.suggest_intermediate_levels(path, content)
+        analysis["intermediate_suggestions"] = intermediate_analysis
+
+        # 3. Depth analysis
+        path_parts = path.split(".")
+        depth = len(path_parts)
+
+        analysis["depth_analysis"] = {
+            "current_depth": depth,
+            "optimal_range": "2-4 levels",
+            "is_optimal": 2 <= depth <= 4,
+            "issues": [],
+        }
+
+        if depth == 1:
+            analysis["depth_analysis"]["issues"].append(
+                "Too broad - needs more specificity"
+            )
+        elif depth > 4:
+            analysis["depth_analysis"]["issues"].append(
+                "Too deep - may be overly specific"
+            )
+
+        # 4. Calculate overall score
+        score = 0.0
+
+        # Domain consistency (40% weight)
+        if domain_validation["valid"]:
+            score += 0.4 * domain_validation["confidence"]
+
+        # Depth appropriateness (30% weight)
+        if 2 <= depth <= 4:
+            score += 0.3
+        elif depth == 1:
+            score += 0.1  # Very broad
+        elif depth > 4:
+            score += 0.2  # Too specific
+
+        # Path completeness (30% weight)
+        if intermediate_analysis["suggestions"]:
+            score += 0.1  # Some issues but fixable
+        else:
+            score += 0.3  # No obvious missing levels
+
+        analysis["overall_score"] = min(1.0, score)
+
+        # 5. Generate recommendations
+        recommendations = []
+
+        if not domain_validation["valid"]:
+            recommendations.append(
+                f"Domain mismatch detected. Consider: {', '.join(domain_validation['suggestions'][:2])}"
+            )
+
+        if intermediate_analysis["suggestions"]:
+            recommendations.append(
+                f"Add intermediate level: {intermediate_analysis['suggestions'][0]}"
+            )
+
+        if depth == 1:
+            recommendations.append(
+                "Classification too broad - add more specific categories"
+            )
+        elif depth > 4:
+            recommendations.append(
+                "Classification too specific - consider using parent category"
+            )
+
+        analysis["recommendations"] = recommendations
+
+        return analysis
 
     async def _call_llm(self, prompt: str) -> str:
         """Call the LLM with the prompt."""
@@ -801,6 +1262,87 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
         taxonomy_dict = node_to_dict(self.root)
         return json.dumps(taxonomy_dict, indent=2)
 
+    def validate_domain_consistency(self, path: str, content: str) -> dict:
+        """
+        Validate if content semantically belongs in the domain/area of the given path.
+
+        Args:
+            path: The taxonomy path to validate
+            content: The content being classified
+
+        Returns:
+            Dict with validation results and suggestions
+        """
+        path_parts = path.split(".")
+        if len(path_parts) < 2:
+            return {"valid": True, "confidence": 1.0, "issues": [], "suggestions": []}
+
+        domain = path_parts[0]
+        area = path_parts[1]
+        content_lower = content.lower()
+
+        # Use dynamic validation combining core rules with learned patterns
+        validation_result = self._validate_with_learned_patterns(
+            domain, area, content_lower
+        )
+
+        if validation_result["has_rules"]:
+            area_keywords = validation_result["keywords"]
+        else:
+            # No specific rules - use taxonomy structure analysis
+            return self._validate_with_structure_analysis(path, content)
+
+        # Check if content contains keywords relevant to this area
+        content_matches_area = any(
+            keyword in content_lower for keyword in area_keywords
+        )
+
+        if content_matches_area:
+            return {"valid": True, "confidence": 0.9, "issues": [], "suggestions": []}
+
+        # Content doesn't match - find better alternatives using dynamic analysis
+        suggestions = []
+
+        # Check other areas in same domain
+        domain_analysis = self._analyze_domain_patterns(domain)
+        for other_area in domain_analysis["sibling_areas"]:
+            if other_area != area:
+                other_validation = self._validate_with_learned_patterns(
+                    domain, other_area, content_lower
+                )
+                if other_validation["has_rules"]:
+                    other_keywords = other_validation["keywords"]
+                    if any(keyword in content_lower for keyword in other_keywords):
+                        suggestions.append(f"{domain}.{other_area}")
+
+        # Check if content might belong to different domain entirely
+        all_paths = self.get_all_paths()
+        domains = list({p.split(".")[0] for p in all_paths if "." in p})
+
+        for other_domain in domains:
+            if other_domain != domain:
+                other_domain_analysis = self._analyze_domain_patterns(other_domain)
+                for other_area in other_domain_analysis["sibling_areas"]:
+                    other_validation = self._validate_with_learned_patterns(
+                        other_domain, other_area, content_lower
+                    )
+                    if other_validation["has_rules"]:
+                        other_keywords = other_validation["keywords"]
+                        if any(keyword in content_lower for keyword in other_keywords):
+                            suggestions.append(f"{other_domain}.{other_area}")
+                            break  # Only suggest one from each domain
+
+        issues = [
+            f"Content doesn't seem to match {domain}.{area} based on semantic analysis"
+        ]
+
+        return {
+            "valid": False,
+            "confidence": 0.3,
+            "issues": issues,
+            "suggestions": suggestions[:3],  # Limit to top 3 suggestions
+        }
+
     def track_classification(
         self, path: str, content: str, metadata: Optional[dict] = None
     ) -> bool:
@@ -819,6 +1361,18 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
             True if expansion was triggered, False otherwise
         """
         import time
+
+        # Validate domain consistency first
+        validation = self.validate_domain_consistency(path, content)
+        if not validation["valid"] and validation["suggestions"]:
+            logger.warning(
+                f"Domain consistency issue for path '{path}': {validation['issues'][0]}. "
+                f"Suggested alternatives: {', '.join(validation['suggestions'])}"
+            )
+            # Add to metadata for tracking
+            if metadata is None:
+                metadata = {}
+            metadata["domain_validation"] = validation
 
         # Find the node for this path
         node = self.path_index.get(path)
