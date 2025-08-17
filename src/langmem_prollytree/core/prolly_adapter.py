@@ -13,6 +13,7 @@ from langgraph.store.base import BaseStore
 from prollytree import ProllyTree, VersionedKvStore
 from pydantic import BaseModel, Field
 
+from langmem_prollytree.search.hierarchical_search import HierarchicalSearchEngine
 from langmem_prollytree.taxonomy.semantic_classifier import SemanticClassifier
 from langmem_prollytree.taxonomy.semantic_taxonomy import get_taxonomy
 
@@ -106,6 +107,11 @@ class ProllyTreeStore(BaseStore):
             )
         self.classifier = classifier
 
+        # Initialize search engine
+        self.search_engine = HierarchicalSearchEngine(
+            store=self, classifier=classifier, min_results=5
+        )
+
         # Performance tracking
         self._stats = {"reads": 0, "writes": 0, "searches": 0, "classifications": 0}
 
@@ -188,10 +194,6 @@ class ProllyTreeStore(BaseStore):
             logger.error(f"Error searching namespace {namespace}: {e}")
 
         return results
-
-    async def asearch(self, namespace: tuple, path_prefix: str = "") -> list[tuple]:
-        """Async version of search method."""
-        return self.search(namespace, limit=1000)
 
     def put(self, namespace: tuple, key: str, value: dict) -> None:
         """Store a value in a namespace."""
@@ -328,11 +330,33 @@ class ProllyTreeStore(BaseStore):
 
             return item
 
-    def retrieve_memories(
+    async def asearch(self, namespace: str, path_prefix: str) -> list[tuple[str, Any]]:
+        """
+        Async search for items with a given path prefix.
+        Used by HierarchicalSearchEngine.
+
+        Args:
+            namespace: User namespace
+            path_prefix: Path prefix to search for
+
+        Returns:
+            List of (key, data) tuples
+        """
+        # Use synchronous search with prefix
+        results = []
+        search_results = self.search((namespace,), limit=100)
+
+        for _, key, data in search_results:
+            if key.startswith(path_prefix):
+                results.append((key, data))
+
+        return results
+
+    async def retrieve_memories_async(
         self, namespace: str, query: str, limit: int = 10
     ) -> list[MemoryItem]:
         """
-        Retrieve memories using semantic search.
+        Retrieve memories using semantic search (async version).
 
         Args:
             namespace: User/agent namespace
@@ -342,12 +366,15 @@ class ProllyTreeStore(BaseStore):
         Returns:
             List of matching memory items
         """
-        # Use hierarchical search for better results
-        search_results = self.search((namespace,), limit=limit)
+        # Use the hierarchical search engine to find relevant memories
+        search_results = await self.search_engine.search(query, namespace)
 
+        # Convert search results to memory items
         memories = []
-        for _, _key, data in search_results:
-            if isinstance(data, dict):
+        for result in search_results[:limit]:
+            # Get the actual memory data from the store
+            data = self.get((namespace,), result.key)
+            if data and isinstance(data, dict):
                 try:
                     memory = MemoryItem(**data)
                     memories.append(memory)
@@ -355,6 +382,41 @@ class ProllyTreeStore(BaseStore):
                     logger.warning(f"Failed to parse memory item: {e}")
 
         return memories
+
+    def retrieve_memories(
+        self, namespace: str, query: str, limit: int = 10
+    ) -> list[MemoryItem]:
+        """
+        Retrieve memories using semantic search (sync fallback).
+
+        Note: This is a simple fallback. For proper semantic search,
+        use retrieve_memories_async() which leverages the HierarchicalSearchEngine.
+
+        Args:
+            namespace: User/agent namespace
+            query: Search query
+            limit: Maximum number of results
+
+        Returns:
+            List of matching memory items
+        """
+        logger.warning(
+            "Using fallback sync search. For better results, use retrieve_memories_async()"
+        )
+
+        # Simple fallback - just return all memories
+        all_memories = []
+        search_results = self.search((namespace,), limit=limit)
+
+        for _, _key, data in search_results:
+            if isinstance(data, dict):
+                try:
+                    memory = MemoryItem(**data)
+                    all_memories.append(memory)
+                except Exception as e:
+                    logger.warning(f"Failed to parse memory item: {e}")
+
+        return all_memories
 
     def get_statistics(self) -> dict[str, Any]:
         """Get store statistics."""

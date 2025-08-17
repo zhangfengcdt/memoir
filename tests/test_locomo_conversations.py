@@ -467,26 +467,34 @@ class TestLocomoConversationTaxonomy:
         taxonomy = locomo_taxonomy
 
         # Simulate conversation memory expansion
-        from langmem_prollytree.taxonomy.dynamic_taxonomy import TaxonomyExpansionResult
+        from langmem_prollytree.taxonomy.iterative_taxonomy import (
+            TaxonomyExpansionResult,
+        )
 
         expansions = [
             TaxonomyExpansionResult(
+                parent_path="conversation.personal.other",
                 new_paths=[
                     "conversation.personal.identity_exploration",
                     "conversation.personal.LGBTQ_community",
                 ],
                 migrated_items=12,
-                suggested_paths=[],
+                confidence=0.85,
+                strategy="focused_subtree",
                 reasoning="Expanded identity conversation categories",
+                timestamp=1640995400.0,
             ),
             TaxonomyExpansionResult(
+                parent_path="conversation.topics.other",
                 new_paths=[
                     "conversation.topics.outdoor_adventures",
                     "conversation.topics.artistic_pursuits",
                 ],
                 migrated_items=8,
-                suggested_paths=[],
+                confidence=0.80,
+                strategy="focused_subtree",
                 reasoning="Expanded activity conversation categories",
+                timestamp=1640995500.0,
             ),
         ]
 

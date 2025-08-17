@@ -29,22 +29,73 @@ class MockLLM:
 
     async def ainvoke(self, prompt: str):
         """Simulate LLM classification based on content keywords."""
-        content = prompt.lower()
+        # Extract the actual memory content from the prompt
+        if "MEMORY CONTENT:" in prompt:
+            start = prompt.find("MEMORY CONTENT:") + len("MEMORY CONTENT:")
+            end = prompt.find("\n\n", start)
+            if end == -1:
+                end = prompt.find("AVAILABLE TAXONOMY", start)
+            if end == -1:
+                content = prompt[start:].strip().lower()
+            else:
+                content = prompt[start:end].strip().lower()
+        else:
+            content = prompt.lower()
 
-        # Simple rule-based classification for demo
-        if any(word in content for word in ["dark mode", "light mode", "theme"]):
-            path = "preferences.interface.theme"
-        elif any(word in content for word in ["python", "javascript", "rust"]):
-            path = "profile.professional.skills.technical.programming"
-        elif any(word in content for word in ["coffee", "tea", "drink"]):
-            path = "preferences.personal.lifestyle.beverages"
-        elif any(word in content for word in ["name", "called", "i'm", "i am"]):
+        # More sophisticated rule-based classification for demo
+        if any(
+            word in content
+            for word in ["name", "sarah", "johnson", "years old", "age", "32"]
+        ):
             path = "profile.personal.identity.name"
+            confidence = 0.95
+        elif any(
+            word in content
+            for word in ["engineer", "techcorp", "san francisco", "work as"]
+        ):
+            path = "profile.professional.current.role"
+            confidence = 0.90
+        elif any(
+            word in content for word in ["dark mode", "light mode", "theme", "monokai"]
+        ):
+            path = "preferences.interface.theme"
+            confidence = 0.85
+        elif any(
+            word in content
+            for word in ["python", "javascript", "programming language", "frontend"]
+        ):
+            path = "profile.professional.skills.technical.programming"
+            confidence = 0.90
+        elif any(
+            word in content
+            for word in ["coffee", "espresso", "oat milk", "drink", "morning"]
+        ):
+            path = "preferences.personal.lifestyle.beverages"
+            confidence = 0.85
+        elif any(
+            word in content
+            for word in ["experience", "machine learning", "data science", "8 years"]
+        ):
+            path = "experience.professional.expertise"
+            confidence = 0.85
+        elif any(
+            word in content
+            for word in ["ide", "vs code", "editor", "development environment"]
+        ):
+            path = "preferences.work.tools.development"
+            confidence = 0.85
+        elif any(
+            word in content
+            for word in ["graduated", "stanford", "degree", "2014", "university"]
+        ):
+            path = "profile.personal.education.history"
+            confidence = 0.90
         else:
             path = "context.conversation.recent"
+            confidence = 0.50
 
         class Response:
-            content = f'{{"primary_path": "{path}", "confidence": 0.85, "alternative_paths": [], "reasoning": "Classified based on keywords"}}'
+            content = f'{{"primary_path": "{path}", "confidence": {confidence}, "alternative_paths": [], "reasoning": "Classified based on content analysis"}}'
 
         return Response()
 
@@ -100,8 +151,8 @@ async def main():
         # This uses GPT to intelligently expand the taxonomy based on unclassified content
         taxonomy = LLMIterativeTaxonomy(
             llm=llm,  # Same LLM used for expansion
-            min_items_threshold=3,  # Expand after 3 items in 'other'
-            enable_combinations=True,  # Enable pattern-based combinations
+            min_items_threshold=3,
+            enable_combinations=True,
         )
         classifier = SemanticClassifier(llm=llm, taxonomy=taxonomy)
 
@@ -123,9 +174,14 @@ async def main():
         print("\n3. Storing memories with semantic classification:")
 
         memories_to_store = [
-            "Remember that I prefer dark mode.",
-            "I mainly work with Python and sometimes JavaScript.",
-            "Coffee is my favorite morning drink.",
+            "My name is Sarah Johnson and I'm 32 years old.",
+            "I work as a senior software engineer at TechCorp in San Francisco.",
+            "I prefer dark mode in all my development environments and applications.",
+            "My primary programming language is Python, but I also use JavaScript for frontend work.",
+            "I drink coffee every morning, specifically a double espresso with oat milk.",
+            "I have 8 years of experience in machine learning and data science.",
+            "My favorite IDE is VS Code with the Monokai Pro theme.",
+            "I graduated from Stanford University with a Computer Science degree in 2014.",
         ]
 
         for i, memory_text in enumerate(memories_to_store, 1):
@@ -137,25 +193,35 @@ async def main():
         # Retrieve stored memories
         print("\n4. Retrieving memories with intelligent search:")
 
-        # Search for lighting preferences
-        results = store.retrieve_memories(
-            user_id, "What are my lighting preferences?", limit=3
+        # Search for personal information
+        results = await store.retrieve_memories_async(
+            user_id, "What is the user's name and age?", limit=3
         )
-        print("\n   🔍 Query: 'What are my lighting preferences?'")
+        print("\n   🔍 Query: 'What is the user's name and age?'")
         if results:
             print(f"   📝 Found: {results[0].content}")
 
-        # Search for programming languages
-        results = store.retrieve_memories(
-            user_id, "What programming languages do I use?", limit=3
+        # Search for work information
+        results = await store.retrieve_memories_async(
+            user_id, "Where does the user work and what is their role?", limit=3
         )
-        print("\n   🔍 Query: 'What programming languages do I use?'")
+        print("\n   🔍 Query: 'Where does the user work and what is their role?'")
+        if results:
+            print(f"   📝 Found: {results[0].content}")
+
+        # Search for UI preferences
+        results = await store.retrieve_memories_async(
+            user_id, "What are the user's IDE and theme preferences?", limit=3
+        )
+        print("\n   🔍 Query: 'What are the user's IDE and theme preferences?'")
         if results:
             print(f"   📝 Found: {results[0].content}")
 
         # Search for beverage preferences
-        results = store.retrieve_memories(user_id, "What do I like to drink?", limit=3)
-        print("\n   🔍 Query: 'What do I like to drink?'")
+        results = await store.retrieve_memories_async(
+            user_id, "What does the user drink in the morning?", limit=3
+        )
+        print("\n   🔍 Query: 'What does the user drink in the morning?'")
         if results:
             print(f"   📝 Found: {results[0].content}")
 

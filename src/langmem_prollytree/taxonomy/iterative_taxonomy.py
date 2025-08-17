@@ -7,8 +7,9 @@ Implements iterative, focused subtree expansion with GPT-4.
 import asyncio
 import json
 import logging
+import time
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from typing import Any, Optional
@@ -16,10 +17,39 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field
 
 from .base import BaseTaxonomy
-from .dynamic_taxonomy import DynamicNode, TaxonomyExpansionResult
+
+# Define classes that were previously in dynamic_taxonomy
 from .semantic_taxonomy import SemanticTaxonomy, get_taxonomy
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class DynamicNode:
+    """Represents a node in the dynamic taxonomy tree."""
+
+    path: str
+    category: Optional[str]
+    depth: int
+    is_leaf: bool
+    is_dynamic: bool
+    created_at: datetime
+    children: dict[str, "DynamicNode"] = field(default_factory=dict)
+    other_items: list[dict[str, Any]] = field(default_factory=list)
+    item_count: int = field(default=0)
+
+
+class TaxonomyExpansionResult(BaseModel):
+    """Result of a taxonomy expansion operation."""
+
+    parent_path: str = Field(description="Path of the expanded parent node")
+    new_paths: list[str] = Field(description="New taxonomy paths created")
+    migrated_items: int = Field(description="Number of items migrated to new paths")
+    confidence: float = Field(description="Confidence in the expansion quality")
+    strategy: str = Field(description="Strategy used for expansion")
+    reasoning: str = Field(description="Human-readable reasoning for expansion")
+    timestamp: float = Field(description="When the expansion occurred")
+
 
 # Configuration constants
 MIN_ITEMS_FOR_EXPANSION = 5  # Minimum items in 'other' before LLM expansion
@@ -163,10 +193,13 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
         """
         if node_path not in self.path_index:
             return TaxonomyExpansionResult(
+                parent_path=node_path,
                 new_paths=[],
                 migrated_items=0,
-                suggested_paths=[],
+                confidence=0.0,
+                strategy=self.expansion_strategy.value,
                 reasoning="Node not found",
+                timestamp=time.time(),
             )
 
         node = self.path_index[node_path]
@@ -174,10 +207,13 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
         # Check if enough items for expansion
         if len(node.other_items) < self.min_items_threshold:
             return TaxonomyExpansionResult(
+                parent_path=node_path,
                 new_paths=[],
                 migrated_items=0,
-                suggested_paths=[],
+                confidence=0.0,
+                strategy=self.expansion_strategy.value,
                 reasoning=f"Insufficient items ({len(node.other_items)} < {self.min_items_threshold})",
+                timestamp=time.time(),
             )
 
         # Mark as active expansion
@@ -212,10 +248,13 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
             migrated_count = await self._reclassify_items(node, new_paths)
 
             result = TaxonomyExpansionResult(
+                parent_path=node_path,
                 new_paths=new_paths,
                 migrated_items=migrated_count,
-                suggested_paths=[],
+                confidence=0.8,  # Default confidence for LLM expansion
+                strategy=self.expansion_strategy.value,
                 reasoning=f"LLM-driven expansion created {len(new_paths)} categories from {len(node.other_items)} items",
+                timestamp=time.time(),
             )
 
             self.expansion_history.append(result)
@@ -744,6 +783,108 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
         taxonomy_dict = node_to_dict(self.root)
         return json.dumps(taxonomy_dict, indent=2)
 
+    def track_classification(
+        self, path: str, content: str, metadata: Optional[dict] = None
+    ) -> bool:
+        """
+        Track a classification result and trigger expansion if needed.
+
+        This method should be called by the semantic_classifier whenever
+        content is classified to help the iterative taxonomy learn and expand.
+
+        Args:
+            path: The classified path
+            content: The content that was classified
+            metadata: Optional metadata about the classification
+
+        Returns:
+            True if expansion was triggered, False otherwise
+        """
+        import time
+
+        # Find the node for this path
+        node = self.path_index.get(path)
+        if not node:
+            return False
+
+        # If this is an 'other' path, track the item for future expansion
+        if path.endswith(".other"):
+            if not hasattr(node, "other_items"):
+                node.other_items = []
+
+            # Add item with metadata
+            item_data = {
+                "content": content,
+                "timestamp": time.time(),
+                "metadata": metadata or {},
+            }
+            node.other_items.append(item_data)
+
+            # Check if we should trigger expansion
+            if len(node.other_items) >= self.min_items_threshold:
+                # Mark for expansion
+                if path not in self.active_expansions:
+                    logger.info(
+                        f"Path {path} ready for expansion with {len(node.other_items)} items"
+                    )
+                return True
+
+        return False
+
+    def get_classification_hints(self, content: str) -> dict[str, Any]:
+        """
+        Get hints for better classification based on similar content in 'other' paths.
+
+        This helps the semantic_classifier make better decisions by learning
+        from previously unclassified content.
+
+        Args:
+            content: Content to get hints for
+
+        Returns:
+            Dictionary with classification hints
+        """
+        hints = {
+            "suggested_paths": [],
+            "avoid_paths": [],
+            "similar_content": [],
+            "expansion_candidates": [],
+        }
+
+        content_lower = content.lower()
+
+        # Look through 'other' paths for similar content
+        for path, node in self.path_index.items():
+            if path.endswith(".other") and hasattr(node, "other_items"):
+                for item in node.other_items:
+                    item_content = item.get("content", "").lower()
+
+                    # Simple similarity check
+                    common_words = set(content_lower.split()) & set(
+                        item_content.split()
+                    )
+                    if len(common_words) >= 2:  # At least 2 common words
+                        hints["similar_content"].append(
+                            {
+                                "path": path,
+                                "content": item.get("content"),
+                                "similarity": len(common_words),
+                            }
+                        )
+
+                        # Suggest the parent path instead of 'other'
+                        parent_path = ".".join(path.split(".")[:-1])
+                        if parent_path and parent_path not in hints["suggested_paths"]:
+                            hints["suggested_paths"].append(parent_path)
+
+                # Mark paths with many items as expansion candidates
+                if len(node.other_items) >= self.min_items_threshold - 1:
+                    hints["expansion_candidates"].append(
+                        {"path": path, "item_count": len(node.other_items)}
+                    )
+
+        return hints
+
     def get_expansion_statistics(self) -> dict[str, Any]:
         """Get detailed statistics about expansions."""
         stats = {
@@ -759,7 +900,7 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
 
         for node in self.path_index.values():
             stats["depth_distribution"][node.depth] += 1
-            if node.path.endswith(".other"):
+            if node.path.endswith(".other") and hasattr(node, "other_items"):
                 stats["items_in_other"] += len(node.other_items)
 
         return stats

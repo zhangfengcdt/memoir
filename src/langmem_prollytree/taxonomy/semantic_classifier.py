@@ -179,14 +179,27 @@ MEMORY CONTENT:
 AVAILABLE TAXONOMY STRUCTURE:
 {taxonomy_structure}
 
+{classification_hints}
+
 CLASSIFICATION GUIDELINES:
-1. Choose the most specific path that accurately fits the memory content
-2. If the content doesn't clearly fit existing paths, use an appropriate 'other' category if available
+1. Match content to the MOST SPECIFIC appropriate path:
+   - Personal name → profile.personal.identity.name
+   - Personal age → profile.personal.identity.age
+   - Work role/title → profile.professional.current.position.title
+   - Company name → profile.professional.current.company.name
+   - Education/degrees → profile.professional.education.formal.degrees
+   - Programming languages → profile.professional.skills.technical.programming.languages
+   - ML/AI experience → profile.professional.skills.technical.data.ml
+   - IDE preferences → preferences.technology.programming.tools.ides
+   - Theme preferences → preferences.interface.theme
+   - Beverages → preferences.personal.lifestyle.beverages
+   - Years of experience → profile.professional.skills.technical.programming.years
+2. AVOID generic paths like 'context.current' unless content is truly about the current conversation
 3. Consider confidence level:
    - High confidence (0.8-1.0): Very specific and accurate path match
    - Medium confidence (0.5-0.7): Reasonable fit but could be broader
    - Low confidence (0.0-0.4): Content is unclear or doesn't fit well
-4. When unsure, prefer broader/higher-level categories over forcing specific ones
+4. When unsure, use the most specific relevant category, NOT generic context paths
 
 {examples}
 
@@ -236,28 +249,40 @@ CRITICAL: Return ONLY the JSON object, no explanations, no markdown formatting."
             # Select diverse paths for examples (avoid being too specific to any domain)
             example_templates = [
                 {
-                    "memory": "User's name is {example_name}",
-                    "pattern": "identity.name",
+                    "memory": "My name is {example_name} and I'm 28 years old",
+                    "pattern": "profile.personal.identity",
                     "confidence": 0.95,
-                    "reasoning": "Direct personal name information - high confidence",
+                    "reasoning": "Personal identity information - name and age",
                 },
                 {
-                    "memory": "Prefers {example_preference}",
-                    "pattern": "preferences",
-                    "confidence": 0.9,
-                    "reasoning": "Clear preference information",
+                    "memory": "I work as a software engineer at Google",
+                    "pattern": "profile.professional.current",
+                    "confidence": 0.90,
+                    "reasoning": "Current professional role and company",
                 },
                 {
-                    "memory": "Has experience with {example_skill}",
-                    "pattern": "skills",
+                    "memory": "I graduated from MIT with a CS degree",
+                    "pattern": "profile.professional.education.formal",
+                    "confidence": 0.90,
+                    "reasoning": "Formal education history",
+                },
+                {
+                    "memory": "My favorite IDE is {example_tool}",
+                    "pattern": "preferences.technology.programming.tools",
                     "confidence": 0.85,
-                    "reasoning": "Professional skill or experience information",
+                    "reasoning": "Tool/IDE preference",
                 },
                 {
-                    "memory": "Enjoys {example_hobby} as a hobby",
-                    "pattern": "other",
-                    "confidence": 0.6,
-                    "reasoning": "Personal interest - using appropriate category or 'other' if no specific match",
+                    "memory": "I have 5 years of experience in {example_skill}",
+                    "pattern": "profile.professional.skills.technical",
+                    "confidence": 0.85,
+                    "reasoning": "Professional skill with experience duration",
+                },
+                {
+                    "memory": "I prefer {example_preference} for my morning routine",
+                    "pattern": "preferences.personal.lifestyle",
+                    "confidence": 0.80,
+                    "reasoning": "Personal lifestyle preference",
                 },
             ]
 
@@ -270,9 +295,9 @@ CRITICAL: Return ONLY the JSON object, no explanations, no markdown formatting."
                         {
                             "memory": template["memory"].format(
                                 example_name="John Smith",
-                                example_preference="dark mode in IDEs",
-                                example_skill="Python programming",
-                                example_hobby="vintage typewriters",
+                                example_tool="VS Code",
+                                example_skill="machine learning",
+                                example_preference="coffee",
                             ),
                             "path": matching_path,
                             "confidence": template["confidence"],
@@ -375,12 +400,33 @@ CRITICAL: Return ONLY the JSON object, no explanations, no markdown formatting."
                 logger.debug(f"Cache hit for classification: {cache_key}")
                 return self._cache[cache_key]
 
+        # Get iterative taxonomy hints to include in prompt
+        classification_hints = ""
+        if hasattr(self.taxonomy, "get_classification_hints"):
+            hints = self.taxonomy.get_classification_hints(memory_content)
+            if hints.get("suggested_paths") or hints.get("expansion_candidates"):
+                classification_hints = "\nCLASSIFICATION HINTS:\n"
+                if hints.get("suggested_paths"):
+                    classification_hints += f"Similar content previously found in: {', '.join(hints['suggested_paths'][:3])}\n"
+                if hints.get("expansion_candidates"):
+                    candidates = [
+                        f"{item['path']} ({item['item_count']} items)"
+                        for item in hints["expansion_candidates"][:3]
+                    ]
+                    classification_hints += (
+                        f"Paths ready for expansion: {', '.join(candidates)}\n"
+                    )
+                classification_hints += (
+                    "Consider these hints when choosing the most appropriate path.\n"
+                )
+
         # Prepare prompt
         prompt_vars = {
             "memory_content": memory_content,
             "context_info": self._get_context_info(context),
             "taxonomy_structure": self._get_taxonomy_structure_info(),
             "examples": self._get_classification_examples(),
+            "classification_hints": classification_hints,
         }
 
         # Run classification
@@ -423,6 +469,26 @@ CRITICAL: Return ONLY the JSON object, no explanations, no markdown formatting."
 
             result = ClassificationResult(**result_dict)
 
+            # Get classification hints from iterative taxonomy before processing
+            hints = None
+            if hasattr(self.taxonomy, "get_classification_hints"):
+                hints = self.taxonomy.get_classification_hints(memory_content)
+
+                # Apply hints to improve classification
+                if hints.get("suggested_paths"):
+                    # If LLM suggested a path that matches a hint, boost confidence
+                    if result.primary_path in hints["suggested_paths"]:
+                        result.confidence = min(1.0, result.confidence + 0.1)
+
+                    # If no good match but we have suggestions, consider the best suggestion
+                    elif result.confidence < 0.6 and hints["suggested_paths"]:
+                        best_suggestion = hints["suggested_paths"][0]
+                        if self._is_valid_path(best_suggestion):
+                            result.alternative_paths.insert(0, best_suggestion)
+                            result.reasoning += (
+                                f" (Hint: similar content found in {best_suggestion})"
+                            )
+
             # Use advanced taxonomy logic if available
             if isinstance(self.taxonomy, AdvancedTaxonomyInterface):
                 # Advanced taxonomy (e.g., DynamicTaxonomy) - use smart path selection
@@ -444,6 +510,24 @@ CRITICAL: Return ONLY the JSON object, no explanations, no markdown formatting."
                     # Find closest valid path
                     result.primary_path = self._find_closest_valid_path(
                         result.primary_path
+                    )
+
+            # Track the classification in iterative taxonomy for learning
+            if hasattr(self.taxonomy, "track_classification"):
+                expansion_triggered = self.taxonomy.track_classification(
+                    result.primary_path,
+                    memory_content,
+                    {
+                        "confidence": result.confidence,
+                        "reasoning": result.reasoning,
+                        "alternatives": result.alternative_paths,
+                        "hints_used": hints is not None,
+                    },
+                )
+
+                if expansion_triggered:
+                    logger.info(
+                        f"Triggered taxonomy expansion for path: {result.primary_path}"
                     )
 
             # Cache result

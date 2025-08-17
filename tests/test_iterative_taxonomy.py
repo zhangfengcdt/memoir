@@ -616,27 +616,35 @@ class TestRealisticLLMExpansion:
         taxonomy = taxonomy_with_realistic_llm
 
         # Simulate multiple expansions by adding to history
-        from langmem_prollytree.taxonomy.dynamic_taxonomy import TaxonomyExpansionResult
+        from langmem_prollytree.taxonomy.iterative_taxonomy import (
+            TaxonomyExpansionResult,
+        )
 
         # Add realistic expansion results
         expansions = [
             TaxonomyExpansionResult(
+                parent_path="knowledge.technical.other",
                 new_paths=[
                     "knowledge.technical.other.frontend",
                     "knowledge.technical.other.backend",
                 ],
                 migrated_items=15,
-                suggested_paths=["knowledge.technical.other.devops"],
+                confidence=0.8,
+                strategy="focused_subtree",
                 reasoning="Expanded web development categories based on 20 items",
+                timestamp=1640995200.0,
             ),
             TaxonomyExpansionResult(
+                parent_path="goals.career.other",
                 new_paths=[
                     "goals.career.other.leadership",
                     "goals.career.other.entrepreneurship",
                 ],
                 migrated_items=8,
-                suggested_paths=[],
+                confidence=0.9,
+                strategy="focused_subtree",
                 reasoning="Created career goal categories from 10 items",
+                timestamp=1640995300.0,
             ),
         ]
 
