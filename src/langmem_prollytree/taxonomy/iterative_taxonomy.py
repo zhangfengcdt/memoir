@@ -17,9 +17,8 @@ from typing import Any, Optional
 from pydantic import BaseModel, Field
 
 from .base import BaseTaxonomy
-
-# Define classes that were previously in dynamic_taxonomy
-from .semantic_taxonomy import SemanticTaxonomy, get_taxonomy
+from .semantic_taxonomy import SemanticTaxonomy
+from .taxonomy_presets import TaxonomyPresets, TaxonomyVersion
 
 logger = logging.getLogger(__name__)
 
@@ -95,25 +94,31 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
 
     def __init__(
         self,
+        taxonomy_version: TaxonomyVersion = TaxonomyVersion.GENERAL,
         base_taxonomy: Optional[SemanticTaxonomy] = None,
         llm: Optional[Any] = None,
         expansion_strategy: LLMExpansionStrategy = LLMExpansionStrategy.FOCUSED_SUBTREE,
         min_items_threshold: int = MIN_ITEMS_FOR_EXPANSION,
         enable_combinations: bool = True,
         max_categories_per_expansion: int = MAX_CATEGORIES_PER_EXPANSION,
+        use_full_base_taxonomy: bool = False,
     ):
         """
         Initialize LLM-driven iterative taxonomy.
 
         Args:
-            base_taxonomy: Starting taxonomy structure
+            taxonomy_version: The taxonomy preset version to use (e.g., GENERAL, AGENT_CONVERSATION)
+            base_taxonomy: Optional custom taxonomy structure (overrides taxonomy_version if provided)
             llm: Language model for expansion (GPT-4 recommended)
             expansion_strategy: Strategy for taxonomy expansion
             min_items_threshold: Minimum items before triggering expansion
             enable_combinations: Enable pattern-based combinations
             max_categories_per_expansion: Maximum categories to suggest per LLM expansion (default: 10)
+            use_full_base_taxonomy: If True, imports full taxonomy hierarchy; if False, only first level
         """
-        self.base_taxonomy = base_taxonomy or get_taxonomy()
+        self.taxonomy_version = taxonomy_version
+        self.base_taxonomy = base_taxonomy
+        self.use_full_base_taxonomy = use_full_base_taxonomy
         self.llm = llm
         self.expansion_strategy = expansion_strategy
         self.min_items_threshold = min_items_threshold
@@ -145,10 +150,22 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
             created_at=datetime.now(),
         )
 
-        # Import base taxonomy paths
-        base_paths = self.base_taxonomy.get_all_paths()
-        for path in base_paths:
-            self._add_path_to_tree(root, path, is_dynamic=False)
+        # Use custom taxonomy if provided, otherwise use preset
+        if self.base_taxonomy and self.use_full_base_taxonomy:
+            # Import full base taxonomy paths (legacy behavior)
+            base_paths = self.base_taxonomy.get_all_paths()
+            for path in base_paths:
+                self._add_path_to_tree(root, path, is_dynamic=False)
+        else:
+            # Use only first-level categories from the selected preset
+            first_level_categories = TaxonomyPresets.get_first_level_categories(
+                self.taxonomy_version
+            )
+            for category in first_level_categories:
+                # Add first-level category as non-leaf to allow expansion
+                node = self._add_path_to_tree(root, category, is_dynamic=False)
+                # Force it to be non-leaf even if it has no children yet
+                node.is_leaf = False
 
         # Add strategic 'other' categories for expansion
         self._add_strategic_other_categories(root)
@@ -160,8 +177,9 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
         if node.depth >= max_depth:
             return
 
-        # Add 'other' only if node has existing children (not leaf)
-        if node.children and "other" not in node.children:
+        # Add 'other' to non-leaf nodes or nodes with children
+        # This includes first-level categories that were marked as non-leaf
+        if (node.children or not node.is_leaf) and "other" not in node.children:
             other_path = f"{node.path}.other" if node.path else "other"
             node.children["other"] = DynamicNode(
                 path=other_path,
@@ -885,9 +903,23 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
 
         return hints
 
+    def get_taxonomy_info(self) -> dict[str, Any]:
+        """Get information about the current taxonomy configuration."""
+        return {
+            "version": self.taxonomy_version.value,
+            "first_level_categories": TaxonomyPresets.get_first_level_categories(
+                self.taxonomy_version
+            ),
+            "use_full_base": self.use_full_base_taxonomy,
+            "expansion_strategy": self.expansion_strategy.value,
+            "min_items_threshold": self.min_items_threshold,
+            "max_categories_per_expansion": self.max_categories_per_expansion,
+        }
+
     def get_expansion_statistics(self) -> dict[str, Any]:
         """Get detailed statistics about expansions."""
         stats = {
+            "taxonomy_version": self.taxonomy_version.value,
             "total_paths": len(self.path_index),
             "dynamic_paths": sum(1 for n in self.path_index.values() if n.is_dynamic),
             "expansion_history": len(self.expansion_history),
@@ -904,3 +936,239 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
                 stats["items_in_other"] += len(node.other_items)
 
         return stats
+
+    async def classify_with_confidence(
+        self,
+        content: str,
+        metadata: Optional[dict] = None,
+        confidence_threshold: float = 0.6,
+    ) -> dict[str, Any]:
+        """
+        Classify content and return classification with confidence and expansion recommendations.
+
+        Args:
+            content: Content to classify
+            metadata: Optional metadata
+            confidence_threshold: Minimum confidence for accepting classification
+
+        Returns:
+            Dictionary with classification results and recommendations
+        """
+        if not self.llm:
+            # Fallback to basic pattern matching
+            return {
+                "is_memory": True,
+                "path": "context.general",
+                "confidence": 0.5,
+                "reasoning": "Basic fallback classification",
+                "needs_expansion": False,
+                "suggested_action": "classify",
+            }
+
+        # Get current taxonomy structure for LLM context
+        structure = self._get_taxonomy_structure_for_llm()
+
+        # Build classification prompt
+        prompt = self._build_classification_prompt_with_structure(
+            content, structure, metadata
+        )
+
+        try:
+            response = await self.llm.ainvoke(prompt)
+            result = self._parse_classification_with_confidence(response)
+
+            # Check if expansion is needed
+            if result["confidence"] < confidence_threshold and result["is_memory"]:
+                result["needs_expansion"] = True
+                result["suggested_action"] = "expand"
+
+                # Get expansion suggestions
+                expansion_suggestion = await self._suggest_expansion_for_low_confidence(
+                    content, result["path"], metadata
+                )
+                result.update(expansion_suggestion)
+            else:
+                result["needs_expansion"] = False
+                result["suggested_action"] = (
+                    "classify" if result["is_memory"] else "skip"
+                )
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Classification with confidence failed: {e}")
+            return {
+                "is_memory": False,
+                "path": None,
+                "confidence": 0.0,
+                "reasoning": f"Classification failed: {e!s}",
+                "needs_expansion": False,
+                "suggested_action": "skip",
+            }
+
+    def _get_taxonomy_structure_for_llm(self) -> dict:
+        """Get taxonomy structure optimized for LLM context."""
+        # Get hierarchical structure
+        structure = {}
+        for path in self.get_all_paths():
+            if path.endswith(".other"):
+                continue  # Skip 'other' paths in structure
+
+            parts = path.split(".")
+            current = structure
+
+            for i, part in enumerate(parts):
+                if part not in current:
+                    current[part] = {} if i < len(parts) - 1 else None
+                current = current[part] if current[part] is not None else {}
+
+        return {
+            "version": self.taxonomy_version.value,
+            "structure": structure,
+            "sample_paths": [
+                p for p in self.get_all_paths() if not p.endswith(".other")
+            ][:20],
+            "total_categories": len(
+                [p for p in self.get_all_paths() if not p.endswith(".other")]
+            ),
+        }
+
+    def _build_classification_prompt_with_structure(
+        self, content: str, structure: dict, metadata: Optional[dict]
+    ) -> str:
+        """Build classification prompt with full taxonomy structure."""
+        prompt_parts = [
+            "You are an intelligent memory classifier. Analyze the following content and determine:",
+            "1. Is this information worth storing as a memory? (true/false)",
+            "2. If yes, which taxonomy path best fits this content?",
+            "3. What is your confidence in this classification (0.0 to 1.0)?",
+            "",
+            f"Content to analyze: {content}",
+        ]
+
+        if metadata:
+            prompt_parts.append(f"Metadata: {json.dumps(metadata)}")
+
+        prompt_parts.extend(
+            [
+                "",
+                f"Current taxonomy version: {structure['version']}",
+                f"Total available categories: {structure['total_categories']}",
+                "",
+                "Sample available paths:",
+            ]
+        )
+
+        for path in structure["sample_paths"][:15]:
+            prompt_parts.append(f"  - {path}")
+
+        if len(structure["sample_paths"]) > 15:
+            prompt_parts.append(f"  ... and {len(structure['sample_paths']) - 15} more")
+
+        prompt_parts.extend(
+            [
+                "",
+                "Guidelines:",
+                "- Only classify as memory if the content has lasting value",
+                "- Choose the most specific appropriate path",
+                "- If unsure between paths, prefer higher-level categories",
+                "- Confidence should reflect how well the content fits the chosen path",
+                "",
+                "Respond in JSON format:",
+                "{",
+                '  "is_memory": true/false,',
+                '  "path": "best.matching.path" or null,',
+                '  "confidence": 0.0-1.0,',
+                '  "reasoning": "explanation of decision"',
+                "}",
+            ]
+        )
+
+        return "\n".join(prompt_parts)
+
+    def _parse_classification_with_confidence(self, response: Any) -> dict:
+        """Parse LLM classification response with confidence."""
+        try:
+            if hasattr(response, "content"):
+                content = response.content
+            else:
+                content = str(response)
+
+            # Extract JSON from response
+            import re
+
+            json_match = re.search(r"\{[^{}]*\}", content, re.DOTALL)
+            if json_match:
+                data = json.loads(json_match.group())
+                return {
+                    "is_memory": data.get("is_memory", False),
+                    "path": data.get("path"),
+                    "confidence": float(data.get("confidence", 0.0)),
+                    "reasoning": data.get("reasoning", ""),
+                }
+
+        except Exception as e:
+            logger.error(f"Failed to parse classification response: {e}")
+
+        return {
+            "is_memory": False,
+            "path": None,
+            "confidence": 0.0,
+            "reasoning": "Failed to parse classification response",
+        }
+
+    async def _suggest_expansion_for_low_confidence(
+        self, content: str, path: str, metadata: Optional[dict]
+    ) -> dict:
+        """Suggest expansion options for low confidence classification."""
+        if not path:
+            return {"expansion_suggestions": [], "use_parent": False}
+
+        prompt_parts = [
+            f"Content '{content}' was classified to '{path}' with low confidence.",
+            "",
+            "Should we:",
+            "1. Expand the taxonomy with more specific subcategories",
+            "2. Use a more general parent category",
+            "3. Create new categories at the same level",
+            "",
+            "Consider the content specificity and taxonomy depth.",
+            "",
+            "Respond in JSON:",
+            "{",
+            '  "action": "expand" | "use_parent" | "same_level",',
+            '  "reasoning": "explanation",',
+            '  "suggested_categories": ["category1", "category2"] (if expanding),',
+            '  "parent_path": "parent.path" (if using parent)',
+            "}",
+        ]
+
+        try:
+            response = await self.llm.ainvoke("\n".join(prompt_parts))
+
+            if hasattr(response, "content"):
+                content = response.content
+            else:
+                content = str(response)
+
+            import re
+
+            json_match = re.search(r"\{[^{}]*\}", content, re.DOTALL)
+            if json_match:
+                data = json.loads(json_match.group())
+                return {
+                    "expansion_action": data.get("action", "expand"),
+                    "expansion_reasoning": data.get("reasoning", ""),
+                    "suggested_categories": data.get("suggested_categories", []),
+                    "parent_path": data.get("parent_path"),
+                }
+
+        except Exception as e:
+            logger.error(f"Expansion suggestion failed: {e}")
+
+        return {
+            "expansion_action": "expand",
+            "expansion_reasoning": "Default expansion due to low confidence",
+            "suggested_categories": [],
+            "parent_path": None,
+        }

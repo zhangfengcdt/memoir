@@ -97,7 +97,8 @@ class ProllyTreeStore(BaseStore):
             data_dir.mkdir(exist_ok=True)
             self.tree = VersionedKvStore(str(data_dir))
         else:
-            self.tree = ProllyTree(str(self.path))
+            # Use memory mode for simplicity (can be changed to 'file' for persistence)
+            self.tree = ProllyTree("memory")
 
         self.enable_versioning = enable_versioning
         self.taxonomy = get_taxonomy()
@@ -114,6 +115,9 @@ class ProllyTreeStore(BaseStore):
 
         # Performance tracking
         self._stats = {"reads": 0, "writes": 0, "searches": 0, "classifications": 0}
+
+        # Key registry for memory mode (since ProllyTree doesn't have list_keys in memory mode)
+        self._keys = set()
 
     def _encode_value(self, value: Any) -> bytes:
         """Encode any value to bytes for storage."""
@@ -165,31 +169,29 @@ class ProllyTreeStore(BaseStore):
         results = []
 
         try:
-            # Use list_keys() to get all keys if available
-            if hasattr(self.tree, "list_keys"):
-                keys = self.tree.list_keys()
-                count = 0
-                for key in keys:
-                    if count >= limit:
-                        break
+            # Use our key registry to find matching keys
+            count = 0
+            for full_key in self._keys:
+                if count >= limit:
+                    break
 
-                    key_str = key.decode("utf-8")
-                    if key_str.startswith(prefix):
-                        value = self.tree.get(key)
-                        decoded_value = self._decode_value(value)
+                if full_key.startswith(prefix):
+                    key_bytes = full_key.encode("utf-8")
+                    value = self.tree.find(key_bytes)
+                    decoded_value = self._decode_value(value)
 
-                        # Apply filter if provided
-                        if filter and not all(
-                            decoded_value.get(k) == v
-                            for k, v in filter.items()
-                            if isinstance(decoded_value, dict)
-                        ):
-                            continue
+                    # Apply filter if provided
+                    if filter and not all(
+                        decoded_value.get(k) == v
+                        for k, v in filter.items()
+                        if isinstance(decoded_value, dict)
+                    ):
+                        continue
 
-                        # Extract item key from full key
-                        item_key = key_str[len(prefix) :]
-                        results.append((namespace, item_key, decoded_value))
-                        count += 1
+                    # Extract item key from full key
+                    item_key = full_key[len(prefix) :]
+                    results.append((namespace, item_key, decoded_value))
+                    count += 1
         except Exception as e:
             logger.error(f"Error searching namespace {namespace}: {e}")
 
@@ -204,13 +206,16 @@ class ProllyTreeStore(BaseStore):
 
         try:
             # Check if key exists to decide between insert/update
-            existing = self.tree.get(key_bytes)
+            existing = self.tree.find(key_bytes)
             if existing:
                 self.tree.update(key_bytes, value_bytes)
             else:
                 self.tree.insert(key_bytes, value_bytes)
 
-            if self.enable_versioning:
+            # Track the key in our registry
+            self._keys.add(full_key)
+
+            if self.enable_versioning and hasattr(self.tree, "commit"):
                 self.tree.commit(f"Store {key} in {':'.join(namespace)}")
 
         except Exception as e:
@@ -224,7 +229,7 @@ class ProllyTreeStore(BaseStore):
         key_bytes = full_key.encode("utf-8")
 
         try:
-            data = self.tree.get(key_bytes)
+            data = self.tree.find(key_bytes)
             return self._decode_value(data) if data else None
         except Exception as e:
             logger.error(f"Error getting key {full_key}: {e}")
@@ -237,7 +242,9 @@ class ProllyTreeStore(BaseStore):
 
         try:
             self.tree.delete(key_bytes)
-            if self.enable_versioning:
+            # Remove from key registry
+            self._keys.discard(full_key)
+            if self.enable_versioning and hasattr(self.tree, "commit"):
                 self.tree.commit(f"Delete {key} from {':'.join(namespace)}")
         except Exception as e:
             logger.error(f"Error deleting {full_key}: {e}")

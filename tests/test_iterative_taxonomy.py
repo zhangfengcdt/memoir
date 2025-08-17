@@ -186,12 +186,14 @@ def mock_base_taxonomy():
         "knowledge.technical.networking",
         "knowledge.technical.systems",
         "knowledge.technical.algorithms",
+        "knowledge.technical.other",
         "knowledge.domain",
         "knowledge.domain.business",
         "knowledge.domain.science",
         "knowledge.domain.arts",
         "knowledge.domain.technology",
         "knowledge.domain.humanities",
+        "knowledge.domain.other",
         # Preferences category
         "preferences",
         "preferences.work",
@@ -200,6 +202,7 @@ def mock_base_taxonomy():
         "preferences.work.culture",
         "preferences.work.benefits",
         "preferences.work.tools",
+        "preferences.work.other",
         "preferences.personal",
         # Experience category
         "experience",
@@ -226,6 +229,7 @@ def mock_base_taxonomy():
         "relationships.professional.reports",
         "relationships.professional.clients",
         "relationships.professional.partners",
+        "relationships.professional.other",
         "relationships.personal",
         # Goals category
         "goals",
@@ -235,6 +239,7 @@ def mock_base_taxonomy():
         "goals.career.skills_development",
         "goals.career.role_advancement",
         "goals.career.compensation",
+        "goals.career.other",
         "goals.personal",
         # Behavior category
         "behavior",
@@ -258,6 +263,7 @@ def taxonomy_with_realistic_llm(mock_base_taxonomy, realistic_llm):
         expansion_strategy=LLMExpansionStrategy.FOCUSED_SUBTREE,
         min_items_threshold=3,
         max_categories_per_expansion=10,  # Use default value explicitly
+        use_full_base_taxonomy=True,  # Use the full mock taxonomy structure
     )
 
 
