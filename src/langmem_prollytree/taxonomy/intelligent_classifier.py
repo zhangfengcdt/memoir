@@ -209,8 +209,8 @@ class IntelligentClassifier:
         for category in sorted(first_level):
             prompt_parts.append(f"  - {category}")
 
-        # Show some deeper paths for context, organized by depth
-        deeper_paths = [p for p in paths if "." in p and not p.endswith(".other")][:20]
+        # Show all available paths organized by depth
+        deeper_paths = [p for p in paths if "." in p and not p.endswith(".other")]
         if deeper_paths:
             # Group by depth levels
             depth_2 = [p for p in deeper_paths if len(p.split(".")) == 2]
@@ -226,23 +226,25 @@ class IntelligentClassifier:
 
             if depth_2:
                 prompt_parts.append("  Level 2 (domain.area):")
-                for path in depth_2[:5]:
+                for path in depth_2[:10]:
                     prompt_parts.append(f"    - {path}")
 
             if depth_3:
                 prompt_parts.append("  Level 3 (domain.area.specialty):")
-                for path in depth_3[:5]:
+                for path in depth_3[:10]:
                     prompt_parts.append(f"    - {path}")
 
             if depth_4_plus:
                 prompt_parts.append("  Level 4+ (domain.area.specialty.technique):")
-                for path in depth_4_plus[:3]:
+                for path in depth_4_plus[:5]:
                     prompt_parts.append(f"    - {path}")
 
         prompt_parts.extend(
             [
                 "",
                 "Classification guidelines:",
+                "- ONLY suggest paths that exist in the taxonomy above",
+                "- If content doesn't fit existing paths well, use low confidence (< 0.6)",
                 "- Use appropriate hierarchical depth (2-4 levels recommended)",
                 "- Follow natural conceptual progression: general → specific",
                 "- Avoid skipping intermediate conceptual levels",
@@ -488,6 +490,22 @@ class IntelligentClassifier:
         if not classification.is_memory:
             return classification
 
+        # Step 2.5: Validate suggested path exists in taxonomy
+        if (
+            classification.path
+            and classification.path not in self.taxonomy.get_all_paths()
+        ):
+            # Path doesn't exist - this should be an expansion
+            classification.confidence = min(
+                classification.confidence, 0.5
+            )  # Lower confidence
+            classification.confidence_level = self._get_confidence_level(
+                classification.confidence
+            )
+            classification.reasoning += (
+                f" | Suggested path '{classification.path}' doesn't exist in taxonomy"
+            )
+
         # Step 3: Handle based on confidence level
         if classification.confidence_level == ClassificationConfidence.LOW:
             # Handle low confidence with expansion decision
@@ -495,12 +513,26 @@ class IntelligentClassifier:
                 content, classification, metadata
             )
 
-            # If still low confidence after handling, update action to skip
-            if classification.confidence < self.thresholds["medium"]:
-                classification.suggested_action = ClassificationAction.SKIP
-                classification.reasoning += (
-                    " | Confidence too low after expansion handling"
-                )
+            # Update suggested action based on expansion decision
+            if classification.suggested_expansion:
+                classification.suggested_action = ClassificationAction.EXPAND
+            elif classification.use_parent:
+                classification.suggested_action = ClassificationAction.USE_PARENT
+            else:
+                # For invalid paths or genuinely low confidence, suggest expansion if we have a path
+                if (
+                    classification.path
+                    and classification.path not in self.taxonomy.get_all_paths()
+                ):
+                    classification.suggested_action = ClassificationAction.EXPAND
+                    classification.reasoning += (
+                        " | Invalid path suggests need for expansion"
+                    )
+                elif classification.confidence < self.thresholds["medium"]:
+                    classification.suggested_action = ClassificationAction.SKIP
+                    classification.reasoning += (
+                        " | Confidence too low after expansion handling"
+                    )
 
         # Step 4: Analyze and potentially improve hierarchical structure
         if classification.path and classification.is_memory:

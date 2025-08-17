@@ -227,8 +227,8 @@ async def demonstrate_intelligent_taxonomy():
         memory_store=store,
         taxonomy_version=TaxonomyVersion.GENERAL,
         confidence_thresholds={
-            "high": 0.85,  # Higher threshold to make high confidence harder
-            "medium": 0.6,  # Medium range
+            "high": 0.9,  # Very high threshold to encourage expansion
+            "medium": 0.7,  # Higher medium threshold
             "low": 0.0,
         },
         min_items_for_expansion=1,  # Lower threshold for easier expansion triggering
@@ -239,7 +239,7 @@ async def demonstrate_intelligent_taxonomy():
         intelligent_classifier.taxonomy, "Initial Taxonomy Structure"
     )
 
-    # Test cases designed to demonstrate all four classification actions
+    # Test cases designed to demonstrate all four classification actions AND memory update actions
     test_cases = [
         # 1. SKIP - Not memory-worthy content
         {
@@ -248,52 +248,65 @@ async def demonstrate_intelligent_taxonomy():
             "expected_action": "skip",
         },
         {
-            "content": "The current time is 3:47 PM",
-            "description": "SKIP: Transient temporal information",
+            "content": "It's currently a sunny day outside",
+            "description": "SKIP: Transient weather information",
             "expected_action": "skip",
         },
-        # 2. CLASSIFY - High confidence, clear existing category
+        # 2. CLASSIFY - Initial storage for later updates
         {
-            "content": "John Smith is the new CEO of TechCorp as of January 2024",
-            "description": "CLASSIFY: High-confidence professional information",
+            "content": "I live in San Francisco and work as a software engineer",
+            "description": "CLASSIFY: Initial location/job info - will update later",
             "expected_action": "classify",
         },
         {
-            "content": "User always prefers dark mode interface with minimal animations",
-            "description": "CLASSIFY: Clear interface preference",
+            "content": "My favorite programming language is Python for data science",
+            "description": "CLASSIFY: Programming preference - will add more later",
             "expected_action": "classify",
         },
-        # 3. EXPAND - Low confidence, very specific content needing new subcategories
+        # 3. EXPAND - Highly specific technical content that doesn't fit existing categories
         {
-            "content": "I specialize in 16th-century Venetian glass-blowing techniques using soda-lime glass",
-            "description": "EXPAND: Very specific craft skill - needs specialized subcategory",
+            "content": "I'm developing quantum entanglement protocols for distributed Byzantine fault-tolerant consensus algorithms in post-quantum cryptographic systems",
+            "description": "EXPAND: Extremely specific quantum computing research - needs new subcategory",
             "expected_action": "expand",
         },
         {
-            "content": "I practice competitive speed-solving of Rubik's cubes, my best time is 8.3 seconds using CFOP method",
-            "description": "EXPAND: Specific hobby requiring detailed categorization",
+            "content": "I specialize in CRISPR-Cas9 gene editing for therapeutic applications in rare mitochondrial diseases using prime editing techniques",
+            "description": "EXPAND: Highly specific biotech research - needs specialized categorization",
             "expected_action": "expand",
         },
-        # 4. USE_PARENT - Moderately specific but better suited to broader category
+        # 4. USE_PARENT - Vague content better suited to broader categories
         {
-            "content": "I sometimes work on various creative projects in my spare time",
-            "description": "USE_PARENT: Vague creative activity - use broader category",
+            "content": "I do some stuff with computers and technology sometimes",
+            "description": "USE_PARENT: Vague tech activity - too general for specific subcategory",
             "expected_action": "use_parent",
         },
         {
-            "content": "I have some experience with different programming languages over the years",
-            "description": "USE_PARENT: General programming experience - use broader category",
+            "content": "I enjoy various creative activities in my free time",
+            "description": "USE_PARENT: Very general creative interests - use broader category",
             "expected_action": "use_parent",
         },
-        # 5. Additional cases to trigger expansion once we have enough items
+        # 5. Memory UPDATE scenarios - same paths to trigger REPLACE/APPEND/MERGE
         {
-            "content": "I collect vintage fountain pens from the 1920s-1940s, especially Waterman and Parker models",
-            "description": "EXPAND: Another specific collection - accumulate for expansion",
+            "content": "I moved to New York City and now work as a senior software architect",
+            "description": "UPDATE: Location/job change - should REPLACE previous info",
+            "expected_action": "classify",
+            "update_scenario": True,
+        },
+        {
+            "content": "I also really like JavaScript and Rust for systems programming",
+            "description": "UPDATE: Additional programming languages - should APPEND/MERGE",
+            "expected_action": "classify",
+            "update_scenario": True,
+        },
+        # 6. More EXPAND cases with ultra-specific content
+        {
+            "content": "I'm researching topological superconductor-semiconductor hybrid nanowire devices for fault-tolerant topological quantum computing using Majorana fermions",
+            "description": "EXPAND: Ultra-specific physics research - definitely needs expansion",
             "expected_action": "expand",
         },
         {
-            "content": "I'm learning advanced jazz piano improvisation techniques, particularly bebop scales",
-            "description": "EXPAND: Specific musical skill - trigger skills expansion",
+            "content": "I practice Dzogchen meditation techniques from the Longchen Nyingthig tradition combined with modern neurofeedback EEG monitoring",
+            "description": "EXPAND: Very specific meditation practice - needs detailed subcategorization",
             "expected_action": "expand",
         },
     ]
@@ -327,8 +340,15 @@ async def demonstrate_intelligent_taxonomy():
         print(
             "🤖 REAL LLM CALL: Processing with GPT-4o-mini classification and memory storage..."
         )
+
+        # Check if this is an update scenario
+        is_update_scenario = test.get("update_scenario", False)
+        metadata = {"source": "demo", "step": i}
+        if is_update_scenario:
+            metadata["update_scenario"] = True
+
         result = await intelligent_classifier.process_memory_with_storage(
-            test["content"], {"source": "demo", "step": i}
+            test["content"], metadata
         )
 
         # Show classification results
