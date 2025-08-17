@@ -196,7 +196,7 @@ IMPORTANT:
 - Return a valid JSON response with the required fields
 - 'Other' categories help the system learn and expand over time
 
-Return your classification as a JSON object with:
+Return your classification as pure JSON (no markdown, no code blocks, just JSON) with:
 - primary_path: The best matching taxonomy path (can be an 'other' path)
 - confidence: Confidence score from 0 to 1
 - alternative_paths: List of other relevant paths (max 3)
@@ -205,7 +205,9 @@ Return your classification as a JSON object with:
 Think step by step:
 1. Can this be clearly categorized into existing paths?
 2. If uncertain, what's the closest parent category?
-3. Should this go to a specific path or an 'other' category?"""
+3. Should this go to a specific path or an 'other' category?
+
+CRITICAL: Return ONLY the JSON object, no explanations, no markdown formatting."""
 
     def _get_classification_examples(self) -> str:
         """Get few-shot examples for classification."""
@@ -387,7 +389,32 @@ Think step by step:
                 # Use provided LLM
                 prompt_text = self.classification_template.format(**prompt_vars)
                 response = await self.llm.ainvoke(prompt_text)
-                result_dict = json.loads(response.content)
+
+                # Extract content from response
+                if hasattr(response, "content"):
+                    content = response.content
+                elif isinstance(response, str):
+                    content = response
+                else:
+                    content = str(response)
+
+                # Clean up the response - handle markdown code blocks
+                content = content.strip()
+                if "```json" in content:
+                    # Extract JSON from markdown code block
+                    start = content.find("```json") + 7
+                    end = content.find("```", start)
+                    if end > start:
+                        content = content[start:end].strip()
+                elif "```" in content:
+                    # Extract from generic code block
+                    start = content.find("```") + 3
+                    end = content.find("```", start)
+                    if end > start:
+                        content = content[start:end].strip()
+
+                # Parse JSON
+                result_dict = json.loads(content)
             else:
                 # No LLM provided - must have one for production use
                 raise ValueError(
