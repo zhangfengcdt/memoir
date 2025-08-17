@@ -257,6 +257,7 @@ def taxonomy_with_realistic_llm(mock_base_taxonomy, realistic_llm):
         llm=realistic_llm,
         expansion_strategy=LLMExpansionStrategy.FOCUSED_SUBTREE,
         min_items_threshold=3,
+        max_categories_per_expansion=10,  # Use default value explicitly
     )
 
 

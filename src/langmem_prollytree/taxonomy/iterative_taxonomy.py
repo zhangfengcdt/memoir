@@ -70,6 +70,7 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
         expansion_strategy: LLMExpansionStrategy = LLMExpansionStrategy.FOCUSED_SUBTREE,
         min_items_threshold: int = MIN_ITEMS_FOR_EXPANSION,
         enable_combinations: bool = True,
+        max_categories_per_expansion: int = MAX_CATEGORIES_PER_EXPANSION,
     ):
         """
         Initialize LLM-driven iterative taxonomy.
@@ -80,12 +81,14 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
             expansion_strategy: Strategy for taxonomy expansion
             min_items_threshold: Minimum items before triggering expansion
             enable_combinations: Enable pattern-based combinations
+            max_categories_per_expansion: Maximum categories to suggest per LLM expansion (default: 10)
         """
         self.base_taxonomy = base_taxonomy or get_taxonomy()
         self.llm = llm
         self.expansion_strategy = expansion_strategy
         self.min_items_threshold = min_items_threshold
         self.enable_combinations = enable_combinations
+        self.max_categories_per_expansion = max_categories_per_expansion
 
         # Build initial structure
         self.root = self._build_initial_tree()
@@ -322,7 +325,7 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
         prompt_parts.extend(
             [
                 "",
-                "Suggest up to 10 new category names that would logically group these items.",
+                f"Suggest up to {self.max_categories_per_expansion} new category names that would logically group these items.",
                 "Categories should:",
                 "1. Be semantically coherent with existing siblings",
                 "2. Be at the appropriate level of specificity for this depth",
@@ -336,17 +339,31 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
         return "\n".join(prompt_parts)
 
     async def _call_llm(self, prompt: str) -> str:
-        """Call the LLM with the prompt (placeholder for actual implementation)."""
-        # This would be replaced with actual LLM API call
-        # For example, with OpenAI GPT-4:
-        # response = await openai.ChatCompletion.acreate(
-        #     model="gpt-4",
-        #     messages=[{"role": "user", "content": prompt}]
-        # )
-        # return response.choices[0].message.content
+        """Call the LLM with the prompt."""
+        if self.llm is None:
+            # Fallback when no LLM is provided
+            return "category1\ncategory2\ncategory3"
 
-        # Placeholder return
-        return "category1\ncategory2\ncategory3"
+        try:
+            # Use the provided LLM (works with LangChain LLMs)
+            response = await self.llm.ainvoke(prompt)
+
+            # Handle different response types
+            if hasattr(response, "content"):
+                content = response.content
+                print(f"\n🤖 GPT Response: {content}")
+                return content
+            elif isinstance(response, str):
+                print(f"LLM String Response: {response}")
+                return response
+            else:
+                str_response = str(response)
+                print(f"LLM String Conversion: {str_response}")
+                return str_response
+        except Exception as e:
+            # Log the error and fall back to default categories
+            print(f"LLM call failed: {e}")
+            return "category1\ncategory2\ncategory3"
 
     def _parse_llm_response(self, response: str) -> list[str]:
         """Parse LLM response to extract category names."""
@@ -354,10 +371,21 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
         for line in response.strip().split("\n"):
             line = line.strip()
             if line and not line.startswith("#"):  # Skip comments
-                # Clean up the category name
-                category = line.strip("- ").strip()
+                # Clean up the category name - handle numbered lists, bullets, etc.
+                category = line
+
+                # Remove numbered list prefixes (1., 2., etc.)
+                import re
+
+                category = re.sub(r"^\d+\.\s*", "", category)
+
+                # Remove bullet prefixes (-, *, etc.)
+                category = category.strip("- ").strip("* ").strip()
+
                 if category:
                     categories.append(category)
+
+        print(f"📋 Parsed categories: {categories}")
         return categories
 
     def _validate_category(self, category: str, context: ExpansionContext) -> bool:
@@ -415,110 +443,109 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
     async def _find_best_category(
         self, item: dict[str, Any], candidate_paths: list[str]
     ) -> Optional[str]:
-        """Find the best category for an item among candidates."""
-        # Enhanced heuristic with keyword matching
-        content = item.get("content", "").lower()
+        """Find the best category for an item among candidates using LLM-based classification."""
+        if not candidate_paths:
+            return None
 
-        # Define keyword mappings for better matching
-        category_keywords = {
-            "frontend": ["react", "vue", "angular", "component", "ui", "interface"],
-            "backend": [
-                "express",
-                "node",
-                "api",
-                "server",
-                "middleware",
-                "authentication",
-            ],
-            "machine_learning": [
-                "ml",
-                "model",
-                "training",
-                "tensorflow",
-                "pytorch",
-                "neural",
-            ],
-            "api_design": ["graphql", "rest", "resolver", "endpoint", "schema"],
-            "real_time": ["websocket", "socket", "realtime", "live", "streaming"],
-            # Conversation-specific keywords
-            "outdoor_adventures": [
-                "hiking",
-                "camping",
-                "mountain",
-                "trail",
-                "nature",
-                "outdoor",
-            ],
-            "artistic_pursuits": [
-                "painting",
-                "painted",
-                "art",
-                "artist",
-                "creative",
-                "draw",
-                "canvas",
-            ],
-            "fitness_activities": [
-                "running",
-                "exercise",
-                "workout",
-                "fitness",
-                "training",
-                "gym",
-            ],
-            "reading_habits": [
-                "reading",
-                "book",
-                "novel",
-                "literature",
-                "story",
-                "chapter",
-            ],
-            "outdoor_activities": [
-                "hiking",
-                "camping",
-                "beach",
-                "outdoor",
-                "nature",
-                "mountain",
-            ],
-            "creative_expression": [
-                "painting",
-                "art",
-                "creative",
-                "artistic",
-                "draw",
-                "design",
-            ],
-            "painting_activities": [
-                "painting",
-                "painted",
-                "paint",
-                "brush",
-                "canvas",
-                "color",
-            ],
-            "hiking_trails": ["hiking", "trail", "mountain", "hike", "trek", "climb"],
-        }
+        content = item.get("content", "")
+        if not content:
+            return None
 
+        # Use LLM for intelligent classification
+        if self.llm:
+            try:
+                prompt = self._build_classification_prompt(content, candidate_paths)
+                response = await self._call_llm(prompt)
+                return self._parse_best_category_response(response, candidate_paths)
+            except Exception as e:
+                print(f"LLM classification failed for item: {e}")
+                # Fall back to simple heuristic
+
+        # Simple fallback: find best category using basic string matching
+        return self._find_category_by_text_similarity(content, candidate_paths)
+
+    def _build_classification_prompt(
+        self, content: str, candidate_paths: list[str]
+    ) -> str:
+        """Build a prompt for LLM to classify content into best category."""
+        # Extract just the category names for cleaner prompt
+        categories = [path.split(".")[-1] for path in candidate_paths]
+
+        prompt_parts = [
+            "You are classifying content into the most appropriate category.",
+            "",
+            f"Content to classify: {content}",
+            "",
+            "Available categories:",
+        ]
+
+        for i, category in enumerate(categories, 1):
+            prompt_parts.append(f"{i}. {category}")
+
+        prompt_parts.extend(
+            [
+                "",
+                "Return ONLY the number (1, 2, 3, etc.) of the best matching category.",
+                "If no category is a good match, return 0.",
+                "Consider semantic meaning, not just exact keyword matches.",
+            ]
+        )
+
+        return "\n".join(prompt_parts)
+
+    def _parse_best_category_response(
+        self, response: str, candidate_paths: list[str]
+    ) -> Optional[str]:
+        """Parse LLM response to get the best category path."""
+        try:
+            # Extract number from response
+            import re
+
+            numbers = re.findall(r"\d+", response.strip())
+            if not numbers:
+                return None
+
+            choice = int(numbers[0])
+
+            # Return None if LLM said no good match (0)
+            if choice == 0:
+                return None
+
+            # Return the corresponding path (1-indexed)
+            if 1 <= choice <= len(candidate_paths):
+                chosen_path = candidate_paths[choice - 1]
+                print(
+                    f"🎯 LLM chose category: {chosen_path.split('.')[-1]} for content: {response.strip()}"
+                )
+                return chosen_path
+
+        except Exception as e:
+            print(f"Failed to parse LLM category response '{response}': {e}")
+
+        return None
+
+    def _find_category_by_text_similarity(
+        self, content: str, candidate_paths: list[str]
+    ) -> Optional[str]:
+        """Fallback method using simple text similarity when LLM is unavailable."""
+        content_lower = content.lower()
+
+        # Try exact category name matches first
         for path in candidate_paths:
             category = path.split(".")[-1].lower()
-
-            # Direct category name match
-            if category in content:
+            if category in content_lower:
                 return path
 
-            # Keyword-based matching
-            if category in category_keywords:
-                keywords = category_keywords[category]
-                if any(keyword in content for keyword in keywords):
-                    return path
+        # Try partial matches with category name parts
+        for path in candidate_paths:
+            category = path.split(".")[-1].lower()
+            category_parts = category.replace("-", "_").split("_")
 
-            # Generic matching for common patterns
-            category_parts = category.split("_")
-            if any(part in content for part in category_parts if len(part) > 3):
+            # Look for category parts in content (minimum 4 chars to avoid false matches)
+            if any(part in content_lower for part in category_parts if len(part) >= 4):
                 return path
 
+        # No good match found
         return None
 
     async def parallel_expand(

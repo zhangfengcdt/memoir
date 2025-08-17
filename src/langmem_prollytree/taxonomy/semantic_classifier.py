@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 MAX_PROMPT_PATHS = 100  # Maximum paths to include in classification prompt
 MAX_EXAMPLE_PATHS_PER_CATEGORY = 5  # Max example paths shown per category
 DEFAULT_CACHE_SIZE = 10000  # Default classification cache size
-FALLBACK_PATH = "context.current.session.topic.main"  # Default fallback path
+DEFAULT_FALLBACK_PATH = "context.current.session.topic.main"  # Default fallback path
 
 
 class ClassificationResult(BaseModel):
@@ -43,6 +43,7 @@ class SemanticClassifier:
         taxonomy: Optional[TaxonomyInterface] = None,
         cache_size: int = DEFAULT_CACHE_SIZE,
         use_examples: bool = True,
+        fallback_path: Optional[str] = None,
     ):
         """
         Initialize the semantic classifier.
@@ -53,12 +54,55 @@ class SemanticClassifier:
                      If None, uses default SemanticTaxonomy
             cache_size: Size of the classification cache
             use_examples: Whether to include examples in prompts
+            fallback_path: Custom fallback path when classification fails
         """
         self.taxonomy = taxonomy if taxonomy is not None else get_taxonomy()
         self.llm = llm
         self.use_examples = use_examples
+        self.fallback_path = fallback_path or self._determine_fallback_path()
         self._cache = {}
         self._setup_classification_prompt()
+
+    def _determine_fallback_path(self) -> str:
+        """Determine appropriate fallback path based on available taxonomy."""
+        try:
+            all_paths = self.taxonomy.get_all_paths()
+
+            # First, try to find the exact default fallback path for backwards compatibility
+            if DEFAULT_FALLBACK_PATH in all_paths:
+                return DEFAULT_FALLBACK_PATH
+
+            # Try to find a context-related path that's reasonably specific
+            context_paths = [path for path in all_paths if path.startswith("context.")]
+            if context_paths:
+                # Prefer paths with depth similar to the default (4-5 levels)
+                preferred_paths = [
+                    p for p in context_paths if 4 <= len(p.split(".")) <= 5
+                ]
+                if preferred_paths:
+                    preferred_paths.sort(key=len)
+                    return preferred_paths[0]
+
+                # Fallback to any context path (prefer longer ones for backwards compatibility)
+                context_paths.sort(key=len, reverse=True)
+                return context_paths[0]
+
+            # Try to find any 'other' category
+            other_paths = [path for path in all_paths if path.endswith(".other")]
+            if other_paths:
+                # Prefer shorter 'other' paths
+                other_paths.sort(key=len)
+                return other_paths[0]
+
+            # Use the first available path as last resort
+            if all_paths:
+                return all_paths[0]
+
+        except Exception:
+            pass
+
+        # Ultimate fallback to the default path
+        return DEFAULT_FALLBACK_PATH
 
     def _get_taxonomy_structure_info(self) -> str:
         """Generate taxonomy structure information for the prompt."""
@@ -168,44 +212,8 @@ Think step by step:
         if not self.use_examples:
             return ""
 
-        examples = [
-            {
-                "memory": "User's name is John Smith",
-                "path": "profile.personal.identity.name.first",
-                "confidence": 0.95,
-                "reasoning": "Direct personal name information - high confidence",
-            },
-            {
-                "memory": "Prefers dark mode in IDEs",
-                "path": "preferences.technology.ui.theme.dark",
-                "confidence": 0.9,
-                "reasoning": "Clear UI preference for development environment",
-            },
-            {
-                "memory": "Has 5 years of Python experience",
-                "path": "profile.professional.skills.technical.programming.languages",
-                "confidence": 0.85,
-                "reasoning": "Professional technical skill with experience duration",
-            },
-            {
-                "memory": "I collect vintage typewriters",
-                "path": "preferences.personal.other",
-                "confidence": 0.6,
-                "reasoning": "Unusual hobby - best fits in preferences but no specific subcategory",
-            },
-            {
-                "memory": "My pet iguana likes to sunbathe",
-                "path": "profile.other",
-                "confidence": 0.5,
-                "reasoning": "Pet information not in standard taxonomy - using profile.other",
-            },
-            {
-                "memory": "I practice lucid dreaming techniques",
-                "path": "behavior.other",
-                "confidence": 0.55,
-                "reasoning": "Unique practice related to behavior but no exact category",
-            },
-        ]
+        # Generate dynamic examples based on available taxonomy paths
+        examples = self._generate_dynamic_examples()
 
         examples_text = "EXAMPLES:\n"
         for ex in examples:
@@ -215,6 +223,103 @@ Think step by step:
             examples_text += f"Reasoning: {ex['reasoning']}\n"
 
         return examples_text
+
+    def _generate_dynamic_examples(self) -> list[dict]:
+        """Generate classification examples dynamically based on available taxonomy."""
+        try:
+            all_paths = self.taxonomy.get_all_paths()
+            if not all_paths:
+                return []
+
+            # Select diverse paths for examples (avoid being too specific to any domain)
+            example_templates = [
+                {
+                    "memory": "User's name is {example_name}",
+                    "pattern": "identity.name",
+                    "confidence": 0.95,
+                    "reasoning": "Direct personal name information - high confidence",
+                },
+                {
+                    "memory": "Prefers {example_preference}",
+                    "pattern": "preferences",
+                    "confidence": 0.9,
+                    "reasoning": "Clear preference information",
+                },
+                {
+                    "memory": "Has experience with {example_skill}",
+                    "pattern": "skills",
+                    "confidence": 0.85,
+                    "reasoning": "Professional skill or experience information",
+                },
+                {
+                    "memory": "Enjoys {example_hobby} as a hobby",
+                    "pattern": "other",
+                    "confidence": 0.6,
+                    "reasoning": "Personal interest - using appropriate category or 'other' if no specific match",
+                },
+            ]
+
+            examples = []
+            for template in example_templates:
+                # Find a suitable path that matches the pattern
+                matching_path = self._find_example_path(all_paths, template["pattern"])
+                if matching_path:
+                    examples.append(
+                        {
+                            "memory": template["memory"].format(
+                                example_name="John Smith",
+                                example_preference="dark mode in IDEs",
+                                example_skill="Python programming",
+                                example_hobby="vintage typewriters",
+                            ),
+                            "path": matching_path,
+                            "confidence": template["confidence"],
+                            "reasoning": template["reasoning"],
+                        }
+                    )
+
+            return examples
+
+        except Exception as e:
+            logger.warning(f"Could not generate dynamic examples: {e}")
+            # Return minimal fallback examples if dynamic generation fails
+            return [
+                {
+                    "memory": "User's name is John Smith",
+                    "path": "profile.personal.identity",
+                    "confidence": 0.9,
+                    "reasoning": "Personal identity information",
+                }
+            ]
+
+    def _find_example_path(self, all_paths: list[str], pattern: str) -> Optional[str]:
+        """Find a suitable taxonomy path for example generation."""
+        # Look for paths that contain the pattern
+        candidates = [path for path in all_paths if pattern.lower() in path.lower()]
+
+        if candidates:
+            # Prefer paths that are not too deep (3-4 levels) and not 'other' categories
+            good_candidates = [
+                path
+                for path in candidates
+                if 3 <= len(path.split(".")) <= 4 and "other" not in path
+            ]
+            if good_candidates:
+                return good_candidates[0]
+            return candidates[0]
+
+        # Fallback: find any path with appropriate top-level category
+        if "identity" in pattern:
+            candidates = [path for path in all_paths if path.startswith("profile.")]
+        elif "preferences" in pattern:
+            candidates = [path for path in all_paths if path.startswith("preferences.")]
+        elif "skills" in pattern:
+            candidates = [path for path in all_paths if "skill" in path.lower()]
+        else:
+            # For 'other' pattern, find any 'other' category
+            candidates = [path for path in all_paths if path.endswith(".other")]
+
+        return candidates[0] if candidates else None
 
     def _get_context_info(self, context: Optional[dict] = None) -> str:
         """Format context information for classification."""
@@ -348,9 +453,9 @@ Think step by step:
             if self._is_valid_path(test_path):
                 return test_path
 
-        # Fallback to default path, but validate it exists first
-        if self._is_valid_path(FALLBACK_PATH):
-            return FALLBACK_PATH
+        # Fallback to configured fallback path, but validate it exists first
+        if self._is_valid_path(self.fallback_path):
+            return self.fallback_path
 
         # Ultimate fallback: find any valid path from the first category
         all_paths = self.taxonomy.get_all_paths()
@@ -362,7 +467,7 @@ Think step by step:
 
     def _fallback_classification(self, memory_content: str) -> ClassificationResult:
         """Provide a fallback classification when normal classification fails."""
-        fallback_path = self._find_closest_valid_path(FALLBACK_PATH)
+        fallback_path = self._find_closest_valid_path(self.fallback_path)
         return ClassificationResult(
             primary_path=fallback_path,
             confidence=0.5,

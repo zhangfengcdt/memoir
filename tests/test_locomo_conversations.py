@@ -112,6 +112,7 @@ def locomo_taxonomy(conversation_base_taxonomy):
         llm=LocomoMockLLM(),
         expansion_strategy=LLMExpansionStrategy.FOCUSED_SUBTREE,
         min_items_threshold=3,
+        max_categories_per_expansion=5,  # Use default value explicitly
     )
 
 
