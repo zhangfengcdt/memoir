@@ -9,114 +9,36 @@ Requirements:
     pip install langchain-openai
     export OPENAI_API_KEY=your-api-key-here
 
-To run with mock LLM (no API key required):
-    python examples/basic_usage.py --mock
+Usage:
+    export OPENAI_API_KEY=your-api-key-here
+    python examples/basic_usage.py
 """
 
 import asyncio
 import os
 import sys
 import tempfile
-from typing import Optional
 
 from langmem_prollytree import ProllyTreeMemoryStoreManager
 from langmem_prollytree.taxonomy.iterative_taxonomy import LLMIterativeTaxonomy
 from langmem_prollytree.taxonomy.semantic_classifier import SemanticClassifier
 
 
-class MockLLM:
-    """Mock LLM for demonstration purposes when no API key is available."""
-
-    async def ainvoke(self, prompt: str):
-        """Simulate LLM classification based on content keywords."""
-        # Extract the actual memory content from the prompt
-        if "MEMORY CONTENT:" in prompt:
-            start = prompt.find("MEMORY CONTENT:") + len("MEMORY CONTENT:")
-            end = prompt.find("\n\n", start)
-            if end == -1:
-                end = prompt.find("AVAILABLE TAXONOMY", start)
-            if end == -1:
-                content = prompt[start:].strip().lower()
-            else:
-                content = prompt[start:end].strip().lower()
-        else:
-            content = prompt.lower()
-
-        # More sophisticated rule-based classification for demo
-        if any(
-            word in content
-            for word in ["name", "sarah", "johnson", "years old", "age", "32"]
-        ):
-            path = "profile.personal.identity.name"
-            confidence = 0.95
-        elif any(
-            word in content
-            for word in ["engineer", "techcorp", "san francisco", "work as"]
-        ):
-            path = "profile.professional.current.role"
-            confidence = 0.90
-        elif any(
-            word in content for word in ["dark mode", "light mode", "theme", "monokai"]
-        ):
-            path = "preferences.interface.theme"
-            confidence = 0.85
-        elif any(
-            word in content
-            for word in ["python", "javascript", "programming language", "frontend"]
-        ):
-            path = "profile.professional.skills.technical.programming"
-            confidence = 0.90
-        elif any(
-            word in content
-            for word in ["coffee", "espresso", "oat milk", "drink", "morning"]
-        ):
-            path = "preferences.personal.lifestyle.beverages"
-            confidence = 0.85
-        elif any(
-            word in content
-            for word in ["experience", "machine learning", "data science", "8 years"]
-        ):
-            path = "experience.professional.expertise"
-            confidence = 0.85
-        elif any(
-            word in content
-            for word in ["ide", "vs code", "editor", "development environment"]
-        ):
-            path = "preferences.work.tools.development"
-            confidence = 0.85
-        elif any(
-            word in content
-            for word in ["graduated", "stanford", "degree", "2014", "university"]
-        ):
-            path = "profile.personal.education.history"
-            confidence = 0.90
-        else:
-            path = "context.conversation.recent"
-            confidence = 0.50
-
-        class Response:
-            content = f'{{"primary_path": "{path}", "confidence": {confidence}, "alternative_paths": [], "reasoning": "Classified based on content analysis"}}'
-
-        return Response()
-
-
-def get_llm(use_mock: bool = False) -> Optional[object]:
-    """Get LLM instance - either OpenAI or Mock based on configuration."""
-    if use_mock:
-        print("   ⚠️  Using MockLLM for demonstration (no API calls)")
-        return MockLLM()
-
-    # Try to use OpenAI
+def get_llm() -> object:
+    """Get OpenAI LLM instance - requires API key and langchain-openai."""
+    # Check for API key
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        print("   ⚠️  No OPENAI_API_KEY found. Using MockLLM instead.")
-        print("      Set OPENAI_API_KEY environment variable to use real LLM")
-        return MockLLM()
+        print("   ❌ Error: OPENAI_API_KEY environment variable is required")
+        print("      Set your OpenAI API key: export OPENAI_API_KEY=your-api-key-here")
+        print("      Get an API key at: https://platform.openai.com/api-keys")
+        sys.exit(1)
 
+    # Try to import and create OpenAI LLM
     try:
         from langchain_openai import ChatOpenAI
 
-        print("   ✅ Using OpenAI GPT-4o-mini for classification")
+        print("   ✅ Using OpenAI GPT-4o-mini for semantic classification")
         return ChatOpenAI(
             model="gpt-4o-mini",
             temperature=0,
@@ -124,17 +46,13 @@ def get_llm(use_mock: bool = False) -> Optional[object]:
             max_tokens=500,
         )
     except ImportError:
-        print("   ⚠️  langchain-openai not installed.")
+        print("   ❌ Error: langchain-openai package is required")
         print("      Install with: pip install langchain-openai")
-        print("      Using MockLLM instead.")
-        return MockLLM()
+        sys.exit(1)
 
 
 async def main():
     """Demonstrate basic usage of ProllyTree as a LangMem store replacement."""
-
-    # Check for --mock flag
-    use_mock = "--mock" in sys.argv
 
     # Create temporary directory for demo
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -145,7 +63,7 @@ async def main():
 
         # Set up the LLM for semantic classification
         print("\n1. Setting up LLM for semantic classification:")
-        llm = get_llm(use_mock=use_mock)
+        llm = get_llm()
 
         # Create LLM-driven iterative taxonomy
         # This uses GPT to intelligently expand the taxonomy based on unclassified content

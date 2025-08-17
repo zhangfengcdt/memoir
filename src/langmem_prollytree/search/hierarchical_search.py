@@ -92,6 +92,10 @@ class HierarchicalSearchEngine:
             # Topic patterns
             "programming": ["profile.professional.skills.technical.programming"],
             "work": ["profile.professional", "experience.projects", "preferences.work"],
+            "role": ["profile.professional", "profile.professional.current"],
+            "job": ["profile.professional", "profile.professional.current"],
+            "engineer": ["profile.professional", "profile.professional.current"],
+            "company": ["profile.professional", "profile.professional.current"],
             "personal": [
                 "profile.personal",
                 "preferences.personal",
@@ -99,6 +103,21 @@ class HierarchicalSearchEngine:
             ],
             "family": ["profile.personal.family", "relationships.people.close.family"],
             "health": ["profile.personal.health", "goals.categories.personal.health"],
+            "drink": ["preferences.personal.lifestyle.beverages"],
+            "morning": [
+                "preferences.personal.lifestyle.beverages",
+                "preferences.personal.routine",
+            ],
+            "coffee": ["preferences.personal.lifestyle.beverages"],
+            "beverage": ["preferences.personal.lifestyle.beverages"],
+            "ide": [
+                "preferences.work.tools.development",
+                "preferences.technology.programming.tools",
+            ],
+            "theme": [
+                "preferences.interface.theme",
+                "preferences.work.tools.development",
+            ],
         }
 
         # Pre-compute path hierarchies for fast traversal
@@ -367,18 +386,62 @@ class HierarchicalSearchEngine:
             age_hours = (current_time - result.timestamp) / 3600
             recency_score = 1.0 / (1.0 + age_hours / 24)  # Half-life of 24 hours
 
-            # Keyword match score
+            # Enhanced keyword match score with punctuation handling
             content_str = str(result.content).lower()
             query_words = query_lower.split()
-            matches = sum(1 for word in query_words if word in content_str)
-            keyword_score = matches / len(query_words) if query_words else 0
 
-            # Combined score
+            # Clean punctuation from query words
+            import re
+
+            clean_query_words = [re.sub(r"[^\w]", "", word) for word in query_words]
+
+            # Filter out common stop words for better matching
+            stop_words = {
+                "what",
+                "does",
+                "the",
+                "user",
+                "is",
+                "are",
+                "have",
+                "has",
+                "their",
+                "a",
+                "an",
+                "where",
+                "when",
+                "how",
+                "why",
+                "and",
+                "or",
+            }
+            meaningful_words = [
+                w for w in clean_query_words if w not in stop_words and len(w) > 2
+            ]
+
+            # Count meaningful keyword matches
+            meaningful_matches = sum(
+                1 for word in meaningful_words if word in content_str
+            )
+            keyword_score = (
+                meaningful_matches / len(meaningful_words) if meaningful_words else 0
+            )
+
+            # Boost score for exact phrase matches
+            query_phrases = [
+                " ".join(meaningful_words[i : i + 2])
+                for i in range(len(meaningful_words) - 1)
+            ]
+            phrase_matches = sum(1 for phrase in query_phrases if phrase in content_str)
+            phrase_bonus = phrase_matches * 0.3
+
+            # Combined score with emphasis on keyword relevance
             result.relevance_score = (
-                result.relevance_score * 0.4  # Semantic score
-                + recency_score * 0.3  # Recency
-                + keyword_score * 0.2  # Keyword matches
-                + result.confidence * 0.1  # Classification confidence
+                result.relevance_score * 0.1  # Semantic score (reduced)
+                + recency_score * 0.05  # Recency (reduced)
+                + keyword_score * 0.7  # Keyword matches (dominant factor)
+                + phrase_bonus  # Phrase match bonus
+                + result.confidence * 0.05  # Classification confidence (reduced)
             )
 
         # Sort by relevance score

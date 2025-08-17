@@ -80,14 +80,14 @@ import asyncio
 from langchain_openai import ChatOpenAI
 from langmem_prollytree import ProllyTreeMemoryStoreManager
 from langmem_prollytree.taxonomy.semantic_classifier import SemanticClassifier
-from langmem_prollytree.taxonomy.dynamic_taxonomy import DynamicTaxonomy
+from langmem_prollytree.taxonomy.iterative_taxonomy import LLMIterativeTaxonomy
 
 async def main():
     # Initialize LLM
     llm = ChatOpenAI(model="gpt-4", temperature=0)
 
-    # Create expandable taxonomy
-    taxonomy = DynamicTaxonomy()
+    # Create LLM-driven iterative taxonomy
+    taxonomy = LLMIterativeTaxonomy(llm=llm)
     classifier = SemanticClassifier(llm=llm, taxonomy=taxonomy)
 
     # Initialize memory manager
@@ -138,7 +138,7 @@ from langchain_anthropic import ChatAnthropic
 llm = ChatAnthropic(model="claude-3-sonnet-20240229", temperature=0)
 
 # Then use with any classifier
-classifier = SemanticClassifier(llm=llm, taxonomy=DynamicTaxonomy())
+classifier = SemanticClassifier(llm=llm, taxonomy=LLMIterativeTaxonomy(llm=llm))
 ```
 
 ### Key API Methods

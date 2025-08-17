@@ -267,17 +267,23 @@ class ProllyTreeStore(BaseStore):
             confidence = classification.confidence
             self._stats["classifications"] += 1
 
+        # Create unique storage key while preserving semantic path
+        import uuid
+
+        unique_id = str(uuid.uuid4())[:8]  # Short unique ID
+        storage_key = f"{semantic_key}#{unique_id}"
+
         # Create memory item
         item = MemoryItem(
-            key=semantic_key,
+            key=semantic_key,  # Keep semantic key for classification
             namespace=namespace,
             content=content,
             confidence=confidence,
             timestamp=time.time(),
         )
 
-        # Store using BaseStore interface
-        self.put((namespace,), semantic_key, item.model_dump())
+        # Store using BaseStore interface with unique key
+        self.put((namespace,), storage_key, item.model_dump())
 
         if self.enable_versioning and hasattr(self.tree, "get_head"):
             item.version = self.tree.get_head()
@@ -313,17 +319,23 @@ class ProllyTreeStore(BaseStore):
                 confidence = 0.5
                 self._stats["classifications"] += 1
 
+            # Create unique storage key while preserving semantic path
+            import uuid
+
+            unique_id = str(uuid.uuid4())[:8]  # Short unique ID
+            storage_key = f"{semantic_key}#{unique_id}"
+
             # Create memory item
             item = MemoryItem(
-                key=semantic_key,
+                key=semantic_key,  # Keep semantic key for classification
                 namespace=namespace,
                 content=content,
                 confidence=confidence,
                 timestamp=time.time(),
             )
 
-            # Store using BaseStore interface
-            self.put((namespace,), semantic_key, item.model_dump())
+            # Store using BaseStore interface with unique key
+            self.put((namespace,), storage_key, item.model_dump())
 
             if self.enable_versioning and hasattr(self.tree, "get_head"):
                 item.version = self.tree.get_head()
@@ -340,15 +352,31 @@ class ProllyTreeStore(BaseStore):
             path_prefix: Path prefix to search for
 
         Returns:
-            List of (key, data) tuples
+            List of (semantic_key, data) tuples
         """
         # Use synchronous search with prefix
         results = []
+        seen_content = set()  # Avoid duplicates based on content
         search_results = self.search((namespace,), limit=100)
 
-        for _, key, data in search_results:
-            if key.startswith(path_prefix):
-                results.append((key, data))
+        for _, storage_key, data in search_results:
+            # Extract semantic path from storage key (format: semantic_path#unique_id)
+            if "#" in storage_key:
+                semantic_key = storage_key.split("#")[0]
+            else:
+                semantic_key = storage_key
+
+            # Check if semantic path matches prefix
+            if semantic_key.startswith(path_prefix):
+                # Avoid duplicates by content
+                content = (
+                    data.get("content", "") if isinstance(data, dict) else str(data)
+                )
+                content_hash = hash(content)
+                if content_hash not in seen_content:
+                    seen_content.add(content_hash)
+                    # Return semantic key (not storage key) for search engine
+                    results.append((semantic_key, data))
 
         return results
 
@@ -369,15 +397,23 @@ class ProllyTreeStore(BaseStore):
         # Use the hierarchical search engine to find relevant memories
         search_results = await self.search_engine.search(query, namespace)
 
-        # Convert search results to memory items
+        # Convert search results to memory items with deduplication
         memories = []
-        for result in search_results[:limit]:
-            # Get the actual memory data from the store
-            data = self.get((namespace,), result.key)
-            if data and isinstance(data, dict):
+        seen_content = set()
+
+        for result in search_results:
+            # The search result already contains the data from asearch
+            if result.content and isinstance(result.content, dict):
                 try:
-                    memory = MemoryItem(**data)
-                    memories.append(memory)
+                    memory = MemoryItem(**result.content)
+                    # Deduplicate by content
+                    content_hash = hash(memory.content)
+                    if content_hash not in seen_content:
+                        seen_content.add(content_hash)
+                        memories.append(memory)
+                        # Stop when we have enough unique results
+                        if len(memories) >= limit:
+                            break
                 except Exception as e:
                     logger.warning(f"Failed to parse memory item: {e}")
 

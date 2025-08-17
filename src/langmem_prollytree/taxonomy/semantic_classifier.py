@@ -182,24 +182,15 @@ AVAILABLE TAXONOMY STRUCTURE:
 {classification_hints}
 
 CLASSIFICATION GUIDELINES:
-1. Match content to the MOST SPECIFIC appropriate path:
-   - Personal name → profile.personal.identity.name
-   - Personal age → profile.personal.identity.age
-   - Work role/title → profile.professional.current.position.title
-   - Company name → profile.professional.current.company.name
-   - Education/degrees → profile.professional.education.formal.degrees
-   - Programming languages → profile.professional.skills.technical.programming.languages
-   - ML/AI experience → profile.professional.skills.technical.data.ml
-   - IDE preferences → preferences.technology.programming.tools.ides
-   - Theme preferences → preferences.interface.theme
-   - Beverages → preferences.personal.lifestyle.beverages
-   - Years of experience → profile.professional.skills.technical.programming.years
-2. AVOID generic paths like 'context.current' unless content is truly about the current conversation
-3. Consider confidence level:
+1. Match content to the MOST SPECIFIC appropriate path from the available taxonomy
+2. Consider the semantic meaning and context of the content
+3. AVOID generic paths like 'context.current' unless content is truly about the current conversation
+4. Consider confidence level:
    - High confidence (0.8-1.0): Very specific and accurate path match
    - Medium confidence (0.5-0.7): Reasonable fit but could be broader
    - Low confidence (0.0-0.4): Content is unclear or doesn't fit well
-4. When unsure, use the most specific relevant category, NOT generic context paths
+5. When unsure, use the most specific relevant category available in the taxonomy
+6. Use 'other' categories when content doesn't fit existing specific paths - this helps the system learn and expand
 
 {examples}
 
