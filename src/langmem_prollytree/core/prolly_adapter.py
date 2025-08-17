@@ -109,7 +109,7 @@ class ProllyTreeStore(BaseStore):
 
         # Initialize search engine
         self.search_engine = HierarchicalSearchEngine(
-            store=self, classifier=classifier, min_results=5
+            store=self, classifier=classifier, max_content_length=10000
         )
 
         # Performance tracking
@@ -402,18 +402,31 @@ class ProllyTreeStore(BaseStore):
         seen_content = set()
 
         for result in search_results:
-            # The search result already contains the data from asearch
-            if result.content and isinstance(result.content, dict):
+            # The search result contains combined content from multiple items
+            if result.combined_content:
                 try:
-                    memory = MemoryItem(**result.content)
-                    # Deduplicate by content
-                    content_hash = hash(memory.content)
-                    if content_hash not in seen_content:
-                        seen_content.add(content_hash)
-                        memories.append(memory)
-                        # Stop when we have enough unique results
-                        if len(memories) >= limit:
-                            break
+                    # Split combined content back into individual memories
+                    individual_contents = result.combined_content.split(" | ")
+                    for content_text in individual_contents:
+                        if content_text.strip():
+                            # Create a memory item from the content
+                            memory = MemoryItem(
+                                key=result.path,
+                                namespace=result.namespace,
+                                content=content_text.strip(),
+                                confidence=1.0,  # Default confidence
+                                timestamp=time.time(),
+                            )
+                            # Deduplicate by content
+                            content_hash = hash(memory.content)
+                            if content_hash not in seen_content:
+                                seen_content.add(content_hash)
+                                memories.append(memory)
+                                # Stop when we have enough unique results
+                                if len(memories) >= limit:
+                                    break
+                    if len(memories) >= limit:
+                        break
                 except Exception as e:
                     logger.warning(f"Failed to parse memory item: {e}")
 
