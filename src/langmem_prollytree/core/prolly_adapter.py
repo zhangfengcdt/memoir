@@ -379,7 +379,12 @@ class ProllyTreeStore(BaseStore):
         # Use synchronous search with prefix
         results = []
         seen_content = set()  # Avoid duplicates based on content
-        search_results = self.search((namespace,), limit=100)
+        # Convert string namespace to tuple format
+        # "memory:general" -> ("memory", "general")
+        namespace_parts = namespace.split(":")
+        namespace_tuple = tuple(namespace_parts)
+
+        search_results = self.search(namespace_tuple, limit=100)
 
         for _, storage_key, data in search_results:
             # Extract semantic path from storage key (format: semantic_path#unique_id)

@@ -112,11 +112,55 @@ class HierarchicalSearchEngine:
         self, query: str, context: Optional[dict]
     ) -> list[str]:
         """Map natural language query to taxonomy paths using LLM classification."""
-        # Use the classifier to understand query intent
-        classification = await self.classifier.classify_async(query, context)
+        # Get available memory paths from the store to help guide classification
+        available_keys = getattr(self.store, "_keys", set())
+        available_paths = set()
+
+        for key in available_keys:
+            # Extract the semantic path from keys like "memory:general:goals.categories.career"
+            parts = key.split(":")
+            if len(parts) >= 3:
+                semantic_path = parts[2]
+                # Handle case where there might be a # at the end
+                if "#" in semantic_path:
+                    semantic_path = semantic_path.split("#")[0]
+                available_paths.add(semantic_path)
+
+        # Enhanced context with available paths
+        enhanced_context = context or {}
+        if available_paths:
+            enhanced_context["available_memory_paths"] = list(available_paths)
+            logger.debug(
+                f"Available memory paths for query '{query}': {list(available_paths)}"
+            )
+
+        # Use the classifier to understand query intent with available paths context
+        classification = await self.classifier.classify_async(query, enhanced_context)
+        logger.debug(
+            f"Classifier returned paths for '{query}': {classification.primary_path}, alternatives: {classification.alternative_paths}"
+        )
 
         paths = [classification.primary_path]
         paths.extend(classification.alternative_paths)
+
+        # If classified paths don't match available ones, try to find closest matches
+        if available_paths:
+            matched_paths = []
+            for path in paths:
+                if path in available_paths:
+                    matched_paths.append(path)
+                else:
+                    # Find paths that contain any part of the classified path
+                    path_parts = path.split(".")
+                    for available_path in available_paths:
+                        if any(
+                            part in available_path for part in path_parts[-2:]
+                        ):  # Match on last 2 parts
+                            matched_paths.append(available_path)
+                            break
+                    # If no match found, add original path anyway for fallback
+                    matched_paths.append(path)
+            paths = matched_paths
 
         # Remove duplicates while preserving order
         seen = set()
@@ -156,7 +200,10 @@ class HierarchicalSearchEngine:
                     contents = []
                     for _key, data in items:
                         if isinstance(data, dict):
-                            content_text = str(data.get("content", ""))
+                            # Check for 'summary' field first (IntelligentClassifier format), then 'content'
+                            content_text = str(
+                                data.get("summary", data.get("content", ""))
+                            )
                         else:
                             content_text = str(data)
                         if content_text.strip():
@@ -205,7 +252,10 @@ class HierarchicalSearchEngine:
                     contents = []
                     for _key, data in items:
                         if isinstance(data, dict):
-                            content_text = str(data.get("content", ""))
+                            # Check for 'summary' field first (IntelligentClassifier format), then 'content'
+                            content_text = str(
+                                data.get("summary", data.get("content", ""))
+                            )
                         else:
                             content_text = str(data)
                         if content_text.strip():

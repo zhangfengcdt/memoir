@@ -353,6 +353,18 @@ CRITICAL: Return ONLY the JSON object, no explanations, no markdown formatting."
             context_parts.append(f"Time: {context['timestamp']}")
         if "conversation_topic" in context:
             context_parts.append(f"Topic: {context['conversation_topic']}")
+        if "available_memory_paths" in context:
+            paths = context["available_memory_paths"]
+            if paths:
+                context_parts.append("AVAILABLE STORED MEMORY PATHS:")
+                context_parts.append(
+                    "You should prioritize matching to these existing paths:"
+                )
+                for path in sorted(paths):
+                    context_parts.append(f"  - {path}")
+                context_parts.append(
+                    "If the query relates to stored memories, try to match one of these paths."
+                )
 
         if context_parts:
             return "CONTEXT:\n" + "\n".join(context_parts)
