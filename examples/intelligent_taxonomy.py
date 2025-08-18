@@ -24,6 +24,7 @@ import argparse
 import asyncio
 import json
 import os
+import signal
 import sys
 import time
 from pathlib import Path
@@ -67,6 +68,9 @@ class TaxonomyApp:
             None  # Track content changes to avoid unnecessary updates
         )
         self.live_display = None  # Store live display reference for manual refresh
+        self.interrupt_requested = (
+            False  # Track if user wants to enter interactive mode
+        )
 
         # Store JSON conversation data if provided
         self.json_file = json_file
@@ -328,7 +332,7 @@ class TaxonomyApp:
             config_items.append(f"👤 Person: {self.person_name}")
         if self.session_num is None:
             config_items.append("🎲 Sessions: Random")
-        elif self.session_num != 1:
+        else:
             config_items.append(f"📋 Session: {self.session_num}")
 
         # Confidence thresholds in compact format
@@ -851,6 +855,14 @@ class TaxonomyApp:
         ]
 
         for i, scenario in enumerate(demo_scenarios):
+            # Check if user wants to interrupt
+            if self.interrupt_requested:
+                self.console.print(
+                    "\n🔄 Switching to interactive mode...", style="bright_yellow"
+                )
+                self.interrupt_requested = False
+                return  # Exit demo early
+
             await self.process_conversation(
                 scenario["content"],
                 scenario["speaker"],
@@ -930,6 +942,14 @@ class TaxonomyApp:
 
         # Process each message as a potential memory
         for msg in person_messages:
+            # Check if user wants to interrupt
+            if self.interrupt_requested:
+                self.console.print(
+                    "\n🔄 Switching to interactive mode...", style="bright_yellow"
+                )
+                self.interrupt_requested = False
+                return  # Exit JSON processing early
+
             self.console.print(f"\n📝 Processing: {msg['text'][:100]}...", style="cyan")
             await self.process_conversation(msg["text"])
             await asyncio.sleep(0.5)  # Brief pause between messages
@@ -947,15 +967,21 @@ class TaxonomyApp:
                 await asyncio.sleep(1)
                 await self.process_conversation_from_json()
 
-                # Wait for user to continue after JSON processing
-                self.wait_for_continue_input()
+                # Only wait if not interrupted
+                if not self.interrupt_requested:
+                    self.wait_for_continue_input()
             else:
                 # Start with demo automatically to show functionality
                 await asyncio.sleep(1)
                 await self.run_demo_scenarios()
 
-            # Wait for user input after demo completion
-            self.wait_for_continue_input()
+                # Only wait if not interrupted
+                if not self.interrupt_requested:
+                    self.wait_for_continue_input()
+
+            # Clear interrupt flag if it was set
+            if self.interrupt_requested:
+                self.interrupt_requested = False
 
             # Exit live display to get input cleanly
             live_display.stop()
@@ -1011,12 +1037,52 @@ class TaxonomyApp:
                     break
 
         finally:
-            pass
+            # Ensure cursor is visible when exiting
+            self.console.show_cursor(True)
 
         self.running = False
 
+    def cleanup_terminal(self):
+        """Clean up terminal state - used by signal handlers."""
+        try:
+            if hasattr(self, "live_display") and self.live_display:
+                self.live_display.stop()
+            if hasattr(self, "console"):
+                self.console.show_cursor(True)
+            # Stop keyboard monitoring thread if it exists
+            if hasattr(self, "keyboard_thread_stop"):
+                self.keyboard_thread_stop = True
+        except Exception:
+            pass
+
     async def run(self):
         """Run the taxonomy app with live display."""
+
+        # Setup signal handlers for proper terminal cleanup
+        def handle_suspend(signum, frame):  # noqa: ARG001
+            """Handle Ctrl+Z (SIGTSTP) to properly suspend."""
+            self.cleanup_terminal()
+            # Re-raise the signal to actually suspend
+            signal.signal(signal.SIGTSTP, signal.SIG_DFL)
+            os.kill(os.getpid(), signal.SIGTSTP)
+            # When resumed, restore our handler and restart display
+            signal.signal(signal.SIGTSTP, handle_suspend)
+            if hasattr(self, "live_display") and self.live_display:
+                self.live_display.start()
+
+        def handle_interrupt(signum, frame):  # noqa: ARG001
+            r"""Handle Ctrl+\ (SIGQUIT) to enter interactive mode."""
+            self.interrupt_requested = True
+            self.console.print(
+                "\n🔄 Interactive mode requested (Ctrl+\\)...", style="bright_yellow"
+            )
+
+        # Install signal handlers (Unix/Linux/Mac only)
+        if hasattr(signal, "SIGTSTP"):
+            signal.signal(signal.SIGTSTP, handle_suspend)
+        if hasattr(signal, "SIGQUIT"):
+            signal.signal(signal.SIGQUIT, handle_interrupt)
+
         try:
             # Setup classifier
             await self.setup_classifier()
@@ -1030,6 +1096,10 @@ class TaxonomyApp:
             self.console.print("✅ Memory store initialized", style="green")
             self.console.print("✅ Live display active", style="green")
             self.console.print("\n🎯 Starting demo automatically...", style="yellow")
+            self.console.print(
+                "💡 Press Ctrl+\\ anytime to skip to interactive mode",
+                style="bright_cyan",
+            )
             self.console.print(
                 "💡 After demo: type messages to classify, 'demo' to repeat, or 'quit' to exit",
                 style="cyan",
@@ -1053,6 +1123,8 @@ class TaxonomyApp:
                 await self.interactive_mode(self.live_display)
             finally:
                 self.live_display.stop()
+                # Ensure cursor is visible
+                self.console.show_cursor(True)
                 # Clear screen and show goodbye message
                 self.console.clear()
                 self.console.print(
@@ -1064,12 +1136,35 @@ class TaxonomyApp:
                 )
 
         except Exception as e:
+            # Ensure cursor is visible even on error
+            self.console.show_cursor(True)
             self.console.print(f"❌ Error: {e}", style="red")
             sys.exit(1)
 
 
 def main():
     """Main entry point."""
+    # Store original terminal settings for restoration
+    import termios
+
+    try:
+        original_terminal_settings = termios.tcgetattr(sys.stdin)
+    except Exception:
+        original_terminal_settings = None
+
+    def restore_terminal():
+        """Restore terminal to original state."""
+        try:
+            # Show cursor
+            print("\033[?25h", end="", flush=True)
+            # Restore terminal settings if we have them
+            if original_terminal_settings:
+                termios.tcsetattr(
+                    sys.stdin, termios.TCSANOW, original_terminal_settings
+                )
+        except Exception:
+            pass
+
     # Parse command-line arguments
     parser = argparse.ArgumentParser(
         description="Intelligent Taxonomy Demo with conversation processing",
@@ -1161,10 +1256,14 @@ Examples:
     try:
         asyncio.run(app.run())
     except KeyboardInterrupt:
+        restore_terminal()
         print("\n\n👋 Goodbye!")
     except Exception as e:
+        restore_terminal()
         print(f"\n❌ Error: {e}")
         sys.exit(1)
+    finally:
+        restore_terminal()
 
 
 if __name__ == "__main__":
