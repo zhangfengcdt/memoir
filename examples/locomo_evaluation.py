@@ -890,7 +890,6 @@ Return ONLY a decimal F1 score between 0.0 and 1.0 (like 0.75 or 0.82)."""
         """Display evaluation results in a formatted table."""
         # Calculate overall stats
         total_questions = len(results)
-        correct_answers = sum(1 for r in results if r["score"] >= 0.7)
         average_score = (
             sum(r["score"] for r in results) / total_questions
             if total_questions > 0
@@ -900,12 +899,6 @@ Return ONLY a decimal F1 score between 0.0 and 1.0 (like 0.75 or 0.82)."""
         # Display summary
         self.console.print("\n⏺ QA Evaluation Results", style="white")
         self.console.print(f"⏺ Total Questions: {total_questions}", style="white")
-        self.console.print(
-            f"⏺ Correct Answers (≥70%): {correct_answers}", style="white"
-        )
-        self.console.print(
-            f"⏺ Accuracy: {correct_answers / total_questions * 100:.1f}%", style="white"
-        )
         self.console.print(f"⏺ Average Score: {average_score:.3f}", style="white")
 
         # Display detailed results
@@ -934,12 +927,20 @@ Return ONLY a decimal F1 score between 0.0 and 1.0 (like 0.75 or 0.82)."""
             expected_text = str(result["expected_answer"])  # Full text
             predicted_text = result["predicted_answer"]  # Full text
 
+            # Color "Information not found" in red
+            if predicted_text == "Information not found":
+                predicted_text = f"[red]{predicted_text}[/red]"
+
             table.add_row(
                 question_text,
                 expected_text,
                 predicted_text,
                 f"[{score_color}]{result['score']:.2f}[/{score_color}]",
-                str(len(result["retrieved_memories"])),
+                str(
+                    len(result["retrieved_memories"])
+                    if isinstance(result["retrieved_memories"], list)
+                    else 0
+                ),
             )
 
         self.console.print(table)
@@ -1045,7 +1046,6 @@ async def main():
 
             # Write summary
             total_questions = len(results)
-            correct_answers = sum(1 for r in results if r["score"] >= 0.7)
             average_score = (
                 sum(r["score"] for r in results) / total_questions
                 if total_questions > 0
@@ -1053,9 +1053,45 @@ async def main():
             )
 
             f.write(f"Total Questions: {total_questions}\n")
-            f.write(f"Correct Answers (≥70%): {correct_answers}\n")
-            f.write(f"Accuracy: {correct_answers / total_questions * 100:.1f}%\n")
             f.write(f"Average Score: {average_score:.3f}\n\n")
+
+            # Write QA Evaluation Details in table format
+            f.write("QA Evaluation Details\n")
+            f.write("=" * 80 + "\n")
+            f.write(
+                f"{'Question':<20} | {'Expected':<18} | {'Predicted':<18} | {'F1 Score':<8} | {'Memories':<8}\n"
+            )
+            f.write("-" * 80 + "\n")
+
+            for result in results[:20]:  # Match the console limit
+                question_text = (
+                    result["question"][:17] + "..."
+                    if len(result["question"]) > 17
+                    else result["question"]
+                )
+                expected_text = str(result["expected_answer"])
+                expected_text = (
+                    expected_text[:15] + "..."
+                    if len(expected_text) > 15
+                    else expected_text
+                )
+                predicted_text = str(result["predicted_answer"])
+                predicted_text = (
+                    predicted_text[:15] + "..."
+                    if len(predicted_text) > 15
+                    else predicted_text
+                )
+                # Safety check for retrieved_memories
+                retrieved_memories = result.get("retrieved_memories", [])
+                if not isinstance(retrieved_memories, list):
+                    retrieved_memories = []
+                memory_count = len(retrieved_memories)
+
+                f.write(
+                    f"{question_text:<20} | {expected_text:<18} | {predicted_text:<18} | {result['score']:>8.2f} | {memory_count:>8}\n"
+                )
+
+            f.write("-" * 80 + "\n\n")
 
             # Write detailed results
             for i, result in enumerate(results, 1):
@@ -1064,11 +1100,14 @@ async def main():
                 f.write(f"Predicted: {result['predicted_answer']}\n")
                 f.write(f"Score: {result['score']:.2f}\n")
 
-                if result["retrieved_memories"]:
-                    f.write(
-                        f"\nRetrieved {len(result['retrieved_memories'])} memories:\n"
-                    )
-                    for j, memory in enumerate(result["retrieved_memories"], 1):
+                # Safety check for retrieved_memories
+                retrieved_memories = result.get("retrieved_memories", [])
+                if not isinstance(retrieved_memories, list):
+                    retrieved_memories = []
+
+                if retrieved_memories:
+                    f.write(f"\nRetrieved {len(retrieved_memories)} memories:\n")
+                    for j, memory in enumerate(retrieved_memories, 1):
                         f.write(f"\n  Memory {j}:\n")
                         f.write(f"    Path: {memory['path']}\n")
                         f.write(f"    Distance: {memory['semantic_distance']}\n")
@@ -1082,11 +1121,14 @@ async def main():
         console.print(f"\n⏺ Full output saved to: {output_file}", style="bold green")
 
     except Exception as e:
+        import traceback
+
         console.print(f"⏺ Error: {e}", style="white")
         # Save error info to file instead of console export
         with open(output_file, "w") as f:
             f.write(f"Error occurred during evaluation: {e}\n")
             f.write(f"Timestamp: {timestamp}\n")
+            f.write(f"Full traceback:\n{traceback.format_exc()}\n")
         console.print(f"\n⏺ Error logged to: {output_file}", style="bold red")
         sys.exit(1)
 
