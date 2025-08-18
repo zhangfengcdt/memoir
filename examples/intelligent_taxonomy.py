@@ -231,7 +231,7 @@ class TaxonomyApp:
             Panel(
                 "⏺ Conversations\n\nWaiting for input...",
                 title="Conversations",
-                border_style="blue",
+                border_style="white",
             )
         )
 
@@ -239,7 +239,7 @@ class TaxonomyApp:
             Panel(
                 "⏺ Memory Decisions\n\nNo decisions yet...",
                 title="Memory Processing",
-                border_style="green",
+                border_style="white",
             )
         )
 
@@ -247,7 +247,7 @@ class TaxonomyApp:
             Panel(
                 "⏺ Current Memories\n\nNo memories stored...",
                 title="Memory Structure",
-                border_style="purple",
+                border_style="white",
             )
         )
 
@@ -368,7 +368,7 @@ class TaxonomyApp:
         content = "\n".join(lines)
         text_obj = Text(content)
         self.layout["params"].update(
-            Panel(text_obj, title="Configuration", border_style="yellow")
+            Panel(text_obj, title="Configuration", border_style="white")
         )
 
     def update_conversations_panel(self):
@@ -461,7 +461,7 @@ class TaxonomyApp:
         # Create a text object for better rendering
         text_obj = Text(content)
         self.layout["conversations"].update(
-            Panel(text_obj, title="Conversations", border_style="blue")
+            Panel(text_obj, title="Conversations", border_style="white")
         )
 
     def update_decisions_panel(self):
@@ -540,7 +540,7 @@ class TaxonomyApp:
         # Create text object for decisions panel
         text_obj = Text(content)
         self.layout["decisions"].update(
-            Panel(text_obj, title="Memory Processing", border_style="green")
+            Panel(text_obj, title="Memory Processing", border_style="white")
         )
 
     def update_memories_panel(self):
@@ -638,7 +638,7 @@ class TaxonomyApp:
         # Create text object for memory structure panel
         text_obj = Text(content)
         self.layout["right"].update(
-            Panel(text_obj, title="Memory Structure", border_style="purple")
+            Panel(text_obj, title="Memory Structure", border_style="white")
         )
 
     def _tree_to_string(self, tree, indent=0):
@@ -813,7 +813,7 @@ class TaxonomyApp:
         content = "\n".join(lines)
         text_obj = Text(content)
         self.layout["decisions"].update(
-            Panel(text_obj, title="⏺ Demo Complete", border_style="bright_green")
+            Panel(text_obj, title="⏺ Demo Complete", border_style="white")
         )
 
     async def run_demo_scenarios(self):
@@ -910,7 +910,7 @@ class TaxonomyApp:
         content = "\n".join(lines)
         text_obj = Text(content)
         self.layout["decisions"].update(
-            Panel(text_obj, title="⏺ Demo Complete", border_style="bright_yellow")
+            Panel(text_obj, title="⏺ Demo Complete", border_style="white")
         )
 
         # Store the current state for resuming

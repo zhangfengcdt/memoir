@@ -221,6 +221,13 @@ class IntelligentClassifier:
                 f"   - High confidence threshold: {self.thresholds['high']:.1f}",
                 "   - Only suggest storage if you meet the user's minimum threshold",
                 "",
+                "Confidence scoring guidelines:",
+                "   - 0.9-1.0: Perfect fit, exact match to taxonomy path and clear content",
+                "   - 0.7-0.8: Good fit, clearly belongs in this category",
+                "   - 0.5-0.6: Moderate fit, somewhat belongs but could fit elsewhere",
+                "   - 0.3-0.4: Poor fit, content is vague or path is not ideal",
+                "   - 0.0-0.2: Very poor fit, should probably not be stored",
+                "",
                 f"Content to analyze: {content}",
             ]
         )
