@@ -78,18 +78,21 @@ def conversation_base_taxonomy():
         "conversation.personal.relationships",
         "conversation.personal.activities",
         "conversation.personal.emotions",
+        "conversation.personal.other",
         # Social conversation aspects
         "conversation.social",
         "conversation.social.friends",
         "conversation.social.family",
         "conversation.social.community",
         "conversation.social.events",
+        "conversation.social.other",
         # Topical conversation areas
         "conversation.topics",
         "conversation.topics.work",
         "conversation.topics.hobbies",
         "conversation.topics.health",
         "conversation.topics.education",
+        "conversation.topics.other",
         # Temporal aspects
         "conversation.temporal",
         "conversation.temporal.recent",
@@ -112,6 +115,8 @@ def locomo_taxonomy(conversation_base_taxonomy):
         llm=LocomoMockLLM(),
         expansion_strategy=LLMExpansionStrategy.FOCUSED_SUBTREE,
         min_items_threshold=3,
+        max_categories_per_expansion=5,  # Use default value explicitly
+        use_full_base_taxonomy=True,  # Use the full mock taxonomy structure
     )
 
 
@@ -466,26 +471,34 @@ class TestLocomoConversationTaxonomy:
         taxonomy = locomo_taxonomy
 
         # Simulate conversation memory expansion
-        from langmem_prollytree.taxonomy.dynamic_taxonomy import TaxonomyExpansionResult
+        from langmem_prollytree.taxonomy.iterative_taxonomy import (
+            TaxonomyExpansionResult,
+        )
 
         expansions = [
             TaxonomyExpansionResult(
+                parent_path="conversation.personal.other",
                 new_paths=[
                     "conversation.personal.identity_exploration",
                     "conversation.personal.LGBTQ_community",
                 ],
                 migrated_items=12,
-                suggested_paths=[],
+                confidence=0.85,
+                strategy="focused_subtree",
                 reasoning="Expanded identity conversation categories",
+                timestamp=1640995400.0,
             ),
             TaxonomyExpansionResult(
+                parent_path="conversation.topics.other",
                 new_paths=[
                     "conversation.topics.outdoor_adventures",
                     "conversation.topics.artistic_pursuits",
                 ],
                 migrated_items=8,
-                suggested_paths=[],
+                confidence=0.80,
+                strategy="focused_subtree",
                 reasoning="Expanded activity conversation categories",
+                timestamp=1640995500.0,
             ),
         ]
 

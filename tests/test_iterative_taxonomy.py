@@ -186,12 +186,14 @@ def mock_base_taxonomy():
         "knowledge.technical.networking",
         "knowledge.technical.systems",
         "knowledge.technical.algorithms",
+        "knowledge.technical.other",
         "knowledge.domain",
         "knowledge.domain.business",
         "knowledge.domain.science",
         "knowledge.domain.arts",
         "knowledge.domain.technology",
         "knowledge.domain.humanities",
+        "knowledge.domain.other",
         # Preferences category
         "preferences",
         "preferences.work",
@@ -200,6 +202,7 @@ def mock_base_taxonomy():
         "preferences.work.culture",
         "preferences.work.benefits",
         "preferences.work.tools",
+        "preferences.work.other",
         "preferences.personal",
         # Experience category
         "experience",
@@ -226,6 +229,7 @@ def mock_base_taxonomy():
         "relationships.professional.reports",
         "relationships.professional.clients",
         "relationships.professional.partners",
+        "relationships.professional.other",
         "relationships.personal",
         # Goals category
         "goals",
@@ -235,6 +239,7 @@ def mock_base_taxonomy():
         "goals.career.skills_development",
         "goals.career.role_advancement",
         "goals.career.compensation",
+        "goals.career.other",
         "goals.personal",
         # Behavior category
         "behavior",
@@ -257,6 +262,8 @@ def taxonomy_with_realistic_llm(mock_base_taxonomy, realistic_llm):
         llm=realistic_llm,
         expansion_strategy=LLMExpansionStrategy.FOCUSED_SUBTREE,
         min_items_threshold=3,
+        max_categories_per_expansion=10,  # Use default value explicitly
+        use_full_base_taxonomy=True,  # Use the full mock taxonomy structure
     )
 
 
@@ -615,27 +622,35 @@ class TestRealisticLLMExpansion:
         taxonomy = taxonomy_with_realistic_llm
 
         # Simulate multiple expansions by adding to history
-        from langmem_prollytree.taxonomy.dynamic_taxonomy import TaxonomyExpansionResult
+        from langmem_prollytree.taxonomy.iterative_taxonomy import (
+            TaxonomyExpansionResult,
+        )
 
         # Add realistic expansion results
         expansions = [
             TaxonomyExpansionResult(
+                parent_path="knowledge.technical.other",
                 new_paths=[
                     "knowledge.technical.other.frontend",
                     "knowledge.technical.other.backend",
                 ],
                 migrated_items=15,
-                suggested_paths=["knowledge.technical.other.devops"],
+                confidence=0.8,
+                strategy="focused_subtree",
                 reasoning="Expanded web development categories based on 20 items",
+                timestamp=1640995200.0,
             ),
             TaxonomyExpansionResult(
+                parent_path="goals.career.other",
                 new_paths=[
                     "goals.career.other.leadership",
                     "goals.career.other.entrepreneurship",
                 ],
                 migrated_items=8,
-                suggested_paths=[],
+                confidence=0.9,
+                strategy="focused_subtree",
                 reasoning="Created career goal categories from 10 items",
+                timestamp=1640995300.0,
             ),
         ]
 

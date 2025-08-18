@@ -1,62 +1,183 @@
 {
   "conversation_personal_identity": {
     "context_keywords": ["transgender", "LGBTQ", "identity", "support group", "coming out", "gender"],
+    "example_user_inputs": [
+      "I went to a LGBTQ support group yesterday and it was so powerful",
+      "The transgender stories were so inspiring! I was so happy and thankful for all the support",
+      "I joined a new activist group focused on LGBTQ rights",
+      "Going to pride parades has been amazing for my sense of community",
+      "Coming out to my family was the hardest thing I've ever done",
+      "I'm exploring my gender identity and finding support online"
+    ],
     "response": "identity_exploration\ntransgender_experience\nsupport_groups\nLGBTQ_community\ncoming_out_process\ngender_transition\nself_acceptance\nadvocacy_activities\ncommunity_involvement\npride_events"
   },
   "conversation_relationships_family": {
     "context_keywords": ["kids", "children", "daughter", "family", "parenting", "mother", "father"],
+    "example_user_inputs": [
+      "I'm swamped with the kids & work",
+      "My daughter's birthday is on 13 August",
+      "The kids love dinosaurs and nature activities",
+      "We went camping as a family in the mountains",
+      "Bedtime stories with the children are my favorite part of the day",
+      "Managing three kids while working from home is exhausting",
+      "My son just started kindergarten and he's so excited"
+    ],
     "response": "family_dynamics\nparenting_experiences\nchildren_activities\nfamily_outings\nparent_child_relationships\nfamily_traditions\nhome_life\nchildcare_responsibilities\nfamily_planning\nparental_concerns"
   },
   "conversation_hobbies_creative": {
     "context_keywords": ["painting", "art", "pottery", "creative", "drawing", "abstract", "sunrise", "sunset"],
+    "example_user_inputs": [
+      "I painted a beautiful sunset last weekend",
+      "I love doing pottery to destress after work",
+      "Started working on an abstract art piece for the gallery",
+      "My watercolor class is helping me express emotions",
+      "Drawing has become my daily meditation practice",
+      "Created a new sculpture using recycled materials"
+    ],
     "response": "artistic_pursuits\npainting_activities\ncreative_expression\nart_techniques\nvisual_arts\ncrafts_hobbies\nartistic_inspiration\ncreative_projects\nart_supplies\nartistic_growth"
   },
   "conversation_outdoor_activities": {
     "context_keywords": ["camping", "hiking", "beach", "mountains", "forest", "nature", "outdoors", "swimming"],
+    "example_user_inputs": [
+      "Went camping at the beach for two nights",
+      "Hiked 15 miles on the mountain trail yesterday",
+      "Swimming in the lake was so refreshing",
+      "We saw deer and eagles during our forest walk",
+      "Planning a backpacking trip through the national park",
+      "The sunrise from the mountain peak was breathtaking"
+    ],
     "response": "outdoor_adventures\ncamping_experiences\nnature_activities\nhiking_trails\nbeach_visits\nmountain_excursions\nforest_exploration\noutdoor_sports\nnature_photography\nenvironmental_appreciation"
   },
   "conversation_career_education": {
     "context_keywords": ["counselor", "psychology", "education", "school", "speech", "teaching", "certification", "career"],
+    "example_user_inputs": [
+      "Started reading psychology books for my career",
+      "Want to become a certified counselor",
+      "Gave a speech at the local school",
+      "My teaching certification exam is next month",
+      "Attending a professional development workshop this weekend",
+      "Considering going back to school for my master's degree"
+    ],
     "response": "career_development\neducational_pursuits\nprofessional_goals\npsychology_studies\ncounseling_career\nteaching_activities\ncertification_programs\nworkplace_experiences\nprofessional_networking\nskill_development"
   },
   "conversation_social_events": {
     "context_keywords": ["friends", "meeting", "social", "gathering", "party", "celebration", "community"],
+    "example_user_inputs": [
+      "Meeting friends for coffee this weekend",
+      "Attended a birthday party last night",
+      "Our community gathering was wonderful",
+      "Planning a celebration for my friend's promotion",
+      "The social club meeting is every Thursday",
+      "Joined a new book club in the neighborhood"
+    ],
     "response": "social_gatherings\nfriend_meetups\ncommunity_events\nsocial_activities\nnetworking_events\ncelebrations\ngroup_activities\nsocial_connections\ncommunity_involvement\nfriendship_maintenance"
   },
   "conversation_health_wellness": {
     "context_keywords": ["running", "exercise", "destress", "health", "wellness", "fitness", "race", "training"],
+    "example_user_inputs": [
+      "Running helps me destress after work",
+      "Started training for a 5K race",
+      "My exercise routine includes yoga and swimming",
+      "Trying to maintain better health habits",
+      "Joined a fitness challenge at the gym",
+      "Meditation has improved my mental wellness"
+    ],
     "response": "fitness_activities\nexercise_routines\nhealth_maintenance\nwellness_practices\nrunning_activities\nstress_management\nphysical_health\nmental_wellness\nfitness_goals\nhealthy_lifestyle"
   },
   "conversation_reading_books": {
     "context_keywords": ["book", "reading", "Charlotte's Web", "Nothing is Impossible", "Dr. Seuss", "literature"],
+    "example_user_inputs": [
+      "Reading Charlotte's Web to the kids before bed",
+      "Just finished Nothing is Impossible - great book!",
+      "My kids love Dr. Seuss books",
+      "Started a new literature course online",
+      "The book club is reading mystery novels this month",
+      "I prefer reading non-fiction over fiction"
+    ],
     "response": "reading_habits\nbook_preferences\nliterature_interests\nchildren_books\nreading_activities\nbook_collections\nliterary_discussions\nreading_recommendations\nbook_clubs\neducational_reading"
   },
   "conversation_adoption_planning": {
     "context_keywords": ["adoption", "agencies", "meeting", "research", "single", "relationship", "planning"],
+    "example_user_inputs": [
+      "Meeting with adoption agencies next week",
+      "Researching international adoption options",
+      "As a single person, adoption feels right for me",
+      "Planning to expand our family through adoption",
+      "The adoption process is more complex than I thought",
+      "Attending adoption information sessions"
+    ],
     "response": "adoption_process\nfamily_planning\nadoption_research\nagency_meetings\nparenting_goals\nfamily_expansion\nadoption_preparation\nlegal_processes\nfamily_structure\nparenting_readiness"
   },
   "conversation_location_relocation": {
     "context_keywords": ["moved", "Sweden", "4 years ago", "location", "country", "relocation", "immigration"],
+    "example_user_inputs": [
+      "I moved to Sweden 4 years ago",
+      "Relocating to a new country was challenging",
+      "The immigration process took months",
+      "Living abroad has been an amazing experience",
+      "Miss my home country but love my new location",
+      "Cultural differences were hard to adapt to initially"
+    ],
     "response": "relocation_experiences\ninternational_moves\ncultural_adaptation\nlocation_changes\nimmigration_stories\ncountry_transitions\ngeographic_mobility\ncultural_differences\nliving_abroad\nresettlement_experiences"
   },
   "conversation_time_scheduling": {
     "context_keywords": ["Monday", "Tuesday", "Wednesday", "May", "June", "July", "August", "weekend", "week"],
+    "example_user_inputs": [
+      "Monday is always my busiest day of the week",
+      "Planning a trip for June and July",
+      "This weekend I'm visiting family",
+      "My daughter's birthday is in August",
+      "Tuesday meetings are becoming overwhelming",
+      "Looking forward to the May holidays"
+    ],
     "response": "schedule_management\ntime_planning\nweekly_activities\nmonthly_events\nseasonal_activities\nappointment_scheduling\ncalendar_events\ntemporal_references\ndate_planning\ntime_organization"
   },
   "conversation_emotional_support": {
     "context_keywords": ["support", "inspiring", "thankful", "powerful", "emotional", "feelings", "grateful"],
+    "example_user_inputs": [
+      "The support group was so powerful and inspiring",
+      "I'm thankful for all the emotional support",
+      "Feeling grateful for my friends and family",
+      "It was an emotional but healing experience",
+      "The inspiring stories helped me process my feelings",
+      "Support from the community has been overwhelming"
+    ],
     "response": "emotional_support\nfeelings_expression\ninspirational_moments\ngratitude_expressions\nemotional_processing\nsupport_systems\nemotional_wellness\nfeelings_sharing\nemotional_growth\nsupport_networks"
   },
   "conversation_activism_advocacy": {
     "context_keywords": ["activist", "pride", "LGBTQ", "mentorship", "advocacy", "community", "volunteer"],
+    "example_user_inputs": [
+      "Joined an activist group for LGBTQ rights",
+      "Pride parade was an amazing advocacy experience",
+      "Volunteering at the community center on weekends",
+      "Started a mentorship program for young people",
+      "Our advocacy work is making real change",
+      "Community organizing has become my passion"
+    ],
     "response": "activism_involvement\nadvocacy_work\ncommunity_organizing\nvolunteer_activities\nsocial_justice\nLGBTQ_advocacy\nmentorship_programs\ncommunity_leadership\nsocial_causes\nactivist_engagement"
   },
   "conversation_entertainment_media": {
     "context_keywords": ["museum", "dinosaurs", "theme park", "national park", "entertainment", "cultural"],
+    "example_user_inputs": [
+      "Took the kids to the dinosaur museum",
+      "Planning a theme park vacation next month",
+      "Visited three national parks this summer",
+      "The cultural festival was so entertaining",
+      "Museum exhibits are my favorite weekend activity",
+      "Entertainment options in the city are endless"
+    ],
     "response": "entertainment_activities\ncultural_experiences\nmuseum_visits\neducational_outings\nrecreational_activities\ncultural_events\nentertainment_preferences\nleisure_activities\ncultural_interests\nfun_activities"
   },
   "conversation_daily_life": {
     "context_keywords": ["busy", "swamped", "work", "daily", "routine", "life", "everyday", "regular"],
+    "example_user_inputs": [
+      "I'm swamped with work and the kids",
+      "My daily routine starts at 6 AM",
+      "Life has been so busy lately",
+      "Regular exercise is part of my everyday activities",
+      "Work-life balance is a constant challenge",
+      "Just trying to manage daily responsibilities"
+    ],
     "response": "daily_routines\nwork_life_balance\neveryday_activities\nlife_management\nroutine_activities\ndaily_experiences\nlife_updates\nregular_activities\nlifestyle_patterns\ndaily_challenges"
   },
   "defaults": {
