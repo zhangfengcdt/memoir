@@ -125,8 +125,8 @@ class TaxonomyApp:
             memory_store=store,
             taxonomy_version=TaxonomyVersion.GENERAL,
             confidence_thresholds={
-                "high": 0.9,  # Very high threshold to encourage expansion
-                "medium": 0.7,  # Higher medium threshold
+                "high": 0.8,  # Slightly lower to see more high confidence classifications
+                "medium": 0.5,  # More reasonable medium threshold
                 "low": 0.0,
             },
             min_items_for_expansion=1,  # Lower threshold for easier expansion triggering
@@ -677,6 +677,15 @@ class TaxonomyApp:
                 await self.interactive_mode(live_display)
             finally:
                 live_display.stop()
+                # Clear screen and show goodbye message
+                self.console.clear()
+                self.console.print(
+                    "👋 Thank you for using Intelligent Taxonomy Classification!",
+                    style="bold blue",
+                )
+                self.console.print(
+                    "🧠 Your memory classifications have been saved.", style="green"
+                )
 
         except Exception as e:
             self.console.print(f"❌ Error: {e}", style="red")

@@ -279,8 +279,14 @@ class IntelligentClassifier:
             if json_match:
                 json_str = json_match.group()
                 data = json.loads(json_str)
+
+                # Debug logging to see what we're getting
+                logger.info(f"Parsed LLM response: {data}")
             else:
-                # Fallback parsing
+                # Fallback parsing - log the content that failed to parse
+                logger.warning(
+                    f"Failed to parse JSON from LLM response: {content[:200]}..."
+                )
                 data = {
                     "is_memory": False,
                     "path": None,
@@ -495,10 +501,10 @@ class IntelligentClassifier:
             classification.path
             and classification.path not in self.taxonomy.get_all_paths()
         ):
-            # Path doesn't exist - this should be an expansion
-            classification.confidence = min(
-                classification.confidence, 0.5
-            )  # Lower confidence
+            # Path doesn't exist - mark for expansion but preserve original confidence
+            # Only lower confidence if it was already very high (likely overconfident)
+            if classification.confidence > 0.8:
+                classification.confidence = min(classification.confidence, 0.75)
             classification.confidence_level = self._get_confidence_level(
                 classification.confidence
             )
