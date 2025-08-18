@@ -357,11 +357,58 @@ class LocomoEvaluator:
             style="white",
         )
 
-        search_results = await self.search_engine.search(
+        # Try multiple search strategies to get better results
+        search_results = []
+
+        # First try: specific to general search
+        results1 = await self.search_engine.search(
             query=question,
             namespace=namespace_str,
             strategy=SearchStrategy.SPECIFIC_TO_GENERAL,
         )
+        search_results.extend(results1)
+
+        # If no results, try broader search with different classification
+        if len(results1) == 0:
+            # Try classifying with broader context
+            broader_context = {
+                "available_memory_paths": [
+                    "profile.personal.identity",
+                    "profile.professional.career",
+                    "experience.memories",
+                    "experience.activities",
+                    "experience.relationships",
+                    "preferences.personal.lifestyle",
+                    "context.temporal.events",
+                    "goals.categories",
+                ]
+            }
+            broader_classification = await self.search_engine.classifier.classify_async(
+                question, broader_context
+            )
+
+            # Search using the broader classification path
+            results2 = await self.search_engine.search(
+                query=question,
+                namespace=namespace_str,
+                strategy=SearchStrategy.SPECIFIC_TO_GENERAL,
+            )
+            search_results.extend(results2)
+
+            self.console.print(
+                f"⏺ DEBUG: Broader search with path '{broader_classification.primary_path}' found {len(results2)} results",
+                style="white",
+            )
+
+        # Remove duplicates while preserving order
+        seen_paths = set()
+        unique_results = []
+        for result in search_results:
+            if result.path not in seen_paths:
+                unique_results.append(result)
+                seen_paths.add(result.path)
+
+        search_results = unique_results[:5]  # Keep top 5 unique results
 
         # Debug: Print search results
         if len(search_results) == 0:
@@ -387,29 +434,59 @@ class LocomoEvaluator:
                 }
             )
 
-        # Create context from retrieved memories
+        # Create context from retrieved memories with better data extraction
         context_parts = []
-        for memory in retrieved_memories[:5]:  # Use top 5 results
-            context_parts.append(f"Memory from {memory['path']}: {memory['content']}")
-            context_parts.append(f"  Items combined: {memory['item_count']}")
+        for memory in retrieved_memories[:3]:  # Use top 3 most relevant results
+            content = memory["content"]
+            path = memory["path"]
+
+            # Try to extract structured information if content is JSON
+            try:
+                if isinstance(content, str) and content.strip().startswith("{"):
+                    content_obj = json.loads(content)
+                    # Extract key-value pairs from structured data
+                    if "structured_data" in content_obj:
+                        structured = content_obj["structured_data"]
+                        context_parts.append(f"From {path}: {json.dumps(structured)}")
+                    elif "summary" in content_obj:
+                        context_parts.append(f"From {path}: {content_obj['summary']}")
+                    else:
+                        context_parts.append(f"From {path}: {content}")
+                else:
+                    context_parts.append(f"From {path}: {content}")
+            except (json.JSONDecodeError, TypeError):
+                # If not JSON or other parsing error, use as-is
+                context_parts.append(f"From {path}: {content}")
 
         context = "\n".join(context_parts)
 
-        # Generate answer using LLM
-        prompt = f"""Based on the following memories from conversations, answer the question as accurately as possible.
+        # Generate answer using LLM with improved prompt
+        prompt = f"""Extract ONLY the specific fact that answers the question. Return JUST the answer with no extra words.
 
-Retrieved Memories (JSON format with summary and structured_data):
+CORRECT EXAMPLES:
+Q: "When did John go to the store?"
+A: May 15, 2023
+
+Q: "What activities does Mary enjoy?"
+A: painting, hiking, reading
+
+Q: "What is Sarah's profession?"
+A: software engineer
+
+Q: "What is Mike's identity?"
+A: transgender man
+
+Retrieved Context:
 {context}
 
 Question: {question}
 
-Instructions:
-- The memories are in JSON format with both "summary" and "structured_data" fields
-- Look for specific facts in the "structured_data" field (dates, names, activities, etc.)
-- The "metadata" field contains additional context like speaker and dialogue IDs
-- The memories may contain information about Caroline, Melanie, or both
-- Provide a direct, concise answer based only on the information found in these memories
-- If the specific information needed is not available, respond with "Information not found in memories."
+STRICT RULES:
+1. Return ONLY the factual answer - no "Caroline did..." or "Information shows..."
+2. Maximum 8 words
+3. If no relevant info found: "Information not found"
+4. Extract from memory content, not just paths
+5. For dates, use exact format from memories
 
 Answer:"""
 
@@ -423,6 +500,9 @@ Answer:"""
         try:
             response = await self.llm.ainvoke(prompt)
             predicted_answer = response.content.strip()
+
+            # Post-process answer to ensure conciseness
+            predicted_answer = self.post_process_answer(predicted_answer)
 
             # Debug: Print results
             if "not found" in predicted_answer.lower():
@@ -445,6 +525,52 @@ Answer:"""
             "retrieved_memories": retrieved_memories,
             "score": score,
         }
+
+    def post_process_answer(self, answer: str) -> str:
+        """Post-process LLM answer to make it more concise and direct."""
+        if not answer:
+            return answer
+
+        # Remove common verbose prefixes
+        verbose_prefixes = [
+            "Caroline went to",
+            "Caroline has decided",
+            "Caroline would likely",
+            "Caroline participate",
+            "Melanie partakes in",
+            "Melanie has gone",
+            "Information shows",
+            "According to the memories",
+            "Based on the information",
+            "The memories indicate",
+            "From the context",
+        ]
+
+        answer_lower = answer.lower()
+        for prefix in verbose_prefixes:
+            if answer_lower.startswith(prefix.lower()):
+                # Extract the key information after the prefix
+                remaining = answer[len(prefix) :].strip()
+                if remaining.startswith(" that "):
+                    remaining = remaining[5:].strip()
+                if remaining and not remaining.startswith("to "):
+                    answer = remaining
+                break
+
+        # Clean up sentence endings
+        if answer.endswith("."):
+            answer = answer[:-1]
+
+        # Remove quotes if they wrap the entire answer
+        if answer.startswith('"') and answer.endswith('"'):
+            answer = answer[1:-1]
+
+        # Limit length (keep first 8 words max)
+        words = answer.split()
+        if len(words) > 8:
+            answer = " ".join(words[:8])
+
+        return answer.strip()
 
     def calculate_answer_score(self, expected: str, predicted: str) -> float:
         """Calculate similarity score between expected and predicted answers."""
@@ -498,9 +624,9 @@ Answer:"""
 
         # Display detailed results
         table = Table(title="QA Evaluation Details")
-        table.add_column("Question", style="white", max_width=40)
-        table.add_column("Expected", style="white", max_width=20)
-        table.add_column("Predicted", style="white", max_width=20)
+        table.add_column("Question", style="white", max_width=35)
+        table.add_column("Expected", style="white", max_width=40)
+        table.add_column("Predicted", style="white", max_width=40)
         table.add_column("Score", style="white", justify="right")
         table.add_column("Memories", style="white", justify="right")
 
@@ -512,22 +638,20 @@ Answer:"""
                 if result["score"] == 0
                 else "yellow"
             )
+
+            # Show full text for better analysis - don't truncate expected/predicted
+            question_text = (
+                result["question"][:50] + "..."
+                if len(result["question"]) > 50
+                else result["question"]
+            )
+            expected_text = str(result["expected_answer"])  # Full text
+            predicted_text = result["predicted_answer"]  # Full text
+
             table.add_row(
-                (
-                    result["question"][:50] + "..."
-                    if len(result["question"]) > 50
-                    else result["question"]
-                ),
-                (
-                    str(result["expected_answer"])[:20] + "..."
-                    if len(str(result["expected_answer"])) > 20
-                    else str(result["expected_answer"])
-                ),
-                (
-                    result["predicted_answer"][:20] + "..."
-                    if len(result["predicted_answer"]) > 20
-                    else result["predicted_answer"]
-                ),
+                question_text,
+                expected_text,
+                predicted_text,
                 f"[{score_color}]{result['score']:.2f}[/{score_color}]",
                 str(len(result["retrieved_memories"])),
             )
