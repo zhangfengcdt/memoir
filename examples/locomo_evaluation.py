@@ -46,12 +46,18 @@ class LocomoEvaluator:
         storage_path: str = "/tmp/qa_evaluation",
         confidence_thresholds: Optional[dict[str, float]] = None,
         session: Optional[int] = None,
+        max_search_results: int = 5,
+        max_context_memories: int = 3,
+        max_memory_size: int = 2000,
     ):
         self.console = Console()
         self.data_file = data_file
         self.person_name = person_name
         self.storage_path = storage_path
         self.session = session
+        self.max_search_results = max_search_results
+        self.max_context_memories = max_context_memories
+        self.max_memory_size = max_memory_size
         self.confidence_thresholds = confidence_thresholds or {
             "high": 0.8,
             "medium": 0.5,
@@ -413,7 +419,9 @@ class LocomoEvaluator:
                 unique_results.append(result)
                 seen_content.add(content_hash)
 
-        search_results = unique_results[:5]  # Keep top 5 unique results
+        search_results = unique_results[
+            : self.max_search_results
+        ]  # Keep top N unique results
 
         # Store debug info without printing during evaluation
 
@@ -431,7 +439,9 @@ class LocomoEvaluator:
 
         # Create context from retrieved memories with better data extraction
         context_parts = []
-        for memory in retrieved_memories[:3]:  # Use top 3 most relevant results
+        for memory in retrieved_memories[
+            : self.max_context_memories
+        ]:  # Use top N most relevant results
             content = memory["content"]
             path = memory["path"]
 
@@ -441,19 +451,46 @@ class LocomoEvaluator:
                     content_obj = json.loads(content)
                     # Prioritize raw_text if available (contains full conversation)
                     if "raw_text" in content_obj:
-                        context_parts.append(f"From {path}: {content_obj['raw_text']}")
+                        raw_text = content_obj["raw_text"]
+                        # Truncate if too long
+                        if len(raw_text) > self.max_memory_size:
+                            raw_text = (
+                                raw_text[: self.max_memory_size] + "...(truncated)"
+                            )
+                        context_parts.append(f"From {path}: {raw_text}")
                     elif "structured_data" in content_obj:
                         structured = content_obj["structured_data"]
-                        context_parts.append(f"From {path}: {json.dumps(structured)}")
+                        structured_text = json.dumps(structured)
+                        if len(structured_text) > self.max_memory_size:
+                            structured_text = (
+                                structured_text[: self.max_memory_size]
+                                + "...(truncated)"
+                            )
+                        context_parts.append(f"From {path}: {structured_text}")
                     elif "summary" in content_obj:
-                        context_parts.append(f"From {path}: {content_obj['summary']}")
+                        summary_text = content_obj["summary"]
+                        if len(summary_text) > self.max_memory_size:
+                            summary_text = (
+                                summary_text[: self.max_memory_size] + "...(truncated)"
+                            )
+                        context_parts.append(f"From {path}: {summary_text}")
                     else:
-                        context_parts.append(f"From {path}: {content}")
+                        content_text = str(content)
+                        if len(content_text) > self.max_memory_size:
+                            content_text = (
+                                content_text[: self.max_memory_size] + "...(truncated)"
+                            )
+                        context_parts.append(f"From {path}: {content_text}")
                 else:
                     context_parts.append(f"From {path}: {content}")
             except (json.JSONDecodeError, TypeError):
                 # If not JSON or other parsing error, use as-is
-                context_parts.append(f"From {path}: {content}")
+                content_text = str(content)
+                if len(content_text) > self.max_memory_size:
+                    content_text = (
+                        content_text[: self.max_memory_size] + "...(truncated)"
+                    )
+                context_parts.append(f"From {path}: {content_text}")
 
         context = "\n".join(context_parts)
 
@@ -855,6 +892,24 @@ async def main():
         type=int,
         help="Process only specified session number (e.g., 1, 2, 3)",
     )
+    parser.add_argument(
+        "--max-search-results",
+        type=int,
+        default=5,
+        help="Maximum number of search results to retrieve (default: 5)",
+    )
+    parser.add_argument(
+        "--max-context-memories",
+        type=int,
+        default=3,
+        help="Maximum number of memories to use for LLM context (default: 3)",
+    )
+    parser.add_argument(
+        "--max-memory-size",
+        type=int,
+        default=2000,
+        help="Maximum size of individual memory content (default: 2000 chars)",
+    )
 
     args = parser.parse_args()
 
@@ -874,6 +929,9 @@ async def main():
             person_name=args.person,
             storage_path=args.storage_path,
             session=args.session,
+            max_search_results=args.max_search_results,
+            max_context_memories=args.max_context_memories,
+            max_memory_size=args.max_memory_size,
         )
 
         # Setup components
