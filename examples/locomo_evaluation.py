@@ -181,10 +181,13 @@ class LocomoEvaluator:
                 if speaker == self.person_name and exchange.get("text", "").strip():
                     total_exchanges += 1
 
-        # Simple status message instead of progress bar
-        self.console.print(
-            f"⏺ Processing {total_exchanges} memories...", style="white", end=""
-        )
+        # Temporarily suppress logging during processing to avoid scrolling
+        import logging
+
+        old_level = logging.getLogger().level
+        logging.getLogger().setLevel(logging.ERROR)  # Only show errors
+
+        processed_count = 0
 
         for session_key in session_keys:
             session_data = self.conversation_data.get(session_key, [])
@@ -198,6 +201,13 @@ class LocomoEvaluator:
                 if speaker == self.person_name:
                     text = exchange.get("text", "")
                     if text.strip():
+                        # Update progress in place
+                        self.console.print(
+                            f"⏺ Processing memories... {processed_count + 1}/{total_exchanges}",
+                            style="white",
+                            end="\r",
+                        )
+
                         # Add metadata including dialogue ID and session date for reference
                         metadata = {
                             "source": "locomo_conversation",
@@ -221,6 +231,11 @@ class LocomoEvaluator:
                             logger.warning(
                                 f"Failed to process: {text[:50]}... Error: {e}"
                             )
+
+                        processed_count += 1
+
+        # Restore logging level
+        logging.getLogger().setLevel(old_level)
 
         self.console.print(f"⏺ Processed {memories_processed} memories", style="white")
 
@@ -265,12 +280,15 @@ class LocomoEvaluator:
 
         results = []
 
-        # Simple status message instead of progress bar
-        self.console.print(
-            f"⏺ Evaluating {len(qa_data_to_evaluate)} questions...", style="white"
-        )
+        # Simple progress counter for QA evaluation
+        for i, qa_item in enumerate(qa_data_to_evaluate, 1):
+            # Update progress in place
+            self.console.print(
+                f"⏺ Evaluating questions... {i}/{len(qa_data_to_evaluate)}",
+                style="white",
+                end="\r",
+            )
 
-        for qa_item in qa_data_to_evaluate:
             question = qa_item["question"]
             expected_answer = qa_item["answer"]
             evidence = qa_item.get("evidence", [])
@@ -665,39 +683,7 @@ Answer:"""
                 f"⏺ ... and {len(results) - 20} more results", style="white"
             )
 
-        # Display detailed memory retrieval information for troubleshooting
-        self.console.print(
-            "\n⏺ Detailed Memory Retrieval for Troubleshooting", style="white"
-        )
-        for i, result in enumerate(results[:10], 1):  # Show first 10 for detail
-            self.console.print(
-                f"\n[bold white]Question {i}: {result['question'][:80]}...[/bold white]"
-            )
-            self.console.print(f"Expected: [green]{result['expected_answer']}[/green]")
-            self.console.print(
-                f"Predicted: [yellow]{result['predicted_answer']}[/yellow]"
-            )
-            self.console.print(f"Score: {result['score']:.2f}")
-
-            if result["retrieved_memories"]:
-                self.console.print(
-                    f"\nRetrieved {len(result['retrieved_memories'])} memories:"
-                )
-                for j, memory in enumerate(result["retrieved_memories"], 1):
-                    self.console.print(f"\n  Memory {j}:")
-                    self.console.print(f"    Path: [cyan]{memory['path']}[/cyan]")
-                    self.console.print(f"    Distance: {memory['semantic_distance']}")
-                    self.console.print(f"    Items: {memory['item_count']}")
-
-                    # Show content preview (truncated for readability)
-                    content = str(memory["content"])
-                    if len(content) > 200:
-                        content = content[:200] + "..."
-                    self.console.print(f"    Content: {content}")
-            else:
-                self.console.print("[red]  No memories retrieved[/red]")
-
-            self.console.print("-" * 80)
+        # Detailed troubleshooting information is saved to the output file
 
 
 async def main():
