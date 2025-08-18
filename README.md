@@ -1,10 +1,22 @@
-# LangMem-ProllyTree Integration
+# Memoir
 
-**Revolutionizing AI Memory Systems with 10-20x Performance Improvements**
+<div align="center">
+  <img src="static/memoir.png" alt="Memoir Logo" width="200" height="200">
+  
+  **A High-Performance Semantic Memory System for AI Applications**
+  
+  *Revolutionizing AI Memory with 10-20x Performance Improvements*
+</div>
 
 [![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-Alpha-orange.svg)]()
+
+## 📖 Overview
+
+Memoir is a high-performance semantic memory system that transforms how AI applications store, classify, and retrieve memories. By replacing traditional UUID-based keys with semantic hierarchical paths, Memoir achieves 10-20x performance improvements while maintaining rich, searchable memory structures.
+
+Perfect for AI agents, chatbots, and any application requiring intelligent memory management with LangGraph and LangMem compatibility.
 
 ## 🎯 Key Features
 
@@ -44,13 +56,15 @@
 
 ### Fundamental Innovation
 
+Memoir revolutionizes AI memory storage by replacing expensive vector searches with deterministic semantic paths.
+
 **Traditional Approach**: Random UUIDs + Vector Search
 ```python
 key = "uuid-1234"  # No semantic meaning
 search_query = "Python skills"  # Must embed and search all vectors
 ```
 
-**Our Approach**: Semantic Hierarchical Keys
+**Memoir's Approach**: Semantic Hierarchical Keys
 ```python
 key = "profile.professional.skills.technical.programming.python"
 search = prolly_tree.range_query("*.programming.*")  # 0.1ms prefix query
@@ -70,7 +84,7 @@ search = prolly_tree.range_query("*.programming.*")  # 0.1ms prefix query
 ### Installation
 
 ```bash
-pip install langmem-prollytree
+pip install memoir
 ```
 
 ### Basic Usage
@@ -167,4 +181,10 @@ MIT License - see [LICENSE](LICENSE) file.
 
 ---
 
-**⚡ Transform your AI memory systems today with 10-20x performance improvements!** ⚡
+<div align="center">
+  
+**⚡ Transform your AI memory systems today with Memoir!** ⚡
+
+*Experience 10-20x performance improvements in your AI applications*
+
+</div>
