@@ -548,7 +548,7 @@ Answer:"""
     async def calculate_answer_score(
         self, expected: str, predicted: str, question: str = ""
     ) -> float:
-        """Calculate similarity score between expected and predicted answers using LLM evaluation."""
+        """Calculate F1-based similarity score between expected and predicted answers using LLM evaluation."""
         if (
             not predicted
             or "not found" in predicted.lower()
@@ -571,29 +571,49 @@ Answer:"""
     async def _llm_evaluate_similarity(
         self, expected: str, predicted: str, question: str = ""
     ) -> float:
-        """Use LLM to evaluate semantic similarity between expected and predicted answers."""
+        """Use LLM to calculate F1-based similarity score between expected and predicted answers."""
         question_context = f"\n\nQuestion: {question}" if question else ""
 
-        prompt = f"""Evaluate the semantic similarity between these two answers and return a score from 0.0 to 1.0.{question_context}
+        prompt = f"""Calculate an F1-based similarity score between the expected and predicted answers.{question_context}
 
-Guidelines:
-- 1.0: Identical meaning (e.g., "7 May 2023" vs "May 7, 2023")
-- 0.8-0.9: Very similar meaning (e.g., "counseling" vs "mental health counseling")
-- 0.6-0.7: Partially correct (e.g., "pottery, painting" vs "pottery, painting, camping" - missing some items)
-- 0.4-0.5: Some overlap but different focus
-- 0.0-0.3: Different meaning or mostly incorrect
+SCORING METHOD:
+1. Break both answers into key components/items
+2. Count: TP (true positives), FP (false positives), FN (false negatives)
+3. Calculate: Precision = TP/(TP+FP), Recall = TP/(TP+FN)
+4. F1 Score = 2 * (Precision * Recall) / (Precision + Recall)
+
+EXAMPLES:
+Expected: "Psychology, counseling certification"
+Predicted: "counseling, mental health"
+- TP: 1 (counseling matches)
+- FP: 1 (mental health not in expected)
+- FN: 1 (Psychology missing)
+- Precision: 1/2 = 0.5, Recall: 1/2 = 0.5
+- F1: 2*(0.5*0.5)/(0.5+0.5) = 0.5
+
+Expected: "7 May 2023"
+Predicted: "May 7, 2023"
+- Same date, different format = Perfect match
+- F1: 1.0
+
+Expected: "Pride parade, school speech, support group"
+Predicted: "LGBTQ support group on 7 May 2023"
+- TP: 1 (support group)
+- FP: 1 (extra date info)
+- FN: 2 (Pride parade, school speech missing)
+- Precision: 1/2 = 0.5, Recall: 1/3 = 0.33
+- F1: 2*(0.5*0.33)/(0.5+0.33) = 0.40
+
+RULES:
+- Consider semantic equivalence (counseling = therapy = mental health counseling)
+- Date formats count as identical (7 May 2023 = May 7, 2023)
+- Partial information gets partial credit
+- Extra correct details don't hurt (but don't help much either)
 
 Expected Answer: "{expected}"
 Predicted Answer: "{predicted}"
 
-Consider:
-- Date format variations (7 May 2023 = May 7, 2023)
-- Synonyms (counseling = therapy, mental health)
-- Partial matches in lists (if expected has 3 items and predicted has 2 correct ones)
-- Semantic equivalence (transgender woman = trans woman)
-- Context from the question to understand what type of answer is expected
-
-Return only a decimal number between 0.0 and 1.0, nothing else."""
+Return only the F1 score as a decimal between 0.0 and 1.0."""
 
         try:
             response = await self.llm.ainvoke(prompt)
