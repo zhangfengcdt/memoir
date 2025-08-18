@@ -65,18 +65,30 @@ async def main():
         print("\n1. Setting up LLM for semantic classification:")
         llm = get_llm()
 
-        # Create intelligent classifier
+        # Create intelligent classifier with configurable aggressiveness
         # This uses GPT for smart classification with automatic taxonomy expansion
+        # You can tune these parameters to control how aggressive the classifier is:
+
+        # Conservative settings (only store high-confidence memories):
+        # confidence_thresholds={"high": 0.9, "medium": 0.7, "low": 0.5}
+
+        # Aggressive settings (store almost everything):
+        # confidence_thresholds={"high": 0.6, "medium": 0.3, "low": 0.0}
+
+        # Default balanced settings:
         classifier = IntelligentClassifier(
             llm=llm,
             taxonomy_version=TaxonomyVersion.GENERAL,
             confidence_thresholds={
-                "high": 0.8,
-                "medium": 0.5,
-                "low": 0.0,
+                "high": 0.8,  # High confidence threshold - memories above this are stored immediately
+                "medium": 0.5,  # Medium confidence threshold - memories above this are considered good
+                "low": 0.0,  # CRITICAL: Low confidence threshold - anything below this gets REJECTED
             },
-            min_items_for_expansion=2,  # Lower threshold for demo
+            min_items_for_expansion=2,  # Lower threshold for demo - higher values = less taxonomy expansion
         )
+        print("   🎯 Using balanced aggressiveness settings (low threshold = 0.0)")
+        print("   💡 IMPORTANT: The 'low' threshold controls what gets stored!")
+        print("   💡 Try setting low=0.5 or low=0.7 to be more selective")
 
         # Initialize ProllyTreeMemoryStoreManager
         # This replaces LangMem's InMemoryStore with 10-20x better performance

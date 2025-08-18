@@ -2,10 +2,27 @@
 """
 Split console app for Intelligent Taxonomy Classification system with real LLM.
 Features three panels: conversations (top-left), memory decisions (bottom-left), and current memories (right).
+
+Usage:
+    # Run with demo scenarios (default settings)
+    python examples/intelligent_taxonomy.py
+
+    # Run with conversation JSON file (specific session)
+    python examples/intelligent_taxonomy.py --json-file /path/to/conversation.json --person Caroline --session 1
+
+    # Run with all sessions randomly mixed
+    python examples/intelligent_taxonomy.py --json-file /path/to/conversation.json --person Caroline
+
+    # Control memory aggressiveness (conservative - only high-confidence memories)
+    python examples/intelligent_taxonomy.py --high-threshold 0.9 --medium-threshold 0.7 --low-threshold 0.5
+
+    # Aggressive mode (stores almost everything)
+    python examples/intelligent_taxonomy.py --high-threshold 0.6 --medium-threshold 0.3 --low-threshold 0.0
 """
 
+import argparse
 import asyncio
-import contextlib
+import json
 import os
 import sys
 import time
@@ -29,7 +46,14 @@ from langmem_prollytree.taxonomy.taxonomy_presets import TaxonomyVersion
 class TaxonomyApp:
     """Split console app for intelligent taxonomy classification."""
 
-    def __init__(self):
+    def __init__(
+        self,
+        json_file: Optional[str] = None,
+        person_name: Optional[str] = None,
+        session_num: Optional[int] = None,
+        confidence_thresholds: Optional[dict[str, float]] = None,
+        min_items_for_expansion: Optional[int] = None,
+    ):
         self.console = Console()
         self.layout = Layout()
         self.conversations = []
@@ -39,26 +63,166 @@ class TaxonomyApp:
         self.running = False
         self.current_processing = None  # Track what input is being processed
         self.demo_waiting_for_input = False  # Track if waiting for demo continuation
-        self.cursor_visible = True  # Track cursor blink state
-        self.cursor_toggle_time = time.time()  # Track last cursor toggle
-        self.cursor_blink_interval = 0.5  # Cursor blink interval in seconds
+        self.last_update_hash = (
+            None  # Track content changes to avoid unnecessary updates
+        )
+        self.live_display = None  # Store live display reference for manual refresh
+
+        # Store JSON conversation data if provided
+        self.json_file = json_file
+        self.person_name = person_name
+        self.session_num = session_num
+        self.conversation_data = None
+
+        # Store classifier configuration
+        self.confidence_thresholds = confidence_thresholds or {
+            "high": 0.8,
+            "medium": 0.5,
+            "low": 0.0,
+        }
+        self.min_items_for_expansion = min_items_for_expansion or 1
+
+        # Load conversation data if provided
+        if json_file:
+            self.load_conversation_data()
 
         # Setup layout
         self.setup_layout()
 
+    def load_conversation_data(self):
+        """Load conversation data from JSON file."""
+        try:
+            with open(self.json_file) as f:
+                content = f.read()
+                # Handle potential extra data at the end of JSON
+                # Find the first complete JSON object
+                brace_count = 0
+                end_pos = 0
+                for i, char in enumerate(content):
+                    if char == "{":
+                        brace_count += 1
+                    elif char == "}":
+                        brace_count -= 1
+                        if brace_count == 0:
+                            end_pos = i + 1
+                            break
+
+                # Parse just the first JSON object
+                data = json.loads(content[:end_pos])
+
+            # Extract conversation data
+            if "conversation" in data:
+                conv = data["conversation"]
+
+                # Find all available sessions
+                available_sessions = []
+                for key in conv:
+                    if key.startswith("session_") and not key.endswith("_date_time"):
+                        session_num = key.replace("session_", "")
+                        if session_num.isdigit():
+                            available_sessions.append(int(session_num))
+
+                available_sessions.sort()
+
+                if self.session_num is None:
+                    # No session specified - use all sessions randomly
+                    import random
+
+                    all_sessions_data = []
+
+                    for session_id in available_sessions:
+                        session_data = conv.get(f"session_{session_id}", [])
+                        if session_data:  # Only include sessions with actual data
+                            all_sessions_data.extend(session_data)
+
+                    # Shuffle all exchanges randomly
+                    random.shuffle(all_sessions_data)
+
+                    self.conversation_data = {
+                        "speaker_a": conv.get("speaker_a", "Unknown"),
+                        "speaker_b": conv.get("speaker_b", "Unknown"),
+                        "session": all_sessions_data,
+                        "date_time": "Mixed sessions (randomized)",
+                        "sessions_used": available_sessions,
+                    }
+
+                    self.console.print(
+                        f"✅ Loaded conversation from {self.json_file}", style="green"
+                    )
+                    self.console.print(
+                        f"   🎲 Random mode: {self.conversation_data['speaker_a']} and {self.conversation_data['speaker_b']}",
+                        style="cyan",
+                    )
+                    self.console.print(
+                        f"   📋 Using sessions: {available_sessions} (randomized)",
+                        style="cyan",
+                    )
+                    self.console.print(
+                        f"   💬 Total exchanges: {len(self.conversation_data['session'])}",
+                        style="cyan",
+                    )
+
+                else:
+                    # Specific session requested
+                    self.conversation_data = {
+                        "speaker_a": conv.get("speaker_a", "Unknown"),
+                        "speaker_b": conv.get("speaker_b", "Unknown"),
+                        "session": conv.get(f"session_{self.session_num}", []),
+                        "date_time": conv.get(
+                            f"session_{self.session_num}_date_time", "Unknown time"
+                        ),
+                    }
+
+                    self.console.print(
+                        f"✅ Loaded conversation from {self.json_file}", style="green"
+                    )
+                    self.console.print(
+                        f"   📋 Session {self.session_num}: {self.conversation_data['speaker_a']} and {self.conversation_data['speaker_b']}",
+                        style="cyan",
+                    )
+                    self.console.print(
+                        f"   📅 Date/Time: {self.conversation_data['date_time']}",
+                        style="cyan",
+                    )
+                    self.console.print(
+                        f"   💬 Total exchanges: {len(self.conversation_data['session'])}",
+                        style="cyan",
+                    )
+                    self.console.print(
+                        f"   info: Available sessions: {available_sessions}",
+                        style="dim",
+                    )
+            else:
+                self.console.print(
+                    f"❌ No conversation data found in {self.json_file}", style="red"
+                )
+        except Exception as e:
+            self.console.print(f"❌ Error loading JSON file: {e}", style="red")
+            sys.exit(1)
+
     def setup_layout(self):
-        """Setup the three-panel layout."""
-        # Create main layout - make memory structure much wider
-        self.layout.split_row(
+        """Setup the four-panel layout with parameter display at top."""
+        # Create main layout with parameter display at top
+        self.layout.split_column(
+            Layout(
+                name="params", size=5
+            ),  # Small top panel for parameters (3 lines + borders)
+            Layout(name="main", ratio=1),  # Main content area
+        )
+
+        # Split main area into left and right
+        self.layout["main"].split_row(
             Layout(name="left", ratio=2), Layout(name="right", ratio=3)
         )
 
-        # Split left side into top and bottom
+        # Split left side into conversations and decisions - give more space to conversations
         self.layout["left"].split_column(
-            Layout(name="conversations", ratio=1), Layout(name="decisions", ratio=1)
+            Layout(name="conversations", ratio=3), Layout(name="decisions", ratio=2)
         )
 
         # Set initial content
+        self.update_params_panel()  # Initialize params panel
+
         self.layout["conversations"].update(
             Panel(
                 "🗣️  Conversations\n\nWaiting for input...",
@@ -123,34 +287,88 @@ class TaxonomyApp:
             enable_versioning=False,
         )
 
-        # Create intelligent classifier
+        # Create intelligent classifier with configurable parameters
         self.intelligent_classifier = IntelligentClassifier(
             llm=llm,
             memory_store=store,
             taxonomy_version=TaxonomyVersion.GENERAL,
-            confidence_thresholds={
-                "high": 0.8,  # Slightly lower to see more high confidence classifications
-                "medium": 0.5,  # More reasonable medium threshold
-                "low": 0.0,
-            },
-            min_items_for_expansion=1,  # Lower threshold for easier expansion triggering
+            confidence_thresholds=self.confidence_thresholds,
+            min_items_for_expansion=self.min_items_for_expansion,
         )
 
-    def update_cursor_state(self):
-        """Update cursor blinking state."""
-        current_time = time.time()
-        if current_time - self.cursor_toggle_time >= self.cursor_blink_interval:
-            self.cursor_visible = not self.cursor_visible
-            self.cursor_toggle_time = current_time
+        # Show the current configuration
+        self.console.print(
+            f"   🎯 Confidence thresholds: high={self.confidence_thresholds['high']}, medium={self.confidence_thresholds['medium']}, low={self.confidence_thresholds['low']}",
+            style="cyan",
+        )
+        self.console.print(
+            f"   📊 Min items for expansion: {self.min_items_for_expansion}",
+            style="cyan",
+        )
 
     def get_cursor_text(self):
-        """Get cursor character based on visibility state."""
-        return "█" if self.cursor_visible else " "
+        """Get static cursor character."""
+        return "█"  # Static cursor, no blinking
+
+    def update_params_panel(self):
+        """Update the parameters display panel."""
+        # Build compact parameter display
+        lines = []
+
+        # Show key configuration parameters in a compact format
+        config_items = []
+
+        # File/session info
+        if self.json_file:
+            filename = self.json_file.split("/")[
+                -1
+            ]  # Just show filename, not full path
+            config_items.append(f"📁 File: {filename}")
+        if self.person_name:
+            config_items.append(f"👤 Person: {self.person_name}")
+        if self.session_num is None:
+            config_items.append("🎲 Sessions: Random")
+        elif self.session_num != 1:
+            config_items.append(f"📋 Session: {self.session_num}")
+
+        # Confidence thresholds in compact format
+        thresholds = f"🎯 Thresholds: H:{self.confidence_thresholds['high']}/M:{self.confidence_thresholds['medium']}/L:{self.confidence_thresholds['low']}"
+        config_items.append(thresholds)
+
+        # Expansion setting
+        if self.min_items_for_expansion != 1:
+            config_items.append(f"📈 Min-expand: {self.min_items_for_expansion}")
+
+        # Split into two lines if we have many items
+        if len(config_items) <= 3:
+            lines.append("  ".join(config_items))
+        else:
+            # Split into two lines
+            mid = len(config_items) // 2
+            lines.append("  ".join(config_items[:mid]))
+            lines.append("  ".join(config_items[mid:]))
+
+        # Add aggressiveness indicator
+        if self.confidence_thresholds["low"] >= 0.5:
+            mode = "🟢 Conservative (selective)"
+        elif (
+            self.confidence_thresholds["low"] == 0.0
+            and self.confidence_thresholds["high"] >= 0.8
+        ):
+            mode = "🟡 Balanced (default)"
+        else:
+            mode = "🔴 Aggressive (stores more)"
+
+        lines.append(f"Memory Mode: {mode}")
+
+        content = "\n".join(lines)
+        text_obj = Text(content)
+        self.layout["params"].update(
+            Panel(text_obj, title="Configuration", border_style="yellow")
+        )
 
     def update_conversations_panel(self):
         """Update the conversations panel."""
-        # Update cursor state for blinking animation
-        self.update_cursor_state()
 
         if not self.conversations:
             cursor = self.get_cursor_text()
@@ -158,15 +376,21 @@ class TaxonomyApp:
         else:
             # Calculate conversations to show based on actual panel space
             console_height = self.console.size.height
-            # Each conversation takes about 3-4 lines (title + content + timestamp + spacing)
-            # Conversations panel gets half the left side (which is 2/5 of total width)
+            console_width = self.console.size.width
+
+            # Conversations panel gets half the left side height, and left side is 2/5 of total width
+            # So conversations gets roughly 1/4 of total screen height
             available_lines = max(
-                8, console_height // 3
-            )  # Reserve space but use more than 1/6
-            # Account for panel borders and headers (about 3 lines)
-            content_lines = available_lines - 3
-            # Each conversation needs about 3 lines
-            max_conversations = max(2, content_lines // 3)
+                12,
+                (console_height - 5)
+                // 2,  # Subtract 5 for params panel, divide by 2 for half of remaining
+            )
+            # Account for panel borders and headers (about 4 lines)
+            content_lines = available_lines - 4
+            # Be more conservative with conversation count to avoid cutting off
+            max_conversations = max(
+                1, content_lines // 4
+            )  # 4 lines per conversation to be safe
 
             lines = [f"🗣️  Conversations ({len(self.conversations)} total)"]
 
@@ -190,16 +414,21 @@ class TaxonomyApp:
                 conv_number = start_idx + i + 1
                 lines.append(f"[{conv_number}] {speaker}:")
 
-                # Show full content without truncation, but wrap it nicely
-                # Split long messages into multiple lines for better readability
-                if len(conv_content) > 60:
+                # Improve text wrapping to use available width better
+                # Left panel gets 2/5 of total width, so calculate usable width
+                left_panel_width = max(50, (console_width * 2) // 5)
+                # Account for panel borders, icons, and indentation
+                usable_width = left_panel_width - 10
+
+                # Smart text wrapping
+                if len(conv_content) > usable_width:
                     # Break long content into chunks
                     words = conv_content.split()
                     current_line = "  💬 "
+
                     for word in words:
-                        if (
-                            len(current_line + word) > 55
-                        ):  # Leave room for panel borders
+                        # Check if adding this word would exceed the width
+                        if len(current_line + " " + word) > usable_width:
                             lines.append(current_line)
                             current_line = "      " + word  # Continuation indent
                         else:
@@ -207,7 +436,9 @@ class TaxonomyApp:
                                 current_line += word
                             else:
                                 current_line += " " + word
-                    if current_line.strip():
+
+                    # Add the final line if it has content
+                    if current_line.strip() and current_line != "      ":
                         lines.append(current_line)
                 else:
                     lines.append(f"  💬 {conv_content}")
@@ -239,10 +470,13 @@ class TaxonomyApp:
             if self.memory_decisions:
                 # Calculate how many decisions to show based on available height
                 console_height = self.console.size.height
-                # Memory processing panel gets half the left side height
-                available_lines = max(8, console_height // 3)
+                # Memory processing panel gets 2/5 of left side height (ratio 2 out of 5)
+                # And left side gets half of main area (after params panel)
+                available_lines = max(8, ((console_height - 5) * 2) // 5)
                 # Each decision takes about 8-10 lines, show as many as fit
-                max_decisions = max(1, (available_lines - 5) // 8)
+                max_decisions = max(
+                    1, (available_lines - 5) // 9
+                )  # Be more conservative
 
                 # Show recent decisions up to the limit
                 recent_decisions = self.memory_decisions[-max_decisions:]
@@ -411,11 +645,75 @@ class TaxonomyApp:
                     lines.extend(self._tree_to_string(node, indent + 1).split("\n"))
         return "\n".join(lines)
 
-    def update_display(self):
-        """Update all panels."""
-        self.update_conversations_panel()
-        self.update_decisions_panel()
-        self.update_memories_panel()
+    def update_display(self, force_update=False, panels_to_update=None):
+        """Update panels selectively to avoid color flashing."""
+        # Generate hashes for each panel separately
+        state_data = {
+            "params": {
+                "thresholds": self.confidence_thresholds,
+                "json_file": self.json_file,
+                "person_name": self.person_name,
+                "session_num": self.session_num,
+            },
+            "conversations": {
+                "count": len(self.conversations),
+                "current_processing": self.current_processing,
+                "demo_waiting": self.demo_waiting_for_input,
+            },
+            "decisions": {
+                "count": len(self.memory_decisions),
+                "current_processing": self.current_processing,
+                "demo_waiting": self.demo_waiting_for_input,
+            },
+            "memories": {
+                "count": (
+                    len(self.current_memories)
+                    if hasattr(self, "current_memories")
+                    else 0
+                ),
+            },
+        }
+
+        import hashlib
+
+        # Initialize panel hashes if not exists
+        if not hasattr(self, "panel_hashes"):
+            self.panel_hashes = {}
+
+        # Check which panels need updating
+        panels_needing_update = set()
+
+        for panel_name, panel_data in state_data.items():
+            current_hash = hashlib.md5(str(panel_data).encode()).hexdigest()
+
+            if force_update or current_hash != self.panel_hashes.get(panel_name):
+                panels_needing_update.add(panel_name)
+                self.panel_hashes[panel_name] = current_hash
+
+        # If specific panels requested, only update those
+        if panels_to_update:
+            panels_needing_update = panels_needing_update.intersection(
+                set(panels_to_update)
+            )
+
+        # Update only the panels that need it
+        updated_any = False
+        if "params" in panels_needing_update:
+            self.update_params_panel()
+            updated_any = True
+        if "conversations" in panels_needing_update:
+            self.update_conversations_panel()
+            updated_any = True
+        if "decisions" in panels_needing_update:
+            self.update_decisions_panel()
+            updated_any = True
+        if "memories" in panels_needing_update:
+            self.update_memories_panel()
+            updated_any = True
+
+        # Manually refresh display only if we updated something
+        if updated_any and hasattr(self, "live_display") and self.live_display:
+            self.live_display.refresh()
 
     async def process_conversation(
         self, content: str, speaker: str = "User", metadata: Optional[dict] = None
@@ -433,11 +731,11 @@ class TaxonomyApp:
         self.conversations.append(conversation)
 
         # Update display to show the new conversation right away
-        self.update_display()
+        self.update_display(force_update=True)
 
         # Set current processing indicator
         self.current_processing = content
-        self.update_display()  # Show processing status
+        self.update_display(force_update=True)  # Show processing status
 
         # Get current memory count
         current_memories = self.intelligent_classifier.get_stored_memories(limit=100)
@@ -477,7 +775,7 @@ class TaxonomyApp:
 
         # Clear current processing indicator and update display
         self.current_processing = None
-        self.update_display()
+        self.update_display(force_update=True)
 
         return result
 
@@ -604,21 +902,57 @@ class TaxonomyApp:
         # Store the current state for resuming
         self.demo_waiting_for_input = True
 
-    async def continuous_refresh_task(self):
-        """Background task to continuously refresh display for cursor blinking."""
-        while self.running:
-            self.update_display()
-            await asyncio.sleep(0.1)  # Refresh every 100ms for smooth animation
+    async def process_conversation_from_json(self):
+        """Process conversation data from JSON file."""
+        if not self.conversation_data:
+            return
+
+        self.console.print(
+            f"\n🤖 Processing conversation for {self.person_name}...", style="yellow"
+        )
+
+        # Filter conversations for the specified person
+        person_messages = []
+        for exchange in self.conversation_data["session"]:
+            if exchange.get("speaker") == self.person_name:
+                # Extract the person's message and any context
+                message = exchange.get("text", "")
+
+                # Add image context if present
+                if "img_url" in exchange:
+                    caption = exchange.get("blip_caption", "")
+                    if caption:
+                        message += f" [Context: Shared image of {caption}]"
+
+                person_messages.append(
+                    {"dia_id": exchange.get("dia_id", ""), "text": message}
+                )
+
+        # Process each message as a potential memory
+        for msg in person_messages:
+            self.console.print(f"\n📝 Processing: {msg['text'][:100]}...", style="cyan")
+            await self.process_conversation(msg["text"])
+            await asyncio.sleep(0.5)  # Brief pause between messages
+
+        self.console.print(
+            f"\n✅ Processed {len(person_messages)} messages from {self.person_name}",
+            style="green",
+        )
 
     async def interactive_mode(self, live_display):
         """Run interactive mode where user can input conversations."""
-        # Start background refresh task for cursor animation
-        refresh_task = asyncio.create_task(self.continuous_refresh_task())
-
         try:
-            # Start with demo automatically to show functionality
-            await asyncio.sleep(1)
-            await self.run_demo_scenarios()
+            # If JSON data is loaded, process it first
+            if self.conversation_data:
+                await asyncio.sleep(1)
+                await self.process_conversation_from_json()
+
+                # Wait for user to continue after JSON processing
+                self.wait_for_continue_input()
+            else:
+                # Start with demo automatically to show functionality
+                await asyncio.sleep(1)
+                await self.run_demo_scenarios()
 
             # Wait for user input after demo completion
             self.wait_for_continue_input()
@@ -629,7 +963,7 @@ class TaxonomyApp:
             # Clear demo completion state immediately
             if self.demo_waiting_for_input:
                 self.demo_waiting_for_input = False
-                self.update_decisions_panel()  # Clear demo completion message
+                self.update_display(force_update=True)  # Clear demo completion message
 
             # Restart live display
             live_display.start()
@@ -656,7 +990,7 @@ class TaxonomyApp:
 
                         # Handle demo completion
                         self.demo_waiting_for_input = False
-                        self.update_decisions_panel()
+                        self.update_display(force_update=True)
                     elif user_input:
                         try:
                             # Process the conversation while live display is running
@@ -677,10 +1011,7 @@ class TaxonomyApp:
                     break
 
         finally:
-            # Cancel the refresh task
-            refresh_task.cancel()
-            with contextlib.suppress(asyncio.CancelledError):
-                await refresh_task
+            pass
 
         self.running = False
 
@@ -704,21 +1035,24 @@ class TaxonomyApp:
                 style="cyan",
             )
 
-            # Create and start live display
-            live_display = Live(
-                self.layout, console=self.console, refresh_per_second=10
+            # Create and start live display with minimal refresh rate to prevent color flashing
+            self.live_display = Live(
+                self.layout,
+                console=self.console,
+                refresh_per_second=1,  # Very low refresh rate
+                auto_refresh=False,  # Disable automatic refresh - we control it manually
             )
-            live_display.start()
+            self.live_display.start()
 
             self.running = True
             # Initial display update
-            self.update_display()
+            self.update_display(force_update=True)
 
             try:
                 # Start interactive mode with live display control
-                await self.interactive_mode(live_display)
+                await self.interactive_mode(self.live_display)
             finally:
-                live_display.stop()
+                self.live_display.stop()
                 # Clear screen and show goodbye message
                 self.console.clear()
                 self.console.print(
@@ -736,7 +1070,94 @@ class TaxonomyApp:
 
 def main():
     """Main entry point."""
-    app = TaxonomyApp()
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(
+        description="Intelligent Taxonomy Demo with conversation processing",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Run with all sessions randomly mixed:
+  python examples/intelligent_taxonomy.py --json-file conversation.json --person Caroline
+
+  # Run with specific session:
+  python examples/intelligent_taxonomy.py --json-file conversation.json --person Caroline --session 1
+
+  # Conservative memory settings (only high-confidence memories):
+  python examples/intelligent_taxonomy.py --high-threshold 0.9 --medium-threshold 0.7 --low-threshold 0.5
+
+  # Aggressive memory settings (stores almost everything):
+  python examples/intelligent_taxonomy.py --high-threshold 0.6 --medium-threshold 0.3 --low-threshold 0.0
+        """,
+    )
+
+    # Conversation processing arguments
+    parser.add_argument("--json-file", type=str, help="Path to conversation JSON file")
+    parser.add_argument(
+        "--person",
+        type=str,
+        help="Name of person to create memories for (e.g., Caroline or Melanie)",
+    )
+    parser.add_argument(
+        "--session",
+        type=int,
+        default=None,
+        help="Session number to process (default: None = all sessions randomly)",
+    )
+
+    # Memory aggressiveness control arguments
+    parser.add_argument(
+        "--high-threshold",
+        type=float,
+        default=0.8,
+        help="High confidence threshold (0.0-1.0, default: 0.8). Higher = more selective",
+    )
+    parser.add_argument(
+        "--medium-threshold",
+        type=float,
+        default=0.5,
+        help="Medium confidence threshold (0.0-1.0, default: 0.5). Higher = more selective",
+    )
+    parser.add_argument(
+        "--low-threshold",
+        type=float,
+        default=0.0,
+        help="Low confidence threshold (0.0-1.0, default: 0.0). Higher = more selective",
+    )
+    parser.add_argument(
+        "--min-expansion",
+        type=int,
+        default=1,
+        help="Minimum items before taxonomy expansion (default: 1). Higher = less expansion",
+    )
+
+    args = parser.parse_args()
+
+    # Validate arguments
+    if args.json_file and not args.person:
+        print("❌ Error: --person is required when using --json-file")
+        sys.exit(1)
+
+    # Validate threshold ordering
+    if not (args.low_threshold <= args.medium_threshold <= args.high_threshold):
+        print("❌ Error: Thresholds must be ordered: low <= medium <= high")
+        sys.exit(1)
+
+    # Build confidence thresholds from arguments
+    confidence_thresholds = {
+        "high": args.high_threshold,
+        "medium": args.medium_threshold,
+        "low": args.low_threshold,
+    }
+
+    # Create app with arguments
+    app = TaxonomyApp(
+        json_file=args.json_file,
+        person_name=args.person,
+        session_num=args.session,
+        confidence_thresholds=confidence_thresholds,
+        min_items_for_expansion=args.min_expansion,
+    )
+
     try:
         asyncio.run(app.run())
     except KeyboardInterrupt:

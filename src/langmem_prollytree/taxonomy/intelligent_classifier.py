@@ -185,21 +185,45 @@ class IntelligentClassifier:
         # Get first-level categories for context
         first_level = [p for p in paths if "." not in p and p != "other"]
 
+        # Inform LLM about user's configured thresholds for better decisions
+        threshold_guidance = []
+        if self.thresholds["low"] > 0.0:
+            threshold_guidance.append(
+                f"   - IMPORTANT: User requires minimum {self.thresholds['low']:.1f} confidence to store ANY memory"
+            )
+        if self.thresholds["low"] >= 0.5:
+            threshold_guidance.append(
+                f"   - BE SELECTIVE: Only store memories you're at least {self.thresholds['low']:.1f} confident about"
+            )
+        if self.thresholds["low"] >= 0.7:
+            threshold_guidance.append(
+                "   - VERY CONSERVATIVE: User wants only high-quality, well-classified memories"
+            )
+
         prompt_parts = [
             "You are a memory classification system. Analyze the following input and determine:",
             "1. Is this information worth storing as a memory?",
             "   - Skip transient information (greetings, current time, weather forecasts)",
             "   - Skip very general conversations without specific personal details",
             "   - Store personal preferences, facts, skills, relationships, goals, experiences",
-            "",
-            "2. If yes, which taxonomy path best fits this content?",
-            "3. What is your confidence in this classification (0.0 to 1.0)?",
-            "   - High confidence (0.8+): Content clearly fits an existing category",
-            "   - Medium confidence (0.5-0.8): Content fits reasonably well",
-            "   - Low confidence (<0.5): Content is too specific/detailed for existing categories",
-            "",
-            f"Content to analyze: {content}",
         ]
+
+        if threshold_guidance:
+            prompt_parts.extend(threshold_guidance)
+
+        prompt_parts.extend(
+            [
+                "",
+                "2. If yes, which taxonomy path best fits this content?",
+                "3. What is your confidence in this classification (0.0 to 1.0)?",
+                f"   - User's minimum threshold: {self.thresholds['low']:.1f} (below this = not stored)",
+                f"   - Medium confidence threshold: {self.thresholds['medium']:.1f}",
+                f"   - High confidence threshold: {self.thresholds['high']:.1f}",
+                "   - Only suggest storage if you meet the user's minimum threshold",
+                "",
+                f"Content to analyze: {content}",
+            ]
+        )
 
         if metadata:
             prompt_parts.append(f"Metadata: {json.dumps(metadata)}")
@@ -316,15 +340,26 @@ class IntelligentClassifier:
                         suggested_path = "other"
                         logger.info("Falling back to 'other' category")
 
+            # Parse confidence and apply user threshold filtering
+            confidence = float(data.get("confidence", 0.0))
+            is_memory = data.get("is_memory", False)
+
+            # Override is_memory if confidence doesn't meet user's threshold
+            if is_memory and confidence < self.thresholds["low"]:
+                is_memory = False
+                reasoning_override = f"{data.get('reasoning', '')} | OVERRIDDEN: Confidence {confidence:.2f} < user threshold {self.thresholds['low']:.1f}"
+            else:
+                reasoning_override = data.get("reasoning", "")
+
             return ClassificationResult(
-                is_memory=data.get("is_memory", False),
-                path=suggested_path,
-                confidence=float(data.get("confidence", 0.0)),
+                is_memory=is_memory,
+                path=suggested_path if is_memory else None,
+                confidence=confidence,
                 confidence_level=ClassificationConfidence.LOW,  # Will be set later
-                reasoning=data.get("reasoning", ""),
+                reasoning=reasoning_override,
                 suggested_action=(
                     ClassificationAction.CLASSIFY
-                    if data.get("is_memory")
+                    if is_memory
                     else ClassificationAction.SKIP
                 ),
             )
@@ -615,6 +650,12 @@ class IntelligentClassifier:
             result.storage_reasoning = "Content not memory-worthy"
             return result
 
+        # Step 2.1: Check confidence threshold - CRITICAL for user-controlled aggressiveness
+        if classification.confidence < self.thresholds["low"]:
+            result.storage_reasoning = f"Confidence {classification.confidence:.2f} below threshold {self.thresholds['low']}"
+            result.memory_action = MemoryAction.SKIP
+            return result
+
         if not classification.path:
             result.storage_reasoning = "No classification path provided"
             return result
@@ -632,16 +673,30 @@ class IntelligentClassifier:
             existing = self.memory_store.get(namespace, classification.path)
 
             if existing is None:
-                # Store new memory
+                # Create semantic summary for new memory
+                summary = await self._create_semantic_summary(
+                    content, classification.path, metadata
+                )
+
+                # Store summarized memory
                 self.memory_store.put(
                     namespace,
                     classification.path,
-                    {"content": content, "metadata": metadata or {}},
+                    {
+                        "summary": summary["summary"],
+                        "structured_data": summary["structured_data"],
+                        "confidence": classification.confidence,
+                        "metadata": metadata or {},
+                        "original_length": len(content),
+                        "compression_ratio": (
+                            len(summary["summary"]) / len(content) if content else 0
+                        ),
+                    },
                 )
                 result.memory_action = MemoryAction.STORE
                 result.memory_path = classification.path
-                result.new_content = content
-                result.storage_reasoning = "Stored new memory"
+                result.new_content = summary["summary"]
+                result.storage_reasoning = f"Stored summarized memory (compressed {len(content)} → {len(summary['summary'])} chars)"
 
             else:
                 # Handle existing memory
@@ -659,6 +714,93 @@ class IntelligentClassifier:
             result.storage_reasoning = f"Storage failed: {e}"
 
         return result
+
+    async def _create_semantic_summary(
+        self, content: str, path: str, metadata: Optional[dict] = None
+    ) -> dict:
+        """
+        Create a concise, structured summary of the content based on taxonomy path.
+
+        Args:
+            content: Original content to summarize
+            path: Taxonomy path for context-aware summarization
+            metadata: Optional metadata for additional context
+
+        Returns:
+            Dict with 'summary' and 'structured_data' keys
+        """
+        # Build context-aware summarization prompt
+        prompt_parts = [
+            "Create a concise, structured summary of the following content.",
+            "Extract key information and create both a brief summary and structured data.",
+            "",
+            f"Content: {content}",
+            f"Classification path: {path}",
+        ]
+
+        if metadata:
+            prompt_parts.append(f"Context: {json.dumps(metadata)}")
+
+        # Add dynamic path-based context instead of hard-coded guidance
+        prompt_parts.extend(
+            [
+                "",
+                f"Context: This content is classified under '{path}' in our taxonomy.",
+                "Extract the most relevant information for this classification category.",
+                "Focus on specific, actionable details rather than general statements.",
+                "",
+                "Respond in JSON format:",
+                "{",
+                '  "summary": "1-2 sentence concise summary capturing the essence",',
+                '  "structured_data": {',
+                '    "key_field_1": "extracted_value_1",',
+                '    "key_field_2": "extracted_value_2"',
+                "    // Add relevant fields based on the taxonomy path",
+                "  }",
+                "}",
+            ]
+        )
+
+        try:
+            response = await self.llm.ainvoke("\n".join(prompt_parts))
+
+            # Parse response
+            if hasattr(response, "content"):
+                content_str = response.content
+            else:
+                content_str = str(response)
+
+            # Extract JSON from response
+            import re
+
+            json_match = re.search(r"\{.*\}", content_str, re.DOTALL)
+            if json_match:
+                result = json.loads(json_match.group())
+
+                # Validate and clean up the result
+                summary = result.get(
+                    "summary", content[:200] + "..." if len(content) > 200 else content
+                )
+                structured_data = result.get("structured_data", {})
+
+                return {"summary": summary, "structured_data": structured_data}
+            else:
+                logger.warning(
+                    f"Failed to parse summarization response: {content_str[:200]}..."
+                )
+                # Fallback to simple truncation
+                return {
+                    "summary": content[:200] + "..." if len(content) > 200 else content,
+                    "structured_data": {},
+                }
+
+        except Exception as e:
+            logger.error(f"Summarization failed: {e}")
+            # Fallback to simple truncation
+            return {
+                "summary": content[:200] + "..." if len(content) > 200 else content,
+                "structured_data": {},
+            }
 
     async def _handle_memory_update(
         self,
@@ -725,19 +867,46 @@ class IntelligentClassifier:
             reasoning = decision.get("reasoning", "")
 
             if action == "replace":
+                # Create semantic summary for replacement
+                summary = await self._create_semantic_summary(
+                    new_content, path, metadata
+                )
+
                 self.memory_store.put(
                     namespace,
                     path,
-                    {"content": new_content, "metadata": metadata or {}},
+                    {
+                        "summary": summary["summary"],
+                        "structured_data": summary["structured_data"],
+                        "confidence": 0.8,
+                        "metadata": metadata or {},
+                        "original_length": len(new_content),
+                        "compression_ratio": (
+                            len(summary["summary"]) / len(new_content)
+                            if new_content
+                            else 0
+                        ),
+                        "replaced_previous": True,
+                    },
                 )
                 return {
                     "action": MemoryAction.REPLACE,
                     "reasoning": reasoning,
-                    "new_content": new_content,
+                    "new_content": summary["summary"],
                 }
 
             elif action == "append":
-                combined = f"{existing_content}\n\n{new_content}"
+                # Combine existing summary with new content
+                existing_summary = existing_data.get(
+                    "summary", existing_data.get("content", "")
+                )
+                combined_text = f"{existing_summary}\n\n{new_content}"
+
+                # Create new semantic summary of combined content
+                summary = await self._create_semantic_summary(
+                    combined_text, path, metadata
+                )
+
                 combined_metadata = {
                     **existing_data.get("metadata", {}),
                     **(metadata or {}),
@@ -746,18 +915,36 @@ class IntelligentClassifier:
                 self.memory_store.put(
                     namespace,
                     path,
-                    {"content": combined, "metadata": combined_metadata},
+                    {
+                        "summary": summary["summary"],
+                        "structured_data": summary["structured_data"],
+                        "confidence": 0.8,
+                        "metadata": combined_metadata,
+                        "original_length": len(combined_text),
+                        "compression_ratio": (
+                            len(summary["summary"]) / len(combined_text)
+                            if combined_text
+                            else 0
+                        ),
+                        "appended_content": True,
+                    },
                 )
                 return {
                     "action": MemoryAction.APPEND,
                     "reasoning": reasoning,
-                    "new_content": combined,
+                    "new_content": summary["summary"],
                 }
 
             elif action == "merge":
                 merged_content = decision.get(
                     "merged_content", f"{existing_content}\n{new_content}"
                 )
+
+                # Create semantic summary of merged content
+                summary = await self._create_semantic_summary(
+                    merged_content, path, metadata
+                )
+
                 combined_metadata = {
                     **existing_data.get("metadata", {}),
                     **(metadata or {}),
@@ -766,24 +953,54 @@ class IntelligentClassifier:
                 self.memory_store.put(
                     namespace,
                     path,
-                    {"content": merged_content, "metadata": combined_metadata},
+                    {
+                        "summary": summary["summary"],
+                        "structured_data": summary["structured_data"],
+                        "confidence": 0.8,
+                        "metadata": combined_metadata,
+                        "original_length": len(merged_content),
+                        "compression_ratio": (
+                            len(summary["summary"]) / len(merged_content)
+                            if merged_content
+                            else 0
+                        ),
+                        "merged_content": True,
+                    },
                 )
                 return {
                     "action": MemoryAction.MERGE,
                     "reasoning": reasoning,
-                    "new_content": merged_content,
+                    "new_content": summary["summary"],
                 }
 
             else:  # skip
                 return {
                     "action": MemoryAction.SKIP,
                     "reasoning": reasoning,
-                    "new_content": existing_content,
+                    "new_content": existing_data.get(
+                        "summary", existing_data.get("content", "")
+                    ),
                 }
 
         except Exception as e:
-            # Fallback to append on error
-            combined = f"{existing_content}\n\n{new_content}"
+            # Fallback to append on error - but still use semantic summarization
+            existing_summary = existing_data.get(
+                "summary", existing_data.get("content", "")
+            )
+            combined = f"{existing_summary}\n\n{new_content}"
+
+            # Create semantic summary even for fallback
+            try:
+                summary = await self._create_semantic_summary(combined, path, metadata)
+                final_content = summary["summary"]
+                structured_data = summary["structured_data"]
+            except Exception:
+                # Ultimate fallback - just truncate
+                final_content = (
+                    combined[:200] + "..." if len(combined) > 200 else combined
+                )
+                structured_data = {}
+
             combined_metadata = {
                 **existing_data.get("metadata", {}),
                 **(metadata or {}),
@@ -792,12 +1009,22 @@ class IntelligentClassifier:
             self.memory_store.put(
                 namespace,
                 path,
-                {"content": combined, "metadata": combined_metadata},
+                {
+                    "summary": final_content,
+                    "structured_data": structured_data,
+                    "confidence": 0.7,
+                    "metadata": combined_metadata,
+                    "original_length": len(combined),
+                    "compression_ratio": (
+                        len(final_content) / len(combined) if combined else 0
+                    ),
+                    "fallback_append": True,
+                },
             )
             return {
                 "action": MemoryAction.APPEND,
                 "reasoning": f"Error in LLM decision, defaulted to append: {e}",
-                "new_content": combined,
+                "new_content": final_content,
             }
 
     def get_stored_memories(self, limit: int = 10) -> list[dict]:
