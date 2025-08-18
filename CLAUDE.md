@@ -125,3 +125,4 @@ The ProllyTreeStore implements LangGraph's BaseStore with these key methods:
 - make sure ruff passes without errors
 - Verify that everything still works after the black formatting
 - Run all tests to ensure no regressions before warming up
+- When run tests or examples, DO NOt print debugging information to console, you can save it to a file under /tmp if needed
