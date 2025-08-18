@@ -680,30 +680,28 @@ class IntelligentClassifier:
             existing = self.memory_store.get(namespace, classification.path)
 
             if existing is None:
-                # Create semantic summary for new memory
-                summary = await self._create_semantic_summary(
-                    content, classification.path, metadata
-                )
-
-                # Store summarized memory
+                # Store raw text directly instead of creating summary
+                # This preserves all original details for better QA accuracy
                 self.memory_store.put(
                     namespace,
                     classification.path,
                     {
-                        "summary": summary["summary"],
-                        "structured_data": summary["structured_data"],
+                        "raw_text": content,  # Store raw conversation text
+                        "summary": (
+                            content[:200] + "..." if len(content) > 200 else content
+                        ),  # Keep short preview
+                        "structured_data": metadata
+                        or {},  # Store metadata as structured data
                         "confidence": classification.confidence,
                         "metadata": metadata or {},
                         "original_length": len(content),
-                        "compression_ratio": (
-                            len(summary["summary"]) / len(content) if content else 0
-                        ),
+                        "compression_ratio": 1.0,  # No compression since storing raw
                     },
                 )
                 result.memory_action = MemoryAction.STORE
                 result.memory_path = classification.path
-                result.new_content = summary["summary"]
-                result.storage_reasoning = f"Stored summarized memory (compressed {len(content)} → {len(summary['summary'])} chars)"
+                result.new_content = content
+                result.storage_reasoning = f"Stored raw memory ({len(content)} chars)"
 
             else:
                 # Handle existing memory
@@ -874,45 +872,38 @@ class IntelligentClassifier:
             reasoning = decision.get("reasoning", "")
 
             if action == "replace":
-                # Create semantic summary for replacement
-                summary = await self._create_semantic_summary(
-                    new_content, path, metadata
-                )
-
+                # Store raw text for replacement
                 self.memory_store.put(
                     namespace,
                     path,
                     {
-                        "summary": summary["summary"],
-                        "structured_data": summary["structured_data"],
+                        "raw_text": new_content,
+                        "summary": (
+                            new_content[:200] + "..."
+                            if len(new_content) > 200
+                            else new_content
+                        ),
+                        "structured_data": metadata or {},
                         "confidence": 0.8,
                         "metadata": metadata or {},
                         "original_length": len(new_content),
-                        "compression_ratio": (
-                            len(summary["summary"]) / len(new_content)
-                            if new_content
-                            else 0
-                        ),
+                        "compression_ratio": 1.0,
                         "replaced_previous": True,
                     },
                 )
                 return {
                     "action": MemoryAction.REPLACE,
                     "reasoning": reasoning,
-                    "new_content": summary["summary"],
+                    "new_content": new_content,
                 }
 
             elif action == "append":
-                # Combine existing summary with new content
-                existing_summary = existing_data.get(
-                    "summary", existing_data.get("content", "")
+                # Combine existing raw text with new content
+                existing_raw = existing_data.get(
+                    "raw_text",
+                    existing_data.get("summary", existing_data.get("content", "")),
                 )
-                combined_text = f"{existing_summary}\n\n{new_content}"
-
-                # Create new semantic summary of combined content
-                summary = await self._create_semantic_summary(
-                    combined_text, path, metadata
-                )
+                combined_text = f"{existing_raw}\n\n{new_content}"
 
                 combined_metadata = {
                     **existing_data.get("metadata", {}),
@@ -923,33 +914,34 @@ class IntelligentClassifier:
                     namespace,
                     path,
                     {
-                        "summary": summary["summary"],
-                        "structured_data": summary["structured_data"],
+                        "raw_text": combined_text,
+                        "summary": (
+                            combined_text[:200] + "..."
+                            if len(combined_text) > 200
+                            else combined_text
+                        ),
+                        "structured_data": combined_metadata,
                         "confidence": 0.8,
                         "metadata": combined_metadata,
                         "original_length": len(combined_text),
-                        "compression_ratio": (
-                            len(summary["summary"]) / len(combined_text)
-                            if combined_text
-                            else 0
-                        ),
+                        "compression_ratio": 1.0,
                         "appended_content": True,
                     },
                 )
                 return {
                     "action": MemoryAction.APPEND,
                     "reasoning": reasoning,
-                    "new_content": summary["summary"],
+                    "new_content": combined_text,
                 }
 
             elif action == "merge":
-                merged_content = decision.get(
-                    "merged_content", f"{existing_content}\n{new_content}"
+                # Get existing raw content
+                existing_raw = existing_data.get(
+                    "raw_text",
+                    existing_data.get("summary", existing_data.get("content", "")),
                 )
-
-                # Create semantic summary of merged content
-                summary = await self._create_semantic_summary(
-                    merged_content, path, metadata
+                merged_content = decision.get(
+                    "merged_content", f"{existing_raw}\n{new_content}"
                 )
 
                 combined_metadata = {
@@ -961,23 +953,24 @@ class IntelligentClassifier:
                     namespace,
                     path,
                     {
-                        "summary": summary["summary"],
-                        "structured_data": summary["structured_data"],
+                        "raw_text": merged_content,
+                        "summary": (
+                            merged_content[:200] + "..."
+                            if len(merged_content) > 200
+                            else merged_content
+                        ),
+                        "structured_data": combined_metadata,
                         "confidence": 0.8,
                         "metadata": combined_metadata,
                         "original_length": len(merged_content),
-                        "compression_ratio": (
-                            len(summary["summary"]) / len(merged_content)
-                            if merged_content
-                            else 0
-                        ),
+                        "compression_ratio": 1.0,
                         "merged_content": True,
                     },
                 )
                 return {
                     "action": MemoryAction.MERGE,
                     "reasoning": reasoning,
-                    "new_content": summary["summary"],
+                    "new_content": merged_content,
                 }
 
             else:  # skip

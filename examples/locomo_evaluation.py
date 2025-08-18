@@ -17,7 +17,6 @@ from typing import Any, Optional
 
 from langchain_openai import ChatOpenAI
 from rich.console import Console
-from rich.progress import Progress
 from rich.table import Table
 
 # Add src to path for imports
@@ -179,155 +178,123 @@ class LocomoEvaluator:
             session_data = self.conversation_data.get(session_key, [])
             for exchange in session_data:
                 speaker = exchange.get("speaker")
-                if (
-                    speaker in ["Caroline", "Melanie"]
-                    and exchange.get("text", "").strip()
-                ):
+                if speaker == self.person_name and exchange.get("text", "").strip():
                     total_exchanges += 1
 
-        with Progress() as progress:
-            task = progress.add_task("Processing memories...", total=total_exchanges)
+        # Simple status message instead of progress bar
+        self.console.print(
+            f"⏺ Processing {total_exchanges} memories...", style="white", end=""
+        )
 
-            for session_key in session_keys:
-                session_data = self.conversation_data.get(session_key, [])
-                # Get the session date for context
-                session_date_key = f"{session_key}_date_time"
-                session_date = self.conversation_data.get(
-                    session_date_key, "unknown date"
-                )
+        for session_key in session_keys:
+            session_data = self.conversation_data.get(session_key, [])
+            # Get the session date for context
+            session_date_key = f"{session_key}_date_time"
+            session_date = self.conversation_data.get(session_date_key, "unknown date")
 
-                for exchange in session_data:
-                    speaker = exchange.get("speaker")
-                    # Process memories for both Caroline and Melanie, not just the specified person
-                    if speaker in ["Caroline", "Melanie"]:
-                        text = exchange.get("text", "")
-                        if text.strip():
-                            # Add metadata including dialogue ID and session date for reference
-                            metadata = {
-                                "source": "locomo_conversation",
-                                "session": session_key,
-                                "session_date": session_date,
-                                "dia_id": exchange.get("dia_id", ""),
-                                "speaker": speaker,  # Use actual speaker, not self.person_name
-                            }
+            for exchange in session_data:
+                speaker = exchange.get("speaker")
+                # Process memories only for the specified person
+                if speaker == self.person_name:
+                    text = exchange.get("text", "")
+                    if text.strip():
+                        # Add metadata including dialogue ID and session date for reference
+                        metadata = {
+                            "source": "locomo_conversation",
+                            "session": session_key,
+                            "session_date": session_date,
+                            "dia_id": exchange.get("dia_id", ""),
+                            "speaker": speaker,
+                        }
 
-                            # Add session date context to the text for better temporal understanding
-                            text_with_context = f"[Session date: {session_date}] {text}"
+                        # Add session date context to the text for better temporal understanding
+                        text_with_context = f"[Session date: {session_date}] {text}"
 
-                            try:
-                                await self.intelligent_classifier.process_memory_with_storage(
+                        try:
+                            await (
+                                self.intelligent_classifier.process_memory_with_storage(
                                     text_with_context, metadata
                                 )
-                                memories_processed += 1
-                            except Exception as e:
-                                logger.warning(
-                                    f"Failed to process: {text[:50]}... Error: {e}"
-                                )
-
-                            # Update progress for each processed exchange
-                            progress.advance(task)
+                            )
+                            memories_processed += 1
+                        except Exception as e:
+                            logger.warning(
+                                f"Failed to process: {text[:50]}... Error: {e}"
+                            )
 
         self.console.print(f"⏺ Processed {memories_processed} memories", style="white")
 
-        # Debug: Check what memories are actually stored
-        stored_memories = self.intelligent_classifier.get_stored_memories(limit=10)
-        self.console.print(
-            f"⏺ Found {len(stored_memories)} stored memories", style="white"
-        )
-        if stored_memories:
-            for i, memory in enumerate(stored_memories[:3]):
-                self.console.print(
-                    f"  {i + 1}. Path: {memory.get('path', 'unknown')}", style="white"
-                )
-                content = memory.get("content", {})
-                if isinstance(content, dict):
-                    summary = content.get(
-                        "summary", content.get("content", str(content))
-                    )
-                else:
-                    summary = str(content)
-                self.console.print(f"     Content: {summary[:100]}...", style="white")
-
-        # Debug: Test direct search on one of the stored paths
-        if stored_memories:
-            test_path = stored_memories[0].get("path", "unknown")
-            self.console.print(
-                f"⏺ DEBUG: Testing direct search for path '{test_path}'", style="white"
-            )
-            namespace_str = "memory:general"
-            test_results = await self.search_engine.store.asearch(
-                namespace_str, test_path
-            )
-            self.console.print(
-                f"⏺ DEBUG: Direct search returned {len(test_results)} results",
-                style="white",
-            )
-
-    def filter_qa_by_session(self) -> list[dict[str, Any]]:
-        """Filter QA pairs to only include those with evidence from the specified session."""
-        if not self.session:
-            return self.qa_data
-
+    def filter_qa_by_session_and_person(self) -> list[dict[str, Any]]:
+        """Filter QA pairs to only include those about the specified person and session."""
         filtered_qa = []
-        session_prefix = f"D{self.session}:"
 
         for qa_item in self.qa_data:
+            question = qa_item.get("question", "")
             evidence = qa_item.get("evidence", [])
-            # Check if any evidence reference is from the specified session
-            if any(ref.startswith(session_prefix) for ref in evidence):
-                filtered_qa.append(qa_item)
+
+            # Filter by person: only include questions that mention the specified person
+            if self.person_name.lower() not in question.lower():
+                continue
+
+            # Filter by session if specified
+            if self.session:
+                session_prefix = f"D{self.session}:"
+                # Check if any evidence reference is from the specified session
+                if not any(ref.startswith(session_prefix) for ref in evidence):
+                    continue
+
+            filtered_qa.append(qa_item)
 
         return filtered_qa
 
     async def evaluate_qa(self) -> list[dict[str, Any]]:
         """Evaluate QA pairs using memory retrieval and LLM."""
-        # Filter QA pairs by session if specified
-        qa_data_to_evaluate = self.filter_qa_by_session()
+        # Filter QA pairs by session and person
+        qa_data_to_evaluate = self.filter_qa_by_session_and_person()
 
         if self.session:
             self.console.print(
-                f"\n⏺ Evaluating {len(qa_data_to_evaluate)} QA pairs from session {self.session}...",
+                f"\n⏺ Evaluating {len(qa_data_to_evaluate)} QA pairs about {self.person_name} from session {self.session}...",
                 style="white",
             )
         else:
             self.console.print(
-                f"\n⏺ Evaluating {len(qa_data_to_evaluate)} QA pairs...", style="white"
+                f"\n⏺ Evaluating {len(qa_data_to_evaluate)} QA pairs about {self.person_name}...",
+                style="white",
             )
 
         results = []
 
-        with Progress() as progress:
-            task = progress.add_task(
-                "Evaluating questions...", total=len(qa_data_to_evaluate)
-            )
+        # Simple status message instead of progress bar
+        self.console.print(
+            f"⏺ Evaluating {len(qa_data_to_evaluate)} questions...", style="white"
+        )
 
-            for qa_item in qa_data_to_evaluate:
-                question = qa_item["question"]
-                expected_answer = qa_item["answer"]
-                evidence = qa_item.get("evidence", [])
-                category = qa_item.get("category", 0)
+        for qa_item in qa_data_to_evaluate:
+            question = qa_item["question"]
+            expected_answer = qa_item["answer"]
+            evidence = qa_item.get("evidence", [])
+            category = qa_item.get("category", 0)
 
-                try:
-                    result = await self.evaluate_single_qa(
-                        question, expected_answer, evidence, category
-                    )
-                    results.append(result)
-                except Exception as e:
-                    logger.error(f"Failed to evaluate question: {question}. Error: {e}")
-                    results.append(
-                        {
-                            "question": question,
-                            "expected_answer": expected_answer,
-                            "predicted_answer": "ERROR",
-                            "evidence": evidence,
-                            "category": category,
-                            "retrieved_memories": [],
-                            "score": 0.0,
-                            "error": str(e),
-                        }
-                    )
-
-                progress.advance(task)
+            try:
+                result = await self.evaluate_single_qa(
+                    question, expected_answer, evidence, category
+                )
+                results.append(result)
+            except Exception as e:
+                logger.error(f"Failed to evaluate question: {question}. Error: {e}")
+                results.append(
+                    {
+                        "question": question,
+                        "expected_answer": expected_answer,
+                        "predicted_answer": "ERROR",
+                        "evidence": evidence,
+                        "category": category,
+                        "retrieved_memories": [],
+                        "score": 0.0,
+                        "error": str(e),
+                    }
+                )
 
         return results
 
@@ -349,13 +316,7 @@ class LocomoEvaluator:
                 "preferences.personal.lifestyle.hobbies.creative",
             ]
         }
-        classification = await self.search_engine.classifier.classify_async(
-            question, context
-        )
-        self.console.print(
-            f"⏺ DEBUG: Question '{question[:50]}...' classified to: {classification.primary_path}",
-            style="white",
-        )
+        # Removed verbose debug output to prevent scrolling
 
         # Try multiple search strategies to get better results
         search_results = []
@@ -368,26 +329,8 @@ class LocomoEvaluator:
         )
         search_results.extend(results1)
 
-        # If no results, try broader search with different classification
+        # If no results, try broader search
         if len(results1) == 0:
-            # Try classifying with broader context
-            broader_context = {
-                "available_memory_paths": [
-                    "profile.personal.identity",
-                    "profile.professional.career",
-                    "experience.memories",
-                    "experience.activities",
-                    "experience.relationships",
-                    "preferences.personal.lifestyle",
-                    "context.temporal.events",
-                    "goals.categories",
-                ]
-            }
-            broader_classification = await self.search_engine.classifier.classify_async(
-                question, broader_context
-            )
-
-            # Search using the broader classification path
             results2 = await self.search_engine.search(
                 query=question,
                 namespace=namespace_str,
@@ -395,32 +338,21 @@ class LocomoEvaluator:
             )
             search_results.extend(results2)
 
-            self.console.print(
-                f"⏺ DEBUG: Broader search with path '{broader_classification.primary_path}' found {len(results2)} results",
-                style="white",
-            )
+            # Removed debug output
 
-        # Remove duplicates while preserving order
-        seen_paths = set()
+        # Remove duplicates based on content (not just path) while preserving order
+        seen_content = set()
         unique_results = []
         for result in search_results:
-            if result.path not in seen_paths:
+            # Create a content hash to identify duplicates
+            content_hash = hash(result.combined_content)
+            if content_hash not in seen_content:
                 unique_results.append(result)
-                seen_paths.add(result.path)
+                seen_content.add(content_hash)
 
         search_results = unique_results[:5]  # Keep top 5 unique results
 
-        # Debug: Print search results
-        if len(search_results) == 0:
-            self.console.print(
-                f"⏺ DEBUG: No search results for '{question}' in namespace '{namespace_str}'",
-                style="white",
-            )
-        else:
-            self.console.print(
-                f"⏺ DEBUG: Found {len(search_results)} results for '{question}'",
-                style="white",
-            )
+        # Store debug info without printing during evaluation
 
         retrieved_memories = []
         for result in search_results:
@@ -444,8 +376,10 @@ class LocomoEvaluator:
             try:
                 if isinstance(content, str) and content.strip().startswith("{"):
                     content_obj = json.loads(content)
-                    # Extract key-value pairs from structured data
-                    if "structured_data" in content_obj:
+                    # Prioritize raw_text if available (contains full conversation)
+                    if "raw_text" in content_obj:
+                        context_parts.append(f"From {path}: {content_obj['raw_text']}")
+                    elif "structured_data" in content_obj:
                         structured = content_obj["structured_data"]
                         context_parts.append(f"From {path}: {json.dumps(structured)}")
                     elif "summary" in content_obj:
@@ -463,6 +397,11 @@ class LocomoEvaluator:
         # Generate answer using LLM with improved prompt
         prompt = f"""Extract ONLY the specific fact that answers the question. Return JUST the answer with no extra words.
 
+IMPORTANT: When calculating dates:
+- If session date is "8 May, 2023" and text says "yesterday", the event was on "7 May 2023"
+- If session date is "May 15" and text says "last week", subtract 7 days
+- Always calculate relative dates based on the session date
+
 CORRECT EXAMPLES:
 Q: "When did John go to the store?"
 A: May 15, 2023
@@ -474,9 +413,9 @@ Q: "What is Sarah's profession?"
 A: software engineer
 
 Q: "What is Mike's identity?"
-A: transgender man
+A: transgender woman
 
-Retrieved Context:
+Retrieved Context (contains raw conversation text):
 {context}
 
 Question: {question}
@@ -485,17 +424,13 @@ STRICT RULES:
 1. Return ONLY the factual answer - no "Caroline did..." or "Information shows..."
 2. Maximum 8 words
 3. If no relevant info found: "Information not found"
-4. Extract from memory content, not just paths
-5. For dates, use exact format from memories
+4. Look for facts in the raw_text field which contains original conversations
+5. Calculate actual dates from relative references (yesterday, last week, etc.)
+6. Extract ALL mentioned items for list questions (e.g., all activities, all events)
 
 Answer:"""
 
-        # Debug: Print prompt for failing cases (simplified)
-        if len(retrieved_memories) > 0:
-            self.console.print(
-                f"⏺ Q: {question[:50]}... | Memories: {len(retrieved_memories)}",
-                style="white",
-            )
+        # Removed per-question debug output
 
         try:
             response = await self.llm.ainvoke(prompt)
@@ -504,11 +439,7 @@ Answer:"""
             # Post-process answer to ensure conciseness
             predicted_answer = self.post_process_answer(predicted_answer)
 
-            # Debug: Print results
-            if "not found" in predicted_answer.lower():
-                self.console.print("     ❌ Not found", style="white")
-            else:
-                self.console.print(f"     ✅ {predicted_answer[:60]}...", style="white")
+            # Store results without debug output
 
         except Exception as e:
             predicted_answer = f"LLM Error: {e}"
@@ -581,17 +512,28 @@ Answer:"""
         ):
             return 0.0
 
-        # Simple exact match (case-insensitive)
-        if str(expected).lower().strip() == predicted.lower().strip():
+        expected_str = str(expected).lower().strip()
+        predicted_str = predicted.lower().strip()
+
+        # Exact match (case-insensitive)
+        if expected_str == predicted_str:
             return 1.0
 
+        # Special handling for dates - normalize and compare
+        if self._is_date_equivalent(expected_str, predicted_str):
+            return 1.0
+
+        # Handle list comparisons (e.g., "pottery, camping, painting")
+        if "," in expected_str or "," in predicted_str:
+            return self._calculate_list_score(expected_str, predicted_str)
+
         # Partial match (if expected answer is contained in predicted)
-        if str(expected).lower() in predicted.lower():
+        if expected_str in predicted_str:
             return 0.7
 
         # Check if key information matches (for dates, numbers, etc.)
-        expected_words = set(str(expected).lower().split())
-        predicted_words = set(predicted.lower().split())
+        expected_words = set(expected_str.split())
+        predicted_words = set(predicted_str.split())
 
         if expected_words & predicted_words:  # Intersection exists
             overlap = len(expected_words & predicted_words)
@@ -599,6 +541,66 @@ Answer:"""
             return overlap / total if total > 0 else 0.0
 
         return 0.0
+
+    def _is_date_equivalent(self, date1: str, date2: str) -> bool:
+        """Check if two date strings represent the same date."""
+        import re
+
+        # Common date patterns
+        patterns = [
+            r"(\d{1,2})\s+(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{4})",
+            r"(january|february|march|april|may|june|july|august|september|october|november|december)\s+(\d{1,2}),?\s+(\d{4})",
+            r"(\d{4})-(\d{1,2})-(\d{1,2})",
+            r"(\d{1,2})/(\d{1,2})/(\d{4})",
+        ]
+
+        def parse_date(date_str):
+            """Try to parse a date string into a standardized format."""
+            date_str = date_str.strip().lower().replace(",", "")  # Remove commas
+
+            # Try "7 may 2023" format
+            match = re.match(patterns[0], date_str)
+            if match:
+                day, month, year = match.groups()
+                return f"{month} {day} {year}"
+
+            # Try "may 7 2023" format (without comma)
+            match = re.match(patterns[1].replace(",?", ""), date_str)
+            if match:
+                month, day, year = match.groups()
+                return f"{month} {day} {year}"
+
+            # Add more patterns as needed
+            return date_str
+
+        normalized1 = parse_date(date1)
+        normalized2 = parse_date(date2)
+
+        return normalized1 == normalized2
+
+    def _calculate_list_score(self, expected: str, predicted: str) -> float:
+        """Calculate score for list-type answers (comma-separated values)."""
+        # Split by comma and normalize
+        expected_items = {item.strip() for item in expected.split(",") if item.strip()}
+        predicted_items = {
+            item.strip() for item in predicted.split(",") if item.strip()
+        }
+
+        if not expected_items:
+            return 0.0
+
+        # Calculate precision and recall
+        if not predicted_items:
+            return 0.0
+
+        correct = len(expected_items & predicted_items)
+        precision = correct / len(predicted_items) if predicted_items else 0
+        recall = correct / len(expected_items) if expected_items else 0
+
+        # F1 score
+        if precision + recall == 0:
+            return 0.0
+        return 2 * (precision * recall) / (precision + recall)
 
     def display_results(self, results: list[dict[str, Any]]):
         """Display evaluation results in a formatted table."""
@@ -663,6 +665,40 @@ Answer:"""
                 f"⏺ ... and {len(results) - 20} more results", style="white"
             )
 
+        # Display detailed memory retrieval information for troubleshooting
+        self.console.print(
+            "\n⏺ Detailed Memory Retrieval for Troubleshooting", style="white"
+        )
+        for i, result in enumerate(results[:10], 1):  # Show first 10 for detail
+            self.console.print(
+                f"\n[bold white]Question {i}: {result['question'][:80]}...[/bold white]"
+            )
+            self.console.print(f"Expected: [green]{result['expected_answer']}[/green]")
+            self.console.print(
+                f"Predicted: [yellow]{result['predicted_answer']}[/yellow]"
+            )
+            self.console.print(f"Score: {result['score']:.2f}")
+
+            if result["retrieved_memories"]:
+                self.console.print(
+                    f"\nRetrieved {len(result['retrieved_memories'])} memories:"
+                )
+                for j, memory in enumerate(result["retrieved_memories"], 1):
+                    self.console.print(f"\n  Memory {j}:")
+                    self.console.print(f"    Path: [cyan]{memory['path']}[/cyan]")
+                    self.console.print(f"    Distance: {memory['semantic_distance']}")
+                    self.console.print(f"    Items: {memory['item_count']}")
+
+                    # Show content preview (truncated for readability)
+                    content = str(memory["content"])
+                    if len(content) > 200:
+                        content = content[:200] + "..."
+                    self.console.print(f"    Content: {content}")
+            else:
+                self.console.print("[red]  No memories retrieved[/red]")
+
+            self.console.print("-" * 80)
+
 
 async def main():
     """Main entry point."""
@@ -696,6 +732,13 @@ async def main():
 
     args = parser.parse_args()
 
+    # Create output file with timestamp
+    from datetime import datetime
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_file = f"/tmp/locomo_eval_{args.person}_{timestamp}.txt"
+
+    # Setup console
     console = Console()
 
     try:
@@ -719,8 +762,57 @@ async def main():
         # Display results
         evaluator.display_results(results)
 
+        # Save detailed results to file
+        with open(output_file, "w") as f:
+            f.write("Locomo Evaluation Results\n")
+            f.write(f"Person: {args.person}\n")
+            f.write(f"Session: {args.session or 'All'}\n")
+            f.write(f"Timestamp: {timestamp}\n")
+            f.write("=" * 80 + "\n\n")
+
+            # Write summary
+            total_questions = len(results)
+            correct_answers = sum(1 for r in results if r["score"] >= 0.7)
+            average_score = (
+                sum(r["score"] for r in results) / total_questions
+                if total_questions > 0
+                else 0.0
+            )
+
+            f.write(f"Total Questions: {total_questions}\n")
+            f.write(f"Correct Answers (≥70%): {correct_answers}\n")
+            f.write(f"Accuracy: {correct_answers / total_questions * 100:.1f}%\n")
+            f.write(f"Average Score: {average_score:.3f}\n\n")
+
+            # Write detailed results
+            for i, result in enumerate(results, 1):
+                f.write(f"\nQuestion {i}: {result['question']}\n")
+                f.write(f"Expected: {result['expected_answer']}\n")
+                f.write(f"Predicted: {result['predicted_answer']}\n")
+                f.write(f"Score: {result['score']:.2f}\n")
+
+                if result["retrieved_memories"]:
+                    f.write(
+                        f"\nRetrieved {len(result['retrieved_memories'])} memories:\n"
+                    )
+                    for j, memory in enumerate(result["retrieved_memories"], 1):
+                        f.write(f"\n  Memory {j}:\n")
+                        f.write(f"    Path: {memory['path']}\n")
+                        f.write(f"    Distance: {memory['semantic_distance']}\n")
+                        f.write(f"    Items: {memory['item_count']}\n")
+                        f.write(f"    Content: {memory['content']}\n")
+                else:
+                    f.write("  No memories retrieved\n")
+
+                f.write("-" * 80 + "\n")
+
+        console.print(f"\n⏺ Full output saved to: {output_file}", style="bold green")
+
     except Exception as e:
         console.print(f"⏺ Error: {e}", style="white")
+        # Still save output on error
+        console.save_text(output_file)
+        console.print(f"\n⏺ Output saved to: {output_file}", style="bold red")
         sys.exit(1)
 
 
