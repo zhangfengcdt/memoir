@@ -5,6 +5,7 @@ Features three panels: conversations (top-left), memory decisions (bottom-left),
 """
 
 import asyncio
+import contextlib
 import os
 import sys
 import time
@@ -38,6 +39,9 @@ class TaxonomyApp:
         self.running = False
         self.current_processing = None  # Track what input is being processed
         self.demo_waiting_for_input = False  # Track if waiting for demo continuation
+        self.cursor_visible = True  # Track cursor blink state
+        self.cursor_toggle_time = time.time()  # Track last cursor toggle
+        self.cursor_blink_interval = 0.5  # Cursor blink interval in seconds
 
         # Setup layout
         self.setup_layout()
@@ -132,10 +136,25 @@ class TaxonomyApp:
             min_items_for_expansion=1,  # Lower threshold for easier expansion triggering
         )
 
+    def update_cursor_state(self):
+        """Update cursor blinking state."""
+        current_time = time.time()
+        if current_time - self.cursor_toggle_time >= self.cursor_blink_interval:
+            self.cursor_visible = not self.cursor_visible
+            self.cursor_toggle_time = current_time
+
+    def get_cursor_text(self):
+        """Get cursor character based on visibility state."""
+        return "█" if self.cursor_visible else " "
+
     def update_conversations_panel(self):
         """Update the conversations panel."""
+        # Update cursor state for blinking animation
+        self.update_cursor_state()
+
         if not self.conversations:
-            content = "🗣️  Conversations\n\nWaiting for input..."
+            cursor = self.get_cursor_text()
+            content = f"🗣️  Conversations\n\nWaiting for input...{cursor}"
         else:
             # Calculate conversations to show based on actual panel space
             console_height = self.console.size.height
@@ -196,6 +215,11 @@ class TaxonomyApp:
                 if timestamp:
                     lines.append(f"    ⏰ {timestamp}")
                 lines.append("")  # Empty line for spacing
+
+            # Add cursor at the end if waiting for input
+            if not self.current_processing and not self.demo_waiting_for_input:
+                cursor = self.get_cursor_text()
+                lines.append(f"💬 Ready for input...{cursor}")
 
             content = "\n".join(lines)
 
@@ -580,67 +604,83 @@ class TaxonomyApp:
         # Store the current state for resuming
         self.demo_waiting_for_input = True
 
+    async def continuous_refresh_task(self):
+        """Background task to continuously refresh display for cursor blinking."""
+        while self.running:
+            self.update_display()
+            await asyncio.sleep(0.1)  # Refresh every 100ms for smooth animation
+
     async def interactive_mode(self, live_display):
         """Run interactive mode where user can input conversations."""
-        # Start with demo automatically to show functionality
-        await asyncio.sleep(1)
-        await self.run_demo_scenarios()
+        # Start background refresh task for cursor animation
+        refresh_task = asyncio.create_task(self.continuous_refresh_task())
 
-        # Wait for user input after demo completion
-        self.wait_for_continue_input()
+        try:
+            # Start with demo automatically to show functionality
+            await asyncio.sleep(1)
+            await self.run_demo_scenarios()
 
-        # Exit live display to get input cleanly
-        live_display.stop()
+            # Wait for user input after demo completion
+            self.wait_for_continue_input()
 
-        # Clear demo completion state immediately
-        if self.demo_waiting_for_input:
-            self.demo_waiting_for_input = False
-            self.update_decisions_panel()  # Clear demo completion message
+            # Exit live display to get input cleanly
+            live_display.stop()
 
-        # Restart live display
-        live_display.start()
+            # Clear demo completion state immediately
+            if self.demo_waiting_for_input:
+                self.demo_waiting_for_input = False
+                self.update_decisions_panel()  # Clear demo completion message
 
-        # Interactive loop
-        while self.running:
-            try:
-                # Exit live display for clean input
-                live_display.stop()
+            # Restart live display
+            live_display.start()
 
-                # Get user input with Rich prompt (no extra blank lines)
-                user_input = self.get_user_input(
-                    "💬 Enter your message (or 'demo'/'quit')"
-                )
+            # Interactive loop
+            while self.running:
+                try:
+                    # Exit live display for clean input
+                    live_display.stop()
 
-                # Restart live display
-                live_display.start()
+                    # Get user input with Rich prompt (no extra blank lines)
+                    user_input = self.get_user_input(
+                        "💬 Enter your message (or 'demo'/'quit')"
+                    )
 
-                if user_input.lower() == "quit":
+                    # Restart live display
+                    live_display.start()
+
+                    if user_input.lower() == "quit":
+                        break
+                    elif user_input.lower() == "demo":
+                        await self.run_demo_scenarios()
+                        self.wait_for_continue_input()
+
+                        # Handle demo completion
+                        self.demo_waiting_for_input = False
+                        self.update_decisions_panel()
+                    elif user_input:
+                        try:
+                            # Process the conversation while live display is running
+                            await self.process_conversation(user_input)
+
+                            # Brief pause to see the updates
+                            await asyncio.sleep(1)
+                        except Exception as e:
+                            # Stop live display to show error
+                            live_display.stop()
+                            self.console.print(
+                                f"❌ Error processing input: {e}", style="red"
+                            )
+                            input("\nPress Enter to continue...")
+                            live_display.start()
+
+                except (KeyboardInterrupt, EOFError):
                     break
-                elif user_input.lower() == "demo":
-                    await self.run_demo_scenarios()
-                    self.wait_for_continue_input()
 
-                    # Handle demo completion
-                    self.demo_waiting_for_input = False
-                    self.update_decisions_panel()
-                elif user_input:
-                    try:
-                        # Process the conversation while live display is running
-                        await self.process_conversation(user_input)
-
-                        # Brief pause to see the updates
-                        await asyncio.sleep(1)
-                    except Exception as e:
-                        # Stop live display to show error
-                        live_display.stop()
-                        self.console.print(
-                            f"❌ Error processing input: {e}", style="red"
-                        )
-                        input("\nPress Enter to continue...")
-                        live_display.start()
-
-            except (KeyboardInterrupt, EOFError):
-                break
+        finally:
+            # Cancel the refresh task
+            refresh_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await refresh_task
 
         self.running = False
 
@@ -665,7 +705,9 @@ class TaxonomyApp:
             )
 
             # Create and start live display
-            live_display = Live(self.layout, console=self.console, refresh_per_second=4)
+            live_display = Live(
+                self.layout, console=self.console, refresh_per_second=10
+            )
             live_display.start()
 
             self.running = True
