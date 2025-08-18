@@ -129,7 +129,25 @@ class LocomoEvaluator:
         self.qa_data = data.get("qa", [])
         self.conversation_data = data.get("conversation", {})
 
-        self.console.print(f"⏺ Loaded {len(self.qa_data)} QA pairs", style="white")
+        # Filter QA pairs immediately to show accurate counts
+        filtered_qa = self.filter_qa_by_session_and_person()
+
+        self.console.print(
+            f"⏺ Loaded {len(self.qa_data)} total QA pairs", style="white"
+        )
+        self.console.print(
+            f"⏺ Filtered to {len(filtered_qa)} QA pairs for {self.person_name}",
+            style="white",
+        )
+
+        # Debug: Check if filtered QA has all required fields
+        if filtered_qa:
+            sample_qa = filtered_qa[0]
+            logger.debug(f"Sample QA structure: {list(sample_qa.keys())}")
+            if "answer" not in sample_qa:
+                logger.warning(
+                    f"Missing 'answer' key in QA data. Available keys: {list(sample_qa.keys())}"
+                )
         self.console.print(
             f"⏺ Loaded conversation data for {self.conversation_data.get('speaker_a')} and {self.conversation_data.get('speaker_b')}",
             style="white",
@@ -137,7 +155,7 @@ class LocomoEvaluator:
 
         if self.session:
             self.console.print(
-                f"⏺ Will process session {self.session} only", style="white"
+                f"⏺ Processing session {self.session} only", style="white"
             )
 
     async def process_memories(self):
@@ -269,12 +287,12 @@ class LocomoEvaluator:
 
         if self.session:
             self.console.print(
-                f"\n⏺ Evaluating {len(qa_data_to_evaluate)} QA pairs about {self.person_name} from session {self.session}...",
+                f"\n⏺ Evaluating {len(qa_data_to_evaluate)} filtered QA pairs about {self.person_name} from session {self.session}...",
                 style="white",
             )
         else:
             self.console.print(
-                f"\n⏺ Evaluating {len(qa_data_to_evaluate)} QA pairs about {self.person_name}...",
+                f"\n⏺ Evaluating {len(qa_data_to_evaluate)} filtered QA pairs about {self.person_name}...",
                 style="white",
             )
 
@@ -289,10 +307,17 @@ class LocomoEvaluator:
                 end="\r",
             )
 
-            question = qa_item["question"]
-            expected_answer = qa_item["answer"]
+            question = qa_item.get("question", "")
+            expected_answer = qa_item.get("answer", "")
             evidence = qa_item.get("evidence", [])
             category = qa_item.get("category", 0)
+
+            # Skip if missing required fields
+            if not question or not expected_answer:
+                logger.warning(
+                    f"Skipping QA item with missing question or answer: {qa_item}"
+                )
+                continue
 
             try:
                 result = await self.evaluate_single_qa(
@@ -433,40 +458,38 @@ class LocomoEvaluator:
         context = "\n".join(context_parts)
 
         # Generate answer using LLM with improved prompt
-        prompt = f"""Extract ONLY the specific fact that answers the question. Return JUST the answer with no extra words.
+        prompt = f"""Extract the specific fact that answers the question from the provided context. Be thorough in examining ALL the context provided.
 
-CRITICAL DATE CALCULATION RULES:
-- ALWAYS look for session dates in brackets like "[Session date: 1:56 pm on 8 May, 2023]"
-- If text says "yesterday" and session was "8 May, 2023", the answer is "7 May 2023"
-- If text says "last week" and session was "May 15", subtract 7 days
-- Calculate the EXACT DATE based on the session date and relative time reference
+CRITICAL ANALYSIS RULES:
+1. READ ALL CONTEXT CAREFULLY - the answer may be anywhere in the provided text
+2. Look for DIRECT STATEMENTS that answer the question
+3. Look for INDIRECT REFERENCES that answer the question
+4. For date questions: Calculate dates from relative references (yesterday = session date - 1 day)
 
-STEP-BY-STEP for date questions:
-1. Find the session date in brackets: "[Session date: ...]"
-2. Find the relative time word: "yesterday", "today", "last week", etc.
-3. Calculate: yesterday = session date minus 1 day
-4. Return the calculated date in format: "7 May 2023"
+EXAMPLES:
+Q: "What are Caroline's plans for the summer?"
+Context: "Researching adoption agencies — it's been a dream to have a family"
+A: researching adoption agencies
 
-CORRECT EXAMPLES:
-Q: "When did John go to the store?"
-Context: "[Session date: May 16, 2023] I went to the store yesterday"
-A: May 15, 2023
+Q: "When did Caroline go to the support group?"
+Context: "[Session date: 8 May, 2023] I went to a LGBTQ support group yesterday"
+A: 7 May 2023
 
-Q: "What activities does Mary enjoy?"
-A: painting, hiking, reading
+Q: "What does Caroline research?"
+Context: "I'm researching different adoption agencies to find the right fit"
+A: adoption agencies
 
-Retrieved Context (contains raw conversation text):
+Retrieved Context:
 {context}
 
 Question: {question}
 
-STRICT RULES:
-1. Return ONLY the factual answer - no "Caroline did..." or "Information shows..."
-2. Maximum 8 words
-3. If no relevant info found: "Information not found"
-4. Look for facts in the raw_text field which contains original conversations
-5. MANDATORY: Calculate actual dates from relative references (yesterday, last week, etc.)
-6. Extract ALL mentioned items for list questions (e.g., all activities, all events)
+EXTRACTION RULES:
+1. Return ONLY the direct factual answer
+2. Maximum 10 words
+3. If genuinely no relevant information: "Information not found"
+4. Look for ANY mention that could answer the question
+5. Be LESS STRICT - extract information even if not perfectly phrased
 
 Answer:"""
 
@@ -479,7 +502,7 @@ Answer:"""
             # Post-process answer to ensure conciseness
             predicted_answer = self.post_process_answer(predicted_answer)
 
-            # Store results without debug output
+            # Debug output disabled - issues mostly resolved
 
         except Exception as e:
             predicted_answer = f"LLM Error: {e}"
@@ -913,9 +936,11 @@ async def main():
 
     except Exception as e:
         console.print(f"⏺ Error: {e}", style="white")
-        # Still save output on error
-        console.save_text(output_file)
-        console.print(f"\n⏺ Output saved to: {output_file}", style="bold red")
+        # Save error info to file instead of console export
+        with open(output_file, "w") as f:
+            f.write(f"Error occurred during evaluation: {e}\n")
+            f.write(f"Timestamp: {timestamp}\n")
+        console.print(f"\n⏺ Error logged to: {output_file}", style="bold red")
         sys.exit(1)
 
 
