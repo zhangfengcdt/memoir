@@ -9,12 +9,12 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from langmem_prollytree.taxonomy.iterative_taxonomy import (
+from memoir.taxonomy.iterative_taxonomy import (
     ExpansionContext,
     LLMExpansionStrategy,
     LLMIterativeTaxonomy,
 )
-from langmem_prollytree.taxonomy.semantic_taxonomy import SemanticTaxonomy
+from memoir.taxonomy.semantic_taxonomy import SemanticTaxonomy
 
 
 def load_locomo_responses():
@@ -471,7 +471,7 @@ class TestLocomoConversationTaxonomy:
         taxonomy = locomo_taxonomy
 
         # Simulate conversation memory expansion
-        from langmem_prollytree.taxonomy.iterative_taxonomy import (
+        from memoir.taxonomy.iterative_taxonomy import (
             TaxonomyExpansionResult,
         )
 

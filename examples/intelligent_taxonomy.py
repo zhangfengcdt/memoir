@@ -38,10 +38,10 @@ from rich.prompt import Prompt
 from rich.text import Text
 from rich.tree import Tree
 
-from langmem_prollytree.core.prolly_adapter import ProllyTreeStore
-from langmem_prollytree.taxonomy.intelligent_classifier import IntelligentClassifier
-from langmem_prollytree.taxonomy.semantic_classifier import SemanticClassifier
-from langmem_prollytree.taxonomy.taxonomy_presets import TaxonomyVersion
+from memoir.core.prolly_adapter import ProllyTreeStore
+from memoir.taxonomy.intelligent_classifier import IntelligentClassifier
+from memoir.taxonomy.semantic_classifier import SemanticClassifier
+from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
 
 
 class TaxonomyApp:

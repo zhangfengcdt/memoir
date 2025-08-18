@@ -9,8 +9,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
 
-from langmem_prollytree.taxonomy.semantic_classifier import SemanticClassifier
-from langmem_prollytree.taxonomy.semantic_taxonomy import get_taxonomy
+from memoir.taxonomy.semantic_classifier import SemanticClassifier
+from memoir.taxonomy.semantic_taxonomy import get_taxonomy
 
 logger = logging.getLogger(__name__)
 

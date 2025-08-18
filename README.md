@@ -78,9 +78,9 @@ pip install langmem-prollytree
 ```python
 import asyncio
 from langchain_openai import ChatOpenAI
-from langmem_prollytree import ProllyTreeMemoryStoreManager
-from langmem_prollytree.taxonomy.semantic_classifier import SemanticClassifier
-from langmem_prollytree.taxonomy.iterative_taxonomy import LLMIterativeTaxonomy
+from memoir import ProllyTreeMemoryStoreManager
+from memoir.taxonomy.semantic_classifier import SemanticClassifier
+from memoir.taxonomy.iterative_taxonomy import LLMIterativeTaxonomy
 
 async def main():
     # Initialize LLM

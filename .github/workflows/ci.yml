@@ -37,7 +37,7 @@ jobs:
 
     - name: Run tests with pytest
       run: |
-        pytest tests/ -v --cov=langmem_prollytree --cov-report=xml --cov-report=term-missing
+        pytest tests/ -v --cov=memoir --cov-report=xml --cov-report=term-missing
 
     - name: Upload coverage to Codecov
       if: matrix.python-version == '3.11'
@@ -111,7 +111,7 @@ jobs:
       run: |
         python -c "
         # Test imports work
-        from langmem_prollytree import ProllyTreeMemoryStoreManager, get_taxonomy
+        from memoir import ProllyTreeMemoryStoreManager, get_taxonomy
         print('✓ Imports successful')
 
         # Test taxonomy loading
@@ -120,7 +120,7 @@ jobs:
         print(f'✓ Taxonomy loaded with {stats[\"total_paths\"]} paths')
 
         # Test classification
-        from langmem_prollytree.taxonomy.semantic_classifier import SemanticClassifier
+        from memoir.taxonomy.semantic_classifier import SemanticClassifier
         classifier = SemanticClassifier()
         result = classifier.classify('I am learning React for web development')
         print(f'✓ Classification successful: {result.primary_path}')
@@ -130,7 +130,7 @@ jobs:
       run: |
         python -c "
         # Test iterative taxonomy imports
-        from langmem_prollytree.taxonomy.iterative_taxonomy import LLMIterativeTaxonomy, LLMExpansionStrategy
+        from memoir.taxonomy.iterative_taxonomy import LLMIterativeTaxonomy, LLMExpansionStrategy
         print('✓ Iterative taxonomy imports successful')
 
         # Test LOCOMO conversation functionality
@@ -181,7 +181,7 @@ jobs:
       run: |
         python -c "
         import time
-        from langmem_prollytree.taxonomy.semantic_classifier import SemanticClassifier
+        from memoir.taxonomy.semantic_classifier import SemanticClassifier
 
         classifier = SemanticClassifier()
 

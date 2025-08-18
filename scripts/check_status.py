@@ -174,7 +174,7 @@ class StatusChecker:
                 sys.executable,
                 "-m",
                 "mypy",
-                "src/langmem_prollytree",
+                "src/memoir",
                 "--ignore-missing-imports",
             ]
         )
@@ -220,7 +220,7 @@ class StatusChecker:
                 "pytest",
                 "tests/",
                 "-v",
-                "--cov=langmem_prollytree",
+                "--cov=memoir",
                 "--cov-report=term-missing",
             ]
         )

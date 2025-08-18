@@ -21,12 +21,12 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from langmem_prollytree.taxonomy.iterative_taxonomy import (
+from memoir.taxonomy.iterative_taxonomy import (
     ExpansionContext,
     LLMExpansionStrategy,
     LLMIterativeTaxonomy,
 )
-from langmem_prollytree.taxonomy.semantic_taxonomy import SemanticTaxonomy
+from memoir.taxonomy.semantic_taxonomy import SemanticTaxonomy
 
 # Skip all tests in this module by default unless explicitly enabled
 # To run these tests manually, use: pytest tests/test_gpt_taxonomy.py -m "not skip_gpt" -v -s

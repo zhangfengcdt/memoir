@@ -13,9 +13,9 @@ from langgraph.store.base import BaseStore
 from prollytree import ProllyTree, VersionedKvStore
 from pydantic import BaseModel, Field
 
-from langmem_prollytree.search.hierarchical_search import HierarchicalSearchEngine
-from langmem_prollytree.taxonomy.semantic_classifier import SemanticClassifier
-from langmem_prollytree.taxonomy.semantic_taxonomy import get_taxonomy
+from memoir.search.hierarchical_search import HierarchicalSearchEngine
+from memoir.taxonomy.semantic_classifier import SemanticClassifier
+from memoir.taxonomy.semantic_taxonomy import get_taxonomy
 
 logger = logging.getLogger(__name__)
 

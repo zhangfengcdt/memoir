@@ -24,7 +24,7 @@ What actually happened instead.
 ## Code Example
 ```python
 # Minimal code example that reproduces the issue
-from langmem_prollytree import ProllyTreeMemoryStoreManager
+from memoir import ProllyTreeMemoryStoreManager
 
 # Your code here...
 ```

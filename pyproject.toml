@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "langmem-prollytree"
+name = "memoir"
 version = "0.1.0"
 description = "High-performance semantic memory system integrating LangMem with ProllyTree"
 readme = "README.md"
@@ -54,10 +54,10 @@ docs = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/langmem-prollytree"
-Documentation = "https://langmem-prollytree.readthedocs.io"
-Repository = "https://github.com/yourusername/langmem-prollytree"
-Issues = "https://github.com/yourusername/langmem-prollytree/issues"
+Homepage = "https://github.com/yourusername/memoir"
+Documentation = "https://memoir.readthedocs.io"
+Repository = "https://github.com/yourusername/memoir"
+Issues = "https://github.com/yourusername/memoir/issues"
 
 [tool.pytest.ini_options]
 minversion = "7.0"
@@ -116,7 +116,7 @@ force_grid_wrap = 0
 use_parentheses = true
 ensure_newline_before_comments = true
 line_length = 88
-known_first_party = ["langmem_prollytree"]
+known_first_party = ["memoir"]
 
 [tool.mypy]
 python_version = "3.9"

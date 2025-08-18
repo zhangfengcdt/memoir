@@ -1,6 +1,6 @@
 """Tests for semantic taxonomy."""
 
-from langmem_prollytree.taxonomy import TaxonomyCategory, get_taxonomy
+from memoir.taxonomy import TaxonomyCategory, get_taxonomy
 
 
 class TestSemanticTaxonomy:

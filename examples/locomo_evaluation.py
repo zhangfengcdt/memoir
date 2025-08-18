@@ -22,14 +22,14 @@ from rich.table import Table
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from langmem_prollytree.core.prolly_adapter import ProllyTreeStore
-from langmem_prollytree.search.hierarchical_search import (
+from memoir.core.prolly_adapter import ProllyTreeStore
+from memoir.search.hierarchical_search import (
     HierarchicalSearchEngine,
     SearchStrategy,
 )
-from langmem_prollytree.taxonomy.intelligent_classifier import IntelligentClassifier
-from langmem_prollytree.taxonomy.semantic_classifier import SemanticClassifier
-from langmem_prollytree.taxonomy.taxonomy_presets import TaxonomyVersion
+from memoir.taxonomy.intelligent_classifier import IntelligentClassifier
+from memoir.taxonomy.semantic_classifier import SemanticClassifier
+from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -37,12 +37,10 @@ logger = logging.getLogger(__name__)
 
 # Suppress verbose logging from external libraries
 logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("langmem_prollytree.search.hierarchical_search").setLevel(
-    logging.WARNING
-)
-logging.getLogger("langmem_prollytree.taxonomy.data_sources").setLevel(logging.WARNING)
-# Suppress all langmem_prollytree logging
-logging.getLogger("langmem_prollytree").setLevel(logging.WARNING)
+logging.getLogger("memoir.search.hierarchical_search").setLevel(logging.WARNING)
+logging.getLogger("memoir.taxonomy.data_sources").setLevel(logging.WARNING)
+# Suppress all memoir logging
+logging.getLogger("memoir").setLevel(logging.WARNING)
 
 
 class LocomoEvaluator:
@@ -913,9 +911,7 @@ Return ONLY a decimal F1 score between 0.0 and 1.0 (like 0.75 or 0.82)."""
             score_color = (
                 "green"
                 if result["score"] >= 0.7
-                else "red"
-                if result["score"] == 0
-                else "yellow"
+                else "red" if result["score"] == 0 else "yellow"
             )
 
             # Show full text for better analysis - don't truncate expected/predicted

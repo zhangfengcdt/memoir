@@ -24,7 +24,7 @@ Describe the specific use case this feature would address:
 ## Proposed API (if applicable)
 ```python
 # Example of how you envision the API working
-from langmem_prollytree import YourNewFeature
+from memoir import YourNewFeature
 
 feature = YourNewFeature(...)
 result = feature.some_method(...)

@@ -36,7 +36,7 @@ python examples/performance_benchmark.py
 ```python
 # Minimal example showing the performance issue
 import time
-from langmem_prollytree import ProllyTreeMemoryStoreManager
+from memoir import ProllyTreeMemoryStoreManager
 
 start = time.time()
 # Your slow operation here

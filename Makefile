@@ -42,7 +42,7 @@ test:
 	pytest tests/ -v
 
 test-cov:
-	pytest tests/ -v --cov=langmem_prollytree --cov-report=html --cov-report=term-missing
+	pytest tests/ -v --cov=memoir --cov-report=html --cov-report=term-missing
 
 lint:
 	ruff check src/ tests/ examples/
@@ -55,7 +55,7 @@ format:
 	ruff check --fix src/ tests/ examples/
 
 type-check:
-	mypy src/langmem_prollytree --ignore-missing-imports
+	mypy src/memoir --ignore-missing-imports
 
 security:
 	bandit -r src/ -f json -o bandit-report.json

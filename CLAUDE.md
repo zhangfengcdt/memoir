@@ -44,7 +44,7 @@ This project fundamentally reimagines AI memory storage by replacing random UUID
 
 ### Component Architecture
 
-#### 1. **Semantic Taxonomy** (`src/langmem_prollytree/taxonomy/`)
+#### 1. **Semantic Taxonomy** (`src/memoir/taxonomy/`)
 - **Fixed hierarchy of ~800 paths** across 8 main categories
 - **TaxonomyCategory enum**: profile, preferences, experience, context, knowledge, relationships, goals, behavior
 - **SemanticTaxonomy class**: Manages the complete taxonomy tree with path validation and hierarchical operations
@@ -107,7 +107,7 @@ The ProllyTreeStore implements LangGraph's BaseStore with these key methods:
 ### Formatting and Linting
 - **Black**: Line length 88, Python 3.9+ target
 - **Ruff**: Comprehensive linting with pyflakes, pycodestyle, isort integration
-- **isort**: Black-compatible import sorting with langmem_prollytree as known first-party
+- **isort**: Black-compatible import sorting with memoir as known first-party
 
 ### Type Checking
 - **mypy**: Configured for Python 3.9+ with strict equality checks
@@ -115,7 +115,7 @@ The ProllyTreeStore implements LangGraph's BaseStore with these key methods:
 - Gradual typing approach (not fully strict)
 
 ### Project Structure Patterns
-- **Source layout**: `src/langmem_prollytree/` with proper namespace packaging
+- **Source layout**: `src/memoir/` with proper namespace packaging
 - **Example scripts**: Self-contained in `examples/` directory
 - **Test organization**: Mirrors source structure with clear test naming
 - **Configuration**: Single pyproject.toml with all tool configs centralized

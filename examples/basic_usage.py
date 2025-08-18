@@ -19,9 +19,9 @@ import os
 import sys
 import tempfile
 
-from langmem_prollytree import ProllyTreeMemoryStoreManager
-from langmem_prollytree.taxonomy.intelligent_classifier import IntelligentClassifier
-from langmem_prollytree.taxonomy.taxonomy_presets import TaxonomyVersion
+from memoir import ProllyTreeMemoryStoreManager
+from memoir.taxonomy.intelligent_classifier import IntelligentClassifier
+from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
 
 
 def get_llm() -> object:
@@ -94,7 +94,7 @@ async def main():
         # This replaces LangMem's InMemoryStore with 10-20x better performance
         print("\n2. Initializing ProllyTree Memory Store:")
         # Create a simple classifier for the store
-        from langmem_prollytree.taxonomy.semantic_classifier import SemanticClassifier
+        from memoir.taxonomy.semantic_classifier import SemanticClassifier
 
         simple_classifier = SemanticClassifier(llm=None)
 

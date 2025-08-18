@@ -10,13 +10,13 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from langmem_prollytree.taxonomy.iterative_taxonomy import (
+from memoir.taxonomy.iterative_taxonomy import (
     ExpansionContext,
     LLMExpansionStrategy,
     LLMIterativeTaxonomy,
     TaxonomyCombination,
 )
-from langmem_prollytree.taxonomy.semantic_taxonomy import SemanticTaxonomy
+from memoir.taxonomy.semantic_taxonomy import SemanticTaxonomy
 
 
 # Load test data from JSON file
@@ -622,7 +622,7 @@ class TestRealisticLLMExpansion:
         taxonomy = taxonomy_with_realistic_llm
 
         # Simulate multiple expansions by adding to history
-        from langmem_prollytree.taxonomy.iterative_taxonomy import (
+        from memoir.taxonomy.iterative_taxonomy import (
             TaxonomyExpansionResult,
         )
 

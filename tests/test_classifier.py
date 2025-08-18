@@ -2,7 +2,7 @@
 
 import pytest
 
-from langmem_prollytree.taxonomy import ClassificationResult, SemanticClassifier
+from memoir.taxonomy import ClassificationResult, SemanticClassifier
 
 
 class MockLLMResponse:

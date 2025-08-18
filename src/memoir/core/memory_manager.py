@@ -12,7 +12,7 @@ from typing import Any, Optional, Union
 from langmem.knowledge.extraction import MemoryStoreManager
 from pydantic import BaseModel, Field
 
-from langmem_prollytree.search.hierarchical_search import (
+from memoir.search.hierarchical_search import (
     HierarchicalSearchEngine,
     SearchStrategy,
 )
