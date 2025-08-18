@@ -71,10 +71,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e ".[dev]"
 
-    - name: Run Black (code formatting)
-      run: |
-        black --check --diff src/ tests/ examples/
-
     - name: Run Ruff (linting)
       run: |
         ruff check src/ tests/ examples/
