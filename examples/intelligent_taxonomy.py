@@ -151,19 +151,19 @@ class TaxonomyApp:
                     }
 
                     self.console.print(
-                        f"⏺ Loaded conversation from {self.json_file}", style="green"
+                        f"⏺ Loaded conversation from {self.json_file}", style="white"
                     )
                     self.console.print(
                         f"   ⏺ Random mode: {self.conversation_data['speaker_a']} and {self.conversation_data['speaker_b']}",
-                        style="cyan",
+                        style="white",
                     )
                     self.console.print(
                         f"   ⏺ Using sessions: {available_sessions} (randomized)",
-                        style="cyan",
+                        style="white",
                     )
                     self.console.print(
                         f"   ⏺ Total exchanges: {len(self.conversation_data['session'])}",
-                        style="cyan",
+                        style="white",
                     )
 
                 else:
@@ -178,30 +178,30 @@ class TaxonomyApp:
                     }
 
                     self.console.print(
-                        f"⏺ Loaded conversation from {self.json_file}", style="green"
+                        f"⏺ Loaded conversation from {self.json_file}", style="white"
                     )
                     self.console.print(
                         f"   ⏺ Session {self.session_num}: {self.conversation_data['speaker_a']} and {self.conversation_data['speaker_b']}",
-                        style="cyan",
+                        style="white",
                     )
                     self.console.print(
                         f"   ⏺ Date/Time: {self.conversation_data['date_time']}",
-                        style="cyan",
+                        style="white",
                     )
                     self.console.print(
                         f"   ⏺ Total exchanges: {len(self.conversation_data['session'])}",
-                        style="cyan",
+                        style="white",
                     )
                     self.console.print(
                         f"   info: Available sessions: {available_sessions}",
-                        style="dim",
+                        style="white",
                     )
             else:
                 self.console.print(
-                    f"⏺ No conversation data found in {self.json_file}", style="red"
+                    f"⏺ No conversation data found in {self.json_file}", style="white"
                 )
         except Exception as e:
-            self.console.print(f"⏺ Error loading JSON file: {e}", style="red")
+            self.console.print(f"⏺ Error loading JSON file: {e}", style="white")
             sys.exit(1)
 
     def setup_layout(self):
@@ -303,11 +303,11 @@ class TaxonomyApp:
         # Show the current configuration
         self.console.print(
             f"   ⏺ Confidence thresholds: high={self.confidence_thresholds['high']}, medium={self.confidence_thresholds['medium']}, low={self.confidence_thresholds['low']}",
-            style="cyan",
+            style="white",
         )
         self.console.print(
             f"   ⏺ Min items for expansion: {self.min_items_for_expansion}",
-            style="cyan",
+            style="white",
         )
 
     def get_cursor_text(self):
@@ -416,7 +416,10 @@ class TaxonomyApp:
                 timestamp = conv.get("timestamp", "")
 
                 conv_number = start_idx + i + 1
-                lines.append(f"[{conv_number}] {speaker}:")
+                if timestamp:
+                    lines.append(f"[{conv_number}] [{timestamp}] {speaker}:")
+                else:
+                    lines.append(f"[{conv_number}] {speaker}:")
 
                 # Improve text wrapping to use available width better
                 # Left panel gets 2/5 of total width, so calculate usable width
@@ -447,8 +450,6 @@ class TaxonomyApp:
                 else:
                     lines.append(f"  ⏺ {conv_content}")
 
-                if timestamp:
-                    lines.append(f"    ⏺ {timestamp}")
                 lines.append("")  # Empty line for spacing
 
             # Add cursor at the end if waiting for input
@@ -860,7 +861,7 @@ class TaxonomyApp:
             # Check if user wants to interrupt
             if self.interrupt_requested:
                 self.console.print(
-                    "\n⏺ Switching to interactive mode...", style="bright_yellow"
+                    "\n⏺ Switching to interactive mode...", style="white"
                 )
                 self.interrupt_requested = False
                 return  # Exit demo early
@@ -922,7 +923,7 @@ class TaxonomyApp:
             return
 
         self.console.print(
-            f"\n⏺ Processing conversation for {self.person_name}...", style="yellow"
+            f"\n⏺ Processing conversation for {self.person_name}...", style="white"
         )
 
         # Filter conversations for the specified person
@@ -947,18 +948,18 @@ class TaxonomyApp:
             # Check if user wants to interrupt
             if self.interrupt_requested:
                 self.console.print(
-                    "\n⏺ Switching to interactive mode...", style="bright_yellow"
+                    "\n⏺ Switching to interactive mode...", style="white"
                 )
                 self.interrupt_requested = False
                 return  # Exit JSON processing early
 
-            self.console.print(f"\n⏺ Processing: {msg['text'][:100]}...", style="cyan")
+            self.console.print(f"\n⏺ Processing: {msg['text'][:100]}...", style="white")
             await self.process_conversation(msg["text"])
             await asyncio.sleep(0.5)  # Brief pause between messages
 
         self.console.print(
             f"\n⏺ Processed {len(person_messages)} messages from {self.person_name}",
-            style="green",
+            style="white",
         )
 
     async def interactive_mode(self, live_display):
@@ -1030,7 +1031,7 @@ class TaxonomyApp:
                             # Stop live display to show error
                             live_display.stop()
                             self.console.print(
-                                f"⏺ Error processing input: {e}", style="red"
+                                f"⏺ Error processing input: {e}", style="white"
                             )
                             input("\nPress Enter to continue...")
                             live_display.start()
@@ -1076,7 +1077,7 @@ class TaxonomyApp:
             r"""Handle Ctrl+\ (SIGQUIT) to enter interactive mode."""
             self.interrupt_requested = True
             self.console.print(
-                "\n⏺ Interactive mode requested (Ctrl+\\)...", style="bright_yellow"
+                "\n⏺ Interactive mode requested (Ctrl+\\)...", style="white"
             )
 
         # Install signal handlers (Unix/Linux/Mac only)
@@ -1091,20 +1092,20 @@ class TaxonomyApp:
 
             # Show startup message
             self.console.print(
-                "\n⏺ Intelligent Taxonomy Classification App", style="bold blue"
+                "\n⏺ Intelligent Taxonomy Classification App", style="white"
             )
             self.console.print("=" * 60)
-            self.console.print("⏺ LLM classifier ready", style="green")
-            self.console.print("⏺ Memory store initialized", style="green")
-            self.console.print("⏺ Live display active", style="green")
-            self.console.print("\n⏺ Starting demo automatically...", style="yellow")
+            self.console.print("⏺ LLM classifier ready", style="white")
+            self.console.print("⏺ Memory store initialized", style="white")
+            self.console.print("⏺ Live display active", style="white")
+            self.console.print("\n⏺ Starting demo automatically...", style="white")
             self.console.print(
                 "⏺ Press Ctrl+\\ anytime to skip to interactive mode",
-                style="bright_cyan",
+                style="white",
             )
             self.console.print(
                 "⏺ After demo: type messages to classify, 'demo' to repeat, or 'quit' to exit",
-                style="cyan",
+                style="white",
             )
 
             # Create and start live display with minimal refresh rate to prevent color flashing
@@ -1131,16 +1132,16 @@ class TaxonomyApp:
                 self.console.clear()
                 self.console.print(
                     "⏺ Thank you for using Intelligent Taxonomy Classification!",
-                    style="bold blue",
+                    style="white",
                 )
                 self.console.print(
-                    "⏺ Your memory classifications have been saved.", style="green"
+                    "⏺ Your memory classifications have been saved.", style="white"
                 )
 
         except Exception as e:
             # Ensure cursor is visible even on error
             self.console.show_cursor(True)
-            self.console.print(f"⏺ Error: {e}", style="red")
+            self.console.print(f"⏺ Error: {e}", style="white")
             sys.exit(1)
 
 
