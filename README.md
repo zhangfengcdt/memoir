@@ -3,9 +3,9 @@
 <div align="center">
   <img src="static/memoir.png" alt="Memoir Logo" width="200" height="200">
   
-  **A High-Performance Semantic Memory System for AI Applications**
+  **Git for AI Memory**
   
-  *Revolutionizing AI Memory with 10-20x Performance Improvements*
+  *Making AI memory as reliable and versioned as Git made code*
 </div>
 
 [![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://python.org)
@@ -14,70 +14,111 @@
 
 ## 📖 Overview
 
-Memoir is a high-performance semantic memory system that transforms how AI applications store, classify, and retrieve memories. By replacing traditional UUID-based keys with semantic hierarchical paths, Memoir achieves 10-20x performance improvements while maintaining rich, searchable memory structures.
+Memoir brings Git-like version control to AI memory systems. Just as Git revolutionized software development by making code history transparent and reliable, Memoir transforms AI memory from a "black box" into a versioned, auditable, and cryptographically secure system.
 
-Perfect for AI agents, chatbots, and any application requiring intelligent memory management with LangGraph and LangMem compatibility.
+**The Problem**: Current AI systems have no memory version history, lack integrity checks, and provide no audit trails for critical decisions.
+
+**The Solution**: Memoir provides cryptographically hashed memory states, complete version history, and the ability to branch, merge, and rollback AI memory - making AI systems as reliable and transparent as modern software development.
 
 ## 🎯 Key Features
 
-### 🧠 Semantic Memory Classification
-- **Flexible taxonomy system** with ~800 predefined paths loaded from JSON
-- **Hierarchical organization**: `profile.professional.skills.technical.programming.python`
-- **LLM-based classification**: Accurate semantic understanding
-- **Dynamic expansion**: Falls back to "other" categories for unclassified content
-- **Deterministic keys** instead of random UUIDs
+### 🔄 Git-like Version Control
+- **Complete memory history**: Every change is tracked and versioned
+- **Cryptographic integrity**: SHA-256 hashing ensures memory state authenticity
+- **Time-travel queries**: View AI memory as it existed at any point in time
+- **Branching & merging**: Experiment safely with different AI strategies
+- **Audit trails**: Full transparency for regulatory compliance and debugging
 
-### 🔍 Hierarchical Search
-- **Multiple strategies**: Specific→General, Breadth-first, Best-match
-- **O(log n) complexity** using ProllyTree prefix queries
-- **Sub-millisecond search** vs 150-750ms vector similarity
-- **Relevance scoring** with recency and keyword matching
+### 🧠 Semantic Memory Organization  
+- **Hierarchical paths**: `profile.professional.skills.technical.programming.python`
+- **Intelligent classification**: LLM-powered automatic memory categorization
+- **Deterministic keys**: Replace random UUIDs with meaningful semantic paths
+- **~800 predefined categories**: Comprehensive taxonomy for real-world use cases
 
-### 📚 Git-like Versioning
-- **Complete history** of all memory changes
-- **Time-travel queries**: View memories as they were at any point
-- **Branching & merging** for experimental memory states
-- **Content-addressed storage** with automatic deduplication
+### 🚀 High Performance
+- **10-20x faster**: Sub-millisecond search vs traditional vector similarity
+- **O(log n) complexity**: Efficient ProllyTree-based prefix queries
+- **Structural sharing**: Git-like storage efficiency with deduplication
+- **Minimal API costs**: Smart LLM usage with intelligent fallback chains
 
-### 🔧 Flexible Data Sources
-- **JSON-based taxonomy**: Easy to modify without code changes
-- **Database-ready**: Framework for loading taxonomy from databases
-- **Multiple fallbacks**: Graceful degradation with simplified taxonomy
-- **Hot-reloading**: Update taxonomy structure without restarts
+### 🔒 Security & Reliability
+- **Cryptographically secure**: All memory states are cryptographically hashed
+- **Immutable history**: Memory changes cannot be secretly modified
+- **Integrity verification**: Detect memory corruption instantly
+- **Safe experimentation**: Branch and test without affecting production memory
 
-### ⚡ Production-Ready Performance
-- **Bounded complexity**: ~800 paths vs infinite embedding space
-- **Efficient caching** at multiple levels
-- **Thread-safe operations** with proper locking mechanisms
-- **Secure hashing**: SHA-256 for all internal operations
-- **Minimal API costs**: Intelligent LLM usage with fallback chains
+### 🔧 Developer Experience
+- **LangGraph compatibility**: Drop-in replacement for existing memory systems
+- **Multiple search strategies**: Specific→General, Breadth-first, Best-match
+- **JSON-based configuration**: Easy taxonomy customization without code changes
+- **Real-time collaboration**: Multiple AI agents can work with shared memory
 
 ## 🏗️ Architecture
 
-### Fundamental Innovation
+### Git for AI Memory: The Paradigm Shift
 
-Memoir revolutionizes AI memory storage by replacing expensive vector searches with deterministic semantic paths.
+Just as Git transformed software development from fragile, unversioned code to reliable, collaborative development, Memoir transforms AI memory from opaque, unreliable storage to transparent, versioned, and auditable systems.
 
-**Traditional Approach**: Random UUIDs + Vector Search
+**Traditional AI Memory**: Black Box + No History
 ```python
-key = "uuid-1234"  # No semantic meaning
-search_query = "Python skills"  # Must embed and search all vectors
+# Memory gets stored somewhere...
+memory_id = "uuid-1234"  # No semantic meaning, no version history
+# Memory could be corrupted, modified, or lost - no way to verify integrity
 ```
 
-**Memoir's Approach**: Semantic Hierarchical Keys
+**Memoir's Git-like Approach**: Versioned + Cryptographically Secure
 ```python
+# Every memory change creates a new cryptographically verified state
+commit_hash = "a7f3b2c1..."  # Like Git commits, verifiable integrity
 key = "profile.professional.skills.technical.programming.python"
-search = prolly_tree.range_query("*.programming.*")  # 0.1ms prefix query
+branch = memory_manager.create_branch("experiment")  # Safe experimentation
 ```
+
+### The Git Analogy
+
+| Git Concept | Memoir Equivalent | Benefit |
+|-------------|-------------------|---------|
+| `git commit` | Memory state snapshot | Immutable history of AI decisions |
+| `git branch` | Memory state branching | Safe AI experimentation |
+| `git merge` | Memory state merging | Combine successful AI strategies |
+| `git log` | Memory history | Full audit trail for compliance |
+| `git diff` | Memory state comparison | See exactly what changed in AI memory |
+| `SHA-1 hash` | SHA-256 memory hash | Cryptographic integrity verification |
 
 ### Core Components
 
-1. **SemanticTaxonomy**: Flexible hierarchy of ~800 meaningful paths loaded from JSON
-2. **SemanticClassifier**: LLM-based classification with intelligent fallback logic
-3. **DynamicTaxonomy**: Expandable taxonomy with "other" categories for edge cases
+1. **ProllyTreeStore**: Git-like versioned storage with cryptographic integrity
+2. **SemanticTaxonomy**: Hierarchical organization of ~800 meaningful memory paths  
+3. **SemanticClassifier**: LLM-powered classification with intelligent fallbacks
 4. **HierarchicalSearchEngine**: Multi-strategy search with relevance scoring
-5. **ProllyTreeStore**: High-performance storage with git-like versioning
-6. **ProllyTreeMemoryStoreManager**: Drop-in LangMem replacement
+5. **VersionedMemoryManager**: Complete audit trails and branching capabilities
+6. **CryptographicVerifier**: SHA-256 integrity verification for all memory states
+
+## 🔄 Version Control Benefits
+
+### 🏢 Enterprise & Compliance
+- **Regulatory Compliance**: Complete audit trails for financial, healthcare, and legal AI systems
+- **Accountability**: Track every AI decision back to specific memory states
+- **Risk Management**: Rollback to known-good memory states when AI behaves unexpectedly
+- **Quality Assurance**: Verify memory integrity and detect unauthorized modifications
+
+### 🧪 AI Research & Development  
+- **Safe Experimentation**: Branch memory to test new AI strategies without affecting production
+- **A/B Testing**: Compare AI performance across different memory configurations
+- **Reproducible Research**: Share exact memory states for scientific reproducibility
+- **Collaborative Development**: Multiple teams can work on AI memory simultaneously
+
+### 🚨 Production Operations
+- **Debugging**: Time-travel to see exactly what the AI knew when it made decisions
+- **Incident Response**: Quickly identify when and how AI memory was compromised
+- **Performance Analysis**: Compare memory states to identify performance regressions
+- **Disaster Recovery**: Restore AI systems to any previous working state
+
+### 🤖 Multi-Agent Systems
+- **Shared Memory**: Multiple AI agents collaborate with synchronized, versioned memory
+- **Conflict Resolution**: Merge different agents' memory updates safely
+- **Agent Coordination**: Track which agent contributed which memories
+- **Consensus Building**: Use Git-like merging for distributed AI decision-making
 
 ## 🚀 Quick Start
 
@@ -87,7 +128,7 @@ search = prolly_tree.range_query("*.programming.*")  # 0.1ms prefix query
 pip install memoir
 ```
 
-### Basic Usage
+### Basic Usage with Version Control
 
 ```python
 import asyncio
@@ -104,40 +145,79 @@ async def main():
     taxonomy = LLMIterativeTaxonomy(llm=llm)
     classifier = SemanticClassifier(llm=llm, taxonomy=taxonomy)
 
-    # Initialize memory manager
+    # Initialize memory manager with Git-like versioning
     memory_manager = ProllyTreeMemoryStoreManager(
         prolly_path="./memory_db",
         classifier=classifier,
-        enable_versioning=True
+        enable_versioning=True  # 🔄 Git-like version control enabled
     )
 
     user_id = "user123"
 
-    # Store memories with automatic classification
-    await memory_manager.store_memory(
+    # Store memories with automatic classification and versioning
+    commit_1 = await memory_manager.store_memory(
         content="I have 5 years of Python experience",
         namespace=user_id
     )
+    # → Creates cryptographically verifiable memory commit
     # → Automatically classified to: profile.professional.skills.technical.programming
 
+    # Create experimental branch for testing new memories
+    experiment_branch = await memory_manager.create_branch("experiment_branch")
+    
+    # Store experimental memory on branch  
     await memory_manager.store_memory(
-        content="I prefer dark mode in my IDE",
-        namespace=user_id
+        content="I'm learning Rust programming",
+        namespace=user_id,
+        branch="experiment_branch"
     )
-    # → Automatically classified to: preferences.technology.ui.theme
-
-    # Search memories semantically
+    
+    # Search memories semantically with version control
     results = await memory_manager.search_memories(
         query="What programming skills do I have?",
         namespace=user_id,
         limit=5
     )
 
-    for memory in results:
-        print(f"{memory.content} (relevance: {memory.metadata['relevance_score']:.2f})")
+    # Time-travel: View memory as it existed at commit_1
+    historical_results = await memory_manager.search_memories(
+        query="What programming skills do I have?",
+        namespace=user_id,
+        at_commit=commit_1  # 🕐 Time-travel query
+    )
+    
+    # Verify memory integrity (like git fsck)
+    integrity_check = await memory_manager.verify_integrity()
+    print(f"Memory integrity: {'✅ Valid' if integrity_check else '❌ Corrupted'}")
 
 if __name__ == "__main__":
     asyncio.run(main())
+```
+
+### Advanced Version Control Operations
+
+```python
+# Branch and merge operations (like Git)
+await memory_manager.create_branch("feature_branch")
+await memory_manager.checkout("feature_branch")
+
+# Store memories on feature branch
+await memory_manager.store_memory("New feature memory", namespace=user_id)
+
+# Merge back to main branch
+await memory_manager.checkout("main")
+await memory_manager.merge("feature_branch")
+
+# View commit history (like git log)
+history = await memory_manager.get_commit_history(namespace=user_id)
+for commit in history:
+    print(f"Commit: {commit.hash[:8]} - {commit.message} - {commit.timestamp}")
+
+# Compare memory states (like git diff)
+diff = await memory_manager.diff_commits(commit_1, commit_2)
+print(f"Added: {len(diff.added)} memories")
+print(f"Modified: {len(diff.modified)} memories") 
+print(f"Deleted: {len(diff.deleted)} memories")
 ```
 
 ### Alternative LLM Providers
@@ -155,12 +235,13 @@ llm = ChatAnthropic(model="claude-3-sonnet-20240229", temperature=0)
 classifier = SemanticClassifier(llm=llm, taxonomy=LLMIterativeTaxonomy(llm=llm))
 ```
 
-### Key API Methods
+### Key API Methods with Version Control
 ```python
-# Store memories with automatic classification
-semantic_key = await memory_manager.store_memory(
+# Store memories with automatic classification and versioning
+commit_hash = await memory_manager.store_memory(
     content="Your memory content here",
-    namespace="user_id"
+    namespace="user_id",
+    message="Added new user preference"  # Git-style commit message
 )
 
 # Search memories semantically
@@ -169,6 +250,21 @@ results = await memory_manager.search_memories(
     namespace="user_id",
     limit=10
 )
+
+# Time-travel queries
+historical_results = await memory_manager.search_memories(
+    query="Your search query",
+    namespace="user_id", 
+    at_commit="a7f3b2c1..."  # View memory at specific commit
+)
+
+# Branch operations
+await memory_manager.create_branch("experiment")
+await memory_manager.checkout("experiment")
+await memory_manager.merge("experiment", into="main")
+
+# Integrity verification
+is_valid = await memory_manager.verify_integrity()
 ```
 
 ## 🤝 Contributing
@@ -183,8 +279,8 @@ MIT License - see [LICENSE](LICENSE) file.
 
 <div align="center">
   
-**⚡ Transform your AI memory systems today with Memoir!** ⚡
+**🔄 Bring Git-like reliability to your AI memory systems!** 🔄
 
-*Experience 10-20x performance improvements in your AI applications*
+*Make AI memory as transparent and trustworthy as your code*
 
 </div>
