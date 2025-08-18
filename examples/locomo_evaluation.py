@@ -149,51 +149,74 @@ class LocomoEvaluator:
 
         memories_processed = 0
 
-        with Progress() as progress:
-            # Find session keys to process
-            if self.session:
-                # Process only the specified session
-                session_keys = [f"session_{self.session}"]
-                # Verify the session exists
-                if f"session_{self.session}" not in self.conversation_data:
-                    available_sessions = [
-                        k.replace("session_", "")
-                        for k in self.conversation_data
-                        if k.startswith("session_") and not k.endswith("_date_time")
-                    ]
-                    self.console.print(
-                        f"⏺ Error: Session {self.session} not found. Available sessions: {available_sessions}",
-                        style="white",
-                    )
-                    return
-            else:
-                # Find all session keys
-                session_keys = [
-                    k
+        # Find session keys to process
+        if self.session:
+            # Process only the specified session
+            session_keys = [f"session_{self.session}"]
+            # Verify the session exists
+            if f"session_{self.session}" not in self.conversation_data:
+                available_sessions = [
+                    k.replace("session_", "")
                     for k in self.conversation_data
                     if k.startswith("session_") and not k.endswith("_date_time")
                 ]
+                self.console.print(
+                    f"⏺ Error: Session {self.session} not found. Available sessions: {available_sessions}",
+                    style="white",
+                )
+                return
+        else:
+            # Find all session keys
+            session_keys = [
+                k
+                for k in self.conversation_data
+                if k.startswith("session_") and not k.endswith("_date_time")
+            ]
 
-            task = progress.add_task("Processing sessions...", total=len(session_keys))
+        # Count total exchanges to process for better progress tracking
+        total_exchanges = 0
+        for session_key in session_keys:
+            session_data = self.conversation_data.get(session_key, [])
+            for exchange in session_data:
+                speaker = exchange.get("speaker")
+                if (
+                    speaker in ["Caroline", "Melanie"]
+                    and exchange.get("text", "").strip()
+                ):
+                    total_exchanges += 1
+
+        with Progress() as progress:
+            task = progress.add_task("Processing memories...", total=total_exchanges)
 
             for session_key in session_keys:
                 session_data = self.conversation_data.get(session_key, [])
+                # Get the session date for context
+                session_date_key = f"{session_key}_date_time"
+                session_date = self.conversation_data.get(
+                    session_date_key, "unknown date"
+                )
 
                 for exchange in session_data:
-                    if exchange.get("speaker") == self.person_name:
+                    speaker = exchange.get("speaker")
+                    # Process memories for both Caroline and Melanie, not just the specified person
+                    if speaker in ["Caroline", "Melanie"]:
                         text = exchange.get("text", "")
                         if text.strip():
-                            # Add metadata including dialogue ID for reference
+                            # Add metadata including dialogue ID and session date for reference
                             metadata = {
                                 "source": "locomo_conversation",
                                 "session": session_key,
+                                "session_date": session_date,
                                 "dia_id": exchange.get("dia_id", ""),
-                                "speaker": self.person_name,
+                                "speaker": speaker,  # Use actual speaker, not self.person_name
                             }
+
+                            # Add session date context to the text for better temporal understanding
+                            text_with_context = f"[Session date: {session_date}] {text}"
 
                             try:
                                 await self.intelligent_classifier.process_memory_with_storage(
-                                    text, metadata
+                                    text_with_context, metadata
                                 )
                                 memories_processed += 1
                             except Exception as e:
@@ -201,7 +224,8 @@ class LocomoEvaluator:
                                     f"Failed to process: {text[:50]}... Error: {e}"
                                 )
 
-                progress.advance(task)
+                            # Update progress for each processed exchange
+                            progress.advance(task)
 
         self.console.print(f"⏺ Processed {memories_processed} memories", style="white")
 
@@ -372,20 +396,40 @@ class LocomoEvaluator:
         context = "\n".join(context_parts)
 
         # Generate answer using LLM
-        prompt = f"""Based on the following memories about {self.person_name}, answer the question as accurately as possible.
+        prompt = f"""Based on the following memories from conversations, answer the question as accurately as possible.
 
-Retrieved Memories:
+Retrieved Memories (JSON format with summary and structured_data):
 {context}
 
 Question: {question}
 
-Please provide a direct, concise answer based only on the information in the memories. If the information is not available in the memories, respond with "Information not found in memories."
+Instructions:
+- The memories are in JSON format with both "summary" and "structured_data" fields
+- Look for specific facts in the "structured_data" field (dates, names, activities, etc.)
+- The "metadata" field contains additional context like speaker and dialogue IDs
+- The memories may contain information about Caroline, Melanie, or both
+- Provide a direct, concise answer based only on the information found in these memories
+- If the specific information needed is not available, respond with "Information not found in memories."
 
 Answer:"""
+
+        # Debug: Print prompt for failing cases (simplified)
+        if len(retrieved_memories) > 0:
+            self.console.print(
+                f"⏺ Q: {question[:50]}... | Memories: {len(retrieved_memories)}",
+                style="white",
+            )
 
         try:
             response = await self.llm.ainvoke(prompt)
             predicted_answer = response.content.strip()
+
+            # Debug: Print results
+            if "not found" in predicted_answer.lower():
+                self.console.print("     ❌ Not found", style="white")
+            else:
+                self.console.print(f"     ✅ {predicted_answer[:60]}...", style="white")
+
         except Exception as e:
             predicted_answer = f"LLM Error: {e}"
 

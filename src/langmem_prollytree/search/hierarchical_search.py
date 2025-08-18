@@ -200,10 +200,11 @@ class HierarchicalSearchEngine:
                     contents = []
                     for _key, data in items:
                         if isinstance(data, dict):
-                            # Check for 'summary' field first (IntelligentClassifier format), then 'content'
-                            content_text = str(
-                                data.get("summary", data.get("content", ""))
-                            )
+                            # Use the complete memory data as JSON instead of just summary
+                            # This includes summary, structured_data, metadata, etc.
+                            import json
+
+                            content_text = json.dumps(data, indent=2)
                         else:
                             content_text = str(data)
                         if content_text.strip():
@@ -252,10 +253,11 @@ class HierarchicalSearchEngine:
                     contents = []
                     for _key, data in items:
                         if isinstance(data, dict):
-                            # Check for 'summary' field first (IntelligentClassifier format), then 'content'
-                            content_text = str(
-                                data.get("summary", data.get("content", ""))
-                            )
+                            # Use the complete memory data as JSON instead of just summary
+                            # This includes summary, structured_data, metadata, etc.
+                            import json
+
+                            content_text = json.dumps(data, indent=2)
                         else:
                             content_text = str(data)
                         if content_text.strip():
