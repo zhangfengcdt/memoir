@@ -35,6 +35,15 @@ from langmem_prollytree.taxonomy.taxonomy_presets import TaxonomyVersion
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Suppress verbose logging from external libraries
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("langmem_prollytree.search.hierarchical_search").setLevel(
+    logging.WARNING
+)
+logging.getLogger("langmem_prollytree.taxonomy.data_sources").setLevel(logging.WARNING)
+# Suppress all langmem_prollytree logging
+logging.getLogger("langmem_prollytree").setLevel(logging.WARNING)
+
 
 class LocomoEvaluator:
     """Evaluates memory agent's ability to answer questions using stored memories from locomo dataset."""
@@ -45,7 +54,7 @@ class LocomoEvaluator:
         person_name: str,
         storage_path: str = "/tmp/qa_evaluation",
         confidence_thresholds: Optional[dict[str, float]] = None,
-        session: Optional[int] = None,
+        session: Optional[str] = None,
         max_search_results: int = 5,
         max_context_memories: int = 3,
         max_memory_size: int = 2000,
@@ -64,12 +73,52 @@ class LocomoEvaluator:
             "low": 0.0,
         }
 
+        # Parse session parameter
+        self.session_list = self._parse_session_parameter(session)
+
         # Components
         self.llm = None
         self.intelligent_classifier = None
         self.search_engine = None
         self.conversation_data = None
         self.qa_data = None
+
+    def _parse_session_parameter(self, session: Optional[str]) -> Optional[list[int]]:
+        """Parse session parameter to handle single values, ranges, and lists.
+
+        Examples:
+        - "1" -> [1]
+        - "1,3,5" -> [1, 3, 5]
+        - "1-3" -> [1, 2, 3]
+        - "1,3-5,7" -> [1, 3, 4, 5, 7]
+        - None -> None (process all sessions)
+        """
+        if not session:
+            return None
+
+        session_list = []
+        parts = session.split(",")
+
+        for part in parts:
+            part = part.strip()
+            if "-" in part:
+                # Handle range like "1-3"
+                try:
+                    start, end = part.split("-")
+                    start, end = int(start.strip()), int(end.strip())
+                    session_list.extend(range(start, end + 1))
+                except ValueError:
+                    raise ValueError(
+                        f"Invalid session range format: {part}. Use format like '1-3'"
+                    )
+            else:
+                # Handle single number
+                try:
+                    session_list.append(int(part))
+                except ValueError:
+                    raise ValueError(f"Invalid session number: {part}")
+
+        return sorted(set(session_list))  # Remove duplicates and sort
 
     async def setup(self):
         """Initialize all components."""
@@ -159,9 +208,10 @@ class LocomoEvaluator:
             style="white",
         )
 
-        if self.session:
+        if self.session_list:
+            session_str = ",".join(map(str, self.session_list))
             self.console.print(
-                f"⏺ Processing session {self.session} only", style="white"
+                f"⏺ Processing sessions {session_str} only", style="white"
             )
 
     async def process_memories(self):
@@ -173,18 +223,23 @@ class LocomoEvaluator:
         memories_processed = 0
 
         # Find session keys to process
-        if self.session:
-            # Process only the specified session
-            session_keys = [f"session_{self.session}"]
-            # Verify the session exists
-            if f"session_{self.session}" not in self.conversation_data:
-                available_sessions = [
-                    k.replace("session_", "")
-                    for k in self.conversation_data
-                    if k.startswith("session_") and not k.endswith("_date_time")
-                ]
+        if self.session_list:
+            # Process only the specified sessions
+            session_keys = [f"session_{s}" for s in self.session_list]
+            # Verify the sessions exist
+            available_sessions = [
+                k.replace("session_", "")
+                for k in self.conversation_data
+                if k.startswith("session_") and not k.endswith("_date_time")
+            ]
+            missing_sessions = [
+                str(s)
+                for s in self.session_list
+                if f"session_{s}" not in self.conversation_data
+            ]
+            if missing_sessions:
                 self.console.print(
-                    f"⏺ Error: Session {self.session} not found. Available sessions: {available_sessions}",
+                    f"⏺ Error: Sessions {missing_sessions} not found. Available sessions: {available_sessions}",
                     style="white",
                 )
                 return
@@ -276,10 +331,13 @@ class LocomoEvaluator:
                 continue
 
             # Filter by session if specified
-            if self.session:
-                session_prefix = f"D{self.session}:"
-                # Check if any evidence reference is from the specified session
-                if not any(ref.startswith(session_prefix) for ref in evidence):
+            if self.session_list:
+                session_prefixes = [f"D{s}:" for s in self.session_list]
+                # Check if any evidence reference is from any of the specified sessions
+                if not any(
+                    any(ref.startswith(prefix) for prefix in session_prefixes)
+                    for ref in evidence
+                ):
                     continue
 
             filtered_qa.append(qa_item)
@@ -291,9 +349,10 @@ class LocomoEvaluator:
         # Filter QA pairs by session and person
         qa_data_to_evaluate = self.filter_qa_by_session_and_person()
 
-        if self.session:
+        if self.session_list:
+            session_str = ",".join(map(str, self.session_list))
             self.console.print(
-                f"\n⏺ Evaluating {len(qa_data_to_evaluate)} filtered QA pairs about {self.person_name} from session {self.session}...",
+                f"\n⏺ Evaluating {len(qa_data_to_evaluate)} filtered QA pairs about {self.person_name} from sessions {session_str}...",
                 style="white",
             )
         else:
@@ -634,57 +693,87 @@ Answer:"""
         """Use LLM to calculate F1-based similarity score between expected and predicted answers."""
         question_context = f"\n\nQuestion: {question}" if question else ""
 
-        prompt = f"""Calculate an F1-based similarity score between the expected and predicted answers.{question_context}
+        prompt = f"""Calculate a precise F1-based similarity score between the expected and predicted answers. BE VERY CAREFUL to give nuanced scores between 0.0 and 1.0.{question_context}
 
-SCORING METHOD:
-1. Break both answers into key components/items
-2. Count: TP (true positives), FP (false positives), FN (false negatives)
+SCORING METHOD - STEP BY STEP:
+1. Break both answers into key components/concepts (not just words)
+2. Count carefully:
+   - TP (true positives): Components in both expected and predicted
+   - FP (false positives): Components only in predicted
+   - FN (false negatives): Components only in expected
 3. Calculate: Precision = TP/(TP+FP), Recall = TP/(TP+FN)
 4. F1 Score = 2 * (Precision * Recall) / (Precision + Recall)
 
-EXAMPLES:
+CRITICAL: USE PARTIAL SCORING FOR SEMANTIC MATCHES
+- "counseling" ≈ "mental health counseling" = 0.8 match (not 1.0)
+- "psychology" ≈ "mental health" = 0.6 match
+- "adoption agencies" ≈ "researching adoption agencies" = 0.9 match
+
+WORKED EXAMPLES:
 Expected: "Psychology, counseling certification"
 Predicted: "counseling, mental health"
-- TP: 1 (counseling matches)
-- FP: 1 (mental health not in expected)
-- FN: 1 (Psychology missing)
-- Precision: 1/2 = 0.5, Recall: 1/2 = 0.5
-- F1: 2*(0.5*0.5)/(0.5+0.5) = 0.5
+Analysis:
+- Psychology vs mental health: 0.6 semantic match
+- counseling vs counseling: 1.0 exact match
+- certification missing: -1 FN
+Calculation: TP=1.6, FP=0.4, FN=0.4
+Precision=1.6/2.0=0.8, Recall=1.6/2.0=0.8
+F1 = 0.80
 
-Expected: "7 May 2023"
-Predicted: "May 7, 2023"
-- Same date, different format = Perfect match
-- F1: 1.0
+Expected: "researching adoption agencies"
+Predicted: "adoption agencies"
+Analysis: Core concept matches but missing "researching" action
+TP=0.9, FP=0, FN=0.1
+Precision=0.9/0.9=1.0, Recall=0.9/1.0=0.9
+F1 = 0.95
 
-Expected: "Pride parade, school speech, support group"
-Predicted: "LGBTQ support group on 7 May 2023"
-- TP: 1 (support group)
-- FP: 1 (extra date info)
-- FN: 2 (Pride parade, school speech missing)
-- Precision: 1/2 = 0.5, Recall: 1/3 = 0.33
-- F1: 2*(0.5*0.33)/(0.5+0.33) = 0.40
-
-RULES:
-- Consider semantic equivalence (counseling = therapy = mental health counseling)
-- Date formats count as identical (7 May 2023 = May 7, 2023)
-- Partial information gets partial credit
-- Extra correct details don't hurt (but don't help much either)
+GIVE NUANCED SCORES - NOT JUST 0.0 or 1.0!
+Common good F1 ranges:
+- 0.6-0.7: Partially correct, missing some elements
+- 0.7-0.8: Mostly correct with minor issues
+- 0.8-0.9: Very good with small differences
+- 0.9-1.0: Nearly perfect or perfect
 
 Expected Answer: "{expected}"
 Predicted Answer: "{predicted}"
 
-Return only the F1 score as a decimal between 0.0 and 1.0."""
+Return ONLY a decimal F1 score between 0.0 and 1.0 (like 0.75 or 0.82)."""
 
         try:
             response = await self.llm.ainvoke(prompt)
             score_str = response.content.strip()
 
-            # Extract number from response
+            # Extract number from response - look for the final score
             import re
 
-            match = re.search(r"(\d+\.?\d*)", score_str)
-            if match:
-                score = float(match.group(1))
+            # Try multiple patterns to extract the final F1 score
+            patterns = [
+                r"\*\*(\d+\.\d+)\*\*\s*$",  # **0.40** at end
+                r"(\d+\.\d+)\s*$",  # 0.40 at end
+                r"F1.*?(\d+\.\d+)",  # F1 Score = 0.40
+                r"score.*?(\d+\.\d+)",  # score is 0.40
+            ]
+
+            score = None
+            for pattern in patterns:
+                match = re.search(pattern, score_str, re.MULTILINE | re.IGNORECASE)
+                if match:
+                    score = float(match.group(1))
+                    break
+
+            # Fallback: find all decimal numbers and take the last one
+            if score is None:
+                decimal_matches = re.findall(r"\d+\.\d+", score_str)
+                if decimal_matches:
+                    score = float(decimal_matches[-1])
+
+            # Final fallback: try any number pattern
+            if score is None:
+                match = re.search(r"(\d+\.?\d*)", score_str)
+                if match:
+                    score = float(match.group(1))
+
+            if score is not None:
                 # Ensure score is between 0 and 1
                 return min(max(score, 0.0), 1.0)
             else:
@@ -820,11 +909,11 @@ Return only the F1 score as a decimal between 0.0 and 1.0."""
         self.console.print(f"⏺ Average Score: {average_score:.3f}", style="white")
 
         # Display detailed results
-        table = Table(title="QA Evaluation Details")
+        table = Table(title="QA Evaluation Details", show_lines=True)
         table.add_column("Question", style="white", max_width=35)
         table.add_column("Expected", style="white", max_width=40)
         table.add_column("Predicted", style="white", max_width=40)
-        table.add_column("Score", style="white", justify="right")
+        table.add_column("F1 Score", style="white", justify="right")
         table.add_column("Memories", style="white", justify="right")
 
         for result in results[:20]:  # Show first 20 results
@@ -889,8 +978,8 @@ async def main():
     )
     parser.add_argument(
         "--session",
-        type=int,
-        help="Process only specified session number (e.g., 1, 2, 3)",
+        type=str,
+        help="Process specified session(s). Examples: 1, 1,3,5, 1-3, 1,3-5,7",
     )
     parser.add_argument(
         "--max-search-results",
