@@ -151,18 +151,18 @@ class TaxonomyApp:
                     }
 
                     self.console.print(
-                        f"✅ Loaded conversation from {self.json_file}", style="green"
+                        f"⏺ Loaded conversation from {self.json_file}", style="green"
                     )
                     self.console.print(
-                        f"   🎲 Random mode: {self.conversation_data['speaker_a']} and {self.conversation_data['speaker_b']}",
+                        f"   ⏺ Random mode: {self.conversation_data['speaker_a']} and {self.conversation_data['speaker_b']}",
                         style="cyan",
                     )
                     self.console.print(
-                        f"   📋 Using sessions: {available_sessions} (randomized)",
+                        f"   ⏺ Using sessions: {available_sessions} (randomized)",
                         style="cyan",
                     )
                     self.console.print(
-                        f"   💬 Total exchanges: {len(self.conversation_data['session'])}",
+                        f"   ⏺ Total exchanges: {len(self.conversation_data['session'])}",
                         style="cyan",
                     )
 
@@ -178,18 +178,18 @@ class TaxonomyApp:
                     }
 
                     self.console.print(
-                        f"✅ Loaded conversation from {self.json_file}", style="green"
+                        f"⏺ Loaded conversation from {self.json_file}", style="green"
                     )
                     self.console.print(
-                        f"   📋 Session {self.session_num}: {self.conversation_data['speaker_a']} and {self.conversation_data['speaker_b']}",
+                        f"   ⏺ Session {self.session_num}: {self.conversation_data['speaker_a']} and {self.conversation_data['speaker_b']}",
                         style="cyan",
                     )
                     self.console.print(
-                        f"   📅 Date/Time: {self.conversation_data['date_time']}",
+                        f"   ⏺ Date/Time: {self.conversation_data['date_time']}",
                         style="cyan",
                     )
                     self.console.print(
-                        f"   💬 Total exchanges: {len(self.conversation_data['session'])}",
+                        f"   ⏺ Total exchanges: {len(self.conversation_data['session'])}",
                         style="cyan",
                     )
                     self.console.print(
@@ -198,10 +198,10 @@ class TaxonomyApp:
                     )
             else:
                 self.console.print(
-                    f"❌ No conversation data found in {self.json_file}", style="red"
+                    f"⏺ No conversation data found in {self.json_file}", style="red"
                 )
         except Exception as e:
-            self.console.print(f"❌ Error loading JSON file: {e}", style="red")
+            self.console.print(f"⏺ Error loading JSON file: {e}", style="red")
             sys.exit(1)
 
     def setup_layout(self):
@@ -229,7 +229,7 @@ class TaxonomyApp:
 
         self.layout["conversations"].update(
             Panel(
-                "🗣️  Conversations\n\nWaiting for input...",
+                "⏺ Conversations\n\nWaiting for input...",
                 title="Conversations",
                 border_style="blue",
             )
@@ -237,7 +237,7 @@ class TaxonomyApp:
 
         self.layout["decisions"].update(
             Panel(
-                "🧠 Memory Decisions\n\nNo decisions yet...",
+                "⏺ Memory Decisions\n\nNo decisions yet...",
                 title="Memory Processing",
                 border_style="green",
             )
@@ -245,7 +245,7 @@ class TaxonomyApp:
 
         self.layout["right"].update(
             Panel(
-                "📚 Current Memories\n\nNo memories stored...",
+                "⏺ Current Memories\n\nNo memories stored...",
                 title="Memory Structure",
                 border_style="purple",
             )
@@ -302,11 +302,11 @@ class TaxonomyApp:
 
         # Show the current configuration
         self.console.print(
-            f"   🎯 Confidence thresholds: high={self.confidence_thresholds['high']}, medium={self.confidence_thresholds['medium']}, low={self.confidence_thresholds['low']}",
+            f"   ⏺ Confidence thresholds: high={self.confidence_thresholds['high']}, medium={self.confidence_thresholds['medium']}, low={self.confidence_thresholds['low']}",
             style="cyan",
         )
         self.console.print(
-            f"   📊 Min items for expansion: {self.min_items_for_expansion}",
+            f"   ⏺ Min items for expansion: {self.min_items_for_expansion}",
             style="cyan",
         )
 
@@ -327,21 +327,21 @@ class TaxonomyApp:
             filename = self.json_file.split("/")[
                 -1
             ]  # Just show filename, not full path
-            config_items.append(f"📁 File: {filename}")
+            config_items.append(f"⏺ File: {filename}")
         if self.person_name:
-            config_items.append(f"👤 Person: {self.person_name}")
+            config_items.append(f"⏺ Person: {self.person_name}")
         if self.session_num is None:
-            config_items.append("🎲 Sessions: Random")
+            config_items.append("⏺ Sessions: Random")
         else:
-            config_items.append(f"📋 Session: {self.session_num}")
+            config_items.append(f"⏺ Session: {self.session_num}")
 
         # Confidence thresholds in compact format
-        thresholds = f"🎯 Thresholds: H:{self.confidence_thresholds['high']}/M:{self.confidence_thresholds['medium']}/L:{self.confidence_thresholds['low']}"
+        thresholds = f"⏺ Thresholds: H:{self.confidence_thresholds['high']}/M:{self.confidence_thresholds['medium']}/L:{self.confidence_thresholds['low']}"
         config_items.append(thresholds)
 
         # Expansion setting
         if self.min_items_for_expansion != 1:
-            config_items.append(f"📈 Min-expand: {self.min_items_for_expansion}")
+            config_items.append(f"⏺ Min-expand: {self.min_items_for_expansion}")
 
         # Split into two lines if we have many items
         if len(config_items) <= 3:
@@ -354,14 +354,14 @@ class TaxonomyApp:
 
         # Add aggressiveness indicator
         if self.confidence_thresholds["low"] >= 0.5:
-            mode = "🟢 Conservative (selective)"
+            mode = "⏺ Conservative (selective)"
         elif (
             self.confidence_thresholds["low"] == 0.0
             and self.confidence_thresholds["high"] >= 0.8
         ):
-            mode = "🟡 Balanced (default)"
+            mode = "⏺ Balanced (default)"
         else:
-            mode = "🔴 Aggressive (stores more)"
+            mode = "⏺ Aggressive (stores more)"
 
         lines.append(f"Memory Mode: {mode}")
 
@@ -376,7 +376,7 @@ class TaxonomyApp:
 
         if not self.conversations:
             cursor = self.get_cursor_text()
-            content = f"🗣️  Conversations\n\nWaiting for input...{cursor}"
+            content = f"⏺ Conversations\n\nWaiting for input...{cursor}"
         else:
             # Calculate conversations to show based on actual panel space
             console_height = self.console.size.height
@@ -396,7 +396,7 @@ class TaxonomyApp:
                 1, content_lines // 4
             )  # 4 lines per conversation to be safe
 
-            lines = [f"🗣️  Conversations ({len(self.conversations)} total)"]
+            lines = [f"⏺ Conversations ({len(self.conversations)} total)"]
 
             # Always show the most recent conversations
             start_idx = max(0, len(self.conversations) - max_conversations)
@@ -405,7 +405,7 @@ class TaxonomyApp:
             # Add scroll indicator if there are more conversations
             if start_idx > 0:
                 lines.append(
-                    f"📜 (last {len(recent_conversations)} of {len(self.conversations)} shown)"
+                    f"⏺ (last {len(recent_conversations)} of {len(self.conversations)} shown)"
                 )
 
             lines.append("")  # Empty line after header
@@ -428,7 +428,7 @@ class TaxonomyApp:
                 if len(conv_content) > usable_width:
                     # Break long content into chunks
                     words = conv_content.split()
-                    current_line = "  💬 "
+                    current_line = "  ⏺ "
 
                     for word in words:
                         # Check if adding this word would exceed the width
@@ -436,7 +436,7 @@ class TaxonomyApp:
                             lines.append(current_line)
                             current_line = "      " + word  # Continuation indent
                         else:
-                            if current_line == "  💬 ":
+                            if current_line == "  ⏺ ":
                                 current_line += word
                             else:
                                 current_line += " " + word
@@ -445,16 +445,16 @@ class TaxonomyApp:
                     if current_line.strip() and current_line != "      ":
                         lines.append(current_line)
                 else:
-                    lines.append(f"  💬 {conv_content}")
+                    lines.append(f"  ⏺ {conv_content}")
 
                 if timestamp:
-                    lines.append(f"    ⏰ {timestamp}")
+                    lines.append(f"    ⏺ {timestamp}")
                 lines.append("")  # Empty line for spacing
 
             # Add cursor at the end if waiting for input
             if not self.current_processing and not self.demo_waiting_for_input:
                 cursor = self.get_cursor_text()
-                lines.append(f"💬 Ready for input...{cursor}")
+                lines.append(f"⏺ Ready for input...{cursor}")
 
             content = "\n".join(lines)
 
@@ -467,9 +467,9 @@ class TaxonomyApp:
     def update_decisions_panel(self):
         """Update the memory decisions panel."""
         if not self.memory_decisions and not self.current_processing:
-            content = "🧠 Memory Decisions\n\nNo decisions yet..."
+            content = "⏺ Memory Decisions\n\nNo decisions yet..."
         else:
-            lines = ["🧠 Memory Decisions\n"]
+            lines = ["⏺ Memory Decisions\n"]
 
             if self.memory_decisions:
                 # Calculate how many decisions to show based on available height
@@ -486,7 +486,7 @@ class TaxonomyApp:
                 recent_decisions = self.memory_decisions[-max_decisions:]
 
                 lines.append(
-                    f"📚 Total Memories: {self.memory_decisions[-1].get('memory_count', 0)}"
+                    f"⏺ Total Memories: {self.memory_decisions[-1].get('memory_count', 0)}"
                 )
                 lines.append("")
 
@@ -501,39 +501,39 @@ class TaxonomyApp:
 
                     # Memory worthiness
                     memory_worthy = (
-                        "✅ Memory-worthy"
+                        "⏺ Memory-worthy"
                         if classification.get("is_memory", False)
-                        else "❌ Not memory-worthy"
+                        else "⏺ Not memory-worthy"
                     )
                     lines.append(f"   {memory_worthy}")
 
                     # Path and confidence
                     if classification.get("path"):
-                        lines.append(f"   📍 Path: {classification.get('path')}")
+                        lines.append(f"   ⏺ Path: {classification.get('path')}")
                         lines.append(
-                            f"   📊 Confidence: {classification.get('confidence', 0.0):.2f}"
+                            f"   ⏺ Confidence: {classification.get('confidence', 0.0):.2f}"
                         )
 
                     # Actions
                     action = classification.get("suggested_action", "UNKNOWN")
                     storage_action = storage.get("action", "unknown")
-                    lines.append(f"   🎯 Classification: {action}")
-                    lines.append(f"   💾 Storage: {storage_action}")
+                    lines.append(f"   ⏺ Classification: {action}")
+                    lines.append(f"   ⏺ Storage: {storage_action}")
 
                     # Reasoning if available
                     if classification.get("reasoning"):
                         reasoning = classification.get("reasoning", "")[:100]
-                        lines.append(f"   💭 Reasoning: {reasoning}...")
+                        lines.append(f"   ⏺ Reasoning: {reasoning}...")
 
                     lines.append("")  # Space between decisions
 
             # Show what's currently being processed at the end
             if self.current_processing:
-                lines.append("⚡ Currently Processing:")
+                lines.append("⏺ Currently Processing:")
                 lines.append(
-                    f'   💬 "{self.current_processing[:40]}{"..." if len(self.current_processing) > 40 else ""}"'
+                    f'   ⏺ "{self.current_processing[:40]}{"..." if len(self.current_processing) > 40 else ""}"'
                 )
-                lines.append("   🤖 REAL LLM CALL: Processing with GPT-4o-mini...")
+                lines.append("   ⏺ REAL LLM CALL: Processing with GPT-4o-mini...")
 
             content = "\n".join(lines)
 
@@ -546,16 +546,16 @@ class TaxonomyApp:
     def update_memories_panel(self):
         """Update the current memories panel."""
         if not self.intelligent_classifier:
-            content = "📚 Current Memories\n\nClassifier not ready..."
+            content = "⏺ Current Memories\n\nClassifier not ready..."
         else:
             # Get all stored memories to show full tree structure
             stored_memories = self.intelligent_classifier.get_stored_memories(limit=100)
 
             if not stored_memories:
-                content = "📚 Current Memories\n\nNo memories stored..."
+                content = "⏺ Current Memories\n\nNo memories stored..."
             else:
                 # Create tree structure
-                tree = Tree("📚 Memory Structure")
+                tree = Tree("⏺ Memory Structure")
 
                 # Group by taxonomy hierarchy for better tree display
                 hierarchy = {}
@@ -594,9 +594,11 @@ class TaxonomyApp:
                         if memories or children:
                             # Create node with memory count
                             if current_depth == 0:
-                                node_title = f"📁 {key.title()} ({total_count})"
+                                node_title = f"⏺ {key.title()} ({total_count})"
                             else:
-                                node_title = f"📂 {key.replace('_', ' ').title()} ({total_count})"
+                                node_title = (
+                                    f"⏺ {key.replace('_', ' ').title()} ({total_count})"
+                                )
 
                             branch_node = parent_node.add(node_title)
 
@@ -614,7 +616,7 @@ class TaxonomyApp:
                                     if len(content_text) > 50
                                     else content_text
                                 )
-                                branch_node.add(f"📄 {memory['path']}: {preview}")
+                                branch_node.add(f"⏺ {memory['path']}: {preview}")
 
                             # Recursively add children if not too deep
                             if current_depth < max_depth and children:
@@ -630,7 +632,7 @@ class TaxonomyApp:
                 build_tree_node(hierarchy, tree, max_tree_depth)
 
                 # Convert tree to string representation
-                content = f"📚 Current Memories ({len(stored_memories)} total)\n\n"
+                content = f"⏺ Current Memories ({len(stored_memories)} total)\n\n"
                 content += self._tree_to_string(tree)
 
         # Create text object for memory structure panel
@@ -786,22 +788,22 @@ class TaxonomyApp:
     def show_demo_completion(self):
         """Show demo completion message in the decisions panel."""
         lines = [
-            "🎉 Demo Completed Successfully!",
+            "⏺ Demo Completed Successfully!",
             "",
-            "✅ All 7 scenarios processed",
-            "✅ Classification actions demonstrated:",
+            "⏺ All 7 scenarios processed",
+            "⏺ Classification actions demonstrated:",
             "   • SKIP (greetings)",
             "   • CLASSIFY (clear classifications)",
             "   • EXPAND (new categories needed)",
             "   • USE_PARENT (generic categories)",
             "",
-            "✅ Memory actions demonstrated:",
+            "⏺ Memory actions demonstrated:",
             "   • STORE (new memories)",
             "   • REPLACE (updated info)",
             "   • APPEND (additional info)",
             "   • MERGE (combined content)",
             "",
-            "🔄 You can now:",
+            "⏺ You can now:",
             "   • Type messages to classify interactively",
             "   • Type 'demo' to run demo again",
             "   • Type 'quit' to exit",
@@ -811,7 +813,7 @@ class TaxonomyApp:
         content = "\n".join(lines)
         text_obj = Text(content)
         self.layout["decisions"].update(
-            Panel(text_obj, title="🎉 Demo Complete", border_style="bright_green")
+            Panel(text_obj, title="⏺ Demo Complete", border_style="bright_green")
         )
 
     async def run_demo_scenarios(self):
@@ -858,7 +860,7 @@ class TaxonomyApp:
             # Check if user wants to interrupt
             if self.interrupt_requested:
                 self.console.print(
-                    "\n🔄 Switching to interactive mode...", style="bright_yellow"
+                    "\n⏺ Switching to interactive mode...", style="bright_yellow"
                 )
                 self.interrupt_requested = False
                 return  # Exit demo early
@@ -873,7 +875,7 @@ class TaxonomyApp:
         # Demo completed - show completion message
         self.show_demo_completion()
 
-    def get_user_input(self, prompt_text: str = "💬 Enter your message") -> str:
+    def get_user_input(self, prompt_text: str = "⏺ Enter your message") -> str:
         """Get user input using Rich prompt outside of Live display."""
         try:
             return Prompt.ask(prompt_text).strip()
@@ -884,22 +886,22 @@ class TaxonomyApp:
         """Wait for user to press any key to continue after demo completion."""
         # Update the decisions panel to show waiting message
         lines = [
-            "🎉 Demo Completed Successfully!",
+            "⏺ Demo Completed Successfully!",
             "",
-            "✅ All 7 scenarios processed",
-            "✅ Classification actions demonstrated:",
+            "⏺ All 7 scenarios processed",
+            "⏺ Classification actions demonstrated:",
             "   • SKIP (greetings)",
             "   • CLASSIFY (clear classifications)",
             "   • EXPAND (new categories needed)",
             "   • USE_PARENT (generic categories)",
             "",
-            "✅ Memory actions demonstrated:",
+            "⏺ Memory actions demonstrated:",
             "   • STORE (new memories)",
             "   • REPLACE (updated info)",
             "   • APPEND (additional info)",
             "   • MERGE (combined content)",
             "",
-            "🔄 After continuing, you can:",
+            "⏺ After continuing, you can:",
             "   • Type messages to classify interactively",
             "   • Type 'demo' to run demo again",
             "   • Type 'quit' to exit",
@@ -908,7 +910,7 @@ class TaxonomyApp:
         content = "\n".join(lines)
         text_obj = Text(content)
         self.layout["decisions"].update(
-            Panel(text_obj, title="🎉 Demo Complete", border_style="bright_yellow")
+            Panel(text_obj, title="⏺ Demo Complete", border_style="bright_yellow")
         )
 
         # Store the current state for resuming
@@ -920,7 +922,7 @@ class TaxonomyApp:
             return
 
         self.console.print(
-            f"\n🤖 Processing conversation for {self.person_name}...", style="yellow"
+            f"\n⏺ Processing conversation for {self.person_name}...", style="yellow"
         )
 
         # Filter conversations for the specified person
@@ -945,17 +947,17 @@ class TaxonomyApp:
             # Check if user wants to interrupt
             if self.interrupt_requested:
                 self.console.print(
-                    "\n🔄 Switching to interactive mode...", style="bright_yellow"
+                    "\n⏺ Switching to interactive mode...", style="bright_yellow"
                 )
                 self.interrupt_requested = False
                 return  # Exit JSON processing early
 
-            self.console.print(f"\n📝 Processing: {msg['text'][:100]}...", style="cyan")
+            self.console.print(f"\n⏺ Processing: {msg['text'][:100]}...", style="cyan")
             await self.process_conversation(msg["text"])
             await asyncio.sleep(0.5)  # Brief pause between messages
 
         self.console.print(
-            f"\n✅ Processed {len(person_messages)} messages from {self.person_name}",
+            f"\n⏺ Processed {len(person_messages)} messages from {self.person_name}",
             style="green",
         )
 
@@ -1002,7 +1004,7 @@ class TaxonomyApp:
 
                     # Get user input with Rich prompt (no extra blank lines)
                     user_input = self.get_user_input(
-                        "💬 Enter your message (or 'demo'/'quit')"
+                        "⏺ Enter your message (or 'demo'/'quit')"
                     )
 
                     # Restart live display
@@ -1028,7 +1030,7 @@ class TaxonomyApp:
                             # Stop live display to show error
                             live_display.stop()
                             self.console.print(
-                                f"❌ Error processing input: {e}", style="red"
+                                f"⏺ Error processing input: {e}", style="red"
                             )
                             input("\nPress Enter to continue...")
                             live_display.start()
@@ -1074,7 +1076,7 @@ class TaxonomyApp:
             r"""Handle Ctrl+\ (SIGQUIT) to enter interactive mode."""
             self.interrupt_requested = True
             self.console.print(
-                "\n🔄 Interactive mode requested (Ctrl+\\)...", style="bright_yellow"
+                "\n⏺ Interactive mode requested (Ctrl+\\)...", style="bright_yellow"
             )
 
         # Install signal handlers (Unix/Linux/Mac only)
@@ -1089,19 +1091,19 @@ class TaxonomyApp:
 
             # Show startup message
             self.console.print(
-                "\n🧠 Intelligent Taxonomy Classification App", style="bold blue"
+                "\n⏺ Intelligent Taxonomy Classification App", style="bold blue"
             )
             self.console.print("=" * 60)
-            self.console.print("✅ LLM classifier ready", style="green")
-            self.console.print("✅ Memory store initialized", style="green")
-            self.console.print("✅ Live display active", style="green")
-            self.console.print("\n🎯 Starting demo automatically...", style="yellow")
+            self.console.print("⏺ LLM classifier ready", style="green")
+            self.console.print("⏺ Memory store initialized", style="green")
+            self.console.print("⏺ Live display active", style="green")
+            self.console.print("\n⏺ Starting demo automatically...", style="yellow")
             self.console.print(
-                "💡 Press Ctrl+\\ anytime to skip to interactive mode",
+                "⏺ Press Ctrl+\\ anytime to skip to interactive mode",
                 style="bright_cyan",
             )
             self.console.print(
-                "💡 After demo: type messages to classify, 'demo' to repeat, or 'quit' to exit",
+                "⏺ After demo: type messages to classify, 'demo' to repeat, or 'quit' to exit",
                 style="cyan",
             )
 
@@ -1128,17 +1130,17 @@ class TaxonomyApp:
                 # Clear screen and show goodbye message
                 self.console.clear()
                 self.console.print(
-                    "👋 Thank you for using Intelligent Taxonomy Classification!",
+                    "⏺ Thank you for using Intelligent Taxonomy Classification!",
                     style="bold blue",
                 )
                 self.console.print(
-                    "🧠 Your memory classifications have been saved.", style="green"
+                    "⏺ Your memory classifications have been saved.", style="green"
                 )
 
         except Exception as e:
             # Ensure cursor is visible even on error
             self.console.show_cursor(True)
-            self.console.print(f"❌ Error: {e}", style="red")
+            self.console.print(f"⏺ Error: {e}", style="red")
             sys.exit(1)
 
 
@@ -1229,12 +1231,12 @@ Examples:
 
     # Validate arguments
     if args.json_file and not args.person:
-        print("❌ Error: --person is required when using --json-file")
+        print("⏺ Error: --person is required when using --json-file")
         sys.exit(1)
 
     # Validate threshold ordering
     if not (args.low_threshold <= args.medium_threshold <= args.high_threshold):
-        print("❌ Error: Thresholds must be ordered: low <= medium <= high")
+        print("⏺ Error: Thresholds must be ordered: low <= medium <= high")
         sys.exit(1)
 
     # Build confidence thresholds from arguments
@@ -1257,10 +1259,10 @@ Examples:
         asyncio.run(app.run())
     except KeyboardInterrupt:
         restore_terminal()
-        print("\n\n👋 Goodbye!")
+        print("\n\n⏺ Goodbye!")
     except Exception as e:
         restore_terminal()
-        print(f"\n❌ Error: {e}")
+        print(f"\n⏺ Error: {e}")
         sys.exit(1)
     finally:
         restore_terminal()
