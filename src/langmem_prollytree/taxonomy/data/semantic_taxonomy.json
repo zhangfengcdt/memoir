@@ -365,6 +365,36 @@
       "formative": ["childhood", "education", "career", "relationships"],
       "recent": ["today", "week", "month", "year"],
       "emotional": ["happy", "sad", "proud", "difficult"]
+    },
+    "professional": {
+      "technical": {
+        "machine_learning": [
+          "data_science",
+          "algorithms",
+          "models",
+          "deployment"
+        ],
+        "software_engineering": [
+          "development",
+          "architecture",
+          "systems",
+          "practices"
+        ],
+        "data": [
+          "analytics",
+          "engineering",
+          "visualization",
+          "management"
+        ]
+      },
+      "domain": {
+        "industry": ["expertise", "knowledge", "trends", "networks"],
+        "functional": ["leadership", "strategy", "operations", "consulting"]
+      },
+      "years": {
+        "total": ["career", "specific_role", "technology", "domain"],
+        "progression": ["growth", "advancement", "transitions", "milestones"]
+      }
     }
   },
   "context": {

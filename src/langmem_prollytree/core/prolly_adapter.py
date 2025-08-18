@@ -177,7 +177,10 @@ class ProllyTreeStore(BaseStore):
 
                 if full_key.startswith(prefix):
                     key_bytes = full_key.encode("utf-8")
-                    value = self.tree.find(key_bytes)
+                    if self.enable_versioning:
+                        value = self.tree.get(key_bytes)
+                    else:
+                        value = self.tree.find(key_bytes)
                     decoded_value = self._decode_value(value)
 
                     # Apply filter if provided
@@ -205,18 +208,25 @@ class ProllyTreeStore(BaseStore):
         value_bytes = self._encode_value(value)
 
         try:
-            # Check if key exists to decide between insert/update
-            existing = self.tree.find(key_bytes)
-            if existing:
-                self.tree.update(key_bytes, value_bytes)
+            if self.enable_versioning:
+                # VersionedKvStore API - check if key exists using get
+                existing = self.tree.get(key_bytes)
+                if existing:
+                    self.tree.update(key_bytes, value_bytes)
+                else:
+                    self.tree.insert(key_bytes, value_bytes)
+                # Commit the change
+                self.tree.commit(f"Store {key} in {':'.join(namespace)}")
             else:
-                self.tree.insert(key_bytes, value_bytes)
+                # ProllyTree API - check if key exists using find
+                existing = self.tree.find(key_bytes)
+                if existing:
+                    self.tree.update(key_bytes, value_bytes)
+                else:
+                    self.tree.insert(key_bytes, value_bytes)
 
             # Track the key in our registry
             self._keys.add(full_key)
-
-            if self.enable_versioning and hasattr(self.tree, "commit"):
-                self.tree.commit(f"Store {key} in {':'.join(namespace)}")
 
         except Exception as e:
             logger.error(f"Error storing {full_key}: {e}")
@@ -229,7 +239,12 @@ class ProllyTreeStore(BaseStore):
         key_bytes = full_key.encode("utf-8")
 
         try:
-            data = self.tree.find(key_bytes)
+            if self.enable_versioning:
+                # VersionedKvStore API
+                data = self.tree.get(key_bytes)
+            else:
+                # ProllyTree API
+                data = self.tree.find(key_bytes)
             return self._decode_value(data) if data else None
         except Exception as e:
             logger.error(f"Error getting key {full_key}: {e}")
@@ -244,7 +259,7 @@ class ProllyTreeStore(BaseStore):
             self.tree.delete(key_bytes)
             # Remove from key registry
             self._keys.discard(full_key)
-            if self.enable_versioning and hasattr(self.tree, "commit"):
+            if self.enable_versioning:
                 self.tree.commit(f"Delete {key} from {':'.join(namespace)}")
         except Exception as e:
             logger.error(f"Error deleting {full_key}: {e}")

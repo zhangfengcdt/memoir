@@ -20,8 +20,8 @@ import sys
 import tempfile
 
 from langmem_prollytree import ProllyTreeMemoryStoreManager
-from langmem_prollytree.taxonomy.iterative_taxonomy import LLMIterativeTaxonomy
-from langmem_prollytree.taxonomy.semantic_classifier import SemanticClassifier
+from langmem_prollytree.taxonomy.intelligent_classifier import IntelligentClassifier
+from langmem_prollytree.taxonomy.taxonomy_presets import TaxonomyVersion
 
 
 def get_llm() -> object:
@@ -65,27 +65,37 @@ async def main():
         print("\n1. Setting up LLM for semantic classification:")
         llm = get_llm()
 
-        # Create LLM-driven iterative taxonomy
-        # This uses GPT to intelligently expand the taxonomy based on unclassified content
-        taxonomy = LLMIterativeTaxonomy(
-            llm=llm,  # Same LLM used for expansion
-            min_items_threshold=3,
-            enable_combinations=True,
+        # Create intelligent classifier
+        # This uses GPT for smart classification with automatic taxonomy expansion
+        classifier = IntelligentClassifier(
+            llm=llm,
+            taxonomy_version=TaxonomyVersion.GENERAL,
+            confidence_thresholds={
+                "high": 0.8,
+                "medium": 0.5,
+                "low": 0.0,
+            },
+            min_items_for_expansion=2,  # Lower threshold for demo
         )
-        classifier = SemanticClassifier(llm=llm, taxonomy=taxonomy)
 
         # Initialize ProllyTreeMemoryStoreManager
         # This replaces LangMem's InMemoryStore with 10-20x better performance
         print("\n2. Initializing ProllyTree Memory Store:")
+        # Create a simple classifier for the store
+        from langmem_prollytree.taxonomy.semantic_classifier import SemanticClassifier
+
+        simple_classifier = SemanticClassifier(llm=None)
+
         memory_manager = ProllyTreeMemoryStoreManager(
             prolly_path=prolly_path,
-            classifier=classifier,
+            classifier=simple_classifier,
             enable_versioning=True,  # Git-like versioning for audit trails
         )
+
+        # Set up intelligent classifier with the store
+        classifier.memory_store = memory_manager.prolly_store
         print("   ✅ ProllyTree store initialized with versioning")
 
-        # Get the store for direct operations
-        store = memory_manager.prolly_store
         user_id = "user123"
 
         # Store memories with semantic classification
@@ -103,61 +113,93 @@ async def main():
         ]
 
         for i, memory_text in enumerate(memories_to_store, 1):
-            memory = await store.store_memory_async(user_id, memory_text)
+            # Use intelligent classifier for better classification
+            result = await classifier.process_memory_with_storage(
+                memory_text, metadata={"user_id": user_id, "source": "demo"}
+            )
             print(f"   [{i}] Stored: '{memory_text[:40]}...'")
-            print(f"       → Path: {memory.key}")
-            print(f"       → Confidence: {memory.confidence:.2f}")
+            print(f"       → Path: {result.classification.path}")
+            print(f"       → Confidence: {result.classification.confidence:.2f}")
+            print(f"       → Action: {result.classification.suggested_action}")
+            if result.classification.reasoning:
+                print(f"       → Reasoning: {result.classification.reasoning[:60]}...")
 
         # Retrieve stored memories
         print("\n4. Retrieving memories with intelligent search:")
 
-        # Search for personal information
-        results = await store.retrieve_memories_async(
-            user_id, "What is the user's name and age?", limit=3
-        )
-        print("\n   🔍 Query: 'What is the user's name and age?'")
-        if results:
-            print(f"   📝 Found: {results[0].content}")
+        # Search queries using intelligent classifier's retrieval
+        queries = [
+            "What is the user's name and age?",
+            "Where does the user work and what is their role?",
+            "What are the user's IDE and theme preferences?",
+            "What does the user drink in the morning?",
+        ]
 
-        # Search for work information
-        results = await store.retrieve_memories_async(
-            user_id, "Where does the user work and what is their role?", limit=3
-        )
-        print("\n   🔍 Query: 'Where does the user work and what is their role?'")
-        if results:
-            print(f"   📝 Found: {results[0].content}")
+        for query in queries:
+            results = classifier.get_stored_memories(limit=10)
+            # Simple text matching for demo - in production you'd use semantic search
+            exclude_words = {
+                "what",
+                "is",
+                "the",
+                "user",
+                "and",
+                "does",
+                "are",
+                "where",
+                "how",
+            }
+            query_keywords = [
+                word.lower()
+                for word in query.lower().split()
+                if word.lower() not in exclude_words
+            ]
 
-        # Search for UI preferences
-        results = await store.retrieve_memories_async(
-            user_id, "What are the user's IDE and theme preferences?", limit=3
-        )
-        print("\n   🔍 Query: 'What are the user's IDE and theme preferences?'")
-        if results:
-            print(f"   📝 Found: {results[0].content}")
+            # Score memories by keyword relevance
+            scored_memories = []
+            for memory in results:
+                content_str = str(memory["content"]).lower()
+                matches = sum(1 for keyword in query_keywords if keyword in content_str)
+                if matches > 0:
+                    # Boost score for exact phrase matches
+                    phrase_bonus = 2 if " ".join(query_keywords) in content_str else 0
+                    score = matches + phrase_bonus
+                    scored_memories.append((score, memory))
 
-        # Search for beverage preferences
-        results = await store.retrieve_memories_async(
-            user_id, "What does the user drink in the morning?", limit=3
-        )
-        print("\n   🔍 Query: 'What does the user drink in the morning?'")
-        if results:
-            print(f"   📝 Found: {results[0].content}")
+            # Sort by relevance score (highest first)
+            scored_memories.sort(reverse=True, key=lambda x: x[0])
 
-        # Show semantic organization
-        print("\n5. Automatic semantic organization:")
-        all_results = store.search((user_id,), limit=100)
-        paths = set()
-        for _, key, _ in all_results:
-            category = key.split(".")[0] if "." in key else key
-            paths.add(category)
+            print(f"\n   🔍 Query: '{query}'")
+            if scored_memories:
+                best_memory = scored_memories[0][1]
+                content = best_memory["content"]
+                if isinstance(content, dict):
+                    content = content.get("content", str(content))
+                print(f"   📝 Found: {content}")
+            else:
+                print("   📝 No specific match found")
 
-        print("   Memories automatically organized by category:")
-        for category in sorted(paths):
-            count = sum(1 for _, k, _ in all_results if k.startswith(category))
-            print(f"   📁 {category}: {count} memories")
-            for _, key, content in all_results:
-                if key.startswith(category):
-                    print(f"       - {content}")
+        # Show intelligent semantic organization
+        print("\n5. Intelligent semantic organization:")
+        all_memories = classifier.get_stored_memories(limit=100)
+
+        # Group by taxonomy paths
+        path_groups = {}
+        for memory in all_memories:
+            path = memory["path"]
+            if path not in path_groups:
+                path_groups[path] = []
+            path_groups[path].append(memory)
+
+        print("   Memories intelligently organized by semantic paths:")
+        for path in sorted(path_groups.keys()):
+            memories = path_groups[path]
+            print(f"   📁 {path}: {len(memories)} memories")
+            for memory in memories:
+                content = memory.get("content", str(memory.get("data", "")))
+                if isinstance(content, dict):
+                    content = content.get("content", str(content))
+                print(f"       - {content[:80]}{'...' if len(content) > 80 else ''}")
 
 
 if __name__ == "__main__":

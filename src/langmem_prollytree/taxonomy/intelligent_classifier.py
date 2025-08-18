@@ -13,6 +13,7 @@ from .iterative_taxonomy import (
     LLMExpansionStrategy,
     LLMIterativeTaxonomy,
 )
+from .semantic_taxonomy import get_taxonomy
 from .taxonomy_presets import TaxonomyVersion
 
 logger = logging.getLogger(__name__)
@@ -103,8 +104,12 @@ class IntelligentClassifier:
         self.memory_store = memory_store
         self.taxonomy_version = taxonomy_version
 
-        # Initialize iterative taxonomy
-        self.taxonomy = LLMIterativeTaxonomy(
+        # Initialize with full semantic taxonomy instead of limited iterative taxonomy
+        # This gives us access to all 1000+ predefined paths including machine learning
+        self.taxonomy = get_taxonomy()
+
+        # Also keep iterative taxonomy for expansion capabilities if needed
+        self.iterative_taxonomy = LLMIterativeTaxonomy(
             taxonomy_version=taxonomy_version,
             llm=llm,
             expansion_strategy=expansion_strategy,
@@ -209,41 +214,29 @@ class IntelligentClassifier:
         for category in sorted(first_level):
             prompt_parts.append(f"  - {category}")
 
-        # Show all available paths organized by depth
-        deeper_paths = [p for p in paths if "." in p and not p.endswith(".other")]
-        if deeper_paths:
-            # Group by depth levels
-            depth_2 = [p for p in deeper_paths if len(p.split(".")) == 2]
-            depth_3 = [p for p in deeper_paths if len(p.split(".")) == 3]
-            depth_4_plus = [p for p in deeper_paths if len(p.split(".")) >= 4]
-
+        # Show ALL available paths to LLM for complete taxonomy coverage
+        # NOTE: This approach works for current taxonomy size (~1000 paths)
+        # Future scaling: May need chunking/filtering if taxonomy grows to 5K+ paths or hits LLM context limits
+        all_non_other_paths = [p for p in paths if not p.endswith(".other")]
+        if all_non_other_paths:
             prompt_parts.extend(
                 [
                     "",
-                    "Sample hierarchical structure:",
+                    f"Complete taxonomy hierarchy ({len(all_non_other_paths)} available paths):",
+                    "",
                 ]
             )
 
-            if depth_2:
-                prompt_parts.append("  Level 2 (domain.area):")
-                for path in depth_2[:10]:
-                    prompt_parts.append(f"    - {path}")
-
-            if depth_3:
-                prompt_parts.append("  Level 3 (domain.area.specialty):")
-                for path in depth_3[:10]:
-                    prompt_parts.append(f"    - {path}")
-
-            if depth_4_plus:
-                prompt_parts.append("  Level 4+ (domain.area.specialty.technique):")
-                for path in depth_4_plus[:5]:
-                    prompt_parts.append(f"    - {path}")
+            # Show ALL paths - no sampling to avoid missing critical paths like routine.morning or tools.ides
+            for path in sorted(all_non_other_paths):
+                prompt_parts.append(f"  {path}")
 
         prompt_parts.extend(
             [
                 "",
                 "Classification guidelines:",
-                "- ONLY suggest paths that exist in the taxonomy above",
+                "- ONLY suggest COMPLETE paths that exist EXACTLY in the full taxonomy above",
+                "- Use the full hierarchical path (e.g., preferences.personal.lifestyle.routine.morning)",
                 "- If content doesn't fit existing paths well, use low confidence (< 0.6)",
                 "- Use appropriate hierarchical depth (2-4 levels recommended)",
                 "- Follow natural conceptual progression: general → specific",
@@ -294,9 +287,38 @@ class IntelligentClassifier:
                     "reasoning": "Failed to parse response",
                 }
 
+            # Validate that the suggested path actually exists in taxonomy
+            suggested_path = data.get("path")
+            all_paths = self.taxonomy.get_all_paths()
+
+            if suggested_path and suggested_path not in all_paths:
+                logger.warning(
+                    f"LLM suggested invalid path '{suggested_path}'. "
+                    f"Available paths that contain relevant keywords: "
+                    f"{[p for p in all_paths if any(word in p for word in suggested_path.split('.') if word != 'other')][:5]}"
+                )
+                # Try to find a close match or fall back to a more general path
+                path_parts = suggested_path.split(".")
+                for i in range(len(path_parts), 0, -1):
+                    partial_path = ".".join(path_parts[:i])
+                    if partial_path in all_paths:
+                        logger.info(f"Using valid parent path: {partial_path}")
+                        suggested_path = partial_path
+                        break
+                else:
+                    # Fall back to top-level category if no valid path found
+                    if path_parts and path_parts[0] in all_paths:
+                        suggested_path = path_parts[0]
+                        logger.info(
+                            f"Falling back to top-level category: {suggested_path}"
+                        )
+                    else:
+                        suggested_path = "other"
+                        logger.info("Falling back to 'other' category")
+
             return ClassificationResult(
                 is_memory=data.get("is_memory", False),
-                path=data.get("path"),
+                path=suggested_path,
                 confidence=float(data.get("confidence", 0.0)),
                 confidence_level=ClassificationConfidence.LOW,  # Will be set later
                 reasoning=data.get("reasoning", ""),
@@ -559,8 +581,9 @@ class IntelligentClassifier:
                         f" | Path improved for better hierarchy: {improved_path}"
                     )
 
-            # Track classification for future expansion
-            self.taxonomy.track_classification(classification.path, content, metadata)
+            # Note: We skip iterative taxonomy tracking since we're using the full semantic taxonomy
+            # The track_classification method runs domain consistency validation that may not match
+            # our full taxonomy paths, causing spurious warnings
 
         return classification
 
