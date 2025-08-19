@@ -2,9 +2,9 @@
 
 <div align="center">
   <img src="static/memoir.png" alt="Memoir Logo" width="200" height="200">
-  
+
   **Git for AI Memory**
-  
+
   *Making AI memory as reliable and versioned as Git made code*
 </div>
 
@@ -29,7 +29,7 @@ Memoir brings Git-like version control to AI memory systems. Just as Git revolut
 - **Branching & merging**: Experiment safely with different AI strategies
 - **Audit trails**: Full transparency for regulatory compliance and debugging
 
-### 🧠 Semantic Memory Organization  
+### 🧠 Semantic Memory Organization
 - **Hierarchical paths**: `profile.professional.skills.technical.programming.python`
 - **Intelligent classification**: LLM-powered automatic memory categorization
 - **Deterministic keys**: Replace random UUIDs with meaningful semantic paths
@@ -88,7 +88,7 @@ branch = memory_manager.create_branch("experiment")  # Safe experimentation
 ### Core Components
 
 1. **ProllyTreeStore**: Git-like versioned storage with cryptographic integrity
-2. **SemanticTaxonomy**: Hierarchical organization of ~800 meaningful memory paths  
+2. **SemanticTaxonomy**: Hierarchical organization of ~800 meaningful memory paths
 3. **SemanticClassifier**: LLM-powered classification with intelligent fallbacks
 4. **HierarchicalSearchEngine**: Multi-strategy search with relevance scoring
 5. **VersionedMemoryManager**: Complete audit trails and branching capabilities
@@ -102,7 +102,7 @@ branch = memory_manager.create_branch("experiment")  # Safe experimentation
 - **Risk Management**: Rollback to known-good memory states when AI behaves unexpectedly
 - **Quality Assurance**: Verify memory integrity and detect unauthorized modifications
 
-### 🧪 AI Research & Development  
+### 🧪 AI Research & Development
 - **Safe Experimentation**: Branch memory to test new AI strategies without affecting production
 - **A/B Testing**: Compare AI performance across different memory configurations
 - **Reproducible Research**: Share exact memory states for scientific reproducibility
@@ -164,14 +164,14 @@ async def main():
 
     # Create experimental branch for testing new memories
     experiment_branch = await memory_manager.create_branch("experiment_branch")
-    
-    # Store experimental memory on branch  
+
+    # Store experimental memory on branch
     await memory_manager.store_memory(
         content="I'm learning Rust programming",
         namespace=user_id,
         branch="experiment_branch"
     )
-    
+
     # Search memories semantically with version control
     results = await memory_manager.search_memories(
         query="What programming skills do I have?",
@@ -185,7 +185,7 @@ async def main():
         namespace=user_id,
         at_commit=commit_1  # 🕐 Time-travel query
     )
-    
+
     # Verify memory integrity (like git fsck)
     integrity_check = await memory_manager.verify_integrity()
     print(f"Memory integrity: {'✅ Valid' if integrity_check else '❌ Corrupted'}")
@@ -216,7 +216,7 @@ for commit in history:
 # Compare memory states (like git diff)
 diff = await memory_manager.diff_commits(commit_1, commit_2)
 print(f"Added: {len(diff.added)} memories")
-print(f"Modified: {len(diff.modified)} memories") 
+print(f"Modified: {len(diff.modified)} memories")
 print(f"Deleted: {len(diff.deleted)} memories")
 ```
 
@@ -254,7 +254,7 @@ results = await memory_manager.search_memories(
 # Time-travel queries
 historical_results = await memory_manager.search_memories(
     query="Your search query",
-    namespace="user_id", 
+    namespace="user_id",
     at_commit="a7f3b2c1..."  # View memory at specific commit
 )
 
@@ -278,7 +278,7 @@ MIT License - see [LICENSE](LICENSE) file.
 ---
 
 <div align="center">
-  
+
 **🔄 Bring Git-like reliability to your AI memory systems!** 🔄
 
 *Make AI memory as transparent and trustworthy as your code*

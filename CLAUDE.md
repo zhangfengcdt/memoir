@@ -8,8 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 # Setup development environment
 make setup                    # Install deps + pre-commit hooks
+make install-dev              # Install with all dev dependencies
 
-# Code quality checks
+# Code quality checks (ALWAYS run before commits)
 make lint                     # Run ruff, black, and isort checks
 make format                   # Auto-format with black, isort, ruff --fix
 make type-check               # Run mypy type checking
@@ -17,112 +18,149 @@ make type-check               # Run mypy type checking
 # Testing
 make test                     # Run pytest with verbose output
 make test-cov                 # Run tests with coverage report
-pytest tests/test_classifier.py -v  # Run single test file
+pytest tests/test_classifier.py -v        # Run single test file
+pytest tests/ -k "test_function_name"     # Run specific test by name
+pytest tests/ --tb=short                  # Compact traceback format
 
 # Examples and benchmarks
 make examples                 # Run all example scripts
 make benchmark               # Run performance benchmarks
-python examples/basic_usage.py      # Run specific example
+python examples/basic_usage.py            # Run specific example
+python examples/intelligent_taxonomy.py   # Test intelligent taxonomy
+python examples/locomo_evaluation.py      # Evaluate with LOCOMO dataset
 
 # Full CI pipeline
 make ci                      # Run complete CI: lint, test, security, examples
-```
-
-### Performance Testing
-```bash
 make perf                    # Run benchmarks + show performance summary
-python examples/performance_benchmark.py  # Detailed performance analysis
+
+# Utility scripts
+python scripts/check_status.py            # Check repository and system status
 ```
 
 ## Architecture Overview
 
-### Core Innovation: Semantic Hierarchical Keys
-This project fundamentally reimagines AI memory storage by replacing random UUIDs + vector search with deterministic semantic paths:
+### Core Innovation: Git for AI Memory
+This project brings Git-like version control to AI memory systems, replacing opaque storage with transparent, versioned, cryptographically secure memory management.
 
-**Traditional Approach**: `uuid-1234` → expensive vector similarity search
-**Our Approach**: `profile.professional.skills.technical.programming.python` → O(log n) prefix queries
+**Key Paradigm Shift**:
+- **Traditional**: `uuid-1234` → expensive vector search → no history
+- **Memoir**: `profile.professional.skills.python` → O(log n) lookup → full Git-like versioning
 
 ### Component Architecture
 
-#### 1. **Semantic Taxonomy** (`src/memoir/taxonomy/`)
-- **Fixed hierarchy of ~800 paths** across 8 main categories
-- **TaxonomyCategory enum**: profile, preferences, experience, context, knowledge, relationships, goals, behavior
-- **SemanticTaxonomy class**: Manages the complete taxonomy tree with path validation and hierarchical operations
+#### 1. **Semantic Taxonomy System** (`src/memoir/taxonomy/`)
+- **SemanticTaxonomy** (`semantic_taxonomy.py`): Fixed ~800-path hierarchy
+- **LLMIterativeTaxonomy** (`iterative_taxonomy.py`): Dynamic LLM-driven expansion
+- **IntelligentClassifier** (`intelligent_classifier.py`): Multi-stage classification pipeline
+- **TaxonomyPresets** (`taxonomy_presets.py`): Version management for taxonomy configurations
+- **DataSources** (`data_sources.py`): Integration with LOCOMO conversation dataset
 
-#### 2. **Classification System** (`semantic_classifier.py`)
-- **OptimizedClassifier**: 1-5ms classification using keyword patterns (vs 2-5s LLM calls)
-- **Pattern-based matching**: Uses taxonomy structure to avoid expensive model calls
-- **ClassificationResult**: Returns semantic path + confidence score
+#### 2. **Classification Pipeline**
+Three-tier classification system with intelligent fallbacks:
+1. **Fast Pattern Matching**: 1-5ms keyword-based classification
+2. **LLM Classification**: GPT-4/Claude for ambiguous cases
+3. **Iterative Expansion**: Dynamic taxonomy growth based on unclassified content
 
 #### 3. **Storage Layer** (`core/prolly_adapter.py`)
-- **ProllyTreeStore**: Implements LangGraph BaseStore interface with ProllyTree backend
-- **Automatic git repository initialization** for versioning support
-- **VersionedKvStore integration**: Git-like branching, commits, time-travel queries
-- **Encoding/decoding**: JSON serialization with proper byte handling
+- **ProllyTreeStore**: LangGraph BaseStore implementation
+- **Git-like versioning**: Branches, commits, merges, time-travel
+- **Cryptographic integrity**: SHA-256 hashing for all states
+- **Structural sharing**: Efficient storage with deduplication
 
 #### 4. **Search Engine** (`search/hierarchical_search.py`)
-- **HierarchicalSearchEngine**: Multiple search strategies with relevance scoring
+- **HierarchicalSearchEngine**: Multi-strategy semantic search
 - **SearchStrategy enum**: SPECIFIC_TO_GENERAL, BREADTH_FIRST, BEST_MATCH
-- **O(log n) complexity**: Uses ProllyTree prefix queries instead of vector similarity
+- **Relevance scoring**: Combined semantic and structural scoring
+- **Prefix queries**: O(log n) complexity vs O(n) vector search
 
 #### 5. **Memory Manager** (`core/memory_manager.py`)
-- **ProllyTreeMemoryStoreManager**: Drop-in replacement for LangMem's MemoryStoreManager
-- **Integrates all components**: Classification → Storage → Search pipeline
-- **Performance metrics tracking**: Built-in monitoring of operation latencies
+- **ProllyTreeMemoryStoreManager**: Drop-in LangMem replacement
+- **Async/sync support**: Compatible with both patterns
+- **Performance tracking**: Built-in latency monitoring
+- **Version control operations**: Branch, merge, diff, rollback
 
-### Key Performance Characteristics
-- **Memory Search**: 0.1-1ms (was 150-750ms)
-- **Memory Storage**: 20-30ms (was 200-600ms)
-- **Classification**: 1-5ms (was 2-5 seconds)
-- **Total improvement**: 10-20x faster overall
+### Key Performance Metrics
+- **Search latency**: 0.1-1ms (vs 150-750ms traditional)
+- **Storage latency**: 20-30ms (vs 200-600ms traditional)
+- **Classification**: 1-5ms pattern matching (vs 2-5s LLM-only)
+- **Overall improvement**: 10-20x faster end-to-end
 
 ## Important Implementation Details
 
-### Git Repository Handling
-The ProllyTreeStore automatically initializes git repositories for versioning:
-- Creates `.git` directory if not present
-- Sets up initial commit with README.md
-- VersionedKvStore requires data subdirectory (not git root)
+### LLM Integration
+The system requires an LLM for intelligent features. Supported providers:
+- **OpenAI**: GPT-4, GPT-3.5-turbo via `langchain_openai.ChatOpenAI`
+- **Anthropic**: Claude-3 via `langchain_anthropic.ChatAnthropic`
+- **Local models**: Via LangChain-compatible interfaces
 
-### BaseStore Interface Compliance
-The ProllyTreeStore implements LangGraph's BaseStore with these key methods:
-- `get(namespace: tuple, key: str)` → retrieve value
-- `put(namespace: tuple, key: str, value: dict)` → store value
-- `search(namespace: tuple, *, filter: dict, limit: int)` → search with filters
-- `batch(ops: list[tuple])` → batch operations
+### Taxonomy Configuration
+Multiple taxonomy strategies available:
+- **Fixed taxonomy**: Use `SemanticTaxonomy` for stable, predefined paths
+- **Dynamic expansion**: Use `LLMIterativeTaxonomy` for automatic growth
+- **Custom presets**: Load from `TaxonomyPresets` for domain-specific taxonomies
 
-### Async vs Sync Patterns
-- **MemoryStoreManager methods**: Mostly async (inherited from LangMem)
-- **ProllyTreeStore methods**: Synchronous (BaseStore interface)
-- **Classification**: Both sync (`fast_classify`) and async (`classify_async`) variants
+### Version Control Features
+Git-like operations for AI memory:
+```python
+# Branching
+await memory_manager.create_branch("experiment")
+await memory_manager.checkout("experiment")
 
-### Testing Requirements
-- Always run `make lint` before commits - includes ruff, black, isort
-- Use `make test-cov` for coverage reports
-- Examples must run without errors (tested via `make examples`)
-- Performance benchmarks validate the 10-20x improvement claims
+# Committing
+commit_hash = await memory_manager.store_memory(content, message="Added user preference")
 
-## Code Quality Standards
+# Time-travel
+historical_results = await memory_manager.search_memories(query, at_commit=commit_hash)
 
-### Formatting and Linting
-- **Black**: Line length 88, Python 3.9+ target
-- **Ruff**: Comprehensive linting with pyflakes, pycodestyle, isort integration
-- **isort**: Black-compatible import sorting with memoir as known first-party
+# Merging
+await memory_manager.merge("experiment", into="main")
+```
 
-### Type Checking
-- **mypy**: Configured for Python 3.9+ with strict equality checks
-- Import errors ignored (external dependencies)
-- Gradual typing approach (not fully strict)
+### Testing Strategy
+- **Unit tests**: Test individual components in isolation
+- **Integration tests**: Test component interactions
+- **Performance benchmarks**: Validate latency claims
+- **LOCOMO evaluation**: Test with real conversation data
 
-### Project Structure Patterns
-- **Source layout**: `src/memoir/` with proper namespace packaging
-- **Example scripts**: Self-contained in `examples/` directory
-- **Test organization**: Mirrors source structure with clear test naming
-- **Configuration**: Single pyproject.toml with all tool configs centralized
+### Code Quality Requirements
+Before any commit or PR:
+1. Run `make format` to auto-format code
+2. Run `make lint` to check for issues
+3. Run `make test` to ensure no regressions
+4. Verify examples still work with `make examples`
 
-### Please also Follow These Instructions
-- make sure black formats the code correctly
-- make sure ruff passes without errors
-- Verify that everything still works after the black formatting
-- Run all tests to ensure no regressions before warming up
-- When run tests or examples, DO NOt print debugging information to console, you can save it to a file under /tmp if needed
+### Common Pitfalls to Avoid
+- **Don't skip linting**: Always run `make lint` before commits
+- **Don't ignore type hints**: Use proper type annotations
+- **Don't bypass the taxonomy**: Always use semantic paths, not raw UUIDs
+- **Don't print debug info**: Use logging or write to `/tmp/` for debugging
+- **Don't commit without testing**: Run at least `make test` before pushing
+
+## Project-Specific Patterns
+
+### Async/Sync Dual Support
+Many components offer both async and sync interfaces:
+```python
+# Async (preferred for web services)
+result = await classifier.classify_async(content)
+
+# Sync (for scripts and notebooks)
+result = classifier.fast_classify(content)
+```
+
+### Error Handling
+Use structured error handling with proper logging:
+```python
+try:
+    result = await memory_manager.store_memory(content)
+except ClassificationError as e:
+    logger.warning(f"Classification failed, using fallback: {e}")
+    # Handle gracefully with fallback
+```
+
+### Performance Monitoring
+Built-in metrics tracking:
+```python
+metrics = memory_manager.get_performance_metrics()
+print(f"Avg search time: {metrics['avg_search_ms']}ms")
+```

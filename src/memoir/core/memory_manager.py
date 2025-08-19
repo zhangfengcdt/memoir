@@ -17,6 +17,7 @@ from memoir.search.hierarchical_search import (
     SearchStrategy,
 )
 
+from .profile_manager import ProfileManager
 from .prolly_adapter import ProllyTreeStore
 
 logger = logging.getLogger(__name__)
@@ -81,9 +82,14 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
             cache_size=cache_size,
         )
 
-        # Initialize search engine
+        # Initialize profile manager
+        self.profile_manager = ProfileManager(self.prolly_store)
+
+        # Initialize search engine with profile manager
         self.search_engine = HierarchicalSearchEngine(
-            store=self.prolly_store, classifier=self.classifier
+            store=self.prolly_store,
+            classifier=self.classifier,
+            profile_manager=self.profile_manager,
         )
 
         self.enable_versioning = enable_versioning
@@ -188,6 +194,21 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
 
             classification_time = (time.time() - classification_start) * 1000
             self._metrics["classification_time_ms"].append(classification_time)
+
+            # Apply profile updates if detected
+            if (
+                hasattr(classification, "profile_updates")
+                and classification.profile_updates
+            ):
+                try:
+                    await self.profile_manager.apply_profile_updates(
+                        classification.profile_updates, metadata
+                    )
+                    logger.info(
+                        f"Applied {len(classification.profile_updates)} profile updates"
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to apply profile updates: {e}")
 
             # Add classification metadata
             if metadata is None:

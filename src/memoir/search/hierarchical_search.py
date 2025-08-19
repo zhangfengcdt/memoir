@@ -45,6 +45,7 @@ class HierarchicalSearchEngine:
         store: Any,  # Any store with asearch and alist methods
         classifier: Optional[SemanticClassifier] = None,
         max_content_length: int = 10000,  # Maximum total content length
+        profile_manager: Optional[Any] = None,  # ProfileManager for profile summaries
     ):
         """
         Initialize search engine.
@@ -53,6 +54,7 @@ class HierarchicalSearchEngine:
             store: ProllyTree store instance
             classifier: Semantic classifier for query understanding
             max_content_length: Maximum total content length to return
+            profile_manager: ProfileManager for including profile summaries
         """
         self.store = store
         self.taxonomy = get_taxonomy()
@@ -62,6 +64,7 @@ class HierarchicalSearchEngine:
             )
         self.classifier = classifier
         self.max_content_length = max_content_length
+        self.profile_manager = profile_manager
 
     async def search(
         self,
@@ -100,6 +103,32 @@ class HierarchicalSearchEngine:
 
         # Step 3: Apply content length limits
         final_results = self._limit_by_content_length(combined_results)
+
+        # Step 4: Include profile summary if profile manager is available
+        if self.profile_manager:
+            try:
+                # Use structured-only mode (llm=None) for fast profile summaries
+                # This provides all factual profile data without expensive narrative generation
+                profile_summary = await self.profile_manager.get_profile_summary(
+                    llm=None
+                )
+                if (
+                    profile_summary
+                    and profile_summary != "No profile information available."
+                ):
+                    # Add profile summary as the first result for context
+                    profile_result = SearchResult(
+                        path="profile.summary",
+                        combined_content=profile_summary,
+                        item_count=1,
+                        total_length=len(profile_summary),
+                        semantic_distance=0,
+                        namespace=namespace,
+                    )
+                    final_results.insert(0, profile_result)
+                    logger.info("Added profile summary to search results")
+            except Exception as e:
+                logger.warning(f"Failed to include profile summary: {e}")
 
         search_time = (time.time() - start_time) * 1000
         logger.info(
@@ -200,11 +229,47 @@ class HierarchicalSearchEngine:
                     contents = []
                     for _key, data in items:
                         if isinstance(data, dict):
-                            # Use the complete memory data as JSON instead of just summary
-                            # This includes summary, structured_data, metadata, etc.
-                            import json
+                            # Extract the most relevant content from memory data
+                            # Priority: raw_text > summary > structured_data > full JSON
+                            if data.get("raw_text"):
+                                content_text = str(data["raw_text"]).strip()
+                            elif data.get("summary"):
+                                content_text = str(data["summary"]).strip()
+                            elif data.get("structured_data"):
+                                # For structured data, convert to readable text
+                                structured = data["structured_data"]
+                                if isinstance(structured, dict):
+                                    # Create a readable summary from structured data
+                                    import json
 
-                            content_text = json.dumps(data, indent=2)
+                                    content_text = json.dumps(
+                                        structured, separators=(",", ": ")
+                                    )
+                                else:
+                                    content_text = str(structured).strip()
+                            else:
+                                # Fallback to content field or minimal JSON representation
+                                if "content" in data:
+                                    content_text = str(data["content"]).strip()
+                                else:
+                                    # Only include essential fields to avoid JSON clutter
+                                    essential_fields = {
+                                        k: v
+                                        for k, v in data.items()
+                                        if k
+                                        in [
+                                            "content",
+                                            "summary",
+                                            "raw_text",
+                                            "key",
+                                            "timestamp",
+                                        ]
+                                    }
+                                    import json
+
+                                    content_text = json.dumps(
+                                        essential_fields, separators=(",", ": ")
+                                    )
                         else:
                             content_text = str(data)
                         if content_text.strip():
@@ -253,11 +318,47 @@ class HierarchicalSearchEngine:
                     contents = []
                     for _key, data in items:
                         if isinstance(data, dict):
-                            # Use the complete memory data as JSON instead of just summary
-                            # This includes summary, structured_data, metadata, etc.
-                            import json
+                            # Extract the most relevant content from memory data
+                            # Priority: raw_text > summary > structured_data > full JSON
+                            if data.get("raw_text"):
+                                content_text = str(data["raw_text"]).strip()
+                            elif data.get("summary"):
+                                content_text = str(data["summary"]).strip()
+                            elif data.get("structured_data"):
+                                # For structured data, convert to readable text
+                                structured = data["structured_data"]
+                                if isinstance(structured, dict):
+                                    # Create a readable summary from structured data
+                                    import json
 
-                            content_text = json.dumps(data, indent=2)
+                                    content_text = json.dumps(
+                                        structured, separators=(",", ": ")
+                                    )
+                                else:
+                                    content_text = str(structured).strip()
+                            else:
+                                # Fallback to content field or minimal JSON representation
+                                if "content" in data:
+                                    content_text = str(data["content"]).strip()
+                                else:
+                                    # Only include essential fields to avoid JSON clutter
+                                    essential_fields = {
+                                        k: v
+                                        for k, v in data.items()
+                                        if k
+                                        in [
+                                            "content",
+                                            "summary",
+                                            "raw_text",
+                                            "key",
+                                            "timestamp",
+                                        ]
+                                    }
+                                    import json
+
+                                    content_text = json.dumps(
+                                        essential_fields, separators=(",", ": ")
+                                    )
                         else:
                             content_text = str(data)
                         if content_text.strip():
