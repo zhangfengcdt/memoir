@@ -680,22 +680,16 @@ class IntelligentClassifier:
             existing = self.memory_store.get(namespace, classification.path)
 
             if existing is None:
-                # Store raw text directly instead of creating summary
-                # This preserves all original details for better QA accuracy
+                # Store simplified memory structure with only essential fields
+                from datetime import datetime
+
                 self.memory_store.put(
                     namespace,
                     classification.path,
                     {
                         "raw_text": content,  # Store raw conversation text
-                        "summary": (
-                            content[:200] + "..." if len(content) > 200 else content
-                        ),  # Keep short preview
-                        "structured_data": metadata
-                        or {},  # Store metadata as structured data
+                        "session_date": datetime.now().isoformat(),  # When this was stored
                         "confidence": classification.confidence,
-                        "metadata": metadata or {},
-                        "original_length": len(content),
-                        "compression_ratio": 1.0,  # No compression since storing raw
                     },
                 )
                 result.memory_action = MemoryAction.STORE
@@ -872,23 +866,16 @@ class IntelligentClassifier:
             reasoning = decision.get("reasoning", "")
 
             if action == "replace":
-                # Store raw text for replacement
+                # Store simplified memory structure for replacement
+                from datetime import datetime
+
                 self.memory_store.put(
                     namespace,
                     path,
                     {
                         "raw_text": new_content,
-                        "summary": (
-                            new_content[:200] + "..."
-                            if len(new_content) > 200
-                            else new_content
-                        ),
-                        "structured_data": metadata or {},
+                        "session_date": datetime.now().isoformat(),
                         "confidence": 0.8,
-                        "metadata": metadata or {},
-                        "original_length": len(new_content),
-                        "compression_ratio": 1.0,
-                        "replaced_previous": True,
                     },
                 )
                 return {
@@ -899,33 +886,18 @@ class IntelligentClassifier:
 
             elif action == "append":
                 # Combine existing raw text with new content
-                existing_raw = existing_data.get(
-                    "raw_text",
-                    existing_data.get("summary", existing_data.get("content", "")),
-                )
+                existing_raw = existing_data.get("raw_text", "")
                 combined_text = f"{existing_raw}\n\n{new_content}"
 
-                combined_metadata = {
-                    **existing_data.get("metadata", {}),
-                    **(metadata or {}),
-                }
+                from datetime import datetime
 
                 self.memory_store.put(
                     namespace,
                     path,
                     {
                         "raw_text": combined_text,
-                        "summary": (
-                            combined_text[:200] + "..."
-                            if len(combined_text) > 200
-                            else combined_text
-                        ),
-                        "structured_data": combined_metadata,
+                        "session_date": datetime.now().isoformat(),
                         "confidence": 0.8,
-                        "metadata": combined_metadata,
-                        "original_length": len(combined_text),
-                        "compression_ratio": 1.0,
-                        "appended_content": True,
                     },
                 )
                 return {
@@ -936,35 +908,20 @@ class IntelligentClassifier:
 
             elif action == "merge":
                 # Get existing raw content
-                existing_raw = existing_data.get(
-                    "raw_text",
-                    existing_data.get("summary", existing_data.get("content", "")),
-                )
+                existing_raw = existing_data.get("raw_text", "")
                 merged_content = decision.get(
                     "merged_content", f"{existing_raw}\n{new_content}"
                 )
 
-                combined_metadata = {
-                    **existing_data.get("metadata", {}),
-                    **(metadata or {}),
-                }
+                from datetime import datetime
 
                 self.memory_store.put(
                     namespace,
                     path,
                     {
                         "raw_text": merged_content,
-                        "summary": (
-                            merged_content[:200] + "..."
-                            if len(merged_content) > 200
-                            else merged_content
-                        ),
-                        "structured_data": combined_metadata,
+                        "session_date": datetime.now().isoformat(),
                         "confidence": 0.8,
-                        "metadata": combined_metadata,
-                        "original_length": len(merged_content),
-                        "compression_ratio": 1.0,
-                        "merged_content": True,
                     },
                 )
                 return {
@@ -977,54 +934,29 @@ class IntelligentClassifier:
                 return {
                     "action": MemoryAction.SKIP,
                     "reasoning": reasoning,
-                    "new_content": existing_data.get(
-                        "summary", existing_data.get("content", "")
-                    ),
+                    "new_content": existing_data.get("raw_text", ""),
                 }
 
         except Exception as e:
-            # Fallback to append on error - but still use semantic summarization
-            existing_summary = existing_data.get(
-                "summary", existing_data.get("content", "")
-            )
-            combined = f"{existing_summary}\n\n{new_content}"
+            # Fallback to append on error
+            existing_raw = existing_data.get("raw_text", "")
+            combined = f"{existing_raw}\n\n{new_content}"
 
-            # Create semantic summary even for fallback
-            try:
-                summary = await self._create_semantic_summary(combined, path, metadata)
-                final_content = summary["summary"]
-                structured_data = summary["structured_data"]
-            except Exception:
-                # Ultimate fallback - just truncate
-                final_content = (
-                    combined[:200] + "..." if len(combined) > 200 else combined
-                )
-                structured_data = {}
-
-            combined_metadata = {
-                **existing_data.get("metadata", {}),
-                **(metadata or {}),
-            }
+            from datetime import datetime
 
             self.memory_store.put(
                 namespace,
                 path,
                 {
-                    "summary": final_content,
-                    "structured_data": structured_data,
+                    "raw_text": combined,
+                    "session_date": datetime.now().isoformat(),
                     "confidence": 0.7,
-                    "metadata": combined_metadata,
-                    "original_length": len(combined),
-                    "compression_ratio": (
-                        len(final_content) / len(combined) if combined else 0
-                    ),
-                    "fallback_append": True,
                 },
             )
             return {
                 "action": MemoryAction.APPEND,
                 "reasoning": f"Error in LLM decision, defaulted to append: {e}",
-                "new_content": final_content,
+                "new_content": combined,
             }
 
     def get_stored_memories(self, limit: int = 10) -> list[dict]:
