@@ -166,11 +166,13 @@ class LocomoEvaluator:
 
         return first_word in question_words
 
-    def _write_formatted_memory_entries(self, f, raw_text: str, session_date: str = None):
+    def _write_formatted_memory_entries(
+        self, f, raw_text: str, session_date: Optional[str] = None
+    ):
         """Format memory entries in the clear NEW ENTRY format."""
         # Split by NEW ENTRY markers
         entries = raw_text.split("--- NEW ENTRY")
-        
+
         for idx, entry in enumerate(entries):
             if idx == 0:
                 # First entry (original memory) - add FIRST ENTRY header with timestamp
@@ -184,13 +186,13 @@ class LocomoEvaluator:
                 lines = entry.split("\n")
                 timestamp_line = lines[0] if lines else ""
                 timestamp = timestamp_line.strip(" ()-")
-                
+
                 # Get the rest of the entry content
                 entry_content = "\n".join(lines[1:])
-                
+
                 # Write NEW ENTRY header
                 f.write(f"--- NEW ENTRY ({timestamp}) ---\n")
-                
+
                 # Format the entry content
                 self._format_single_entry(f, entry_content, is_first=False)
 
@@ -199,26 +201,28 @@ class LocomoEvaluator:
         lines = entry_content.strip().split("\n")
         context_lines = []
         speaker_lines = []
-        
+
         # Parse lines to separate context from speaker content
         in_context = True
         for line in lines:
             line = line.strip()
             if not line:
                 continue
-                
+
             if line.startswith("Context: "):
                 # Extract context line
                 context_text = line[9:]  # Remove "Context: " prefix
                 context_lines.append(context_text)
-            elif in_context and (line.startswith("[SELF]") or line.startswith("[OTHER]")):
+            elif in_context and (
+                line.startswith("[SELF]") or line.startswith("[OTHER]")
+            ):
                 # Direct context line with speaker attribution
                 context_lines.append(line)
             else:
                 # This is speaker content
                 in_context = False
                 speaker_lines.append(line)
-        
+
         # Write context section
         if context_lines:
             f.write("  Context:\n")
@@ -238,12 +242,12 @@ class LocomoEvaluator:
                 else:
                     # Fallback for other formats
                     f.write(f"    - {context}\n")
-        
+
         # Write speaker content
         if speaker_lines:
             speaker_content = " ".join(speaker_lines)
             f.write(f"  SPEAKER: {speaker_content}\n")
-        
+
         f.write("\n")  # Add spacing after each entry
 
     async def setup(self):
@@ -433,21 +437,25 @@ class LocomoEvaluator:
                         # Collect the specified number of conversation turns
                         # A "turn" includes both OTHER and SELF exchanges in sequence
                         turns_collected = 0
-                        
+
                         # Look backwards through previous exchanges
                         for prev_exchange in reversed(conversation_history[:-1]):
                             # Add context based on speaker, maintaining conversation flow
                             if prev_exchange.startswith(f"{self.person_name}:"):
                                 # This is SELF speaking - add as context
                                 attributed_context = f"[SELF] {prev_exchange}"
-                                conversation_context.insert(0, attributed_context)  # Insert at beginning to maintain order
+                                conversation_context.insert(
+                                    0, attributed_context
+                                )  # Insert at beginning to maintain order
                             else:
                                 # This is OTHER speaking - add as context
                                 attributed_context = f"[OTHER] {prev_exchange}"
-                                conversation_context.insert(0, attributed_context)  # Insert at beginning to maintain order
+                                conversation_context.insert(
+                                    0, attributed_context
+                                )  # Insert at beginning to maintain order
                                 # Count this as completing a turn (OTHER speaks, then SELF responds)
                                 turns_collected += 1
-                                
+
                             # Stop when we've collected enough turns
                             if turns_collected >= self.context_turns:
                                 break
@@ -1188,17 +1196,15 @@ Return ONLY a decimal F1 score between 0.0 and 1.0 (like 0.75 or 0.82)."""
             if total_questions > 0
             else 0.0
         )
-        average_score = (
-            sum(r["score"] for r in results) / total_questions
-            if total_questions > 0
-            else 0.0
-        )
+        # Average score calculation removed - not used
 
         # Display summary
         self.console.print("\n⏺ QA Evaluation Results", style="white")
         self.console.print(f"⏺ Total Questions: {total_questions}", style="white")
         self.console.print(f"⏺ Average F1 Score: {average_f1_score:.3f}", style="white")
-        self.console.print(f"⏺ Average LLM_J Score: {average_llm_j_score:.3f}", style="white")
+        self.console.print(
+            f"⏺ Average LLM_J Score: {average_llm_j_score:.3f}", style="white"
+        )
 
         # Display detailed results
         table = Table(title="QA Evaluation Details", show_lines=True)
@@ -1217,7 +1223,7 @@ Return ONLY a decimal F1 score between 0.0 and 1.0 (like 0.75 or 0.82)."""
                 if result["f1_score"] == 0
                 else "yellow"
             )
-            
+
             llm_j_score_color = (
                 "green"
                 if result["llm_j_score"] >= 0.8
@@ -1411,12 +1417,14 @@ async def main():
                                 )
                                 for idx, path in enumerate(classification_paths, 1):
                                     f.write(f"    {idx}. {path}\n")
-                            
+
                             f.write("\n")  # Add spacing before entries
 
                             # Parse raw_text to extract entries and format them properly
                             session_date = memory_data.get("session_date", "N/A")
-                            evaluator._write_formatted_memory_entries(f, raw_text, session_date)
+                            evaluator._write_formatted_memory_entries(
+                                f, raw_text, session_date
+                            )
 
                         # Check for content field (legacy format or search results)
                         elif "content" in memory_data:
@@ -1524,11 +1532,7 @@ async def main():
                 if total_questions > 0
                 else 0.0
             )
-            average_score = (
-                sum(r["score"] for r in results) / total_questions
-                if total_questions > 0
-                else 0.0
-            )
+            # Average score calculation removed - not used
 
             f.write(f"Total Questions: {total_questions}\n")
             f.write(f"Average F1 Score: {average_f1_score:.3f}\n")

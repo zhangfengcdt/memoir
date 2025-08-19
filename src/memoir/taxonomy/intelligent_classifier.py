@@ -999,12 +999,14 @@ Examples:
                     context_lines.append(f"Context: {ctx}")
                 context_section = "\n".join(context_lines) + "\n"
                 formatted_content = f"{context_section}{content}"
-            
+
             memory_data = {
                 "raw_text": formatted_content,  # Store raw conversation text with context
-                "session_date": metadata.get("session_date", datetime.now().isoformat())
-                if metadata
-                else datetime.now().isoformat(),  # Use actual session date from JSON
+                "session_date": (
+                    metadata.get("session_date", datetime.now().isoformat())
+                    if metadata
+                    else datetime.now().isoformat()
+                ),  # Use actual session date from JSON
                 "confidence": classification.confidence,
                 "classification_paths": paths_to_store,  # Store all paths this content was classified under
             }
@@ -1116,10 +1118,10 @@ Examples:
             if existing_content and new_content:
                 # Use the session_date directly - it's already formatted from the JSON
                 timestamp = new_memory.get("session_date", "unknown time")
-                
+
                 # Create clear separation with context included in each entry
                 new_entry_header = f"--- NEW ENTRY ({timestamp}) ---"
-                
+
                 # Include the conversation context for this new entry if available
                 context_section = ""
                 if conversation_context:
@@ -1127,7 +1129,7 @@ Examples:
                     for ctx in conversation_context:
                         context_lines.append(f"  Context: {ctx}")
                     context_section = "\n".join(context_lines) + "\n"
-                
+
                 merged_memory["raw_text"] = (
                     f"{existing_content}\n\n{new_entry_header}\n{context_section}{new_content}"
                 )
@@ -1158,7 +1160,9 @@ Examples:
                 merged_memory["conversation_context"] = conversation_context
             else:
                 # Keep existing context if no new context provided
-                merged_memory["conversation_context"] = existing_memory.get("conversation_context", [])
+                merged_memory["conversation_context"] = existing_memory.get(
+                    "conversation_context", []
+                )
 
             # Update classification paths (union of both sets)
             existing_paths = set(existing_memory.get("classification_paths", []))
