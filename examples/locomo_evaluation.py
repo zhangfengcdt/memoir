@@ -1079,6 +1079,148 @@ async def main():
             f.write(f"Timestamp: {timestamp}\n")
             f.write("=" * 80 + "\n\n")
 
+            # Dump all stored memories first
+            f.write("STORED MEMORIES DUMP\n")
+            f.write("=" * 80 + "\n")
+            try:
+                # Get the store from the intelligent classifier
+                store = evaluator.intelligent_classifier.memory_store
+                namespace_str = (
+                    "memory:general"  # Same namespace used in the evaluation
+                )
+                namespace_parts = namespace_str.split(":")
+                namespace_tuple = tuple(namespace_parts)
+
+                # Search for all memories in the namespace
+                all_memories = store.search(namespace_tuple, limit=1000)
+
+                f.write(f"Found {len(all_memories)} stored memories:\n\n")
+
+                for i, (namespace, storage_key, memory_data) in enumerate(
+                    all_memories, 1
+                ):
+                    # Extract semantic path from storage key (format: semantic_path#unique_id)
+                    if "#" in storage_key:
+                        semantic_key = storage_key.split("#")[0]
+                    else:
+                        semantic_key = storage_key
+
+                    f.write(f"Memory {i}:\n")
+                    f.write(f"  Storage Key: {storage_key}\n")
+                    f.write(f"  Semantic Path: {semantic_key}\n")
+                    f.write(f"  Namespace: {':'.join(namespace)}\n")
+
+                    if isinstance(memory_data, dict):
+                        # Pretty print the memory data
+                        f.write(f"  Timestamp: {memory_data.get('timestamp', 'N/A')}\n")
+                        f.write(
+                            f"  Confidence: {memory_data.get('confidence', 'N/A')}\n"
+                        )
+
+                        # Handle memory data structure - the actual memory is stored with 'raw_text', 'session_date', 'confidence' fields
+                        # First check for raw_text (new format)
+                        if "raw_text" in memory_data:
+                            raw_text = memory_data.get("raw_text", "")
+                            session_date = memory_data.get("session_date", "N/A")
+
+                            f.write("  Memory Format: New format (raw_text)\n")
+                            f.write(f"  Session Date: {session_date}\n")
+                            f.write(f"  Raw Text: {raw_text}\n")
+
+                        # Check for content field (legacy format or search results)
+                        elif "content" in memory_data:
+                            content = memory_data.get("content", "")
+                            f.write(f"  Content Type: {type(content).__name__}\n")
+
+                            # Handle different content formats
+                            if isinstance(content, str):
+                                try:
+                                    # Try to parse as JSON to see if it's structured data
+                                    if content.strip().startswith("{"):
+                                        content_obj = json.loads(content)
+                                        f.write("  Content (JSON):\n")
+
+                                        # Show different parts of structured content
+                                        if "raw_text" in content_obj:
+                                            raw_text = content_obj["raw_text"]
+                                            f.write(f"    Raw Text: {raw_text}\n")
+
+                                        if "structured_data" in content_obj:
+                                            structured = content_obj["structured_data"]
+                                            f.write(
+                                                f"    Structured Data: {json.dumps(structured, indent=6)}\n"
+                                            )
+
+                                        if "summary" in content_obj:
+                                            summary = content_obj["summary"]
+                                            f.write(f"    Summary: {summary}\n")
+
+                                        # Show any other keys
+                                        other_keys = set(content_obj.keys()) - {
+                                            "raw_text",
+                                            "structured_data",
+                                            "summary",
+                                        }
+                                        for key in other_keys:
+                                            value = content_obj[key]
+                                            if isinstance(
+                                                value, (str, int, float, bool)
+                                            ):
+                                                f.write(f"    {key}: {value}\n")
+                                            else:
+                                                f.write(
+                                                    f"    {key}: {json.dumps(value, indent=6)}\n"
+                                                )
+                                    else:
+                                        # Plain text content
+                                        f.write(f"  Content (Text): {content}\n")
+                                except json.JSONDecodeError:
+                                    # Not JSON, treat as plain text
+                                    f.write(f"  Content (Text): {content}\n")
+                            elif isinstance(content, dict):
+                                f.write("  Content (Dict):\n")
+                                for key, value in content.items():
+                                    if isinstance(value, str) and len(value) > 200:
+                                        f.write(
+                                            f"    {key}: {value[:200]}...(truncated)\n"
+                                        )
+                                    else:
+                                        f.write(f"    {key}: {value}\n")
+                            else:
+                                # Other content types
+                                content_str = str(content)
+                                if len(content_str) > 1000:
+                                    content_str = content_str[:1000] + "...(truncated)"
+                                f.write(f"  Content: {content_str}\n")
+
+                        # If neither raw_text nor content, show all fields
+                        else:
+                            f.write("  Memory Format: Unknown format\n")
+                            f.write("  All fields:\n")
+                            for key, value in memory_data.items():
+                                if key in ["timestamp", "confidence"]:
+                                    continue  # Already shown above
+                                if isinstance(value, str) and len(value) > 200:
+                                    f.write(f"    {key}: {value[:200]}...(truncated)\n")
+                                else:
+                                    f.write(f"    {key}: {value}\n")
+
+                        metadata = memory_data.get("metadata", {})
+                        if metadata:
+                            f.write(f"  Metadata: {json.dumps(metadata, indent=4)}\n")
+                    else:
+                        content_str = str(memory_data)
+                        if len(content_str) > 1000:
+                            content_str = content_str[:1000] + "...(truncated)"
+                        f.write(f"  Content: {content_str}\n")
+
+                    f.write("\n")
+
+            except Exception as e:
+                f.write(f"Error dumping memories: {e}\n")
+
+            f.write("=" * 80 + "\n\n")
+
             # Write summary
             total_questions = len(results)
             average_score = (
