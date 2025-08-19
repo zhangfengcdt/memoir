@@ -125,9 +125,8 @@ class IntelligentClassifier:
                 self.preset_paths = preset_paths
                 self._all_paths = []
                 for category, paths in preset_paths.items():
-                    # Add top-level category
-                    self._all_paths.append(category)
-                    # Add all subcategory paths with proper prefixing
+                    # Do NOT add single-level categories to valid paths
+                    # Only add multi-level paths (2+ levels minimum)
                     for path in paths:
                         full_path = f"{category}.{path}"
                         self._all_paths.append(full_path)
@@ -278,7 +277,7 @@ class IntelligentClassifier:
             prompt_parts.extend(
                 [
                     "",
-                    "Previous conversation context (for better classification):",
+                    "Previous conversation context (ONLY for understanding, DO NOT classify based on this):",
                 ]
             )
             for i, prev_exchange in enumerate(conversation_context, 1):
@@ -318,13 +317,22 @@ class IntelligentClassifier:
             [
                 "",
                 "Classification guidelines:",
+                "- MANDATORY: Use MINIMUM 2 levels, preferably 3-4 levels in taxonomy paths",
+                "- FORBIDDEN: Single-level paths like 'preferences', 'relationships', 'topics', 'goals' etc.",
+                "- ALWAYS use SPECIFIC, DEEP paths from the taxonomy - NEVER use just top-level categories",
                 "- PREFER existing COMPLETE paths that exist EXACTLY in the full taxonomy above",
-                "- Use the full hierarchical path (e.g., preferences.personal.lifestyle.routine.morning)",
-                "- If content doesn't fit existing paths well, you can suggest NEW TOP-LEVEL CATEGORIES",
-                "- Examples of top-level categories: entity, language, topics, profile, preferences, goals, etc.",
-                "- Use appropriate hierarchical depth (2-4 levels recommended)",
+                "- Use the full hierarchical path with 3-4 levels (e.g., topics.health.mental_health NOT just 'topics')",
+                "- If content doesn't fit existing paths well, you can suggest NEW categories but with proper depth",
+                "- Examples of GOOD specific classifications:",
+                "  * 'I love mental health advocacy' → topics.health.mental_health (NOT just 'topics')",
+                "  * 'My friend Tom is great' → entity.people.mentioned.friends (NOT just 'relationships')",
+                "  * 'I work as a teacher' → profile.professional.occupation (NOT just 'profile')",
+                "  * 'I chose them for their inclusivity' → preferences.personal.values (NOT just 'preferences')",
+                "  * 'We have a great friendship' → relationships.people.friends.close (NOT just 'relationships')",
+                "  * 'I want to adopt kids' → goals.categories.personal.relationships (NOT just 'goals')",
+                "- Use appropriate hierarchical depth (3-4 levels strongly recommended)",
                 "- Follow natural conceptual progression: general → specific",
-                "- Avoid skipping intermediate conceptual levels",
+                "- Avoid stopping at intermediate levels - go to the most specific applicable path",
                 "- Consider existing similar paths for consistency",
                 "",
                 "NEW TOP-LEVEL CATEGORY GUIDELINES:",
@@ -333,18 +341,28 @@ class IntelligentClassifier:
                 "- Format: new_category.subcategory.specific_aspect",
                 "- Examples: entity.people.mentioned.friends, language.slang.expressions, topics.technology.artificial_intelligence",
                 "",
+                "CONTEXT USAGE GUIDELINES:",
+                "- CLASSIFY ONLY the main content (what the person actually said)",
+                "- The context (previous conversation) is ONLY for understanding - DO NOT extract information from it",
+                "- The context typically contains other people's questions/comments that prompted the response",
+                "- Example: Context: 'Friend: What do you like to do?' Content: 'I love playing guitar' → Classify 'I love playing guitar' NOT 'What do you like to do?'",
+                "- If the content references the context ('Yes, I do'), use context to understand what they're agreeing to, but classify based on the implied meaning in their response",
+                "",
                 "MULTI-LABEL CLASSIFICATION (USE VERY SPARINGLY):",
                 "- ONLY use multiple paths when content contains information that belongs to DIFFERENT TOP-LEVEL CATEGORIES",
                 "- You can also suggest new top-level categories if content doesn't fit existing ones",
                 "- Example: 'I'm a single parent looking to adopt' maps to:",
                 "  * profile.living.arrangements (PROFILE category - single parent status)",
                 "  * goals.categories.personal.relationships (GOALS category - adoption goal)",
-                "- Example with new categories: 'My friend Sarah mentioned she loves AI technology' maps to:",
+                "- Example: 'Great job on the fundraiser, Alex! Cancer research is so important' maps to:",
                 "  * entity.people.mentioned.friends (ENTITY category - person mentioned)",
+                "  * topics.health.medical_conditions (TOPICS category - health topic discussed)",
+                "- Example: 'My colleague John mentioned he loves machine learning' maps to:",
+                "  * entity.people.mentioned.colleagues (ENTITY category - person mentioned)",
                 "  * topics.technology.artificial_intelligence (TOPICS category - subject discussed)",
                 "- DO NOT use multiple paths if both pieces of information belong to the SAME top-level category",
                 "- Examples of SINGLE path (same top-level category):",
-                "  * 'I work as a software engineer and enjoy coding' → professional.occupation (both are PROFILE)",
+                "  * 'I work as a software engineer and enjoy coding' → profile.professional.occupation (both are PROFILE)",
                 "  * 'I want to learn guitar and piano' → goals.categories.education.skills (both are GOALS)",
                 "- Maximum 2 paths, and ONLY when they have different top-level categories",
                 "- When in doubt, use SINGLE path classification",
@@ -461,16 +479,38 @@ class IntelligentClassifier:
                                 break
 
                         if not found_valid:
-                            # Fall back to top-level category if no valid path found
-                            if path_parts and path_parts[0] in all_paths:
-                                fallback_path = path_parts[0]
+                            # Reject paths that are too shallow (single-level)
+                            if len(path_parts) < 2:
+                                logger.warning(
+                                    f"Rejecting single-level path: {path}. Minimum 2 levels required."
+                                )
+                                continue
+                            
+                            # Try to find a valid 2+ level path in the same domain
+                            domain = path_parts[0]
+                            valid_domain_paths = [p for p in all_paths if p.startswith(f"{domain}.") and len(p.split(".")) >= 2]
+                            
+                            if valid_domain_paths:
+                                # Use a sensible default path in this domain as fallback
+                                domain_defaults = {
+                                    "preferences": "preferences.personal.interests",
+                                    "relationships": "relationships.people.friends.close", 
+                                    "topics": "topics.social_issues.community",
+                                    "goals": "goals.categories.personal.growth",
+                                    "experience": "experience.memories.recent",
+                                    "entity": "entity.people.mentioned.friends",
+                                    "profile": "profile.personal.characteristics",
+                                    "knowledge": "knowledge.facts.personal",
+                                    "behavior": "behavior.patterns.social"
+                                }
+                                
+                                fallback_path = domain_defaults.get(domain, valid_domain_paths[0])
                                 logger.info(
-                                    f"Falling back to top-level category: {fallback_path}"
+                                    f"Single-level '{domain}' converted to specific path: {fallback_path}"
                                 )
                                 validated_paths.append(fallback_path)
                             else:
-                                logger.info("Falling back to 'other' category")
-                                validated_paths.append("other")
+                                logger.warning(f"No valid paths found for domain {domain}, skipping classification")
 
             # Enforce top-level category rule for multi-label classification
             if len(validated_paths) > 1:
