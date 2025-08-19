@@ -56,6 +56,7 @@ class LocomoEvaluator:
         max_search_results: int = 5,
         max_context_memories: int = 3,
         max_memory_size: int = 2000,
+        context_turns: int = 1,
     ):
         self.console = Console()
         self.data_file = data_file
@@ -65,6 +66,7 @@ class LocomoEvaluator:
         self.max_search_results = max_search_results
         self.max_context_memories = max_context_memories
         self.max_memory_size = max_memory_size
+        self.context_turns = context_turns
         self.confidence_thresholds = confidence_thresholds or {
             "high": 0.8,
             "medium": 0.5,
@@ -428,18 +430,27 @@ class LocomoEvaluator:
                     # Get selective conversation context with clear speaker attribution
                     conversation_context = []
                     if len(conversation_history) > 1:
-                        # Look backwards through previous exchanges to find the most recent OTHER person's message
-                        # In a conversation, the immediate previous message should be from the OTHER person
+                        # Collect the specified number of conversation turns
+                        # A "turn" includes both OTHER and SELF exchanges in sequence
+                        turns_collected = 0
+                        
+                        # Look backwards through previous exchanges
                         for prev_exchange in reversed(conversation_history[:-1]):
-                            # Only use context from the OTHER person (not SELF)
-                            if not prev_exchange.startswith(f"{self.person_name}:"):
-                                # This is someone else speaking - use as context
-                                # Prioritize questions, but also accept statements if that's the immediate previous
-                                if self._is_question(prev_exchange) or len(conversation_context) == 0:
-                                    attributed_context = f"[OTHER] {prev_exchange}"
-                                    conversation_context.append(attributed_context)
-                                    # Only include the most recent OTHER message
-                                    break
+                            # Add context based on speaker, maintaining conversation flow
+                            if prev_exchange.startswith(f"{self.person_name}:"):
+                                # This is SELF speaking - add as context
+                                attributed_context = f"[SELF] {prev_exchange}"
+                                conversation_context.insert(0, attributed_context)  # Insert at beginning to maintain order
+                            else:
+                                # This is OTHER speaking - add as context
+                                attributed_context = f"[OTHER] {prev_exchange}"
+                                conversation_context.insert(0, attributed_context)  # Insert at beginning to maintain order
+                                # Count this as completing a turn (OTHER speaks, then SELF responds)
+                                turns_collected += 1
+                                
+                            # Stop when we've collected enough turns
+                            if turns_collected >= self.context_turns:
+                                break
 
                     # Store the pure dialog text with conversation context
                     try:
@@ -699,7 +710,10 @@ CRITICAL ANALYSIS RULES:
 1. READ ALL CONTEXT CAREFULLY - the answer may be anywhere in the provided text
 2. Look for DIRECT STATEMENTS that answer the question
 3. Look for INDIRECT REFERENCES that answer the question
-4. For date questions: Calculate dates from relative references (yesterday = session date - 1 day)
+4. For date/time questions: ALWAYS return exact dates, NOT relative terms like "yesterday", "last week", etc.
+   - If you find "yesterday" and the session date is "5 June 2023", return "4 June 2023"
+   - If you find "last Tuesday", calculate the exact date based on the session date
+   - Convert ALL relative time references to absolute dates in the format: "DD Month YYYY" or "DD MMM YYYY"
 
 MEMORY ENTRY CHRONOLOGY:
 - Memories may contain multiple entries: FIRST ENTRY (oldest) and NEW ENTRY (more recent)
@@ -718,8 +732,12 @@ Context: "I spend most weekends playing guitar and writing songs"
 A: playing guitar
 
 Q: "When did Sarah visit the doctor?"
-Context: "I went to my doctor appointment yesterday on March 14th"
+Context: "I went to my doctor appointment yesterday" [Session date: 15 March 2023]
 A: 14 March 2023
+
+Q: "When did Caroline go to the support group?"
+Context: "I went to a LGBTQ support group yesterday and it was so powerful" [Session date: 8 May 2023]
+A: 7 May 2023
 
 Q: "What does Alex study?"
 Context: "I'm taking courses in computer science and machine learning"
@@ -728,6 +746,11 @@ A: computer science and machine learning
 Q: "What is Maria's living situation?"
 Context: "Living alone has been great for my independence and personal growth"
 A: living alone
+
+Session Information: [Session dates available in conversation data]
+- If you see "yesterday" in the context, calculate the exact date based on session timing
+- The conversation sessions occurred around 8 May 2023
+- Convert relative dates to absolute dates in format "DD Month YYYY"
 
 Retrieved Context:
 {context}
@@ -1176,7 +1199,6 @@ Return ONLY a decimal F1 score between 0.0 and 1.0 (like 0.75 or 0.82)."""
         self.console.print(f"⏺ Total Questions: {total_questions}", style="white")
         self.console.print(f"⏺ Average F1 Score: {average_f1_score:.3f}", style="white")
         self.console.print(f"⏺ Average LLM_J Score: {average_llm_j_score:.3f}", style="white")
-        self.console.print(f"⏺ Average Score (backward compatibility): {average_score:.3f}", style="white")
 
         # Display detailed results
         table = Table(title="QA Evaluation Details", show_lines=True)
@@ -1267,18 +1289,18 @@ async def main():
     parser.add_argument(
         "--session",
         type=str,
-        help="Process specified session(s). Examples: 1, 1,3,5, 1-3, 1,3-5,7",
+        help="Process specified session(s). Examples: 1-2",
     )
     parser.add_argument(
         "--max-search-results",
         type=int,
-        default=5,
+        default=3,
         help="Maximum number of search results to retrieve (default: 5)",
     )
     parser.add_argument(
         "--max-context-memories",
         type=int,
-        default=5,
+        default=3,
         help="Maximum number of memories to use for LLM context (default: 3)",
     )
     parser.add_argument(
@@ -1286,6 +1308,12 @@ async def main():
         type=int,
         default=10000,
         help="Maximum size of individual memory content (default: 2000 chars)",
+    )
+    parser.add_argument(
+        "--context-turns",
+        type=int,
+        default=3,
+        help="Number of conversation turns to include as context (default: 1)",
     )
 
     args = parser.parse_args()
@@ -1309,6 +1337,7 @@ async def main():
             max_search_results=args.max_search_results,
             max_context_memories=args.max_context_memories,
             max_memory_size=args.max_memory_size,
+            context_turns=args.context_turns,
         )
 
         # Setup components
@@ -1503,8 +1532,7 @@ async def main():
 
             f.write(f"Total Questions: {total_questions}\n")
             f.write(f"Average F1 Score: {average_f1_score:.3f}\n")
-            f.write(f"Average LLM_J Score: {average_llm_j_score:.3f}\n")
-            f.write(f"Average Score (backward compatibility): {average_score:.3f}\n\n")
+            f.write(f"Average LLM_J Score: {average_llm_j_score:.3f}\n\n")
 
             # Write QA Evaluation Details in table format
             f.write("QA Evaluation Details\n")
@@ -1551,7 +1579,6 @@ async def main():
                 f.write(f"Predicted: {result['predicted_answer']}\n")
                 f.write(f"F1 Score: {result['f1_score']:.2f}\n")
                 f.write(f"LLM_J Score: {result['llm_j_score']:.2f}\n")
-                f.write(f"Score (backward compatibility): {result['score']:.2f}\n")
 
                 # Add evidence information if available
                 evidence = result.get("evidence", [])
