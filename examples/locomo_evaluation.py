@@ -1225,13 +1225,17 @@ Return ONLY a decimal F1 score between 0.0 and 1.0 (like 0.75 or 0.82)."""
             f1_score_color = (
                 "green"
                 if result["f1_score"] >= 0.7
-                else "red" if result["f1_score"] == 0 else "yellow"
+                else "red"
+                if result["f1_score"] == 0
+                else "yellow"
             )
 
             llm_j_score_color = (
                 "green"
                 if result["llm_j_score"] >= 0.8
-                else "red" if result["llm_j_score"] == 0 else "yellow"
+                else "red"
+                if result["llm_j_score"] == 0
+                else "yellow"
             )
 
             # Show full text for better analysis - don't truncate expected/predicted

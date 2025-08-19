@@ -14,7 +14,8 @@ from .iterative_taxonomy import (
     LLMIterativeTaxonomy,
 )
 from .taxonomy_presets import TaxonomyVersion
-from .taxonomy_presets_simplified import SimplifiedTaxonomyPresets, TaxonomyVersion as SimplifiedTaxonomyVersion
+from .taxonomy_presets_simplified import SimplifiedTaxonomyPresets
+from .taxonomy_presets_simplified import TaxonomyVersion as SimplifiedTaxonomyVersion
 
 logger = logging.getLogger(__name__)
 
@@ -440,24 +441,23 @@ class IntelligentClassifier:
 
             # Try to parse as JSON
             # Extract JSON from response if wrapped in other text
-            import re
 
             # First try to find complete JSON with proper bracket matching
             def extract_json(text):
                 # Find the first opening brace
-                start_idx = text.find('{')
+                start_idx = text.find("{")
                 if start_idx == -1:
                     return None
-                
+
                 # Count braces to find the matching closing brace
                 brace_count = 0
                 for i in range(start_idx, len(text)):
-                    if text[i] == '{':
+                    if text[i] == "{":
                         brace_count += 1
-                    elif text[i] == '}':
+                    elif text[i] == "}":
                         brace_count -= 1
                         if brace_count == 0:
-                            return text[start_idx:i+1]
+                            return text[start_idx : i + 1]
                 return None
 
             json_str = extract_json(content)

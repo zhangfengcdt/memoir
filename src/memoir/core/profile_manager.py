@@ -74,7 +74,7 @@ class ProfileManager:
             Profile summary string
         """
         try:
-            # Search for all profile memories using the correct method signature  
+            # Search for all profile memories using the correct method signature
             # Use "memory:general" namespace string as expected by asearch method
             profile_memories = await self.memory_store.asearch(
                 "memory:general", "profile."

@@ -22,14 +22,13 @@ class SimplifiedTaxonomyPresets:
             "profile": [
                 # Essential Personal Identity (8 paths)
                 "personal.identity.name.first",
-                "personal.identity.name.last", 
+                "personal.identity.name.last",
                 "personal.identity.gender.identity",
                 "personal.identity.sexual_orientation",
                 "personal.demographics.age.current",
                 "personal.demographics.birth.date",
                 "personal.demographics.marital_status",
                 "personal.demographics.children.number",
-                
                 # Core Professional (12 paths)
                 "professional.current.company",
                 "professional.current.title",
@@ -43,17 +42,15 @@ class SimplifiedTaxonomyPresets:
                 "professional.skills.industry.expertise",
                 "professional.history.previous_companies",
                 "professional.network.mentors",
-                
                 # Essential Health (8 paths)
                 "health.physical.height",
                 "health.physical.weight",
                 "health.physical.fitness_level",
                 "health.physical.diet.restrictions",
                 "health.mental.conditions.diagnosed",
-                "health.mental.therapy.current", 
+                "health.mental.therapy.current",
                 "health.mental.stress.level",
                 "health.medical.conditions.chronic",
-                
                 # Key Financial (8 paths)
                 "finance.income.primary.amount",
                 "finance.expenses.housing.rent_mortgage",
@@ -63,7 +60,6 @@ class SimplifiedTaxonomyPresets:
                 "finance.investments.stocks.portfolio",
                 "finance.credit.score.current",
                 "finance.banking.primary.bank",
-                
                 # Living Essentials (8 paths)
                 "living.current.address.city",
                 "living.current.address.state",
@@ -73,7 +69,6 @@ class SimplifiedTaxonomyPresets:
                 "living.current.pets.types",
                 "living.transportation.primary.method",
                 "living.transportation.car.make_model",
-                
                 # Key Relationships (6 paths)
                 "relationships.romantic.status.current",
                 "relationships.romantic.partner.name",
@@ -82,7 +77,6 @@ class SimplifiedTaxonomyPresets:
                 "relationships.social.groups.memberships",
                 "relationships.social.media.platforms",
             ],
-            
             # Personal Preferences (20 paths)
             "preferences": [
                 "personal.lifestyle.habits",
@@ -98,7 +92,7 @@ class SimplifiedTaxonomyPresets:
                 "personal.travel.destinations",
                 "personal.travel.style",
                 "social.activities.group",
-                "social.activities.solo", 
+                "social.activities.solo",
                 "social.events.formal",
                 "social.events.casual",
                 "work.environment.office",
@@ -106,7 +100,6 @@ class SimplifiedTaxonomyPresets:
                 "work.schedule.flexible",
                 "work.schedule.structured",
             ],
-            
             # Life Experiences (25 paths)
             "experience": [
                 "memories.recent.positive",
@@ -135,7 +128,6 @@ class SimplifiedTaxonomyPresets:
                 "life_events.children.birth",
                 "life_events.career.changes",
             ],
-            
             # Goals & Aspirations (20 paths)
             "goals": [
                 "categories.personal.health",
@@ -159,8 +151,7 @@ class SimplifiedTaxonomyPresets:
                 "status.planning.considering",
                 "status.completed.achieved",
             ],
-            
-            # Relationships (20 paths) 
+            # Relationships (20 paths)
             "relationships": [
                 "people.family.immediate.parents",
                 "people.family.immediate.siblings",
@@ -183,7 +174,6 @@ class SimplifiedTaxonomyPresets:
                 "interactions.frequency.daily",
                 "interactions.frequency.occasional",
             ],
-            
             # Key Entities (25 paths)
             "entity": [
                 "people.mentioned.friends.close",
@@ -212,7 +202,6 @@ class SimplifiedTaxonomyPresets:
                 "time.periods.durations.significant",
                 "concepts.topics.discussed.main",
             ],
-            
             # Essential Topics (20 paths)
             "topics": [
                 "health.mental_health.wellness",
@@ -239,11 +228,13 @@ class SimplifiedTaxonomyPresets:
         }
     }
 
-    def get_paths_for_category(self, version: TaxonomyVersion, category: str) -> list[str]:
+    def get_paths_for_category(
+        self, version: TaxonomyVersion, category: str
+    ) -> list[str]:
         """Get all paths for a specific category."""
         if version not in self.PRESETS:
             raise ValueError(f"Unknown taxonomy version: {version}")
-        
+
         category_paths = self.PRESETS[version].get(category, [])
         return [f"{category}.{path}" for path in category_paths]
 
@@ -251,11 +242,11 @@ class SimplifiedTaxonomyPresets:
         """Get all taxonomy paths for a version."""
         if version not in self.PRESETS:
             raise ValueError(f"Unknown taxonomy version: {version}")
-        
+
         all_paths = []
         for category, paths in self.PRESETS[version].items():
             for path in paths:
                 full_path = f"{category}.{path}"
                 all_paths.append(full_path)
-        
+
         return sorted(all_paths)
