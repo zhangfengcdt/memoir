@@ -1302,13 +1302,13 @@ async def main():
     parser.add_argument(
         "--max-search-results",
         type=int,
-        default=3,
+        default=5,
         help="Maximum number of search results to retrieve (default: 5)",
     )
     parser.add_argument(
         "--max-context-memories",
         type=int,
-        default=3,
+        default=5,
         help="Maximum number of memories to use for LLM context (default: 3)",
     )
     parser.add_argument(
@@ -1320,7 +1320,7 @@ async def main():
     parser.add_argument(
         "--context-turns",
         type=int,
-        default=3,
+        default=5,
         help="Number of conversation turns to include as context (default: 1)",
     )
 

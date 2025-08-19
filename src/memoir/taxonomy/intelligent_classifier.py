@@ -101,6 +101,7 @@ class IntelligentClassifier:
         expansion_strategy: LLMExpansionStrategy = LLMExpansionStrategy.FOCUSED_SUBTREE,
         min_items_for_expansion: int = 3,
         profile_manager: Optional[Any] = None,
+        suppress_path_warnings: bool = True,
     ):
         """
         Initialize the intelligent classifier.
@@ -113,11 +114,13 @@ class IntelligentClassifier:
             expansion_strategy: Strategy for taxonomy expansion
             min_items_for_expansion: Minimum items before expansion
             profile_manager: Optional profile manager for handling profile updates
+            suppress_path_warnings: Whether to suppress warnings for invalid LLM-suggested paths
         """
         self.llm = llm
         self.memory_store = memory_store
         self.profile_manager = profile_manager
         self.taxonomy_version = taxonomy_version
+        self.suppress_path_warnings = suppress_path_warnings
 
         # Initialize with simplified taxonomy to reduce LLM prompt size
         simplified_presets = SimplifiedTaxonomyPresets()
@@ -527,11 +530,12 @@ class IntelligentClassifier:
                         validated_paths.append(path)  # Accept new category paths
                     else:
                         # Try to find existing path or fallback
-                        logger.warning(
-                            f"LLM suggested invalid path '{path}'. "
-                            f"Available paths that contain relevant keywords: "
-                            f"{[p for p in all_paths if any(word in p for word in path.split('.') if word != 'other')][:5]}"
-                        )
+                        if not self.suppress_path_warnings:
+                            logger.warning(
+                                f"LLM suggested invalid path '{path}'. "
+                                f"Available paths that contain relevant keywords: "
+                                f"{[p for p in all_paths if any(word in p for word in path.split('.') if word != 'other')][:5]}"
+                            )
                         # Try to find a close match or fall back to a more general path
                         found_valid = False
                         for i in range(len(path_parts), 0, -1):
