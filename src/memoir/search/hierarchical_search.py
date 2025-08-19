@@ -202,17 +202,20 @@ class HierarchicalSearchEngine:
                         if isinstance(data, dict):
                             # Extract the most relevant content from memory data
                             # Priority: raw_text > summary > structured_data > full JSON
-                            if "raw_text" in data and data["raw_text"]:
+                            if data.get("raw_text"):
                                 content_text = str(data["raw_text"]).strip()
-                            elif "summary" in data and data["summary"]:
+                            elif data.get("summary"):
                                 content_text = str(data["summary"]).strip()
-                            elif "structured_data" in data and data["structured_data"]:
+                            elif data.get("structured_data"):
                                 # For structured data, convert to readable text
                                 structured = data["structured_data"]
                                 if isinstance(structured, dict):
                                     # Create a readable summary from structured data
                                     import json
-                                    content_text = json.dumps(structured, separators=(',', ': '))
+
+                                    content_text = json.dumps(
+                                        structured, separators=(",", ": ")
+                                    )
                                 else:
                                     content_text = str(structured).strip()
                             else:
@@ -221,10 +224,23 @@ class HierarchicalSearchEngine:
                                     content_text = str(data["content"]).strip()
                                 else:
                                     # Only include essential fields to avoid JSON clutter
-                                    essential_fields = {k: v for k, v in data.items() 
-                                                      if k in ['content', 'summary', 'raw_text', 'key', 'timestamp']}
+                                    essential_fields = {
+                                        k: v
+                                        for k, v in data.items()
+                                        if k
+                                        in [
+                                            "content",
+                                            "summary",
+                                            "raw_text",
+                                            "key",
+                                            "timestamp",
+                                        ]
+                                    }
                                     import json
-                                    content_text = json.dumps(essential_fields, separators=(',', ': '))
+
+                                    content_text = json.dumps(
+                                        essential_fields, separators=(",", ": ")
+                                    )
                         else:
                             content_text = str(data)
                         if content_text.strip():
@@ -275,17 +291,20 @@ class HierarchicalSearchEngine:
                         if isinstance(data, dict):
                             # Extract the most relevant content from memory data
                             # Priority: raw_text > summary > structured_data > full JSON
-                            if "raw_text" in data and data["raw_text"]:
+                            if data.get("raw_text"):
                                 content_text = str(data["raw_text"]).strip()
-                            elif "summary" in data and data["summary"]:
+                            elif data.get("summary"):
                                 content_text = str(data["summary"]).strip()
-                            elif "structured_data" in data and data["structured_data"]:
+                            elif data.get("structured_data"):
                                 # For structured data, convert to readable text
                                 structured = data["structured_data"]
                                 if isinstance(structured, dict):
                                     # Create a readable summary from structured data
                                     import json
-                                    content_text = json.dumps(structured, separators=(',', ': '))
+
+                                    content_text = json.dumps(
+                                        structured, separators=(",", ": ")
+                                    )
                                 else:
                                     content_text = str(structured).strip()
                             else:
@@ -294,10 +313,23 @@ class HierarchicalSearchEngine:
                                     content_text = str(data["content"]).strip()
                                 else:
                                     # Only include essential fields to avoid JSON clutter
-                                    essential_fields = {k: v for k, v in data.items() 
-                                                      if k in ['content', 'summary', 'raw_text', 'key', 'timestamp']}
+                                    essential_fields = {
+                                        k: v
+                                        for k, v in data.items()
+                                        if k
+                                        in [
+                                            "content",
+                                            "summary",
+                                            "raw_text",
+                                            "key",
+                                            "timestamp",
+                                        ]
+                                    }
                                     import json
-                                    content_text = json.dumps(essential_fields, separators=(',', ': '))
+
+                                    content_text = json.dumps(
+                                        essential_fields, separators=(",", ": ")
+                                    )
                         else:
                             content_text = str(data)
                         if content_text.strip():

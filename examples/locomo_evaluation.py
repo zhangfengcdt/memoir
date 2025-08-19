@@ -164,6 +164,86 @@ class LocomoEvaluator:
 
         return first_word in question_words
 
+    def _write_formatted_memory_entries(self, f, raw_text: str, session_date: str = None):
+        """Format memory entries in the clear NEW ENTRY format."""
+        # Split by NEW ENTRY markers
+        entries = raw_text.split("--- NEW ENTRY")
+        
+        for idx, entry in enumerate(entries):
+            if idx == 0:
+                # First entry (original memory) - add FIRST ENTRY header with timestamp
+                if session_date:
+                    f.write(f"--- FIRST ENTRY ({session_date}) ---\n")
+                else:
+                    f.write("--- FIRST ENTRY ---\n")
+                self._format_single_entry(f, entry, is_first=True)
+            else:
+                # Extract timestamp from entry header
+                lines = entry.split("\n")
+                timestamp_line = lines[0] if lines else ""
+                timestamp = timestamp_line.strip(" ()-")
+                
+                # Get the rest of the entry content
+                entry_content = "\n".join(lines[1:])
+                
+                # Write NEW ENTRY header
+                f.write(f"--- NEW ENTRY ({timestamp}) ---\n")
+                
+                # Format the entry content
+                self._format_single_entry(f, entry_content, is_first=False)
+
+    def _format_single_entry(self, f, entry_content: str, is_first: bool = False):
+        """Format a single memory entry with context and speaker content."""
+        lines = entry_content.strip().split("\n")
+        context_lines = []
+        speaker_lines = []
+        
+        # Parse lines to separate context from speaker content
+        in_context = True
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            if line.startswith("Context: "):
+                # Extract context line
+                context_text = line[9:]  # Remove "Context: " prefix
+                context_lines.append(context_text)
+            elif in_context and (line.startswith("[SELF]") or line.startswith("[OTHER]")):
+                # Direct context line with speaker attribution
+                context_lines.append(line)
+            else:
+                # This is speaker content
+                in_context = False
+                speaker_lines.append(line)
+        
+        # Write context section
+        if context_lines:
+            f.write("  Context:\n")
+            for context in context_lines:
+                if context.startswith("[SELF] "):
+                    speaker_part = context[7:]  # Remove "[SELF] " prefix
+                    # Remove speaker name if it starts with a name followed by colon
+                    if ": " in speaker_part:
+                        speaker_part = speaker_part.split(": ", 1)[1]
+                    f.write(f"    - SELF: {speaker_part}\n")
+                elif context.startswith("[OTHER] "):
+                    speaker_part = context[8:]  # Remove "[OTHER] " prefix
+                    # Remove speaker name if it starts with a name followed by colon
+                    if ": " in speaker_part:
+                        speaker_part = speaker_part.split(": ", 1)[1]
+                    f.write(f"    - OTHER: {speaker_part}\n")
+                else:
+                    # Fallback for other formats
+                    f.write(f"    - {context}\n")
+        
+        # Write speaker content
+        if speaker_lines:
+            speaker_content = " ".join(speaker_lines)
+            f.write(f"  SPEAKER: {speaker_content}\n")
+        
+        f.write("\n")  # Add spacing after each entry
+
     async def setup(self):
         """Initialize all components."""
         # Get LLM
@@ -345,16 +425,21 @@ class LocomoEvaluator:
                         "speaker": speaker,
                     }
 
-                    # Get selective conversation context - only include the most recent question
+                    # Get selective conversation context with clear speaker attribution
                     conversation_context = []
                     if len(conversation_history) > 1:
-                        # Look backwards through previous exchanges to find the most recent question
+                        # Look backwards through previous exchanges to find the most recent OTHER person's message
+                        # In a conversation, the immediate previous message should be from the OTHER person
                         for prev_exchange in reversed(conversation_history[:-1]):
-                            # Check if the exchange contains a question
-                            if self._is_question(prev_exchange):
-                                conversation_context.append(prev_exchange)
-                                # Only include the most recent question to avoid noise
-                                break
+                            # Only use context from the OTHER person (not SELF)
+                            if not prev_exchange.startswith(f"{self.person_name}:"):
+                                # This is someone else speaking - use as context
+                                # Prioritize questions, but also accept statements if that's the immediate previous
+                                if self._is_question(prev_exchange) or len(conversation_context) == 0:
+                                    attributed_context = f"[OTHER] {prev_exchange}"
+                                    conversation_context.append(attributed_context)
+                                    # Only include the most recent OTHER message
+                                    break
 
                     # Store the pure dialog text with conversation context
                     try:
@@ -616,6 +701,17 @@ CRITICAL ANALYSIS RULES:
 3. Look for INDIRECT REFERENCES that answer the question
 4. For date questions: Calculate dates from relative references (yesterday = session date - 1 day)
 
+MEMORY ENTRY CHRONOLOGY:
+- Memories may contain multiple entries: FIRST ENTRY (oldest) and NEW ENTRY (more recent)
+- START WITH THE MOST RECENT ENTRIES - they contain the latest/updated information
+- Only check older entries if recent ones don't have the answer or for historical context
+- NEW ENTRY entries override information in FIRST ENTRY if there's a conflict
+
+SPEAKER ATTRIBUTION IN CONTEXT:
+- When you see [SELF] - this indicates the person themselves speaking
+- When you see [OTHER] - this indicates someone else speaking to them
+- Both types of context help understand the situation but focus on information about the target person
+
 EXAMPLES:
 Q: "What is John's favorite hobby?"
 Context: "I spend most weekends playing guitar and writing songs"
@@ -663,9 +759,13 @@ Direct Answer (just the fact, nothing else):"""
         except Exception as e:
             predicted_answer = f"LLM Error: {e}"
 
-        # Calculate score using LLM evaluation
-        score = await self.calculate_answer_score(
+        # Calculate scores using both F1 and LLM_J evaluation
+        f1_score = await self.calculate_answer_score(
             expected_answer, predicted_answer, question
+        )
+
+        llm_j_score = await self.calculate_llm_j_score(
+            question, expected_answer, predicted_answer
         )
 
         return {
@@ -675,12 +775,14 @@ Direct Answer (just the fact, nothing else):"""
             "evidence": evidence,
             "category": category,
             "retrieved_memories": retrieved_memories,
-            "score": score,
+            "f1_score": f1_score,
+            "llm_j_score": llm_j_score,
+            "score": f1_score,  # Keep original score for backward compatibility
         }
 
     def post_process_answer(self, answer: str) -> str:
         """Minimal post-processing to ensure answer conciseness.
-        
+
         With improved prompting that explicitly requests concise answers,
         most verbose patterns should be avoided at the source.
         We keep only basic cleanup as a safety net.
@@ -691,7 +793,7 @@ Direct Answer (just the fact, nothing else):"""
         # Remove quotes if they wrap the entire answer
         if answer.startswith('"') and answer.endswith('"'):
             answer = answer[1:-1]
-        
+
         # Remove trailing period for consistency
         if answer.endswith("."):
             answer = answer[:-1]
@@ -702,6 +804,93 @@ Direct Answer (just the fact, nothing else):"""
             answer = " ".join(words[:8])
 
         return answer.strip()
+
+    async def calculate_llm_j_score(
+        self, question: str, gold_answer: str, generated_answer: str
+    ) -> float:
+        """Calculate LLM_J score using LLM judgment of CORRECT/WRONG."""
+
+        prompt = f"""Your task is to label an answer to a question as "CORRECT" or "WRONG". You will be given
+the following data: (1) a question (posed by one user to another user), (2) a 'gold'
+(ground truth) answer, (3) a generated answer which you will score as CORRECT/WRONG.
+
+The point of the question is to ask about something one user should know about the other
+user based on their prior conversations. The gold answer will usually be a concise and
+short answer that includes the referenced topic.
+
+BE GENEROUS WITH YOUR GRADING - PRIORITIZE SEMANTIC CORRECTNESS OVER EXACT WORDING:
+
+✓ CORRECT Examples:
+- Gold: "single", Generated: "single parent" → CORRECT (more specific but contains core concept)
+- Gold: "amazing and awesome", Generated: "great" → CORRECT (same positive sentiment)
+- Gold: "psychology, counseling", Generated: "mental health" → CORRECT (same domain)
+- Gold: "May 7th", Generated: "7 May 2023" → CORRECT (same date, different format)
+- Gold: "Hawaii shell necklace", Generated: "a shell necklace from Hawaii" → CORRECT (same information)
+
+✗ WRONG Examples:
+- Gold: "single", Generated: "married" → WRONG (contradictory information)
+- Gold: "positive", Generated: "negative" → WRONG (opposite sentiment)
+- Gold: "May 7th", Generated: "June 15th" → WRONG (different date)
+- Gold: "shell necklace", Generated: "surfboard" → WRONG (completely different item)
+
+EVALUATION CRITERIA (mark CORRECT if ANY apply):
+1. Generated answer contains the core concept from gold answer
+2. Generated answer is more specific but includes the gold answer concept
+3. Generated answer expresses the same sentiment/meaning in different words
+4. Generated answer partially covers the gold answer topic
+5. For dates/times: refers to same period even if format differs
+
+Only mark WRONG if the generated answer is:
+- Factually contradictory to the gold answer
+- Completely unrelated to the topic
+- "Information not found" or similar non-answers
+
+Question: {question}
+Gold answer: {gold_answer}
+Generated answer: {generated_answer}
+
+First, provide a short (one sentence) explanation of your reasoning, then finish with
+CORRECT or WRONG. Do NOT include both CORRECT and WRONG in your response, or it will break
+the evaluation script.
+
+Just return the label CORRECT or WRONG in a json format with the key as "label"."""
+
+        try:
+            response = await self.llm.ainvoke(prompt)
+            response_text = response.content.strip()
+
+            # Try to extract JSON
+            import json
+            import re
+
+            # Look for JSON in the response
+            json_match = re.search(
+                r'\{[^}]*"label"\s*:\s*"(CORRECT|WRONG)"[^}]*\}',
+                response_text,
+                re.IGNORECASE,
+            )
+            if json_match:
+                try:
+                    json_obj = json.loads(json_match.group(0))
+                    label = json_obj.get("label", "").upper()
+                    if label in ["CORRECT", "WRONG"]:
+                        return 1.0 if label == "CORRECT" else 0.0
+                except json.JSONDecodeError:
+                    pass
+
+            # Fallback: look for CORRECT or WRONG in the response
+            response_upper = response_text.upper()
+            if "CORRECT" in response_upper and "WRONG" not in response_upper:
+                return 1.0
+            elif "WRONG" in response_upper and "CORRECT" not in response_upper:
+                return 0.0
+            else:
+                # Default to wrong if ambiguous
+                return 0.0
+
+        except Exception as e:
+            print(f"LLM_J evaluation error: {e}")
+            return 0.0
 
     async def calculate_answer_score(
         self, expected: str, predicted: str, question: str = ""
@@ -966,6 +1155,16 @@ Return ONLY a decimal F1 score between 0.0 and 1.0 (like 0.75 or 0.82)."""
         """Display evaluation results in a formatted table."""
         # Calculate overall stats
         total_questions = len(results)
+        average_f1_score = (
+            sum(r["f1_score"] for r in results) / total_questions
+            if total_questions > 0
+            else 0.0
+        )
+        average_llm_j_score = (
+            sum(r["llm_j_score"] for r in results) / total_questions
+            if total_questions > 0
+            else 0.0
+        )
         average_score = (
             sum(r["score"] for r in results) / total_questions
             if total_questions > 0
@@ -975,21 +1174,34 @@ Return ONLY a decimal F1 score between 0.0 and 1.0 (like 0.75 or 0.82)."""
         # Display summary
         self.console.print("\n⏺ QA Evaluation Results", style="white")
         self.console.print(f"⏺ Total Questions: {total_questions}", style="white")
-        self.console.print(f"⏺ Average Score: {average_score:.3f}", style="white")
+        self.console.print(f"⏺ Average F1 Score: {average_f1_score:.3f}", style="white")
+        self.console.print(f"⏺ Average LLM_J Score: {average_llm_j_score:.3f}", style="white")
+        self.console.print(f"⏺ Average Score (backward compatibility): {average_score:.3f}", style="white")
 
         # Display detailed results
         table = Table(title="QA Evaluation Details", show_lines=True)
-        table.add_column("Question", style="white", max_width=35)
-        table.add_column("Expected", style="white", max_width=40)
-        table.add_column("Predicted", style="white", max_width=40)
+        table.add_column("Question", style="white", max_width=30)
+        table.add_column("Expected", style="white", max_width=25)
+        table.add_column("Predicted", style="white", max_width=25)
         table.add_column("F1 Score", style="white", justify="right")
+        table.add_column("LLM_J", style="white", justify="right")
         table.add_column("Memories", style="white", justify="right")
 
         for result in results[:20]:  # Show first 20 results
-            score_color = (
+            f1_score_color = (
                 "green"
-                if result["score"] >= 0.7
-                else "red" if result["score"] == 0 else "yellow"
+                if result["f1_score"] >= 0.7
+                else "red"
+                if result["f1_score"] == 0
+                else "yellow"
+            )
+            
+            llm_j_score_color = (
+                "green"
+                if result["llm_j_score"] >= 0.8
+                else "red"
+                if result["llm_j_score"] == 0
+                else "yellow"
             )
 
             # Show full text for better analysis - don't truncate expected/predicted
@@ -1009,7 +1221,8 @@ Return ONLY a decimal F1 score between 0.0 and 1.0 (like 0.75 or 0.82)."""
                 question_text,
                 expected_text,
                 predicted_text,
-                f"[{score_color}]{result['score']:.2f}[/{score_color}]",
+                f"[{f1_score_color}]{result['f1_score']:.2f}[/{f1_score_color}]",
+                f"[{llm_j_score_color}]{result['llm_j_score']:.2f}[/{llm_j_score_color}]",
                 str(
                     len(result["retrieved_memories"])
                     if isinstance(result["retrieved_memories"], list)
@@ -1158,51 +1371,23 @@ async def main():
                         # First check for raw_text (new format)
                         if "raw_text" in memory_data:
                             raw_text = memory_data.get("raw_text", "")
-                            session_date = memory_data.get("session_date", "N/A")
-                            conversation_context = memory_data.get(
-                                "conversation_context", []
-                            )
-                            context_summary = memory_data.get("context_summary", "")
                             classification_paths = memory_data.get(
                                 "classification_paths", []
                             )
-                            merge_count = memory_data.get("merge_count", 0)
-                            last_merged = memory_data.get("last_merged", "")
-
-                            f.write(f"  Session Date: {session_date}\n")
-
-                            # Show merge information if applicable
-                            if merge_count > 0:
-                                f.write(
-                                    f"  Merged Memory: {merge_count} merges, last merged: {last_merged}\n"
-                                )
 
                             # Show multi-label classification if available
                             if classification_paths and len(classification_paths) > 1:
                                 f.write(
                                     f"  Multi-Label Classification ({len(classification_paths)} paths):\n"
                                 )
-                                for i, path in enumerate(classification_paths, 1):
-                                    f.write(f"    {i}. {path}\n")
-                            elif classification_paths:
-                                f.write(
-                                    f"  Classification Path: {classification_paths[0]}\n"
-                                )
+                                for idx, path in enumerate(classification_paths, 1):
+                                    f.write(f"    {idx}. {path}\n")
+                            
+                            f.write("\n")  # Add spacing before entries
 
-                            # Show conversation context before raw text for better readability
-                            if conversation_context:
-                                f.write(
-                                    f"  Conversation Context ({len(conversation_context)} exchanges):\n"
-                                )
-                                for i, context_item in enumerate(
-                                    conversation_context, 1
-                                ):
-                                    f.write(f"    {i}. {context_item}\n")
-
-                            if context_summary:
-                                f.write(f"  Context Summary: {context_summary}\n")
-
-                            f.write(f"  Raw Text: {raw_text}\n")
+                            # Parse raw_text to extract entries and format them properly
+                            session_date = memory_data.get("session_date", "N/A")
+                            evaluator._write_formatted_memory_entries(f, raw_text, session_date)
 
                         # Check for content field (legacy format or search results)
                         elif "content" in memory_data:
@@ -1300,6 +1485,16 @@ async def main():
 
             # Write summary
             total_questions = len(results)
+            average_f1_score = (
+                sum(r["f1_score"] for r in results) / total_questions
+                if total_questions > 0
+                else 0.0
+            )
+            average_llm_j_score = (
+                sum(r["llm_j_score"] for r in results) / total_questions
+                if total_questions > 0
+                else 0.0
+            )
             average_score = (
                 sum(r["score"] for r in results) / total_questions
                 if total_questions > 0
@@ -1307,32 +1502,34 @@ async def main():
             )
 
             f.write(f"Total Questions: {total_questions}\n")
-            f.write(f"Average Score: {average_score:.3f}\n\n")
+            f.write(f"Average F1 Score: {average_f1_score:.3f}\n")
+            f.write(f"Average LLM_J Score: {average_llm_j_score:.3f}\n")
+            f.write(f"Average Score (backward compatibility): {average_score:.3f}\n\n")
 
             # Write QA Evaluation Details in table format
             f.write("QA Evaluation Details\n")
-            f.write("=" * 80 + "\n")
+            f.write("=" * 90 + "\n")
             f.write(
-                f"{'Question':<20} | {'Expected':<18} | {'Predicted':<18} | {'F1 Score':<8} | {'Memories':<8}\n"
+                f"{'Question':<18} | {'Expected':<15} | {'Predicted':<15} | {'F1':<6} | {'LLM_J':<6} | {'Mem':<4}\n"
             )
-            f.write("-" * 80 + "\n")
+            f.write("-" * 90 + "\n")
 
             for result in results[:20]:  # Match the console limit
                 question_text = (
-                    result["question"][:17] + "..."
-                    if len(result["question"]) > 17
+                    result["question"][:15] + "..."
+                    if len(result["question"]) > 15
                     else result["question"]
                 )
                 expected_text = str(result["expected_answer"])
                 expected_text = (
-                    expected_text[:15] + "..."
-                    if len(expected_text) > 15
+                    expected_text[:12] + "..."
+                    if len(expected_text) > 12
                     else expected_text
                 )
                 predicted_text = str(result["predicted_answer"])
                 predicted_text = (
-                    predicted_text[:15] + "..."
-                    if len(predicted_text) > 15
+                    predicted_text[:12] + "..."
+                    if len(predicted_text) > 12
                     else predicted_text
                 )
                 # Safety check for retrieved_memories
@@ -1342,17 +1539,19 @@ async def main():
                 memory_count = len(retrieved_memories)
 
                 f.write(
-                    f"{question_text:<20} | {expected_text:<18} | {predicted_text:<18} | {result['score']:>8.2f} | {memory_count:>8}\n"
+                    f"{question_text:<18} | {expected_text:<15} | {predicted_text:<15} | {result['f1_score']:>6.2f} | {result['llm_j_score']:>6.2f} | {memory_count:>4}\n"
                 )
 
-            f.write("-" * 80 + "\n\n")
+            f.write("-" * 90 + "\n\n")
 
             # Write detailed results
             for i, result in enumerate(results, 1):
                 f.write(f"\nQuestion {i}: {result['question']}\n")
                 f.write(f"Expected: {result['expected_answer']}\n")
                 f.write(f"Predicted: {result['predicted_answer']}\n")
-                f.write(f"Score: {result['score']:.2f}\n")
+                f.write(f"F1 Score: {result['f1_score']:.2f}\n")
+                f.write(f"LLM_J Score: {result['llm_j_score']:.2f}\n")
+                f.write(f"Score (backward compatibility): {result['score']:.2f}\n")
 
                 # Add evidence information if available
                 evidence = result.get("evidence", [])

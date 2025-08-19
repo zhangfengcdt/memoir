@@ -58,7 +58,7 @@ This project brings Git-like version control to AI memory systems, replacing opa
 #### 2. **Classification Pipeline**
 Three-tier classification system with intelligent fallbacks:
 1. **Fast Pattern Matching**: 1-5ms keyword-based classification
-2. **LLM Classification**: GPT-4/Claude for ambiguous cases  
+2. **LLM Classification**: GPT-4/Claude for ambiguous cases
 3. **Iterative Expansion**: Dynamic taxonomy growth based on unclassified content
 
 #### 3. **Storage Layer** (`core/prolly_adapter.py`)

@@ -13,7 +13,6 @@ from .iterative_taxonomy import (
     LLMExpansionStrategy,
     LLMIterativeTaxonomy,
 )
-from .semantic_taxonomy import get_taxonomy
 from .taxonomy_presets import TaxonomyVersion
 
 logger = logging.getLogger(__name__)
@@ -117,8 +116,9 @@ class IntelligentClassifier:
 
         # Initialize with preset-based taxonomy to include the new entity/language/topics categories
         from memoir.taxonomy.taxonomy_presets import TaxonomyPresets
+
         preset_paths = TaxonomyPresets.get_preset(taxonomy_version)
-        
+
         # Create a simple taxonomy object that provides get_all_paths() method
         class PresetTaxonomy:
             def __init__(self, preset_paths):
@@ -130,13 +130,13 @@ class IntelligentClassifier:
                     for path in paths:
                         full_path = f"{category}.{path}"
                         self._all_paths.append(full_path)
-            
+
             def get_all_paths(self):
                 return sorted(self._all_paths)
-            
+
             def is_valid_path(self, path):
                 return path in self._all_paths
-        
+
         self.taxonomy = PresetTaxonomy(preset_paths)
 
         # Also keep iterative taxonomy for expansion capabilities if needed
@@ -269,7 +269,15 @@ class IntelligentClassifier:
                 "   - 0.3-0.4: Poor fit, content is vague or path is not ideal",
                 "   - 0.0-0.2: Very poor fit, should probably not be stored",
                 "",
-                f"Content to analyze: {content}",
+                f"Content to analyze (from [SELF]): {content}",
+            ]
+        )
+
+        # Always clarify that content is from [SELF] perspective
+        prompt_parts.extend(
+            [
+                "",
+                "IMPORTANT: The content above is from [SELF] - classify based on their personal perspective/experience.",
             ]
         )
 
@@ -278,6 +286,10 @@ class IntelligentClassifier:
                 [
                     "",
                     "Previous conversation context (ONLY for understanding, DO NOT classify based on this):",
+                    "Speaker Attribution Guide:",
+                    "  [SELF] = The person whose memory you're classifying speaking",
+                    "  [OTHER] = Someone else speaking to them",
+                    "",
                 ]
             )
             for i, prev_exchange in enumerate(conversation_context, 1):
@@ -485,32 +497,40 @@ class IntelligentClassifier:
                                     f"Rejecting single-level path: {path}. Minimum 2 levels required."
                                 )
                                 continue
-                            
+
                             # Try to find a valid 2+ level path in the same domain
                             domain = path_parts[0]
-                            valid_domain_paths = [p for p in all_paths if p.startswith(f"{domain}.") and len(p.split(".")) >= 2]
-                            
+                            valid_domain_paths = [
+                                p
+                                for p in all_paths
+                                if p.startswith(f"{domain}.") and len(p.split(".")) >= 2
+                            ]
+
                             if valid_domain_paths:
                                 # Use a sensible default path in this domain as fallback
                                 domain_defaults = {
                                     "preferences": "preferences.personal.interests",
-                                    "relationships": "relationships.people.friends.close", 
+                                    "relationships": "relationships.people.friends.close",
                                     "topics": "topics.social_issues.community",
                                     "goals": "goals.categories.personal.growth",
                                     "experience": "experience.memories.recent",
                                     "entity": "entity.people.mentioned.friends",
                                     "profile": "profile.personal.characteristics",
                                     "knowledge": "knowledge.facts.personal",
-                                    "behavior": "behavior.patterns.social"
+                                    "behavior": "behavior.patterns.social",
                                 }
-                                
-                                fallback_path = domain_defaults.get(domain, valid_domain_paths[0])
+
+                                fallback_path = domain_defaults.get(
+                                    domain, valid_domain_paths[0]
+                                )
                                 logger.info(
                                     f"Single-level '{domain}' converted to specific path: {fallback_path}"
                                 )
                                 validated_paths.append(fallback_path)
                             else:
-                                logger.warning(f"No valid paths found for domain {domain}, skipping classification")
+                                logger.warning(
+                                    f"No valid paths found for domain {domain}, skipping classification"
+                                )
 
             # Enforce top-level category rule for multi-label classification
             if len(validated_paths) > 1:
@@ -831,16 +851,18 @@ class IntelligentClassifier:
 
         return classification
 
-    async def _generate_entity_storage_key(self, path: str, content: str, memory_data: dict) -> str:
+    async def _generate_entity_storage_key(
+        self, path: str, content: str, memory_data: dict
+    ) -> str:
         """
         Generate entity-specific storage keys to avoid duplicate records for the same entities.
-        
+
         For entity paths, we'll ask the LLM to identify the specific entity mentioned.
         For non-entity paths, return the original path.
         """
         if not path.startswith("entity."):
             return path
-        
+
         # For entity paths, we'll use the LLM to identify the specific entity
         # This is more accurate than regex-based extraction
         try:
@@ -851,7 +873,7 @@ class IntelligentClassifier:
                 return f"{path}#{clean_name}"
         except Exception as e:
             logger.warning(f"Failed to get entity name from LLM: {e}")
-        
+
         # If no specific entity found or LLM failed, use original path
         return path
 
@@ -872,7 +894,7 @@ class IntelligentClassifier:
             entity_type = "time or date reference"
         elif "objects." in path:
             entity_type = "object or item"
-        
+
         prompt = f"""Extract the most important {entity_type} mentioned in this text. Return only the name/identifier, nothing else.
 
 Text: {content}
@@ -887,23 +909,23 @@ Requirements:
 
 Examples:
 - Text: "I went with my friend Sarah" → Sarah
-- Text: "We visited New York City" → New York City  
+- Text: "We visited New York City" → New York City
 - Text: "I work at Google Inc" → Google Inc
 - Text: "Yesterday was great" → yesterday"""
 
         try:
             response = await self.llm.ainvoke(prompt)
             entity_name = response.content.strip()
-            
+
             # Clean up the response
-            if entity_name.lower() in ['none', 'null', 'n/a', '']:
+            if entity_name.lower() in ["none", "null", "n/a", ""]:
                 return None
-            
+
             # Remove quotes if present
-            entity_name = entity_name.strip('"\'')
-            
+            entity_name = entity_name.strip("\"'")
+
             return entity_name if entity_name else None
-            
+
         except Exception as e:
             logger.error(f"LLM entity extraction failed: {e}")
             return None
@@ -968,22 +990,28 @@ Examples:
             # Store simplified memory structure with only essential fields
             from datetime import datetime
 
-            # Prepare memory data with conversation context
+            # Prepare memory data with conversation context embedded in raw_text
+            formatted_content = content
+            if conversation_context:
+                # Include context directly in raw_text for clear association
+                context_lines = []
+                for ctx in conversation_context:
+                    context_lines.append(f"Context: {ctx}")
+                context_section = "\n".join(context_lines) + "\n"
+                formatted_content = f"{context_section}{content}"
+            
             memory_data = {
-                "raw_text": content,  # Store raw conversation text
-                "session_date": metadata.get("session_date", datetime.now().isoformat()) if metadata else datetime.now().isoformat(),  # Use actual session date from JSON
+                "raw_text": formatted_content,  # Store raw conversation text with context
+                "session_date": metadata.get("session_date", datetime.now().isoformat())
+                if metadata
+                else datetime.now().isoformat(),  # Use actual session date from JSON
                 "confidence": classification.confidence,
                 "classification_paths": paths_to_store,  # Store all paths this content was classified under
             }
 
-            # Include conversation context if it was provided during classification
+            # Keep conversation context in metadata for search/retrieval purposes
             if conversation_context:
                 memory_data["conversation_context"] = conversation_context
-                # Only create summary if there are multiple context items (to avoid duplication)
-                if len(conversation_context) > 1:
-                    memory_data["context_summary"] = (
-                        f"Context: {' | '.join(conversation_context[-3:])}"
-                    )
 
             # Limit to maximum 2 paths for conservative multi-labeling
             paths_to_store = paths_to_store[:2]
@@ -992,8 +1020,10 @@ Examples:
             for path in paths_to_store:
                 try:
                     # For entity paths, create more specific storage keys to avoid duplication
-                    storage_key = await self._generate_entity_storage_key(path, content, memory_data)
-                    
+                    storage_key = await self._generate_entity_storage_key(
+                        path, content, memory_data
+                    )
+
                     # Check for existing content at this storage key
                     existing = self.memory_store.get(namespace, storage_key)
 
@@ -1084,25 +1114,33 @@ Examples:
 
             # Append new content to existing with clear separation
             if existing_content and new_content:
-                # Combine raw texts with clear separator and timestamps
+                # Use the session_date directly - it's already formatted from the JSON
                 timestamp = new_memory.get("session_date", "unknown time")
-                # Format timestamp for better readability
-                try:
-                    from datetime import datetime
-
-                    if timestamp != "unknown time":
-                        dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-                        formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S")
-                    else:
-                        formatted_time = timestamp
-                except Exception:
-                    formatted_time = timestamp
-
+                
+                # Create clear separation with context included in each entry
+                new_entry_header = f"--- NEW ENTRY ({timestamp}) ---"
+                
+                # Include the conversation context for this new entry if available
+                context_section = ""
+                if conversation_context:
+                    context_lines = []
+                    for ctx in conversation_context:
+                        context_lines.append(f"  Context: {ctx}")
+                    context_section = "\n".join(context_lines) + "\n"
+                
                 merged_memory["raw_text"] = (
-                    f"{existing_content}\n\n--- NEW ENTRY ({formatted_time}) ---\n{new_content}"
+                    f"{existing_content}\n\n{new_entry_header}\n{context_section}{new_content}"
                 )
             elif new_content:
-                merged_memory["raw_text"] = new_content
+                # For first entry, include context if available
+                if conversation_context:
+                    context_lines = []
+                    for ctx in conversation_context:
+                        context_lines.append(f"Context: {ctx}")
+                    context_section = "\n".join(context_lines) + "\n"
+                    merged_memory["raw_text"] = f"{context_section}{new_content}"
+                else:
+                    merged_memory["raw_text"] = new_content
 
             # Update session date to most recent
             merged_memory["session_date"] = new_memory.get(
@@ -1114,23 +1152,13 @@ Examples:
             new_confidence = new_memory.get("confidence", 0.0)
             merged_memory["confidence"] = max(existing_confidence, new_confidence)
 
-            # Merge conversation context
-            existing_context = existing_memory.get("conversation_context", [])
-            new_context = conversation_context or []
-            if new_context:
-                # Keep only recent unique context items to avoid bloat
-                combined_context = existing_context + new_context
-                # Remove duplicates while preserving order
-                seen = set()
-                unique_context = []
-                for item in reversed(combined_context):  # Start from most recent
-                    if item not in seen:
-                        seen.add(item)
-                        unique_context.append(item)
-                unique_context.reverse()  # Restore chronological order
-                merged_memory["conversation_context"] = unique_context[
-                    -5:
-                ]  # Keep last 5
+            # Keep conversation context for metadata but avoid duplication since it's now in raw_text
+            # Store the most recent conversation context for search/retrieval purposes
+            if conversation_context:
+                merged_memory["conversation_context"] = conversation_context
+            else:
+                # Keep existing context if no new context provided
+                merged_memory["conversation_context"] = existing_memory.get("conversation_context", [])
 
             # Update classification paths (union of both sets)
             existing_paths = set(existing_memory.get("classification_paths", []))
