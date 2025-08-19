@@ -118,6 +118,52 @@ class LocomoEvaluator:
 
         return sorted(set(session_list))  # Remove duplicates and sort
 
+    def _is_question(self, text: str) -> bool:
+        """Check if a text contains a question."""
+        # Remove speaker prefix if present (e.g., "Caroline: What do you think?")
+        if ": " in text:
+            text = text.split(": ", 1)[1]
+
+        # Simple heuristics to identify questions
+        text = text.strip()
+        if not text:
+            return False
+
+        # Check for question marks
+        if "?" in text:
+            return True
+
+        # Check for question words at the beginning
+        question_words = [
+            "what",
+            "when",
+            "where",
+            "why",
+            "how",
+            "who",
+            "which",
+            "whose",
+            "whom",
+            "do",
+            "does",
+            "did",
+            "can",
+            "could",
+            "would",
+            "will",
+            "should",
+            "is",
+            "are",
+            "was",
+            "were",
+            "have",
+            "has",
+            "had",
+        ]
+        first_word = text.lower().split()[0] if text.split() else ""
+
+        return first_word in question_words
+
     async def setup(self):
         """Initialize all components."""
         # Get LLM
@@ -265,6 +311,7 @@ class LocomoEvaluator:
         logging.getLogger().setLevel(logging.ERROR)  # Only show errors
 
         processed_count = 0
+        conversation_history = []  # Track conversation history for context
 
         for session_key in session_keys:
             session_data = self.conversation_data.get(session_key, [])
@@ -274,40 +321,51 @@ class LocomoEvaluator:
 
             for exchange in session_data:
                 speaker = exchange.get("speaker")
+                text = exchange.get("text", "")
+
+                # Add all exchanges to conversation history (for context)
+                if text.strip():
+                    conversation_history.append(f"{speaker}: {text}")
+
                 # Process memories only for the specified person
-                if speaker == self.person_name:
-                    text = exchange.get("text", "")
-                    if text.strip():
-                        # Update progress in place
-                        self.console.print(
-                            f"⏺ Processing memories... {processed_count + 1}/{total_exchanges}",
-                            style="white",
-                            end="\r",
+                if speaker == self.person_name and text.strip():
+                    # Update progress in place
+                    self.console.print(
+                        f"⏺ Processing memories... {processed_count + 1}/{total_exchanges}",
+                        style="white",
+                        end="\r",
+                    )
+
+                    # Add metadata including dialogue ID and session date for reference
+                    metadata = {
+                        "source": "locomo_conversation",
+                        "session": session_key,
+                        "session_date": session_date,
+                        "dia_id": exchange.get("dia_id", ""),
+                        "speaker": speaker,
+                    }
+
+                    # Get selective conversation context - only include the most recent question
+                    conversation_context = []
+                    if len(conversation_history) > 1:
+                        # Look backwards through previous exchanges to find the most recent question
+                        for prev_exchange in reversed(conversation_history[:-1]):
+                            # Check if the exchange contains a question
+                            if self._is_question(prev_exchange):
+                                conversation_context.append(prev_exchange)
+                                # Only include the most recent question to avoid noise
+                                break
+
+                    # Store the pure dialog text with conversation context
+                    try:
+                        await self.intelligent_classifier.process_memory_with_storage(
+                            text, metadata, conversation_context
                         )
+                        memories_processed += 1
+                    except Exception as e:
+                        logger.warning(f"Failed to process: {text[:50]}... Error: {e}")
 
-                        # Add metadata including dialogue ID and session date for reference
-                        metadata = {
-                            "source": "locomo_conversation",
-                            "session": session_key,
-                            "session_date": session_date,
-                            "dia_id": exchange.get("dia_id", ""),
-                            "speaker": speaker,
-                        }
-
-                        # Store the pure dialog text without session date metadata
-                        try:
-                            await (
-                                self.intelligent_classifier.process_memory_with_storage(
-                                    text, metadata
-                                )
-                            )
-                            memories_processed += 1
-                        except Exception as e:
-                            logger.warning(
-                                f"Failed to process: {text[:50]}... Error: {e}"
-                            )
-
-                        processed_count += 1
+                    processed_count += 1
 
         # Restore logging level
         logging.getLogger().setLevel(old_level)
@@ -581,13 +639,15 @@ Retrieved Context:
 Question: {question}
 
 EXTRACTION RULES:
-1. Return ONLY the direct factual answer
+1. Return ONLY the direct factual answer (NO explanations, NO prefixes like "Caroline went to...")
 2. If genuinely no relevant information: "Information not found"
 3. Look for ANY mention that could answer the question
 4. Be LESS STRICT - extract information even if not perfectly phrased
 5. Make reasonable inferences from context when the answer is implied
+6. Keep answers EXTREMELY CONCISE (typically 1-5 words)
+7. DO NOT include the person's name or phrases like "According to..." or "Based on..."
 
-Answer:"""
+Direct Answer (just the fact, nothing else):"""
 
         # Removed per-question debug output
 
@@ -619,45 +679,24 @@ Answer:"""
         }
 
     def post_process_answer(self, answer: str) -> str:
-        """Post-process LLM answer to make it more concise and direct."""
+        """Minimal post-processing to ensure answer conciseness.
+        
+        With improved prompting that explicitly requests concise answers,
+        most verbose patterns should be avoided at the source.
+        We keep only basic cleanup as a safety net.
+        """
         if not answer:
             return answer
-
-        # Remove common verbose prefixes
-        verbose_prefixes = [
-            "Caroline went to",
-            "Caroline has decided",
-            "Caroline would likely",
-            "Caroline participate",
-            "Melanie partakes in",
-            "Melanie has gone",
-            "Information shows",
-            "According to the memories",
-            "Based on the information",
-            "The memories indicate",
-            "From the context",
-        ]
-
-        answer_lower = answer.lower()
-        for prefix in verbose_prefixes:
-            if answer_lower.startswith(prefix.lower()):
-                # Extract the key information after the prefix
-                remaining = answer[len(prefix) :].strip()
-                if remaining.startswith(" that "):
-                    remaining = remaining[5:].strip()
-                if remaining and not remaining.startswith("to "):
-                    answer = remaining
-                break
-
-        # Clean up sentence endings
-        if answer.endswith("."):
-            answer = answer[:-1]
 
         # Remove quotes if they wrap the entire answer
         if answer.startswith('"') and answer.endswith('"'):
             answer = answer[1:-1]
+        
+        # Remove trailing period for consistency
+        if answer.endswith("."):
+            answer = answer[:-1]
 
-        # Limit length (keep first 8 words max)
+        # Limit length as a final safety check (keep first 8 words max)
         words = answer.split()
         if len(words) > 8:
             answer = " ".join(words[:8])
@@ -1106,13 +1145,11 @@ async def main():
                         semantic_key = storage_key
 
                     f.write(f"Memory {i}:\n")
-                    f.write(f"  Storage Key: {storage_key}\n")
-                    f.write(f"  Semantic Path: {semantic_key}\n")
+                    f.write(f"  Path: {semantic_key}\n")
                     f.write(f"  Namespace: {':'.join(namespace)}\n")
 
                     if isinstance(memory_data, dict):
                         # Pretty print the memory data
-                        f.write(f"  Timestamp: {memory_data.get('timestamp', 'N/A')}\n")
                         f.write(
                             f"  Confidence: {memory_data.get('confidence', 'N/A')}\n"
                         )
@@ -1122,9 +1159,49 @@ async def main():
                         if "raw_text" in memory_data:
                             raw_text = memory_data.get("raw_text", "")
                             session_date = memory_data.get("session_date", "N/A")
+                            conversation_context = memory_data.get(
+                                "conversation_context", []
+                            )
+                            context_summary = memory_data.get("context_summary", "")
+                            classification_paths = memory_data.get(
+                                "classification_paths", []
+                            )
+                            merge_count = memory_data.get("merge_count", 0)
+                            last_merged = memory_data.get("last_merged", "")
 
-                            f.write("  Memory Format: New format (raw_text)\n")
                             f.write(f"  Session Date: {session_date}\n")
+
+                            # Show merge information if applicable
+                            if merge_count > 0:
+                                f.write(
+                                    f"  Merged Memory: {merge_count} merges, last merged: {last_merged}\n"
+                                )
+
+                            # Show multi-label classification if available
+                            if classification_paths and len(classification_paths) > 1:
+                                f.write(
+                                    f"  Multi-Label Classification ({len(classification_paths)} paths):\n"
+                                )
+                                for i, path in enumerate(classification_paths, 1):
+                                    f.write(f"    {i}. {path}\n")
+                            elif classification_paths:
+                                f.write(
+                                    f"  Classification Path: {classification_paths[0]}\n"
+                                )
+
+                            # Show conversation context before raw text for better readability
+                            if conversation_context:
+                                f.write(
+                                    f"  Conversation Context ({len(conversation_context)} exchanges):\n"
+                                )
+                                for i, context_item in enumerate(
+                                    conversation_context, 1
+                                ):
+                                    f.write(f"    {i}. {context_item}\n")
+
+                            if context_summary:
+                                f.write(f"  Context Summary: {context_summary}\n")
+
                             f.write(f"  Raw Text: {raw_text}\n")
 
                         # Check for content field (legacy format or search results)

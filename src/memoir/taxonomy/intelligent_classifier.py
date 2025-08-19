@@ -51,13 +51,24 @@ class ClassificationResult:
     """Result of LLM classification."""
 
     is_memory: bool
-    path: Optional[str]
     confidence: float
     confidence_level: ClassificationConfidence
     reasoning: str
     suggested_action: ClassificationAction
+    path: Optional[str] = None  # Primary path (for backward compatibility)
+    paths: Optional[list[str]] = None  # Multiple paths for multi-label classification
     suggested_expansion: Optional[str] = None  # For low confidence
     use_parent: bool = False  # For low confidence
+
+    @property
+    def all_paths(self) -> list[str]:
+        """Get all classification paths (primary + additional)."""
+        if self.paths:
+            return self.paths
+        elif self.path:
+            return [self.path]
+        else:
+            return []
 
 
 @dataclass
@@ -104,9 +115,30 @@ class IntelligentClassifier:
         self.memory_store = memory_store
         self.taxonomy_version = taxonomy_version
 
-        # Initialize with full semantic taxonomy instead of limited iterative taxonomy
-        # This gives us access to all 1000+ predefined paths including machine learning
-        self.taxonomy = get_taxonomy()
+        # Initialize with preset-based taxonomy to include the new entity/language/topics categories
+        from memoir.taxonomy.taxonomy_presets import TaxonomyPresets
+        preset_paths = TaxonomyPresets.get_preset(taxonomy_version)
+        
+        # Create a simple taxonomy object that provides get_all_paths() method
+        class PresetTaxonomy:
+            def __init__(self, preset_paths):
+                self.preset_paths = preset_paths
+                self._all_paths = []
+                for category, paths in preset_paths.items():
+                    # Add top-level category
+                    self._all_paths.append(category)
+                    # Add all subcategory paths with proper prefixing
+                    for path in paths:
+                        full_path = f"{category}.{path}"
+                        self._all_paths.append(full_path)
+            
+            def get_all_paths(self):
+                return sorted(self._all_paths)
+            
+            def is_valid_path(self, path):
+                return path in self._all_paths
+        
+        self.taxonomy = PresetTaxonomy(preset_paths)
 
         # Also keep iterative taxonomy for expansion capabilities if needed
         self.iterative_taxonomy = LLMIterativeTaxonomy(
@@ -136,7 +168,10 @@ class IntelligentClassifier:
             return ClassificationConfidence.LOW
 
     async def classify_input(
-        self, content: str, metadata: Optional[dict] = None
+        self,
+        content: str,
+        metadata: Optional[dict] = None,
+        conversation_context: Optional[list[str]] = None,
     ) -> ClassificationResult:
         """
         Classify input using LLM to determine if it's memory-worthy and where to store it.
@@ -144,6 +179,7 @@ class IntelligentClassifier:
         Args:
             content: The content to classify
             metadata: Optional metadata about the content
+            conversation_context: Optional list of previous conversation exchanges for context
 
         Returns:
             ClassificationResult with classification details
@@ -152,7 +188,9 @@ class IntelligentClassifier:
         all_paths = self.taxonomy.get_all_paths()
 
         # Build classification prompt
-        prompt = self._build_classification_prompt(content, all_paths, metadata)
+        prompt = self._build_classification_prompt(
+            content, all_paths, metadata, conversation_context
+        )
 
         try:
             # Call LLM for classification
@@ -179,7 +217,11 @@ class IntelligentClassifier:
             )
 
     def _build_classification_prompt(
-        self, content: str, paths: list[str], metadata: Optional[dict]
+        self,
+        content: str,
+        paths: list[str],
+        metadata: Optional[dict],
+        conversation_context: Optional[list[str]] = None,
     ) -> str:
         """Build prompt for LLM classification."""
         # Get first-level categories for context
@@ -232,6 +274,16 @@ class IntelligentClassifier:
             ]
         )
 
+        if conversation_context:
+            prompt_parts.extend(
+                [
+                    "",
+                    "Previous conversation context (for better classification):",
+                ]
+            )
+            for i, prev_exchange in enumerate(conversation_context, 1):
+                prompt_parts.append(f"  {i}. {prev_exchange}")
+
         if metadata:
             prompt_parts.append(f"Metadata: {json.dumps(metadata)}")
 
@@ -266,20 +318,43 @@ class IntelligentClassifier:
             [
                 "",
                 "Classification guidelines:",
-                "- ONLY suggest COMPLETE paths that exist EXACTLY in the full taxonomy above",
+                "- PREFER existing COMPLETE paths that exist EXACTLY in the full taxonomy above",
                 "- Use the full hierarchical path (e.g., preferences.personal.lifestyle.routine.morning)",
-                "- If content doesn't fit existing paths well, use low confidence (< 0.6)",
+                "- If content doesn't fit existing paths well, you can suggest NEW TOP-LEVEL CATEGORIES",
+                "- Examples of top-level categories: entity, language, topics, profile, preferences, goals, etc.",
                 "- Use appropriate hierarchical depth (2-4 levels recommended)",
                 "- Follow natural conceptual progression: general → specific",
                 "- Avoid skipping intermediate conceptual levels",
                 "- Consider existing similar paths for consistency",
                 "",
+                "NEW TOP-LEVEL CATEGORY GUIDELINES:",
+                "- Only suggest new top-level categories if existing ones truly don't fit",
+                "- New categories should be broad, fundamental aspects of human experience",
+                "- Format: new_category.subcategory.specific_aspect",
+                "- Examples: entity.people.mentioned.friends, language.slang.expressions, topics.technology.artificial_intelligence",
+                "",
+                "MULTI-LABEL CLASSIFICATION (USE VERY SPARINGLY):",
+                "- ONLY use multiple paths when content contains information that belongs to DIFFERENT TOP-LEVEL CATEGORIES",
+                "- You can also suggest new top-level categories if content doesn't fit existing ones",
+                "- Example: 'I'm a single parent looking to adopt' maps to:",
+                "  * profile.living.arrangements (PROFILE category - single parent status)",
+                "  * goals.categories.personal.relationships (GOALS category - adoption goal)",
+                "- Example with new categories: 'My friend Sarah mentioned she loves AI technology' maps to:",
+                "  * entity.people.mentioned.friends (ENTITY category - person mentioned)",
+                "  * topics.technology.artificial_intelligence (TOPICS category - subject discussed)",
+                "- DO NOT use multiple paths if both pieces of information belong to the SAME top-level category",
+                "- Examples of SINGLE path (same top-level category):",
+                "  * 'I work as a software engineer and enjoy coding' → professional.occupation (both are PROFILE)",
+                "  * 'I want to learn guitar and piano' → goals.categories.education.skills (both are GOALS)",
+                "- Maximum 2 paths, and ONLY when they have different top-level categories",
+                "- When in doubt, use SINGLE path classification",
+                "",
                 "Respond in JSON format:",
                 "{",
                 '  "is_memory": true/false,',
-                '  "path": "suggested.path.here" or null,',
+                '  "paths": ["primary.path.here", "secondary.path.here"] or ["single.path"] or null,',
                 '  "confidence": 0.0-1.0,',
-                '  "reasoning": "explanation of decision and path choice"',
+                '  "reasoning": "explanation of decision and path choices"',
                 "}",
             ]
         )
@@ -318,34 +393,112 @@ class IntelligentClassifier:
                     "reasoning": "Failed to parse response",
                 }
 
-            # Validate that the suggested path actually exists in taxonomy
-            suggested_path = data.get("path")
-            all_paths = self.taxonomy.get_all_paths()
+            # Handle both single path (backward compatibility) and multiple paths
+            suggested_paths = data.get("paths")
+            suggested_path = data.get("path")  # For backward compatibility
 
-            if suggested_path and suggested_path not in all_paths:
-                logger.warning(
-                    f"LLM suggested invalid path '{suggested_path}'. "
-                    f"Available paths that contain relevant keywords: "
-                    f"{[p for p in all_paths if any(word in p for word in suggested_path.split('.') if word != 'other')][:5]}"
-                )
-                # Try to find a close match or fall back to a more general path
-                path_parts = suggested_path.split(".")
-                for i in range(len(path_parts), 0, -1):
-                    partial_path = ".".join(path_parts[:i])
-                    if partial_path in all_paths:
-                        logger.info(f"Using valid parent path: {partial_path}")
-                        suggested_path = partial_path
-                        break
-                else:
-                    # Fall back to top-level category if no valid path found
-                    if path_parts and path_parts[0] in all_paths:
-                        suggested_path = path_parts[0]
-                        logger.info(
-                            f"Falling back to top-level category: {suggested_path}"
-                        )
+            # Normalize to list format
+            if suggested_paths:
+                paths_to_validate = suggested_paths
+            elif suggested_path:
+                paths_to_validate = [suggested_path]
+            else:
+                paths_to_validate = []
+
+            # Validate that all suggested paths exist in taxonomy
+            all_paths = self.taxonomy.get_all_paths()
+            validated_paths = []
+
+            # Existing top-level categories
+            existing_top_level = {
+                p.split(".")[0]
+                for p in all_paths
+                if "." in p
+                or p
+                in [
+                    "profile",
+                    "preferences",
+                    "experience",
+                    "context",
+                    "knowledge",
+                    "relationships",
+                    "goals",
+                    "behavior",
+                ]
+            }
+
+            for path in paths_to_validate:
+                if path and path in all_paths:
+                    # Existing path - use as is
+                    validated_paths.append(path)
+                elif path:
+                    path_parts = path.split(".")
+                    top_level_category = path_parts[0]
+
+                    # Check if this is a new top-level category
+                    if (
+                        top_level_category not in existing_top_level
+                        and len(path_parts) >= 2
+                    ):
+                        # This appears to be a new top-level category suggestion
+                        logger.info(f"LLM suggested new top-level category: {path}")
+                        validated_paths.append(path)  # Accept new category paths
                     else:
-                        suggested_path = "other"
-                        logger.info("Falling back to 'other' category")
+                        # Try to find existing path or fallback
+                        logger.warning(
+                            f"LLM suggested invalid path '{path}'. "
+                            f"Available paths that contain relevant keywords: "
+                            f"{[p for p in all_paths if any(word in p for word in path.split('.') if word != 'other')][:5]}"
+                        )
+                        # Try to find a close match or fall back to a more general path
+                        found_valid = False
+                        for i in range(len(path_parts), 0, -1):
+                            partial_path = ".".join(path_parts[:i])
+                            if partial_path in all_paths:
+                                logger.info(f"Using valid parent path: {partial_path}")
+                                validated_paths.append(partial_path)
+                                found_valid = True
+                                break
+
+                        if not found_valid:
+                            # Fall back to top-level category if no valid path found
+                            if path_parts and path_parts[0] in all_paths:
+                                fallback_path = path_parts[0]
+                                logger.info(
+                                    f"Falling back to top-level category: {fallback_path}"
+                                )
+                                validated_paths.append(fallback_path)
+                            else:
+                                logger.info("Falling back to 'other' category")
+                                validated_paths.append("other")
+
+            # Enforce top-level category rule for multi-label classification
+            if len(validated_paths) > 1:
+                top_level_categories = [path.split(".")[0] for path in validated_paths]
+                if len(set(top_level_categories)) == 1:
+                    # All paths are from the same top-level category, keep only the first (most relevant)
+                    logger.info(
+                        f"Multiple paths from same top-level category {top_level_categories[0]}, keeping only primary path: {validated_paths[0]}"
+                    )
+                    validated_paths = [validated_paths[0]]
+                elif len(set(top_level_categories)) > 2:
+                    # More than 2 different top-level categories, keep only first 2
+                    unique_categories = []
+                    filtered_paths = []
+                    for path in validated_paths:
+                        category = path.split(".")[0]
+                        if category not in unique_categories:
+                            unique_categories.append(category)
+                            filtered_paths.append(path)
+                            if len(filtered_paths) == 2:
+                                break
+                    logger.info(
+                        f"More than 2 top-level categories, keeping first 2: {filtered_paths}"
+                    )
+                    validated_paths = filtered_paths
+
+            # Set primary path for backward compatibility
+            primary_path = validated_paths[0] if validated_paths else None
 
             # Parse confidence and apply user threshold filtering
             confidence = float(data.get("confidence", 0.0))
@@ -360,7 +513,10 @@ class IntelligentClassifier:
 
             return ClassificationResult(
                 is_memory=is_memory,
-                path=suggested_path if is_memory else None,
+                path=primary_path if is_memory else None,
+                paths=(
+                    validated_paths if is_memory and len(validated_paths) > 0 else None
+                ),
                 confidence=confidence,
                 confidence_level=ClassificationConfidence.LOW,  # Will be set later
                 reasoning=reasoning_override,
@@ -541,7 +697,10 @@ class IntelligentClassifier:
             logger.error(f"Expansion failed for {parent_path}: {e}")
 
     async def process_classification(
-        self, content: str, metadata: Optional[dict] = None
+        self,
+        content: str,
+        metadata: Optional[dict] = None,
+        conversation_context: Optional[list[str]] = None,
     ) -> ClassificationResult:
         """
         Main entry point for processing classification.
@@ -549,12 +708,15 @@ class IntelligentClassifier:
         Args:
             content: Content to classify
             metadata: Optional metadata
+            conversation_context: Optional list of previous conversation exchanges for context
 
         Returns:
             ClassificationResult with classification details and recommended action
         """
         # Step 1: Classify the input
-        classification = await self.classify_input(content, metadata)
+        classification = await self.classify_input(
+            content, metadata, conversation_context
+        )
 
         # Step 2: Check if it's memory-worthy
         if not classification.is_memory:
@@ -629,8 +791,88 @@ class IntelligentClassifier:
 
         return classification
 
+    async def _generate_entity_storage_key(self, path: str, content: str, memory_data: dict) -> str:
+        """
+        Generate entity-specific storage keys to avoid duplicate records for the same entities.
+        
+        For entity paths, we'll ask the LLM to identify the specific entity mentioned.
+        For non-entity paths, return the original path.
+        """
+        if not path.startswith("entity."):
+            return path
+        
+        # For entity paths, we'll use the LLM to identify the specific entity
+        # This is more accurate than regex-based extraction
+        try:
+            entity_name = await self._get_entity_name_from_llm(content, path)
+            if entity_name:
+                # Clean and format the entity name for storage key
+                clean_name = entity_name.lower().replace(" ", "_").replace("-", "_")
+                return f"{path}#{clean_name}"
+        except Exception as e:
+            logger.warning(f"Failed to get entity name from LLM: {e}")
+        
+        # If no specific entity found or LLM failed, use original path
+        return path
+
+    async def _get_entity_name_from_llm(self, content: str, path: str) -> str:
+        """
+        Use the LLM to identify the specific entity mentioned in the content for the given path.
+        This is more accurate than regex-based extraction.
+        """
+        # Determine what type of entity we're looking for based on the path
+        entity_type = "entity"
+        if "people.mentioned" in path:
+            entity_type = "person name"
+        elif "places." in path:
+            entity_type = "place or location"
+        elif "organizations." in path:
+            entity_type = "organization or company name"
+        elif "time." in path:
+            entity_type = "time or date reference"
+        elif "objects." in path:
+            entity_type = "object or item"
+        
+        prompt = f"""Extract the most important {entity_type} mentioned in this text. Return only the name/identifier, nothing else.
+
+Text: {content}
+Path: {path}
+
+Requirements:
+- Return only the most relevant {entity_type} mentioned
+- Use the exact name/phrase as it appears in the text
+- If multiple {entity_type}s are mentioned, return the most prominent one
+- Return just the name without quotes or explanation
+- If no clear {entity_type} is found, return "none"
+
+Examples:
+- Text: "I went with my friend Sarah" → Sarah
+- Text: "We visited New York City" → New York City  
+- Text: "I work at Google Inc" → Google Inc
+- Text: "Yesterday was great" → yesterday"""
+
+        try:
+            response = await self.llm.ainvoke(prompt)
+            entity_name = response.content.strip()
+            
+            # Clean up the response
+            if entity_name.lower() in ['none', 'null', 'n/a', '']:
+                return None
+            
+            # Remove quotes if present
+            entity_name = entity_name.strip('"\'')
+            
+            return entity_name if entity_name else None
+            
+        except Exception as e:
+            logger.error(f"LLM entity extraction failed: {e}")
+            return None
+
     async def process_memory_with_storage(
-        self, content: str, metadata: Optional[dict] = None
+        self,
+        content: str,
+        metadata: Optional[dict] = None,
+        conversation_context: Optional[list[str]] = None,
     ) -> MemoryProcessingResult:
         """
         Complete memory processing including classification and storage.
@@ -638,12 +880,15 @@ class IntelligentClassifier:
         Args:
             content: Content to process
             metadata: Optional metadata
+            conversation_context: Optional list of previous conversation exchanges for context
 
         Returns:
             MemoryProcessingResult with classification and storage details
         """
         # Step 1: Classify the content
-        classification = await self.process_classification(content, metadata)
+        classification = await self.process_classification(
+            content, metadata, conversation_context
+        )
 
         # Initialize result
         result = MemoryProcessingResult(
@@ -663,8 +908,10 @@ class IntelligentClassifier:
             result.memory_action = MemoryAction.SKIP
             return result
 
-        if not classification.path:
-            result.storage_reasoning = "No classification path provided"
+        # Check if we have any paths to store under
+        paths_to_store = classification.all_paths
+        if not paths_to_store:
+            result.storage_reasoning = "No classification paths provided"
             return result
 
         if not self.memory_store:
@@ -672,47 +919,253 @@ class IntelligentClassifier:
             result.success = False
             return result
 
-        # Step 3: Handle memory storage
+        # Step 3: Handle memory storage under multiple paths
         namespace = ("memory", self.taxonomy_version.value)
+        stored_paths = []
+        storage_errors = []
 
         try:
-            # Check for existing content
-            existing = self.memory_store.get(namespace, classification.path)
+            # Store simplified memory structure with only essential fields
+            from datetime import datetime
 
-            if existing is None:
-                # Store simplified memory structure with only essential fields
-                from datetime import datetime
+            # Prepare memory data with conversation context
+            memory_data = {
+                "raw_text": content,  # Store raw conversation text
+                "session_date": metadata.get("session_date", datetime.now().isoformat()) if metadata else datetime.now().isoformat(),  # Use actual session date from JSON
+                "confidence": classification.confidence,
+                "classification_paths": paths_to_store,  # Store all paths this content was classified under
+            }
 
-                self.memory_store.put(
-                    namespace,
-                    classification.path,
-                    {
-                        "raw_text": content,  # Store raw conversation text
-                        "session_date": datetime.now().isoformat(),  # When this was stored
-                        "confidence": classification.confidence,
-                    },
-                )
+            # Include conversation context if it was provided during classification
+            if conversation_context:
+                memory_data["conversation_context"] = conversation_context
+                # Only create summary if there are multiple context items (to avoid duplication)
+                if len(conversation_context) > 1:
+                    memory_data["context_summary"] = (
+                        f"Context: {' | '.join(conversation_context[-3:])}"
+                    )
+
+            # Limit to maximum 2 paths for conservative multi-labeling
+            paths_to_store = paths_to_store[:2]
+
+            # Store under each classified path
+            for path in paths_to_store:
+                try:
+                    # For entity paths, create more specific storage keys to avoid duplication
+                    storage_key = await self._generate_entity_storage_key(path, content, memory_data)
+                    
+                    # Check for existing content at this storage key
+                    existing = self.memory_store.get(namespace, storage_key)
+
+                    if existing is None:
+                        # Store new memory
+                        self.memory_store.put(namespace, storage_key, memory_data)
+                        stored_paths.append(storage_key)
+                    else:
+                        # Handle existing memory - merge with new content
+                        merged_memory = await self._merge_memories(
+                            existing, memory_data, content, conversation_context
+                        )
+                        if merged_memory:
+                            self.memory_store.put(namespace, storage_key, merged_memory)
+                            stored_paths.append(storage_key)
+                            logger.info(
+                                f"Merged new content with existing memory at storage key {storage_key}"
+                            )
+                        else:
+                            logger.info(
+                                f"Conflict detected, skipping merge at storage key {storage_key}"
+                            )
+
+                except Exception as e:
+                    storage_errors.append(f"Failed to store at {path}: {e}")
+                    logger.error(f"Storage error for path {path}: {e}")
+
+            if stored_paths:
                 result.memory_action = MemoryAction.STORE
-                result.memory_path = classification.path
+                result.memory_path = stored_paths[
+                    0
+                ]  # Primary path for backward compatibility
                 result.new_content = content
-                result.storage_reasoning = f"Stored raw memory ({len(content)} chars)"
-
+                if len(stored_paths) == 1:
+                    result.storage_reasoning = (
+                        f"Stored raw memory at {stored_paths[0]} ({len(content)} chars)"
+                    )
+                else:
+                    result.storage_reasoning = f"Stored raw memory at {len(stored_paths)} paths: {', '.join(stored_paths)} ({len(content)} chars)"
             else:
-                # Handle existing memory
-                update_result = await self._handle_memory_update(
-                    content, existing, classification.path, namespace, metadata
+                result.memory_action = MemoryAction.SKIP
+                result.storage_reasoning = (
+                    f"Failed to store at any path. Errors: {'; '.join(storage_errors)}"
                 )
-                result.memory_action = update_result["action"]
-                result.memory_path = classification.path
-                result.previous_content = existing.get("content", "")
-                result.new_content = update_result.get("new_content")
-                result.storage_reasoning = update_result["reasoning"]
 
         except Exception as e:
             result.success = False
             result.storage_reasoning = f"Storage failed: {e}"
 
         return result
+
+    async def _merge_memories(
+        self,
+        existing_memory: dict,
+        new_memory: dict,
+        new_content: str,
+        conversation_context: Optional[list[str]] = None,
+    ) -> Optional[dict]:
+        """
+        Intelligently merge new memory content with existing memory.
+
+        Args:
+            existing_memory: The existing memory data
+            new_memory: The new memory data to merge
+            new_content: The new raw content text
+            conversation_context: Optional conversation context
+
+        Returns:
+            Merged memory dict if successful, None if conflict detected
+        """
+        try:
+            # Get existing content
+            existing_content = existing_memory.get("raw_text", "")
+
+            # Check for conflicts using LLM
+            conflict_check = await self._check_for_conflicts(
+                existing_content, new_content
+            )
+
+            if conflict_check.get("has_conflict", False):
+                logger.warning(
+                    f"Conflict detected between existing and new content: {conflict_check.get('reasoning', 'Unknown conflict')}"
+                )
+                return None
+
+            # No conflict - proceed with merge
+            merged_memory = existing_memory.copy()
+
+            # Append new content to existing with clear separation
+            if existing_content and new_content:
+                # Combine raw texts with clear separator and timestamps
+                timestamp = new_memory.get("session_date", "unknown time")
+                # Format timestamp for better readability
+                try:
+                    from datetime import datetime
+
+                    if timestamp != "unknown time":
+                        dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+                        formatted_time = dt.strftime("%Y-%m-%d %H:%M:%S")
+                    else:
+                        formatted_time = timestamp
+                except Exception:
+                    formatted_time = timestamp
+
+                merged_memory["raw_text"] = (
+                    f"{existing_content}\n\n--- NEW ENTRY ({formatted_time}) ---\n{new_content}"
+                )
+            elif new_content:
+                merged_memory["raw_text"] = new_content
+
+            # Update session date to most recent
+            merged_memory["session_date"] = new_memory.get(
+                "session_date", merged_memory.get("session_date")
+            )
+
+            # Update confidence to higher of the two
+            existing_confidence = existing_memory.get("confidence", 0.0)
+            new_confidence = new_memory.get("confidence", 0.0)
+            merged_memory["confidence"] = max(existing_confidence, new_confidence)
+
+            # Merge conversation context
+            existing_context = existing_memory.get("conversation_context", [])
+            new_context = conversation_context or []
+            if new_context:
+                # Keep only recent unique context items to avoid bloat
+                combined_context = existing_context + new_context
+                # Remove duplicates while preserving order
+                seen = set()
+                unique_context = []
+                for item in reversed(combined_context):  # Start from most recent
+                    if item not in seen:
+                        seen.add(item)
+                        unique_context.append(item)
+                unique_context.reverse()  # Restore chronological order
+                merged_memory["conversation_context"] = unique_context[
+                    -5:
+                ]  # Keep last 5
+
+            # Update classification paths (union of both sets)
+            existing_paths = set(existing_memory.get("classification_paths", []))
+            new_paths = set(new_memory.get("classification_paths", []))
+            merged_memory["classification_paths"] = list(existing_paths | new_paths)
+
+            # Add merge metadata
+            merged_memory["merge_count"] = existing_memory.get("merge_count", 0) + 1
+            merged_memory["last_merged"] = new_memory.get("session_date")
+
+            return merged_memory
+
+        except Exception as e:
+            logger.error(f"Error merging memories: {e}")
+            return None
+
+    async def _check_for_conflicts(
+        self, existing_content: str, new_content: str
+    ) -> dict:
+        """
+        Check if new content conflicts with existing content using LLM.
+
+        Args:
+            existing_content: The existing memory content
+            new_content: The new content to check for conflicts
+
+        Returns:
+            Dict with conflict analysis
+        """
+        if not existing_content or not new_content:
+            return {"has_conflict": False, "reasoning": "No content to compare"}
+
+        prompt = f"""Analyze if these two pieces of information conflict with each other.
+
+Existing information: {existing_content}
+New information: {new_content}
+
+Look for factual contradictions such as:
+- Different values for the same attribute (age, location, job, etc.)
+- Contradictory statements about preferences or facts
+- Mutually exclusive statements
+
+Do NOT consider these as conflicts:
+- Additional details that expand on existing information
+- Related but different aspects of the same topic
+- Temporal progression (things changing over time)
+
+Respond in JSON format:
+{{
+  "has_conflict": true/false,
+  "reasoning": "explanation of the conflict or why no conflict exists"
+}}"""
+
+        try:
+            response = await self.llm.ainvoke(prompt)
+            content = (
+                response.content if hasattr(response, "content") else str(response)
+            )
+
+            # Parse JSON response
+            import re
+
+            json_match = re.search(r"\{[^{}]*\}", content, re.DOTALL)
+            if json_match:
+                result = json.loads(json_match.group())
+                return result
+            else:
+                return {
+                    "has_conflict": False,
+                    "reasoning": "Failed to parse conflict check",
+                }
+
+        except Exception as e:
+            logger.error(f"Conflict check failed: {e}")
+            return {"has_conflict": False, "reasoning": f"Conflict check error: {e}"}
 
     async def _create_semantic_summary(
         self, content: str, path: str, metadata: Optional[dict] = None
