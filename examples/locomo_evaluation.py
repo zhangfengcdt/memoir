@@ -22,6 +22,7 @@ from rich.table import Table
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from memoir.core.profile_manager import ProfileManager
 from memoir.core.prolly_adapter import ProllyTreeStore
 from memoir.search.hierarchical_search import (
     HierarchicalSearchEngine,
@@ -80,6 +81,7 @@ class LocomoEvaluator:
         self.llm = None
         self.intelligent_classifier = None
         self.search_engine = None
+        self.profile_manager = None
         self.conversation_data = None
         self.qa_data = None
 
@@ -275,17 +277,21 @@ class LocomoEvaluator:
             enable_versioning=False,
         )
 
-        # Create intelligent classifier
+        # Create profile manager
+        self.profile_manager = ProfileManager(store)
+
+        # Create intelligent classifier with profile manager
         self.intelligent_classifier = IntelligentClassifier(
             llm=self.llm,
             memory_store=store,
             taxonomy_version=TaxonomyVersion.GENERAL,
             confidence_thresholds=self.confidence_thresholds,
+            profile_manager=self.profile_manager,
         )
 
         # Create search engine
         self.search_engine = HierarchicalSearchEngine(
-            store=store, classifier=classifier
+            store=store, classifier=classifier, profile_manager=self.profile_manager
         )
 
         # Load conversation and QA data
@@ -1219,17 +1225,13 @@ Return ONLY a decimal F1 score between 0.0 and 1.0 (like 0.75 or 0.82)."""
             f1_score_color = (
                 "green"
                 if result["f1_score"] >= 0.7
-                else "red"
-                if result["f1_score"] == 0
-                else "yellow"
+                else "red" if result["f1_score"] == 0 else "yellow"
             )
 
             llm_j_score_color = (
                 "green"
                 if result["llm_j_score"] >= 0.8
-                else "red"
-                if result["llm_j_score"] == 0
-                else "yellow"
+                else "red" if result["llm_j_score"] == 0 else "yellow"
             )
 
             # Show full text for better analysis - don't truncate expected/predicted
@@ -1366,7 +1368,33 @@ async def main():
             f.write(f"Timestamp: {timestamp}\n")
             f.write("=" * 80 + "\n\n")
 
-            # Dump all stored memories first
+            # Add profile summary at the beginning
+            f.write("USER PROFILE SUMMARY\n")
+            f.write("=" * 80 + "\n")
+            try:
+                # Generate profile summary using the profile manager (fast structured-only mode)
+                if hasattr(evaluator, "profile_manager") and evaluator.profile_manager:
+                    profile_summary = (
+                        await evaluator.profile_manager.get_profile_summary(
+                            llm=None  # Use fast structured-only mode for output file
+                        )
+                    )
+                    if (
+                        profile_summary
+                        and profile_summary != "No profile information available."
+                    ):
+                        f.write(profile_summary)
+                        f.write("\n\n")
+                    else:
+                        f.write("No profile information available.\n\n")
+                else:
+                    f.write("Profile manager not available.\n\n")
+            except Exception as e:
+                f.write(f"Error generating profile summary: {e}\n\n")
+
+            f.write("=" * 80 + "\n\n")
+
+            # Dump all stored memories
             f.write("STORED MEMORIES DUMP\n")
             f.write("=" * 80 + "\n")
             try:

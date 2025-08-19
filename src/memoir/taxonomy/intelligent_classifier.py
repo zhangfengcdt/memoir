@@ -14,6 +14,7 @@ from .iterative_taxonomy import (
     LLMIterativeTaxonomy,
 )
 from .taxonomy_presets import TaxonomyVersion
+from .taxonomy_presets_simplified import SimplifiedTaxonomyPresets, TaxonomyVersion as SimplifiedTaxonomyVersion
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,7 @@ class ClassificationResult:
     paths: Optional[list[str]] = None  # Multiple paths for multi-label classification
     suggested_expansion: Optional[str] = None  # For low confidence
     use_parent: bool = False  # For low confidence
+    profile_updates: Optional[list[dict[str, str]]] = None  # Profile updates detected
 
     @property
     def all_paths(self) -> list[str]:
@@ -98,6 +100,7 @@ class IntelligentClassifier:
         confidence_thresholds: Optional[dict] = None,
         expansion_strategy: LLMExpansionStrategy = LLMExpansionStrategy.FOCUSED_SUBTREE,
         min_items_for_expansion: int = 3,
+        profile_manager: Optional[Any] = None,
     ):
         """
         Initialize the intelligent classifier.
@@ -109,15 +112,16 @@ class IntelligentClassifier:
             confidence_thresholds: Custom confidence thresholds
             expansion_strategy: Strategy for taxonomy expansion
             min_items_for_expansion: Minimum items before expansion
+            profile_manager: Optional profile manager for handling profile updates
         """
         self.llm = llm
         self.memory_store = memory_store
+        self.profile_manager = profile_manager
         self.taxonomy_version = taxonomy_version
 
-        # Initialize with preset-based taxonomy to include the new entity/language/topics categories
-        from memoir.taxonomy.taxonomy_presets import TaxonomyPresets
-
-        preset_paths = TaxonomyPresets.get_preset(taxonomy_version)
+        # Initialize with simplified taxonomy to reduce LLM prompt size
+        simplified_presets = SimplifiedTaxonomyPresets()
+        preset_paths = simplified_presets.PRESETS[SimplifiedTaxonomyVersion.SIMPLIFIED]
 
         # Create a simple taxonomy object that provides get_all_paths() method
         class PresetTaxonomy:
@@ -379,12 +383,43 @@ class IntelligentClassifier:
                 "- Maximum 2 paths, and ONLY when they have different top-level categories",
                 "- When in doubt, use SINGLE path classification",
                 "",
+                "PROFILE vs TOPIC CLASSIFICATION:",
+                "- PROFILE paths are for definitive facts ABOUT the person (identity, demographics, job, etc.)",
+                "- TOPIC paths are for discussions or interests the person talks about",
+                "- Examples of PROFILE classification:",
+                "  * 'I am transgender' → profile.personal.identity.gender.identity",
+                "  * 'Caroline is a transgender woman' → profile.personal.identity.gender.identity",
+                "  * 'Caroline works as a counselor' → profile.professional.current.title",
+                "  * 'I live in San Francisco' → profile.living.current.address.city",
+                "  * 'My name is Caroline' → profile.personal.identity.name.first",
+                "- Examples of TOPIC classification:",
+                "  * 'The transgender stories were inspiring' → topics.social_issues.community",
+                "  * 'I love discussing mental health' → topics.health.mental_health",
+                "  * 'LGBTQ rights are important' → topics.social_issues.equality",
+                "- IMPORTANT: If content contains biographical facts about the person, use PROFILE paths",
+                "- If content is about their interests/discussions/opinions, use TOPIC paths",
+                "",
+                "",
+                "PROFILE UPDATE DETECTION:",
+                "- ALWAYS check if the content contains information that would UPDATE a user's PROFILE",
+                "- Profile updates are DEFINITIVE facts about the user that replace previous information",
+                "- Examples of profile updates:",
+                "  * 'I'm 25 years old' → profile.personal.demographics.age.current",
+                "  * 'I work at Google as a software engineer' → profile.professional.current.company + profile.professional.current.title",
+                "  * 'I live in San Francisco' → profile.living.current.address.city",
+                "  * 'I graduated from Stanford in 2020' → profile.professional.education.college.name + profile.professional.education.college.graduation_year",
+                "  * 'I'm married to Sarah' → profile.personal.demographics.marital_status + profile.relationships.romantic.partner.name",
+                "  * 'My salary is $150k' → profile.finance.income.primary.amount",
+                "- If NO profile updates: return 'no_profile_update'",
+                "- If profile updates exist: list them with path and new value",
+                "",
                 "Respond in JSON format:",
                 "{",
                 '  "is_memory": true/false,',
                 '  "paths": ["primary.path.here", "secondary.path.here"] or ["single.path"] or null,',
                 '  "confidence": 0.0-1.0,',
-                '  "reasoning": "explanation of decision and path choices"',
+                '  "reasoning": "explanation of decision and path choices",',
+                '  "profile_updates": "no_profile_update" or [{"path": "profile.path.here", "value": "new value"}]',
                 "}",
             ]
         )
@@ -404,9 +439,26 @@ class IntelligentClassifier:
             # Extract JSON from response if wrapped in other text
             import re
 
-            json_match = re.search(r"\{[^{}]*\}", content, re.DOTALL)
-            if json_match:
-                json_str = json_match.group()
+            # First try to find complete JSON with proper bracket matching
+            def extract_json(text):
+                # Find the first opening brace
+                start_idx = text.find('{')
+                if start_idx == -1:
+                    return None
+                
+                # Count braces to find the matching closing brace
+                brace_count = 0
+                for i in range(start_idx, len(text)):
+                    if text[i] == '{':
+                        brace_count += 1
+                    elif text[i] == '}':
+                        brace_count -= 1
+                        if brace_count == 0:
+                            return text[start_idx:i+1]
+                return None
+
+            json_str = extract_json(content)
+            if json_str:
                 data = json.loads(json_str)
 
                 # Debug logging to see what we're getting
@@ -571,6 +623,17 @@ class IntelligentClassifier:
             else:
                 reasoning_override = data.get("reasoning", "")
 
+            # Parse profile updates
+            profile_updates = None
+            profile_data = data.get("profile_updates")
+            if (
+                profile_data
+                and profile_data != "no_profile_update"
+                and isinstance(profile_data, list)
+            ):
+                profile_updates = profile_data
+                logger.info(f"Detected profile updates: {profile_updates}")
+
             return ClassificationResult(
                 is_memory=is_memory,
                 path=primary_path if is_memory else None,
@@ -585,6 +648,7 @@ class IntelligentClassifier:
                     if is_memory
                     else ClassificationAction.SKIP
                 ),
+                profile_updates=profile_updates,
             )
 
         except Exception as e:
@@ -980,6 +1044,18 @@ Examples:
             result.storage_reasoning = "No memory store available"
             result.success = False
             return result
+
+        # Step 2.5: Apply profile updates if detected
+        if classification.profile_updates and self.profile_manager:
+            try:
+                await self.profile_manager.apply_profile_updates(
+                    classification.profile_updates, metadata
+                )
+                logger.info(
+                    f"Applied {len(classification.profile_updates)} profile updates"
+                )
+            except Exception as e:
+                logger.error(f"Failed to apply profile updates: {e}")
 
         # Step 3: Handle memory storage under multiple paths
         namespace = ("memory", self.taxonomy_version.value)
