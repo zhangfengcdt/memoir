@@ -294,13 +294,11 @@ class LocomoEvaluator:
                             "speaker": speaker,
                         }
 
-                        # Add session date context to the text for better temporal understanding
-                        text_with_context = f"[Session date: {session_date}] {text}"
-
+                        # Store the pure dialog text without session date metadata
                         try:
                             await (
                                 self.intelligent_classifier.process_memory_with_storage(
-                                    text_with_context, metadata
+                                    text, metadata
                                 )
                             )
                             memories_processed += 1
@@ -561,17 +559,21 @@ CRITICAL ANALYSIS RULES:
 4. For date questions: Calculate dates from relative references (yesterday = session date - 1 day)
 
 EXAMPLES:
-Q: "What are Caroline's plans for the summer?"
-Context: "Researching adoption agencies — it's been a dream to have a family"
-A: researching adoption agencies
+Q: "What is John's favorite hobby?"
+Context: "I spend most weekends playing guitar and writing songs"
+A: playing guitar
 
-Q: "When did Caroline go to the support group?"
-Context: "[Session date: 8 May, 2023] I went to a LGBTQ support group yesterday"
-A: 7 May 2023
+Q: "When did Sarah visit the doctor?"
+Context: "I went to my doctor appointment yesterday on March 14th"
+A: 14 March 2023
 
-Q: "What does Caroline research?"
-Context: "I'm researching different adoption agencies to find the right fit"
-A: adoption agencies
+Q: "What does Alex study?"
+Context: "I'm taking courses in computer science and machine learning"
+A: computer science and machine learning
+
+Q: "What is Maria's living situation?"
+Context: "Living alone has been great for my independence and personal growth"
+A: living alone
 
 Retrieved Context:
 {context}
@@ -580,10 +582,10 @@ Question: {question}
 
 EXTRACTION RULES:
 1. Return ONLY the direct factual answer
-2. Maximum 10 words
-3. If genuinely no relevant information: "Information not found"
-4. Look for ANY mention that could answer the question
-5. Be LESS STRICT - extract information even if not perfectly phrased
+2. If genuinely no relevant information: "Information not found"
+3. Look for ANY mention that could answer the question
+4. Be LESS STRICT - extract information even if not perfectly phrased
+5. Make reasonable inferences from context when the answer is implied
 
 Answer:"""
 
@@ -794,6 +796,43 @@ Return ONLY a decimal F1 score between 0.0 and 1.0 (like 0.75 or 0.82)."""
         total = len(expected_words | predicted_words)
         return overlap / total if total > 0 else 0.0
 
+    def _get_evidence_texts(self, evidence_refs: list[str]) -> dict[str, str]:
+        """Extract actual conversation text from evidence references like 'D1:3'."""
+        evidence_texts = {}
+
+        if not self.conversation_data:
+            return evidence_texts
+
+        for ref in evidence_refs:
+            try:
+                # Parse reference like "D1:3" or "D2:15"
+                if ":" in ref:
+                    day_part, dia_num = ref.split(":")
+                    # Extract session number from day part (D1 -> 1, D2 -> 2, etc.)
+                    session_num = int(day_part[1:])  # Remove 'D' and convert to int
+                    dia_id = ref  # Keep full dia_id for lookup
+
+                    # Look for the text in the appropriate session
+                    session_key = f"session_{session_num}"
+                    if session_key in self.conversation_data:
+                        session_data = self.conversation_data[session_key]
+                        for exchange in session_data:
+                            if exchange.get("dia_id") == dia_id:
+                                speaker = exchange.get("speaker", "Unknown")
+                                text = exchange.get("text", "")
+                                evidence_texts[ref] = f"[{speaker}] {text}"
+                                break
+                        else:
+                            evidence_texts[ref] = f"Text not found for {ref}"
+                    else:
+                        evidence_texts[ref] = f"Session {session_num} not found"
+                else:
+                    evidence_texts[ref] = f"Invalid reference format: {ref}"
+            except (ValueError, IndexError) as e:
+                evidence_texts[ref] = f"Error parsing {ref}: {e}"
+
+        return evidence_texts
+
     def _has_similar_meaning(self, expected: str, predicted: str) -> bool:
         """Check if two answers have similar meaning."""
         # Define synonym groups for common terms
@@ -987,13 +1026,13 @@ async def main():
     parser.add_argument(
         "--max-context-memories",
         type=int,
-        default=3,
+        default=5,
         help="Maximum number of memories to use for LLM context (default: 3)",
     )
     parser.add_argument(
         "--max-memory-size",
         type=int,
-        default=2000,
+        default=10000,
         help="Maximum size of individual memory content (default: 2000 chars)",
     )
 
@@ -1095,6 +1134,18 @@ async def main():
                 f.write(f"Expected: {result['expected_answer']}\n")
                 f.write(f"Predicted: {result['predicted_answer']}\n")
                 f.write(f"Score: {result['score']:.2f}\n")
+
+                # Add evidence information if available
+                evidence = result.get("evidence", [])
+                if evidence:
+                    f.write(f"Evidence: {', '.join(evidence)}\n")
+
+                    # Add actual evidence text
+                    evidence_texts = evaluator._get_evidence_texts(evidence)
+                    if evidence_texts:
+                        f.write("Evidence Text:\n")
+                        for ref, text in evidence_texts.items():
+                            f.write(f"  {ref}: {text}\n")
 
                 # Safety check for retrieved_memories
                 retrieved_memories = result.get("retrieved_memories", [])
