@@ -53,14 +53,11 @@ class ProfileManager:
                     "update_type": "profile_update",
                 },
                 "memory_type": "profile_update",
-                "namespace": "general",
             }
 
-            if metadata:
-                memory_data["metadata"] = metadata
-
-            # Store with the profile path as the key in the general namespace, replacing any existing value
-            self.memory_store.store_memory("general", memory_data, path)
+            # Store directly using the prolly store with correct signature
+            # prolly_store.store_memory(namespace, content, key)
+            self.memory_store.store_memory("memory:general", memory_data, path)
             logger.info(f"Applied profile update: {path} = {value}")
 
     async def get_profile_summary(self, llm=None) -> str:
@@ -75,8 +72,10 @@ class ProfileManager:
         """
         try:
             # Search for all profile memories using the correct method signature
-            # Use "general" namespace string as expected by asearch method
-            profile_memories = await self.memory_store.asearch("general", "profile.")
+            # Use "memory:general" namespace string as expected by asearch method
+            profile_memories = await self.memory_store.asearch(
+                "memory:general", "profile."
+            )
 
             # Debug: log what we found
             logger.debug(f"Found {len(profile_memories)} profile memories")
@@ -119,9 +118,17 @@ class ProfileManager:
                     )
                     semantic_key = str(semantic_key)
 
-                # Handle the data format - it could be a dict or other format
+                # Handle the data format - it could be a MemoryItem dict or other format
                 if isinstance(data, dict):
-                    memory_data = data
+                    # Check if this is a MemoryItem structure with content field
+                    if "content" in data and isinstance(data["content"], dict):
+                        # This is a MemoryItem with content - extract the actual memory data
+                        memory_data = data["content"]
+                        structured_data = memory_data.get("structured_data", {})
+                    else:
+                        # This is the memory data directly
+                        memory_data = data
+                        structured_data = data.get("structured_data", {})
                 else:
                     # If it's not a dict, try to extract meaningful data
                     logger.warning(
@@ -130,14 +137,20 @@ class ProfileManager:
                     continue
 
                 # Get the profile path and value
-                structured_data = memory_data.get("structured_data", {})
                 profile_field = structured_data.get("profile_field")
                 profile_value = structured_data.get("profile_value")
+                update_type = structured_data.get("update_type")
+
+                # Only process memories that are actual profile updates
+                if update_type != "profile_update":
+                    logger.debug(f"Skipping non-profile-update memory: {semantic_key}")
+                    continue
 
                 if not profile_field or not profile_value:
-                    # Fallback to semantic key and raw_text if structured data not available
-                    profile_field = semantic_key
-                    profile_value = memory_data.get("raw_text", "")
+                    logger.warning(
+                        f"Profile update memory missing field or value: {semantic_key}"
+                    )
+                    continue
 
                 # Ensure profile_field is a string
                 if not isinstance(profile_field, str):

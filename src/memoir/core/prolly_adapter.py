@@ -279,7 +279,17 @@ class ProllyTreeStore(BaseStore):
         Returns:
             MemoryItem with classification results
         """
-        if key and self.taxonomy.is_valid_path(key):
+        # Check if this is a profile update memory - always use the provided key for these
+        is_profile_update = (
+            isinstance(content, dict) and content.get("memory_type") == "profile_update"
+        )
+
+        if key and (self.taxonomy.is_valid_path(key) or is_profile_update):
+            semantic_key = key
+            confidence = 1.0
+        elif key and key.startswith("profile."):
+            # For profile paths, use the provided key even if not in taxonomy
+            # This allows profile updates to be stored under their intended paths
             semantic_key = key
             confidence = 1.0
         else:
@@ -305,7 +315,13 @@ class ProllyTreeStore(BaseStore):
         )
 
         # Store using BaseStore interface with unique key
-        self.put((namespace,), storage_key, item.model_dump())
+        # Convert string namespace to tuple format for consistency with search
+        if ":" in namespace:
+            namespace_parts = namespace.split(":")
+            namespace_tuple = tuple(namespace_parts)
+        else:
+            namespace_tuple = (namespace,)
+        self.put(namespace_tuple, storage_key, item.model_dump())
 
         if self.enable_versioning and hasattr(self.tree, "get_head"):
             item.version = self.tree.get_head()

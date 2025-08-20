@@ -222,7 +222,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
             if not semantic_key:
                 semantic_key = "context.current.session.topic.main"
 
-        # Store with metadata using the synchronous method
+        # Store using the synchronous method (prolly store method signature: namespace, content, key)
         self.prolly_store.store_memory(namespace, content, semantic_key)
 
         write_time = (time.time() - start_time) * 1000
