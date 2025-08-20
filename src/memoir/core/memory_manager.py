@@ -155,9 +155,9 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         search_time = (time.time() - start_time) * 1000
         self._metrics["search_time_ms"].append(search_time)
 
-        logger.info(
-            f"Search completed in {search_time:.2f}ms, found {len(memories)} memories"
-        )
+        # logger.info(
+        #     f"Search completed in {search_time:.2f}ms, found {len(memories)} memories"
+        # )
 
         return memories
 
@@ -204,9 +204,9 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
                     await self.profile_manager.apply_profile_updates(
                         classification.profile_updates, metadata
                     )
-                    logger.info(
-                        f"Applied {len(classification.profile_updates)} profile updates"
-                    )
+                    # logger.info(
+                    #     f"Applied {len(classification.profile_updates)} profile updates"
+                    # )
                 except Exception as e:
                     logger.error(f"Failed to apply profile updates: {e}")
 
@@ -228,7 +228,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         write_time = (time.time() - start_time) * 1000
         self._metrics["write_time_ms"].append(write_time)
 
-        logger.debug(f"Stored memory at {semantic_key} in {write_time:.2f}ms")
+        # logger.debug(f"Stored memory at {semantic_key} in {write_time:.2f}ms")
 
         return semantic_key
 
@@ -347,7 +347,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
 
         # Implementation would create a new branch in ProllyTree
         branch_id = f"{namespace}:{branch_name}:{time.time()}"
-        logger.info(f"Created memory branch: {branch_id}")
+        # logger.info(f"Created memory branch: {branch_id}")
 
         return branch_id
 
@@ -376,7 +376,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         # Implementation would handle branch merging
         merge_result = {"merged": 0, "conflicts": [], "strategy": strategy}
 
-        logger.info(f"Merged {source_branch} into {target_branch}")
+        # logger.info(f"Merged {source_branch} into {target_branch}")
 
         return merge_result
 
@@ -474,7 +474,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
             format: Export format (json, csv, markdown)
         """
         self.prolly_store.export_namespace(namespace, output_path)
-        logger.info(f"Exported memories to {output_path}")
+        # logger.info(f"Exported memories to {output_path}")
 
     async def import_memories(
         self, input_path: str, namespace: Optional[str] = None
@@ -500,5 +500,5 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
                 data = json.load(f)
                 count = len(data.get("memories", {}))
 
-        logger.info(f"Imported {count} memories from {input_path}")
+        # logger.info(f"Imported {count} memories from {input_path}")
         return count

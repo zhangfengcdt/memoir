@@ -33,15 +33,22 @@ from memoir.taxonomy.semantic_classifier import SemanticClassifier
 from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.WARNING, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
 logger = logging.getLogger(__name__)
 
 # Suppress verbose logging from external libraries
 logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("memoir.search.hierarchical_search").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("openai").setLevel(logging.WARNING)
+logging.getLogger("openai._base_client").setLevel(logging.WARNING)
 logging.getLogger("memoir.taxonomy.data_sources").setLevel(logging.WARNING)
-# Suppress all memoir logging
-logging.getLogger("memoir").setLevel(logging.WARNING)
+# Disable DEBUG logging for hierarchical search
+logging.getLogger("memoir.search.hierarchical_search").setLevel(logging.WARNING)
+# Suppress other memoir logging
+logging.getLogger("memoir.taxonomy").setLevel(logging.WARNING)
+logging.getLogger("memoir.core").setLevel(logging.WARNING)
 
 
 class LocomoEvaluator:

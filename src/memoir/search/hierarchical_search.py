@@ -4,7 +4,6 @@ Implements specific → general search strategy with relevance scoring.
 """
 
 import logging
-import time
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
@@ -85,14 +84,15 @@ class HierarchicalSearchEngine:
         Returns:
             List of search results ranked by relevance
         """
-        start_time = time.time()
+        # start_time = time.time()
 
         # Step 1: Check if this query should use event keyword search
+        # logger.debug(f"🔍 Checking if query should use event search: '{query}'")
         event_keywords = await self._should_use_event_search(query, context)
         if event_keywords:
-            logger.info(
-                f"Using event keyword search for: '{query}' with keywords: {event_keywords}"
-            )
+            # logger.info(
+            #     f"Using event keyword search for: '{query}' with keywords: {event_keywords}"
+            # )
             event_results = await self._search_events_by_keywords(
                 query, namespace, event_keywords
             )
@@ -121,15 +121,18 @@ class HierarchicalSearchEngine:
                         f"Failed to include profile summary in event search: {e}"
                     )
 
-            search_time = (time.time() - start_time) * 1000
-            logger.info(
-                f"Event search completed in {search_time:.2f}ms, found {len(event_results)} results"
-            )
+            # search_time = (time.time() - start_time) * 1000
+            # logger.info(
+            #     f"Event search completed in {search_time:.2f}ms, found {len(event_results)} results"
+            # )
             return event_results
+        else:
+            # logger.debug(f"❌ Query does not qualify for event search, using semantic search: '{query}'")
+            pass
 
         # Step 2: Understand query intent and map to taxonomy paths
         search_paths = await self._map_query_to_paths(query, context)
-        logger.debug(f"Mapped query '{query}' to paths: {search_paths}")
+        # logger.debug(f"Mapped query '{query}' to paths: {search_paths}")
 
         # Step 2: Execute hierarchical search and combine results
         if strategy == SearchStrategy.SPECIFIC_TO_GENERAL:
@@ -166,14 +169,14 @@ class HierarchicalSearchEngine:
                         namespace=namespace,
                     )
                     final_results.insert(0, profile_result)
-                    logger.info("Added profile summary to search results")
+                    # logger.info("Added profile summary to search results")
             except Exception as e:
                 logger.warning(f"Failed to include profile summary: {e}")
 
-        search_time = (time.time() - start_time) * 1000
-        logger.info(
-            f"Search completed in {search_time:.2f}ms, found {len(final_results)} results"
-        )
+        # search_time = (time.time() - start_time) * 1000
+        # logger.info(
+        #     f"Search completed in {search_time:.2f}ms, found {len(final_results)} results"
+        # )
 
         return final_results
 
@@ -199,15 +202,15 @@ class HierarchicalSearchEngine:
         enhanced_context = context or {}
         if available_paths:
             enhanced_context["available_memory_paths"] = list(available_paths)
-            logger.debug(
-                f"Available memory paths for query '{query}': {list(available_paths)}"
-            )
+            # logger.debug(
+            #     f"Available memory paths for query '{query}': {list(available_paths)}"
+            # )
 
         # Use the classifier to understand query intent with available paths context
         classification = await self.classifier.classify_async(query, enhanced_context)
-        logger.debug(
-            f"Classifier returned paths for '{query}': {classification.primary_path}, alternatives: {classification.alternative_paths}"
-        )
+        # logger.debug(
+        #     f"Classifier returned paths for '{query}': {classification.primary_path}, alternatives: {classification.alternative_paths}"
+        # )
 
         paths = [classification.primary_path]
         paths.extend(classification.alternative_paths)
@@ -517,9 +520,9 @@ Examples:
                 if result.get("is_event_query", False):
                     keywords = result.get("keywords", [])
                     if keywords:
-                        logger.debug(
-                            f"Event query detected: {result.get('reasoning', '')}"
-                        )
+                        # logger.debug(
+                        #     f"Event query detected: {result.get('reasoning', '')}"
+                        # )
                         return keywords
 
             return None
@@ -584,17 +587,17 @@ Examples:
                             )
                             search_results.append(result)
 
-                            logger.debug(
-                                f"Found event match in {event_key} with keywords: {keyword_matches}"
-                            )
+                            # logger.debug(
+                            #     f"Found event match in {event_key} with keywords: {keyword_matches}"
+                            # )
 
                 except Exception as e:
                     logger.warning(f"Failed to search event key {event_key}: {e}")
                     continue
 
-            logger.info(
-                f"Event keyword search found {len(search_results)} results for keywords: {keywords}"
-            )
+            # logger.info(
+            #     f"Event keyword search found {len(search_results)} results for keywords: {keywords}"
+            # )
             return search_results
 
         except Exception as e:
@@ -635,7 +638,8 @@ Examples:
 
         # If no results, try broader search
         if not results:
-            logger.info("No results found, trying broader search")
+            # logger.info("No results found, trying broader search")
+            pass
             additional = await self.search(
                 query, namespace, SearchStrategy.GENERAL_TO_SPECIFIC, context
             )
