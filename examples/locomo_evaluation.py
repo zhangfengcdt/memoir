@@ -899,6 +899,9 @@ Return only the search terms/phrases, one per line:"""
             llm=None
         )
 
+        # Get timeline summary for temporal context
+        timeline_summary = await self.timeline_manager.get_timeline_summary(llm=None)
+
         # Generate answer using LLM with improved prompt
         prompt = f"""Extract the specific fact that answers the question from the provided context. Be thorough in examining ALL the context provided.
 
@@ -918,6 +921,9 @@ Question: {question}
 
 User Profile:
 {profile_summary}
+
+User Timeline:
+{timeline_summary}
 
 Context from memory:
 {context}
