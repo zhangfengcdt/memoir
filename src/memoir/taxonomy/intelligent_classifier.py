@@ -199,13 +199,9 @@ class IntelligentClassifier:
         # Get current taxonomy paths
         all_paths = self.taxonomy.get_all_paths()
 
-        # Add events.* paths for event classification
-        event_paths = ["events.self", "events.peer", "events.group"]
-        all_paths_with_events = list(all_paths) + event_paths
-
         # Build classification prompt
         prompt = self._build_classification_prompt(
-            content, all_paths_with_events, metadata, conversation_context
+            content, all_paths, metadata, conversation_context
         )
 
         try:
@@ -363,16 +359,6 @@ class IntelligentClassifier:
                 "- Avoid stopping at intermediate levels - go to the most specific applicable path",
                 "- Consider existing similar paths for consistency",
                 "",
-                "EVENTS CLASSIFICATION - Use 'events.*' for specific activities that can be searched by time/place/activity keywords:",
-                "- events.self: When [SELF] does concrete activities (researching adoption agencies, going to support group, giving speech, meeting someone, studying, working on project)",
-                "- events.peer: When a peer/friend does concrete activities (She ran charity race, He attended conference, friend went somewhere)",
-                "- events.group: When groups do concrete activities (We went to pride parade, everyone attended gathering, group meeting)",
-                "- INCLUDE as events: Activities with action verbs (going, researching, attending, meeting, working, studying, planning specific things)",
-                "- INCLUDE as events: Activities that answer 'What did you do?' or 'What are your plans?' or 'Where did you go?'",
-                "- EXCLUDE as events: Abstract feelings ('I love helping'), general preferences ('I like counseling'), broad goals ('I want to help people')",
-                "- EXCLUDE as events: Static states ('I am 23 years old', 'I am transgender', 'I work as a teacher')",
-                "- Events can be MULTI-LABELED with other relevant paths (events.self + goals.categories.personal.relationships)",
-                "",
                 "NEW TOP-LEVEL CATEGORY GUIDELINES:",
                 "- Only suggest new top-level categories if existing ones truly don't fit",
                 "- New categories should be broad, fundamental aspects of human experience",
@@ -441,14 +427,23 @@ class IntelligentClassifier:
                 "- ALWAYS check if the content describes a PAST or PRESENT EVENT with temporal information",
                 "- Timeline events are specific occurrences that happened at a particular time",
                 "- Examples of timeline events with ACTUAL date calculation:",
-                "  * 'Last week I went to the LGBTQ support group' (session: 8 May 2023) → date: '20230501' (7 days before)",
                 "  * 'Yesterday was my first day at the new job' (session: 15 March 2023) → date: '20230314'",
+                "  * 'Last week I went to a conference' (session: 20 June 2023) → date: '20230613' (7 days before)",
                 "  * 'I graduated from college in May 2020' → date: '20200501' (first of month)",
                 "  * 'On March 15th, I came out to my parents' (session: 2023) → date: '20230315' (assume current year)",
                 "  * 'Two months ago I started therapy' (session: 10 July 2023) → date: '20230510' (2 months before)",
                 "- CRITICAL: Always provide ACTUAL 8-digit dates in YYYYMMDD format, NOT placeholders",
-                "- Calculate relative dates precisely: 'last week' = session date minus 7 days",
-                "- For 'yesterday' = session date minus 1 day, 'last month' = session date minus ~30 days",
+                "- Calculate relative dates precisely from the session date:",
+                "  * 'yesterday' = session date minus 1 day",
+                "  * 'last week' = session date minus 7 days",
+                "  * 'last month' = session date minus ~30 days",
+                "  * 'two days ago' = session date minus 2 days",
+                "- Double-check your date arithmetic: if session is July 10, 2025 and content says 'yesterday', result should be July 9, 2025 → '20250709'",
+                "- CRITICAL: If content contains multiple time references, ALWAYS prioritize the more recent/specific one:",
+                "  * SPECIFICITY ORDER (most to least specific): 'yesterday' > 'two days ago' > 'last week' > 'last month'",
+                "  * 'yesterday' is MORE SPECIFIC than 'last week' - use yesterday",
+                "  * 'two days ago' is MORE SPECIFIC than 'last week' - use two days ago",
+                "  * When in doubt, use the time reference that gives the most recent date",
                 "- If only year/month given, use first day: 'May 2020' → '20200501'",
                 "- If NO timeline events: return 'no_timeline_events'",
                 "- If timeline events exist: list them with date and description",
@@ -470,6 +465,15 @@ class IntelligentClassifier:
     def _fix_common_json_issues(self, json_str: str) -> str:
         """Fix common JSON formatting issues from LLM responses."""
         import re
+
+        # First remove JSON comments specifically - be more aggressive
+        json_str = re.sub(r"//.*", "", json_str)  # Remove // comments to end of line
+        json_str = re.sub(
+            r"/\*.*?\*/", "", json_str, flags=re.DOTALL
+        )  # Remove /* */ comments
+
+        # Also remove any trailing content after closing braces that might be comments
+        json_str = re.sub(r"}\s*//.*", "}", json_str)
 
         # Common fixes for LLM JSON issues
         fixes = [

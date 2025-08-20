@@ -81,13 +81,8 @@ class TaxonomyPresets:
                 "relationships.social.groups.memberships",
                 "relationships.social.media.platforms",
             ],
-            # Events (3 paths) - For keyword-searchable event storage
-            # This is managed by the event manager service (TODO)
-            "events": [
-                "self",  # Events where the user is the primary actor
-                "peer",  # Events where a peer/friend is the primary actor
-                "group",  # Events involving groups or multiple people
-            ],
+            # This is managed by the timeline manager service
+            "timeline": [],
             # Personal Preferences (20 paths)
             "preferences": [
                 "personal.lifestyle.habits",
