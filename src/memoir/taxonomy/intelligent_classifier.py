@@ -13,9 +13,7 @@ from .iterative_taxonomy import (
     LLMExpansionStrategy,
     LLMIterativeTaxonomy,
 )
-from .taxonomy_presets import TaxonomyVersion
-from .taxonomy_presets_simplified import SimplifiedTaxonomyPresets
-from .taxonomy_presets_simplified import TaxonomyVersion as SimplifiedTaxonomyVersion
+from .taxonomy_presets import TaxonomyPresets, TaxonomyVersion
 
 logger = logging.getLogger(__name__)
 
@@ -124,8 +122,8 @@ class IntelligentClassifier:
         self.suppress_path_warnings = suppress_path_warnings
 
         # Initialize with simplified taxonomy to reduce LLM prompt size
-        simplified_presets = SimplifiedTaxonomyPresets()
-        preset_paths = simplified_presets.PRESETS[SimplifiedTaxonomyVersion.SIMPLIFIED]
+        simplified_presets = TaxonomyPresets()
+        preset_paths = simplified_presets.PRESETS[TaxonomyVersion.SIMPLIFIED]
 
         # Create a simple taxonomy object that provides get_all_paths() method
         class PresetTaxonomy:
