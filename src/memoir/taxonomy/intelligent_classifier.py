@@ -1194,8 +1194,10 @@ Examples:
             existing_content = existing_memory.get("raw_text", "")
 
             # Check for conflicts using LLM
+            # Extract the primary subject from metadata if available
+            primary_subject = new_memory.get("metadata", {}).get("speaker")
             conflict_check = await self._check_for_conflicts(
-                existing_content, new_content
+                existing_content, new_content, primary_subject
             )
 
             if conflict_check.get("has_conflict", False):
@@ -1273,7 +1275,7 @@ Examples:
             return None
 
     async def _check_for_conflicts(
-        self, existing_content: str, new_content: str
+        self, existing_content: str, new_content: str, primary_subject: Optional[str] = None
     ) -> dict:
         """
         Check if new content conflicts with existing content using LLM.
@@ -1281,6 +1283,7 @@ Examples:
         Args:
             existing_content: The existing memory content
             new_content: The new content to check for conflicts
+            primary_subject: The primary person this memory is about (optional)
 
         Returns:
             Dict with conflict analysis
@@ -1288,8 +1291,15 @@ Examples:
         if not existing_content or not new_content:
             return {"has_conflict": False, "reasoning": "No content to compare"}
 
-        prompt = f"""Analyze if these two pieces of information conflict with each other.
+        subject_guidance = ""
+        if primary_subject:
+            subject_guidance = f"""
+IMPORTANT: This memory is about {primary_subject}. Only check for conflicts related to {primary_subject}.
+IGNORE information about other people mentioned in the conversation - they are not relevant for conflict detection.
+"""
 
+        prompt = f"""Analyze if these two pieces of information conflict with each other.
+{subject_guidance}
 Existing information: {existing_content}
 New information: {new_content}
 
@@ -1302,6 +1312,7 @@ Do NOT consider these as conflicts:
 - Additional details that expand on existing information
 - Related but different aspects of the same topic
 - Temporal progression (things changing over time)
+- Information about other people mentioned in conversations
 
 Respond in JSON format:
 {{
