@@ -403,7 +403,8 @@ class LocomoEvaluator:
             session_data = self.conversation_data.get(session_key, [])
             for exchange in session_data:
                 speaker = exchange.get("speaker")
-                if speaker == self.person_name and exchange.get("text", "").strip():
+                text = str(exchange.get("text", ""))
+                if speaker == self.person_name and text.strip():
                     total_exchanges += 1
 
         # Temporarily suppress logging during processing to avoid scrolling
@@ -423,7 +424,7 @@ class LocomoEvaluator:
 
             for exchange in session_data:
                 speaker = exchange.get("speaker")
-                text = exchange.get("text", "")
+                text = str(exchange.get("text", ""))
 
                 # Add all exchanges to conversation history (for context)
                 if text.strip():
@@ -1044,6 +1045,10 @@ Just return the label CORRECT or WRONG in a json format with the key as "label".
         self, expected: str, predicted: str, question: str = ""
     ) -> float:
         """Calculate F1-based similarity score between expected and predicted answers using LLM evaluation."""
+        # Convert to strings to handle integer answers
+        expected = str(expected)
+        predicted = str(predicted) if predicted else ""
+
         # Handle case where expected answer is "Information not found" (adversarial questions)
         if expected.strip() == "Information not found":
             if predicted and "not found" in predicted.lower():
@@ -1207,7 +1212,7 @@ Return ONLY a decimal F1 score between 0.0 and 1.0 (like 0.75 or 0.82)."""
                         for exchange in session_data:
                             if exchange.get("dia_id") == dia_id:
                                 speaker = exchange.get("speaker", "Unknown")
-                                text = exchange.get("text", "")
+                                text = str(exchange.get("text", ""))
                                 evidence_texts[ref] = f"[{speaker}] {text}"
                                 break
                         else:

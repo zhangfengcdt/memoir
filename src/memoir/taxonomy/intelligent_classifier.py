@@ -132,6 +132,7 @@ class IntelligentClassifier:
             def __init__(self, preset_paths):
                 self.preset_paths = preset_paths
                 self._all_paths = []
+                self._top_level_categories = set(preset_paths.keys())
                 for category, paths in preset_paths.items():
                     # Do NOT add single-level categories to valid paths
                     # Only add multi-level paths (2+ levels minimum)
@@ -144,6 +145,9 @@ class IntelligentClassifier:
 
             def is_valid_path(self, path):
                 return path in self._all_paths
+
+            def get_top_level_categories(self):
+                return self._top_level_categories
 
         self.taxonomy = PresetTaxonomy(preset_paths)
 
@@ -507,23 +511,8 @@ class IntelligentClassifier:
             all_paths = self.taxonomy.get_all_paths()
             validated_paths = []
 
-            # Existing top-level categories
-            existing_top_level = {
-                p.split(".")[0]
-                for p in all_paths
-                if "." in p
-                or p
-                in [
-                    "profile",
-                    "preferences",
-                    "experience",
-                    "context",
-                    "knowledge",
-                    "relationships",
-                    "goals",
-                    "behavior",
-                ]
-            }
+            # Extract top-level categories dynamically from taxonomy
+            existing_top_level = {p.split(".")[0] for p in all_paths if "." in p}
 
             for path in paths_to_validate:
                 if path and path in all_paths:
@@ -577,17 +566,18 @@ class IntelligentClassifier:
 
                             if valid_domain_paths:
                                 # Use a sensible default path in this domain as fallback
-                                domain_defaults = {
-                                    "preferences": "preferences.personal.interests",
-                                    "relationships": "relationships.people.friends.close",
-                                    "topics": "topics.social_issues.community",
-                                    "goals": "goals.categories.personal.growth",
-                                    "experience": "experience.memories.recent",
-                                    "entity": "entity.people.mentioned.friends",
-                                    "profile": "profile.personal.characteristics",
-                                    "knowledge": "knowledge.facts.personal",
-                                    "behavior": "behavior.patterns.social",
-                                }
+                                # Build domain defaults dynamically from existing paths
+                                domain_defaults = {}
+                                for path in valid_domain_paths:
+                                    parts = path.split(".")
+                                    if (
+                                        len(parts) >= 3
+                                    ):  # Prefer deeper paths as defaults
+                                        domain_defaults[domain] = path
+                                        break
+                                if domain not in domain_defaults and valid_domain_paths:
+                                    # If no deep path found, use first available
+                                    domain_defaults[domain] = valid_domain_paths[0]
 
                                 fallback_path = domain_defaults.get(
                                     domain, valid_domain_paths[0]
@@ -906,29 +896,6 @@ class IntelligentClassifier:
                     classification.reasoning += (
                         " | Confidence too low after expansion handling"
                     )
-
-        # Step 4: Analyze and potentially improve hierarchical structure
-        if classification.path and classification.is_memory:
-            # Analyze hierarchical consistency
-            analysis = self._analyze_hierarchical_consistency(classification.path)
-
-            # Suggest better path if needed
-            if analysis["suggested_improvements"]:
-                improved_path = self._suggest_hierarchical_path(
-                    content, classification.path
-                )
-                if improved_path != classification.path:
-                    logger.info(
-                        f"Suggested path improvement: {classification.path} → {improved_path}"
-                    )
-                    classification.path = improved_path
-                    classification.reasoning += (
-                        f" | Path improved for better hierarchy: {improved_path}"
-                    )
-
-            # Note: We skip iterative taxonomy tracking since we're using the full semantic taxonomy
-            # The track_classification method runs domain consistency validation that may not match
-            # our full taxonomy paths, causing spurious warnings
 
         return classification
 
@@ -1639,93 +1606,6 @@ Respond in JSON format:
             },
             "confidence_thresholds": self.thresholds,
         }
-
-    def _analyze_hierarchical_consistency(self, new_path: str) -> dict:
-        """Analyze hierarchical consistency and suggest improvements."""
-        all_paths = self.taxonomy.get_all_paths()
-        path_parts = new_path.split(".")
-
-        analysis = {
-            "depth": len(path_parts),
-            "missing_intermediates": [],
-            "similar_paths": [],
-            "suggested_improvements": [],
-        }
-
-        # Check for missing intermediate levels
-        for i in range(1, len(path_parts)):
-            intermediate = ".".join(path_parts[: i + 1])
-            if intermediate not in all_paths:
-                analysis["missing_intermediates"].append(intermediate)
-
-        # Find similar paths in the same domain
-        domain = path_parts[0]
-        similar = [p for p in all_paths if p.startswith(domain + ".") and p != new_path]
-        analysis["similar_paths"] = similar[:5]  # Top 5 similar paths
-
-        # Suggest improvements based on depth and consistency
-        if len(path_parts) > 4:
-            analysis["suggested_improvements"].append(
-                f"Consider reducing depth from {len(path_parts)} to 3-4 levels"
-            )
-
-        if len(analysis["missing_intermediates"]) > 1:
-            analysis["suggested_improvements"].append(
-                f"Add intermediate levels: {', '.join(analysis['missing_intermediates'][:-1])}"
-            )
-
-        return analysis
-
-    def _suggest_hierarchical_path(self, content: str, initial_path: str) -> str:
-        """Suggest a better hierarchical path based on content and existing taxonomy structure."""
-        path_parts = initial_path.split(".")
-        content_lower = content.lower()
-        content_words = set(content_lower.split())
-
-        # Get all existing paths to learn hierarchy patterns
-        all_paths = self.taxonomy.get_all_paths()
-
-        # Analyze existing structure to find better hierarchical patterns
-        if len(path_parts) >= 2:
-            domain = path_parts[0]
-
-            # Find similar content-based paths in the same domain
-            domain_paths = [p for p in all_paths if p.startswith(f"{domain}.")]
-
-            best_match = None
-            best_score = 0
-
-            for existing_path in domain_paths:
-                existing_parts = existing_path.split(".")
-                if len(existing_parts) >= 3:  # Has intermediate levels
-                    # Score based on content word overlap
-                    path_words = set()
-                    for part in existing_parts:
-                        path_words.update(part.replace("_", " ").split())
-
-                    overlap = content_words.intersection(path_words)
-                    if overlap:
-                        score = len(overlap) / len(content_words.union(path_words))
-                        if score > best_score and score > 0.2:  # Minimum threshold
-                            best_match = existing_path
-                            best_score = score
-
-            # If we found a good match, suggest using its intermediate structure
-            if best_match:
-                match_parts = best_match.split(".")
-                if len(match_parts) >= 3 and len(path_parts) == 2:
-                    # Use the intermediate structure from the matching path
-                    intermediate = match_parts[1]  # Use the area from matching path
-                    final_part = path_parts[1]  # Keep our specific category
-                    return f"{domain}.{intermediate}.{final_part}"
-                elif len(match_parts) >= 3 and len(path_parts) > 3:
-                    # Restructure to use the better intermediate from matching path
-                    intermediate = match_parts[1]
-                    remaining = ".".join(path_parts[2:])
-                    return f"{domain}.{intermediate}.{remaining}"
-
-        # No improvement found based on existing structure
-        return initial_path
 
     def get_category_structure(self) -> dict:
         """Get the current category structure for passing to LLM context."""
