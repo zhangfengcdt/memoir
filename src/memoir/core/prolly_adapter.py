@@ -399,7 +399,16 @@ class ProllyTreeStore(BaseStore):
                 content = (
                     data.get("content", "") if isinstance(data, dict) else str(data)
                 )
-                content_hash = hash(content)
+                # Convert unhashable types to hashable format
+                if isinstance(content, dict):
+                    import json
+
+                    content_for_hash = json.dumps(content, sort_keys=True)
+                elif isinstance(content, (list, tuple)):
+                    content_for_hash = str(content)
+                else:
+                    content_for_hash = content
+                content_hash = hash(content_for_hash)
                 if content_hash not in seen_content:
                     seen_content.add(content_hash)
                     # Return semantic key (not storage key) for search engine

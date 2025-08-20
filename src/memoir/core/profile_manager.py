@@ -60,7 +60,7 @@ class ProfileManager:
                 memory_data["metadata"] = metadata
 
             # Store with the profile path as the key in the general namespace, replacing any existing value
-            self.memory_store.put(("memory", "general"), path, memory_data)
+            self.memory_store.store_memory("general", memory_data, path)
             logger.info(f"Applied profile update: {path} = {value}")
 
     async def get_profile_summary(self, llm=None) -> str:
@@ -75,10 +75,11 @@ class ProfileManager:
         """
         try:
             # Search for all profile memories using the correct method signature
-            # Use "memory:general" namespace string as expected by asearch method
-            profile_memories = await self.memory_store.asearch(
-                "memory:general", "profile."
-            )
+            # Use "general" namespace string as expected by asearch method
+            profile_memories = await self.memory_store.asearch("general", "profile.")
+
+            # Debug: log what we found
+            logger.debug(f"Found {len(profile_memories)} profile memories")
 
             # Limit results manually if needed
             if len(profile_memories) > 1000:
@@ -97,7 +98,10 @@ class ProfileManager:
                 return self._generate_structured_summary(profile_data)
 
         except Exception as e:
+            import traceback
+
             logger.error(f"Failed to generate profile summary: {e}")
+            logger.error(f"Full traceback: {traceback.format_exc()}")
             return f"Error generating profile summary: {e}"
 
     def _organize_profile_data(
@@ -108,6 +112,13 @@ class ProfileManager:
 
         for semantic_key, data in profile_memories:
             try:
+                # Ensure semantic_key is a string
+                if not isinstance(semantic_key, str):
+                    logger.warning(
+                        f"Non-string semantic key: {type(semantic_key)}: {semantic_key}"
+                    )
+                    semantic_key = str(semantic_key)
+
                 # Handle the data format - it could be a dict or other format
                 if isinstance(data, dict):
                     memory_data = data
@@ -128,19 +139,45 @@ class ProfileManager:
                     profile_field = semantic_key
                     profile_value = memory_data.get("raw_text", "")
 
+                # Ensure profile_field is a string
+                if not isinstance(profile_field, str):
+                    logger.warning(
+                        f"Non-string profile_field: {type(profile_field)}: {profile_field}"
+                    )
+                    profile_field = (
+                        str(profile_field)
+                        if profile_field is not None
+                        else semantic_key
+                    )
+
                 if profile_field and profile_value:
+                    # Convert profile_value to string if it's not already
+                    if isinstance(profile_value, dict):
+                        # If it's a dict, convert to JSON string
+                        import json
+
+                        profile_value_str = json.dumps(profile_value)
+                    elif isinstance(profile_value, (list, tuple)):
+                        # If it's a list/tuple, join as string
+                        profile_value_str = ", ".join(str(x) for x in profile_value)
+                    else:
+                        profile_value_str = str(profile_value)
+
                     # Build nested dictionary structure
                     parts = profile_field.split(".")
                     current = organized
 
                     # Navigate to the correct nested position
                     for part in parts[:-1]:  # All except the last part
+                        # Ensure part is a string
+                        part = str(part) if part is not None else "unknown"
                         if part not in current:
                             current[part] = {}
                         current = current[part]
 
-                    # Set the final value
-                    current[parts[-1]] = profile_value
+                    # Set the final value as string
+                    final_key = str(parts[-1]) if parts[-1] is not None else "unknown"
+                    current[final_key] = profile_value_str
 
             except Exception as e:
                 logger.warning(f"Failed to process profile memory {semantic_key}: {e}")

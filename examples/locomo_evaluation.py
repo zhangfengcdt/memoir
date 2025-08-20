@@ -61,6 +61,7 @@ class LocomoEvaluator:
         storage_path: str = "/tmp/qa_evaluation",
         confidence_thresholds: Optional[dict[str, float]] = None,
         session: Optional[str] = None,
+        conversation_id: int = 1,
         max_search_results: int = 5,
         max_context_memories: int = 3,
         max_memory_size: int = 2000,
@@ -72,6 +73,7 @@ class LocomoEvaluator:
         self.person_name = person_name
         self.storage_path = storage_path
         self.session = session
+        self.conversation_id = conversation_id
         self.max_search_results = max_search_results
         self.max_context_memories = max_context_memories
         self.max_memory_size = max_memory_size
@@ -93,6 +95,7 @@ class LocomoEvaluator:
         self.profile_manager = None
         self.conversation_data = None
         self.qa_data = None
+        self.all_conversations = None
 
     def _parse_session_parameter(self, session: Optional[str]) -> Optional[list[int]]:
         """Parse session parameter to handle single values, ranges, and lists.
@@ -312,20 +315,19 @@ class LocomoEvaluator:
         with open(self.data_file) as f:
             content = f.read()
 
-        # Handle potential extra data at the end of JSON - find the first complete JSON object
-        brace_count = 0
-        end_pos = 0
-        for i, char in enumerate(content):
-            if char == "{":
-                brace_count += 1
-            elif char == "}":
-                brace_count -= 1
-                if brace_count == 0:
-                    end_pos = i + 1
-                    break
+        # Parse JSON - now it's an array of conversations
+        self.all_conversations = json.loads(content)
 
-        # Parse just the first JSON object
-        data = json.loads(content[:end_pos])
+        # Validate conversation_id
+        if self.conversation_id < 1 or self.conversation_id > len(
+            self.all_conversations
+        ):
+            raise ValueError(
+                f"Invalid conversation ID {self.conversation_id}. Available conversations: 1-{len(self.all_conversations)}"
+            )
+
+        # Select the specific conversation (1-indexed)
+        data = self.all_conversations[self.conversation_id - 1]
 
         self.qa_data = data.get("qa", [])
         self.conversation_data = data.get("conversation", {})
@@ -333,6 +335,10 @@ class LocomoEvaluator:
         # Filter QA pairs immediately to show accurate counts
         filtered_qa = self.filter_qa_by_session_and_person()
 
+        self.console.print(
+            f"⏺ Loaded conversation {self.conversation_id} of {len(self.all_conversations)} available conversations",
+            style="white",
+        )
         self.console.print(
             f"⏺ Loaded {len(self.qa_data)} total QA pairs", style="white"
         )
@@ -704,7 +710,7 @@ Return only the search terms/phrases, one per line:"""
 
             if attempt == self.max_retries:
                 logger.warning(
-                    f"All {self.max_retries} attempts failed for question: {question[:50]}..."
+                    f"All {self.max_retries} attempts failed for question: {question}"
                 )
                 successful_attempt = self.max_retries
                 # Clear retry message
@@ -1419,14 +1425,13 @@ async def main():
     parser.add_argument(
         "--data-file",
         type=str,
-        default="examples/data/locomo10_conversation1.json",
-        help="Path to locomo conversation JSON file",
+        default="examples/data/locomo10.json",
+        help="Path to locomo JSON file containing multiple conversations",
     )
     parser.add_argument(
         "--person",
         type=str,
-        default="Caroline",
-        help="Person to create memories for (Caroline or Melanie)",
+        help="Person to create memories for",
     )
     parser.add_argument(
         "--storage-path",
@@ -1437,7 +1442,14 @@ async def main():
     parser.add_argument(
         "--session",
         type=str,
-        help="Process specified session(s). Examples: 1-2",
+        default="1",
+        help="Process specified session(s) within the conversation. Examples: 1, 1-3, 1,3,5 (default: 1)",
+    )
+    parser.add_argument(
+        "--conversation",
+        type=int,
+        default=1,
+        help="Conversation ID to load (1-indexed, default: 1)",
     )
     parser.add_argument(
         "--max-search-results",
@@ -1472,14 +1484,35 @@ async def main():
 
     args = parser.parse_args()
 
+    # Setup console
+    console = Console()
+
+    # Check if person argument is provided
+    if not args.person:
+        console.print(
+            "No person specified. Available conversations:", style="bold white"
+        )
+        console.print("  1. Conversation 1: Caroline and Melanie", style="white")
+        console.print("  2. Conversation 2: Jon and Gina", style="white")
+        console.print("  3. Conversation 3: John and Maria", style="white")
+        console.print("  4. Conversation 4: Joanna and Nate", style="white")
+        console.print("  5. Conversation 5: Tim and John", style="white")
+        console.print("  6. Conversation 6: Audrey and Andrew", style="white")
+        console.print("  7. Conversation 7: James and John", style="white")
+        console.print("  8. Conversation 8: Deborah and Jolene", style="white")
+        console.print("  9. Conversation 9: Evan and Sam", style="white")
+        console.print("  10. Conversation 10: Calvin and Dave", style="white")
+        console.print(
+            "\nUsage: python examples/locomo_evaluation.py --person <person_name> --conversation <conversation_id>",
+            style="bold white",
+        )
+        sys.exit(1)
+
     # Create output file with timestamp
     from datetime import datetime
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_file = f"/tmp/locomo_eval_{args.person}_{timestamp}.txt"
-
-    # Setup console
-    console = Console()
+    output_file = f"/tmp/locomo_eval_c{args.conversation}_{args.person}_{timestamp}.txt"
 
     try:
         # Initialize evaluator
@@ -1488,6 +1521,7 @@ async def main():
             person_name=args.person,
             storage_path=args.storage_path,
             session=args.session,
+            conversation_id=args.conversation,
             max_search_results=args.max_search_results,
             max_context_memories=args.max_context_memories,
             max_memory_size=args.max_memory_size,
@@ -1510,6 +1544,7 @@ async def main():
         # Save detailed results to file
         with open(output_file, "w") as f:
             f.write("Locomo Evaluation Results\n")
+            f.write(f"Conversation: {args.conversation}\n")
             f.write(f"Person: {args.person}\n")
             f.write(f"Session: {args.session or 'All'}\n")
             f.write(f"Timestamp: {timestamp}\n")
