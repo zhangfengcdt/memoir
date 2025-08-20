@@ -12,7 +12,7 @@
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-Alpha-orange.svg)]()
 
-## 📖 Overview
+## Overview
 
 Memoir brings Git-like version control to AI memory systems. Just as Git revolutionized software development by making code history transparent and reliable, Memoir transforms AI memory from a "black box" into a versioned, auditable, and cryptographically secure system.
 
@@ -20,61 +20,24 @@ Memoir brings Git-like version control to AI memory systems. Just as Git revolut
 
 **The Solution**: Memoir provides cryptographically hashed memory states, complete version history, and the ability to branch, merge, and rollback AI memory - making AI systems as reliable and transparent as modern software development.
 
-## 🎯 Key Features
+## Key Features
 
-### 🔄 Git-like Version Control
+### Git-like Version Control
 - **Complete memory history**: Every change is tracked and versioned
 - **Cryptographic integrity**: SHA-256 hashing ensures memory state authenticity
 - **Time-travel queries**: View AI memory as it existed at any point in time
 - **Branching & merging**: Experiment safely with different AI strategies
 - **Audit trails**: Full transparency for regulatory compliance and debugging
 
-### 🧠 Semantic Memory Organization
+### Semantic Memory Organization
 - **Hierarchical paths**: `profile.professional.skills.technical.programming.python`
 - **Intelligent classification**: LLM-powered automatic memory categorization
 - **Deterministic keys**: Replace random UUIDs with meaningful semantic paths
 - **~800 predefined categories**: Comprehensive taxonomy for real-world use cases
 
-### 🚀 High Performance
-- **10-20x faster**: Sub-millisecond search vs traditional vector similarity
-- **O(log n) complexity**: Efficient ProllyTree-based prefix queries
-- **Structural sharing**: Git-like storage efficiency with deduplication
-- **Minimal API costs**: Smart LLM usage with intelligent fallback chains
-
-### 🔒 Security & Reliability
-- **Cryptographically secure**: All memory states are cryptographically hashed
-- **Immutable history**: Memory changes cannot be secretly modified
-- **Integrity verification**: Detect memory corruption instantly
-- **Safe experimentation**: Branch and test without affecting production memory
-
-### 🔧 Developer Experience
-- **LangGraph compatibility**: Drop-in replacement for existing memory systems
-- **Multiple search strategies**: Specific→General, Breadth-first, Best-match
-- **JSON-based configuration**: Easy taxonomy customization without code changes
-- **Real-time collaboration**: Multiple AI agents can work with shared memory
-
-## 🏗️ Architecture
-
 ### Git for AI Memory: The Paradigm Shift
 
 Just as Git transformed software development from fragile, unversioned code to reliable, collaborative development, Memoir transforms AI memory from opaque, unreliable storage to transparent, versioned, and auditable systems.
-
-**Traditional AI Memory**: Black Box + No History
-```python
-# Memory gets stored somewhere...
-memory_id = "uuid-1234"  # No semantic meaning, no version history
-# Memory could be corrupted, modified, or lost - no way to verify integrity
-```
-
-**Memoir's Git-like Approach**: Versioned + Cryptographically Secure
-```python
-# Every memory change creates a new cryptographically verified state
-commit_hash = "a7f3b2c1..."  # Like Git commits, verifiable integrity
-key = "profile.professional.skills.technical.programming.python"
-branch = memory_manager.create_branch("experiment")  # Safe experimentation
-```
-
-### The Git Analogy
 
 | Git Concept | Memoir Equivalent | Benefit |
 |-------------|-------------------|---------|
@@ -92,35 +55,8 @@ branch = memory_manager.create_branch("experiment")  # Safe experimentation
 3. **SemanticClassifier**: LLM-powered classification with intelligent fallbacks
 4. **HierarchicalSearchEngine**: Multi-strategy search with relevance scoring
 5. **VersionedMemoryManager**: Complete audit trails and branching capabilities
-6. **CryptographicVerifier**: SHA-256 integrity verification for all memory states
 
-## 🔄 Version Control Benefits
-
-### 🏢 Enterprise & Compliance
-- **Regulatory Compliance**: Complete audit trails for financial, healthcare, and legal AI systems
-- **Accountability**: Track every AI decision back to specific memory states
-- **Risk Management**: Rollback to known-good memory states when AI behaves unexpectedly
-- **Quality Assurance**: Verify memory integrity and detect unauthorized modifications
-
-### 🧪 AI Research & Development
-- **Safe Experimentation**: Branch memory to test new AI strategies without affecting production
-- **A/B Testing**: Compare AI performance across different memory configurations
-- **Reproducible Research**: Share exact memory states for scientific reproducibility
-- **Collaborative Development**: Multiple teams can work on AI memory simultaneously
-
-### 🚨 Production Operations
-- **Debugging**: Time-travel to see exactly what the AI knew when it made decisions
-- **Incident Response**: Quickly identify when and how AI memory was compromised
-- **Performance Analysis**: Compare memory states to identify performance regressions
-- **Disaster Recovery**: Restore AI systems to any previous working state
-
-### 🤖 Multi-Agent Systems
-- **Shared Memory**: Multiple AI agents collaborate with synchronized, versioned memory
-- **Conflict Resolution**: Merge different agents' memory updates safely
-- **Agent Coordination**: Track which agent contributed which memories
-- **Consensus Building**: Use Git-like merging for distributed AI decision-making
-
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 
@@ -149,7 +85,7 @@ async def main():
     memory_manager = ProllyTreeMemoryStoreManager(
         prolly_path="./memory_db",
         classifier=classifier,
-        enable_versioning=True  # 🔄 Git-like version control enabled
+        enable_versioning=True  # Git-like version control enabled
     )
 
     user_id = "user123"
@@ -183,7 +119,7 @@ async def main():
     historical_results = await memory_manager.search_memories(
         query="What programming skills do I have?",
         namespace=user_id,
-        at_commit=commit_1  # 🕐 Time-travel query
+        at_commit=commit_1  # Time-travel query
     )
 
     # Verify memory integrity (like git fsck)
@@ -267,11 +203,11 @@ await memory_manager.merge("experiment", into="main")
 is_valid = await memory_manager.verify_integrity()
 ```
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-## 📝 License
+## License
 
 MIT License - see [LICENSE](LICENSE) file.
 
