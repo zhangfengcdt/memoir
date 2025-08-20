@@ -14,11 +14,11 @@ class TaxonomyVersion(Enum):
 
 
 class SimplifiedTaxonomyPresets:
-    """Simplified taxonomy presets with essential paths only (~180 total paths)."""
+    """Simplified taxonomy presets with essential paths only (~208 total paths)."""
 
     PRESETS: ClassVar[dict[TaxonomyVersion, dict[str, list[str]]]] = {
         TaxonomyVersion.SIMPLIFIED: {
-            # Core Profile Information (50 paths)
+            # Core Profile Information (53 paths)
             "profile": [
                 # Essential Personal Identity (8 paths)
                 "personal.identity.name.first",
@@ -29,10 +29,13 @@ class SimplifiedTaxonomyPresets:
                 "personal.demographics.birth.date",
                 "personal.demographics.marital_status",
                 "personal.demographics.children.number",
-                # Core Professional (12 paths)
+                # Core Professional (15 paths)
                 "professional.current.company",
                 "professional.current.title",
                 "professional.current.salary.base",
+                "professional.aspirations.career_goals",
+                "professional.aspirations.industry_interest",
+                "professional.motivation.personal_purpose",
                 "professional.education.college.name",
                 "professional.education.college.degree",
                 "professional.education.college.major",
@@ -201,6 +204,38 @@ class SimplifiedTaxonomyPresets:
                 "time.dates.specific.important",
                 "time.periods.durations.significant",
                 "concepts.topics.discussed.main",
+            ],
+            # Temporal Context (25 paths)
+            "datetime": [
+                # Relative time periods
+                "relative.recent.yesterday",
+                "relative.recent.today",
+                "relative.recent.last_week",
+                "relative.recent.last_month",
+                "relative.periods.this_year",
+                "relative.periods.last_year",
+                "relative.periods.this_summer",
+                "relative.periods.last_summer",
+                "relative.periods.this_winter",
+                # Specific time markers
+                "specific.years.2021",
+                "specific.years.2022",
+                "specific.years.2023",
+                "specific.years.2024",
+                "specific.months.january",
+                "specific.months.may",
+                "specific.months.december",
+                # Activities by timeframe
+                "activities.recent.researching",
+                "activities.recent.started",
+                "activities.recent.completed",
+                "activities.ongoing.currently",
+                "activities.planned.future",
+                "activities.planned.next_month",
+                "activities.planned.summer_plans",
+                # Event timing
+                "events.when.specific_dates",
+                "events.duration.how_long",
             ],
             # Essential Topics (20 paths)
             "topics": [

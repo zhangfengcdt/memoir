@@ -574,6 +574,11 @@ class LocomoEvaluator:
         self, question: str, expected_answer: str, evidence: list[str], category: int
     ) -> dict[str, Any]:
         """Evaluate a single QA pair."""
+        import time
+        
+        # Start timing the Q&A process
+        qa_start_time = time.time()
+        
         # Search for relevant memories
         # Use the same namespace format as IntelligentClassifier: ("memory", taxonomy_version)
         namespace_str = (
@@ -796,6 +801,9 @@ Direct Answer (just the fact, nothing else):"""
         except Exception as e:
             predicted_answer = f"LLM Error: {e}"
 
+        # Calculate Q&A processing time (excluding scoring)
+        qa_time_seconds = time.time() - qa_start_time
+
         # Calculate scores using both F1 and LLM_J evaluation
         f1_score = await self.calculate_answer_score(
             expected_answer, predicted_answer, question
@@ -815,6 +823,7 @@ Direct Answer (just the fact, nothing else):"""
             "f1_score": f1_score,
             "llm_j_score": llm_j_score,
             "score": f1_score,  # Keep original score for backward compatibility
+            "qa_time_seconds": qa_time_seconds,
         }
 
     def post_process_answer(self, answer: str) -> str:
@@ -1204,6 +1213,13 @@ Return ONLY a decimal F1 score between 0.0 and 1.0 (like 0.75 or 0.82)."""
         )
         # Average score calculation removed - not used
 
+        # Calculate average Q&A time
+        average_qa_time = (
+            sum(r.get("qa_time_seconds", 0) for r in results) / total_questions
+            if total_questions > 0
+            else 0.0
+        )
+        
         # Display summary
         self.console.print("\n⏺ QA Evaluation Results", style="white")
         self.console.print(f"⏺ Total Questions: {total_questions}", style="white")
@@ -1211,6 +1227,7 @@ Return ONLY a decimal F1 score between 0.0 and 1.0 (like 0.75 or 0.82)."""
         self.console.print(
             f"⏺ Average LLM_J Score: {average_llm_j_score:.3f}", style="white"
         )
+        self.console.print(f"⏺ Average Q&A Time: {average_qa_time:.2f}s", style="white")
 
         # Display detailed results
         table = Table(title="QA Evaluation Details", show_lines=True)
@@ -1220,6 +1237,7 @@ Return ONLY a decimal F1 score between 0.0 and 1.0 (like 0.75 or 0.82)."""
         table.add_column("F1 Score", style="white", justify="right")
         table.add_column("LLM_J", style="white", justify="right")
         table.add_column("Memories", style="white", justify="right")
+        table.add_column("Time (s)", style="white", justify="right")
 
         for result in results[:20]:  # Show first 20 results
             f1_score_color = (
@@ -1262,6 +1280,7 @@ Return ONLY a decimal F1 score between 0.0 and 1.0 (like 0.75 or 0.82)."""
                     if isinstance(result["retrieved_memories"], list)
                     else 0
                 ),
+                f"{result.get('qa_time_seconds', 0):.2f}",
             )
 
         self.console.print(table)
@@ -1564,11 +1583,17 @@ async def main():
                 if total_questions > 0
                 else 0.0
             )
+            average_qa_time = (
+                sum(r.get("qa_time_seconds", 0) for r in results) / total_questions
+                if total_questions > 0
+                else 0.0
+            )
             # Average score calculation removed - not used
 
             f.write(f"Total Questions: {total_questions}\n")
             f.write(f"Average F1 Score: {average_f1_score:.3f}\n")
-            f.write(f"Average LLM_J Score: {average_llm_j_score:.3f}\n\n")
+            f.write(f"Average LLM_J Score: {average_llm_j_score:.3f}\n")
+            f.write(f"Average Q&A Time: {average_qa_time:.2f}s\n\n")
 
             # Write QA Evaluation Details in table format
             f.write("QA Evaluation Details\n")
