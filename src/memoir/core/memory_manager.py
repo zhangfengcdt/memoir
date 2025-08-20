@@ -19,6 +19,7 @@ from memoir.search.hierarchical_search import (
 
 from .profile_manager import ProfileManager
 from .prolly_adapter import ProllyTreeStore
+from .timeline_manager import TimelineManager
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,9 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
 
         # Initialize profile manager
         self.profile_manager = ProfileManager(self.prolly_store)
+
+        # Initialize timeline manager
+        self.timeline_manager = TimelineManager(self.prolly_store)
 
         # Initialize search engine with profile manager
         self.search_engine = HierarchicalSearchEngine(
@@ -188,9 +192,11 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
             classification_start = time.time()
             self._metrics["classifications"] += 1
 
-            # Use async classification
-            classification = await self.classifier.classify_async(str(content))
-            semantic_key = classification.primary_path
+            # Use async classification with metadata
+            classification = await self.classifier.classify_async(
+                str(content), metadata=metadata
+            )
+            semantic_key = classification.path
 
             classification_time = (time.time() - classification_start) * 1000
             self._metrics["classification_time_ms"].append(classification_time)
@@ -209,6 +215,21 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
                     # )
                 except Exception as e:
                     logger.error(f"Failed to apply profile updates: {e}")
+
+            # Apply timeline events if detected
+            if (
+                hasattr(classification, "timeline_events")
+                and classification.timeline_events
+            ):
+                try:
+                    await self.timeline_manager.apply_timeline_events(
+                        classification.timeline_events, metadata
+                    )
+                    # logger.info(
+                    #     f"Applied {len(classification.timeline_events)} timeline events"
+                    # )
+                except Exception as e:
+                    logger.error(f"Failed to apply timeline events: {e}")
 
             # Add classification metadata
             if metadata is None:

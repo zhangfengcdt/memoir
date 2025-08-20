@@ -24,12 +24,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from memoir.core.profile_manager import ProfileManager
 from memoir.core.prolly_adapter import ProllyTreeStore
+from memoir.core.timeline_manager import TimelineManager
 from memoir.search.hierarchical_search import (
     HierarchicalSearchEngine,
     SearchStrategy,
 )
 from memoir.taxonomy.intelligent_classifier import IntelligentClassifier
-from memoir.taxonomy.semantic_classifier import SemanticClassifier
 from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
 
 # Configure logging
@@ -93,6 +93,7 @@ class LocomoEvaluator:
         self.intelligent_classifier = None
         self.search_engine = None
         self.profile_manager = None
+        self.timeline_manager = None
         self.conversation_data = None
         self.qa_data = None
         self.all_conversations = None
@@ -283,7 +284,7 @@ class LocomoEvaluator:
         data_dir.mkdir(parents=True, exist_ok=True)
 
         # Create classifier with default taxonomy for now (we'll add events.* paths via LLM prompting)
-        classifier = SemanticClassifier(llm=self.llm)
+        classifier = IntelligentClassifier(llm=self.llm)
         store = ProllyTreeStore(
             path=str(data_dir),
             classifier=classifier,
@@ -293,13 +294,17 @@ class LocomoEvaluator:
         # Create profile manager
         self.profile_manager = ProfileManager(store)
 
-        # Create intelligent classifier with profile manager
+        # Create timeline manager
+        self.timeline_manager = TimelineManager(store)
+
+        # Create intelligent classifier with profile manager and timeline manager
         self.intelligent_classifier = IntelligentClassifier(
             llm=self.llm,
             memory_store=store,
             taxonomy_version=TaxonomyVersion.GENERAL,
             confidence_thresholds=self.confidence_thresholds,
             profile_manager=self.profile_manager,
+            timeline_manager=self.timeline_manager,
         )
 
         # Create search engine
@@ -1573,6 +1578,35 @@ async def main():
                     f.write("Profile manager not available.\n\n")
             except Exception as e:
                 f.write(f"Error generating profile summary: {e}\n\n")
+
+            f.write("=" * 80 + "\n\n")
+
+            # Add timeline summary
+            f.write("USER TIMELINE\n")
+            f.write("=" * 80 + "\n")
+            try:
+                # Generate timeline summary using the timeline manager
+                if (
+                    hasattr(evaluator, "timeline_manager")
+                    and evaluator.timeline_manager
+                ):
+                    timeline_summary = (
+                        await evaluator.timeline_manager.get_timeline_summary(
+                            llm=None  # Use fast structured-only mode for output file
+                        )
+                    )
+                    if (
+                        timeline_summary
+                        and timeline_summary != "No timeline events available."
+                    ):
+                        f.write(timeline_summary)
+                        f.write("\n\n")
+                    else:
+                        f.write("No timeline events available.\n\n")
+                else:
+                    f.write("Timeline manager not available.\n\n")
+            except Exception as e:
+                f.write(f"Error generating timeline summary: {e}\n\n")
 
             f.write("=" * 80 + "\n\n")
 

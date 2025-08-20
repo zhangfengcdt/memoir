@@ -284,18 +284,25 @@ class ProllyTreeStore(BaseStore):
             isinstance(content, dict) and content.get("memory_type") == "profile_update"
         )
 
-        if key and (self.taxonomy.is_valid_path(key) or is_profile_update):
+        # Check if this is a timeline event memory - always use the provided key for these
+        is_timeline_event = (
+            isinstance(content, dict) and content.get("memory_type") == "timeline_event"
+        )
+
+        if key and (
+            self.taxonomy.is_valid_path(key) or is_profile_update or is_timeline_event
+        ):
             semantic_key = key
             confidence = 1.0
-        elif key and key.startswith("profile."):
-            # For profile paths, use the provided key even if not in taxonomy
-            # This allows profile updates to be stored under their intended paths
+        elif key and (key.startswith("profile.") or key.startswith("timeline.")):
+            # For profile/timeline paths, use the provided key even if not in taxonomy
+            # This allows profile updates and timeline events to be stored under their intended paths
             semantic_key = key
             confidence = 1.0
         else:
             # Classify the content
             classification = await self.classifier.classify_async(str(content))
-            semantic_key = classification.primary_path
+            semantic_key = classification.path
             confidence = classification.confidence
             self._stats["classifications"] += 1
 

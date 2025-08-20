@@ -212,8 +212,11 @@ class HierarchicalSearchEngine:
         #     f"Classifier returned paths for '{query}': {classification.primary_path}, alternatives: {classification.alternative_paths}"
         # )
 
-        paths = [classification.primary_path]
-        paths.extend(classification.alternative_paths)
+        paths = [classification.path] if classification.path else []
+        if hasattr(classification, "paths") and classification.paths:
+            paths.extend(
+                classification.paths[1:]
+            )  # Add additional paths beyond the primary
 
         # If classified paths don't match available ones, try to find closest matches
         if available_paths:

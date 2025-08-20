@@ -59,6 +59,7 @@ class ClassificationResult:
     suggested_expansion: Optional[str] = None  # For low confidence
     use_parent: bool = False  # For low confidence
     profile_updates: Optional[list[dict[str, str]]] = None  # Profile updates detected
+    timeline_events: Optional[list[dict[str, str]]] = None  # Timeline events detected
 
     @property
     def all_paths(self) -> list[str]:
@@ -100,6 +101,7 @@ class IntelligentClassifier:
         expansion_strategy: LLMExpansionStrategy = LLMExpansionStrategy.FOCUSED_SUBTREE,
         min_items_for_expansion: int = 3,
         profile_manager: Optional[Any] = None,
+        timeline_manager: Optional[Any] = None,
         suppress_path_warnings: bool = True,
     ):
         """
@@ -118,6 +120,7 @@ class IntelligentClassifier:
         self.llm = llm
         self.memory_store = memory_store
         self.profile_manager = profile_manager
+        self.timeline_manager = timeline_manager
         self.taxonomy_version = taxonomy_version
         self.suppress_path_warnings = suppress_path_warnings
 
@@ -432,18 +435,70 @@ class IntelligentClassifier:
                 "- If NO profile updates: return 'no_profile_update'",
                 "- If profile updates exist: list them with path and new value",
                 "",
+                "",
+                "TIMELINE EVENT DETECTION:",
+                f"- Current session date: {metadata.get('session_date', 'unknown') if metadata else 'unknown'} (use this for calculating relative dates)",
+                "- ALWAYS check if the content describes a PAST or PRESENT EVENT with temporal information",
+                "- Timeline events are specific occurrences that happened at a particular time",
+                "- Examples of timeline events with ACTUAL date calculation:",
+                "  * 'Last week I went to the LGBTQ support group' (session: 8 May 2023) → date: '20230501' (7 days before)",
+                "  * 'Yesterday was my first day at the new job' (session: 15 March 2023) → date: '20230314'",
+                "  * 'I graduated from college in May 2020' → date: '20200501' (first of month)",
+                "  * 'On March 15th, I came out to my parents' (session: 2023) → date: '20230315' (assume current year)",
+                "  * 'Two months ago I started therapy' (session: 10 July 2023) → date: '20230510' (2 months before)",
+                "- CRITICAL: Always provide ACTUAL 8-digit dates in YYYYMMDD format, NOT placeholders",
+                "- Calculate relative dates precisely: 'last week' = session date minus 7 days",
+                "- For 'yesterday' = session date minus 1 day, 'last month' = session date minus ~30 days",
+                "- If only year/month given, use first day: 'May 2020' → '20200501'",
+                "- If NO timeline events: return 'no_timeline_events'",
+                "- If timeline events exist: list them with date and description",
+                "",
                 "Respond in JSON format:",
                 "{",
                 '  "is_memory": true/false,',
                 '  "paths": ["primary.path.here", "secondary.path.here"] or ["single.path"] or null,',
                 '  "confidence": 0.0-1.0,',
                 '  "reasoning": "explanation of decision and path choices",',
-                '  "profile_updates": "no_profile_update" or [{"path": "profile.path.here", "value": "new value"}]',
+                '  "profile_updates": "no_profile_update" or [{"path": "profile.path.here", "value": "new value"}],',
+                '  "timeline_events": "no_timeline_events" or [{"date": "YYYYMMDD", "description": "event description"}]',
                 "}",
             ]
         )
 
         return "\n".join(prompt_parts)
+
+    def _fix_common_json_issues(self, json_str: str) -> str:
+        """Fix common JSON formatting issues from LLM responses."""
+        import re
+
+        # Common fixes for LLM JSON issues
+        fixes = [
+            # Fix trailing commas before closing braces/brackets
+            (r",(\s*[}\]])", r"\1"),
+            # Fix missing commas between array elements
+            (r'"\s*\n\s*"', '",\n"'),
+            # Fix missing commas between objects in arrays
+            (r"}\s*\n\s*{", "},\n{"),
+            # Fix unescaped quotes in strings (basic attempt)
+            (r':\s*"([^"]*)"([^",}\]]*)"', r': "\1\2"'),
+            # Fix missing quotes around field names
+            (r"([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:", r'\1"\2":'),
+            # Fix missing commas after string values before next field
+            (r'"\s*\n\s*"([a-zA-Z_][a-zA-Z0-9_]*)":', r'",\n"\1":'),
+            # Fix array formatting issues
+            (r'\[\s*"([^"]+)"\s*"([^"]+)"\s*\]', r'["\1", "\2"]'),
+        ]
+
+        original = json_str
+        for pattern, replacement in fixes:
+            json_str = re.sub(pattern, replacement, json_str)
+
+        if json_str != original:
+            logger.info(
+                f"Applied JSON repairs: {len([f for f in fixes if re.search(f[0], original)])} fixes"
+            )
+
+        return json_str
 
     def _parse_classification_response(self, response: Any) -> ClassificationResult:
         """Parse LLM classification response."""
@@ -477,10 +532,22 @@ class IntelligentClassifier:
 
             json_str = extract_json(content)
             if json_str:
-                data = json.loads(json_str)
-
-                # Debug logging to see what we're getting
-                logger.info(f"Parsed LLM response: {data}")
+                try:
+                    data = json.loads(json_str)
+                    # Debug logging to see what we're getting
+                    logger.info(f"Parsed LLM response: {data}")
+                except json.JSONDecodeError as json_error:
+                    # Log the malformed JSON for debugging
+                    logger.error(f"Malformed JSON from LLM: {json_str}")
+                    logger.error(f"JSON parsing error: {json_error}")
+                    # Try to fix common JSON issues and retry
+                    json_str = self._fix_common_json_issues(json_str)
+                    try:
+                        data = json.loads(json_str)
+                        logger.info(f"Successfully parsed after JSON repair: {data}")
+                    except json.JSONDecodeError:
+                        logger.error("JSON repair failed, using fallback")
+                        raise  # Re-raise to trigger fallback handling
             else:
                 # Fallback parsing - log the content that failed to parse
                 logger.warning(
@@ -639,6 +706,17 @@ class IntelligentClassifier:
                 profile_updates = profile_data
                 logger.info(f"Detected profile updates: {profile_updates}")
 
+            # Parse timeline events
+            timeline_events = None
+            timeline_data = data.get("timeline_events")
+            if timeline_data and timeline_data != "no_timeline_events":
+                # Handle both dict and list formats from LLM
+                if isinstance(timeline_data, dict):
+                    timeline_events = [timeline_data]
+                elif isinstance(timeline_data, list):
+                    timeline_events = timeline_data
+                logger.info(f"Detected timeline events: {timeline_events}")
+
             return ClassificationResult(
                 is_memory=is_memory,
                 path=primary_path if is_memory else None,
@@ -654,6 +732,7 @@ class IntelligentClassifier:
                     else ClassificationAction.SKIP
                 ),
                 profile_updates=profile_updates,
+                timeline_events=timeline_events,
             )
 
         except Exception as e:
@@ -1038,6 +1117,18 @@ Examples:
                 )
             except Exception as e:
                 logger.error(f"Failed to apply profile updates: {e}")
+
+        # Step 2.6: Apply timeline events if detected
+        if classification.timeline_events and self.timeline_manager:
+            try:
+                await self.timeline_manager.apply_timeline_events(
+                    classification.timeline_events, metadata
+                )
+                logger.info(
+                    f"Applied {len(classification.timeline_events)} timeline events"
+                )
+            except Exception as e:
+                logger.error(f"Failed to apply timeline events: {e}")
 
         # Step 3: Handle memory storage under multiple paths
         namespace = ("memory", self.taxonomy_version.value)
@@ -1786,3 +1877,9 @@ Respond in JSON format:
             results.append(evaluation)
 
         return results
+
+    async def classify_async(
+        self, content: str, metadata: Optional[dict] = None
+    ) -> ClassificationResult:
+        """Compatibility method for SemanticClassifier interface."""
+        return await self.classify_input(content, metadata)
