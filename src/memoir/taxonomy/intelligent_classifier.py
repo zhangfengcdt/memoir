@@ -193,7 +193,7 @@ class IntelligentClassifier:
         """
         # Get current taxonomy paths
         all_paths = self.taxonomy.get_all_paths()
-        
+
         # Add events.* paths for event classification
         event_paths = ["events.self", "events.peer", "events.group"]
         all_paths_with_events = list(all_paths) + event_paths
@@ -1275,7 +1275,10 @@ Examples:
             return None
 
     async def _check_for_conflicts(
-        self, existing_content: str, new_content: str, primary_subject: Optional[str] = None
+        self,
+        existing_content: str,
+        new_content: str,
+        primary_subject: Optional[str] = None,
     ) -> dict:
         """
         Check if new content conflicts with existing content using LLM.

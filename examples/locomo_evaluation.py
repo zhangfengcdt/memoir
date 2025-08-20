@@ -542,8 +542,8 @@ class LocomoEvaluator:
             question = qa_item.get("question", "")
             evidence = qa_item.get("evidence", [])
             category = qa_item.get("category", 0)
-            
-            # Handle adversarial answers: if 'adversarial_answer' field exists, 
+
+            # Handle adversarial answers: if 'adversarial_answer' field exists,
             # the correct answer should be "Information not found"
             if "adversarial_answer" in qa_item:
                 expected_answer = "Information not found"
@@ -572,7 +572,11 @@ class LocomoEvaluator:
                         "evidence": evidence,
                         "category": category,
                         "retrieved_memories": [],
+                        "f1_score": 0.0,
+                        "llm_j_score": 0.0,
                         "score": 0.0,
+                        "qa_time_seconds": 0.0,
+                        "retry_attempt": 1,
                         "error": str(e),
                     }
                 )
@@ -676,10 +680,13 @@ Return only the search terms/phrases, one per line:"""
                 if expected_answer == "Information not found":
                     # For adversarial questions, "Information not found" is the correct answer
                     valid_answer = True
-                elif "Information not found" not in predicted_answer and "not found" not in predicted_answer.lower():
+                elif (
+                    "Information not found" not in predicted_answer
+                    and "not found" not in predicted_answer.lower()
+                ):
                     # For normal questions, we need actual information
                     valid_answer = True
-            
+
             if valid_answer:
                 successful_attempt = attempt
                 # Clear retry message if displayed
@@ -948,8 +955,8 @@ The point of the question is to ask about something one user should know about t
 user based on their prior conversations. The gold answer will usually be a concise and
 short answer that includes the referenced topic.
 
-SPECIAL CASE: If the gold answer is "Information not found", this means the question is 
-unanswerable based on the available information, and the correct response should be 
+SPECIAL CASE: If the gold answer is "Information not found", this means the question is
+unanswerable based on the available information, and the correct response should be
 "Information not found" or similar non-answer phrases.
 
 BE GENEROUS WITH YOUR GRADING - PRIORITIZE SEMANTIC CORRECTNESS OVER EXACT WORDING:
@@ -1033,10 +1040,14 @@ Just return the label CORRECT or WRONG in a json format with the key as "label".
         # Handle case where expected answer is "Information not found" (adversarial questions)
         if expected.strip() == "Information not found":
             if predicted and "not found" in predicted.lower():
-                return 1.0  # Correct - model correctly identified no information available
+                return (
+                    1.0  # Correct - model correctly identified no information available
+                )
             else:
-                return 0.0  # Incorrect - model provided an answer when it shouldn't have
-        
+                return (
+                    0.0  # Incorrect - model provided an answer when it shouldn't have
+                )
+
         # For normal questions, "not found" or errors are failures
         if (
             not predicted
@@ -1298,12 +1309,12 @@ Return ONLY a decimal F1 score between 0.0 and 1.0 (like 0.75 or 0.82)."""
         # Calculate overall stats
         total_questions = len(results)
         average_f1_score = (
-            sum(r["f1_score"] for r in results) / total_questions
+            sum(r.get("f1_score", 0.0) for r in results) / total_questions
             if total_questions > 0
             else 0.0
         )
         average_llm_j_score = (
-            sum(r["llm_j_score"] for r in results) / total_questions
+            sum(r.get("llm_j_score", 0.0) for r in results) / total_questions
             if total_questions > 0
             else 0.0
         )
@@ -1336,16 +1347,18 @@ Return ONLY a decimal F1 score between 0.0 and 1.0 (like 0.75 or 0.82)."""
         table.add_column("Time (s)", style="white", justify="right")
 
         for result in results[:20]:  # Show first 20 results
+            f1_score = result.get("f1_score", 0.0)
             f1_score_color = (
-                "green"
-                if result["f1_score"] >= 0.7
-                else "red" if result["f1_score"] == 0 else "yellow"
+                "green" if f1_score >= 0.7 else "red" if f1_score == 0 else "yellow"
             )
 
+            llm_j_score = result.get("llm_j_score", 0.0)
             llm_j_score_color = (
                 "green"
-                if result["llm_j_score"] >= 0.8
-                else "red" if result["llm_j_score"] == 0 else "yellow"
+                if llm_j_score >= 0.8
+                else "red"
+                if llm_j_score == 0
+                else "yellow"
             )
 
             # Show full text for better analysis - don't truncate expected/predicted
@@ -1365,8 +1378,8 @@ Return ONLY a decimal F1 score between 0.0 and 1.0 (like 0.75 or 0.82)."""
                 question_text,
                 expected_text,
                 predicted_text,
-                f"[{f1_score_color}]{result['f1_score']:.2f}[/{f1_score_color}]",
-                f"[{llm_j_score_color}]{result['llm_j_score']:.2f}[/{llm_j_score_color}]",
+                f"[{f1_score_color}]{f1_score:.2f}[/{f1_score_color}]",
+                f"[{llm_j_score_color}]{llm_j_score:.2f}[/{llm_j_score_color}]",
                 str(
                     len(result["retrieved_memories"])
                     if isinstance(result["retrieved_memories"], list)
@@ -1673,12 +1686,12 @@ async def main():
             # Write summary
             total_questions = len(results)
             average_f1_score = (
-                sum(r["f1_score"] for r in results) / total_questions
+                sum(r.get("f1_score", 0.0) for r in results) / total_questions
                 if total_questions > 0
                 else 0.0
             )
             average_llm_j_score = (
-                sum(r["llm_j_score"] for r in results) / total_questions
+                sum(r.get("llm_j_score", 0.0) for r in results) / total_questions
                 if total_questions > 0
                 else 0.0
             )
@@ -1727,7 +1740,7 @@ async def main():
                 memory_count = len(retrieved_memories)
 
                 f.write(
-                    f"{question_text:<18} | {expected_text:<15} | {predicted_text:<15} | {result['f1_score']:>6.2f} | {result['llm_j_score']:>6.2f} | {memory_count:>4}\n"
+                    f"{question_text:<18} | {expected_text:<15} | {predicted_text:<15} | {result.get('f1_score', 0.0):>6.2f} | {result.get('llm_j_score', 0.0):>6.2f} | {memory_count:>4}\n"
                 )
 
             f.write("-" * 90 + "\n\n")
@@ -1737,8 +1750,8 @@ async def main():
                 f.write(f"\nQuestion {i}: {result['question']}\n")
                 f.write(f"Expected: {result['expected_answer']}\n")
                 f.write(f"Predicted: {result['predicted_answer']}\n")
-                f.write(f"F1 Score: {result['f1_score']:.2f}\n")
-                f.write(f"LLM_J Score: {result['llm_j_score']:.2f}\n")
+                f.write(f"F1 Score: {result.get('f1_score', 0.0):.2f}\n")
+                f.write(f"LLM_J Score: {result.get('llm_j_score', 0.0):.2f}\n")
 
                 # Add evidence information if available
                 evidence = result.get("evidence", [])

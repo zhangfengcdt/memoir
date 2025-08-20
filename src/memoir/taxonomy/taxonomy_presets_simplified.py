@@ -207,9 +207,9 @@ class SimplifiedTaxonomyPresets:
             ],
             # Events (3 paths) - For keyword-searchable event storage
             "events": [
-                "self",      # Events where the user is the primary actor
-                "peer",      # Events where a peer/friend is the primary actor
-                "group",     # Events involving groups or multiple people
+                "self",  # Events where the user is the primary actor
+                "peer",  # Events where a peer/friend is the primary actor
+                "group",  # Events involving groups or multiple people
             ],
             # Essential Topics (20 paths)
             "topics": [

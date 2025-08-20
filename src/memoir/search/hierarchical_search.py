@@ -90,14 +90,23 @@ class HierarchicalSearchEngine:
         # Step 1: Check if this query should use event keyword search
         event_keywords = await self._should_use_event_search(query, context)
         if event_keywords:
-            logger.info(f"Using event keyword search for: '{query}' with keywords: {event_keywords}")
-            event_results = await self._search_events_by_keywords(query, namespace, event_keywords)
-            
+            logger.info(
+                f"Using event keyword search for: '{query}' with keywords: {event_keywords}"
+            )
+            event_results = await self._search_events_by_keywords(
+                query, namespace, event_keywords
+            )
+
             # Add profile summary to event results if available
             if self.profile_manager:
                 try:
-                    profile_summary = await self.profile_manager.get_profile_summary(llm=None)
-                    if profile_summary and profile_summary != "No profile information available.":
+                    profile_summary = await self.profile_manager.get_profile_summary(
+                        llm=None
+                    )
+                    if (
+                        profile_summary
+                        and profile_summary != "No profile information available."
+                    ):
                         profile_result = SearchResult(
                             path="profile.summary",
                             combined_content=profile_summary,
@@ -108,10 +117,14 @@ class HierarchicalSearchEngine:
                         )
                         event_results.insert(0, profile_result)
                 except Exception as e:
-                    logger.warning(f"Failed to include profile summary in event search: {e}")
-            
+                    logger.warning(
+                        f"Failed to include profile summary in event search: {e}"
+                    )
+
             search_time = (time.time() - start_time) * 1000
-            logger.info(f"Event search completed in {search_time:.2f}ms, found {len(event_results)} results")
+            logger.info(
+                f"Event search completed in {search_time:.2f}ms, found {len(event_results)} results"
+            )
             return event_results
 
         # Step 2: Understand query intent and map to taxonomy paths
@@ -444,14 +457,16 @@ class HierarchicalSearchEngine:
     # Removed unused search methods (_search_breadth_first, _search_best_match, _rank_results)
     # These are no longer needed with the optimized approach that combines content by path
 
-    async def _should_use_event_search(self, query: str, context: Optional[dict] = None) -> Optional[list[str]]:
+    async def _should_use_event_search(
+        self, query: str, context: Optional[dict] = None
+    ) -> Optional[list[str]]:
         """
         Ask LLM whether this query should use event keyword search and what keywords to use.
-        
+
         Args:
             query: The search query
             context: Optional context for query understanding
-            
+
         Returns:
             List of keywords to search for if event search should be used, None otherwise
         """
@@ -461,14 +476,14 @@ Query: "{query}"
 
 Event queries typically ask about:
 - When something happened (temporal: "When did...", "What time...")
-- Where something happened (spatial: "Where did...", "At which...")  
+- Where something happened (spatial: "Where did...", "At which...")
 - What activities occurred ("What did they do...", "What events...")
 - Who was involved in activities ("Who did they meet...", "Who attended...")
 
 If this is an event query, extract 2-5 relevant keywords that would help find the specific events/activities mentioned.
 Focus on:
 - Activity types (meeting, picnic, speech, research, etc.)
-- Locations (school, adoption agency, etc.)  
+- Locations (school, adoption agency, etc.)
 - People involved (friends, family, specific names)
 - Objects/things mentioned (necklace, painting, etc.)
 - Time references (yesterday, last week, etc.)
@@ -487,24 +502,28 @@ Examples:
 
         try:
             response = await self.classifier.llm.ainvoke(prompt)
-            content = response.content if hasattr(response, 'content') else str(response)
-            
+            content = (
+                response.content if hasattr(response, "content") else str(response)
+            )
+
             # Parse JSON response
-            import re
             import json
-            
-            json_match = re.search(r'\{.*\}', content, re.DOTALL)
+            import re
+
+            json_match = re.search(r"\{.*\}", content, re.DOTALL)
             if json_match:
                 result = json.loads(json_match.group())
-                
+
                 if result.get("is_event_query", False):
                     keywords = result.get("keywords", [])
                     if keywords:
-                        logger.debug(f"Event query detected: {result.get('reasoning', '')}")
+                        logger.debug(
+                            f"Event query detected: {result.get('reasoning', '')}"
+                        )
                         return keywords
-            
+
             return None
-            
+
         except Exception as e:
             logger.warning(f"Failed to analyze event query: {e}")
             return None
@@ -514,45 +533,45 @@ Examples:
     ) -> list[SearchResult]:
         """
         Search for events using keywords by loading the 3 event memories and matching keywords.
-        
+
         Each event memory (events.self, events.peer, events.group) contains ALL events of that type.
         We load all 3 and do simple keyword matching within their content.
-        
+
         Args:
             query: Original query for context
             namespace: User namespace
             keywords: Keywords to search for
-            
+
         Returns:
             List of search results from events
         """
         # The 3 event memory keys that contain all events
         event_keys = ["events.self", "events.peer", "events.group"]
-        
+
         search_results = []
-        
+
         try:
             # Load each of the 3 event memories
             for event_key in event_keys:
                 try:
                     # Get the event memory content
                     items = await self.store.asearch(namespace, event_key)
-                    
-                    for path, data in items:
+
+                    for _path, data in items:
                         # Extract text content from the event memory
                         event_content = self._extract_content_from_data(data)
-                        
+
                         if not event_content:
                             continue
-                            
+
                         # Check if any keywords match in the content
                         content_lower = event_content.lower()
                         keyword_matches = []
-                        
+
                         for keyword in keywords:
                             if keyword.lower() in content_lower:
                                 keyword_matches.append(keyword)
-                        
+
                         # If we have keyword matches, include this event memory
                         if keyword_matches:
                             result = SearchResult(
@@ -564,39 +583,43 @@ Examples:
                                 namespace=namespace,
                             )
                             search_results.append(result)
-                            
-                            logger.debug(f"Found event match in {event_key} with keywords: {keyword_matches}")
-                            
+
+                            logger.debug(
+                                f"Found event match in {event_key} with keywords: {keyword_matches}"
+                            )
+
                 except Exception as e:
                     logger.warning(f"Failed to search event key {event_key}: {e}")
                     continue
-            
-            logger.info(f"Event keyword search found {len(search_results)} results for keywords: {keywords}")
+
+            logger.info(
+                f"Event keyword search found {len(search_results)} results for keywords: {keywords}"
+            )
             return search_results
-            
+
         except Exception as e:
             logger.error(f"Event keyword search failed: {e}")
             return []
-    
+
     def _extract_content_from_data(self, data: Any) -> str:
         """Extract readable content from memory data."""
         if isinstance(data, str):
             return data
-        
+
         if isinstance(data, dict):
             # Priority order for extracting text content
             text_fields = ["raw_text", "content", "summary", "description"]
-            
+
             for field in text_fields:
-                if field in data and data[field]:
+                if data.get(field):
                     return str(data[field])
-            
+
             # Fallback to JSON representation
             import json
-            return json.dumps(data, separators=(',', ': '))
-        
-        return str(data)
 
+            return json.dumps(data, separators=(",", ": "))
+
+        return str(data)
 
     async def search_with_fallback(
         self, query: str, namespace: str, context: Optional[dict] = None
