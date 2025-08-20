@@ -205,37 +205,11 @@ class SimplifiedTaxonomyPresets:
                 "time.periods.durations.significant",
                 "concepts.topics.discussed.main",
             ],
-            # Temporal Context (25 paths)
-            "datetime": [
-                # Relative time periods
-                "relative.recent.yesterday",
-                "relative.recent.today",
-                "relative.recent.last_week",
-                "relative.recent.last_month",
-                "relative.periods.this_year",
-                "relative.periods.last_year",
-                "relative.periods.this_summer",
-                "relative.periods.last_summer",
-                "relative.periods.this_winter",
-                # Specific time markers
-                "specific.years.2021",
-                "specific.years.2022",
-                "specific.years.2023",
-                "specific.years.2024",
-                "specific.months.january",
-                "specific.months.may",
-                "specific.months.december",
-                # Activities by timeframe
-                "activities.recent.researching",
-                "activities.recent.started",
-                "activities.recent.completed",
-                "activities.ongoing.currently",
-                "activities.planned.future",
-                "activities.planned.next_month",
-                "activities.planned.summer_plans",
-                # Event timing
-                "events.when.specific_dates",
-                "events.duration.how_long",
+            # Events (3 paths) - For keyword-searchable event storage
+            "events": [
+                "self",      # Events where the user is the primary actor
+                "peer",      # Events where a peer/friend is the primary actor
+                "group",     # Events involving groups or multiple people
             ],
             # Essential Topics (20 paths)
             "topics": [

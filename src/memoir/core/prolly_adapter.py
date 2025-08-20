@@ -407,6 +407,7 @@ class ProllyTreeStore(BaseStore):
 
         return results
 
+
     async def retrieve_memories_async(
         self, namespace: str, query: str, limit: int = 10
     ) -> list[MemoryItem]:

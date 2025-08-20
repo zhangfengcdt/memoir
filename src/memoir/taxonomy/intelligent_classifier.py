@@ -193,10 +193,14 @@ class IntelligentClassifier:
         """
         # Get current taxonomy paths
         all_paths = self.taxonomy.get_all_paths()
+        
+        # Add events.* paths for event classification
+        event_paths = ["events.self", "events.peer", "events.group"]
+        all_paths_with_events = list(all_paths) + event_paths
 
         # Build classification prompt
         prompt = self._build_classification_prompt(
-            content, all_paths, metadata, conversation_context
+            content, all_paths_with_events, metadata, conversation_context
         )
 
         try:
@@ -349,11 +353,20 @@ class IntelligentClassifier:
                 "  * 'I work as a teacher' → profile.professional.occupation (NOT just 'profile')",
                 "  * 'I chose them for their inclusivity' → preferences.personal.values (NOT just 'preferences')",
                 "  * 'We have a great friendship' → relationships.people.friends.close (NOT just 'relationships')",
-                "  * 'I want to adopt kids' → goals.categories.personal.relationships (NOT just 'goals')",
                 "- Use appropriate hierarchical depth (3-4 levels strongly recommended)",
                 "- Follow natural conceptual progression: general → specific",
                 "- Avoid stopping at intermediate levels - go to the most specific applicable path",
                 "- Consider existing similar paths for consistency",
+                "",
+                "EVENTS CLASSIFICATION - Use 'events.*' for specific activities that can be searched by time/place/activity keywords:",
+                "- events.self: When [SELF] does concrete activities (researching adoption agencies, going to support group, giving speech, meeting someone, studying, working on project)",
+                "- events.peer: When a peer/friend does concrete activities (She ran charity race, He attended conference, friend went somewhere)",
+                "- events.group: When groups do concrete activities (We went to pride parade, everyone attended gathering, group meeting)",
+                "- INCLUDE as events: Activities with action verbs (going, researching, attending, meeting, working, studying, planning specific things)",
+                "- INCLUDE as events: Activities that answer 'What did you do?' or 'What are your plans?' or 'Where did you go?'",
+                "- EXCLUDE as events: Abstract feelings ('I love helping'), general preferences ('I like counseling'), broad goals ('I want to help people')",
+                "- EXCLUDE as events: Static states ('I am 23 years old', 'I am transgender', 'I work as a teacher')",
+                "- Events can be MULTI-LABELED with other relevant paths (events.self + goals.categories.personal.relationships)",
                 "",
                 "NEW TOP-LEVEL CATEGORY GUIDELINES:",
                 "- Only suggest new top-level categories if existing ones truly don't fit",
