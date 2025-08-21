@@ -1,0 +1,17 @@
+# Jupyter notebook requirements
+jupyter>=1.0.0
+notebook>=6.0.0
+ipykernel>=6.0.0
+
+# Core memoir dependencies (install memoir package instead for production)
+# memoir>=0.1.0
+
+# LLM providers (choose one or more)
+langchain-openai>=0.1.0
+# langchain-anthropic>=0.1.0
+# langchain-ollama>=0.1.0
+
+# Visualization and data analysis (optional)
+matplotlib>=3.5.0
+pandas>=1.3.0
+seaborn>=0.11.0
