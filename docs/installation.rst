@@ -110,3 +110,42 @@ Troubleshooting
 
 For more help, see our `troubleshooting guide <troubleshooting.html>`_ or
 `open an issue <https://github.com/yourusername/memoir/issues>`_.
+
+ReadTheDocs Setup (Optional)
+-----------------------------
+
+The project includes ReadTheDocs configuration for easy documentation hosting:
+
+.. code-block:: yaml
+
+   # .readthedocs.yml is already configured
+   version: 2
+   build:
+     os: ubuntu-22.04
+     tools:
+       python: "3.11"
+   sphinx:
+     configuration: docs/conf.py
+
+**To set up ReadTheDocs:**
+
+1. **For Public Repositories:**
+   - Connect your GitHub repo to `ReadTheDocs <https://readthedocs.org>`_
+   - Documentation will build automatically on commits
+
+2. **For Private Repositories:**
+   - Use `ReadTheDocs for Business <https://readthedocs.com>`_
+   - Or build documentation locally with ``make docs``
+
+**Local Documentation Building:**
+
+.. code-block:: bash
+
+   # Build documentation locally
+   make docs
+   
+   # Start live reload development server
+   make docs-live
+   
+   # Clean build artifacts
+   make docs-clean

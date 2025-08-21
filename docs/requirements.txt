@@ -6,6 +6,12 @@ myst-parser>=2.0.0
 autodoc>=0.5.0
 
 # Project dependencies needed for documentation build
-langchain-openai>=0.1.0
-langmem>=0.0.15
+langmem>=0.0.29
+prollytree>=0.2.1
+langgraph>=0.6.0
 pydantic>=2.0.0
+typing-extensions>=4.0.0
+
+# Optional dependencies for complete documentation build
+langchain-core>=0.1.0
+langchain>=0.1.0
