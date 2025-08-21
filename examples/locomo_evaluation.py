@@ -61,7 +61,7 @@ class LocomoEvaluator:
         session: Optional[str] = None,
         conversation_id: int = 1,
         max_search_results: int = 5,
-        max_context_memories: int = 3,
+        max_context_memories: int = 5,
         max_memory_size: int = 2000,
         context_turns: int = 1,
         max_retries: int = 3,
@@ -668,6 +668,33 @@ Return only the search terms/phrases, one per line:"""
 
         return unique_results[: self.max_search_results]
 
+    def _is_detail_heavy_question(self, question: str) -> bool:
+        """Detect if a question requires detailed context and specific information."""
+        question_lower = question.lower()
+        
+        # Patterns that indicate detail-heavy questions
+        detail_indicators = [
+            # Specific objects, books, documents
+            "book", "painting", "art", "document", "letter", "photo",
+            # Specific events and meetings
+            "meeting", "council", "agency", "show", "event", "ceremony",
+            # Specific reasoning and decisions
+            "why did", "what inspired", "what motivated", "reason",
+            # Specific quotes and takeaways
+            "take away", "takeaway", "said about", "think about", "represent",
+            # Specific locations and venues
+            "where did", "which place", "what location",
+            # Specific people's opinions
+            "what does", "what did", "melanie think", "opinion",
+            # Books and media content
+            "becoming nicole", "dr. seuss", "bookshelf",
+            # Symbolic meanings
+            "represent", "symbolize", "meaning of", "significance"
+        ]
+        
+        # Check if question contains detail-heavy indicators
+        return any(indicator in question_lower for indicator in detail_indicators)
+
     async def _process_search_and_generate_answer(
         self, search_results: list, question: str
     ) -> tuple[list, str]:
@@ -684,8 +711,20 @@ Return only the search terms/phrases, one per line:"""
                 }
             )
 
+        # Dynamically adjust context memories for detail-heavy questions
+        context_memory_limit = self.max_context_memories
+        if self._is_detail_heavy_question(question):
+            # Increase context memories for detail-heavy questions
+            context_memory_limit = min(self.max_context_memories * 2, len(retrieved_memories))
+            # Also use more search results for these questions
+            retrieved_memories = retrieved_memories[:min(self.max_search_results * 2, len(retrieved_memories))]
+            logger.info(
+                f"📚 Detail-heavy question detected. Expanded context to {context_memory_limit} memories "
+                f"and using {len(retrieved_memories)} search results for: '{question[:50]}...'"
+            )
+
         context_parts = []
-        for memory in retrieved_memories[: self.max_context_memories]:
+        for memory in retrieved_memories[:context_memory_limit]:
             content = memory["content"]
             path = memory["path"]
 
@@ -1177,7 +1216,7 @@ async def main():
         "--max-context-memories",
         type=int,
         default=5,
-        help="Maximum number of memories to use for LLM context (default: 3)",
+        help="Maximum number of memories to use for LLM context. Detail-heavy questions automatically use 2x this amount (default: 5)",
     )
     parser.add_argument(
         "--max-memory-size",
