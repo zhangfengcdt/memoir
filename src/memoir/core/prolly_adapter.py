@@ -279,13 +279,42 @@ class ProllyTreeStore(BaseStore):
         Returns:
             MemoryItem with classification results
         """
-        if key and self.taxonomy.is_valid_path(key):
+        # Check if this is a profile update memory - always use the provided key for these
+        is_profile_update = (
+            isinstance(content, dict) and content.get("memory_type") == "profile_update"
+        )
+
+        # Check if this is a timeline event memory - always use the provided key for these
+        is_timeline_event = (
+            isinstance(content, dict) and content.get("memory_type") == "timeline_event"
+        )
+
+        # Check if this is a location event memory - always use the provided key for these
+        is_location_event = (
+            isinstance(content, dict) and content.get("memory_type") == "location_event"
+        )
+
+        if key and (
+            self.taxonomy.is_valid_path(key)
+            or is_profile_update
+            or is_timeline_event
+            or is_location_event
+        ):
+            semantic_key = key
+            confidence = 1.0
+        elif key and (
+            key.startswith("profile.")
+            or key.startswith("timeline.")
+            or key.startswith("location.")
+        ):
+            # For profile/timeline/location paths, use the provided key even if not in taxonomy
+            # This allows profile updates and timeline events to be stored under their intended paths
             semantic_key = key
             confidence = 1.0
         else:
             # Classify the content
             classification = await self.classifier.classify_async(str(content))
-            semantic_key = classification.primary_path
+            semantic_key = classification.path
             confidence = classification.confidence
             self._stats["classifications"] += 1
 
@@ -305,7 +334,13 @@ class ProllyTreeStore(BaseStore):
         )
 
         # Store using BaseStore interface with unique key
-        self.put((namespace,), storage_key, item.model_dump())
+        # Convert string namespace to tuple format for consistency with search
+        if ":" in namespace:
+            namespace_parts = namespace.split(":")
+            namespace_tuple = tuple(namespace_parts)
+        else:
+            namespace_tuple = (namespace,)
+        self.put(namespace_tuple, storage_key, item.model_dump())
 
         if self.enable_versioning and hasattr(self.tree, "get_head"):
             item.version = self.tree.get_head()
@@ -399,7 +434,16 @@ class ProllyTreeStore(BaseStore):
                 content = (
                     data.get("content", "") if isinstance(data, dict) else str(data)
                 )
-                content_hash = hash(content)
+                # Convert unhashable types to hashable format
+                if isinstance(content, dict):
+                    import json
+
+                    content_for_hash = json.dumps(content, sort_keys=True)
+                elif isinstance(content, (list, tuple)):
+                    content_for_hash = str(content)
+                else:
+                    content_for_hash = content
+                content_hash = hash(content_for_hash)
                 if content_hash not in seen_content:
                     seen_content.add(content_hash)
                     # Return semantic key (not storage key) for search engine

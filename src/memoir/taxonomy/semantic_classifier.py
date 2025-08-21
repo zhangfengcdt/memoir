@@ -400,7 +400,8 @@ CRITICAL: Return ONLY the JSON object, no explanations, no markdown formatting."
         if use_cache:
             cache_key = self._compute_cache_key(memory_content, context)
             if cache_key in self._cache:
-                logger.debug(f"Cache hit for classification: {cache_key}")
+                # logger.debug(f"Cache hit for classification: {cache_key}")
+                pass
                 return self._cache[cache_key]
 
         # Get iterative taxonomy hints to include in prompt
@@ -529,9 +530,10 @@ CRITICAL: Return ONLY the JSON object, no explanations, no markdown formatting."
                 )
 
                 if expansion_triggered:
-                    logger.info(
-                        f"Triggered taxonomy expansion for path: {result.primary_path}"
-                    )
+                    # logger.info(
+                    #     f"Triggered taxonomy expansion for path: {result.primary_path}"
+                    # )
+                    pass
 
             # Cache result
             if use_cache:

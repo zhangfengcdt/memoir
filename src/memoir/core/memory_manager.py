@@ -19,6 +19,7 @@ from memoir.search.hierarchical_search import (
 
 from .profile_manager import ProfileManager
 from .prolly_adapter import ProllyTreeStore
+from .timeline_manager import TimelineManager
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +85,9 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
 
         # Initialize profile manager
         self.profile_manager = ProfileManager(self.prolly_store)
+
+        # Initialize timeline manager
+        self.timeline_manager = TimelineManager(self.prolly_store)
 
         # Initialize search engine with profile manager
         self.search_engine = HierarchicalSearchEngine(
@@ -155,9 +159,9 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         search_time = (time.time() - start_time) * 1000
         self._metrics["search_time_ms"].append(search_time)
 
-        logger.info(
-            f"Search completed in {search_time:.2f}ms, found {len(memories)} memories"
-        )
+        # logger.info(
+        #     f"Search completed in {search_time:.2f}ms, found {len(memories)} memories"
+        # )
 
         return memories
 
@@ -188,9 +192,11 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
             classification_start = time.time()
             self._metrics["classifications"] += 1
 
-            # Use async classification
-            classification = await self.classifier.classify_async(str(content))
-            semantic_key = classification.primary_path
+            # Use async classification with metadata
+            classification = await self.classifier.classify_async(
+                str(content), metadata=metadata
+            )
+            semantic_key = classification.path
 
             classification_time = (time.time() - classification_start) * 1000
             self._metrics["classification_time_ms"].append(classification_time)
@@ -204,11 +210,26 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
                     await self.profile_manager.apply_profile_updates(
                         classification.profile_updates, metadata
                     )
-                    logger.info(
-                        f"Applied {len(classification.profile_updates)} profile updates"
-                    )
+                    # logger.info(
+                    #     f"Applied {len(classification.profile_updates)} profile updates"
+                    # )
                 except Exception as e:
                     logger.error(f"Failed to apply profile updates: {e}")
+
+            # Apply timeline events if detected
+            if (
+                hasattr(classification, "timeline_events")
+                and classification.timeline_events
+            ):
+                try:
+                    await self.timeline_manager.apply_timeline_events(
+                        classification.timeline_events, metadata
+                    )
+                    # logger.info(
+                    #     f"Applied {len(classification.timeline_events)} timeline events"
+                    # )
+                except Exception as e:
+                    logger.error(f"Failed to apply timeline events: {e}")
 
             # Add classification metadata
             if metadata is None:
@@ -222,13 +243,13 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
             if not semantic_key:
                 semantic_key = "context.current.session.topic.main"
 
-        # Store with metadata using the synchronous method
+        # Store using the synchronous method (prolly store method signature: namespace, content, key)
         self.prolly_store.store_memory(namespace, content, semantic_key)
 
         write_time = (time.time() - start_time) * 1000
         self._metrics["write_time_ms"].append(write_time)
 
-        logger.debug(f"Stored memory at {semantic_key} in {write_time:.2f}ms")
+        # logger.debug(f"Stored memory at {semantic_key} in {write_time:.2f}ms")
 
         return semantic_key
 
@@ -347,7 +368,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
 
         # Implementation would create a new branch in ProllyTree
         branch_id = f"{namespace}:{branch_name}:{time.time()}"
-        logger.info(f"Created memory branch: {branch_id}")
+        # logger.info(f"Created memory branch: {branch_id}")
 
         return branch_id
 
@@ -376,7 +397,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         # Implementation would handle branch merging
         merge_result = {"merged": 0, "conflicts": [], "strategy": strategy}
 
-        logger.info(f"Merged {source_branch} into {target_branch}")
+        # logger.info(f"Merged {source_branch} into {target_branch}")
 
         return merge_result
 
@@ -474,7 +495,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
             format: Export format (json, csv, markdown)
         """
         self.prolly_store.export_namespace(namespace, output_path)
-        logger.info(f"Exported memories to {output_path}")
+        # logger.info(f"Exported memories to {output_path}")
 
     async def import_memories(
         self, input_path: str, namespace: Optional[str] = None
@@ -500,5 +521,5 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
                 data = json.load(f)
                 count = len(data.get("memories", {}))
 
-        logger.info(f"Imported {count} memories from {input_path}")
+        # logger.info(f"Imported {count} memories from {input_path}")
         return count

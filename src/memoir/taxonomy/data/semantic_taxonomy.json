@@ -14,6 +14,10 @@
           "weaknesses"
         ]
       },
+      "demographics": {
+        "age": ["current", "birthday", "generation"],
+        "marital_status": ["single", "married", "divorced", "widowed", "partnered"]
+      },
       "location": {
         "current": [
           "country",

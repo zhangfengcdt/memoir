@@ -4,7 +4,6 @@ Implements specific → general search strategy with relevance scoring.
 """
 
 import logging
-import time
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
@@ -85,11 +84,11 @@ class HierarchicalSearchEngine:
         Returns:
             List of search results ranked by relevance
         """
-        start_time = time.time()
+        # start_time = time.time()
 
         # Step 1: Understand query intent and map to taxonomy paths
         search_paths = await self._map_query_to_paths(query, context)
-        logger.debug(f"Mapped query '{query}' to paths: {search_paths}")
+        # logger.debug(f"Mapped query '{query}' to paths: {search_paths}")
 
         # Step 2: Execute hierarchical search and combine results
         if strategy == SearchStrategy.SPECIFIC_TO_GENERAL:
@@ -126,14 +125,14 @@ class HierarchicalSearchEngine:
                         namespace=namespace,
                     )
                     final_results.insert(0, profile_result)
-                    logger.info("Added profile summary to search results")
+                    # logger.info("Added profile summary to search results")
             except Exception as e:
                 logger.warning(f"Failed to include profile summary: {e}")
 
-        search_time = (time.time() - start_time) * 1000
-        logger.info(
-            f"Search completed in {search_time:.2f}ms, found {len(final_results)} results"
-        )
+        # search_time = (time.time() - start_time) * 1000
+        # logger.info(
+        #     f"Search completed in {search_time:.2f}ms, found {len(final_results)} results"
+        # )
 
         return final_results
 
@@ -159,18 +158,21 @@ class HierarchicalSearchEngine:
         enhanced_context = context or {}
         if available_paths:
             enhanced_context["available_memory_paths"] = list(available_paths)
-            logger.debug(
-                f"Available memory paths for query '{query}': {list(available_paths)}"
-            )
+            # logger.debug(
+            #     f"Available memory paths for query '{query}': {list(available_paths)}"
+            # )
 
         # Use the classifier to understand query intent with available paths context
         classification = await self.classifier.classify_async(query, enhanced_context)
-        logger.debug(
-            f"Classifier returned paths for '{query}': {classification.primary_path}, alternatives: {classification.alternative_paths}"
-        )
+        # logger.debug(
+        #     f"Classifier returned paths for '{query}': {classification.primary_path}, alternatives: {classification.alternative_paths}"
+        # )
 
-        paths = [classification.primary_path]
-        paths.extend(classification.alternative_paths)
+        paths = [classification.path] if classification.path else []
+        if hasattr(classification, "paths") and classification.paths:
+            paths.extend(
+                classification.paths[1:]
+            )  # Add additional paths beyond the primary
 
         # If classified paths don't match available ones, try to find closest matches
         if available_paths:
@@ -417,6 +419,26 @@ class HierarchicalSearchEngine:
     # Removed unused search methods (_search_breadth_first, _search_best_match, _rank_results)
     # These are no longer needed with the optimized approach that combines content by path
 
+    def _extract_content_from_data(self, data: Any) -> str:
+        """Extract readable content from memory data."""
+        if isinstance(data, str):
+            return data
+
+        if isinstance(data, dict):
+            # Priority order for extracting text content
+            text_fields = ["raw_text", "content", "summary", "description"]
+
+            for field in text_fields:
+                if data.get(field):
+                    return str(data[field])
+
+            # Fallback to JSON representation
+            import json
+
+            return json.dumps(data, separators=(",", ": "))
+
+        return str(data)
+
     async def search_with_fallback(
         self, query: str, namespace: str, context: Optional[dict] = None
     ) -> list[SearchResult]:
@@ -431,7 +453,8 @@ class HierarchicalSearchEngine:
 
         # If no results, try broader search
         if not results:
-            logger.info("No results found, trying broader search")
+            # logger.info("No results found, trying broader search")
+            pass
             additional = await self.search(
                 query, namespace, SearchStrategy.GENERAL_TO_SPECIFIC, context
             )

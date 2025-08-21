@@ -13,9 +13,7 @@ from .iterative_taxonomy import (
     LLMExpansionStrategy,
     LLMIterativeTaxonomy,
 )
-from .taxonomy_presets import TaxonomyVersion
-from .taxonomy_presets_simplified import SimplifiedTaxonomyPresets
-from .taxonomy_presets_simplified import TaxonomyVersion as SimplifiedTaxonomyVersion
+from .taxonomy_presets import TaxonomyPresets, TaxonomyVersion
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +59,8 @@ class ClassificationResult:
     suggested_expansion: Optional[str] = None  # For low confidence
     use_parent: bool = False  # For low confidence
     profile_updates: Optional[list[dict[str, str]]] = None  # Profile updates detected
+    timeline_events: Optional[list[dict[str, str]]] = None  # Timeline events detected
+    location_events: Optional[list[dict[str, str]]] = None  # Location events detected
 
     @property
     def all_paths(self) -> list[str]:
@@ -102,6 +102,8 @@ class IntelligentClassifier:
         expansion_strategy: LLMExpansionStrategy = LLMExpansionStrategy.FOCUSED_SUBTREE,
         min_items_for_expansion: int = 3,
         profile_manager: Optional[Any] = None,
+        timeline_manager: Optional[Any] = None,
+        location_manager: Optional[Any] = None,
         suppress_path_warnings: bool = True,
     ):
         """
@@ -120,18 +122,21 @@ class IntelligentClassifier:
         self.llm = llm
         self.memory_store = memory_store
         self.profile_manager = profile_manager
+        self.timeline_manager = timeline_manager
+        self.location_manager = location_manager
         self.taxonomy_version = taxonomy_version
         self.suppress_path_warnings = suppress_path_warnings
 
         # Initialize with simplified taxonomy to reduce LLM prompt size
-        simplified_presets = SimplifiedTaxonomyPresets()
-        preset_paths = simplified_presets.PRESETS[SimplifiedTaxonomyVersion.SIMPLIFIED]
+        simplified_presets = TaxonomyPresets()
+        preset_paths = simplified_presets.PRESETS[TaxonomyVersion.SIMPLIFIED]
 
         # Create a simple taxonomy object that provides get_all_paths() method
         class PresetTaxonomy:
             def __init__(self, preset_paths):
                 self.preset_paths = preset_paths
                 self._all_paths = []
+                self._top_level_categories = set(preset_paths.keys())
                 for category, paths in preset_paths.items():
                     # Do NOT add single-level categories to valid paths
                     # Only add multi-level paths (2+ levels minimum)
@@ -144,6 +149,9 @@ class IntelligentClassifier:
 
             def is_valid_path(self, path):
                 return path in self._all_paths
+
+            def get_top_level_categories(self):
+                return self._top_level_categories
 
         self.taxonomy = PresetTaxonomy(preset_paths)
 
@@ -349,7 +357,6 @@ class IntelligentClassifier:
                 "  * 'I work as a teacher' → profile.professional.occupation (NOT just 'profile')",
                 "  * 'I chose them for their inclusivity' → preferences.personal.values (NOT just 'preferences')",
                 "  * 'We have a great friendship' → relationships.people.friends.close (NOT just 'relationships')",
-                "  * 'I want to adopt kids' → goals.categories.personal.relationships (NOT just 'goals')",
                 "- Use appropriate hierarchical depth (3-4 levels strongly recommended)",
                 "- Follow natural conceptual progression: general → specific",
                 "- Avoid stopping at intermediate levels - go to the most specific applicable path",
@@ -408,14 +415,59 @@ class IntelligentClassifier:
                 "- ALWAYS check if the content contains information that would UPDATE a user's PROFILE",
                 "- Profile updates are DEFINITIVE facts about the user that replace previous information",
                 "- Examples of profile updates:",
-                "  * 'I'm 25 years old' → profile.personal.demographics.age.current",
-                "  * 'I work at Google as a software engineer' → profile.professional.current.company + profile.professional.current.title",
-                "  * 'I live in San Francisco' → profile.living.current.address.city",
-                "  * 'I graduated from Stanford in 2020' → profile.professional.education.college.name + profile.professional.education.college.graduation_year",
-                "  * 'I'm married to Sarah' → profile.personal.demographics.marital_status + profile.relationships.romantic.partner.name",
-                "  * 'My salary is $150k' → profile.finance.income.primary.amount",
+                "  * 'I'm 25 years old' → profile.personal.identity.age.current",
+                "  * 'I work at Google as a software engineer' → profile.professional.current.company.name + profile.professional.current.position.title",
+                "  * 'I live in San Francisco' → profile.personal.location.current.city",
+                "  * 'I graduated from Stanford in 2020' → profile.professional.education.formal.institutions + profile.professional.education.formal.years",
+                "  * 'My name is John Smith' → profile.personal.identity.name.first + profile.personal.identity.name.last",
+                "  * 'I'm married to Sarah' → profile.personal.family.spouse.name",
                 "- If NO profile updates: return 'no_profile_update'",
                 "- If profile updates exist: list them with path and new value",
+                "",
+                "",
+                "TIMELINE EVENT DETECTION:",
+                f"- Current session date: {metadata.get('session_date', 'unknown') if metadata else 'unknown'} (use this for calculating relative dates)",
+                "- ALWAYS check if the content describes a PAST or PRESENT EVENT with temporal information",
+                "- Timeline events are specific occurrences that happened at a particular time",
+                "- Examples of timeline events with ACTUAL date calculation:",
+                "  * 'Yesterday was my first day at the new job' (session: 15 March 2023) → date: '20230314'",
+                "  * 'Last week I went to a conference' (session: 20 June 2023) → date: '20230613' (7 days before)",
+                "  * 'I graduated from college in May 2020' → date: '20200501' (first of month)",
+                "  * 'On March 15th, I came out to my parents' (session: 2023) → date: '20230315' (assume current year)",
+                "  * 'Two months ago I started therapy' (session: 10 July 2023) → date: '20230510' (2 months before)",
+                "- CRITICAL: Always provide ACTUAL 8-digit dates in YYYYMMDD format, NOT placeholders",
+                "- Calculate relative dates precisely from the session date:",
+                "  * 'yesterday' = session date minus 1 day",
+                "  * 'last week' = session date minus 7 days",
+                "  * 'last month' = session date minus ~30 days",
+                "  * 'two days ago' = session date minus 2 days",
+                "- Double-check your date arithmetic: if session is July 10, 2025 and content says 'yesterday', result should be July 9, 2025 → '20250709'",
+                "- CRITICAL: If content contains multiple time references, ALWAYS prioritize the more recent/specific one:",
+                "  * SPECIFICITY ORDER (most to least specific): 'yesterday' > 'two days ago' > 'last week' > 'last month'",
+                "  * 'yesterday' is MORE SPECIFIC than 'last week' - use yesterday",
+                "  * 'two days ago' is MORE SPECIFIC than 'last week' - use two days ago",
+                "  * When in doubt, use the time reference that gives the most recent date",
+                "- If only year/month given, use first day: 'May 2020' → '20200501'",
+                "- If NO timeline events: return 'no_timeline_events'",
+                "- If timeline events exist: list them with date and description",
+                "",
+                "",
+                "LOCATION EVENT DETECTION:",
+                "- CRITICAL: ALWAYS check if the content mentions ANY specific PLACES, LOCATIONS, or geographic references",
+                "- Location events are activities, experiences, or events that happened at specific places",
+                "- IMPORTANT: Look for location indicators like 'in', 'at', 'from', 'to' followed by place names",
+                "- Examples of location events (MUST detect these patterns):",
+                "  * 'The support group in Los Angeles has made me feel accepted' → location: 'Los Angeles', description: 'support group attendance'",
+                "  * 'I went to a LGBTQ support group in San Francisco' → location: 'San Francisco', description: 'attended LGBTQ support group'",
+                "  * 'We moved from New York to California last year' → location: 'New York', description: 'lived here previously' + location: 'California', description: 'moved here'",
+                "  * 'I work at the downtown office' → location: 'downtown office', description: 'workplace'",
+                "  * 'The conference was held at the convention center' → location: 'convention center', description: 'attended conference'",
+                "  * 'I love visiting the beach on weekends' → location: 'beach', description: 'recreational visits'",
+                "- KEY PHRASES to detect: 'in [City]', 'at [Place]', 'from [Location]', 'to [Location]'",
+                "- Extract both specific locations (Los Angeles, San Francisco, New York) and local places (offices, centers, venues)",
+                "- Normalize location names: 'NYC' → 'New York City', 'SF' → 'San Francisco', 'LA' → 'Los Angeles'",
+                "- If NO location events: return 'no_location_events'",
+                "- If location events exist: list them with location name and description",
                 "",
                 "Respond in JSON format:",
                 "{",
@@ -423,12 +475,56 @@ class IntelligentClassifier:
                 '  "paths": ["primary.path.here", "secondary.path.here"] or ["single.path"] or null,',
                 '  "confidence": 0.0-1.0,',
                 '  "reasoning": "explanation of decision and path choices",',
-                '  "profile_updates": "no_profile_update" or [{"path": "profile.path.here", "value": "new value"}]',
+                '  "profile_updates": "no_profile_update" or [{"path": "profile.path.here", "value": "new value"}],',
+                '  "timeline_events": "no_timeline_events" or [{"date": "YYYYMMDD", "description": "event description"}],',
+                '  "location_events": "no_location_events" or [{"location": "location name", "description": "activity/event description"}]',
                 "}",
             ]
         )
 
         return "\n".join(prompt_parts)
+
+    def _fix_common_json_issues(self, json_str: str) -> str:
+        """Fix common JSON formatting issues from LLM responses."""
+        import re
+
+        # First remove JSON comments specifically - be more aggressive
+        json_str = re.sub(r"//.*", "", json_str)  # Remove // comments to end of line
+        json_str = re.sub(
+            r"/\*.*?\*/", "", json_str, flags=re.DOTALL
+        )  # Remove /* */ comments
+
+        # Also remove any trailing content after closing braces that might be comments
+        json_str = re.sub(r"}\s*//.*", "}", json_str)
+
+        # Common fixes for LLM JSON issues
+        fixes = [
+            # Fix trailing commas before closing braces/brackets
+            (r",(\s*[}\]])", r"\1"),
+            # Fix missing commas between array elements
+            (r'"\s*\n\s*"', '",\n"'),
+            # Fix missing commas between objects in arrays
+            (r"}\s*\n\s*{", "},\n{"),
+            # Fix unescaped quotes in strings (basic attempt)
+            (r':\s*"([^"]*)"([^",}\]]*)"', r': "\1\2"'),
+            # Fix missing quotes around field names
+            (r"([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:", r'\1"\2":'),
+            # Fix missing commas after string values before next field
+            (r'"\s*\n\s*"([a-zA-Z_][a-zA-Z0-9_]*)":', r'",\n"\1":'),
+            # Fix array formatting issues
+            (r'\[\s*"([^"]+)"\s*"([^"]+)"\s*\]', r'["\1", "\2"]'),
+        ]
+
+        original = json_str
+        for pattern, replacement in fixes:
+            json_str = re.sub(pattern, replacement, json_str)
+
+        if json_str != original:
+            logger.info(
+                f"Applied JSON repairs: {len([f for f in fixes if re.search(f[0], original)])} fixes"
+            )
+
+        return json_str
 
     def _parse_classification_response(self, response: Any) -> ClassificationResult:
         """Parse LLM classification response."""
@@ -462,10 +558,22 @@ class IntelligentClassifier:
 
             json_str = extract_json(content)
             if json_str:
-                data = json.loads(json_str)
-
-                # Debug logging to see what we're getting
-                logger.info(f"Parsed LLM response: {data}")
+                try:
+                    data = json.loads(json_str)
+                    # Debug logging to see what we're getting
+                    logger.info(f"Parsed LLM response: {data}")
+                except json.JSONDecodeError as json_error:
+                    # Log the malformed JSON for debugging
+                    logger.error(f"Malformed JSON from LLM: {json_str}")
+                    logger.error(f"JSON parsing error: {json_error}")
+                    # Try to fix common JSON issues and retry
+                    json_str = self._fix_common_json_issues(json_str)
+                    try:
+                        data = json.loads(json_str)
+                        logger.info(f"Successfully parsed after JSON repair: {data}")
+                    except json.JSONDecodeError:
+                        logger.error("JSON repair failed, using fallback")
+                        raise  # Re-raise to trigger fallback handling
             else:
                 # Fallback parsing - log the content that failed to parse
                 logger.warning(
@@ -494,23 +602,8 @@ class IntelligentClassifier:
             all_paths = self.taxonomy.get_all_paths()
             validated_paths = []
 
-            # Existing top-level categories
-            existing_top_level = {
-                p.split(".")[0]
-                for p in all_paths
-                if "." in p
-                or p
-                in [
-                    "profile",
-                    "preferences",
-                    "experience",
-                    "context",
-                    "knowledge",
-                    "relationships",
-                    "goals",
-                    "behavior",
-                ]
-            }
+            # Extract top-level categories dynamically from taxonomy
+            existing_top_level = {p.split(".")[0] for p in all_paths if "." in p}
 
             for path in paths_to_validate:
                 if path and path in all_paths:
@@ -564,17 +657,18 @@ class IntelligentClassifier:
 
                             if valid_domain_paths:
                                 # Use a sensible default path in this domain as fallback
-                                domain_defaults = {
-                                    "preferences": "preferences.personal.interests",
-                                    "relationships": "relationships.people.friends.close",
-                                    "topics": "topics.social_issues.community",
-                                    "goals": "goals.categories.personal.growth",
-                                    "experience": "experience.memories.recent",
-                                    "entity": "entity.people.mentioned.friends",
-                                    "profile": "profile.personal.characteristics",
-                                    "knowledge": "knowledge.facts.personal",
-                                    "behavior": "behavior.patterns.social",
-                                }
+                                # Build domain defaults dynamically from existing paths
+                                domain_defaults = {}
+                                for path in valid_domain_paths:
+                                    parts = path.split(".")
+                                    if (
+                                        len(parts) >= 3
+                                    ):  # Prefer deeper paths as defaults
+                                        domain_defaults[domain] = path
+                                        break
+                                if domain not in domain_defaults and valid_domain_paths:
+                                    # If no deep path found, use first available
+                                    domain_defaults[domain] = valid_domain_paths[0]
 
                                 fallback_path = domain_defaults.get(
                                     domain, valid_domain_paths[0]
@@ -638,6 +732,28 @@ class IntelligentClassifier:
                 profile_updates = profile_data
                 logger.info(f"Detected profile updates: {profile_updates}")
 
+            # Parse timeline events
+            timeline_events = None
+            timeline_data = data.get("timeline_events")
+            if timeline_data and timeline_data != "no_timeline_events":
+                # Handle both dict and list formats from LLM
+                if isinstance(timeline_data, dict):
+                    timeline_events = [timeline_data]
+                elif isinstance(timeline_data, list):
+                    timeline_events = timeline_data
+                logger.info(f"Detected timeline events: {timeline_events}")
+
+            # Parse location events
+            location_events = None
+            location_data = data.get("location_events")
+            if location_data and location_data != "no_location_events":
+                # Handle both dict and list formats from LLM
+                if isinstance(location_data, dict):
+                    location_events = [location_data]
+                elif isinstance(location_data, list):
+                    location_events = location_data
+                logger.info(f"Detected location events: {location_events}")
+
             return ClassificationResult(
                 is_memory=is_memory,
                 path=primary_path if is_memory else None,
@@ -653,6 +769,8 @@ class IntelligentClassifier:
                     else ClassificationAction.SKIP
                 ),
                 profile_updates=profile_updates,
+                timeline_events=timeline_events,
+                location_events=location_events,
             )
 
         except Exception as e:
@@ -894,29 +1012,6 @@ class IntelligentClassifier:
                         " | Confidence too low after expansion handling"
                     )
 
-        # Step 4: Analyze and potentially improve hierarchical structure
-        if classification.path and classification.is_memory:
-            # Analyze hierarchical consistency
-            analysis = self._analyze_hierarchical_consistency(classification.path)
-
-            # Suggest better path if needed
-            if analysis["suggested_improvements"]:
-                improved_path = self._suggest_hierarchical_path(
-                    content, classification.path
-                )
-                if improved_path != classification.path:
-                    logger.info(
-                        f"Suggested path improvement: {classification.path} → {improved_path}"
-                    )
-                    classification.path = improved_path
-                    classification.reasoning += (
-                        f" | Path improved for better hierarchy: {improved_path}"
-                    )
-
-            # Note: We skip iterative taxonomy tracking since we're using the full semantic taxonomy
-            # The track_classification method runs domain consistency validation that may not match
-            # our full taxonomy paths, causing spurious warnings
-
         return classification
 
     async def _generate_entity_storage_key(
@@ -1061,6 +1156,36 @@ Examples:
             except Exception as e:
                 logger.error(f"Failed to apply profile updates: {e}")
 
+        # Step 2.6: Apply timeline events if detected
+        if classification.timeline_events and self.timeline_manager:
+            try:
+                await self.timeline_manager.apply_timeline_events(
+                    classification.timeline_events, metadata
+                )
+                logger.info(
+                    f"Applied {len(classification.timeline_events)} timeline events"
+                )
+            except Exception as e:
+                logger.error(f"Failed to apply timeline events: {e}")
+
+        # Step 2.7: Apply location events if detected
+        if classification.location_events:
+            logger.info(f"Detected location events: {classification.location_events}")
+            if self.location_manager:
+                try:
+                    await self.location_manager.apply_location_events(
+                        classification.location_events, metadata
+                    )
+                    logger.info(
+                        f"Applied {len(classification.location_events)} location events"
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to apply location events: {e}")
+            else:
+                logger.warning(
+                    "Location manager not configured, skipping location events"
+                )
+
         # Step 3: Handle memory storage under multiple paths
         namespace = ("memory", self.taxonomy_version.value)
         stored_paths = []
@@ -1181,8 +1306,10 @@ Examples:
             existing_content = existing_memory.get("raw_text", "")
 
             # Check for conflicts using LLM
+            # Extract the primary subject from metadata if available
+            primary_subject = new_memory.get("metadata", {}).get("speaker")
             conflict_check = await self._check_for_conflicts(
-                existing_content, new_content
+                existing_content, new_content, primary_subject
             )
 
             if conflict_check.get("has_conflict", False):
@@ -1260,7 +1387,10 @@ Examples:
             return None
 
     async def _check_for_conflicts(
-        self, existing_content: str, new_content: str
+        self,
+        existing_content: str,
+        new_content: str,
+        primary_subject: Optional[str] = None,
     ) -> dict:
         """
         Check if new content conflicts with existing content using LLM.
@@ -1268,6 +1398,7 @@ Examples:
         Args:
             existing_content: The existing memory content
             new_content: The new content to check for conflicts
+            primary_subject: The primary person this memory is about (optional)
 
         Returns:
             Dict with conflict analysis
@@ -1275,8 +1406,15 @@ Examples:
         if not existing_content or not new_content:
             return {"has_conflict": False, "reasoning": "No content to compare"}
 
-        prompt = f"""Analyze if these two pieces of information conflict with each other.
+        subject_guidance = ""
+        if primary_subject:
+            subject_guidance = f"""
+IMPORTANT: This memory is about {primary_subject}. Only check for conflicts related to {primary_subject}.
+IGNORE information about other people mentioned in the conversation - they are not relevant for conflict detection.
+"""
 
+        prompt = f"""Analyze if these two pieces of information conflict with each other.
+{subject_guidance}
 Existing information: {existing_content}
 New information: {new_content}
 
@@ -1289,6 +1427,7 @@ Do NOT consider these as conflicts:
 - Additional details that expand on existing information
 - Related but different aspects of the same topic
 - Temporal progression (things changing over time)
+- Information about other people mentioned in conversations
 
 Respond in JSON format:
 {{
@@ -1613,93 +1752,6 @@ Respond in JSON format:
             "confidence_thresholds": self.thresholds,
         }
 
-    def _analyze_hierarchical_consistency(self, new_path: str) -> dict:
-        """Analyze hierarchical consistency and suggest improvements."""
-        all_paths = self.taxonomy.get_all_paths()
-        path_parts = new_path.split(".")
-
-        analysis = {
-            "depth": len(path_parts),
-            "missing_intermediates": [],
-            "similar_paths": [],
-            "suggested_improvements": [],
-        }
-
-        # Check for missing intermediate levels
-        for i in range(1, len(path_parts)):
-            intermediate = ".".join(path_parts[: i + 1])
-            if intermediate not in all_paths:
-                analysis["missing_intermediates"].append(intermediate)
-
-        # Find similar paths in the same domain
-        domain = path_parts[0]
-        similar = [p for p in all_paths if p.startswith(domain + ".") and p != new_path]
-        analysis["similar_paths"] = similar[:5]  # Top 5 similar paths
-
-        # Suggest improvements based on depth and consistency
-        if len(path_parts) > 4:
-            analysis["suggested_improvements"].append(
-                f"Consider reducing depth from {len(path_parts)} to 3-4 levels"
-            )
-
-        if len(analysis["missing_intermediates"]) > 1:
-            analysis["suggested_improvements"].append(
-                f"Add intermediate levels: {', '.join(analysis['missing_intermediates'][:-1])}"
-            )
-
-        return analysis
-
-    def _suggest_hierarchical_path(self, content: str, initial_path: str) -> str:
-        """Suggest a better hierarchical path based on content and existing taxonomy structure."""
-        path_parts = initial_path.split(".")
-        content_lower = content.lower()
-        content_words = set(content_lower.split())
-
-        # Get all existing paths to learn hierarchy patterns
-        all_paths = self.taxonomy.get_all_paths()
-
-        # Analyze existing structure to find better hierarchical patterns
-        if len(path_parts) >= 2:
-            domain = path_parts[0]
-
-            # Find similar content-based paths in the same domain
-            domain_paths = [p for p in all_paths if p.startswith(f"{domain}.")]
-
-            best_match = None
-            best_score = 0
-
-            for existing_path in domain_paths:
-                existing_parts = existing_path.split(".")
-                if len(existing_parts) >= 3:  # Has intermediate levels
-                    # Score based on content word overlap
-                    path_words = set()
-                    for part in existing_parts:
-                        path_words.update(part.replace("_", " ").split())
-
-                    overlap = content_words.intersection(path_words)
-                    if overlap:
-                        score = len(overlap) / len(content_words.union(path_words))
-                        if score > best_score and score > 0.2:  # Minimum threshold
-                            best_match = existing_path
-                            best_score = score
-
-            # If we found a good match, suggest using its intermediate structure
-            if best_match:
-                match_parts = best_match.split(".")
-                if len(match_parts) >= 3 and len(path_parts) == 2:
-                    # Use the intermediate structure from the matching path
-                    intermediate = match_parts[1]  # Use the area from matching path
-                    final_part = path_parts[1]  # Keep our specific category
-                    return f"{domain}.{intermediate}.{final_part}"
-                elif len(match_parts) >= 3 and len(path_parts) > 3:
-                    # Restructure to use the better intermediate from matching path
-                    intermediate = match_parts[1]
-                    remaining = ".".join(path_parts[2:])
-                    return f"{domain}.{intermediate}.{remaining}"
-
-        # No improvement found based on existing structure
-        return initial_path
-
     def get_category_structure(self) -> dict:
         """Get the current category structure for passing to LLM context."""
         all_paths = self.taxonomy.get_all_paths()
@@ -1881,3 +1933,9 @@ Respond in JSON format:
             results.append(evaluation)
 
         return results
+
+    async def classify_async(
+        self, content: str, metadata: Optional[dict] = None
+    ) -> ClassificationResult:
+        """Compatibility method for SemanticClassifier interface."""
+        return await self.classify_input(content, metadata)
