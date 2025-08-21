@@ -56,22 +56,22 @@ jobs:
           exit 1
         fi
 
-    - name: Upload documentation artifacts
-      uses: actions/upload-artifact@v3
-      if: success()
-      with:
-        name: html-docs
-        path: docs/_build/html/
-        retention-days: 7
-
-    - name: Deploy to GitHub Pages (main branch only)
-      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      uses: peaceiris/actions-gh-pages@v3
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: docs/_build/html
-        publish_branch: gh-pages
-        force_orphan: true
-        user_name: 'github-actions[bot]'
-        user_email: 'github-actions[bot]@users.noreply.github.com'
-        commit_message: 'Deploy documentation from ${{ github.sha }}'
+#    - name: Upload documentation artifacts
+#      uses: actions/upload-artifact@v3
+#      if: success()
+#      with:
+#        name: html-docs
+#        path: docs/_build/html/
+#        retention-days: 7
+#
+#    - name: Deploy to GitHub Pages (main branch only)
+#      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+#      uses: peaceiris/actions-gh-pages@v3
+#      with:
+#        github_token: ${{ secrets.GITHUB_TOKEN }}
+#        publish_dir: docs/_build/html
+#        publish_branch: gh-pages
+#        force_orphan: true
+#        user_name: 'github-actions[bot]'
+#        user_email: 'github-actions[bot]@users.noreply.github.com'
+#        commit_message: 'Deploy documentation from ${{ github.sha }}'
