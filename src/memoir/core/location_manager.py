@@ -31,9 +31,11 @@ class LocationManager:
             location_events: List of location events with location and description
             metadata: Optional metadata to include with events
         """
-        logger.warning(f"LocationManager.apply_location_events called with {len(location_events) if location_events else 0} events")
+        logger.debug(
+            f"LocationManager.apply_location_events called with {len(location_events) if location_events else 0} events"
+        )
         if not location_events:
-            logger.warning("No location events provided to apply_location_events")
+            logger.debug("No location events provided to apply_location_events")
             return
 
         for event in location_events:
@@ -48,7 +50,7 @@ class LocationManager:
             normalized_location = self._normalize_location_name(location_name)
 
             if not normalized_location:
-                logger.warning(f"Invalid location name: {location_name}")
+                logger.debug(f"Invalid location name: {location_name}")
                 continue
 
             # Create the location path
@@ -179,25 +181,33 @@ class LocationManager:
             content["metadata"] = metadata
 
         # Store the location event
-        logger.warning(f"About to call store_memory_async with namespace='{namespace}', path='{location_path}'")
-        logger.warning(f"Content to store: {content}")
-        
-        result = await self.memory_store.store_memory_async(namespace, content, location_path)
-        logger.warning(f"store_memory_async returned: {result}")
-        
+        logger.debug(
+            f"About to call store_memory_async with namespace='{namespace}', path='{location_path}'"
+        )
+        logger.debug(f"Content to store: {content}")
+
+        result = await self.memory_store.store_memory_async(
+            namespace, content, location_path
+        )
+        logger.debug(f"store_memory_async returned: {result}")
+
         # Debug: immediately test if we can find what we just stored
         try:
             test_search = await self.memory_store.asearch(namespace, location_path)
-            logger.warning(f"Immediate search for '{location_path}' found {len(test_search)} items")
+            logger.debug(
+                f"Immediate search for '{location_path}' found {len(test_search)} items"
+            )
             if test_search:
-                logger.warning(f"Found item: {test_search[0]}")
-                
+                logger.debug(f"Found item: {test_search[0]}")
+
             # Also try searching with prefix
             prefix_search = await self.memory_store.asearch(namespace, "location.")
-            logger.warning(f"Prefix search for 'location.' found {len(prefix_search)} items")
-            
+            logger.debug(
+                f"Prefix search for 'location.' found {len(prefix_search)} items"
+            )
+
         except Exception as e:
-            logger.warning(f"Immediate search test failed: {e}")
+            logger.debug(f"Immediate search test failed: {e}")
 
     def _merge_location_descriptions(self, existing: str, new: str) -> str:
         """
@@ -244,36 +254,43 @@ class LocationManager:
         try:
             namespace = "memory:general"
 
-            # Search for all location events  
-            logger.warning(f"Searching for location events with query: namespace='{namespace}', prefix='location.'")
+            # Search for all location events
+            logger.debug(
+                f"Searching for location events with query: namespace='{namespace}', prefix='location.'"
+            )
             all_items = await self.memory_store.asearch(namespace, "location.")
-            logger.warning(f"Search returned {len(all_items)} items")
-            
+            logger.debug(f"Search returned {len(all_items)} items")
+
             # Debug: log what we found
             if all_items:
                 logger.info(f"Found {len(all_items)} items with location. prefix")
                 for item in all_items[:3]:  # Log first few items
                     logger.info(f"Location item: {item}")
             else:
-                logger.warning("No items found with location. prefix")
-                
+                logger.debug("No items found with location. prefix")
+
                 # Debug: search for ANY items with location data
-                logger.warning("Searching for ANY items with location data...")
+                logger.debug("Searching for ANY items with location data...")
                 all_items_debug = await self.memory_store.asearch(namespace, "")
                 location_items_debug = []
                 for path, data in all_items_debug:
-                    if isinstance(data, dict):
-                        if (data.get("memory_type") == "location_event" or 
-                            "location_name" in data.get("structured_data", {})):
-                            location_items_debug.append((path, data))
-                            logger.warning(f"Found location data under path: {path}")
-                            
+                    if isinstance(data, dict) and (
+                        data.get("memory_type") == "location_event"
+                        or "location_name" in data.get("structured_data", {})
+                    ):
+                        location_items_debug.append((path, data))
+                        logger.debug(f"Found location data under path: {path}")
+
                 if location_items_debug:
-                    logger.warning(f"Found {len(location_items_debug)} location events but not under location.* paths!")
-                    return self._generate_structured_location_summary(location_items_debug)
+                    logger.debug(
+                        f"Found {len(location_items_debug)} location events but not under location.* paths!"
+                    )
+                    return self._generate_structured_location_summary(
+                        location_items_debug
+                    )
                 else:
-                    logger.warning("No location events found anywhere in memory store!")
-                
+                    logger.debug("No location events found anywhere in memory store!")
+
             location_items = all_items  # All items should already have location. prefix
 
             if not location_items:
@@ -288,8 +305,9 @@ class LocationManager:
 
         except Exception as e:
             logger.error(f"Failed to generate location summary: {e}")
-            logger.error(f"Exception details: {type(e).__name__}: {str(e)}")
+            logger.error(f"Exception details: {type(e).__name__}: {e!s}")
             import traceback
+
             logger.error(f"Traceback: {traceback.format_exc()}")
             return "Error generating location summary."
 
@@ -305,9 +323,9 @@ class LocationManager:
             # Handle nested memory object structure from asearch results
             if isinstance(data, dict):
                 # Check if this is a nested memory object with 'content' field
-                if 'content' in data and isinstance(data['content'], dict):
+                if "content" in data and isinstance(data["content"], dict):
                     # Extract from nested structure: data['content']['raw_text']
-                    content = data['content'].get("raw_text", str(data))
+                    content = data["content"].get("raw_text", str(data))
                 else:
                     # Direct structure: data['raw_text']
                     content = data.get("raw_text", str(data))
