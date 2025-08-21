@@ -1,4 +1,4 @@
-.PHONY: help install install-dev clean test test-cov lint format type-check security benchmark examples docs pre-commit build publish
+.PHONY: help install install-dev clean test test-cov lint format type-check security benchmark examples docs docs-live docs-clean pre-commit build publish
 
 # Default target
 help:
@@ -14,7 +14,9 @@ help:
 	@echo "  security        Run security checks"
 	@echo "  benchmark       Run performance benchmarks"
 	@echo "  examples        Run example scripts"
-	@echo "  docs            Build documentation"
+	@echo "  docs            Build HTML documentation"
+	@echo "  docs-live       Build docs with auto-reload for development"
+	@echo "  docs-clean      Clean documentation build directory"
 	@echo "  pre-commit      Install and run pre-commit hooks"
 	@echo "  build           Build package distributions"
 	@echo "  publish         Publish to PyPI (requires tokens)"
@@ -35,6 +37,7 @@ clean:
 	rm -rf htmlcov/
 	rm -rf .mypy_cache/
 	rm -rf .ruff_cache/
+	rm -rf docs/_build/
 	find . -type d -name __pycache__ -delete
 	find . -type f -name "*.pyc" -delete
 
@@ -74,11 +77,21 @@ examples:
 	cd examples && python langgraph_integration.py || echo "✓ LangGraph example completed"
 
 docs:
-	@echo "Checking documentation..."
-	@echo "✓ README.md exists and has required sections"
-	@grep -q "Performance Improvements" README.md
-	@grep -q "Quick Start" README.md
-	@grep -q "Installation" README.md
+	@echo "Building documentation..."
+	cd docs && make install
+	cd docs && make clean
+	cd docs && make html
+	@echo "✓ Documentation built successfully at docs/_build/html/index.html"
+	@echo "  To view: open docs/_build/html/index.html"
+
+docs-live:
+	@echo "Starting live documentation server..."
+	cd docs && make install
+	cd docs && make livehtml
+
+docs-clean:
+	@echo "Cleaning documentation build..."
+	cd docs && make clean
 	@echo "✓ Documentation structure looks good"
 
 pre-commit:
