@@ -19,7 +19,8 @@ class IntelligentSearchResult:
     path: str
     content: str
     metadata: dict
-    confidence: float = 1.0
+    relevance_score: float = 1.0
+    namespace: str = ""
 
 
 class IntelligentSearchEngine:
@@ -81,7 +82,8 @@ class IntelligentSearchEngine:
                         sample_content = ""
                         memories = data.get("memories", [])
                         if memories:
-                            sample_content = memories[0].get("content", "")[:100]
+                            content = memories[0].get("content", "")
+                            sample_content = str(content)[:100] if content else ""
                         paths_info[path] = {
                             "type": "aggregated",
                             "count": memory_count,
@@ -217,11 +219,15 @@ Selected paths:"""
                     metadata = memory_entry.get("metadata", {})
                     metadata.update({"path": path, "source": "aggregated"})
 
+                    # Convert namespace tuple to string
+                    namespace_str = ":".join(namespace_tuple)
+
                     result = IntelligentSearchResult(
                         path=path,
                         content=str(content),
                         metadata=metadata,
-                        confidence=confidence,
+                        relevance_score=confidence,
+                        namespace=namespace_str,
                     )
                     results.append(result)
             else:
@@ -231,11 +237,15 @@ Selected paths:"""
                 metadata = data.get("metadata", {})
                 metadata.update({"path": path, "source": "single"})
 
+                # Convert namespace tuple to string
+                namespace_str = ":".join(namespace_tuple)
+
                 result = IntelligentSearchResult(
                     path=path,
                     content=str(content),
                     metadata=metadata,
-                    confidence=confidence,
+                    relevance_score=confidence,
+                    namespace=namespace_str,
                 )
                 results.append(result)
 

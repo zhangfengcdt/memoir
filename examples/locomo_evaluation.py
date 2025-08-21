@@ -26,6 +26,7 @@ from memoir.classifier.intelligent_classifier import IntelligentClassifier
 from memoir.core.location_manager import LocationManager
 from memoir.core.profile_manager import ProfileManager
 from memoir.core.timeline_manager import TimelineManager
+from memoir.search.intelligent_search import IntelligentSearchEngine
 from memoir.search.semantic_search import SemanticSearchEngine
 from memoir.store.prolly_adapter import ProllyTreeStore
 from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
@@ -63,6 +64,7 @@ class LocomoEvaluator:
         max_memory_size: int = 2000,
         context_turns: int = 1,
         max_retries: int = 3,
+        search_engine_type: str = "intelligent",
     ):
         self.console = Console()
         self.data_file = data_file
@@ -75,6 +77,7 @@ class LocomoEvaluator:
         self.max_memory_size = max_memory_size
         self.context_turns = context_turns
         self.max_retries = max_retries
+        self.search_engine_type = search_engine_type
         self.confidence_thresholds = confidence_thresholds or {
             "high": 0.8,
             "medium": 0.5,
@@ -204,10 +207,8 @@ class LocomoEvaluator:
         data_dir = Path(self.storage_path)
         data_dir.mkdir(parents=True, exist_ok=True)
 
-        classifier = IntelligentClassifier(llm=self.llm)
         store = ProllyTreeStore(
             path=str(data_dir),
-            classifier=classifier,
             enable_versioning=False,
         )
 
@@ -225,7 +226,25 @@ class LocomoEvaluator:
             location_manager=self.location_manager,
         )
 
-        self.search_engine = SemanticSearchEngine(store=store)
+        # Create search engine based on type
+        if self.search_engine_type.lower() == "semantic":
+            self.search_engine = SemanticSearchEngine(store=store)
+            self.console.print(
+                "⏺ Using SemanticSearchEngine (keyword-based search)", style="white"
+            )
+        elif self.search_engine_type.lower() == "intelligent":
+            self.search_engine = IntelligentSearchEngine(
+                llm=self.llm,
+                store=store,
+            )
+            self.console.print(
+                "⏺ Using IntelligentSearchEngine (LLM-powered path selection)",
+                style="white",
+            )
+        else:
+            raise ValueError(
+                f"Unknown search engine type: {self.search_engine_type}. Available: 'semantic', 'intelligent'"
+            )
 
         await self.load_data()
 
@@ -729,8 +748,8 @@ Return only the search terms/phrases, one per line:"""
                     "content": result.content,
                     "path": result.path,
                     "namespace": result.namespace,
-                    "item_count": result.item_count,
-                    "semantic_distance": result.semantic_distance,
+                    "relevance_score": result.relevance_score,
+                    "metadata": result.metadata,
                 }
             )
 
@@ -800,9 +819,7 @@ Return only the search terms/phrases, one per line:"""
 
         context = "\n".join(context_parts)
 
-        profile_summary = await self.search_engine.profile_manager.get_profile_summary(
-            llm=None
-        )
+        profile_summary = await self.profile_manager.get_profile_summary(llm=None)
 
         timeline_summary = await self.timeline_manager.get_timeline_summary(llm=None)
 
@@ -1268,6 +1285,13 @@ async def main():
         default=3,
         help="Maximum number of retry attempts for failed searches (default: 3)",
     )
+    parser.add_argument(
+        "--search-engine",
+        type=str,
+        default="intelligent",
+        choices=["intelligent", "semantic"],
+        help="Search engine to use: 'intelligent' (LLM-powered, default) or 'semantic' (keyword-based)",
+    )
 
     args = parser.parse_args()
 
@@ -1310,6 +1334,7 @@ async def main():
             max_memory_size=args.max_memory_size,
             context_turns=args.context_turns,
             max_retries=args.max_retries,
+            search_engine_type=args.search_engine,
         )
 
         await evaluator.setup()
@@ -1324,6 +1349,16 @@ async def main():
             f.write(f"Person: {args.person}\n")
             f.write(f"Session: {args.session or 'All'}\n")
             f.write(f"Timestamp: {timestamp}\n")
+            f.write("\n")
+            f.write("Arguments Used:\n")
+            f.write(f"  Data File: {args.data_file}\n")
+            f.write(f"  Storage Path: {args.storage_path}\n")
+            f.write(f"  Max Search Results: {args.max_search_results}\n")
+            f.write(f"  Max Context Memories: {args.max_context_memories}\n")
+            f.write(f"  Max Memory Size: {args.max_memory_size}\n")
+            f.write(f"  Context Turns: {args.context_turns}\n")
+            f.write(f"  Max Retries: {args.max_retries}\n")
+            f.write(f"  Search Engine: {args.search_engine}\n")
             f.write("=" * 80 + "\n\n")
 
             # Add profile summary
