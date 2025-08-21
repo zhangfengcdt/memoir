@@ -10,7 +10,7 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
-from memoir.taxonomy.semantic_taxonomy import TaxonomyCategory, get_taxonomy
+from memoir.taxonomy.semantic import TaxonomyCategory, get_taxonomy
 
 from .base import AdvancedTaxonomyInterface, TaxonomyInterface
 

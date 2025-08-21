@@ -22,12 +22,12 @@ from rich.table import Table
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from memoir.classifier.intelligent_classifier import IntelligentClassifier
+from memoir.classifier.intelligent import IntelligentClassifier
 from memoir.memento.location import LocationMemento
 from memoir.memento.profile import ProfileMemento
 from memoir.memento.timeline import TimelineMemento
-from memoir.search.intelligent_search import IntelligentSearchEngine
-from memoir.search.semantic_search import SemanticSearchEngine
+from memoir.search.intelligent import IntelligentSearchEngine
+from memoir.search.semantic import SemanticSearchEngine
 from memoir.store.prolly_adapter import ProllyTreeStore
 from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
 

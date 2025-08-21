@@ -33,8 +33,8 @@ import sys
 import tempfile
 
 from memoir import ProllyTreeMemoryStoreManager
-from memoir.classifier.intelligent_classifier import IntelligentClassifier
-from memoir.search.intelligent_search import IntelligentSearchEngine
+from memoir.classifier.intelligent import IntelligentClassifier
+from memoir.search.intelligent import IntelligentSearchEngine
 from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
 
 

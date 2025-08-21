@@ -2,7 +2,7 @@
 
 import pytest
 
-from memoir.classifier.semantic_classifier import (
+from memoir.classifier.semantic import (
     ClassificationResult,
     SemanticClassifier,
 )

@@ -18,7 +18,7 @@ from pydantic import BaseModel, Field
 
 from memoir.classifier.base import BaseTaxonomy
 
-from .semantic_taxonomy import SemanticTaxonomy
+from .semantic import SemanticTaxonomy
 from .taxonomy_presets import TaxonomyPresets, TaxonomyVersion
 
 logger = logging.getLogger(__name__)
