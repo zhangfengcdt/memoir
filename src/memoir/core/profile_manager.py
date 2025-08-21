@@ -55,9 +55,8 @@ class ProfileManager:
                 "memory_type": "profile_update",
             }
 
-            # Store directly using the prolly store with correct signature
-            # prolly_store.store_memory(namespace, content, key)
-            self.memory_store.store_memory("memory:general", memory_data, path)
+            # Store directly using the async method (consistent with timeline manager)
+            await self.memory_store.store_memory_async("memory:general", memory_data, path)
             logger.info(f"Applied profile update: {path} = {value}")
 
     async def get_profile_summary(self, llm=None) -> str:
