@@ -429,13 +429,28 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
                 metrics["classification_time_ms"]
             ) / len(metrics["classification_time_ms"])
 
-        # Add store statistics (synchronous method)
+        # Add component statistics
         try:
-            store_stats = self.prolly_store.get_statistics()
-            metrics["store"] = store_stats
+            metrics["store"] = self.prolly_store.get_statistics()
         except Exception as e:
             logger.warning(f"Failed to get store statistics: {e}")
             metrics["store"] = {}
+            
+        # Add classifier statistics if available
+        if hasattr(self.classifier, 'get_statistics'):
+            try:
+                metrics["classifier"] = self.classifier.get_statistics()
+            except Exception as e:
+                logger.warning(f"Failed to get classifier statistics: {e}")
+                metrics["classifier"] = {}
+        
+        # Add search engine statistics if available  
+        if hasattr(self.search_engine, 'get_statistics'):
+            try:
+                metrics["search_engine"] = self.search_engine.get_statistics()
+            except Exception as e:
+                logger.warning(f"Failed to get search engine statistics: {e}")
+                metrics["search_engine"] = {}
 
         return metrics
 

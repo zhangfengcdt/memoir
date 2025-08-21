@@ -505,8 +505,8 @@ class ProllyTreeStore(BaseStore):
         """Get store statistics."""
         stats = {
             "performance": self._stats.copy(),
-            "taxonomy": self.taxonomy.get_statistics(),
-            "classifier": self.classifier.get_statistics(),
+            "total_keys": len(self._keys),
+            "total_namespaces": len(set(key.split(":")[0] for key in self._keys)),
         }
 
         if self.enable_versioning and hasattr(self.tree, "get_head"):
