@@ -60,6 +60,7 @@ class ClassificationResult:
     use_parent: bool = False  # For low confidence
     profile_updates: Optional[list[dict[str, str]]] = None  # Profile updates detected
     timeline_events: Optional[list[dict[str, str]]] = None  # Timeline events detected
+    location_events: Optional[list[dict[str, str]]] = None  # Location events detected
 
     @property
     def all_paths(self) -> list[str]:
@@ -102,6 +103,7 @@ class IntelligentClassifier:
         min_items_for_expansion: int = 3,
         profile_manager: Optional[Any] = None,
         timeline_manager: Optional[Any] = None,
+        location_manager: Optional[Any] = None,
         suppress_path_warnings: bool = True,
     ):
         """
@@ -121,6 +123,7 @@ class IntelligentClassifier:
         self.memory_store = memory_store
         self.profile_manager = profile_manager
         self.timeline_manager = timeline_manager
+        self.location_manager = location_manager
         self.taxonomy_version = taxonomy_version
         self.suppress_path_warnings = suppress_path_warnings
 
@@ -448,6 +451,24 @@ class IntelligentClassifier:
                 "- If NO timeline events: return 'no_timeline_events'",
                 "- If timeline events exist: list them with date and description",
                 "",
+                "",
+                "LOCATION EVENT DETECTION:",
+                "- CRITICAL: ALWAYS check if the content mentions ANY specific PLACES, LOCATIONS, or geographic references",
+                "- Location events are activities, experiences, or events that happened at specific places",
+                "- IMPORTANT: Look for location indicators like 'in', 'at', 'from', 'to' followed by place names",
+                "- Examples of location events (MUST detect these patterns):",
+                "  * 'The support group in Los Angeles has made me feel accepted' → location: 'Los Angeles', description: 'support group attendance'",
+                "  * 'I went to a LGBTQ support group in San Francisco' → location: 'San Francisco', description: 'attended LGBTQ support group'",
+                "  * 'We moved from New York to California last year' → location: 'New York', description: 'lived here previously' + location: 'California', description: 'moved here'",
+                "  * 'I work at the downtown office' → location: 'downtown office', description: 'workplace'",
+                "  * 'The conference was held at the convention center' → location: 'convention center', description: 'attended conference'",
+                "  * 'I love visiting the beach on weekends' → location: 'beach', description: 'recreational visits'",
+                "- KEY PHRASES to detect: 'in [City]', 'at [Place]', 'from [Location]', 'to [Location]'",
+                "- Extract both specific locations (Los Angeles, San Francisco, New York) and local places (offices, centers, venues)",
+                "- Normalize location names: 'NYC' → 'New York City', 'SF' → 'San Francisco', 'LA' → 'Los Angeles'",
+                "- If NO location events: return 'no_location_events'",
+                "- If location events exist: list them with location name and description",
+                "",
                 "Respond in JSON format:",
                 "{",
                 '  "is_memory": true/false,',
@@ -455,7 +476,8 @@ class IntelligentClassifier:
                 '  "confidence": 0.0-1.0,',
                 '  "reasoning": "explanation of decision and path choices",',
                 '  "profile_updates": "no_profile_update" or [{"path": "profile.path.here", "value": "new value"}],',
-                '  "timeline_events": "no_timeline_events" or [{"date": "YYYYMMDD", "description": "event description"}]',
+                '  "timeline_events": "no_timeline_events" or [{"date": "YYYYMMDD", "description": "event description"}],',
+                '  "location_events": "no_location_events" or [{"location": "location name", "description": "activity/event description"}]',
                 "}",
             ]
         )
@@ -721,6 +743,17 @@ class IntelligentClassifier:
                     timeline_events = timeline_data
                 logger.info(f"Detected timeline events: {timeline_events}")
 
+            # Parse location events
+            location_events = None
+            location_data = data.get("location_events")
+            if location_data and location_data != "no_location_events":
+                # Handle both dict and list formats from LLM
+                if isinstance(location_data, dict):
+                    location_events = [location_data]
+                elif isinstance(location_data, list):
+                    location_events = location_data
+                logger.info(f"Detected location events: {location_events}")
+
             return ClassificationResult(
                 is_memory=is_memory,
                 path=primary_path if is_memory else None,
@@ -737,6 +770,7 @@ class IntelligentClassifier:
                 ),
                 profile_updates=profile_updates,
                 timeline_events=timeline_events,
+                location_events=location_events,
             )
 
         except Exception as e:
@@ -1133,6 +1167,24 @@ Examples:
                 )
             except Exception as e:
                 logger.error(f"Failed to apply timeline events: {e}")
+
+        # Step 2.7: Apply location events if detected
+        if classification.location_events:
+            logger.info(f"Detected location events: {classification.location_events}")
+            if self.location_manager:
+                try:
+                    await self.location_manager.apply_location_events(
+                        classification.location_events, metadata
+                    )
+                    logger.info(
+                        f"Applied {len(classification.location_events)} location events"
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to apply location events: {e}")
+            else:
+                logger.warning(
+                    "Location manager not configured, skipping location events"
+                )
 
         # Step 3: Handle memory storage under multiple paths
         namespace = ("memory", self.taxonomy_version.value)

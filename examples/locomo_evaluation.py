@@ -22,6 +22,7 @@ from rich.table import Table
 # Add src to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from memoir.core.location_manager import LocationManager
 from memoir.core.profile_manager import ProfileManager
 from memoir.core.prolly_adapter import ProllyTreeStore
 from memoir.core.timeline_manager import TimelineManager
@@ -92,6 +93,7 @@ class LocomoEvaluator:
         self.search_engine = None
         self.profile_manager = None
         self.timeline_manager = None
+        self.location_manager = None
         self.conversation_data = None
         self.qa_data = None
         self.all_conversations = None
@@ -214,6 +216,7 @@ class LocomoEvaluator:
 
         self.profile_manager = ProfileManager(store)
         self.timeline_manager = TimelineManager(store)
+        self.location_manager = LocationManager(store)
 
         self.intelligent_classifier = IntelligentClassifier(
             llm=self.llm,
@@ -222,6 +225,7 @@ class LocomoEvaluator:
             confidence_thresholds=self.confidence_thresholds,
             profile_manager=self.profile_manager,
             timeline_manager=self.timeline_manager,
+            location_manager=self.location_manager,
         )
 
         self.search_engine = HierarchicalSearchEngine(
@@ -671,27 +675,54 @@ Return only the search terms/phrases, one per line:"""
     def _is_detail_heavy_question(self, question: str) -> bool:
         """Detect if a question requires detailed context and specific information."""
         question_lower = question.lower()
-        
+
         # Patterns that indicate detail-heavy questions
         detail_indicators = [
             # Specific objects, books, documents
-            "book", "painting", "art", "document", "letter", "photo",
+            "book",
+            "painting",
+            "art",
+            "document",
+            "letter",
+            "photo",
             # Specific events and meetings
-            "meeting", "council", "agency", "show", "event", "ceremony",
+            "meeting",
+            "council",
+            "agency",
+            "show",
+            "event",
+            "ceremony",
             # Specific reasoning and decisions
-            "why did", "what inspired", "what motivated", "reason",
+            "why did",
+            "what inspired",
+            "what motivated",
+            "reason",
             # Specific quotes and takeaways
-            "take away", "takeaway", "said about", "think about", "represent",
+            "take away",
+            "takeaway",
+            "said about",
+            "think about",
+            "represent",
             # Specific locations and venues
-            "where did", "which place", "what location",
+            "where did",
+            "which place",
+            "what location",
             # Specific people's opinions
-            "what does", "what did", "melanie think", "opinion",
+            "what does",
+            "what did",
+            "melanie think",
+            "opinion",
             # Books and media content
-            "becoming nicole", "dr. seuss", "bookshelf",
+            "becoming nicole",
+            "dr. seuss",
+            "bookshelf",
             # Symbolic meanings
-            "represent", "symbolize", "meaning of", "significance"
+            "represent",
+            "symbolize",
+            "meaning of",
+            "significance",
         ]
-        
+
         # Check if question contains detail-heavy indicators
         return any(indicator in question_lower for indicator in detail_indicators)
 
@@ -715,9 +746,13 @@ Return only the search terms/phrases, one per line:"""
         context_memory_limit = self.max_context_memories
         if self._is_detail_heavy_question(question):
             # Increase context memories for detail-heavy questions
-            context_memory_limit = min(self.max_context_memories * 2, len(retrieved_memories))
+            context_memory_limit = min(
+                self.max_context_memories * 2, len(retrieved_memories)
+            )
             # Also use more search results for these questions
-            retrieved_memories = retrieved_memories[:min(self.max_search_results * 2, len(retrieved_memories))]
+            retrieved_memories = retrieved_memories[
+                : min(self.max_search_results * 2, len(retrieved_memories))
+            ]
             logger.info(
                 f"📚 Detail-heavy question detected. Expanded context to {context_memory_limit} memories "
                 f"and using {len(retrieved_memories)} search results for: '{question[:50]}...'"
@@ -779,6 +814,8 @@ Return only the search terms/phrases, one per line:"""
 
         timeline_summary = await self.timeline_manager.get_timeline_summary(llm=None)
 
+        location_summary = await self.location_manager.get_location_summary(llm=None)
+
         prompt = f"""Extract the specific fact that answers the question from the provided context. Be thorough in examining ALL the context provided.
 
 CRITICAL ANALYSIS RULES:
@@ -800,6 +837,9 @@ User Profile:
 
 User Timeline:
 {timeline_summary}
+
+User Locations:
+{location_summary}
 
 Context from memory:
 {context}
@@ -1340,6 +1380,32 @@ async def main():
                     f.write("Timeline manager not available.\n\n")
             except Exception as e:
                 f.write(f"Error generating timeline summary: {e}\n\n")
+
+            f.write("=" * 80 + "\n\n")
+
+            # Add location summary
+            f.write("USER LOCATIONS\n")
+            f.write("=" * 80 + "\n")
+            try:
+                if (
+                    hasattr(evaluator, "location_manager")
+                    and evaluator.location_manager
+                ):
+                    location_summary = (
+                        await evaluator.location_manager.get_location_summary(llm=None)
+                    )
+                    if (
+                        location_summary
+                        and location_summary != "No location events available."
+                    ):
+                        f.write(location_summary)
+                        f.write("\n\n")
+                    else:
+                        f.write("No location events available.\n\n")
+                else:
+                    f.write("Location manager not available.\n\n")
+            except Exception as e:
+                f.write(f"Error generating location summary: {e}\n\n")
 
             f.write("=" * 80 + "\n\n")
 

@@ -83,6 +83,8 @@ class TaxonomyPresets:
             ],
             # This is managed by the timeline manager service
             "timeline": [],
+            # This is managed by the location manager service
+            "location": [],
             # Personal Preferences (20 paths)
             "preferences": [
                 "personal.lifestyle.habits",

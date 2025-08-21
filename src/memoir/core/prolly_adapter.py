@@ -289,13 +289,25 @@ class ProllyTreeStore(BaseStore):
             isinstance(content, dict) and content.get("memory_type") == "timeline_event"
         )
 
+        # Check if this is a location event memory - always use the provided key for these
+        is_location_event = (
+            isinstance(content, dict) and content.get("memory_type") == "location_event"
+        )
+
         if key and (
-            self.taxonomy.is_valid_path(key) or is_profile_update or is_timeline_event
+            self.taxonomy.is_valid_path(key)
+            or is_profile_update
+            or is_timeline_event
+            or is_location_event
         ):
             semantic_key = key
             confidence = 1.0
-        elif key and (key.startswith("profile.") or key.startswith("timeline.")):
-            # For profile/timeline paths, use the provided key even if not in taxonomy
+        elif key and (
+            key.startswith("profile.")
+            or key.startswith("timeline.")
+            or key.startswith("location.")
+        ):
+            # For profile/timeline/location paths, use the provided key even if not in taxonomy
             # This allows profile updates and timeline events to be stored under their intended paths
             semantic_key = key
             confidence = 1.0
