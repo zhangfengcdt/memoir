@@ -10,8 +10,9 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
+from memoir.taxonomy.semantic_taxonomy import TaxonomyCategory, get_taxonomy
+
 from .base import AdvancedTaxonomyInterface, TaxonomyInterface
-from .semantic_taxonomy import TaxonomyCategory, get_taxonomy
 
 logger = logging.getLogger(__name__)
 

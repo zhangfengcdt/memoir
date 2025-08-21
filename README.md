@@ -70,7 +70,7 @@ pip install memoir
 import asyncio
 from langchain_openai import ChatOpenAI
 from memoir import ProllyTreeMemoryStoreManager
-from memoir.taxonomy.semantic_classifier import SemanticClassifier
+from memoir.classifier.semantic_classifier import SemanticClassifier
 from memoir.taxonomy.iterative_taxonomy import LLMIterativeTaxonomy
 
 async def main():

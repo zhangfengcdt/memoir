@@ -16,7 +16,8 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
-from .base import BaseTaxonomy
+from memoir.classifier.base import BaseTaxonomy
+
 from .semantic_taxonomy import SemanticTaxonomy
 from .taxonomy_presets import TaxonomyPresets, TaxonomyVersion
 

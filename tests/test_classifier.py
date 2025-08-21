@@ -2,7 +2,10 @@
 
 import pytest
 
-from memoir.taxonomy import ClassificationResult, SemanticClassifier
+from memoir.classifier.semantic_classifier import (
+    ClassificationResult,
+    SemanticClassifier,
+)
 
 
 class MockLLMResponse:

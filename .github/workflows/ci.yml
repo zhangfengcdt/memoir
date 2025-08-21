@@ -120,7 +120,7 @@ jobs:
         print(f'✓ Taxonomy loaded with {stats[\"total_paths\"]} paths')
 
         # Test classification
-        from memoir.taxonomy.semantic_classifier import SemanticClassifier
+        from memoir.classifier.semantic_classifier import SemanticClassifier
         classifier = SemanticClassifier()
         result = classifier.classify('I am learning React for web development')
         print(f'✓ Classification successful: {result.primary_path}')
@@ -181,7 +181,7 @@ jobs:
       run: |
         python -c "
         import time
-        from memoir.taxonomy.semantic_classifier import SemanticClassifier
+        from memoir.classifier.semantic_classifier import SemanticClassifier
 
         classifier = SemanticClassifier()
 

@@ -8,7 +8,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
-from .base import BaseTaxonomy
+from memoir.classifier.base import BaseTaxonomy
+
 from .data_sources import TaxonomyDataSourceManager, TaxonomyLoadError
 
 

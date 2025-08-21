@@ -9,11 +9,11 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
 
-from .iterative_taxonomy import (
+from memoir.taxonomy.iterative_taxonomy import (
     LLMExpansionStrategy,
     LLMIterativeTaxonomy,
 )
-from .taxonomy_presets import TaxonomyPresets, TaxonomyVersion
+from memoir.taxonomy.taxonomy_presets import TaxonomyPresets, TaxonomyVersion
 
 logger = logging.getLogger(__name__)
 
