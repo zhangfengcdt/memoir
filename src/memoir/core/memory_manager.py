@@ -12,10 +12,7 @@ from typing import Any, Optional, Union
 from langmem.knowledge.extraction import MemoryStoreManager
 from pydantic import BaseModel, Field
 
-from memoir.search.hierarchical_search import (
-    HierarchicalSearchEngine,
-    SearchStrategy,
-)
+# Search engine imports removed - search engine now provided as parameter
 
 from .profile_manager import ProfileManager
 from .prolly_adapter import ProllyTreeStore
@@ -55,7 +52,8 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         self,
         prolly_path: str,
         model: Union[str, Any] = "gpt-3.5-turbo",  # Default model
-        classifier: Optional[Any] = None,  # SemanticClassifier instance
+        classifier: Optional[Any] = None,  # SemanticClassifier or IntelligentClassifier instance
+        search_engine: Optional[Any] = None,  # Search engine instance
         enable_versioning: bool = True,
         enable_fast_classification: bool = True,
         cache_size: int = 10000,
@@ -66,7 +64,8 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
 
         Args:
             prolly_path: Path to ProllyTree database
-            classifier: SemanticClassifier instance with LLM
+            classifier: SemanticClassifier or IntelligentClassifier instance
+            search_engine: Search engine instance (IntelligentSearchEngine, etc.)
             enable_versioning: Enable git-like versioning
             enable_fast_classification: Use optimized classifier
             cache_size: Size of internal caches
@@ -89,12 +88,8 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         # Initialize timeline manager
         self.timeline_manager = TimelineManager(self.prolly_store)
 
-        # Initialize search engine with profile manager
-        self.search_engine = HierarchicalSearchEngine(
-            store=self.prolly_store,
-            classifier=self.classifier,
-            profile_manager=self.profile_manager,
-        )
+        # Use provided search engine
+        self.search_engine = search_engine
 
         self.enable_versioning = enable_versioning
         self.enable_fast_classification = enable_fast_classification
@@ -116,52 +111,49 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         self,
         query: str,
         namespace: str,
-        strategy: SearchStrategy = SearchStrategy.SPECIFIC_TO_GENERAL,
-        context: Optional[dict] = None,
         limit: int = 10,
     ) -> list[Memory]:
         """
-        Search memories using hierarchical semantic search.
+        Search memories using the provided search engine.
 
         Args:
             query: Natural language search query
             namespace: User namespace
-            strategy: Search strategy to use
-            context: Optional context for query understanding
             limit: Maximum results to return
 
         Returns:
             List of Memory objects
         """
+        if not self.search_engine:
+            logger.warning("No search engine provided - returning empty results")
+            return []
+            
         start_time = time.time()
         self._metrics["searches"] += 1
 
-        # Use hierarchical search
+        # Use the provided search engine
         search_results = await self.search_engine.search(
-            query=query, namespace=namespace, strategy=strategy, context=context
+            query=query, 
+            namespace=namespace, 
+            limit=limit
         )
 
-        # Convert to Memory objects
+        # Convert IntelligentSearchResult objects to Memory objects
         memories = []
         for result in search_results[:limit]:
             memory = Memory(
-                id=result.key,
+                id=result.path,
                 content=result.content,
-                metadata={
-                    "namespace": result.namespace,
-                    "relevance_score": result.relevance_score,
-                    "semantic_distance": result.semantic_distance,
-                    "timestamp": result.timestamp,
-                },
+                metadata=result.metadata,
             )
             memories.append(memory)
 
         search_time = (time.time() - start_time) * 1000
         self._metrics["search_time_ms"].append(search_time)
 
-        # logger.info(
-        #     f"Search completed in {search_time:.2f}ms, found {len(memories)} memories"
-        # )
+        logger.info(
+            f"Search completed in {search_time:.2f}ms, found {len(memories)} memories"
+        )
 
         return memories
 
@@ -243,8 +235,8 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
             if not semantic_key:
                 semantic_key = "context.current.session.topic.main"
 
-        # Store using the synchronous method (prolly store method signature: namespace, content, key)
-        self.prolly_store.store_memory(namespace, content, semantic_key)
+        # Store using the asynchronous method (proper async context)
+        await self.prolly_store.store_memory_async(namespace, content, semantic_key)
 
         write_time = (time.time() - start_time) * 1000
         self._metrics["write_time_ms"].append(write_time)

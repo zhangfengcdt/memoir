@@ -22,6 +22,7 @@ import tempfile
 from memoir import ProllyTreeMemoryStoreManager
 from memoir.taxonomy.intelligent_classifier import IntelligentClassifier
 from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
+from memoir.search.intelligent_search import IntelligentSearchEngine
 
 
 def get_llm() -> object:
@@ -29,7 +30,7 @@ def get_llm() -> object:
     # Check for API key
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
-        print("   ❌ Error: OPENAI_API_KEY environment variable is required")
+        print("   ⏺ Error: OPENAI_API_KEY environment variable is required")
         print("      Set your OpenAI API key: export OPENAI_API_KEY=your-api-key-here")
         print("      Get an API key at: https://platform.openai.com/api-keys")
         sys.exit(1)
@@ -38,7 +39,7 @@ def get_llm() -> object:
     try:
         from langchain_openai import ChatOpenAI
 
-        print("   ✅ Using OpenAI GPT-4o-mini for semantic classification")
+        print("   ⏺ Using OpenAI GPT-4o-mini for semantic classification")
         return ChatOpenAI(
             model="gpt-4o-mini",
             temperature=0,
@@ -46,7 +47,7 @@ def get_llm() -> object:
             max_tokens=500,
         )
     except ImportError:
-        print("   ❌ Error: langchain-openai package is required")
+        print("   ⏺ Error: langchain-openai package is required")
         print("      Install with: pip install langchain-openai")
         sys.exit(1)
 
@@ -58,7 +59,7 @@ async def main():
     with tempfile.TemporaryDirectory() as temp_dir:
         prolly_path = os.path.join(temp_dir, "memory_store")
 
-        print("🚀 LangMem-ProllyTree Basic Usage Example\n")
+        print("⏺ LangMem-ProllyTree Basic Usage Example\n")
         print("=" * 50)
 
         # Set up the LLM for semantic classification
@@ -86,27 +87,31 @@ async def main():
             },
             min_items_for_expansion=2,  # Lower threshold for demo - higher values = less taxonomy expansion
         )
-        print("   🎯 Using balanced aggressiveness settings (low threshold = 0.0)")
-        print("   💡 IMPORTANT: The 'low' threshold controls what gets stored!")
-        print("   💡 Try setting low=0.5 or low=0.7 to be more selective")
+        print("   ⏺ Using balanced aggressiveness settings (low threshold = 0.0)")
+        print("   ⏺ IMPORTANT: The 'low' threshold controls what gets stored!")
+        print("   ⏺ Try setting low=0.5 or low=0.7 to be more selective")
 
-        # Initialize ProllyTreeMemoryStoreManager
+        # Initialize ProllyTreeMemoryStoreManager with the SAME intelligent classifier
         # This replaces LangMem's InMemoryStore with 10-20x better performance
         print("\n2. Initializing ProllyTree Memory Store:")
-        # Create a simple classifier for the store
-        from memoir.taxonomy.semantic_classifier import SemanticClassifier
+        print("   Using the SAME intelligent classifier for consistency")
 
-        simple_classifier = SemanticClassifier(llm=None)
-
+        # Create memory manager first (without search engine)
         memory_manager = ProllyTreeMemoryStoreManager(
             prolly_path=prolly_path,
-            classifier=simple_classifier,
+            classifier=classifier,  # Use the SAME intelligent classifier
             enable_versioning=True,  # Git-like versioning for audit trails
         )
-
-        # Set up intelligent classifier with the store
-        classifier.memory_store = memory_manager.prolly_store
-        print("   ✅ ProllyTree store initialized with versioning")
+        
+        # Create and set the intelligent search engine
+        search_engine = IntelligentSearchEngine(
+            llm=llm,  # Use the same LLM for search
+            store=memory_manager.prolly_store
+        )
+        memory_manager.search_engine = search_engine
+        
+        print("   ⏺ ProllyTree store initialized with versioning and intelligent classification")
+        print("   ⏺ IntelligentSearchEngine configured for LLM-powered path selection")
 
         user_id = "user123"
 
@@ -125,16 +130,16 @@ async def main():
         ]
 
         for i, memory_text in enumerate(memories_to_store, 1):
-            # Use intelligent classifier for better classification
-            result = await classifier.process_memory_with_storage(
-                memory_text, metadata={"user_id": user_id, "source": "demo"}
+            # Store through memory manager (which uses the intelligent classifier)
+            semantic_key = await memory_manager.store_memory(
+                content=memory_text,
+                namespace=user_id,
+                metadata={"source": "demo"},
+                auto_classify=True,
             )
             print(f"   [{i}] Stored: '{memory_text[:40]}...'")
-            print(f"       → Path: {result.classification.path}")
-            print(f"       → Confidence: {result.classification.confidence:.2f}")
-            print(f"       → Action: {result.classification.suggested_action}")
-            if result.classification.reasoning:
-                print(f"       → Reasoning: {result.classification.reasoning[:60]}...")
+            print(f"       → Path: {semantic_key}")
+            print(f"       → Aggregated at semantic path")
 
         # Retrieve stored memories
         print("\n4. Retrieving memories with intelligent search:")
@@ -148,70 +153,49 @@ async def main():
         ]
 
         for query in queries:
-            results = classifier.get_stored_memories(limit=10)
-            # Simple text matching for demo - in production you'd use semantic search
-            exclude_words = {
-                "what",
-                "is",
-                "the",
-                "user",
-                "and",
-                "does",
-                "are",
-                "where",
-                "how",
-            }
-            query_keywords = [
-                word.lower()
-                for word in query.lower().split()
-                if word.lower() not in exclude_words
-            ]
-
-            # Score memories by keyword relevance
-            scored_memories = []
-            for memory in results:
-                content_str = str(memory["content"]).lower()
-                matches = sum(1 for keyword in query_keywords if keyword in content_str)
-                if matches > 0:
-                    # Boost score for exact phrase matches
-                    phrase_bonus = 2 if " ".join(query_keywords) in content_str else 0
-                    score = matches + phrase_bonus
-                    scored_memories.append((score, memory))
-
-            # Sort by relevance score (highest first)
-            scored_memories.sort(reverse=True, key=lambda x: x[0])
-
-            print(f"\n   🔍 Query: '{query}'")
-            if scored_memories:
-                best_memory = scored_memories[0][1]
-                content = best_memory["content"]
-                if isinstance(content, dict):
-                    content = content.get("content", str(content))
-                print(f"   📝 Found: {content}")
+            # Use the memory manager's search functionality
+            results = await memory_manager.search_memories(
+                query=query,
+                namespace=user_id,
+                limit=5
+            )
+            
+            print(f"\n   ⏺ Query: '{query}'")
+            if results:
+                # Show the best result
+                best_result = results[0]
+                content = best_result.content
+                print(f"   ⏺ Found: {content}")
+                print(f"   ⏺ Path: {best_result.id}")
             else:
-                print("   📝 No specific match found")
+                print("   ⏺ No matches found")
 
-        # Show intelligent semantic organization
-        print("\n5. Intelligent semantic organization:")
-        all_memories = classifier.get_stored_memories(limit=100)
-
-        # Group by taxonomy paths
-        path_groups = {}
-        for memory in all_memories:
-            path = memory["path"]
-            if path not in path_groups:
-                path_groups[path] = []
-            path_groups[path].append(memory)
-
-        print("   Memories intelligently organized by semantic paths:")
-        for path in sorted(path_groups.keys()):
-            memories = path_groups[path]
-            print(f"   📁 {path}: {len(memories)} memories")
-            for memory in memories:
-                content = memory.get("content", str(memory.get("data", "")))
-                if isinstance(content, dict):
-                    content = content.get("content", str(content))
-                print(f"       - {content[:80]}{'...' if len(content) > 80 else ''}")
+        # Show intelligent semantic organization with aggregated memories
+        print("\n5. Intelligent semantic organization (aggregated by path):")
+        
+        # Get all aggregated memories by searching the store directly
+        search_results = memory_manager.prolly_store.search((user_id,), limit=100)
+        
+        print("   Memories aggregated by semantic paths:")
+        for _, path, data in search_results:
+            if isinstance(data, dict) and "memories" in data:
+                # This is an aggregated memory
+                memory_count = data.get("count", len(data.get("memories", [])))
+                print(f"   ⏺ {path}: {memory_count} aggregated memories")
+                
+                # Show a few examples from this aggregated path
+                memories = data.get("memories", [])
+                for j, memory_entry in enumerate(memories[:3]):  # Show first 3
+                    content = memory_entry.get("content", "")
+                    confidence = memory_entry.get("confidence", 0)
+                    print(f"       [{j+1}] {content[:60]}... (conf: {confidence:.2f})")
+                
+                if len(memories) > 3:
+                    print(f"       ... and {len(memories) - 3} more memories")
+            else:
+                # Legacy single memory
+                content = data.get("content", str(data))
+                print(f"   ⏺ {path}: {content[:60]}...")
 
 
 if __name__ == "__main__":

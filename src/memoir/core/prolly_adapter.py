@@ -36,6 +36,25 @@ class MemoryItem(BaseModel):
     confidence: float = Field(default=1.0, description="Classification confidence")
 
 
+class AggregatedMemory(BaseModel):
+    """Represents aggregated memories at a semantic path."""
+    
+    path: str = Field(description="Semantic taxonomy path")
+    memories: list[dict[str, Any]] = Field(
+        default_factory=list, description="List of memory entries at this path"
+    )
+    count: int = Field(default=0, description="Number of memories")
+    first_timestamp: float = Field(
+        default_factory=time.time, description="Timestamp of first memory"
+    )
+    last_timestamp: float = Field(
+        default_factory=time.time, description="Timestamp of last memory"
+    )
+    last_updated: float = Field(
+        default_factory=time.time, description="Last update timestamp"
+    )
+
+
 class ProllyTreeStore(BaseStore):
     """
     High-performance semantic memory store using ProllyTree.
@@ -104,7 +123,7 @@ class ProllyTreeStore(BaseStore):
         self.taxonomy = get_taxonomy()
         if classifier is None:
             raise ValueError(
-                "SemanticClassifier with LLM is required for production use"
+                "Classifier (SemanticClassifier or IntelligentClassifier) is required"
             )
         self.classifier = classifier
 
@@ -118,6 +137,9 @@ class ProllyTreeStore(BaseStore):
 
         # Key registry for memory mode (since ProllyTree doesn't have list_keys in memory mode)
         self._keys = set()
+        
+        # Track aggregated memories to avoid redundant updates
+        self._aggregation_cache = {}
 
     def _encode_value(self, value: Any) -> bytes:
         """Encode any value to bytes for storage."""
@@ -318,29 +340,55 @@ class ProllyTreeStore(BaseStore):
             confidence = classification.confidence
             self._stats["classifications"] += 1
 
-        # Create unique storage key while preserving semantic path
-        import uuid
+        # No UUID - use semantic key directly for aggregation
+        storage_key = semantic_key
 
-        unique_id = str(uuid.uuid4())[:8]  # Short unique ID
-        storage_key = f"{semantic_key}#{unique_id}"
-
-        # Create memory item
-        item = MemoryItem(
-            key=semantic_key,  # Keep semantic key for classification
-            namespace=namespace,
-            content=content,
-            confidence=confidence,
-            timestamp=time.time(),
-        )
-
-        # Store using BaseStore interface with unique key
-        # Convert string namespace to tuple format for consistency with search
+        # Create memory entry (not the full item)
+        memory_entry = {
+            "content": content,
+            "confidence": confidence,
+            "timestamp": time.time(),
+            "metadata": {},
+        }
+        
+        # Convert namespace to tuple format
         if ":" in namespace:
             namespace_parts = namespace.split(":")
             namespace_tuple = tuple(namespace_parts)
         else:
             namespace_tuple = (namespace,)
-        self.put(namespace_tuple, storage_key, item.model_dump())
+        
+        # Get existing aggregated memory or create new one
+        existing = self.get(namespace_tuple, storage_key)
+        
+        if existing and isinstance(existing, dict) and "memories" in existing:
+            # Append to existing aggregated memory
+            aggregated = AggregatedMemory(**existing)
+            aggregated.memories.append(memory_entry)
+            aggregated.count += 1
+            aggregated.last_timestamp = memory_entry["timestamp"]
+            aggregated.last_updated = time.time()
+        else:
+            # Create new aggregated memory
+            aggregated = AggregatedMemory(
+                path=semantic_key,
+                memories=[memory_entry],
+                count=1,
+                first_timestamp=memory_entry["timestamp"],
+                last_timestamp=memory_entry["timestamp"],
+            )
+        
+        # Store the aggregated memory
+        self.put(namespace_tuple, storage_key, aggregated.model_dump())
+        
+        # Create MemoryItem for return value (for compatibility)
+        item = MemoryItem(
+            key=semantic_key,
+            namespace=namespace,
+            content=content,
+            confidence=confidence,
+            timestamp=memory_entry["timestamp"],
+        )
 
         if self.enable_versioning and hasattr(self.tree, "get_head"):
             item.version = self.tree.get_head()
@@ -376,23 +424,48 @@ class ProllyTreeStore(BaseStore):
                 confidence = 0.5
                 self._stats["classifications"] += 1
 
-            # Create unique storage key while preserving semantic path
-            import uuid
-
-            unique_id = str(uuid.uuid4())[:8]  # Short unique ID
-            storage_key = f"{semantic_key}#{unique_id}"
-
-            # Create memory item
+            # No UUID - aggregate at semantic key
+            storage_key = semantic_key
+            
+            # Create memory entry
+            memory_entry = {
+                "content": content,
+                "confidence": confidence,
+                "timestamp": time.time(),
+                "metadata": {},
+            }
+            
+            # Get existing or create new aggregated memory
+            existing = self.get((namespace,), storage_key)
+            
+            if existing and isinstance(existing, dict) and "memories" in existing:
+                # Append to existing
+                aggregated = AggregatedMemory(**existing)
+                aggregated.memories.append(memory_entry)
+                aggregated.count += 1
+                aggregated.last_timestamp = memory_entry["timestamp"]
+                aggregated.last_updated = time.time()
+            else:
+                # Create new
+                aggregated = AggregatedMemory(
+                    path=semantic_key,
+                    memories=[memory_entry],
+                    count=1,
+                    first_timestamp=memory_entry["timestamp"],
+                    last_timestamp=memory_entry["timestamp"],
+                )
+            
+            # Store the aggregated memory
+            self.put((namespace,), storage_key, aggregated.model_dump())
+            
+            # Create MemoryItem for return
             item = MemoryItem(
-                key=semantic_key,  # Keep semantic key for classification
+                key=semantic_key,
                 namespace=namespace,
                 content=content,
                 confidence=confidence,
-                timestamp=time.time(),
+                timestamp=memory_entry["timestamp"],
             )
-
-            # Store using BaseStore interface with unique key
-            self.put((namespace,), storage_key, item.model_dump())
 
             if self.enable_versioning and hasattr(self.tree, "get_head"):
                 item.version = self.tree.get_head()
@@ -422,31 +495,18 @@ class ProllyTreeStore(BaseStore):
         search_results = self.search(namespace_tuple, limit=100)
 
         for _, storage_key, data in search_results:
-            # Extract semantic path from storage key (format: semantic_path#unique_id)
-            if "#" in storage_key:
-                semantic_key = storage_key.split("#")[0]
-            else:
-                semantic_key = storage_key
+            # No more UUID splitting needed - storage_key IS the semantic key
+            semantic_key = storage_key
 
             # Check if semantic path matches prefix
             if semantic_key.startswith(path_prefix):
-                # Avoid duplicates by content
-                content = (
-                    data.get("content", "") if isinstance(data, dict) else str(data)
-                )
-                # Convert unhashable types to hashable format
-                if isinstance(content, dict):
-                    import json
-
-                    content_for_hash = json.dumps(content, sort_keys=True)
-                elif isinstance(content, (list, tuple)):
-                    content_for_hash = str(content)
+                # For aggregated memories, we return them as-is
+                # The search engine will handle expanding them
+                if isinstance(data, dict) and "memories" in data:
+                    # This is an aggregated memory - return it
+                    results.append((semantic_key, data))
                 else:
-                    content_for_hash = content
-                content_hash = hash(content_for_hash)
-                if content_hash not in seen_content:
-                    seen_content.add(content_hash)
-                    # Return semantic key (not storage key) for search engine
+                    # Legacy single memory format
                     results.append((semantic_key, data))
 
         return results
