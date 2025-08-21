@@ -50,9 +50,9 @@ A comprehensive, step-by-step guide through Memoir's semantic memory system incl
    export ANTHROPIC_API_KEY="your-api-key-here"
    ```
 
-4. **Install Jupyter**:
+4. **Install Jupyter and async support**:
    ```bash
-   pip install jupyter notebook
+   pip install jupyter notebook nest-asyncio
    ```
 
 ### Running the Notebooks
@@ -126,7 +126,13 @@ The notebooks demonstrate these performance improvements over traditional vector
    pip install langchain-openai
    ```
 
-4. **Jupyter kernel issues**:
+4. **"'await' outside async function" error**:
+   ```bash
+   pip install nest-asyncio
+   # Then restart your Jupyter kernel
+   ```
+
+5. **Jupyter kernel issues**:
    ```bash
    pip install ipykernel
    python -m ipykernel install --user

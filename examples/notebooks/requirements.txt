@@ -2,6 +2,7 @@
 jupyter>=1.0.0
 notebook>=6.0.0
 ipykernel>=6.0.0
+nest-asyncio>=1.5.0
 
 # Core memoir dependencies (install memoir package instead for production)
 # memoir>=0.1.0
