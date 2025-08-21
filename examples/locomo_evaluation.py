@@ -23,9 +23,9 @@ from rich.table import Table
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from memoir.classifier.intelligent_classifier import IntelligentClassifier
-from memoir.core.location_manager import LocationManager
-from memoir.core.profile_manager import ProfileManager
-from memoir.core.timeline_manager import TimelineManager
+from memoir.memento.location import LocationMemento
+from memoir.memento.profile import ProfileMemento
+from memoir.memento.timeline import TimelineMemento
 from memoir.search.intelligent_search import IntelligentSearchEngine
 from memoir.search.semantic_search import SemanticSearchEngine
 from memoir.store.prolly_adapter import ProllyTreeStore
@@ -212,9 +212,9 @@ class LocomoEvaluator:
             enable_versioning=False,
         )
 
-        self.profile_manager = ProfileManager(store)
-        self.timeline_manager = TimelineManager(store)
-        self.location_manager = LocationManager(store)
+        self.profile_manager = ProfileMemento(store)
+        self.timeline_manager = TimelineMemento(store)
+        self.location_manager = LocationMemento(store)
 
         self.intelligent_classifier = IntelligentClassifier(
             llm=self.llm,

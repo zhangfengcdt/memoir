@@ -1,5 +1,5 @@
 """
-Location Manager for Spatial Memory Management and Geographic Event Storage.
+Location Memento for Spatial Memory Management and Geographic Event Storage.
 
 Handles location-based event storage, geographic organization, and location summaries.
 Events are stored under location.{location_name} keys with automatic merging of same-location events.
@@ -12,11 +12,11 @@ from typing import Any, Optional
 logger = logging.getLogger(__name__)
 
 
-class LocationManager:
+class LocationMemento:
     """Manages user location data and generates geographic event summaries."""
 
     def __init__(self, memory_store):
-        """Initialize location manager with memory store."""
+        """Initialize location memento with memory store."""
         self.memory_store = memory_store
 
     async def apply_location_events(

@@ -1,5 +1,5 @@
 """
-Profile Manager for User Profile Generation and Management.
+Profile Memento for User Profile Generation and Management.
 
 Handles profile serialization, summary generation, and profile updates.
 """
@@ -10,11 +10,11 @@ from typing import Any, Optional
 logger = logging.getLogger(__name__)
 
 
-class ProfileManager:
+class ProfileMemento:
     """Manages user profile data and generates profile summaries."""
 
     def __init__(self, memory_store):
-        """Initialize profile manager with memory store."""
+        """Initialize profile memento with memory store."""
         self.memory_store = memory_store
 
     async def apply_profile_updates(

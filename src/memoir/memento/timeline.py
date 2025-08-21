@@ -1,5 +1,5 @@
 """
-Timeline Manager for User Event History and Temporal Memory Management.
+Timeline Memento for User Event History and Temporal Memory Management.
 
 Handles chronological event storage, date-based organization, and timeline summaries.
 Events are stored under timeline.YYYYMMDD keys with automatic merging of same-day events.
@@ -12,11 +12,11 @@ from typing import Any, Optional
 logger = logging.getLogger(__name__)
 
 
-class TimelineManager:
+class TimelineMemento:
     """Manages user timeline data and generates chronological event summaries."""
 
     def __init__(self, memory_store):
-        """Initialize timeline manager with memory store."""
+        """Initialize timeline memento with memory store."""
         self.memory_store = memory_store
 
     async def apply_timeline_events(

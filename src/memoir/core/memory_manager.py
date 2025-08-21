@@ -12,10 +12,9 @@ from typing import Any, Optional, Union
 from langmem.knowledge.extraction import MemoryStoreManager
 from pydantic import BaseModel, Field
 
+from memoir.memento.profile import ProfileMemento
+from memoir.memento.timeline import TimelineMemento
 from memoir.store.prolly_adapter import ProllyTreeStore
-
-from .profile_manager import ProfileManager
-from .timeline_manager import TimelineManager
 
 # Search engine imports removed - search engine now provided as parameter
 
@@ -94,11 +93,11 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         else:
             raise ValueError("Either prolly_store or prolly_path must be provided")
 
-        # Initialize profile manager
-        self.profile_manager = ProfileManager(self.prolly_store)
+        # Initialize profile memento
+        self.profile_manager = ProfileMemento(self.prolly_store)
 
-        # Initialize timeline manager
-        self.timeline_manager = TimelineManager(self.prolly_store)
+        # Initialize timeline memento
+        self.timeline_manager = TimelineMemento(self.prolly_store)
 
         # Use provided search engine
         self.search_engine = search_engine
