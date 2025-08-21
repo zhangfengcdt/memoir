@@ -38,7 +38,7 @@ from rich.prompt import Prompt
 from rich.text import Text
 from rich.tree import Tree
 
-from memoir.core.prolly_adapter import ProllyTreeStore
+from memoir.store.prolly_adapter import ProllyTreeStore
 from memoir.taxonomy.intelligent_classifier import IntelligentClassifier
 from memoir.taxonomy.semantic_classifier import SemanticClassifier
 from memoir.taxonomy.taxonomy_presets import TaxonomyVersion

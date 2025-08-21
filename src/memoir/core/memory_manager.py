@@ -12,8 +12,9 @@ from typing import Any, Optional, Union
 from langmem.knowledge.extraction import MemoryStoreManager
 from pydantic import BaseModel, Field
 
+from memoir.store.prolly_adapter import ProllyTreeStore
+
 from .profile_manager import ProfileManager
-from .prolly_adapter import ProllyTreeStore
 from .timeline_manager import TimelineManager
 
 # Search engine imports removed - search engine now provided as parameter

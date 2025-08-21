@@ -24,12 +24,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from memoir.core.location_manager import LocationManager
 from memoir.core.profile_manager import ProfileManager
-from memoir.core.prolly_adapter import ProllyTreeStore
 from memoir.core.timeline_manager import TimelineManager
 from memoir.search.hierarchical_search import (
     HierarchicalSearchEngine,
     SearchStrategy,
 )
+from memoir.store.prolly_adapter import ProllyTreeStore
 from memoir.taxonomy.intelligent_classifier import IntelligentClassifier
 from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
 

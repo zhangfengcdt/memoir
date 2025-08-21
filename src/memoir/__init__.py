@@ -6,12 +6,12 @@ High-performance semantic memory system for AI agents.
 __version__ = "0.1.0"
 
 from .core.memory_manager import ProllyTreeMemoryStoreManager
-from .core.prolly_adapter import MemoryItem, ProllyTreeStore
 from .search.hierarchical_search import (
     HierarchicalSearchEngine,
     SearchResult,
     SearchStrategy,
 )
+from .store.prolly_adapter import MemoryItem, ProllyTreeStore
 from .taxonomy.semantic_classifier import (
     ClassificationResult,
     SemanticClassifier,

@@ -88,25 +88,45 @@ class ProllyTreeStore(BaseStore):
             import subprocess
 
             if not os.path.exists(os.path.join(self.path, ".git")):
-                subprocess.run(["git", "init", "--quiet"], cwd=self.path, check=True)
+                subprocess.run(
+                    ["git", "init", "--quiet"],
+                    cwd=self.path,
+                    check=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
                 subprocess.run(
                     ["git", "config", "user.name", "LangMem ProllyTree"],
                     cwd=self.path,
                     check=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
                 )
                 subprocess.run(
                     ["git", "config", "user.email", "langmem@example.com"],
                     cwd=self.path,
                     check=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
                 )
 
                 # Create initial commit
                 readme_path = os.path.join(self.path, "README.md")
                 with open(readme_path, "w") as f:
                     f.write("# LangMem ProllyTree Store\n")
-                subprocess.run(["git", "add", "."], cwd=self.path, check=True)
                 subprocess.run(
-                    ["git", "commit", "-m", "Initial commit"], cwd=self.path, check=True
+                    ["git", "add", "."],
+                    cwd=self.path,
+                    check=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                subprocess.run(
+                    ["git", "commit", "-m", "Initial commit"],
+                    cwd=self.path,
+                    check=True,
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
                 )
 
         # Initialize ProllyTree

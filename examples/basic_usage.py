@@ -85,7 +85,7 @@ async def main():
 
         # Step 1: Create the storage layer (pure storage, no dependencies)
         print("   Step 1: Creating storage layer...")
-        from memoir.core.prolly_adapter import ProllyTreeStore
+        from memoir.store.prolly_adapter import ProllyTreeStore
 
         prolly_store = ProllyTreeStore(
             path=prolly_path,
