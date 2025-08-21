@@ -1,9 +1,22 @@
 """
-Basic usage example of LangMem-ProllyTree integration.
+Memoir Memory System Architecture Example.
 
-This example demonstrates how to use ProllyTreeMemoryStoreManager as a drop-in
-replacement for LangMem's standard memory store, providing 10-20x performance improvements
-through semantic hierarchical keys instead of vector similarity search.
+This example demonstrates the clean layered architecture of Memoir's memory system,
+showing how components are assembled with proper dependency injection to create
+a semantic memory store with intelligent classification and search capabilities.
+
+Architecture Overview:
+    1. Storage Layer: ProllyTreeStore - Pure storage with aggregated memories at semantic paths
+    2. Classification Layer: IntelligentClassifier - LLM-powered semantic path classification
+    3. Search Layer: IntelligentSearchEngine - LLM-guided path selection for queries
+    4. Management Layer: ProllyTreeMemoryStoreManager - Orchestrates all components
+
+Key Design Principles:
+    - Clean separation of concerns between layers
+    - Dependency injection for testability and flexibility
+    - Semantic hierarchical paths instead of UUID keys
+    - Memory aggregation at meaningful semantic locations
+    - Git-like versioning with cryptographic integrity
 
 Requirements:
     pip install langchain-openai
@@ -20,9 +33,9 @@ import sys
 import tempfile
 
 from memoir import ProllyTreeMemoryStoreManager
+from memoir.search.intelligent_search import IntelligentSearchEngine
 from memoir.taxonomy.intelligent_classifier import IntelligentClassifier
 from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
-from memoir.search.intelligent_search import IntelligentSearchEngine
 
 
 def get_llm() -> object:
@@ -43,7 +56,7 @@ def get_llm() -> object:
         return ChatOpenAI(
             model="gpt-4o-mini",
             temperature=0,
-            api_key=api_key,
+            # API key is automatically picked up from OPENAI_API_KEY environment variable
             max_tokens=500,
         )
     except ImportError:
@@ -66,17 +79,24 @@ async def main():
         print("\n1. Setting up LLM for semantic classification:")
         llm = get_llm()
 
+        # Initialize components in proper dependency order
+        print("\n2. Building Memory System Components:")
+        print("   Following clean dependency injection pattern")
+
+        # Step 1: Create the storage layer (pure storage, no dependencies)
+        print("   Step 1: Creating storage layer...")
+        from memoir.core.prolly_adapter import ProllyTreeStore
+
+        prolly_store = ProllyTreeStore(
+            path=prolly_path,
+            enable_versioning=True,
+            cache_size=10000,
+        )
+        print("   ⏺ ProllyTreeStore created (pure storage, no business logic)")
+
+        # Step 2: Classifier already created (depends on LLM)
+        print("   Step 2: Create classifier...")
         # Create intelligent classifier with configurable aggressiveness
-        # This uses GPT for smart classification with automatic taxonomy expansion
-        # You can tune these parameters to control how aggressive the classifier is:
-
-        # Conservative settings (only store high-confidence memories):
-        # confidence_thresholds={"high": 0.9, "medium": 0.7, "low": 0.5}
-
-        # Aggressive settings (store almost everything):
-        # confidence_thresholds={"high": 0.6, "medium": 0.3, "low": 0.0}
-
-        # Default balanced settings:
         classifier = IntelligentClassifier(
             llm=llm,
             taxonomy_version=TaxonomyVersion.GENERAL,
@@ -87,31 +107,31 @@ async def main():
             },
             min_items_for_expansion=2,  # Lower threshold for demo - higher values = less taxonomy expansion
         )
+        print("   ⏺ IntelligentClassifier configured with LLM")
         print("   ⏺ Using balanced aggressiveness settings (low threshold = 0.0)")
         print("   ⏺ IMPORTANT: The 'low' threshold controls what gets stored!")
         print("   ⏺ Try setting low=0.5 or low=0.7 to be more selective")
 
-        # Initialize ProllyTreeMemoryStoreManager with the SAME intelligent classifier
-        # This replaces LangMem's InMemoryStore with 10-20x better performance
-        print("\n2. Initializing ProllyTree Memory Store:")
-        print("   Using the SAME intelligent classifier for consistency")
-
-        # Create memory manager first (without search engine)
-        memory_manager = ProllyTreeMemoryStoreManager(
-            prolly_path=prolly_path,
-            classifier=classifier,  # Use the SAME intelligent classifier
-            enable_versioning=True,  # Git-like versioning for audit trails
-        )
-        
-        # Create and set the intelligent search engine
+        # Step 3: Create the search engine (depends on LLM + store)
+        print("   Step 3: Creating search engine...")
         search_engine = IntelligentSearchEngine(
             llm=llm,  # Use the same LLM for search
-            store=memory_manager.prolly_store
+            store=prolly_store,
         )
-        memory_manager.search_engine = search_engine
-        
-        print("   ⏺ ProllyTree store initialized with versioning and intelligent classification")
         print("   ⏺ IntelligentSearchEngine configured for LLM-powered path selection")
+
+        # Step 4: Create the memory manager (orchestrates all components)
+        print("   Step 4: Creating memory manager...")
+        memory_manager = ProllyTreeMemoryStoreManager(
+            prolly_store=prolly_store,  # Inject storage
+            classifier=classifier,  # Inject classifier
+            search_engine=search_engine,  # Inject search
+            enable_versioning=True,
+        )
+        print(
+            "   ⏺ MemoryManager assembled - orchestrates storage, classification & search"
+        )
+        print("   ⏺ All components properly injected with clean dependencies")
 
         user_id = "user123"
 
@@ -139,7 +159,7 @@ async def main():
             )
             print(f"   [{i}] Stored: '{memory_text[:40]}...'")
             print(f"       → Path: {semantic_key}")
-            print(f"       → Aggregated at semantic path")
+            print("       → Aggregated at semantic path")
 
         # Retrieve stored memories
         print("\n4. Retrieving memories with intelligent search:")
@@ -155,11 +175,9 @@ async def main():
         for query in queries:
             # Use the memory manager's search functionality
             results = await memory_manager.search_memories(
-                query=query,
-                namespace=user_id,
-                limit=5
+                query=query, namespace=user_id, limit=5
             )
-            
+
             print(f"\n   ⏺ Query: '{query}'")
             if results:
                 # Show the best result
@@ -172,24 +190,26 @@ async def main():
 
         # Show intelligent semantic organization with aggregated memories
         print("\n5. Intelligent semantic organization (aggregated by path):")
-        
+
         # Get all aggregated memories by searching the store directly
         search_results = memory_manager.prolly_store.search((user_id,), limit=100)
-        
+
         print("   Memories aggregated by semantic paths:")
         for _, path, data in search_results:
             if isinstance(data, dict) and "memories" in data:
                 # This is an aggregated memory
                 memory_count = data.get("count", len(data.get("memories", [])))
                 print(f"   ⏺ {path}: {memory_count} aggregated memories")
-                
+
                 # Show a few examples from this aggregated path
                 memories = data.get("memories", [])
                 for j, memory_entry in enumerate(memories[:3]):  # Show first 3
                     content = memory_entry.get("content", "")
                     confidence = memory_entry.get("confidence", 0)
-                    print(f"       [{j+1}] {content[:60]}... (conf: {confidence:.2f})")
-                
+                    print(
+                        f"       [{j + 1}] {content[:60]}... (conf: {confidence:.2f})"
+                    )
+
                 if len(memories) > 3:
                     print(f"       ... and {len(memories) - 3} more memories")
             else:

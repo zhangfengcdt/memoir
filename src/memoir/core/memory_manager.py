@@ -12,11 +12,12 @@ from typing import Any, Optional, Union
 from langmem.knowledge.extraction import MemoryStoreManager
 from pydantic import BaseModel, Field
 
-# Search engine imports removed - search engine now provided as parameter
-
 from .profile_manager import ProfileManager
 from .prolly_adapter import ProllyTreeStore
 from .timeline_manager import TimelineManager
+
+# Search engine imports removed - search engine now provided as parameter
+
 
 logger = logging.getLogger(__name__)
 
@@ -50,9 +51,12 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
 
     def __init__(
         self,
-        prolly_path: str,
+        prolly_store: Optional[Any] = None,  # ProllyTreeStore instance (preferred)
+        prolly_path: Optional[str] = None,  # Path to create store (fallback)
         model: Union[str, Any] = "gpt-3.5-turbo",  # Default model
-        classifier: Optional[Any] = None,  # SemanticClassifier or IntelligentClassifier instance
+        classifier: Optional[
+            Any
+        ] = None,  # SemanticClassifier or IntelligentClassifier instance
         search_engine: Optional[Any] = None,  # Search engine instance
         enable_versioning: bool = True,
         enable_fast_classification: bool = True,
@@ -63,7 +67,8 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         Initialize enhanced memory manager.
 
         Args:
-            prolly_path: Path to ProllyTree database
+            prolly_store: ProllyTreeStore instance (preferred - allows proper dependency injection)
+            prolly_path: Path to create ProllyTree database (fallback if store not provided)
             classifier: SemanticClassifier or IntelligentClassifier instance
             search_engine: Search engine instance (IntelligentSearchEngine, etc.)
             enable_versioning: Enable git-like versioning
@@ -74,13 +79,19 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         # Initialize classifier - must be provided for production use
         self.classifier = classifier
 
-        # Initialize ProllyTree store
-        self.prolly_store = ProllyTreeStore(
-            path=prolly_path,
-            classifier=self.classifier,
-            enable_versioning=enable_versioning,
-            cache_size=cache_size,
-        )
+        # Initialize or use provided ProllyTree store
+        if prolly_store is not None:
+            # Use provided store (preferred for dependency injection)
+            self.prolly_store = prolly_store
+        elif prolly_path is not None:
+            # Create store from path (fallback)
+            self.prolly_store = ProllyTreeStore(
+                path=prolly_path,
+                enable_versioning=enable_versioning,
+                cache_size=cache_size,
+            )
+        else:
+            raise ValueError("Either prolly_store or prolly_path must be provided")
 
         # Initialize profile manager
         self.profile_manager = ProfileManager(self.prolly_store)
@@ -127,15 +138,13 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         if not self.search_engine:
             logger.warning("No search engine provided - returning empty results")
             return []
-            
+
         start_time = time.time()
         self._metrics["searches"] += 1
 
         # Use the provided search engine
         search_results = await self.search_engine.search(
-            query=query, 
-            namespace=namespace, 
-            limit=limit
+            query=query, namespace=namespace, limit=limit
         )
 
         # Convert IntelligentSearchResult objects to Memory objects

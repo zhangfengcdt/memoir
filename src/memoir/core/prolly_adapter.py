@@ -13,9 +13,8 @@ from langgraph.store.base import BaseStore
 from prollytree import ProllyTree, VersionedKvStore
 from pydantic import BaseModel, Field
 
-from memoir.search.hierarchical_search import HierarchicalSearchEngine
-from memoir.taxonomy.semantic_classifier import SemanticClassifier
-from memoir.taxonomy.semantic_taxonomy import get_taxonomy
+# Storage layer doesn't import classification or search modules
+# These are handled by higher layers
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +37,7 @@ class MemoryItem(BaseModel):
 
 class AggregatedMemory(BaseModel):
     """Represents aggregated memories at a semantic path."""
-    
+
     path: str = Field(description="Semantic taxonomy path")
     memories: list[dict[str, Any]] = Field(
         default_factory=list, description="List of memory entries at this path"
@@ -64,16 +63,17 @@ class ProllyTreeStore(BaseStore):
     def __init__(
         self,
         path: str,
-        classifier: Optional[SemanticClassifier] = None,
         enable_versioning: bool = True,
         cache_size: int = 10000,
     ):
         """
         Initialize ProllyTree store.
 
+        Storage layer is responsible only for storing and retrieving data.
+        Classification is handled by higher layers (memory manager).
+
         Args:
             path: Path to ProllyTree database
-            classifier: Semantic classifier (will create default if None)
             enable_versioning: Whether to enable git-like versioning
             cache_size: Size of internal caches
         """
@@ -120,24 +120,15 @@ class ProllyTreeStore(BaseStore):
             self.tree = ProllyTree("memory")
 
         self.enable_versioning = enable_versioning
-        self.taxonomy = get_taxonomy()
-        if classifier is None:
-            raise ValueError(
-                "Classifier (SemanticClassifier or IntelligentClassifier) is required"
-            )
-        self.classifier = classifier
-
-        # Initialize search engine
-        self.search_engine = HierarchicalSearchEngine(
-            store=self, classifier=classifier, max_content_length=10000
-        )
+        # Storage layer doesn't need taxonomy, classifier, or search engine
+        # These are handled by higher layers
 
         # Performance tracking
         self._stats = {"reads": 0, "writes": 0, "searches": 0, "classifications": 0}
 
         # Key registry for memory mode (since ProllyTree doesn't have list_keys in memory mode)
         self._keys = set()
-        
+
         # Track aggregated memories to avoid redundant updates
         self._aggregation_cache = {}
 
@@ -292,7 +283,7 @@ class ProllyTreeStore(BaseStore):
     ) -> MemoryItem:
         """
         Store a memory at the given semantic key.
-        
+
         Note: Classification must be done by the caller (memory manager).
         Storage layer is responsible only for storing, not classifying.
 
@@ -318,17 +309,17 @@ class ProllyTreeStore(BaseStore):
             "timestamp": time.time(),
             "metadata": {},
         }
-        
+
         # Convert namespace to tuple format
         if ":" in namespace:
             namespace_parts = namespace.split(":")
             namespace_tuple = tuple(namespace_parts)
         else:
             namespace_tuple = (namespace,)
-        
+
         # Get existing aggregated memory or create new one
         existing = self.get(namespace_tuple, storage_key)
-        
+
         if existing and isinstance(existing, dict) and "memories" in existing:
             # Append to existing aggregated memory
             aggregated = AggregatedMemory(**existing)
@@ -345,10 +336,10 @@ class ProllyTreeStore(BaseStore):
                 first_timestamp=memory_entry["timestamp"],
                 last_timestamp=memory_entry["timestamp"],
             )
-        
+
         # Store the aggregated memory
         self.put(namespace_tuple, storage_key, aggregated.model_dump())
-        
+
         # Create MemoryItem for return value (for compatibility)
         item = MemoryItem(
             key=semantic_key,
@@ -380,7 +371,6 @@ class ProllyTreeStore(BaseStore):
         """
         # Use synchronous search with prefix
         results = []
-        seen_content = set()  # Avoid duplicates based on content
         # Convert string namespace to tuple format
         # "memory:general" -> ("memory", "general")
         namespace_parts = namespace.split(":")

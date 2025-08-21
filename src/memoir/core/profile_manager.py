@@ -56,7 +56,9 @@ class ProfileManager:
             }
 
             # Store directly using the async method (consistent with timeline manager)
-            await self.memory_store.store_memory_async("memory:general", memory_data, path)
+            await self.memory_store.store_memory_async(
+                "memory:general", memory_data, path
+            )
             logger.info(f"Applied profile update: {path} = {value}")
 
     async def get_profile_summary(self, llm=None) -> str:
