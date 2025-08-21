@@ -26,10 +26,7 @@ from memoir.classifier.intelligent_classifier import IntelligentClassifier
 from memoir.core.location_manager import LocationManager
 from memoir.core.profile_manager import ProfileManager
 from memoir.core.timeline_manager import TimelineManager
-from memoir.search.hierarchical_search import (
-    HierarchicalSearchEngine,
-    SearchStrategy,
-)
+from memoir.search.semantic_search import SemanticSearchEngine
 from memoir.store.prolly_adapter import ProllyTreeStore
 from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
 
@@ -228,9 +225,7 @@ class LocomoEvaluator:
             location_manager=self.location_manager,
         )
 
-        self.search_engine = HierarchicalSearchEngine(
-            store=store, classifier=classifier, profile_manager=self.profile_manager
-        )
+        self.search_engine = SemanticSearchEngine(store=store)
 
         await self.load_data()
 
@@ -640,7 +635,6 @@ Return only the search terms/phrases, one per line:"""
         results1 = await self.search_engine.search(
             query=main_query,
             namespace=namespace_str,
-            strategy=SearchStrategy.SPECIFIC_TO_GENERAL,
         )
         search_results.extend(results1)
 
@@ -648,7 +642,6 @@ Return only the search terms/phrases, one per line:"""
             alt_results = await self.search_engine.search(
                 query=alt_query,
                 namespace=namespace_str,
-                strategy=SearchStrategy.SPECIFIC_TO_GENERAL,
             )
             search_results.extend(alt_results)
             if alt_results:
@@ -658,14 +651,13 @@ Return only the search terms/phrases, one per line:"""
             results2 = await self.search_engine.search(
                 query=question,
                 namespace=namespace_str,
-                strategy=SearchStrategy.SPECIFIC_TO_GENERAL,
             )
             search_results.extend(results2)
 
         seen_content = set()
         unique_results = []
         for result in search_results:
-            content_hash = hash(result.combined_content)
+            content_hash = hash(result.content)
             if content_hash not in seen_content:
                 unique_results.append(result)
                 seen_content.add(content_hash)
@@ -734,7 +726,7 @@ Return only the search terms/phrases, one per line:"""
         for result in search_results:
             retrieved_memories.append(
                 {
-                    "content": result.combined_content,
+                    "content": result.content,
                     "path": result.path,
                     "namespace": result.namespace,
                     "item_count": result.item_count,

@@ -10,27 +10,21 @@ from .classifier.semantic_classifier import (
     SemanticClassifier,
 )
 from .core.memory_manager import ProllyTreeMemoryStoreManager
-from .search.hierarchical_search import (
-    HierarchicalSearchEngine,
+from .search.semantic_search import (
     SearchResult,
-    SearchStrategy,
+    SemanticSearchEngine,
 )
 from .store.prolly_adapter import MemoryItem, ProllyTreeStore
 from .taxonomy.semantic_taxonomy import SemanticTaxonomy, TaxonomyCategory, get_taxonomy
 
 __all__ = [
     "ClassificationResult",
-    # Search
-    "HierarchicalSearchEngine",
     "MemoryItem",
-    # Core
     "ProllyTreeMemoryStoreManager",
     "ProllyTreeStore",
     "SearchResult",
-    "SearchStrategy",
-    # Classification
     "SemanticClassifier",
-    # Taxonomy
+    "SemanticSearchEngine",
     "SemanticTaxonomy",
     "TaxonomyCategory",
     "get_taxonomy",
