@@ -39,7 +39,6 @@ from rich.text import Text
 from rich.tree import Tree
 
 from memoir.classifier.intelligent_classifier import IntelligentClassifier
-from memoir.classifier.semantic_classifier import SemanticClassifier
 from memoir.store.prolly_adapter import ProllyTreeStore
 from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
 
@@ -282,12 +281,8 @@ class TaxonomyApp:
         data_dir = Path("/tmp/intelligent_taxonomy_app")
         data_dir.mkdir(parents=True, exist_ok=True)
 
-        # Create a simple classifier for the store
-        classifier = SemanticClassifier(llm=None)
-
         store = ProllyTreeStore(
             path=str(data_dir),
-            classifier=classifier,
             enable_versioning=False,
         )
 
