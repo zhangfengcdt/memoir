@@ -143,9 +143,9 @@ The project includes ReadTheDocs configuration for easy documentation hosting:
 
    # Build documentation locally
    make docs
-   
+
    # Start live reload development server
    make docs-live
-   
+
    # Clean build artifacts
    make docs-clean

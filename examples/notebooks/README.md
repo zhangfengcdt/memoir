@@ -10,7 +10,7 @@ This directory contains interactive Jupyter notebooks demonstrating Memoir's cap
 A comprehensive, step-by-step guide through Memoir's semantic memory system including:
 
 - ✅ **Clean Architecture Setup**: Dependency injection with proper separation of concerns
-- ✅ **Intelligent Classification**: LLM-powered automatic semantic path assignment  
+- ✅ **Intelligent Classification**: LLM-powered automatic semantic path assignment
 - ✅ **Memory Aggregation**: See how related memories group at semantic locations
 - ✅ **Smart Search**: LLM-powered path selection vs traditional vector search
 - ✅ **Version Control**: Git-like branching, merging, and time-travel queries
@@ -33,10 +33,10 @@ A comprehensive, step-by-step guide through Memoir's semantic memory system incl
    ```bash
    # OpenAI (recommended for tutorials)
    pip install langchain-openai
-   
+
    # Anthropic Claude
    pip install langchain-anthropic
-   
+
    # Local models via Ollama
    pip install langchain-ollama
    ```
@@ -45,8 +45,8 @@ A comprehensive, step-by-step guide through Memoir's semantic memory system incl
    ```bash
    # For OpenAI
    export OPENAI_API_KEY="your-api-key-here"
-   
-   # For Anthropic  
+
+   # For Anthropic
    export ANTHROPIC_API_KEY="your-api-key-here"
    ```
 

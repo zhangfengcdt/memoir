@@ -11,7 +11,7 @@ Perfect for learning Memoir's architecture and capabilities through hands-on exp
 
 **Features:**
 - ✅ **Interactive Learning**: Step-by-step cells with detailed explanations
-- ✅ **Complete Demo**: All core features in one comprehensive tutorial  
+- ✅ **Complete Demo**: All core features in one comprehensive tutorial
 - ✅ **Performance Analysis**: Real-time metrics and comparisons
 - ✅ **Visual Output**: Clear formatting and progress indicators
 - ✅ **Error Handling**: Helpful error messages and troubleshooting
@@ -36,7 +36,7 @@ Shows how to build a memory system with proper dependency injection and demonstr
 
 **Best for**: Understanding architecture, production integration
 
-### [intelligent_taxonomy.py](intelligent_taxonomy.py) 
+### [intelligent_taxonomy.py](intelligent_taxonomy.py)
 **Advanced classification and taxonomy management**
 
 Demonstrates dynamic taxonomy expansion and intelligent classification strategies.
@@ -83,7 +83,7 @@ jupyter notebook memoir_basic_usage.ipynb
 ### 2. Script Execution
 
 ```bash
-# Install dependencies  
+# Install dependencies
 pip install memoir langchain-openai
 
 # Set API key
@@ -100,7 +100,7 @@ All examples demonstrate these performance improvements:
 | Operation | Traditional | Memoir | Improvement |
 |-----------|-------------|--------|-------------|
 | **Memory Search** | 150-750ms | 0.1-1ms | **100-750x faster** |
-| **Memory Storage** | 200-600ms | 20-30ms | **7-30x faster** |  
+| **Memory Storage** | 200-600ms | 20-30ms | **7-30x faster** |
 | **Classification** | 2-5 seconds | 1-5ms | **400-5000x faster** |
 
 ## 🏗️ Architecture Demonstrated
@@ -116,7 +116,7 @@ Memory Manager (orchestration)
 
 **Key Benefits:**
 - **Clean Dependencies**: Each layer depends only on lower layers
-- **Testability**: Components can be tested in isolation  
+- **Testability**: Components can be tested in isolation
 - **Flexibility**: Swap implementations without changing other layers
 - **Performance**: Optimized for speed and memory efficiency
 
@@ -137,7 +137,7 @@ from langchain_openai import ChatOpenAI
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
 
 # Anthropic Claude
-from langchain_anthropic import ChatAnthropic  
+from langchain_anthropic import ChatAnthropic
 llm = ChatAnthropic(model="claude-3-sonnet-20240229", temperature=0)
 
 # Local models via Ollama
@@ -164,7 +164,7 @@ make test
 ## 📖 Documentation
 
 - [Architecture Guide](../docs/architecture.rst) - System design principles
-- [Basic Usage](../docs/basic_usage.rst) - Comprehensive usage patterns  
+- [Basic Usage](../docs/basic_usage.rst) - Comprehensive usage patterns
 - [Installation](../docs/installation.rst) - Setup and configuration
 - [API Reference](../docs/api/memoir.rst) - Complete API documentation
 
