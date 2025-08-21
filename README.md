@@ -51,10 +51,10 @@ Just as Git transformed software development from fragile, unversioned code to r
 ### Core Components
 
 1. **ProllyTreeStore**: Git-like versioned storage with cryptographic integrity
-2. **SemanticTaxonomy**: Hierarchical organization of ~800 meaningful memory paths
-3. **SemanticClassifier**: LLM-powered classification with intelligent fallbacks
-4. **HierarchicalSearchEngine**: Multi-strategy search with relevance scoring
-5. **VersionedMemoryManager**: Complete audit trails and branching capabilities
+2. **IntelligentClassifier**: LLM-powered classification with dynamic taxonomy expansion
+3. **IntelligentSearchEngine**: Multi-strategy search with relevance scoring
+4. **ProllyTreeMemoryStoreManager**: Complete audit trails and branching capabilities
+5. **TaxonomyPresets**: Hierarchical organization of ~800 meaningful memory paths
 
 ## Quick Start
 
@@ -70,61 +70,78 @@ pip install memoir
 import asyncio
 from langchain_openai import ChatOpenAI
 from memoir import ProllyTreeMemoryStoreManager
-from memoir.classifier.semantic_classifier import SemanticClassifier
-from memoir.taxonomy.iterative_taxonomy import LLMIterativeTaxonomy
+from memoir.classifier.intelligent import IntelligentClassifier
+from memoir.search.intelligent import IntelligentSearchEngine
+from memoir.store.prolly_adapter import ProllyTreeStore
+from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
 
 async def main():
     # Initialize LLM
-    llm = ChatOpenAI(model="gpt-4", temperature=0)
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, max_tokens=500)
 
-    # Create LLM-driven iterative taxonomy
-    taxonomy = LLMIterativeTaxonomy(llm=llm)
-    classifier = SemanticClassifier(llm=llm, taxonomy=taxonomy)
+    # Create components with dependency injection
+    store = ProllyTreeStore(
+        path="./memory_store",
+        enable_versioning=True
+    )
+
+    classifier = IntelligentClassifier(
+        llm=llm,
+        taxonomy_version=TaxonomyVersion.GENERAL,
+        confidence_thresholds={
+            "high": 0.8,
+            "medium": 0.5,
+            "low": 0.0
+        }
+    )
+
+    search_engine = IntelligentSearchEngine(llm=llm, store=store)
 
     # Initialize memory manager with Git-like versioning
-    memory_manager = ProllyTreeMemoryStoreManager(
-        prolly_path="./memory_db",
+    memory = ProllyTreeMemoryStoreManager(
+        prolly_store=store,
         classifier=classifier,
+        search_engine=search_engine,
         enable_versioning=True  # Git-like version control enabled
     )
 
     user_id = "user123"
 
     # Store memories with automatic classification and versioning
-    commit_1 = await memory_manager.store_memory(
+    semantic_key = await memory.store_memory(
         content="I have 5 years of Python experience",
-        namespace=user_id
+        namespace=user_id,
+        auto_classify=True
     )
     # → Creates cryptographically verifiable memory commit
     # → Automatically classified to: profile.professional.skills.technical.programming
 
-    # Create experimental branch for testing new memories
-    experiment_branch = await memory_manager.create_branch("experiment_branch")
-
     # Store experimental memory on branch
-    await memory_manager.store_memory(
+    branch_id = await memory.branch_memories(user_id, "experiment")
+
+    await memory.store_memory(
         content="I'm learning Rust programming",
         namespace=user_id,
-        branch="experiment_branch"
+        auto_classify=True
     )
 
-    # Search memories semantically with version control
-    results = await memory_manager.search_memories(
+    # Search memories semantically
+    results = await memory.search_memories(
         query="What programming skills do I have?",
         namespace=user_id,
         limit=5
     )
 
-    # Time-travel: View memory as it existed at commit_1
-    historical_results = await memory_manager.search_memories(
-        query="What programming skills do I have?",
-        namespace=user_id,
-        at_commit=commit_1  # Time-travel query
+    # Time-travel: View memory versions
+    memory_versions = await memory.get_memory_versions(
+        semantic_key="profile.professional.skills",
+        namespace=user_id
     )
 
-    # Verify memory integrity (like git fsck)
-    integrity_check = await memory_manager.verify_integrity()
-    print(f"Memory integrity: {'✅ Valid' if integrity_check else '❌ Corrupted'}")
+    print(f"Found {len(results)} current results")
+    for result in results:
+        print(f"Memory: {result.content}")
+        print(f"Path: {result.id}")
 
 if __name__ == "__main__":
     asyncio.run(main())
@@ -134,26 +151,34 @@ if __name__ == "__main__":
 
 ```python
 # Branch and merge operations (like Git)
-await memory_manager.create_branch("feature_branch")
-await memory_manager.checkout("feature_branch")
+feature_branch_id = await memory.branch_memories(user_id, "feature_branch")
 
 # Store memories on feature branch
-await memory_manager.store_memory("New feature memory", namespace=user_id)
+await memory.store_memory(
+    content="New feature memory",
+    namespace=user_id,
+    auto_classify=True
+)
 
 # Merge back to main branch
-await memory_manager.checkout("main")
-await memory_manager.merge("feature_branch")
+merge_result = await memory.merge_memories(
+    namespace=user_id,
+    source_branch="feature_branch",
+    target_branch="main",
+    strategy="union"
+)
 
-# View commit history (like git log)
-history = await memory_manager.get_commit_history(namespace=user_id)
-for commit in history:
-    print(f"Commit: {commit.hash[:8]} - {commit.message} - {commit.timestamp}")
+# Search with filters
+results = await memory.search_memories(
+    query="programming skills",
+    namespace=user_id,
+    limit=10,
+    filter={"confidence": {"$gte": 0.7}}
+)
 
-# Compare memory states (like git diff)
-diff = await memory_manager.diff_commits(commit_1, commit_2)
-print(f"Added: {len(diff.added)} memories")
-print(f"Modified: {len(diff.modified)} memories")
-print(f"Deleted: {len(diff.deleted)} memories")
+# Get performance metrics
+metrics = memory.get_performance_metrics()
+print(f"Average search time: {metrics.get('avg_search_time_ms', 0):.1f}ms")
 ```
 
 ### Alternative LLM Providers
@@ -168,39 +193,49 @@ from langchain_anthropic import ChatAnthropic
 llm = ChatAnthropic(model="claude-3-sonnet-20240229", temperature=0)
 
 # Then use with any classifier
-classifier = SemanticClassifier(llm=llm, taxonomy=LLMIterativeTaxonomy(llm=llm))
+classifier = IntelligentClassifier(
+    llm=llm,
+    taxonomy_version=TaxonomyVersion.GENERAL
+)
 ```
 
 ### Key API Methods with Version Control
 ```python
 # Store memories with automatic classification and versioning
-commit_hash = await memory_manager.store_memory(
+semantic_key = await memory.store_memory(
     content="Your memory content here",
     namespace="user_id",
-    message="Added new user preference"  # Git-style commit message
+    auto_classify=True,
+    metadata={"source": "conversation"}
 )
 
 # Search memories semantically
-results = await memory_manager.search_memories(
+results = await memory.search_memories(
     query="Your search query",
     namespace="user_id",
     limit=10
 )
 
-# Time-travel queries
-historical_results = await memory_manager.search_memories(
-    query="Your search query",
+# Version control operations
+branch_id = await memory.branch_memories("user_id", "experiment")
+merge_result = await memory.merge_memories(
     namespace="user_id",
-    at_commit="a7f3b2c1..."  # View memory at specific commit
+    source_branch="experiment",
+    target_branch="main"
 )
 
-# Branch operations
-await memory_manager.create_branch("experiment")
-await memory_manager.checkout("experiment")
-await memory_manager.merge("experiment", into="main")
+# Time-travel: View memory versions
+versions = await memory.get_memory_versions(
+    semantic_key="profile.professional.skills",
+    namespace="user_id"
+)
 
-# Integrity verification
-is_valid = await memory_manager.verify_integrity()
+# Compare memory states
+comparison = await memory.compare_memory_states(
+    namespace="user_id",
+    timestamp_1=1234567890,
+    timestamp_2=1234567900
+)
 ```
 
 ## Contributing
