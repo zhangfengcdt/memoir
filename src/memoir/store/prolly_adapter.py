@@ -506,7 +506,7 @@ class ProllyTreeStore(BaseStore):
         stats = {
             "performance": self._stats.copy(),
             "total_keys": len(self._keys),
-            "total_namespaces": len(set(key.split(":")[0] for key in self._keys)),
+            "total_namespaces": len({key.split(":")[0] for key in self._keys}),
         }
 
         if self.enable_versioning and hasattr(self.tree, "get_head"):

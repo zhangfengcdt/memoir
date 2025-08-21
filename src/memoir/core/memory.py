@@ -435,17 +435,17 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         except Exception as e:
             logger.warning(f"Failed to get store statistics: {e}")
             metrics["store"] = {}
-            
+
         # Add classifier statistics if available
-        if hasattr(self.classifier, 'get_statistics'):
+        if hasattr(self.classifier, "get_statistics"):
             try:
                 metrics["classifier"] = self.classifier.get_statistics()
             except Exception as e:
                 logger.warning(f"Failed to get classifier statistics: {e}")
                 metrics["classifier"] = {}
-        
-        # Add search engine statistics if available  
-        if hasattr(self.search_engine, 'get_statistics'):
+
+        # Add search engine statistics if available
+        if hasattr(self.search_engine, "get_statistics"):
             try:
                 metrics["search_engine"] = self.search_engine.get_statistics()
             except Exception as e:
