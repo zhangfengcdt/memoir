@@ -22,6 +22,7 @@ Welcome to Memoir's Documentation
    classification
    search
    versioning
+   faq
 
 .. toctree::
    :maxdepth: 2
