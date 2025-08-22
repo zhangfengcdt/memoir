@@ -130,28 +130,64 @@ Search for memories using natural language queries:
 Version Control
 ---------------
 
-Memoir provides Git-like version control for memories:
+Memoir provides Git-like version control for memories with fine-grained commit control:
+
+**Traditional Auto-Commit (Default)**:
 
 .. code-block:: python
 
-   # Create a branch
-   await memory_manager.create_branch("experiment")
-   await memory_manager.checkout("experiment")
+   # Every operation commits automatically (backward compatible)
+   store = ProllyTreeStore(path="./store", auto_commit=True)  # Default
+   await store.store_memory_async(namespace, content, key)  # Commits immediately
 
-   # Make changes
-   await memory_manager.store_memory(
-       content="Testing new memory",
-       namespace="user123"
+**Batch Commit Control**:
+
+.. code-block:: python
+
+   # Batch multiple operations before committing
+   store = ProllyTreeStore(path="./store", auto_commit=False)
+
+   # Store multiple memories without committing
+   await store.store_memory_async_without_commit(namespace, content1, key1)
+   await store.store_memory_async_without_commit(namespace, content2, key2)
+   await store.store_memory_async_without_commit(namespace, content3, key3)
+
+   # Commit all changes as a single logical unit
+   commit_hash = store.commit("Batch of related memories")
+
+**Memory Manager Level Control**:
+
+.. code-block:: python
+
+   # Enable batch control at memory manager level
+   memory_manager = ProllyTreeMemoryStoreManager(
+       prolly_store=store,
+       classifier=classifier,
+       search_engine=search_engine,
+       auto_commit=False  # Enable batch control
    )
 
-   # Commit changes
-   commit_hash = await memory_manager.commit("Added test memory")
+   # Store memories without committing
+   await memory_manager.store_memory_without_commit(content1, namespace)
+   await memory_manager.store_memory_without_commit(content2, namespace)
 
-   # Switch back to main
-   await memory_manager.checkout("main")
+   # Commit the batch
+   commit_hash = memory_manager.store_commit("User onboarding session")
 
-   # Merge changes
-   await memory_manager.merge("experiment", into="main")
+**Mixed Workflow**:
+
+.. code-block:: python
+
+   # Mix auto-commit and batch operations
+   store.auto_commit = True
+   await store.store_memory_async(critical_memory, key)  # Immediate commit
+
+   store.auto_commit = False  # Switch to batch mode
+   await store.store_memory_async_without_commit(routine1, key1)
+   await store.store_memory_async_without_commit(routine2, key2)
+   store.commit("Batch of routine updates")
+
+   store.auto_commit = True  # Re-enable for future critical operations
 
 Search Engines
 --------------

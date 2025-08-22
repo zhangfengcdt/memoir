@@ -22,7 +22,7 @@ Overview: Git for AI Memory
 Memoir brings Git-like version control to AI memory systems, enabling:
 
 - **Branching**: Explore hypothetical scenarios safely
-- **Time-travel**: Debug by examining memory at any point in history  
+- **Time-travel**: Debug by examining memory at any point in history
 - **Snapshots**: Create checkpoints for reproducible testing
 - **Merging**: Combine memory states from different branches
 
@@ -122,6 +122,54 @@ Quick Demo
 
    python examples/production_debugging.py
 
+Example 5: Versioning Control
+=============================
+
+**Scenario**: Control commit granularity to prevent overwhelming git history in batch operations.
+
+**Problem**: Every put/delete operation creates a commit, making history noisy for bulk operations.
+
+**Solution**: Fine-grained commit control with auto_commit flag and batch operations.
+
+Quick Demo
+----------
+
+.. code-block:: bash
+
+   python examples/versioning_control_example.py
+   python examples/versioning_control.py
+
+Key Benefits
+------------
+
+✅ **Backward Compatible**: Default auto_commit=True preserves existing behavior
+✅ **Fine-grained Control**: Disable auto-commit for batch operations
+✅ **Cleaner History**: Logical commits instead of per-operation noise
+✅ **Better Performance**: Fewer git operations = faster batch processing
+✅ **Flexible Workflows**: Mix auto-commit and manual batching as needed
+
+Usage Patterns
+---------------
+
+.. code-block:: python
+
+   # Traditional (unchanged)
+   store = ProllyTreeStore(path, auto_commit=True)  # Default
+   store.put(namespace, key, value)  # Commits immediately
+
+   # Batch operations
+   store = ProllyTreeStore(path, auto_commit=False)
+   store.put_without_commit(namespace, key1, value1)
+   store.put_without_commit(namespace, key2, value2)
+   store.commit('Batch update with 2 memories')
+
+   # Mixed approach
+   store.auto_commit = True
+   store.put(namespace, critical_key, value)  # Immediate commit
+   store.auto_commit = False
+   store.put_without_commit(namespace, batch_key1, value1)
+   store.commit('Batch of non-critical updates')
+
 Performance Comparison
 ======================
 
@@ -132,12 +180,12 @@ Performance Comparison
      - Traditional Vector DB
      - Memoir (Git-like)
      - Improvement
-   * - Search 100 memories  
+   * - Search 100 memories
      - 150-750ms
      - 0.1-1ms
      - 150-750x faster
    * - Store memory
-     - 200-600ms  
+     - 200-600ms
      - 20-30ms
      - 7-30x faster
    * - Time-travel debug
@@ -146,7 +194,7 @@ Performance Comparison
      - Impossible → Instant
    * - Branch exploration
      - Not supported
-     - <1ms  
+     - <1ms
      - Impossible → Instant
    * - Memory corruption recovery
      - Manual search
@@ -159,11 +207,11 @@ Key Benefits Summary
 Memory Branching
 ----------------
 - ✅ **Safe Exploration**: Test hypotheticals without corrupting main timeline
-- ✅ **Instant Switching**: Move between different memory states instantly  
+- ✅ **Instant Switching**: Move between different memory states instantly
 - ✅ **Perfect Isolation**: Branches completely separate, no cross-contamination
 - ❌ **Traditional**: Single timeline, no branching, corruption risk
 
-Time-Travel Debugging  
+Time-Travel Debugging
 ----------------------
 - ✅ **Historical Context**: See exact memory state at any point in time
 - ✅ **Corruption Detection**: Identify exactly when and where problems occurred
@@ -174,7 +222,7 @@ Reproducible Testing
 ---------------------
 - ✅ **Test Isolation**: Each test runs in completely clean environment
 - ✅ **Consistent Results**: Same test produces identical results every time
-- ✅ **Parallel Testing**: Multiple scenarios without interference  
+- ✅ **Parallel Testing**: Multiple scenarios without interference
 - ❌ **Traditional**: Tests contaminate each other, inconsistent results
 
 Production Debugging
@@ -207,15 +255,17 @@ To try these examples yourself:
 
       # Fast demos (no LLM required)
       python examples/context_branching.py
-      python examples/memory_state_debugging.py  
+      python examples/memory_state_debugging.py
       python examples/reproducible_testing.py
       python examples/production_debugging.py
+      python examples/versioning_control_example.py
+      python examples/versioning_control.py
 
 Next Steps
 ==========
 
 - **Integration Guide**: :doc:`quickstart` - Integrate memoir into your agent
-- **API Reference**: :doc:`api/memoir` - Complete API documentation  
+- **API Reference**: :doc:`api/memoir` - Complete API documentation
 - **Architecture**: :doc:`architecture` - Deep dive into system design
 - **Performance**: Benchmark memoir against your current memory system
 

@@ -32,10 +32,10 @@ Memory Branching Diagram
                                └─→ "What if Google career?"
 
    A: CS Degree 2020
-   B: Startup Backend Job  
+   B: Startup Backend Job
    C: Senior Engineer Promotion
    D: Current State (preserved)
-   
+
    E: Google Frontend Job (hypothetical)
    F: React/UI Systems Focus
    G: YouTube Tech Lead
@@ -62,7 +62,7 @@ Initial Setup
    # Create memory store with versioning enabled
    temp_dir = tempfile.mkdtemp()
    prolly_path = os.path.join(temp_dir, "memory_store")
-   
+
    prolly_store = ProllyTreeStore(
        path=prolly_path,
        enable_versioning=True,  # Enable Git-like features
@@ -75,26 +75,26 @@ Building Main Timeline
 .. code-block:: python
 
    namespace = "user123"
-   
+
    # Store user's actual career path
    await prolly_store.store_memory_async(
        namespace,
        "I graduated with a computer science degree in 2020",
        "profile.education.degree"
    )
-   
+
    await prolly_store.store_memory_async(
        namespace,
        "I chose to work at a startup doing backend development",
        "profile.career.current.startup"
    )
-   
+
    await prolly_store.store_memory_async(
        namespace,
        "I've been promoted to senior engineer after 3 years",
        "profile.career.progression.senior"
    )
-   
+
    # Create snapshot of main timeline
    main_snapshot = f"main_timeline_{int(time.time())}"
    prolly_store.create_time_snapshot(main_snapshot)
@@ -109,7 +109,7 @@ Creating Alternative Branch
    alternative_branch = f"alternative_path_{int(time.time())}"
    prolly_store.tree.create_branch(alternative_branch)
    prolly_store.tree.checkout(alternative_branch)
-   
+
    print(f"🌿 Created branch: {alternative_branch}")
    print("Now exploring: What if I had joined Google instead?")
 
@@ -124,19 +124,19 @@ Exploring Alternative Timeline
        "What if I had joined Google as a frontend engineer instead?",
        "profile.career.hypothetical.google"
    )
-   
+
    await prolly_store.store_memory_async(
        namespace,
        "At Google, I would have focused on React and large-scale UI systems",
        "profile.skills.hypothetical.frontend"
    )
-   
+
    await prolly_store.store_memory_async(
        namespace,
        "I might have become a tech lead for YouTube's frontend team",
        "profile.career.hypothetical.youtube_lead"
    )
-   
+
    # Create snapshot of alternative timeline
    alt_snapshot = f"alt_timeline_{int(time.time())}"
    prolly_store.create_time_snapshot(alt_snapshot)
@@ -148,13 +148,13 @@ Timeline Comparison
 
    # Compare memories across branches
    print("🔍 Comparing timelines...")
-   
+
    # Current branch (alternative)
    alt_memories = prolly_store.search((namespace,), limit=10)
    print("Alternative timeline memories:")
    for _, path, data in alt_memories[:3]:
        print(f"  [{path}] {data}")
-   
+
    # Switch to main branch
    prolly_store.tree.checkout("main")
    main_memories = prolly_store.search((namespace,), limit=10)
@@ -203,7 +203,7 @@ Sample Output
 
    Alternative timeline skills:
    - I've been promoted to senior engineer after 3 years
-   - I chose to work at a startup doing backend development  
+   - I chose to work at a startup doing backend development
    - At Google, I would have focused on React and large-scale UI systems
 
    Main timeline skills:
@@ -221,7 +221,7 @@ Key Benefits
   Test hypotheticals without corrupting main timeline
 
 **Instant Switching**
-  Move between different memory states instantly  
+  Move between different memory states instantly
 
 **Perfect Isolation**
   Branches completely separate, no cross-contamination

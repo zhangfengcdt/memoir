@@ -250,6 +250,28 @@ Search Patterns
 Version Control Operations
 --------------------------
 
+**Commit Control**
+
+Memoir provides fine-grained control over when commits happen:
+
+.. code-block:: python
+
+   # Traditional auto-commit (default, backward compatible)
+   store = ProllyTreeStore(path="./store", auto_commit=True)
+   await store.store_memory_async(namespace, content, key)  # Commits immediately
+
+   # Batch commit control
+   store = ProllyTreeStore(path="./store", auto_commit=False)
+   await store.store_memory_async_without_commit(namespace, content1, key1)
+   await store.store_memory_async_without_commit(namespace, content2, key2)
+   commit_hash = store.commit("Batch of related memories")
+
+   # Memory manager batch control
+   memory_manager = ProllyTreeMemoryStoreManager(auto_commit=False)
+   await memory_manager.store_memory_without_commit(content1, namespace)
+   await memory_manager.store_memory_without_commit(content2, namespace)
+   commit_hash = memory_manager.store_commit("Logical batch description")
+
 **Branching**
 
 .. code-block:: python

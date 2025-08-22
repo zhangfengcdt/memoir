@@ -35,7 +35,7 @@ Time-Travel Debugging Diagram
 
    Debugging Process:
    1. 🤖 Agent makes bad decision (CORRUPT state)
-   2. 🔍 Time-travel to investigate (commit3) 
+   2. 🔍 Time-travel to investigate (commit3)
    3. 📊 Compare memory states across timeline
    4. 💡 Identify exact corruption point
    5. 🔧 Revert to clean state and apply fix
@@ -44,7 +44,7 @@ Time-Travel Debugging Diagram
    Key Benefits:
    • Instantly identify when corruption occurred
    • Compare memory states across time
-   • Revert to any previous clean state  
+   • Revert to any previous clean state
    • Complete audit trail of all changes
 
 Key Code Snippets
@@ -65,7 +65,7 @@ Setup with Snapshots
        enable_versioning=True,
        cache_size=10000,
    )
-   
+
    # Track commit history with timestamps
    commit_history = []
 
@@ -75,7 +75,7 @@ Building Memory Timeline
 .. code-block:: python
 
    namespace = "user123"
-   
+
    # Store initial preference with snapshot
    await prolly_store.store_memory_async(
        namespace,
@@ -98,7 +98,7 @@ Building Memory Timeline
    prolly_store.create_time_snapshot(commit2)
    commit_history.append((commit2, timestamp2, "Added coffee preference"))
 
-   # Update with R preference  
+   # Update with R preference
    await prolly_store.store_memory_async(
        namespace,
        "User actually prefers R for statistics work",
@@ -132,13 +132,13 @@ Debugging Bad Agent Decision
 
    print("🤖 Agent decision point: What language to recommend?")
    print("Current memory state (corrupted):")
-   
+
    # Examine current corrupted state
    current_memories = prolly_store.search((namespace,), limit=10)
    for _, path, data in current_memories:
        if data and "programming" in path:
            print(f"  - [{path}] Memory stored")
-   
+
    # Problem: Agent sees "hate all programming languages"!
 
 Time-Travel to Debug
@@ -147,16 +147,16 @@ Time-Travel to Debug
 .. code-block:: python
 
    print(f"🔍 Debugging: Time-travel to clean state ({commit3})")
-   
+
    # Jump back to last known good state
    prolly_store.tree.checkout(commit3)
-   
+
    print("Memory state before corruption:")
    clean_memories = prolly_store.search((namespace,), limit=10)
    for _, path, data in clean_memories:
        if data and "programming" in path:
            print(f"  - [{path}] Memory stored")
-   
+
    # Now we can see what the agent SHOULD have seen
 
 Corruption Analysis
@@ -165,12 +165,12 @@ Corruption Analysis
 .. code-block:: python
 
    print("📊 Corruption Analysis:")
-   
+
    # Check for corrupt memory in clean state
    corrupt_check = prolly_store.get((namespace,), "preferences.programming.hate_all")
    if corrupt_check is None:
        print(f"✅ Clean state ({commit3}): No 'hate all languages' memory")
-   
+
    # Switch to corrupted state
    prolly_store.tree.checkout(corrupted_commit)
    corrupt_exists = prolly_store.get((namespace,), "preferences.programming.hate_all")
@@ -184,14 +184,14 @@ Applying Fix
 
    print(f"🔧 Fix: Reverting to clean state ({commit3})")
    prolly_store.tree.checkout(commit3)
-   
+
    # Add corrected memory update
    await prolly_store.store_memory_async(
        namespace,
        "User prefers R for statistical analysis, Python for general data work",
        "preferences.programming.combined"
    )
-   
+
    timestamp_fixed = datetime.now()
    fixed_commit = f"fixed_{int(time.time())}"
    prolly_store.create_time_snapshot(fixed_commit)
@@ -204,7 +204,7 @@ Timeline Navigation
 
    print("📜 Timeline Navigation (latest → oldest):")
    print("-" * 60)
-   
+
    # Show timeline with latest commits first
    for i, (commit_id, timestamp, description) in enumerate(reversed(commit_history), 1):
        time_str = timestamp.strftime("%Y-%m-%d %H:%M:%S")
@@ -231,7 +231,7 @@ Sample Output
 
    📝 Agent learning user preferences...
      ✓ Stored: Python preference (snapshot: commit_1755877538)
-     ✓ Stored: Coffee preference (snapshot: commit_1755877538)  
+     ✓ Stored: Coffee preference (snapshot: commit_1755877538)
      ✓ Stored: R preference update (snapshot: commit_1755877538)
 
    ⚠️  Simulating memory corruption...
@@ -260,7 +260,7 @@ Sample Output
      1. [2025-08-22 08:45:38] fixed_1755877538
         ✅ Fixed preferences CURRENT
 
-     2. [2025-08-22 08:45:38] corrupted_1755877538  
+     2. [2025-08-22 08:45:38] corrupted_1755877538
         ❌ Corrupted memory
 
      3. [2025-08-22 08:45:38] commit_1755877538
@@ -307,7 +307,7 @@ Multi-Point Comparison
 
    # Compare memory states across multiple points
    checkpoints = [commit1, commit2, commit3, corrupted_commit, fixed_commit]
-   
+
    for checkpoint in checkpoints:
        prolly_store.tree.checkout(checkpoint)
        memories = prolly_store.search((namespace,), limit=100)
@@ -324,12 +324,12 @@ Memory Diff Analysis
    before_memories = set()
    for _, path, data in prolly_store.search((namespace,), limit=100):
        if data: before_memories.add(path)
-   
-   prolly_store.tree.checkout(corrupted_commit)  # After corruption  
+
+   prolly_store.tree.checkout(corrupted_commit)  # After corruption
    after_memories = set()
    for _, path, data in prolly_store.search((namespace,), limit=100):
        if data: after_memories.add(path)
-   
+
    # Find differences
    new_memories = after_memories - before_memories
    print(f"New memories added: {new_memories}")
