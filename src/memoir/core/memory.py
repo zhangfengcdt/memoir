@@ -272,29 +272,69 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
             logger.warning("Versioning is not enabled")
             return []
 
-        # The ProllyTreeStore doesn't expose version history through the adapter layer
-        # This functionality would need to be implemented by accessing the underlying
-        # VersionedKvStore directly or implementing a history method in the adapter
-        logger.warning("Version history not yet implemented in ProllyTreeStore adapter")
-
-        # For now, return the current version if it exists
+        # Convert namespace to tuple format
         namespace_tuple = (
             tuple(namespace.split(":")) if ":" in namespace else (namespace,)
         )
-        current_data = self.prolly_store.get(namespace_tuple, semantic_key)
 
-        if current_data:
-            # Create a single version entry representing the current state
-            version = MemoryVersion(
-                commit_id="current",
-                timestamp=current_data.get("timestamp", time.time()),
-                content=current_data.get("content", current_data),
-                metadata=current_data.get("metadata", {}),
-                message=f"Current state of {semantic_key}",
+        # Get commit history for this key using the new method
+        commit_history = self.prolly_store.get_key_history(
+            namespace_tuple, semantic_key, limit
+        )
+
+        # Get current content as fallback since historical content retrieval is not yet implemented
+        current_content = self.prolly_store.get(namespace_tuple, semantic_key)
+
+        versions = []
+        for i, commit in enumerate(commit_history):
+            # Try to get content at this commit (currently returns None)
+            content_at_commit = self.prolly_store.get_key_at_commit(
+                namespace_tuple, semantic_key, commit["id"]
             )
-            return [version]
 
-        return []
+            # If historical content is not available, use current content for demonstration
+            if content_at_commit is None and current_content:
+                # For the most recent commit, use current content
+                if i == 0:  # Most recent commit
+                    if (
+                        isinstance(current_content, dict)
+                        and "memories" in current_content
+                    ):
+                        # Extract from aggregated memory
+                        memories = current_content.get("memories", [])
+                        if memories:
+                            latest_memory = memories[-1]
+                            actual_content = latest_memory.get("content", "")
+                        else:
+                            actual_content = ""
+                    else:
+                        actual_content = (
+                            current_content.get("content", "")
+                            if isinstance(current_content, dict)
+                            else current_content
+                        )
+                else:
+                    # For older commits, indicate historical content is not available
+                    actual_content = f"[Historical content for commit {commit['id'][:8]} not available]"
+            else:
+                actual_content = content_at_commit or ""
+
+            # Convert commit info to MemoryVersion
+            version = MemoryVersion(
+                commit_id=commit["id"],
+                timestamp=commit["timestamp"],
+                content=actual_content,
+                metadata={
+                    "author": commit.get("author", ""),
+                    "committer": commit.get("committer", ""),
+                },
+                message=commit["message"],
+                author=commit.get("author", ""),
+            )
+            versions.append(version)
+
+        logger.info(f"Retrieved {len(versions)} version(s) for {semantic_key}")
+        return versions
 
     async def time_travel(
         self, namespace: str, target_time: Union[datetime, float]
@@ -309,23 +349,74 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         Returns:
             Dictionary of memories at that time
         """
-        # Time travel functionality not yet implemented in ProllyTreeStore adapter
-        # The target_time parameter is currently unused
-        logger.warning(
-            "Time travel functionality not yet implemented in ProllyTreeStore adapter"
-        )
+        if isinstance(target_time, datetime):
+            timestamp = target_time.timestamp()
+        else:
+            timestamp = target_time
 
-        # For now, return current state
+        # Convert namespace to tuple format
         namespace_tuple = (
             tuple(namespace.split(":")) if ":" in namespace else (namespace,)
         )
-        search_results = self.prolly_store.search(namespace_tuple, limit=100)
 
+        # For branch-based time travel, we need to use snapshots
+        # Create snapshot name based on timestamp
+        snapshot_name = f"snapshot_{int(timestamp)}"
+
+        # Check if we have this snapshot
+        if self.enable_versioning and hasattr(self.prolly_store.tree, "list_branches"):
+            try:
+                branches = self.prolly_store.tree.list_branches()
+                if snapshot_name in branches:
+                    # Use the snapshot to get historical state
+                    state = self.prolly_store.get_state_at_snapshot(
+                        namespace_tuple, snapshot_name
+                    )
+                    logger.info(f"Retrieved state from snapshot {snapshot_name}")
+                    return state
+                else:
+                    logger.warning(
+                        f"No snapshot found for timestamp {timestamp}, returning current state"
+                    )
+            except Exception as e:
+                logger.error(f"Error accessing time travel snapshot: {e}")
+
+        # Fallback: return current state
+        search_results = self.prolly_store.search(namespace_tuple, limit=1000)
         current_state = {}
         for _, key, data in search_results:
             current_state[key] = data
 
         return current_state
+
+    async def create_memory_snapshot(
+        self, namespace: str, snapshot_name: Optional[str] = None
+    ) -> str:
+        """
+        Create a snapshot of the current memory state.
+
+        Args:
+            namespace: User namespace
+            snapshot_name: Optional name for snapshot (auto-generated if not provided)
+
+        Returns:
+            Name of the created snapshot
+        """
+        if not self.enable_versioning:
+            raise ValueError("Snapshots require versioning to be enabled")
+
+        if snapshot_name is None:
+            # Auto-generate snapshot name with timestamp
+            snapshot_name = f"snapshot_{int(time.time())}"
+
+        # Create the snapshot
+        success = self.prolly_store.create_time_snapshot(snapshot_name)
+
+        if success:
+            logger.info(f"Created memory snapshot: {snapshot_name}")
+            return snapshot_name
+        else:
+            raise RuntimeError(f"Failed to create snapshot: {snapshot_name}")
 
     async def compare_memory_states(
         self,

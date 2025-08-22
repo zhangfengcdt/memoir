@@ -3,6 +3,7 @@ ProllyTree adapter implementing LangGraph's BaseStore interface.
 Provides high-performance semantic memory storage with versioning.
 """
 
+import contextlib
 import json
 import logging
 import time
@@ -296,6 +297,134 @@ class ProllyTreeStore(BaseStore):
                 self.tree.commit(f"Delete {key} from {':'.join(namespace)}")
         except Exception as e:
             logger.error(f"Error deleting {full_key}: {e}")
+
+    def get_key_history(
+        self, namespace: tuple, key: str, limit: int = 10
+    ) -> list[dict]:
+        """
+        Get commit history for a specific key.
+
+        Args:
+            namespace: Namespace tuple
+            key: Key to get history for
+            limit: Maximum number of commits to return
+
+        Returns:
+            List of commit dictionaries with id, timestamp, message, author, committer
+        """
+        if not self.enable_versioning:
+            return []
+
+        full_key = ":".join(namespace) + ":" + key
+        key_bytes = full_key.encode("utf-8")
+
+        try:
+            commits = self.tree.get_commits_for_key(key_bytes)
+            # Limit results and return most recent first
+            return commits[:limit]
+        except Exception as e:
+            logger.error(f"Error getting history for {full_key}: {e}")
+            return []
+
+    def get_key_at_commit(
+        self, namespace: tuple, key: str, commit_id: str
+    ) -> Optional[dict]:
+        """
+        Get the value of a key at a specific commit.
+
+        Note: Current implementation returns None since VersionedKvStore doesn't support
+        direct commit checkout. This is a placeholder for future enhancement.
+
+        Args:
+            namespace: Namespace tuple
+            key: Key to retrieve
+            commit_id: Commit ID to retrieve from
+
+        Returns:
+            None (historical content retrieval not yet implemented)
+        """
+        if not self.enable_versioning:
+            return None
+
+        # TODO: Implement historical content retrieval when VersionedKvStore supports it
+        # Current limitation: VersionedKvStore only supports branch checkout, not commit checkout
+        logger.debug(
+            f"Historical content retrieval not yet implemented for commit {commit_id[:8]}"
+        )
+        return None
+
+    def create_time_snapshot(self, snapshot_name: str) -> bool:
+        """
+        Create a branch snapshot at the current point in time.
+
+        Args:
+            snapshot_name: Name for the snapshot branch
+
+        Returns:
+            True if snapshot created successfully
+        """
+        if not self.enable_versioning:
+            return False
+
+        try:
+            self.tree.create_branch(snapshot_name)
+            logger.debug(f"Created time snapshot: {snapshot_name}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to create snapshot {snapshot_name}: {e}")
+            return False
+
+    def get_state_at_snapshot(
+        self, namespace: tuple, snapshot_name: str
+    ) -> dict[str, Any]:
+        """
+        Get all keys in a namespace at a specific snapshot.
+
+        Args:
+            namespace: Namespace tuple
+            snapshot_name: Name of the snapshot branch
+
+        Returns:
+            Dictionary of key -> value at that snapshot
+        """
+        if not self.enable_versioning:
+            return {}
+
+        try:
+            # Save current branch
+            current_branch = self.tree.current_branch()
+
+            # Switch to snapshot
+            self.tree.checkout(snapshot_name)
+
+            # Get all keys in namespace
+            state = {}
+            namespace_prefix = ":".join(namespace) + ":"
+
+            keys = self.tree.list_keys()
+            for key in keys:
+                key_str = key.decode("utf-8") if isinstance(key, bytes) else key
+                if key_str.startswith(namespace_prefix):
+                    # Get value
+                    value = self.tree.get(
+                        key if isinstance(key, bytes) else key.encode("utf-8")
+                    )
+                    if value:
+                        # Extract the key without namespace prefix
+                        short_key = key_str[len(namespace_prefix) :]
+                        state[short_key] = self._decode_value(value)
+
+            # Return to original branch
+            self.tree.checkout(current_branch)
+
+            return state
+
+        except Exception as e:
+            logger.error(f"Failed to get state at snapshot {snapshot_name}: {e}")
+            # Try to return to original branch
+            with contextlib.suppress(Exception):
+                self.tree.checkout(current_branch)
+            return {}
 
     # Enhanced methods for semantic memory functionality
     async def store_memory_async(
