@@ -3,12 +3,12 @@ Tests for the new versioning control functionality.
 
 Tests the new auto_commit flag and batch commit capabilities:
 - auto_commit parameter in ProllyTreeStore
-- put_without_commit() and delete_without_commit() methods
-- manual commit() method
-- store_memory_without_commit() and store_commit() in memory manager
+- manual commit() method for batching operations
+- simplified API using auto_commit flag instead of separate *_without_commit methods
 """
 
 import tempfile
+import time
 from pathlib import Path
 
 from memoir.store.prolly_adapter import ProllyTreeStore
@@ -46,9 +46,9 @@ class TestVersioningControl:
             auto_commit=False,  # Manual control
         )
 
-        # Store values without committing
-        store.put_without_commit(self.test_namespace, "key1", {"content": "value1"})
-        store.put_without_commit(self.test_namespace, "key2", {"content": "value2"})
+        # Store values without committing (auto_commit=False)
+        store.put(self.test_namespace, "key1", {"content": "value1"})
+        store.put(self.test_namespace, "key2", {"content": "value2"})
 
         # Verify values are stored (in working directory)
         result1 = store.get(self.test_namespace, "key1")
@@ -60,16 +60,16 @@ class TestVersioningControl:
         commit_hash = store.commit("Test batch commit")
         assert commit_hash is not None
 
-    def test_put_without_commit_method(self):
-        """Test put_without_commit() method specifically."""
+    def test_batch_put_with_auto_commit_false(self):
+        """Test putting data with auto_commit=False."""
         store = ProllyTreeStore(
-            path=str(Path(self.temp_dir) / "put_without_commit_test"),
+            path=str(Path(self.temp_dir) / "batch_put_test"),
             enable_versioning=True,
             auto_commit=False,
         )
 
-        # Use put_without_commit directly
-        store.put_without_commit(
+        # Use regular put method with auto_commit=False
+        store.put(
             self.test_namespace, "batch_key", {"content": "batch value", "batch_id": 1}
         )
 
@@ -82,25 +82,23 @@ class TestVersioningControl:
         commit_hash = store.commit("Manual commit test")
         assert commit_hash is not None
 
-    def test_delete_without_commit_method(self):
-        """Test delete_without_commit() method."""
+    def test_batch_delete_with_auto_commit_false(self):
+        """Test deleting data with auto_commit=False."""
         store = ProllyTreeStore(
-            path=str(Path(self.temp_dir) / "delete_without_commit_test"),
+            path=str(Path(self.temp_dir) / "batch_delete_test"),
             enable_versioning=True,
             auto_commit=False,
         )
 
         # Store and commit a value first
-        store.put_without_commit(
-            self.test_namespace, "temp_key", {"content": "temp value"}
-        )
+        store.put(self.test_namespace, "temp_key", {"content": "temp value"})
         store.commit("Initial value")
 
         # Verify it exists
         assert store.get(self.test_namespace, "temp_key") is not None
 
-        # Delete without committing
-        store.delete_without_commit(self.test_namespace, "temp_key")
+        # Delete without committing (auto_commit=False)
+        store.delete(self.test_namespace, "temp_key")
 
         # Verify it's gone from working directory
         assert store.get(self.test_namespace, "temp_key") is None
@@ -211,7 +209,7 @@ class TestVersioningControl:
         # Store multiple values with batch commit
         start_time = time.time()
         for i in range(5):
-            manual_store.put_without_commit(
+            manual_store.put(
                 self.test_namespace, f"manual_key_{i}", {"content": f"manual value {i}"}
             )
         manual_store.commit("Batch of 5 values")
@@ -229,6 +227,43 @@ class TestVersioningControl:
         print(f"Auto-commit time: {auto_time:.4f}s")
         print(f"Batch commit time: {manual_time:.4f}s")
 
+    def test_snapshot_commits_pending_changes(self):
+        """Test that create_time_snapshot commits pending changes when auto_commit=False."""
+        store = ProllyTreeStore(
+            path=str(Path(self.temp_dir) / "snapshot_commit_test"),
+            enable_versioning=True,
+            auto_commit=False,  # Key: no auto commits
+        )
+
+        # Store data without committing
+        store.put(self.test_namespace, "key1", {"content": "value1"})
+        store.put(self.test_namespace, "key2", {"content": "value2"})
+
+        # Verify data is accessible in working directory
+        result1 = store.get(self.test_namespace, "key1")
+        result2 = store.get(self.test_namespace, "key2")
+        assert result1["content"] == "value1"
+        assert result2["content"] == "value2"
+
+        # Create snapshot - should auto-commit pending changes
+        snapshot_name = f"test_snapshot_{int(time.time())}"
+        success = store.create_time_snapshot(snapshot_name)
+        assert success
+
+        # Switch to snapshot branch and verify data is committed there
+        store.tree.checkout(snapshot_name)
+        snapshot_result1 = store.get(self.test_namespace, "key1")
+        snapshot_result2 = store.get(self.test_namespace, "key2")
+        assert snapshot_result1["content"] == "value1"
+        assert snapshot_result2["content"] == "value2"
+
+        # Switch back to main and verify data is still accessible
+        store.tree.checkout("main")
+        main_result1 = store.get(self.test_namespace, "key1")
+        main_result2 = store.get(self.test_namespace, "key2")
+        assert main_result1["content"] == "value1"
+        assert main_result2["content"] == "value2"
+
 
 if __name__ == "__main__":
     # Run tests manually
@@ -237,12 +272,13 @@ if __name__ == "__main__":
     tests = [
         test.test_auto_commit_default_behavior,
         test.test_manual_commit_control,
-        test.test_put_without_commit_method,
-        test.test_delete_without_commit_method,
+        test.test_batch_put_with_auto_commit_false,
+        test.test_batch_delete_with_auto_commit_false,
         test.test_mixed_auto_commit_workflow,
         test.test_commit_without_versioning,
         test.test_backward_compatibility,
         test.test_batch_performance_benefit,
+        test.test_snapshot_commits_pending_changes,
     ]
 
     passed = 0

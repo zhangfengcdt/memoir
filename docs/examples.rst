@@ -159,15 +159,15 @@ Usage Patterns
 
    # Batch operations
    store = ProllyTreeStore(path, auto_commit=False)
-   store.put_without_commit(namespace, key1, value1)
-   store.put_without_commit(namespace, key2, value2)
+   store.put(namespace, key1, value1)  # No commit due to auto_commit=False
+   store.put(namespace, key2, value2)  # No commit due to auto_commit=False
    store.commit('Batch update with 2 memories')
 
    # Mixed approach
    store.auto_commit = True
    store.put(namespace, critical_key, value)  # Immediate commit
    store.auto_commit = False
-   store.put_without_commit(namespace, batch_key1, value1)
+   store.put(namespace, batch_key1, value1)  # No commit due to auto_commit=False
    store.commit('Batch of non-critical updates')
 
 Performance Comparison

@@ -257,104 +257,11 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
 
         return semantic_key
 
-    async def store_memory_without_commit(
-        self,
-        content: Any,
-        namespace: str,
-        metadata: Optional[dict] = None,
-        auto_classify: bool = True,
-    ) -> str:
-        """
-        Store a memory with automatic semantic classification without committing.
-
-        This allows for batch operations where multiple memories can be stored
-        before committing them together with store_commit().
-
-        Args:
-            content: Memory content to store
-            namespace: User namespace
-            metadata: Optional metadata
-            auto_classify: Whether to auto-classify the content
-
-        Returns:
-            Semantic key where memory was stored
-        """
-        start_time = time.time()
-        self._metrics["writes"] += 1
-
-        if auto_classify and self.classifier:
-            # Use LLM classification
-            classification_start = time.time()
-            self._metrics["classifications"] += 1
-
-            # Use async classification with metadata
-            classification = await self.classifier.classify_async(
-                str(content), metadata=metadata
-            )
-            semantic_key = classification.path
-
-            classification_time = (time.time() - classification_start) * 1000
-            self._metrics["classification_time_ms"].append(classification_time)
-
-            # Apply profile updates if detected
-            if (
-                hasattr(classification, "profile_updates")
-                and classification.profile_updates
-            ):
-                try:
-                    await self.profile_manager.apply_profile_updates(
-                        classification.profile_updates, metadata
-                    )
-                    # logger.info(
-                    #     f"Applied {len(classification.profile_updates)} profile updates"
-                    # )
-                except Exception as e:
-                    logger.error(f"Failed to apply profile updates: {e}")
-
-            # Apply timeline events if detected
-            if (
-                hasattr(classification, "timeline_events")
-                and classification.timeline_events
-            ):
-                try:
-                    await self.timeline_manager.apply_timeline_events(
-                        classification.timeline_events, metadata
-                    )
-                    # logger.info(
-                    #     f"Applied {len(classification.timeline_events)} timeline events"
-                    # )
-                except Exception as e:
-                    logger.error(f"Failed to apply timeline events: {e}")
-
-            # Add classification metadata
-            if metadata is None:
-                metadata = {}
-            metadata["classification_confidence"] = classification.confidence
-            metadata["classification_reasoning"] = classification.reasoning
-
-        else:
-            # Use provided key or generate one
-            semantic_key = metadata.get("key") if metadata else None
-            if not semantic_key:
-                semantic_key = "context.current.session.topic.main"
-
-        # Store using the asynchronous method without committing
-        await self.prolly_store.store_memory_async_without_commit(
-            namespace, content, semantic_key
-        )
-
-        write_time = (time.time() - start_time) * 1000
-        self._metrics["write_time_ms"].append(write_time)
-
-        # logger.debug(f"Stored memory at {semantic_key} in {write_time:.2f}ms (no commit)")
-
-        return semantic_key
-
     def store_commit(self, message: str = "Batch memory operations") -> Optional[str]:
         """
         Commit all pending memory operations to the versioned store.
 
-        This is used in conjunction with store_memory_without_commit() to batch
+        This is used when auto_commit=False is set on the ProllyTreeStore to batch
         multiple memory operations into a single commit.
 
         Args:

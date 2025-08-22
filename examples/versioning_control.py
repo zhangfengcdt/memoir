@@ -5,7 +5,7 @@ Versioning Control Example for Memoir
 Demonstrates the new commit control functionality that allows users to:
 1. Control when commits happen with auto_commit flag
 2. Batch multiple operations before committing
-3. Use store_memory_without_commit() and store_commit() for fine-grained control
+3. Use auto_commit=False and store_commit() for fine-grained control
 
 This addresses the issue where every put/delete operation created a commit,
 making the history overwhelming for batch operations.
@@ -78,7 +78,7 @@ async def main():
 
     print("Storing multiple memories without committing:")
     for i, (content, key) in enumerate(memories_batch, 1):
-        manual_commit_store.put_without_commit(
+        manual_commit_store.put(
             namespace, key, {"content": content, "timestamp": time.time()}
         )
         print(f"  {i}. Stored: {content[:30]}... (no commit yet)")
@@ -216,8 +216,8 @@ async def main():
     print("**Pattern 2: Batch operations**")
     print("```python")
     print("store = ProllyTreeStore(path, auto_commit=False)")
-    print("store.put_without_commit(namespace, key1, value1)")
-    print("store.put_without_commit(namespace, key2, value2)")
+    print("store.put(namespace, key1, value1)  # No commit due to auto_commit=False")
+    print("store.put(namespace, key2, value2)  # No commit due to auto_commit=False")
     print("store.commit('Batch update with 2 memories')")
     print("```")
     print()

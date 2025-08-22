@@ -147,10 +147,10 @@ Memoir provides Git-like version control for memories with fine-grained commit c
    # Batch multiple operations before committing
    store = ProllyTreeStore(path="./store", auto_commit=False)
 
-   # Store multiple memories without committing
-   await store.store_memory_async_without_commit(namespace, content1, key1)
-   await store.store_memory_async_without_commit(namespace, content2, key2)
-   await store.store_memory_async_without_commit(namespace, content3, key3)
+   # Store multiple memories without committing (auto_commit=False)
+   await store.store_memory_async(namespace, content1, key1)
+   await store.store_memory_async(namespace, content2, key2)
+   await store.store_memory_async(namespace, content3, key3)
 
    # Commit all changes as a single logical unit
    commit_hash = store.commit("Batch of related memories")
@@ -159,17 +159,17 @@ Memoir provides Git-like version control for memories with fine-grained commit c
 
 .. code-block:: python
 
-   # Enable batch control at memory manager level
+   # Enable batch control by setting auto_commit=False on the store
+   store.auto_commit = False
    memory_manager = ProllyTreeMemoryStoreManager(
        prolly_store=store,
        classifier=classifier,
-       search_engine=search_engine,
-       auto_commit=False  # Enable batch control
+       search_engine=search_engine
    )
 
-   # Store memories without committing
-   await memory_manager.store_memory_without_commit(content1, namespace)
-   await memory_manager.store_memory_without_commit(content2, namespace)
+   # Store memories without committing (auto_commit=False)
+   await memory_manager.store_memory(content1, namespace)
+   await memory_manager.store_memory(content2, namespace)
 
    # Commit the batch
    commit_hash = memory_manager.store_commit("User onboarding session")
@@ -183,8 +183,8 @@ Memoir provides Git-like version control for memories with fine-grained commit c
    await store.store_memory_async(critical_memory, key)  # Immediate commit
 
    store.auto_commit = False  # Switch to batch mode
-   await store.store_memory_async_without_commit(routine1, key1)
-   await store.store_memory_async_without_commit(routine2, key2)
+   await store.store_memory_async(routine1, key1)
+   await store.store_memory_async(routine2, key2)
    store.commit("Batch of routine updates")
 
    store.auto_commit = True  # Re-enable for future critical operations

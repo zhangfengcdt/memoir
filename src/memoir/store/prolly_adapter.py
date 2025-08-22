@@ -302,69 +302,6 @@ class ProllyTreeStore(BaseStore):
         except Exception as e:
             logger.error(f"Error deleting {full_key}: {e}")
 
-    def put_without_commit(self, namespace: tuple, key: str, value: dict) -> None:
-        """
-        Store a value in a namespace without committing (when versioning is enabled).
-
-        This allows for batch operations where multiple changes can be made
-        before committing them together with commit().
-
-        Args:
-            namespace: Namespace tuple
-            key: Key to store
-            value: Value to store
-        """
-        self._stats["writes"] += 1
-        full_key = ":".join(namespace) + ":" + key
-        key_bytes = full_key.encode("utf-8")
-        value_bytes = self._encode_value(value)
-
-        try:
-            if self.enable_versioning:
-                # VersionedKvStore API - check if key exists using get
-                existing = self.tree.get(key_bytes)
-                if existing:
-                    self.tree.update(key_bytes, value_bytes)
-                else:
-                    self.tree.insert(key_bytes, value_bytes)
-                # No commit - that's the point of this method
-            else:
-                # ProllyTree API - check if key exists using find
-                existing = self.tree.find(key_bytes)
-                if existing:
-                    self.tree.update(key_bytes, value_bytes)
-                else:
-                    self.tree.insert(key_bytes, value_bytes)
-
-            # Track the key in our registry
-            self._keys.add(full_key)
-
-        except Exception as e:
-            logger.error(f"Error storing {full_key}: {e}")
-            raise
-
-    def delete_without_commit(self, namespace: tuple, key: str) -> None:
-        """
-        Delete a key from a namespace without committing (when versioning is enabled).
-
-        This allows for batch operations where multiple changes can be made
-        before committing them together with commit().
-
-        Args:
-            namespace: Namespace tuple
-            key: Key to delete
-        """
-        full_key = ":".join(namespace) + ":" + key
-        key_bytes = full_key.encode("utf-8")
-
-        try:
-            self.tree.delete(key_bytes)
-            # Remove from key registry
-            self._keys.discard(full_key)
-            # No commit - that's the point of this method
-        except Exception as e:
-            logger.error(f"Error deleting {full_key}: {e}")
-
     def commit(self, message: str = "Manual commit") -> Optional[str]:
         """
         Manually commit pending changes to the versioned store.
@@ -449,6 +386,9 @@ class ProllyTreeStore(BaseStore):
         """
         Create a branch snapshot at the current point in time.
 
+        When auto_commit=False, this will first commit any pending changes
+        before creating the snapshot to ensure all recent changes are included.
+
         Args:
             snapshot_name: Name for the snapshot branch
 
@@ -459,6 +399,16 @@ class ProllyTreeStore(BaseStore):
             return False
 
         try:
+            # If auto_commit is disabled, commit pending changes before snapshot
+            if not self.auto_commit:
+                commit_hash = self.commit(
+                    f"Auto-commit before snapshot: {snapshot_name}"
+                )
+                if commit_hash:
+                    logger.debug(
+                        f"Auto-committed pending changes before snapshot: {commit_hash[:8]}"
+                    )
+
             self.tree.create_branch(snapshot_name)
             logger.debug(f"Created time snapshot: {snapshot_name}")
             return True
@@ -580,85 +530,6 @@ class ProllyTreeStore(BaseStore):
 
         # Store the aggregated memory
         self.put(namespace_tuple, storage_key, aggregated.model_dump())
-
-        # Create MemoryItem for return value (for compatibility)
-        item = MemoryItem(
-            key=semantic_key,
-            namespace=namespace,
-            content=content,
-            confidence=confidence,
-            timestamp=memory_entry["timestamp"],
-        )
-
-        if self.enable_versioning and hasattr(self.tree, "get_head"):
-            item.version = self.tree.get_head()
-
-        return item
-
-    async def store_memory_async_without_commit(
-        self, namespace: str, content: Any, key: str
-    ) -> MemoryItem:
-        """
-        Store a memory at the given semantic key without committing.
-
-        This allows for batch operations where multiple memories can be stored
-        before committing them together with commit().
-
-        Note: Classification must be done by the caller (memory manager).
-        Storage layer is responsible only for storing, not classifying.
-
-        Args:
-            namespace: User/agent namespace
-            content: Memory content to store
-            key: Semantic key where to store (REQUIRED - no classification here)
-
-        Returns:
-            MemoryItem with storage results
-        """
-        # Storage layer: just use the provided semantic key (no classification)
-        semantic_key = key
-        confidence = 1.0  # Confidence is determined by the caller (memory manager)
-
-        # Use semantic key for aggregation
-        storage_key = semantic_key
-
-        # Create memory entry (not the full item)
-        memory_entry = {
-            "content": content,
-            "confidence": confidence,
-            "timestamp": time.time(),
-            "metadata": {},
-        }
-
-        # Convert namespace to tuple format
-        if ":" in namespace:
-            namespace_parts = namespace.split(":")
-            namespace_tuple = tuple(namespace_parts)
-        else:
-            namespace_tuple = (namespace,)
-
-        # Get existing aggregated memory or create new one
-        existing = self.get(namespace_tuple, storage_key)
-
-        if existing and isinstance(existing, dict) and "memories" in existing:
-            # Append to existing aggregated memory
-            aggregated = AggregatedMemory(**existing)
-            aggregated.memories.append(memory_entry)
-            aggregated.count += 1
-            aggregated.last_timestamp = memory_entry["timestamp"]
-            aggregated.last_updated = time.time()
-        else:
-            # Create new aggregated memory
-            aggregated = AggregatedMemory(
-                path=semantic_key,
-                memories=[memory_entry],
-                count=1,
-                first_timestamp=memory_entry["timestamp"],
-                last_timestamp=memory_entry["timestamp"],
-            )
-
-        # Store the aggregated memory without committing
-        self.put_without_commit(namespace_tuple, storage_key, aggregated.model_dump())
 
         # Create MemoryItem for return value (for compatibility)
         item = MemoryItem(
