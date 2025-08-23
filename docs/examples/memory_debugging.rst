@@ -1,6 +1,6 @@
-====================
+======================
 Memory State Debugging
-====================
+======================
 
 **Scenario**: Agent makes unexpected decisions based on corrupted memories.
 

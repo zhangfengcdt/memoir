@@ -1,6 +1,6 @@
-========================
+================================
 Conversational Context Branching
-========================
+================================
 
 **Scenario**: User asks "What if I had chosen career path X instead of Y?"
 

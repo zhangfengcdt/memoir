@@ -18,10 +18,6 @@ Welcome to Memoir's Documentation
    :caption: User Guide
 
    architecture
-   memory_management
-   classification
-   search
-   versioning
    faq
 
 .. toctree::
@@ -29,31 +25,12 @@ Welcome to Memoir's Documentation
    :caption: API Reference
 
    api/memoir
-   api/classifier
-   api/search
-   api/store
-   api/taxonomy
-   api/memento
 
 .. toctree::
    :maxdepth: 2
    :caption: Examples & Demos
 
    examples
-   examples/basic_usage
-   examples/intelligent_taxonomy
-   examples/locomo_evaluation
-   examples/context_branching
-   examples/memory_debugging
-   examples/reproducible_testing
-   examples/production_debugging
-
-.. toctree::
-   :maxdepth: 1
-   :caption: Development
-
-   contributing
-   changelog
 
 Key Features
 ------------

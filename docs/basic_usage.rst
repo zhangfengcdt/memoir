@@ -348,6 +348,6 @@ Next Steps
 ----------
 
 - Explore the :doc:`architecture` for deeper understanding
-- Learn about :doc:`classification` strategies
-- Understand :doc:`search` capabilities
-- Try advanced :doc:`versioning` features
+- See the :doc:`examples` for advanced usage patterns
+- Check the :doc:`faq` for common questions
+- Visit the :doc:`api/memoir` for complete API reference

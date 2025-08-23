@@ -28,6 +28,7 @@ make benchmark               # Run performance benchmarks
 python examples/basic_usage.py            # Run specific example
 python examples/intelligent_taxonomy.py   # Test intelligent taxonomy
 python examples/locomo_evaluation.py      # Evaluate with LOCOMO dataset
+python examples/langgraph_integration.py  # Test LangGraph integration
 
 # Full CI pipeline
 make ci                      # Run complete CI: lint, test, security, examples
@@ -48,36 +49,40 @@ This project brings Git-like version control to AI memory systems, replacing opa
 
 ### Component Architecture
 
-#### 1. **Semantic Taxonomy System** (`src/memoir/taxonomy/`)
-- **SemanticTaxonomy** (`semantic_taxonomy.py`): Fixed ~800-path hierarchy
-- **LLMIterativeTaxonomy** (`iterative_taxonomy.py`): Dynamic LLM-driven expansion
-- **IntelligentClassifier** (`intelligent_classifier.py`): Multi-stage classification pipeline
+#### 1. **Taxonomy System** (`src/memoir/taxonomy/`)
+- **SemanticTaxonomy** (`semantic.py`): Fixed ~800-path hierarchy
+- **LLMIterativeTaxonomy** (`iterative.py`): Dynamic LLM-driven expansion
 - **TaxonomyPresets** (`taxonomy_presets.py`): Version management for taxonomy configurations
 - **DataSources** (`data_sources.py`): Integration with LOCOMO conversation dataset
 
-#### 2. **Classification Pipeline**
-Three-tier classification system with intelligent fallbacks:
-1. **Fast Pattern Matching**: 1-5ms keyword-based classification
-2. **LLM Classification**: GPT-4/Claude for ambiguous cases
-3. **Iterative Expansion**: Dynamic taxonomy growth based on unclassified content
+#### 2. **Classification System** (`src/memoir/classifier/`)
+- **IntelligentClassifier** (`intelligent.py`): Multi-stage classification with LLM
+- **SemanticClassifier** (`semantic.py`): Fast pattern-based classification
+- Three-tier pipeline: Pattern matching (1-5ms) → LLM classification → Dynamic expansion
 
-#### 3. **Storage Layer** (`core/prolly_adapter.py`)
-- **ProllyTreeStore**: LangGraph BaseStore implementation
+#### 3. **Storage Layer** (`src/memoir/store/`)
+- **ProllyTreeStore** (`prolly_adapter.py`): LangGraph BaseStore implementation
 - **Git-like versioning**: Branches, commits, merges, time-travel
 - **Cryptographic integrity**: SHA-256 hashing for all states
 - **Structural sharing**: Efficient storage with deduplication
 
-#### 4. **Search Engine** (`search/hierarchical_search.py`)
-- **HierarchicalSearchEngine**: Multi-strategy semantic search
-- **SearchStrategy enum**: SPECIFIC_TO_GENERAL, BREADTH_FIRST, BEST_MATCH
+#### 4. **Search Engine** (`src/memoir/search/`)
+- **IntelligentSearchEngine** (`intelligent.py`): LLM-powered path selection
+- **SemanticSearchEngine** (`semantic.py`): Pattern-based semantic search
 - **Relevance scoring**: Combined semantic and structural scoring
 - **Prefix queries**: O(log n) complexity vs O(n) vector search
 
-#### 5. **Memory Manager** (`core/memory_manager.py`)
-- **ProllyTreeMemoryStoreManager**: Drop-in LangMem replacement
+#### 5. **Memory Manager** (`src/memoir/core/`)
+- **ProllyTreeMemoryStoreManager** (`memory.py`): Drop-in LangMem replacement
+- **ProfileMemento** (`memory.py`): Profile management with versioning
+- **TimelineMemento** (`memory.py`): Timeline-based memory organization
 - **Async/sync support**: Compatible with both patterns
-- **Performance tracking**: Built-in latency monitoring
-- **Version control operations**: Branch, merge, diff, rollback
+
+#### 6. **Framework Integrations** (`src/memoir/integration/`)
+- **LangGraphMemoryStore** (`langgraph/memory_store.py`): LangGraph-compatible adapter
+- **BaseIntegration** (`base.py`): Abstract base for framework integrations
+- **MemoryConfig** (`langgraph/types.py`): Configuration management
+- **Utilities** (`langgraph/utils.py`): Helper functions for LangGraph workflows
 
 ### Key Performance Metrics
 - **Search latency**: 0.1-1ms (vs 150-750ms traditional)

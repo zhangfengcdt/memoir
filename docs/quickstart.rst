@@ -214,6 +214,6 @@ Next Steps
 ----------
 
 - Explore the :doc:`architecture` to understand the system design
-- Check out :doc:`examples/basic_usage` for a complete working example
-- Learn about :doc:`classification` strategies
-- Understand :doc:`versioning` capabilities
+- Check out :doc:`basic_usage` for a complete working example
+- See the :doc:`examples` for advanced patterns and use cases
+- Visit the :doc:`api/memoir` for complete API reference
