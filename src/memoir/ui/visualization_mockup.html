@@ -118,20 +118,6 @@
             z-index: 0;
         }
 
-        .git-tree::after {
-            content: '';
-            position: absolute;
-            top: 48px;
-            left: 48px;
-            width: 4px;
-            height: calc(100% - 240px);
-            background: linear-gradient(180deg, 
-                rgba(167, 139, 250, 0.6) 0%, 
-                rgba(167, 139, 250, 0.4) 50%,
-                rgba(167, 139, 250, 0.6) 100%);
-            border-radius: 2px;
-            z-index: 0;
-        }
 
         .commit-node {
             display: flex;
@@ -241,21 +227,49 @@
             border-radius: 2px;
         }
 
-        /* Branch lines - continuous flow */
+        /* Branch lines - vertical line from branch split to merge */
         .git-line.branch-vertical {
             width: 3px;
-            background: linear-gradient(180deg, rgba(167, 139, 250, 0.8) 0%, rgba(167, 139, 250, 0.4) 100%);
+            background: rgba(34, 211, 238, 0.6); /* Same cyan as main branch */
             left: 48.5px;
-            top: 0px;
-            height: 100%;
+            position: absolute;
             border-radius: 2px;
+        }
+        
+        /* Short branch - spans 2 commits (branch + merge) */
+        .git-line.branch-vertical.short {
+            top: 14px;
+            height: 40px;
+        }
+        
+        /* Merge vertical - connects down from merge to branch */
+        .git-line.branch-vertical.merge-down {
+            top: 25px;
+            height: 65px; /* Extended to fully connect merge to branch commit below */
+        }
+        
+        /* Branch commit vertical - connects branch between split and merge */
+        .git-line.branch-vertical.branch-commit {
+            top: -40px; /* Start above to connect to merge */
+            height: 140px; /* Further extended to fully reach split point below */
+        }
+        
+        /* Medium branch - spans 3 commits */
+        .git-line.branch-vertical.medium {
+            top: -80px;
+            height: 120px;
+        }
+        
+        /* Long branch - spans 4+ commits */
+        .git-line.branch-vertical.long {
+            top: -120px;
+            height: 160px;
         }
 
         /* Curved branch lines - more natural curves */
         .git-line.branch-curve {
             width: 22px;
             height: 22px;
-            border: 3px solid rgba(167, 139, 250, 0.7);
             border-radius: 0 0 22px 0;
             border-top: none;
             border-left: none;
@@ -264,16 +278,49 @@
             background: transparent;
         }
 
+        /* Specific curve colors for different branch types - all using main branch color */
+        .git-line.branch-curve.feature {
+            border: 3px solid rgba(34, 211, 238, 0.7); /* Cyan like main branch */
+        }
+
+        .git-line.branch-curve.hotfix {
+            border: 3px solid rgba(34, 211, 238, 0.7); /* Cyan like main branch */
+        }
+
+        .git-line.branch-curve.release {
+            border: 3px solid rgba(34, 211, 238, 0.7); /* Cyan like main branch */
+        }
+
+        .git-line.branch-curve.develop {
+            border: 3px solid rgba(34, 211, 238, 0.7); /* Cyan like main branch */
+        }
+
         .git-line.merge-curve {
             width: 22px;
             height: 22px;
-            border: 3px solid rgba(251, 113, 133, 0.7);
             border-radius: 0 22px 0 0;
             border-bottom: none;
             border-left: none;
             left: 28px;
             top: 8px;
             background: transparent;
+        }
+
+        /* Specific merge curve colors for different branch types - all using main branch color */
+        .git-line.merge-curve.feature {
+            border: 3px solid rgba(34, 211, 238, 0.7); /* Cyan like main branch */
+        }
+
+        .git-line.merge-curve.hotfix {
+            border: 3px solid rgba(34, 211, 238, 0.7); /* Cyan like main branch */
+        }
+
+        .git-line.merge-curve.release {
+            border: 3px solid rgba(34, 211, 238, 0.7); /* Cyan like main branch */
+        }
+
+        .git-line.merge-curve.develop {
+            border: 3px solid rgba(34, 211, 238, 0.7); /* Cyan like main branch */
         }
 
         /* Tag indicator */
@@ -971,7 +1018,7 @@
                 </div>
 
                 <div class="commit-node" data-commit="e2c4f89">
-                    <div class="git-lines"><div class="commit-dot merge"></div><div class="git-line merge-curve"></div></div>
+                    <div class="git-lines"><div class="commit-dot merge"></div><div class="git-line merge-curve feature"></div><div class="git-line branch-vertical merge-down"></div></div>
                     <div class="commit-info">
                         <div class="commit-header"><div class="commit-hash">e2c4f89</div><div class="branch-tag">main</div></div>
                         <div class="commit-message">Merge branch 'feature/batch-processing'</div>
@@ -980,7 +1027,7 @@
                 </div>
 
                 <div class="commit-node" data-commit="b3a7c91">
-                    <div class="git-lines"><div class="commit-dot branch"></div></div>
+                    <div class="git-lines"><div class="commit-dot branch"></div><div class="git-line branch-vertical branch-commit"></div></div>
                     <div class="commit-info">
                         <div class="commit-header"><div class="commit-hash">b3a7c91</div><div class="branch-tag">feature/batch-processing</div></div>
                         <div class="commit-message">perf: Implement batch memory operations</div>
@@ -989,7 +1036,7 @@
                 </div>
 
                 <div class="commit-node" data-commit="c3f7921">
-                    <div class="git-lines"><div class="commit-dot main"></div><div class="git-line branch-curve"></div></div>
+                    <div class="git-lines"><div class="commit-dot main"></div><div class="git-line branch-curve feature"></div></div>
                     <div class="commit-info">
                         <div class="commit-header"><div class="commit-hash">c3f7921</div><div class="branch-tag">main</div></div>
                         <div class="commit-message">refactor: Optimize search engine performance</div>
@@ -1017,7 +1064,7 @@
 
                 <!-- Week 2 - Previous week -->
                 <div class="commit-node" data-commit="7f2a8b3">
-                    <div class="git-lines"><div class="commit-dot merge"></div><div class="git-line merge-curve"></div></div>
+                    <div class="git-lines"><div class="commit-dot merge"></div><div class="git-line merge-curve feature"></div><div class="git-line branch-vertical merge-down"></div></div>
                     <div class="commit-info">
                         <div class="commit-header"><div class="commit-hash">7f2a8b3</div><div class="branch-tag">main</div></div>
                         <div class="commit-message">Merge branch 'feature/async-processing'</div>
@@ -1026,7 +1073,7 @@
                 </div>
 
                 <div class="commit-node" data-commit="6e1b4c7">
-                    <div class="git-lines"><div class="commit-dot branch"></div></div>
+                    <div class="git-lines"><div class="commit-dot branch"></div><div class="git-line branch-vertical branch-commit"></div></div>
                     <div class="commit-info">
                         <div class="commit-header"><div class="commit-hash">6e1b4c7</div><div class="branch-tag">feature/async-processing</div></div>
                         <div class="commit-message">feat: Add async memory operations</div>
@@ -1035,7 +1082,7 @@
                 </div>
 
                 <div class="commit-node" data-commit="a4f7f14">
-                    <div class="git-lines"><div class="commit-dot main"></div><div class="git-line branch-curve"></div></div>
+                    <div class="git-lines"><div class="commit-dot main"></div><div class="git-line branch-curve feature"></div></div>
                     <div class="commit-info">
                         <div class="commit-header"><div class="commit-hash">a4f7f14</div><div class="branch-tag">main</div></div>
                         <div class="commit-message">refactor: Improve memory store performance</div>
@@ -1072,7 +1119,7 @@
 
                 <!-- Week 3-4 - Older commits -->
                 <div class="commit-node" data-commit="2b7e4a9">
-                    <div class="git-lines"><div class="commit-dot merge"></div><div class="git-line merge-curve"></div></div>
+                    <div class="git-lines"><div class="commit-dot merge"></div><div class="git-line merge-curve hotfix"></div><div class="git-line branch-vertical merge-down"></div></div>
                     <div class="commit-info">
                         <div class="commit-header"><div class="commit-hash">2b7e4a9</div><div class="branch-tag">main</div></div>
                         <div class="commit-message">Merge branch 'feature/search-improvements'</div>
@@ -1081,7 +1128,7 @@
                 </div>
 
                 <div class="commit-node" data-commit="9c4d1f8">
-                    <div class="git-lines"><div class="commit-dot branch"></div></div>
+                    <div class="git-lines"><div class="commit-dot branch"></div><div class="git-line branch-vertical branch-commit"></div></div>
                     <div class="commit-info">
                         <div class="commit-header"><div class="commit-hash">9c4d1f8</div><div class="branch-tag">feature/search-improvements</div></div>
                         <div class="commit-message">feat: Enhanced semantic search capabilities</div>
@@ -1090,7 +1137,7 @@
                 </div>
 
                 <div class="commit-node" data-commit="f3e8a72">
-                    <div class="git-lines"><div class="commit-dot main"></div><div class="git-line branch-curve"></div></div>
+                    <div class="git-lines"><div class="commit-dot main"></div><div class="git-line branch-curve release"></div></div>
                     <div class="commit-info">
                         <div class="commit-header"><div class="commit-hash">f3e8a72</div><div class="branch-tag">main</div></div>
                         <div class="commit-message">test: Add comprehensive unit tests</div>
@@ -1127,7 +1174,7 @@
 
                 <!-- Month 2 - Earlier development -->
                 <div class="commit-node" data-commit="4d7a3c1">
-                    <div class="git-lines"><div class="commit-dot merge"></div><div class="git-line merge-curve"></div></div>
+                    <div class="git-lines"><div class="commit-dot merge"></div><div class="git-line merge-curve release"></div><div class="git-line branch-vertical merge-down"></div></div>
                     <div class="commit-info">
                         <div class="commit-header"><div class="commit-hash">4d7a3c1</div><div class="branch-tag">main</div></div>
                         <div class="commit-message">Merge branch 'feature/taxonomy-system'</div>
@@ -1136,7 +1183,7 @@
                 </div>
 
                 <div class="commit-node" data-commit="6f8e2b9">
-                    <div class="git-lines"><div class="commit-dot branch"></div></div>
+                    <div class="git-lines"><div class="commit-dot branch"></div><div class="git-line branch-vertical branch-commit"></div></div>
                     <div class="commit-info">
                         <div class="commit-header"><div class="commit-hash">6f8e2b9</div><div class="branch-tag">feature/taxonomy-system</div></div>
                         <div class="commit-message">feat: Dynamic taxonomy expansion</div>
@@ -1145,7 +1192,7 @@
                 </div>
 
                 <div class="commit-node" data-commit="9e4b7a2">
-                    <div class="git-lines"><div class="commit-dot main"></div><div class="git-line branch-curve"></div></div>
+                    <div class="git-lines"><div class="commit-dot main"></div><div class="git-line branch-curve develop"></div></div>
                     <div class="commit-info">
                         <div class="commit-header"><div class="commit-hash">9e4b7a2</div><div class="branch-tag">main</div></div>
                         <div class="commit-message">feat: Core taxonomy implementation</div>
