@@ -202,6 +202,11 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
             )
             semantic_key = classification.path
 
+            # Handle case where classification fails and returns None path
+            if semantic_key is None:
+                logger.warning("Classification returned None path, using fallback")
+                semantic_key = "context.current.session.topic.main"
+
             classification_time = (time.time() - classification_start) * 1000
             self._metrics["classification_time_ms"].append(classification_time)
 

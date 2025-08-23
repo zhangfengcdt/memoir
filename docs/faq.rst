@@ -37,7 +37,7 @@ Traditional AI agents (including coding tools) suffer from:
       # See exactly which memories led to the bad suggestion
 
       # Fix: Remove the corrupted memory and add correct one
-      memory_manager.checkout("main") 
+      memory_manager.checkout("main")
       memory_manager.delete_memory("oauth.broken_pattern")
       memory_manager.store_memory("OAuth 2.0 requires proper state validation")
 
@@ -75,7 +75,7 @@ Traditional AI agents (including coding tools) suffer from:
 **Benefits for Claude Code Development:**
 
 - **Faster Bug Resolution**: Jump directly to problematic memory states
-- **Better User Experience**: Isolate user-specific learning without cross-contamination  
+- **Better User Experience**: Isolate user-specific learning without cross-contamination
 - **Safer Experimentation**: Test new features in branches before deployment
 - **Detailed Analytics**: Track exactly how agent behavior changes over time
 - **Reproducible Issues**: Users can share exact memory state snapshots
@@ -90,7 +90,7 @@ Traditional AI agents (including coding tools) suffer from:
 .. code-block:: python
 
    # Current workflow when Claude Code finds a classification bug:
-   1. Agent classifies "I love Python programming" → wrong path: "personal.hobbies.python" 
+   1. Agent classifies "I love Python programming" → wrong path: "personal.hobbies.python"
    2. Claude Code identifies the issue
    3. 😰 Must rebuild ALL memories from scratch (hours of work)
    4. 😰 Or write complex test cases that may miss edge cases
@@ -110,7 +110,7 @@ Traditional AI agents (including coding tools) suffer from:
 
    # 🔍 Claude Code can now:
    # - See EXACT memory state when bug occurred
-   # - Test different classification approaches in branches  
+   # - Test different classification approaches in branches
    # - Compare memory states across timeline
    # - Fix without affecting production memories
 
@@ -119,7 +119,7 @@ Traditional AI agents (including coding tools) suffer from:
 
    # 🔧 Test fixes in isolation
    memory_manager.store_memory(
-       "Python programming is a professional skill", 
+       "Python programming is a professional skill",
        key="profile.professional.skills.python"
    )
 
@@ -147,7 +147,7 @@ Traditional AI agents (including coding tools) suffer from:
 
       # Claude Code can test multiple hypotheses simultaneously:
       memory_manager.create_branch("hypothesis_1_context_window")
-      memory_manager.create_branch("hypothesis_2_classification_threshold") 
+      memory_manager.create_branch("hypothesis_2_classification_threshold")
       memory_manager.create_branch("hypothesis_3_memory_aggregation")
 
       # Test each hypothesis without affecting others
@@ -169,14 +169,14 @@ Traditional AI agents (including coding tools) suffer from:
 .. code-block:: python
 
    # Scenario: Agent incorrectly classifies "I love Python programming"
-   
+
    # 1. Instant time-travel to bug occurrence
    memory_manager.checkout("classification_bug_2024_01_15_14_30")
 
    # 2. Claude Code analyzes: "I see the issue!"
    bug_analysis = memory_manager.search("programming AND personal")
    # Finds conflicting memories:
-   # - "programming is hobby" (personal.hobbies.programming) 
+   # - "programming is hobby" (personal.hobbies.programming)
    # - "Python for work" (profile.professional.skills.python)
 
    # 3. Create fix branch and test solution
@@ -189,7 +189,7 @@ Traditional AI agents (including coding tools) suffer from:
    )
 
    # 5. Test fix immediately on same memory state
-   test_result = agent.classify("I love Python programming") 
+   test_result = agent.classify("I love Python programming")
    assert test_result.path == "profile.professional.skills.python"  # ✅ Fixed!
 
    # 6. Validate doesn't break other classifications
@@ -204,33 +204,33 @@ Traditional AI agents (including coding tools) suffer from:
            # 1. Create checkpoint before debugging
            checkpoint = f"debug_session_{time.time()}"
            self.memory_manager.create_snapshot(checkpoint)
-           
+
            # 2. Time-travel to find when classification first broke
            bug_timeline = await self._binary_search_bug_timeline(problematic_input)
-           
-           # 3. Create debugging branch for safe experimentation  
+
+           # 3. Create debugging branch for safe experimentation
            debug_branch = f"fix_{hash(problematic_input)}"
            self.memory_manager.create_branch(debug_branch)
-           
+
            # 4. Analyze memory state at bug occurrence
            bug_memories = await self.memory_manager.search_memories(
                query="classification patterns",
                at_commit=bug_timeline.bug_commit
            )
-           
+
            # 5. Generate and test multiple fix hypotheses
            fix_candidates = await self._generate_fix_hypotheses(
                problematic_input, bug_memories
            )
-           
+
            for fix in fix_candidates:
                # Test fix in isolated sub-branch
                fix_branch = f"{debug_branch}_fix_{fix.id}"
                self.memory_manager.create_branch(fix_branch)
-               
+
                # Apply fix
                await self._apply_classification_fix(fix)
-               
+
                # Validate fix works and doesn't break existing
                if await self._validate_fix_comprehensive(fix):
                    # Keep this fix
@@ -239,11 +239,11 @@ Traditional AI agents (including coding tools) suffer from:
                else:
                    # Discard this fix attempt
                    self.memory_manager.delete_branch(fix_branch)
-           
+
            # 6. Deploy validated fix to main timeline
            self.memory_manager.checkout("main")
            self.memory_manager.merge(debug_branch)
-           
+
            return f"Fixed classification bug in {len(fix_candidates)} attempts"
 
 .. list-table:: Efficiency Comparison
@@ -338,7 +338,7 @@ Memory Management & Classification
    # Option 1: Custom taxonomy
    from memoir.taxonomy.presets import TaxonomyPresets
    custom_taxonomy = TaxonomyPresets.create_domain_specific("medical")
-   
+
    # Option 2: Custom classification thresholds
    classifier = IntelligentClassifier(
        llm=llm,
@@ -364,16 +364,16 @@ Memory Management & Classification
 
    # 1. Time-travel to find the misclassification
    memory_manager.checkout("before_wrong_classification")
-   
+
    # 2. Move memory to correct location
    memory_manager.move_memory(
-       from_key="profile.hobbies.programming", 
+       from_key="profile.hobbies.programming",
        to_key="profile.professional.skills.python"
    )
-   
+
    # 3. Update classification rules to prevent recurrence
    classifier.add_pattern("Python", "profile.professional.skills.python")
-   
+
    # 4. Create snapshot for future reference
    memory_manager.create_snapshot("classification_fix_v1")
 
@@ -396,7 +396,7 @@ Versioning & Git Integration
    # Each memory operation can create a commit
    store = ProllyTreeStore(auto_commit=True)  # Default behavior
    store.put(namespace, key, value)  # Creates git commit automatically
-   
+
    # Or batch operations for cleaner history
    store = ProllyTreeStore(auto_commit=False)
    store.put(namespace, key1, value1)  # No commit
@@ -416,13 +416,13 @@ Versioning & Git Integration
 
    # Navigate to your Memoir store directory
    cd ./memory_store
-   
+
    # Use standard Git commands
    git log --oneline                    # View commit history
    git branch -a                        # List all branches
    git diff HEAD~1                      # Compare with previous commit
    git show <commit-hash>               # Inspect specific commit
-   
+
    # View memory evolution over time
    git log --follow data/namespace_key  # Follow specific memory path
 
@@ -440,13 +440,13 @@ Integration & Compatibility
 .. code-block:: python
 
    from memoir.migration.vector_db import VectorDBMigrator
-   
+
    # 1. Extract from existing system
    migrator = VectorDBMigrator(
        source="pinecone",  # or "weaviate", "qdrant", etc.
        source_config={"api_key": "...", "environment": "..."}
    )
-   
+
    # 2. Classify and import memories
    await migrator.migrate_to_memoir(
        memoir_store=store,
@@ -454,7 +454,7 @@ Integration & Compatibility
        batch_size=100,
        namespace_mapping={"user_id": "user_{id}"}
    )
-   
+
    # 3. Validate migration results
    validation_report = migrator.validate_migration()
 
@@ -475,22 +475,22 @@ Integration & Compatibility
    # Use Memoir with any Python framework
    from memoir.store.prolly_adapter import ProllyTreeStore
    from memoir.classifier.intelligent import IntelligentClassifier
-   
+
    # Initialize with your preferred LLM client
    import openai  # or anthropic, cohere, etc.
-   
+
    # Custom LLM wrapper for your framework
    class CustomLLMWrapper:
        def __init__(self, client):
            self.client = client
-           
+
        async def ainvoke(self, prompt):
            response = await self.client.chat.completions.create(
                model="gpt-4",
                messages=[{"role": "user", "content": prompt}]
            )
            return response.choices[0].message.content
-   
+
    # Use with Memoir
    llm = CustomLLMWrapper(openai.AsyncOpenAI())
    classifier = IntelligentClassifier(llm=llm)
@@ -498,7 +498,7 @@ Integration & Compatibility
 **Framework Integrations:**
 
 - **AutoGen**: Use Memoir as memory backend for multi-agent conversations
-- **CrewAI**: Store agent memories and learnings across missions  
+- **CrewAI**: Store agent memories and learnings across missions
 - **Semantic Kernel**: Replace built-in memory with Memoir's versioned storage
 - **Custom Agents**: Direct integration with ProllyTreeStore interface
 
@@ -510,18 +510,18 @@ Integration & Compatibility
 
    # Example with local Ollama
    from langchain_community.llms import Ollama
-   
+
    local_llm = Ollama(model="llama3")
    classifier = IntelligentClassifier(llm=local_llm)
-   
+
    # Example with Hugging Face Transformers
    from langchain_community.llms import HuggingFacePipeline
-   
+
    hf_llm = HuggingFacePipeline.from_model_id(
        model_id="microsoft/DialoGPT-medium",
        task="text-generation",
    )
-   
+
    # Use semantic (non-LLM) search for fully offline operation
    from memoir.search.semantic import SemanticSearchEngine
    search_engine = SemanticSearchEngine(store=store)  # No LLM required
@@ -544,18 +544,18 @@ Troubleshooting & Common Issues
    # 1. Identify the problem timeline
    memory_manager.checkout("main")
    current_memories = memory_manager.search("problematic topic")
-   
+
    # 2. Binary search through history to find corruption point
    memory_manager.checkout("yesterday")  # Known good state
    yesterday_memories = memory_manager.search("problematic topic")
-   
+
    # 3. Compare memory states
    for current, past in zip(current_memories, yesterday_memories):
        if current.content != past.content:
            print(f"Memory changed: {current.key}")
            print(f"Before: {past.content}")
            print(f"After: {current.content}")
-   
+
    # 4. Fix by reverting or correcting
    memory_manager.checkout("main")
    memory_manager.delete_memory("corrupted.memory.key")
@@ -592,7 +592,7 @@ Troubleshooting & Common Issues
    # Fast semantic search (no LLM)
    from memoir.search.semantic import SemanticSearchEngine
    fast_search = SemanticSearchEngine(store=store)
-   
+
    # Use intelligent search only when needed
    from memoir.search.intelligent import IntelligentSearchEngine
    smart_search = IntelligentSearchEngine(llm=llm, store=store)
@@ -626,7 +626,7 @@ Troubleshooting & Common Issues
 
    # Export specific namespace
    store.export_namespace("user123", "/backup/user123_memories.json")
-   
+
    # Import to new store
    new_store = ProllyTreeStore("/new/location")
    new_store.import_namespace("/backup/user123_memories.json")
@@ -644,7 +644,7 @@ Troubleshooting & Common Issues
 
    # Restore from Git backup
    # git clone user@backup-server:/memoir/backups/memory_store ./restored_store
-   
+
    # Initialize Memoir with restored data
    store = ProllyTreeStore("./restored_store")
    # All branches, commits, and snapshots are preserved
