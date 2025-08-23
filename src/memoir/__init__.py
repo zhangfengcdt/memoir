@@ -10,6 +10,9 @@ from .classifier.semantic import (
     SemanticClassifier,
 )
 from .core.memory import ProllyTreeMemoryStoreManager
+
+# Integration components
+from .integration.langgraph import LangGraphMemoryStore, MemoryConfig
 from .memento import LocationMemento, ProfileMemento, TimelineMemento
 from .search.semantic import (
     SearchResult,
@@ -20,7 +23,9 @@ from .taxonomy.semantic import SemanticTaxonomy, TaxonomyCategory, get_taxonomy
 
 __all__ = [
     "ClassificationResult",
+    "LangGraphMemoryStore",
     "LocationMemento",
+    "MemoryConfig",
     "MemoryItem",
     "ProfileMemento",
     "ProllyTreeMemoryStoreManager",

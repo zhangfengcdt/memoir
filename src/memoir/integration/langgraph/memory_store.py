@@ -120,6 +120,11 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
                 await self.memory_manager.close()
             self._initialized = False
 
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit."""
+        # For sync context manager, just pass through
+        pass
+
     # LangGraph BaseStore implementation
 
     async def abatch(self, ops: Sequence[Op]) -> list[Result]:

@@ -25,10 +25,11 @@ pytest tests/ --tb=short                  # Compact traceback format
 # Examples and benchmarks
 make examples                 # Run all example scripts
 make benchmark               # Run performance benchmarks
-python examples/basic_usage.py            # Run specific example
-python examples/intelligent_taxonomy.py   # Test intelligent taxonomy
+python examples/basic_usage.py            # Basic memory system usage
+python examples/intelligent_taxonomy.py   # Test intelligent classification
 python examples/locomo_evaluation.py      # Evaluate with LOCOMO dataset
-python examples/langgraph_integration.py  # Test LangGraph integration
+python examples/langgraph_with_memoir.py  # LangGraph integration demo
+python examples/langmem_style_with_memoir.py # LangMem-pattern agent example
 
 # Full CI pipeline
 make ci                      # Run complete CI: lint, test, security, examples
