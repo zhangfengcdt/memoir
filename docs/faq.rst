@@ -87,7 +87,7 @@ Traditional AI agents (including coding tools) suffer from:
 
 **Current Pain Points (Without Memoir):**
 
-.. code-block:: python
+.. code-block:: text
 
    # Current workflow when Claude Code finds a classification bug:
    1. Agent classifies "I love Python programming" → wrong path: "personal.hobbies.python"
@@ -99,7 +99,7 @@ Traditional AI agents (including coding tools) suffer from:
 
 **With Memoir: Instant Time-Travel Debugging:**
 
-.. code-block:: python
+.. code-block:: text
 
    # Memoir-powered workflow:
    1. Agent classifies incorrectly → bug detected
@@ -131,7 +131,7 @@ Traditional AI agents (including coding tools) suffer from:
 
 1. **Instant State Reproduction**
 
-   .. code-block:: python
+   .. code-block:: text
 
       # Instead of rebuilding everything:
       ❌ rebuild_all_memories()  # Hours of work

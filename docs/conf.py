@@ -80,8 +80,9 @@ napoleon_use_rtype = True
 # Intersphinx mapping to other documentation
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
-    "pydantic": ("https://docs.pydantic.dev/", None),
-    "langchain": ("https://python.langchain.com/", None),
+    # Disable problematic intersphinx mappings for now
+    # "pydantic": ("https://docs.pydantic.dev/2.0", None),
+    # "langchain": ("https://python.langchain.com/docs/", None),
 }
 
 # Templates path
@@ -97,10 +98,18 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
 
+# Logo configuration
+html_logo = "_static/memoir.png"
+html_favicon = "_static/memoir.png"
+
+# Custom CSS
+html_css_files = [
+    "custom.css",
+]
+
 # Theme options
 html_theme_options = {
     "logo_only": False,
-    "display_version": True,
     "prev_next_buttons_location": "bottom",
     "style_external_links": False,
     "collapse_navigation": False,

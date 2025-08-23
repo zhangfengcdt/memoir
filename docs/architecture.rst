@@ -1,5 +1,5 @@
 Architecture Overview
-====================
+=====================
 
 Memoir implements a **clean layered architecture** with proper separation of concerns and dependency injection patterns. This design enables high performance, maintainability, and flexibility.
 

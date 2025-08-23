@@ -3,7 +3,7 @@
 import hashlib
 import json
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langgraph.store.base import NamespacePath
@@ -111,7 +111,7 @@ def memory_entry_to_message(entry: MemoryEntry) -> BaseMessage:
 
 def create_memory_key(
     content: str,
-    metadata: Optional[Dict[str, Any]] = None,
+    metadata: Optional[dict[str, Any]] = None,
 ) -> str:
     """Create a unique key for a memory entry.
 
@@ -134,10 +134,10 @@ def create_memory_key(
 
 
 def filter_memories_by_time(
-    memories: List[MemoryEntry],
+    memories: list[MemoryEntry],
     start_time: Optional[datetime] = None,
     end_time: Optional[datetime] = None,
-) -> List[MemoryEntry]:
+) -> list[MemoryEntry]:
     """Filter memories by time range.
 
     Args:
@@ -160,8 +160,8 @@ def filter_memories_by_time(
 
 
 def group_memories_by_thread(
-    memories: List[MemoryEntry],
-) -> Dict[str, List[MemoryEntry]]:
+    memories: list[MemoryEntry],
+) -> dict[str, list[MemoryEntry]]:
     """Group memories by thread ID.
 
     Args:
@@ -170,7 +170,7 @@ def group_memories_by_thread(
     Returns:
         Dictionary mapping thread IDs to memory lists
     """
-    grouped: Dict[str, List[MemoryEntry]] = {}
+    grouped: dict[str, list[MemoryEntry]] = {}
 
     for memory in memories:
         thread_id = memory.thread_id or "default"
@@ -182,7 +182,7 @@ def group_memories_by_thread(
 
 
 def format_memory_for_prompt(
-    memories: List[Union[MemoryEntry, SearchResult, Any]],
+    memories: list[Union[MemoryEntry, SearchResult, Any]],
     max_tokens: Optional[int] = None,
 ) -> str:
     """Format memories for inclusion in a prompt.
@@ -203,19 +203,23 @@ def format_memory_for_prompt(
             timestamp = memory.timestamp.strftime("%Y-%m-%d %H:%M:%S")
             role = memory.metadata.get("role", "unknown")
             content = memory.content
-        elif hasattr(item, 'timestamp') and hasattr(item, 'content'):
+        elif hasattr(item, "timestamp") and hasattr(item, "content"):
             # MemoryEntry object
             timestamp = item.timestamp.strftime("%Y-%m-%d %H:%M:%S")
             role = item.metadata.get("role", "unknown")
             content = item.content
             score = ""
-        elif hasattr(item, 'value') and hasattr(item, 'created_at'):
+        elif hasattr(item, "value") and hasattr(item, "created_at"):
             # LangGraph Item object
             timestamp = item.created_at.strftime("%Y-%m-%d %H:%M:%S")
             value = item.value or {}
             metadata = value.get("metadata", {}) if isinstance(value, dict) else {}
             role = metadata.get("role", "unknown")
-            content = value.get("content", str(value)) if isinstance(value, dict) else str(value)
+            content = (
+                value.get("content", str(value))
+                if isinstance(value, dict)
+                else str(value)
+            )
             score = ""
         else:
             # Fallback for unknown object types
@@ -272,7 +276,7 @@ class MemoryEnabledGraph:
             Node function
         """
 
-        async def memory_node(state: Dict[str, Any]) -> Dict[str, Any]:
+        async def memory_node(state: dict[str, Any]) -> dict[str, Any]:
             """Memory node implementation."""
             thread_id = state.get("thread_id")
             namespace = create_memory_namespace(
@@ -335,7 +339,7 @@ class MemoryEnabledGraph:
             Node function
         """
 
-        async def retrieval_node(state: Dict[str, Any]) -> Dict[str, Any]:
+        async def retrieval_node(state: dict[str, Any]) -> dict[str, Any]:
             """Memory retrieval node."""
             query = state.get(query_key)
             if not query:
@@ -376,7 +380,7 @@ class MemoryEnabledGraph:
             Node function
         """
 
-        async def storage_node(state: Dict[str, Any]) -> Dict[str, Any]:
+        async def storage_node(state: dict[str, Any]) -> dict[str, Any]:
             """Memory storage node."""
             content = state.get(content_key)
             if not content:

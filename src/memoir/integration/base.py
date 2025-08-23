@@ -1,7 +1,7 @@
 """Base integration interface for framework adapters."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, TypeVar
+from typing import Any, Optional, TypeVar
 
 T = TypeVar("T")
 
@@ -9,7 +9,7 @@ T = TypeVar("T")
 class BaseIntegration(ABC):
     """Abstract base class for framework integrations."""
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: Optional[dict[str, Any]] = None):
         """Initialize the integration with optional configuration.
 
         Args:
@@ -37,6 +37,7 @@ class BaseIntegration(ABC):
         """Context manager entry."""
         return self
 
+    @abstractmethod
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Context manager exit."""
         pass

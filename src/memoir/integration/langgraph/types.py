@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 
 @dataclass
@@ -10,7 +10,7 @@ class MemoryEntry:
     """Represents a single memory entry in the system."""
 
     content: str
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
     timestamp: datetime
     memory_id: Optional[str] = None
     thread_id: Optional[str] = None
@@ -53,7 +53,7 @@ class MemoryConfig:
     async_operations: bool = True
     compression_enabled: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert config to dictionary."""
         return {
             "storage_path": self.storage_path,

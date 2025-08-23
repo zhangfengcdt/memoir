@@ -1,20 +1,22 @@
 """LangGraph memory store implementation using Memoir."""
 
 import asyncio
+import contextlib
 import logging
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from langgraph.store.base import BaseStore, Item, NamespacePath, Op, Result
 
-from memoir.core.memory import ProllyTreeMemoryStoreManager
-from memoir.store.prolly_adapter import ProllyTreeStore
-from memoir.search.intelligent import IntelligentSearchEngine
 from memoir.classifier.intelligent import IntelligentClassifier
+from memoir.core.memory import ProllyTreeMemoryStoreManager
+from memoir.integration.base import BaseIntegration
+from memoir.search.intelligent import IntelligentSearchEngine
+from memoir.store.prolly_adapter import ProllyTreeStore
 from memoir.taxonomy.iterative import LLMIterativeTaxonomy
 from memoir.taxonomy.semantic import SemanticTaxonomy
-from memoir.integration.base import BaseIntegration
+
 from .types import MemoryConfig, MemoryEntry
 
 logger = logging.getLogger(__name__)
@@ -50,7 +52,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
         self._init_search()
 
         # Track namespaces and branches
-        self._namespaces: Dict[str, str] = {}  # namespace -> branch mapping
+        self._namespaces: dict[str, str] = {}  # namespace -> branch mapping
         self._current_namespace = config.namespace
 
     def _init_taxonomy(self) -> None:
@@ -81,7 +83,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
             path=self.memory_config.storage_path,
             enable_versioning=self.memory_config.enable_versioning,
         )
-        
+
         # Memory manager will be initialized after search engine
         self.memory_manager = None
 
@@ -95,7 +97,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
         else:
             # Fallback to a simple search if no LLM
             self.search_engine = None
-            
+
         # Now initialize memory manager with all dependencies
         self.memory_manager = ProllyTreeMemoryStoreManager(
             prolly_store=self.store,
@@ -120,7 +122,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
 
     # LangGraph BaseStore implementation
 
-    async def abatch(self, ops: Sequence[Op]) -> List[Result]:
+    async def abatch(self, ops: Sequence[Op]) -> list[Result]:
         """Execute a batch of operations.
 
         Args:
@@ -157,7 +159,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
     async def _put_items(
         self,
         namespace: NamespacePath,
-        items: List[Item],
+        items: list[Item],
     ) -> None:
         """Store items in the memory system.
 
@@ -166,7 +168,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
             items: Items to store
         """
         # Ensure namespace branch exists
-        branch_name = self._get_or_create_branch(namespace)
+        self._get_or_create_branch(namespace)
 
         for item in items:
             # Convert Item to MemoryEntry
@@ -175,14 +177,14 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
             # Store using memory manager
             # Combine namespace into a string for the memory manager
             namespace_str = ".".join(namespace)
-            
+
             # Add thread_id and user_id to metadata
             full_metadata = memory_entry.metadata.copy()
             if memory_entry.thread_id:
                 full_metadata["thread_id"] = memory_entry.thread_id
             if memory_entry.user_id:
                 full_metadata["user_id"] = memory_entry.user_id
-                
+
             memory_id = await self.memory_manager.store_memory(
                 content=memory_entry.content,
                 namespace=namespace_str,
@@ -198,7 +200,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
         namespace: NamespacePath,
         query: Optional[str] = None,
         limit: int = 10,
-    ) -> List[Item]:
+    ) -> list[Item]:
         """Search for items in the memory system.
 
         Args:
@@ -210,7 +212,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
             List of matching items
         """
         # Switch to namespace branch
-        branch_name = self._get_or_create_branch(namespace)
+        self._get_or_create_branch(namespace)
         # Note: ProllyTreeStore doesn't have checkout method
         # Branch management would need to be handled differently
 
@@ -238,7 +240,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
                 else:
                     content = str(result)
                     metadata = {}
-                    
+
                 items.append(self._memory_to_item(content, metadata, namespace))
         else:
             # Return recent items from namespace
@@ -249,7 +251,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
     async def _delete_items(
         self,
         namespace: NamespacePath,
-        keys: List[str],
+        keys: list[str],
     ) -> None:
         """Delete items from the memory system.
 
@@ -257,7 +259,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
             namespace: Namespace containing the items
             keys: Keys of items to delete
         """
-        branch_name = self._get_or_create_branch(namespace)
+        self._get_or_create_branch(namespace)
         # Branch operations would be handled by the underlying store if needed
 
         for key in keys:
@@ -272,7 +274,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
         if self.memory_config.enable_versioning:
             self.store.commit(f"Deleted {len(keys)} items from {namespace}")
 
-    def batch(self, ops: Sequence[Op]) -> List[Result]:
+    def batch(self, ops: Sequence[Op]) -> list[Result]:
         """Synchronous batch operations (delegates to async)."""
         return asyncio.run(self.abatch(ops))
 
@@ -324,7 +326,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
         query: Optional[str] = None,
         limit: int = 10,
         offset: int = 0,
-    ) -> List[Item]:
+    ) -> list[Item]:
         """Async search for items.
 
         Args:
@@ -347,7 +349,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
         query: Optional[str] = None,
         limit: int = 10,
         offset: int = 0,
-    ) -> List[Item]:
+    ) -> list[Item]:
         """Synchronous search (delegates to async)."""
         return asyncio.run(
             self.asearch(namespace, query=query, limit=limit, offset=offset)
@@ -358,7 +360,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
         namespace: NamespacePath,
         key: str,
         value: Any,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> None:
         """Store a single item.
 
@@ -373,7 +375,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
             value_with_metadata = {**value, "metadata": metadata or {}}
         else:
             value_with_metadata = {"content": value, "metadata": metadata or {}}
-            
+
         item = Item(
             key=key,
             value=value_with_metadata,
@@ -389,7 +391,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
         namespace: NamespacePath,
         key: str,
         value: Any,
-        metadata: Optional[Dict[str, Any]] = None,
+        metadata: Optional[dict[str, Any]] = None,
     ) -> None:
         """Synchronous put (delegates to async)."""
         asyncio.run(self.aput(namespace, key, value, metadata))
@@ -434,11 +436,8 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
             self._namespaces[namespace_str] = branch_name
 
             # Create branch if it doesn't exist
-            try:
+            with contextlib.suppress(Exception):
                 asyncio.run(self.store.create_branch(branch_name))
-            except:
-                # Branch might already exist
-                pass
 
         return self._namespaces[namespace_str]
 
@@ -478,7 +477,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
     def _memory_to_item(
         self,
         content: str,
-        metadata: Dict[str, Any],
+        metadata: dict[str, Any],
         namespace: Optional[NamespacePath] = None,
     ) -> Item:
         """Convert memory data to LangGraph Item.
@@ -494,7 +493,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
         return Item(
             key=metadata.get("key", ""),
             value={"content": content, "metadata": metadata},
-            namespace=namespace or tuple(),
+            namespace=namespace or (),
             created_at=metadata.get("timestamp", datetime.now()),
             updated_at=metadata.get("updated_at", datetime.now()),
         )
@@ -515,9 +514,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
         # Store in a special mappings namespace
         mapping_key = f"{'.'.join(namespace)}.{key}"
         self.store.put(
-            namespace=("_mappings",),
-            key=mapping_key,
-            value={"memory_id": memory_id}
+            namespace=("_mappings",), key=mapping_key, value={"memory_id": memory_id}
         )
 
     async def _get_memory_id_from_key(
@@ -535,10 +532,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
             Memory ID if found
         """
         mapping_key = f"{'.'.join(namespace)}.{key}"
-        data = self.store.get(
-            namespace=("_mappings",),
-            key=mapping_key
-        )
+        data = self.store.get(namespace=("_mappings",), key=mapping_key)
         return data.get("memory_id") if data else None
 
     async def _get_semantic_path(self, memory_id: str) -> Optional[str]:
@@ -551,17 +545,14 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
             Semantic path if found
         """
         # Look up in index
-        data = self.store.get(
-            namespace=("_index", "memory_ids"),
-            key=memory_id
-        )
+        data = self.store.get(namespace=("_index", "memory_ids"), key=memory_id)
         return data.get("semantic_path") if data else None
 
     async def _get_recent_items(
         self,
         namespace: NamespacePath,
         limit: int,
-    ) -> List[Item]:
+    ) -> list[Item]:
         """Get recent items from a namespace.
 
         Args:
@@ -572,7 +563,6 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
             List of recent items
         """
         # Get all items from namespace using prefix search
-        prefix = f"_mappings.{namespace}"
         items = []
 
         # This is a simplified implementation
