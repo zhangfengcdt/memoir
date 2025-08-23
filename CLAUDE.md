@@ -141,6 +141,7 @@ Before any commit or PR:
 - **Don't bypass the taxonomy**: Always use semantic paths, not raw UUIDs
 - **Don't print debug info**: Use logging or write to `/tmp/` for debugging
 - **Don't commit without testing**: Run at least `make test` before pushing
+- **Don't create test data directories in project**: Use `/tmp/` for test data, never create data directories under the project folder
 
 ## Project-Specific Patterns
 
