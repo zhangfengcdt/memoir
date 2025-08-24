@@ -51,38 +51,10 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             return
         
         try:
-            # Read metadata file if it exists
-            metadata_path = Path(store_path) / "ui_metadata.json"
-            if metadata_path.exists():
-                with open(metadata_path, 'r') as f:
-                    data = json.load(f)
-            else:
-                # Try to read directly from store
-                store = ProllyTreeStore(
-                    path=store_path,
-                    enable_versioning=True,
-                    auto_commit=False,
-                )
-                
-                branches = store.tree.list_branches()
-                current_branch = store.tree.current_branch()
-                
-                data = {
-                    "store_path": store_path,
-                    "branches": branches,
-                    "current_branch": current_branch,
-                    "memories": [],
-                    "tree": {}
-                }
-                
-                # Try to get memories
-                try:
-                    keys = store.tree.list_keys()
-                    for key in keys[:50]:  # Limit to first 50 for performance
-                        key_str = key.decode("utf-8") if isinstance(key, bytes) else key
-                        data["memories"].append({"key": key_str})
-                except:
-                    pass
+            # Use the memory_store_reader to get complete data
+            from memory_store_reader import read_store_data
+            data_json = read_store_data(store_path)
+            data = json.loads(data_json)
             
             # Send response
             self.send_response(200)

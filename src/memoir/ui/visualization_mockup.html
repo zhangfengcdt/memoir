@@ -1810,16 +1810,32 @@
                     // Add real commits from all branches
                     let insertAfter = gitHistory.querySelector('.time-header') || gitHistory.firstChild;
                     
-                    // Combine all commits from all branches
+                    // Handle different commit data formats
                     const allCommits = [];
-                    for (const [branch, commits] of Object.entries(data.commits)) {
-                        commits.forEach(hash => {
-                            allCommits.push({ hash, branch });
+                    if (Array.isArray(data.commits)) {
+                        // Format: [{hash: "abc", message: "..."}, ...]
+                        data.commits.forEach(commit => {
+                            allCommits.push({ 
+                                hash: commit.hash, 
+                                message: commit.message,
+                                branch: data.current_branch || 'main'
+                            });
                         });
+                    } else if (data.commits && typeof data.commits === 'object') {
+                        // Format: {main: ["hash1", "hash2"], feature: ["hash3"]}
+                        for (const [branch, commits] of Object.entries(data.commits)) {
+                            if (Array.isArray(commits)) {
+                                commits.forEach(hash => {
+                                    allCommits.push({ hash, branch, message: 'Memory store update' });
+                                });
+                            } else if (typeof commits === 'string') {
+                                allCommits.push({ hash: commits, branch, message: 'Memory store update' });
+                            }
+                        }
                     }
                     
-                    // Add the first few real commits
-                    allCommits.slice(0, 10).forEach((commit, index) => {
+                    // Add ALL commits (no limit)
+                    allCommits.forEach((commit, index) => {
                         const commitNode = document.createElement('div');
                         commitNode.className = 'commit-node';
                         commitNode.dataset.commit = commit.hash;
@@ -1833,10 +1849,10 @@
                             </div>
                             <div class="commit-info">
                                 <div class="commit-header">
-                                    <div class="commit-hash">${commit.hash}</div>
+                                    <div class="commit-hash">${commit.hash.substring(0, 7)}</div>
                                     <div class="branch-tag">${branchTag}</div>
                                 </div>
-                                <div class="commit-message">Memory store update</div>
+                                <div class="commit-message">${commit.message || 'Memory store update'}</div>
                                 <div class="commit-meta">
                                     <div class="commit-author">
                                         <div class="author-avatar">M</div>
@@ -1890,6 +1906,21 @@
             } else {
                 statusEl.innerHTML = `<span style="margin-right: 5px;">📁</span> Connected: ${connectedStorePath}`;
             }
+            
+            // Update tree view with real memory data
+            console.log('Checking if we should update tree view:', {
+                hasMemories: !!(data.memories && data.memories.length > 0),
+                hasTree: !!(data.tree && Object.keys(data.tree).length > 0),
+                memoriesCount: data.memories ? data.memories.length : 0,
+                treeKeysCount: data.tree ? Object.keys(data.tree).length : 0,
+                dataKeys: Object.keys(data)
+            });
+            
+            // Always update the tree view when connected (even with empty data)
+            updateTreeViewWithRealData(data);
+            
+            // Also update the global variable for graph rendering
+            window.realStoreData = data;
             
             // Show success in console
             console.log('Successfully updated UI with data:', data);
@@ -2029,8 +2060,233 @@
             });
         });
 
+        function updateTreeViewWithRealData(data) {
+            console.log('Updating tree view with real data:', data);
+            
+            const treeView = document.getElementById('treeView');
+            if (!treeView) return;
+            
+            // If we have a tree structure, use it
+            if (data.tree && Object.keys(data.tree).length > 0) {
+                console.log('Building tree from tree data:', data.tree);
+                treeView.innerHTML = buildTreeFromPaths(data.tree);
+            } else if (data.memories && data.memories.length > 0) {
+                console.log('Building tree from memory data:', data.memories);
+                // Build tree from memory paths
+                const pathCount = {};
+                data.memories.forEach(memory => {
+                    if (memory.path) {
+                        const parts = memory.path.split('.');
+                        let currentPath = '';
+                        parts.forEach(part => {
+                            currentPath = currentPath ? currentPath + '.' + part : part;
+                            pathCount[currentPath] = (pathCount[currentPath] || 0) + 1;
+                        });
+                    }
+                });
+                treeView.innerHTML = buildTreeFromPaths(pathCount);
+            } else {
+                // Show connection info and sample structure for demo
+                console.log('No memory data found, showing connection info');
+                treeView.innerHTML = `
+                    <div class="tree-node">
+                        <div class="node-content">
+                            <span class="node-icon">📁</span>
+                            <span class="node-label">Connected: ${data.store_path || 'memory store'}</span>
+                        </div>
+                        <div class="node-children">
+                            <div class="tree-node">
+                                <div class="node-content">
+                                    <span class="node-icon">🌿</span>
+                                    <span class="node-label">Branches: ${data.branches ? data.branches.length : 0}</span>
+                                </div>
+                            </div>
+                            <div class="tree-node">
+                                <div class="node-content">
+                                    <span class="node-icon">📊</span>
+                                    <span class="node-label">Total memories: ${data.total_memories || 0}</span>
+                                </div>
+                            </div>
+                            <div class="tree-node">
+                                <div class="node-content">
+                                    <span class="node-icon">💡</span>
+                                    <span class="node-label">Memory tree will populate with data</span>
+                                </div>
+                                <div class="node-children">
+                                    <div class="tree-node">
+                                        <div class="node-content">
+                                            <span class="node-icon">ℹ️</span>
+                                            <span class="node-label">Add memories to see hierarchical structure</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        function buildTreeFromPaths(pathCount) {
+            const tree = {};
+            
+            // Build nested structure
+            Object.keys(pathCount).forEach(path => {
+                const parts = path.split('.');
+                let current = tree;
+                parts.forEach((part, index) => {
+                    if (!current[part]) {
+                        current[part] = { children: {}, count: 0 };
+                    }
+                    if (index === parts.length - 1) {
+                        current[part].count = pathCount[path];
+                    }
+                    current = current[part].children;
+                });
+            });
+            
+            // Convert to HTML
+            function renderNode(name, node, level = 0) {
+                const icon = getIconForPath(name, level);
+                const hasMemories = node.count > 0;
+                const hasChildren = Object.keys(node.children).length > 0;
+                
+                let html = `
+                    <div class="tree-node">
+                        <div class="node-content">
+                            <span class="node-icon">${icon}</span>
+                            <span class="node-label ${hasMemories ? 'has-memories' : ''}">${name}</span>
+                            ${hasMemories ? `<span class="memory-count">${node.count}</span>` : ''}
+                        </div>
+                `;
+                
+                if (hasChildren) {
+                    html += '<div class="node-children">';
+                    Object.entries(node.children).forEach(([childName, childNode]) => {
+                        html += renderNode(childName, childNode, level + 1);
+                    });
+                    html += '</div>';
+                }
+                
+                html += '</div>';
+                return html;
+            }
+            
+            let result = '';
+            Object.entries(tree).forEach(([name, node]) => {
+                result += renderNode(name, node);
+            });
+            
+            return result || '<div class="tree-node"><div class="node-content"><span class="node-icon">📂</span><span class="node-label">No memory paths found</span></div></div>';
+        }
+        
+        function getIconForPath(name, level) {
+            // Icons based on common path patterns
+            const icons = {
+                'profile': '🧠',
+                'personal': '👤',
+                'professional': '💼',
+                'preferences': '⚙️',
+                'interests': '🎯',
+                'technology': '💻',
+                'skills': '🛠️',
+                'experience': '📈',
+                'identity': '🆔',
+                'location': '📍',
+                'relationships': '👥',
+                'health': '💪',
+                'goals': '🎯',
+                'learning': '📚',
+                'project': '📋',
+                'technical': '⚙️',
+                'experimental': '🧪',
+                'default': level === 0 ? '📁' : '📄'
+            };
+            return icons[name] || icons.default;
+        }
+        
+        function buildGraphDataFromRealData(data) {
+            const nodes = [];
+            const links = [];
+            const nodeMap = new Map();
+            
+            // Process memories or tree data
+            let pathCount = {};
+            if (data.tree && Object.keys(data.tree).length > 0) {
+                pathCount = data.tree;
+            } else if (data.memories && data.memories.length > 0) {
+                data.memories.forEach(memory => {
+                    if (memory.path) {
+                        const parts = memory.path.split('.');
+                        let currentPath = '';
+                        parts.forEach(part => {
+                            currentPath = currentPath ? currentPath + '.' + part : part;
+                            pathCount[currentPath] = (pathCount[currentPath] || 0) + 1;
+                        });
+                    }
+                });
+            }
+            
+            // Create nodes from paths
+            Object.keys(pathCount).forEach(path => {
+                const parts = path.split('.');
+                const name = parts[parts.length - 1];
+                const level = parts.length - 1;
+                
+                if (!nodeMap.has(path)) {
+                    nodes.push({
+                        id: path,
+                        name: name,
+                        level: level,
+                        count: pathCount[path] || 0,
+                        x: Math.random() * 800 + 100,
+                        y: Math.random() * 600 + 100,
+                        fx: null,
+                        fy: null
+                    });
+                    nodeMap.set(path, nodes.length - 1);
+                }
+                
+                // Create link to parent
+                if (parts.length > 1) {
+                    const parentPath = parts.slice(0, -1).join('.');
+                    if (pathCount[parentPath] !== undefined) {
+                        links.push({
+                            source: parentPath,
+                            target: path,
+                            strength: 0.5
+                        });
+                    }
+                }
+            });
+            
+            return { nodes, links };
+        }
+        
+        function buildGraphDataFromMockData() {
+            // Build graph data from the existing mock structure
+            const nodes = [
+                { id: 'profile', name: 'profile', level: 0, count: 118, x: 400, y: 300, fx: null, fy: null },
+                { id: 'profile.personal', name: 'personal', level: 1, count: 26, x: 200, y: 200, fx: null, fy: null },
+                { id: 'profile.professional', name: 'professional', level: 1, count: 34, x: 600, y: 200, fx: null, fy: null },
+                { id: 'profile.preferences', name: 'preferences', level: 1, count: 14, x: 200, y: 400, fx: null, fy: null },
+                { id: 'profile.interests', name: 'interests', level: 1, count: 21, x: 600, y: 400, fx: null, fy: null },
+                { id: 'profile.technology', name: 'technology', level: 1, count: 17, x: 400, y: 500, fx: null, fy: null }
+            ];
+            
+            const links = [
+                { source: 'profile', target: 'profile.personal', strength: 0.5 },
+                { source: 'profile', target: 'profile.professional', strength: 0.5 },
+                { source: 'profile', target: 'profile.preferences', strength: 0.5 },
+                { source: 'profile', target: 'profile.interests', strength: 0.5 },
+                { source: 'profile', target: 'profile.technology', strength: 0.5 }
+            ];
+            
+            return { nodes, links };
+        }
+
         function updateMemoryStructure(commitId) {
-            // Update memory counts based on commit
+            // Update memory counts based on commit (for mock data)
             const data = commits[commitId];
             if (data && data.tree) {
                 Object.entries(data.tree).forEach(([path, count]) => {
@@ -2061,6 +2317,14 @@
         }
 
         function renderGraph() {
+            // Use real data if available, otherwise fall back to mock data
+            let graphData;
+            if (window.realStoreData && (window.realStoreData.memories || window.realStoreData.tree)) {
+                graphData = buildGraphDataFromRealData(window.realStoreData);
+            } else {
+                graphData = buildGraphDataFromMockData();
+            }
+            
             // Optimized D3.js force-directed graph with pre-calculated positions
             const svg = d3.select('#graphSvg');
             svg.selectAll('*').remove();
@@ -2100,13 +2364,28 @@
                 );
             });
             
-            // Pre-calculated positions for comprehensive radial layout
+            // Use the graph data from real or mock data
+            const nodes = graphData.nodes;
+            const links = graphData.links;
+            
+            // Pre-calculated positions for comprehensive radial layout (fallback if no positions)
             const centerX = width / 2;
             const centerY = height / 2;
             const radius1 = 120; // Main categories
             const radius2 = 220; // Leaf nodes
             
-            const nodes = [
+            // Ensure nodes have positions
+            nodes.forEach((node, i) => {
+                if (!node.x || !node.y) {
+                    const angle = (i * 360) / nodes.length;
+                    const radius = node.level === 0 ? 0 : (node.level === 1 ? radius1 : radius2);
+                    node.x = centerX + radius * Math.cos((angle - 90) * Math.PI / 180);
+                    node.y = centerY + radius * Math.sin((angle - 90) * Math.PI / 180);
+                }
+            });
+            
+            // Keep original static layout for reference
+            const staticNodes = [
                 // Center node
                 {id: 'profile', group: 1, x: centerX, y: centerY, fixed: true},
                 
@@ -2151,46 +2430,7 @@
                 {id: 'platforms', group: 3, x: centerX + radius2 * Math.cos(315 * Math.PI/180), y: centerY + radius2 * Math.sin(315 * Math.PI/180), fixed: true}
             ];
             
-            const links = [
-                // Profile to main categories
-                {source: 'profile', target: 'personal'},
-                {source: 'profile', target: 'professional'},  
-                {source: 'profile', target: 'preferences'},
-                {source: 'profile', target: 'interests'},
-                {source: 'profile', target: 'technology'},
-                
-                // Personal subcategories
-                {source: 'personal', target: 'identity'},
-                {source: 'personal', target: 'location'},
-                {source: 'personal', target: 'relationships'},
-                {source: 'personal', target: 'health'},
-                {source: 'personal', target: 'goals'},
-                
-                // Professional subcategories
-                {source: 'professional', target: 'skills'},
-                {source: 'professional', target: 'experience'},
-                {source: 'professional', target: 'companies'},
-                {source: 'professional', target: 'education'},
-                {source: 'professional', target: 'achievements'},
-                
-                // Preferences subcategories
-                {source: 'preferences', target: 'interface'},
-                {source: 'preferences', target: 'notifications'},
-                {source: 'preferences', target: 'privacy'},
-                {source: 'preferences', target: 'workflow'},
-                
-                // Interests subcategories
-                {source: 'interests', target: 'music'},
-                {source: 'interests', target: 'books'},
-                {source: 'interests', target: 'movies'},
-                {source: 'interests', target: 'sports'},
-                {source: 'interests', target: 'hobbies'},
-                
-                // Technology subcategories
-                {source: 'technology', target: 'devices'},
-                {source: 'technology', target: 'tools'},
-                {source: 'technology', target: 'platforms'}
-            ];
+            // Links are now provided by graphData.links (defined above)
 
             // Create simulation with minimal iterations for faster rendering
             const simulation = d3.forceSimulation(nodes)
