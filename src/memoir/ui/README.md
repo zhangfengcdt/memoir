@@ -27,7 +27,7 @@ Interactive visualization tool for exploring Memoir memory stores with Git-like 
 
 ### Working Commands
 - `/connect <path>` - Connect to a memory store at the specified path
-- `/refresh` - Refresh the current connection  
+- `/refresh` - Refresh the current connection
 - `/demo` - Show original demo data visualization
 - `/repo` - Show repository information and Git details
 - `/code` - Show Python LangGraph integration code example with syntax highlighting
