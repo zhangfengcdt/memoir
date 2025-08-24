@@ -1776,17 +1776,11 @@
                     const option = document.createElement('option');
                     option.value = branch;
                     
-                    // Shorten long branch names for display
+                    // Shorten long branch names for display - show beginning instead of ending
                     let displayName = branch;
                     if (branch.length > 25) {
-                        // Truncate long names but keep the end part
-                        displayName = '...' + branch.slice(-22);
-                    } else if (branch.startsWith('feature/')) {
-                        // Show shorter version for feature branches
-                        displayName = 'f/' + branch.slice(8);
-                    } else if (branch.startsWith('experimental/')) {
-                        // Show shorter version for experimental branches
-                        displayName = 'exp/' + branch.slice(13);
+                        // Truncate long names but keep the beginning part
+                        displayName = branch.slice(0, 22) + '...';
                     }
                     
                     option.textContent = displayName;
@@ -2227,30 +2221,33 @@
                 });
             }
             
-            // Create nodes from paths
+            // Create nodes from paths - limit to 3 levels deep for cleaner visualization
             Object.keys(pathCount).forEach(path => {
                 const parts = path.split('.');
                 const name = parts[parts.length - 1];
                 const level = parts.length - 1;
                 
-                if (!nodeMap.has(path)) {
+                // Only include paths up to 3 levels deep (0, 1, 2)
+                if (level <= 2 && !nodeMap.has(path)) {
                     nodes.push({
                         id: path,
                         name: name,
                         level: level,
                         count: pathCount[path] || 0,
-                        x: Math.random() * 800 + 100,
-                        y: Math.random() * 600 + 100,
+                        x: 0, // Will be positioned later
+                        y: 0, // Will be positioned later
                         fx: null,
                         fy: null
                     });
                     nodeMap.set(path, nodes.length - 1);
                 }
                 
-                // Create link to parent
-                if (parts.length > 1) {
+                // Create link to parent (only if both parent and child are within depth limit)
+                if (parts.length > 1 && level <= 2) {
                     const parentPath = parts.slice(0, -1).join('.');
-                    if (pathCount[parentPath] !== undefined) {
+                    const parentLevel = parts.length - 2;
+                    
+                    if (parentLevel <= 2 && pathCount[parentPath] !== undefined) {
                         links.push({
                             source: parentPath,
                             target: path,
@@ -2260,7 +2257,89 @@
                 }
             });
             
+            // Position nodes in organized radial layout
+            positionNodesRadially(nodes);
+            
             return { nodes, links };
+        }
+        
+        function positionNodesRadially(nodes) {
+            // Group nodes by level
+            const nodesByLevel = { 0: [], 1: [], 2: [] };
+            nodes.forEach(node => {
+                if (nodesByLevel[node.level]) {
+                    nodesByLevel[node.level].push(node);
+                }
+            });
+            
+            const centerX = 400; // Center of the visualization
+            const centerY = 300;
+            
+            // Position Level 0 nodes (root) in the center
+            if (nodesByLevel[0].length > 0) {
+                if (nodesByLevel[0].length === 1) {
+                    // Single root node in the center
+                    nodesByLevel[0][0].x = centerX;
+                    nodesByLevel[0][0].y = centerY;
+                } else {
+                    // Multiple root nodes in a small circle around center
+                    const radius = 60;
+                    nodesByLevel[0].forEach((node, i) => {
+                        const angle = (i * 2 * Math.PI) / nodesByLevel[0].length;
+                        node.x = centerX + radius * Math.cos(angle);
+                        node.y = centerY + radius * Math.sin(angle);
+                    });
+                }
+            }
+            
+            // Position Level 1 nodes (categories) in a circle around level 0
+            if (nodesByLevel[1].length > 0) {
+                const radius = 150;
+                nodesByLevel[1].forEach((node, i) => {
+                    const angle = (i * 2 * Math.PI) / nodesByLevel[1].length - Math.PI / 2; // Start from top
+                    node.x = centerX + radius * Math.cos(angle);
+                    node.y = centerY + radius * Math.sin(angle);
+                });
+            }
+            
+            // Position Level 2 nodes (specific) in outer circle, grouped by their parent
+            if (nodesByLevel[2].length > 0) {
+                const radius = 250;
+                
+                // Group level 2 nodes by their parent (level 1)
+                const nodesByParent = {};
+                nodesByLevel[2].forEach(node => {
+                    const parentPath = node.id.split('.').slice(0, -1).join('.');
+                    if (!nodesByParent[parentPath]) {
+                        nodesByParent[parentPath] = [];
+                    }
+                    nodesByParent[parentPath].push(node);
+                });
+                
+                // Position each group around their parent
+                Object.entries(nodesByParent).forEach(([parentPath, childNodes]) => {
+                    const parent = nodesByLevel[1].find(n => n.id === parentPath);
+                    if (parent) {
+                        // Calculate angle from center to parent
+                        const parentAngle = Math.atan2(parent.y - centerY, parent.x - centerX);
+                        
+                        // Position children in an arc around the parent's direction
+                        childNodes.forEach((child, i) => {
+                            const angleOffset = (i - (childNodes.length - 1) / 2) * (Math.PI / 6); // 30 degree spacing
+                            const childAngle = parentAngle + angleOffset;
+                            child.x = centerX + radius * Math.cos(childAngle);
+                            child.y = centerY + radius * Math.sin(childAngle);
+                        });
+                    } else {
+                        // Fallback: distribute evenly around outer circle
+                        childNodes.forEach((child, i) => {
+                            const angle = (i * 2 * Math.PI) / nodesByLevel[2].length;
+                            child.x = centerX + radius * Math.cos(angle);
+                            child.y = centerY + radius * Math.sin(angle);
+                        });
+                    }
+                });
+            }
         }
         
         function buildGraphDataFromMockData() {
@@ -2432,25 +2511,25 @@
             
             // Links are now provided by graphData.links (defined above)
 
-            // Create simulation with minimal iterations for faster rendering
+            // Create a minimal simulation since we're using fixed positioning
             const simulation = d3.forceSimulation(nodes)
                 .force('link', d3.forceLink(links).id(d => d.id).distance(d => {
-                    // Different distances for different node relationships
-                    if (d.source.group === 1 && d.target.group === 2) return 120; // Center to main categories
-                    if (d.source.group === 2 && d.target.group === 3) return 100; // Categories to leaf nodes
-                    return 80; // Default
-                }).strength(0.1))
-                .force('charge', d3.forceManyBody().strength(d => {
-                    // Weaker repulsion for more nodes
-                    if (d.group === 1) return -150; // Center node
-                    if (d.group === 2) return -100; // Category nodes
-                    return -50; // Leaf nodes
+                    // Link distances based on hierarchy levels
+                    const sourceLevel = d.source.level || 0;
+                    const targetLevel = d.target.level || 1;
+                    if (sourceLevel === 0 && targetLevel === 1) return 120; // Root to categories
+                    if (sourceLevel === 1 && targetLevel === 2) return 80;  // Categories to specifics
+                    return 100; // Default
+                }).strength(0.3)) // Stronger links to maintain structure
+                .force('collision', d3.forceCollide().radius(d => {
+                    // Collision radius based on level
+                    if (d.level === 0) return 35;      // Largest collision for root
+                    if (d.level === 1) return 25;      // Medium for categories
+                    return 18;                          // Smallest for specifics
                 }))
-                .force('center', d3.forceCenter(centerX, centerY))
-                .force('collision', d3.forceCollide().radius(d => (d.group === 1 ? 25 : d.group === 2 ? 18 : 12)))
-                .alpha(0.1)  // Very low energy for stability with many nodes
-                .alphaDecay(0.1)  // Faster decay
-                .alphaMin(0.001);  // Stop very early
+                .alpha(0.3)  // Moderate energy to allow some adjustment
+                .alphaDecay(0.05)  // Slower decay to settle into position
+                .alphaMin(0.01);   // Stop when mostly stable
 
             // Create links with immediate positioning
             const linkGroup = container.append('g').attr('class', 'links');
@@ -2482,19 +2561,38 @@
                 .data(nodes)
                 .enter().append('circle')
                 .attr('class', 'graph-node')
-                .attr('r', d => d.group === 1 ? 24 : d.group === 2 ? 16 : 10) // Smaller for more nodes
-                .attr('fill', d => {
-                    if (d.group === 1) return 'url(#centerGradient)';
-                    if (d.group === 2) return 'url(#midGradient)';
-                    return 'url(#leafGradient)';
+                .attr('r', d => {
+                    // Size based on level: Level 0 (root) = largest, Level 2 = smallest
+                    if (d.level === 0) return 28;      // Root nodes (profile, projects, etc.)
+                    if (d.level === 1) return 18;      // Category nodes (personal, professional, etc.)
+                    return 12;                          // Specific nodes (name, skills, etc.)
                 })
-                .attr('stroke', d => d.group === 1 ? '#22d3ee' : d.group === 2 ? '#a78bfa' : '#fb7185')
-                .attr('stroke-width', d => d.group === 1 ? 3 : 2) // Thicker border for center node
+                .attr('fill', d => {
+                    // Color based on level
+                    if (d.level === 0) return 'url(#centerGradient)';      // Blue gradient for root
+                    if (d.level === 1) return 'url(#midGradient)';         // Purple gradient for categories  
+                    return 'url(#leafGradient)';                           // Pink gradient for specifics
+                })
+                .attr('stroke', d => {
+                    // Border color based on level
+                    if (d.level === 0) return '#1e40af';      // Deep blue for root
+                    if (d.level === 1) return '#7c3aed';      // Purple for categories
+                    return '#e11d48';                          // Red for specifics
+                })
+                .attr('stroke-width', d => {
+                    // Border thickness based on level
+                    if (d.level === 0) return 4;              // Thickest for root
+                    if (d.level === 1) return 3;              // Medium for categories
+                    return 2;                                  // Thinnest for specifics
+                })
                 .attr('cx', d => d.x)
                 .attr('cy', d => d.y)
-                .style('filter', d => d.group === 1 ? 
-                    'drop-shadow(0 4px 12px rgba(34, 211, 238, 0.4))' : 
-                    'drop-shadow(0 2px 8px rgba(0,0,0,0.3))')
+                .style('filter', d => {
+                    // Shadow effect based on level
+                    if (d.level === 0) return 'drop-shadow(0 6px 16px rgba(30, 64, 175, 0.4))';     // Strong blue shadow for root
+                    if (d.level === 1) return 'drop-shadow(0 4px 12px rgba(124, 58, 237, 0.3))';    // Purple shadow for categories
+                    return 'drop-shadow(0 2px 8px rgba(225, 29, 72, 0.3))';                         // Red shadow for specifics
+                })
                 .call(d3.drag()
                     .on('start', dragstarted)
                     .on('drag', dragged)  

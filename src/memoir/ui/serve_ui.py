@@ -31,7 +31,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_store_api(parsed_path)
         elif parsed_path.path == '/':
             # Serve the visualization HTML
-            self.path = '/visualization_mockup.html'
+            self.path = '/visualization.html'
             super().do_GET()
         else:
             # Default file serving

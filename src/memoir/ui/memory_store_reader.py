@@ -46,24 +46,14 @@ def read_store_data(store_path: str):
                 text=True
             )
             if result.returncode == 0:
-                seen_messages = set()
                 for line in result.stdout.strip().split('\n'):
-                    if line:
+                    if line.strip():
                         parts = line.split(' ', 1)
                         hash_val = parts[0]
                         message = parts[1] if len(parts) > 1 else ""
                         
-                        # Filter out duplicate "Initial commit" messages, keep only one
-                        if message == "Initial commit":
-                            if "Initial commit" not in seen_messages:
-                                seen_messages.add("Initial commit")
-                                commits.append({"hash": hash_val, "message": message})
-                        else:
-                            # Keep all meaningful commit messages
-                            commits.append({"hash": hash_val, "message": message})
-                            seen_messages.add(message)
-                        
-                        # No limit - show ALL commits
+                        # Keep ALL commits - no filtering or deduplication
+                        commits.append({"hash": hash_val, "message": message})
         except Exception:
             pass
         
