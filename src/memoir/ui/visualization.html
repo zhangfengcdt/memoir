@@ -99,7 +99,7 @@
             transform: translateY(-1px);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
-        
+
         .branch-selector option {
             background: rgba(30, 41, 59, 0.95);
             color: #f1f5f9;
@@ -125,8 +125,8 @@
             left: 28px;
             width: 4px;
             height: 100%;
-            background: linear-gradient(180deg, 
-                rgba(34, 211, 238, 0.6) 0%, 
+            background: linear-gradient(180deg,
+                rgba(34, 211, 238, 0.6) 0%,
                 rgba(34, 211, 238, 0.4) 50%,
                 rgba(34, 211, 238, 0.6) 100%);
             border-radius: 2px;
@@ -250,31 +250,31 @@
             position: absolute;
             border-radius: 2px;
         }
-        
+
         /* Short branch - spans 2 commits (branch + merge) */
         .git-line.branch-vertical.short {
             top: 14px;
             height: 40px;
         }
-        
+
         /* Merge vertical - connects down from merge to branch */
         .git-line.branch-vertical.merge-down {
             top: 25px;
             height: 65px; /* Extended to fully connect merge to branch commit below */
         }
-        
+
         /* Branch commit vertical - connects branch between split and merge */
         .git-line.branch-vertical.branch-commit {
             top: -40px; /* Start above to connect to merge */
             height: 140px; /* Further extended to fully reach split point below */
         }
-        
+
         /* Medium branch - spans 3 commits */
         .git-line.branch-vertical.medium {
             top: -80px;
             height: 120px;
         }
-        
+
         /* Long branch - spans 4+ commits */
         .git-line.branch-vertical.long {
             top: -120px;
@@ -469,29 +469,6 @@
             border: 1px solid rgba(99, 102, 241, 0.3);
         }
 
-        .search-box {
-            background: rgba(30, 41, 59, 0.6);
-            border: 1px solid rgba(71, 85, 105, 0.5);
-            border-radius: 12px;
-            padding: 12px 16px;
-            color: #f1f5f9;
-            width: 280px;
-            font-size: 14px;
-            font-weight: 400;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            backdrop-filter: blur(10px);
-        }
-
-        .search-box:focus {
-            outline: none;
-            border-color: rgba(99, 102, 241, 0.5);
-            background: rgba(30, 41, 59, 0.8);
-            box-shadow: 0 0 20px rgba(99, 102, 241, 0.1);
-        }
-
-        .search-box::placeholder {
-            color: #94a3b8;
-        }
 
         .view-toggle {
             display: flex;
@@ -529,6 +506,10 @@
             flex: 1;
             padding: 32px;
             overflow: auto;
+            /* Chrome-specific fixes */
+            position: relative;
+            z-index: 1;
+            isolation: isolate; /* Create new stacking context */
         }
 
         /* Tree View */
@@ -536,6 +517,9 @@
             font-family: 'JetBrains Mono', monospace;
             font-size: 14px;
             line-height: 1.8;
+            position: relative;
+            z-index: 10;
+            pointer-events: auto;
         }
 
         .tree-node {
@@ -548,7 +532,6 @@
         .tree-node:hover .node-content {
             background: rgba(30, 41, 59, 0.6);
             border-radius: 8px;
-            backdrop-filter: blur(10px);
         }
 
         .node-content {
@@ -713,18 +696,26 @@
             right: 24px;
             top: 100px;
             width: 380px;
-            background: rgba(15, 23, 42, 0.95);
-            backdrop-filter: blur(20px);
+            background: rgba(15, 23, 42, 0.98);
             border: 1px solid rgba(51, 65, 85, 0.3);
             border-radius: 16px;
             padding: 28px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05);
+            /* Fix Chrome issues: use transform instead of display, lower z-index */
             transform: translateX(calc(100% + 24px));
-            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0;
+            visibility: hidden;
+            z-index: 100;
+            /* Remove backdrop-filter that causes blur */
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            pointer-events: none;
         }
 
         .memory-details.open {
             transform: translateX(0);
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
         }
 
         .details-header {
@@ -984,11 +975,11 @@
                 transform: none;
                 width: calc(100% - 32px);
             }
-            
+
             .input-container {
                 padding: 14px 70px 14px 20px;
             }
-            
+
             #memoryInput {
                 font-size: 14px;
             }
@@ -1004,14 +995,14 @@
                     <img src="static/memoir.png" alt="Memoir" class="memoir-logo-icon" />
                     <span class="memoir-logo-text">Memoir</span>
                 </div>
-                
+
                 <select class="branch-selector" id="branchSelector">
                     <option value="main">main</option>
                     <option value="experiment">experiment</option>
                     <option value="user-profile">user-profile</option>
                 </select>
             </div>
-            
+
             <div class="git-tree" id="gitTree">
                 <!-- Week 1 - Recent commits -->
                 <div class="commit-node active" data-commit="f9a8b12">
@@ -1278,9 +1269,8 @@
                     <span class="commit-label">Viewing:</span>
                     <span class="commit-badge" id="currentCommit">d75e832</span>
                 </div>
-                
-                <input type="text" class="search-box" placeholder="🔍 Search or /command (try /connect /tmp/memoir_ui_store)" id="searchBox">
-                
+
+
                 <div class="view-toggle">
                     <button class="view-btn active" data-view="tree">🌳 Tree</button>
                     <button class="view-btn" data-view="graph">🕸️ Graph</button>
@@ -1495,7 +1485,7 @@
                 </div>
 
                 <!-- Graph View (Hidden by default) -->
-                <div class="graph-view" id="graphView" style="display: none;">
+                <div class="graph-view" id="graphView" style="display: none; pointer-events: none;">
                     <div class="graph-watermark">MEMOIR</div>
                     <div class="zoom-controls">
                         <button class="zoom-btn" id="zoomIn" title="Zoom In">+</button>
@@ -1514,7 +1504,7 @@
             <h3 class="details-title" id="detailsPath">profile.personal.identity</h3>
             <button class="close-btn" id="closeDetails">✕</button>
         </div>
-        
+
         <div id="memoriesList">
             <div class="memory-item">
                 <div class="memory-content">Name: John Doe, prefers to be called Johnny</div>
@@ -1523,7 +1513,7 @@
                     <span>2h ago</span>
                 </div>
             </div>
-            
+
             <div class="memory-item">
                 <div class="memory-content">Age: 28, born March 15th, 1995</div>
                 <div class="memory-meta">
@@ -1531,7 +1521,7 @@
                     <span>1d ago</span>
                 </div>
             </div>
-            
+
             <div class="memory-item">
                 <div class="memory-content">Pronouns: he/him</div>
                 <div class="memory-meta">
@@ -1545,10 +1535,10 @@
     <!-- Memory Input Bar -->
     <div class="memory-input-bar">
         <div class="input-container">
-            <input 
-                type="text" 
-                id="memoryInput" 
-                placeholder="Ask a question or add new memory..." 
+            <input
+                type="text"
+                id="memoryInput"
+                placeholder="Ask a question, add memory, or use /commands (try /connect /tmp/memoir_ui_store)"
                 autocomplete="off"
             />
             <div class="input-actions">
@@ -1575,7 +1565,7 @@
         // Store connection state
         let connectedStorePath = null;
         let storeData = null;
-        
+
         // Mock data and interactions with 30 commits
         const commits = {
             'f9a8b12': { tree: generateMockTree(1.0) },  // Latest - full data
@@ -1613,31 +1603,31 @@
             return {
                 // Personal (26 memories)
                 'profile.personal.identity': Math.floor(8 * density),
-                'profile.personal.location': Math.floor(6 * density), 
+                'profile.personal.location': Math.floor(6 * density),
                 'profile.personal.relationships': Math.floor(5 * density),
                 'profile.personal.health': Math.floor(4 * density),
                 'profile.personal.goals': Math.floor(3 * density),
-                
+
                 // Professional (34 memories)
                 'profile.professional.skills': Math.floor(12 * density),
                 'profile.professional.experience': Math.floor(9 * density),
                 'profile.professional.companies': Math.floor(4 * density),
                 'profile.professional.education': Math.floor(3 * density),
                 'profile.professional.achievements': Math.floor(6 * density),
-                
+
                 // Preferences (14 memories)
                 'profile.preferences.interface': Math.floor(5 * density),
                 'profile.preferences.notifications': Math.floor(3 * density),
                 'profile.preferences.privacy': Math.floor(4 * density),
                 'profile.preferences.workflow': Math.floor(2 * density),
-                
+
                 // Interests (21 memories)
                 'profile.interests.music': Math.floor(4 * density),
                 'profile.interests.books': Math.floor(7 * density),
                 'profile.interests.movies': Math.floor(3 * density),
                 'profile.interests.sports': Math.floor(2 * density),
                 'profile.interests.hobbies': Math.floor(5 * density),
-                
+
                 // Technology (17 memories)
                 'profile.technology.devices': Math.floor(3 * density),
                 'profile.technology.tools': Math.floor(8 * density),
@@ -1651,7 +1641,7 @@
             const parts = command.trim().split(' ');
             const cmd = parts[0].toLowerCase();
             console.log('Command parts:', parts);
-            
+
             if (cmd === '/connect') {
                 const path = parts.slice(1).join(' ');
                 if (!path) {
@@ -1665,29 +1655,522 @@
                     return;
                 }
                 await refreshStore();
+            } else if (cmd === '/demo') {
+                showDemoData();
+            } else if (cmd === '/repo') {
+                showRepoInfo();
+            } else if (cmd === '/code') {
+                showIntegrationCode();
             } else if (cmd === '/help') {
-                showNotification('Commands: /connect <path>, /refresh, /help', 'info');
+                const workingCommands = availableCommands.filter(c => !c.placeholder).map(c => c.cmd + (c.args ? ' ' + c.args : '')).join(', ');
+                const comingSoonCommands = availableCommands.filter(c => c.placeholder).map(c => c.cmd).join(', ');
+                showNotification(`Working commands: ${workingCommands}\n\nComing soon: ${comingSoonCommands}`, 'info', 8000);
             } else {
-                showNotification(`Unknown command: ${cmd}`, 'error');
+                // Check if it's a placeholder command
+                const placeholderCmd = availableCommands.find(c => c.cmd === cmd && c.placeholder);
+                if (placeholderCmd) {
+                    showNotification(`${placeholderCmd.cmd} - ${placeholderCmd.desc}`, 'info', 4000);
+                } else {
+                    showNotification(`Unknown command: ${cmd}`, 'error');
+                }
             }
         }
-        
+
+        function showDemoData() {
+            console.log('Showing original demo data');
+            connectedStorePath = null; // Reset connection to show original state
+            showNotification('Demo mode - showing original page state for exploration', 'info');
+
+            // Clear existing data
+            storeData = null;
+
+            // Restore original static HTML tree view directly
+            restoreOriginalTreeView();
+
+            // Update branches dropdown to original state
+            updateBranchesDropdown(['main', 'feature/context-memory', 'feature/ui-improvements', 'experimental/ml-optimization'], 'main');
+
+            // Update commits to original state
+            updateCommitTimeline([
+                {"hash": "d75e832", "message": "Implement simple server to visualize memory structure and history"},
+                {"hash": "e569282", "message": "Add Memoir UI"},
+                {"hash": "b44a526", "message": "fix html lines"},
+                {"hash": "a4f7f14", "message": "feat: Add LangGraph integration package with comprehensive examples and documentation"},
+                {"hash": "35be3ae", "message": "feat: implement Git-like version control and time travel for AI memory"},
+                {"hash": "2c1e5f7", "message": "Enhanced memory classification system"},
+                {"hash": "8c4a6f3", "message": "Add preference tracking and user context"},
+                {"hash": "00c5625", "message": "Initial memory system implementation"}
+            ]);
+
+            // Update graph view to original state
+            updateGraphView();
+        }
+
+        function restoreOriginalTreeView() {
+            const treeView = document.getElementById('treeView');
+            if (!treeView) return;
+
+            // Restore the original static HTML tree structure
+            treeView.innerHTML = `
+                <div class="tree-node">
+                    <div class="node-content">
+                        <span class="node-icon">👤</span>
+                        <span class="node-label">profile</span>
+                    </div>
+                    <div class="node-children">
+                        <div class="tree-node">
+                            <div class="node-content">
+                                <span class="node-icon">🧑</span>
+                                <span class="node-label">personal</span>
+                            </div>
+                            <div class="node-children">
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">🆔</span>
+                                        <span class="node-label has-memories">identity</span>
+                                        <span class="memory-count">8</span>
+                                    </div>
+                                </div>
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">📍</span>
+                                        <span class="node-label has-memories">location</span>
+                                        <span class="memory-count">6</span>
+                                    </div>
+                                </div>
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">👥</span>
+                                        <span class="node-label has-memories">relationships</span>
+                                        <span class="memory-count">5</span>
+                                    </div>
+                                </div>
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">💪</span>
+                                        <span class="node-label has-memories">health</span>
+                                        <span class="memory-count">4</span>
+                                    </div>
+                                </div>
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">🎯</span>
+                                        <span class="node-label has-memories">goals</span>
+                                        <span class="memory-count">3</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tree-node">
+                            <div class="node-content">
+                                <span class="node-icon">💼</span>
+                                <span class="node-label">professional</span>
+                            </div>
+                            <div class="node-children">
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">💻</span>
+                                        <span class="node-label has-memories">skills</span>
+                                        <span class="memory-count">12</span>
+                                    </div>
+                                </div>
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">📈</span>
+                                        <span class="node-label has-memories">experience</span>
+                                        <span class="memory-count">9</span>
+                                    </div>
+                                </div>
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">🏢</span>
+                                        <span class="node-label has-memories">companies</span>
+                                        <span class="memory-count">4</span>
+                                    </div>
+                                </div>
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">🎓</span>
+                                        <span class="node-label has-memories">education</span>
+                                        <span class="memory-count">3</span>
+                                    </div>
+                                </div>
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">🏆</span>
+                                        <span class="node-label has-memories">achievements</span>
+                                        <span class="memory-count">6</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tree-node">
+                            <div class="node-content">
+                                <span class="node-icon">⚙️</span>
+                                <span class="node-label">preferences</span>
+                            </div>
+                            <div class="node-children">
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">🎨</span>
+                                        <span class="node-label has-memories">interface</span>
+                                        <span class="memory-count">5</span>
+                                    </div>
+                                </div>
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">🔔</span>
+                                        <span class="node-label has-memories">notifications</span>
+                                        <span class="memory-count">3</span>
+                                    </div>
+                                </div>
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">🛡️</span>
+                                        <span class="node-label has-memories">privacy</span>
+                                        <span class="memory-count">4</span>
+                                    </div>
+                                </div>
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">🌙</span>
+                                        <span class="node-label has-memories">workflow</span>
+                                        <span class="memory-count">2</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tree-node">
+                            <div class="node-content">
+                                <span class="node-icon">🎮</span>
+                                <span class="node-label">interests</span>
+                            </div>
+                            <div class="node-children">
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">🎵</span>
+                                        <span class="node-label has-memories">music</span>
+                                        <span class="memory-count">4</span>
+                                    </div>
+                                </div>
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">📚</span>
+                                        <span class="node-label has-memories">books</span>
+                                        <span class="memory-count">7</span>
+                                    </div>
+                                </div>
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">🎬</span>
+                                        <span class="node-label has-memories">movies</span>
+                                        <span class="memory-count">3</span>
+                                    </div>
+                                </div>
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">⚽</span>
+                                        <span class="node-label has-memories">sports</span>
+                                        <span class="memory-count">2</span>
+                                    </div>
+                                </div>
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">🎨</span>
+                                        <span class="node-label has-memories">hobbies</span>
+                                        <span class="memory-count">5</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="tree-node">
+                            <div class="node-content">
+                                <span class="node-icon">📱</span>
+                                <span class="node-label">technology</span>
+                            </div>
+                            <div class="node-children">
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">📱</span>
+                                        <span class="node-label has-memories">devices</span>
+                                        <span class="memory-count">3</span>
+                                    </div>
+                                </div>
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">🔧</span>
+                                        <span class="node-label has-memories">tools</span>
+                                        <span class="memory-count">8</span>
+                                    </div>
+                                </div>
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">🌐</span>
+                                        <span class="node-label has-memories">platforms</span>
+                                        <span class="memory-count">6</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function showRepoInfo() {
+            console.log('Showing repo info');
+
+            if (!connectedStorePath) {
+                showNotification('No repository connected. Use /connect <path> or /demo first.', 'error');
+                return;
+            }
+
+            if (!storeData) {
+                showNotification('No data available. Try /refresh to reload.', 'error');
+                return;
+            }
+
+            // Calculate repository statistics
+            const totalMemories = storeData.total_memories || storeData.memories?.length || 0;
+            const totalBranches = storeData.branches?.length || 0;
+            const totalCommits = storeData.commits?.length || 0;
+            const currentBranch = storeData.current_branch || 'unknown';
+
+            // Count unique paths and namespaces
+            const uniquePaths = new Set();
+            const uniqueNamespaces = new Set();
+
+            if (storeData.memories) {
+                storeData.memories.forEach(memory => {
+                    if (memory.path) uniquePaths.add(memory.path);
+                    if (memory.namespace) uniqueNamespaces.add(memory.namespace);
+                });
+            }
+
+            // Count tree levels
+            let maxDepth = 0;
+            if (storeData.tree) {
+                Object.keys(storeData.tree).forEach(path => {
+                    const depth = path.split('.').length;
+                    if (depth > maxDepth) maxDepth = depth;
+                });
+            }
+
+            // Format the repository info
+            const repoInfo = `📊 Repository Information
+
+🗂️  Store Path: ${connectedStorePath}
+🌟 Current Branch: ${currentBranch}
+🌿 Total Branches: ${totalBranches}
+📝 Total Commits: ${totalCommits}
+🧠 Total Memories: ${totalMemories}
+🏷️  Unique Paths: ${uniquePaths.size}
+👤 Namespaces: ${uniqueNamespaces.size}
+📊 Max Tree Depth: ${maxDepth}
+
+Branches: ${storeData.branches ? storeData.branches.join(', ') : 'none'}
+
+Recent Commits:
+${storeData.commits ? storeData.commits.slice(0, 5).map(c => `• ${c.hash}: ${c.message}`).join('\n') : 'No commits available'}`;
+
+            // Show the info in a notification with longer display time
+            showNotification(repoInfo, 'info', 10000); // 10 second display
+        }
+
+        function showIntegrationCode() {
+            console.log('Showing integration code');
+
+            // Use the actual connected path or provide helpful default
+            const storePath = connectedStorePath && connectedStorePath !== 'demo'
+                ? connectedStorePath
+                : '"/tmp/memoir_ui_store"  # Use your actual store path';
+
+            const integrationCode = `
+
+# Create components
+taxonomy = SemanticTaxonomy()
+llm = ChatOpenAI(model="gpt-4", temperature=0.1)
+classifier = IntelligentClassifier(
+    taxonomy=taxonomy,
+    llm=llm
+)
+
+# Initialize store with versioning
+prolly_store = ProllyTreeStore(
+    path="${storePath}",
+    enable_versioning=True,
+    auto_commit=True
+)
+
+# Create memory manager
+memory_manager = ProllyTreeMemoryStoreManager(
+    prolly_store=prolly_store,
+    classifier=classifier,
+    enable_versioning=True,
+    auto_commit=True
+)
+
+# LangGraph Integration
+langgraph_store = LangGraphMemoryStore(
+    memory_manager=memory_manager,
+    namespace=("conversation_123",)
+)
+
+# Use with LangGraph agents
+config = {"configurable": {"store": langgraph_store}}`;
+
+            // Show code in a modal-like notification
+            showCodeModal(integrationCode);
+        }
+
+        function showCodeModal(code) {
+            // Create a modal overlay
+            const modal = document.createElement('div');
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.8);
+                z-index: 10001;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                backdrop-filter: blur(4px);
+            `;
+
+            const modalContent = document.createElement('div');
+            modalContent.style.cssText = `
+                background: #1e293b;
+                color: #f1f5f9;
+                border-radius: 12px;
+                padding: 24px;
+                max-width: 800px;
+                max-height: 80vh;
+                overflow-y: auto;
+                font-family: 'JetBrains Mono', monospace;
+                font-size: 13px;
+                line-height: 1.5;
+                white-space: pre-line;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+                border: 1px solid rgba(71, 85, 105, 0.3);
+            `;
+
+            const closeButton = document.createElement('button');
+            closeButton.innerHTML = '✕';
+            closeButton.style.cssText = `
+                position: absolute;
+                top: 16px;
+                right: 20px;
+                background: transparent;
+                border: none;
+                color: #94a3b8;
+                font-size: 18px;
+                cursor: pointer;
+                padding: 4px;
+                border-radius: 4px;
+                transition: all 0.2s;
+            `;
+
+            closeButton.addEventListener('mouseenter', () => {
+                closeButton.style.background = 'rgba(239, 68, 68, 0.1)';
+                closeButton.style.color = '#ef4444';
+            });
+
+            closeButton.addEventListener('mouseleave', () => {
+                closeButton.style.background = 'transparent';
+                closeButton.style.color = '#94a3b8';
+            });
+
+            const copyButton = document.createElement('button');
+            copyButton.innerHTML = '📋';
+            copyButton.title = 'Copy code to clipboard';
+            copyButton.style.cssText = `
+                position: absolute;
+                top: 16px;
+                right: 60px;
+                background: transparent;
+                border: none;
+                color: #94a3b8;
+                font-size: 16px;
+                cursor: pointer;
+                padding: 4px 8px;
+                border-radius: 4px;
+                transition: all 0.2s;
+            `;
+
+            copyButton.addEventListener('mouseenter', () => {
+                copyButton.style.background = 'rgba(34, 197, 94, 0.1)';
+                copyButton.style.color = '#22c55e';
+            });
+
+            copyButton.addEventListener('mouseleave', () => {
+                copyButton.style.background = 'transparent';
+                copyButton.style.color = '#94a3b8';
+            });
+
+            copyButton.addEventListener('click', async () => {
+                try {
+                    await navigator.clipboard.writeText(code);
+                    copyButton.innerHTML = '✅';
+                    copyButton.style.color = '#22c55e';
+                    setTimeout(() => {
+                        copyButton.innerHTML = '📋';
+                        copyButton.style.color = '#94a3b8';
+                    }, 2000);
+                    showNotification('Code copied to clipboard!', 'success');
+                } catch (err) {
+                    console.error('Failed to copy code:', err);
+                    showNotification('Failed to copy code', 'error');
+                }
+            });
+
+            modalContent.style.position = 'relative';
+            modalContent.appendChild(closeButton);
+            modalContent.appendChild(copyButton);
+
+            const codeText = document.createElement('div');
+            codeText.textContent = code;
+            codeText.style.marginRight = '20px'; // Space for close button
+            modalContent.appendChild(codeText);
+
+            modal.appendChild(modalContent);
+            document.body.appendChild(modal);
+
+            // Close handlers
+            const closeModal = () => modal.remove();
+            closeButton.addEventListener('click', closeModal);
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) closeModal();
+            });
+
+            // ESC key handler
+            const handleKeydown = (e) => {
+                if (e.key === 'Escape') {
+                    closeModal();
+                    document.removeEventListener('keydown', handleKeydown);
+                }
+            };
+            document.addEventListener('keydown', handleKeydown);
+        }
+
         async function connectToStore(path) {
             console.log('Attempting to connect to:', path);
             showNotification(`Connecting to ${path}...`, 'info');
-            
+
             try {
                 // First try the API endpoint
                 let response;
                 let data = null;
-                
+
                 // Try API endpoint (works when served via HTTP server)
                 try {
                     const apiUrl = `/api/store?path=${encodeURIComponent(path)}`;
                     console.log('Fetching from API:', apiUrl);
                     response = await fetch(apiUrl);
                     console.log('API Response status:', response.status, response.ok);
-                    
+
                     if (response.ok) {
                         data = await response.json();
                         console.log('Data received from API:', data);
@@ -1703,7 +2186,7 @@
                     console.error('API fetch error:', e);
                     console.log('API not available, trying fallback...');
                 }
-                
+
                 // Try to read the metadata file directly (for file:// protocol)
                 try {
                     response = await fetch(`file://${path}/ui_metadata.json`);
@@ -1718,42 +2201,16 @@
                 } catch (e) {
                     console.log('File system access not available');
                 }
-                
-                // If both fail, use demo data but show we're connected
-                connectedStorePath = path;
-                showNotification(`Connected to ${path} (demo mode - showing sample data)`, 'info');
-                
-                // Update UI with demo indication
-                updateUIWithRealData({
-                    branches: ['main', 'feature/chatbot-context', 'feature/ui-preferences', 'experimental/memory-optimization'],
-                    current_branch: 'main',
-                    commits: {
-                        'main': ['b7460cb5', '440ec052', '944fb3d9'],
-                        'feature/chatbot-context': ['5dce5c24'],
-                        'feature/ui-preferences': ['bb644e14'],
-                        'experimental/memory-optimization': ['95711c59']
-                    }
-                });
+
+                // If both methods fail, show an error instead of falling back
+                showNotification(`Failed to connect to ${path}. Path may not exist or store may be empty. Try:\n1. Check if path exists\n2. Run initialization script\n3. Use HTTP server (python serve_ui.py)`, 'error');
+                return;
             } catch (error) {
                 console.error('Connection error:', error);
-                // For demo purposes, show success anyway
-                connectedStorePath = path;
-                showNotification(`Connected to ${path} (demo mode)`, 'info');
-                
-                // Use demo data
-                updateUIWithRealData({
-                    branches: ['main', 'feature/chatbot-context', 'feature/ui-preferences', 'experimental/memory-optimization'],
-                    current_branch: 'main',
-                    commits: {
-                        'main': ['b7460cb5', '440ec052', '944fb3d9'],
-                        'feature/chatbot-context': ['5dce5c24'],
-                        'feature/ui-preferences': ['bb644e14'],
-                        'experimental/memory-optimization': ['95711c59']
-                    }
-                });
+                showNotification(`Connection failed: ${error.message}`, 'error');
             }
         }
-        
+
         async function refreshStore() {
             if (!connectedStorePath) {
                 showNotification('Not connected to any store', 'error');
@@ -1761,38 +2218,38 @@
             }
             await connectToStore(connectedStorePath);
         }
-        
+
         function updateUIWithRealData(data) {
             console.log('Updating UI with real data:', data);
-            
+
             // Update branches
             const branchSelector = document.querySelector('#branchSelector');
             console.log('Branch selector element:', branchSelector);
-            
+
             if (branchSelector && data.branches) {
                 console.log('Updating branches:', data.branches);
                 branchSelector.innerHTML = '';
                 data.branches.forEach(branch => {
                     const option = document.createElement('option');
                     option.value = branch;
-                    
+
                     // Shorten long branch names for display - show beginning instead of ending
                     let displayName = branch;
                     if (branch.length > 25) {
                         // Truncate long names but keep the beginning part
                         displayName = branch.slice(0, 22) + '...';
                     }
-                    
+
                     option.textContent = displayName;
                     option.title = branch; // Show full name on hover
-                    
+
                     if (branch === data.current_branch) {
                         option.selected = true;
                     }
                     branchSelector.appendChild(option);
                 });
             }
-            
+
             // Update commit timeline with real data
             if (data.commits) {
                 const gitHistory = document.querySelector('.git-tree');
@@ -1800,17 +2257,17 @@
                     // Clear existing commits except the time headers
                     const commitNodes = gitHistory.querySelectorAll('.commit-node');
                     commitNodes.forEach(node => node.remove());
-                    
+
                     // Add real commits from all branches
                     let insertAfter = gitHistory.querySelector('.time-header') || gitHistory.firstChild;
-                    
+
                     // Handle different commit data formats
                     const allCommits = [];
                     if (Array.isArray(data.commits)) {
                         // Format: [{hash: "abc", message: "..."}, ...]
                         data.commits.forEach(commit => {
-                            allCommits.push({ 
-                                hash: commit.hash, 
+                            allCommits.push({
+                                hash: commit.hash,
                                 message: commit.message,
                                 branch: data.current_branch || 'main'
                             });
@@ -1827,16 +2284,16 @@
                             }
                         }
                     }
-                    
+
                     // Add ALL commits (no limit)
                     allCommits.forEach((commit, index) => {
                         const commitNode = document.createElement('div');
                         commitNode.className = 'commit-node';
                         commitNode.dataset.commit = commit.hash;
-                        
+
                         const branchClass = commit.branch === 'main' ? 'main' : 'branch';
                         const branchTag = commit.branch.replace('feature/', '').replace('experimental/', '');
-                        
+
                         commitNode.innerHTML = `
                             <div class="git-lines">
                                 <div class="commit-dot ${branchClass}"></div>
@@ -1856,7 +2313,7 @@
                                 </div>
                             </div>
                         `;
-                        
+
                         // Insert after the last element
                         if (insertAfter.nextSibling) {
                             gitHistory.insertBefore(commitNode, insertAfter.nextSibling);
@@ -1864,7 +2321,7 @@
                             gitHistory.appendChild(commitNode);
                         }
                         insertAfter = commitNode;
-                        
+
                         // Re-attach click handlers
                         commitNode.addEventListener('click', function() {
                             document.querySelectorAll('.commit-node').forEach(i => i.classList.remove('active'));
@@ -1876,7 +2333,7 @@
                     });
                 }
             }
-            
+
             // Update commits if available
             if (data.commits && data.commits.main) {
                 const currentCommit = document.getElementById('currentCommit');
@@ -1884,7 +2341,7 @@
                     currentCommit.textContent = data.commits.main[0];
                 }
             }
-            
+
             // Update status
             const statusEl = document.querySelector('.connection-status');
             if (!statusEl) {
@@ -1900,7 +2357,7 @@
             } else {
                 statusEl.innerHTML = `<span style="margin-right: 5px;">📁</span> Connected: ${connectedStorePath}`;
             }
-            
+
             // Update tree view with real memory data
             console.log('Checking if we should update tree view:', {
                 hasMemories: !!(data.memories && data.memories.length > 0),
@@ -1909,18 +2366,26 @@
                 treeKeysCount: data.tree ? Object.keys(data.tree).length : 0,
                 dataKeys: Object.keys(data)
             });
-            
+
             // Always update the tree view when connected (even with empty data)
             updateTreeViewWithRealData(data);
-            
+
             // Also update the global variable for graph rendering
             window.realStoreData = data;
-            
+
+            // Update graph view if it's currently visible
+            const graphView = document.getElementById('graphView');
+            const isGraphVisible = graphView && graphView.style.display !== 'none';
+            if (isGraphVisible) {
+                console.log('Graph is visible, updating graph view');
+                renderGraph();
+            }
+
             // Show success in console
             console.log('Successfully updated UI with data:', data);
         }
-        
-        function showNotification(message, type = 'info') {
+
+        function showNotification(message, type = 'info', duration = 3000) {
             // Create notification element
             const notification = document.createElement('div');
             notification.className = 'notification';
@@ -1935,18 +2400,23 @@
                 box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
                 z-index: 10000;
                 animation: slideIn 0.3s ease;
+                white-space: pre-line;
+                font-family: 'JetBrains Mono', monospace;
+                font-size: 12px;
+                max-width: 400px;
+                line-height: 1.4;
             `;
             notification.textContent = message;
-            
+
             document.body.appendChild(notification);
-            
-            // Remove after 3 seconds
+
+            // Remove after specified duration
             setTimeout(() => {
                 notification.style.animation = 'slideOut 0.3s ease';
                 setTimeout(() => notification.remove(), 300);
-            }, 3000);
+            }, duration);
         }
-        
+
         // Add CSS animation
         if (!document.querySelector('#notification-styles')) {
             const style = document.createElement('style');
@@ -1973,10 +2443,10 @@
                     document.querySelectorAll('.commit-node').forEach(i => i.classList.remove('active'));
                     // Add active to clicked item
                     this.classList.add('active');
-                    
+
                     const commitId = this.dataset.commit;
                     document.getElementById('currentCommit').textContent = commitId;
-                    
+
                     // Update memory structure based on commit
                     updateMemoryStructure(commitId);
                 });
@@ -1987,7 +2457,7 @@
                 if (e.target.closest('.tree-node .node-content')) {
                     const node = e.target.closest('.tree-node');
                     const label = node.querySelector('.node-label');
-                    
+
                     if (label.classList.contains('has-memories')) {
                         showMemoryDetails(label.textContent);
                     }
@@ -1999,14 +2469,18 @@
                 btn.addEventListener('click', function() {
                     document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
                     this.classList.add('active');
-                    
+
                     const view = this.dataset.view;
                     if (view === 'tree') {
                         document.getElementById('treeView').style.display = 'block';
-                        document.getElementById('graphView').style.display = 'none';
+                        const graphView = document.getElementById('graphView');
+                        graphView.style.display = 'none';
+                        graphView.style.pointerEvents = 'none';
                     } else {
                         document.getElementById('treeView').style.display = 'none';
-                        document.getElementById('graphView').style.display = 'block';
+                        const graphView = document.getElementById('graphView');
+                        graphView.style.display = 'block';
+                        graphView.style.pointerEvents = 'auto';
                         renderGraph();
                     }
                 });
@@ -2017,49 +2491,14 @@
                 document.getElementById('memoryDetails').classList.remove('open');
             });
 
-            // Search and command functionality
-            const searchBox = document.getElementById('searchBox');
-            console.log('Search box element:', searchBox);
-            
-            searchBox.addEventListener('keypress', async function(e) {
-                console.log('Key pressed:', e.key, 'Value:', e.target.value);
-                if (e.key === 'Enter') {
-                    const value = e.target.value.trim();
-                    console.log('Enter pressed with value:', value);
-                    if (value.startsWith('/')) {
-                        console.log('Processing command:', value);
-                        // Handle command
-                        await handleCommand(value);
-                        e.target.value = ''; // Clear input after command
-                    }
-                }
-            });
-            
-            searchBox.addEventListener('input', function(e) {
-                const query = e.target.value.toLowerCase();
-                
-                // Skip search if it's a command
-                if (query.startsWith('/')) {
-                    return;
-                }
-                
-                document.querySelectorAll('.tree-node').forEach(node => {
-                    const label = node.querySelector('.node-label').textContent.toLowerCase();
-                    if (query === '' || label.includes(query)) {
-                        node.style.display = 'block';
-                    } else {
-                        node.style.display = 'none';
-                    }
-                });
-            });
         });
 
         function updateTreeViewWithRealData(data) {
             console.log('Updating tree view with real data:', data);
-            
+
             const treeView = document.getElementById('treeView');
             if (!treeView) return;
-            
+
             // If we have a tree structure, use it
             if (data.tree && Object.keys(data.tree).length > 0) {
                 console.log('Building tree from tree data:', data.tree);
@@ -2120,10 +2559,10 @@
                 `;
             }
         }
-        
+
         function buildTreeFromPaths(pathCount) {
             const tree = {};
-            
+
             // Build nested structure
             Object.keys(pathCount).forEach(path => {
                 const parts = path.split('.');
@@ -2138,13 +2577,13 @@
                     current = current[part].children;
                 });
             });
-            
+
             // Convert to HTML
             function renderNode(name, node, level = 0) {
                 const icon = getIconForPath(name, level);
                 const hasMemories = node.count > 0;
                 const hasChildren = Object.keys(node.children).length > 0;
-                
+
                 let html = `
                     <div class="tree-node">
                         <div class="node-content">
@@ -2153,7 +2592,7 @@
                             ${hasMemories ? `<span class="memory-count">${node.count}</span>` : ''}
                         </div>
                 `;
-                
+
                 if (hasChildren) {
                     html += '<div class="node-children">';
                     Object.entries(node.children).forEach(([childName, childNode]) => {
@@ -2161,19 +2600,19 @@
                     });
                     html += '</div>';
                 }
-                
+
                 html += '</div>';
                 return html;
             }
-            
+
             let result = '';
             Object.entries(tree).forEach(([name, node]) => {
                 result += renderNode(name, node);
             });
-            
+
             return result || '<div class="tree-node"><div class="node-content"><span class="node-icon">📂</span><span class="node-label">No memory paths found</span></div></div>';
         }
-        
+
         function getIconForPath(name, level) {
             // Icons based on common path patterns
             const icons = {
@@ -2198,12 +2637,12 @@
             };
             return icons[name] || icons.default;
         }
-        
+
         function buildGraphDataFromRealData(data) {
             const nodes = [];
             const links = [];
             const nodeMap = new Map();
-            
+
             // Process memories or tree data
             let pathCount = {};
             if (data.tree && Object.keys(data.tree).length > 0) {
@@ -2220,13 +2659,13 @@
                     }
                 });
             }
-            
+
             // Create nodes from paths - limit to 3 levels deep for cleaner visualization
             Object.keys(pathCount).forEach(path => {
                 const parts = path.split('.');
                 const name = parts[parts.length - 1];
                 const level = parts.length - 1;
-                
+
                 // Only include paths up to 3 levels deep (0, 1, 2)
                 if (level <= 2 && !nodeMap.has(path)) {
                     nodes.push({
@@ -2241,12 +2680,12 @@
                     });
                     nodeMap.set(path, nodes.length - 1);
                 }
-                
+
                 // Create link to parent (only if both parent and child are within depth limit)
                 if (parts.length > 1 && level <= 2) {
                     const parentPath = parts.slice(0, -1).join('.');
                     const parentLevel = parts.length - 2;
-                    
+
                     if (parentLevel <= 2 && pathCount[parentPath] !== undefined) {
                         links.push({
                             source: parentPath,
@@ -2256,13 +2695,13 @@
                     }
                 }
             });
-            
+
             // Position nodes in organized radial layout
             positionNodesRadially(nodes);
-            
+
             return { nodes, links };
         }
-        
+
         function positionNodesRadially(nodes) {
             // Group nodes by level
             const nodesByLevel = { 0: [], 1: [], 2: [] };
@@ -2271,10 +2710,10 @@
                     nodesByLevel[node.level].push(node);
                 }
             });
-            
+
             const centerX = 400; // Center of the visualization
             const centerY = 300;
-            
+
             // Position Level 0 nodes (root) in the center
             if (nodesByLevel[0].length > 0) {
                 if (nodesByLevel[0].length === 1) {
@@ -2291,7 +2730,7 @@
                     });
                 }
             }
-            
+
             // Position Level 1 nodes (categories) in a circle around level 0
             if (nodesByLevel[1].length > 0) {
                 const radius = 150;
@@ -2301,11 +2740,11 @@
                     node.y = centerY + radius * Math.sin(angle);
                 });
             }
-            
+
             // Position Level 2 nodes (specific) in outer circle, grouped by their parent
             if (nodesByLevel[2].length > 0) {
                 const radius = 250;
-                
+
                 // Group level 2 nodes by their parent (level 1)
                 const nodesByParent = {};
                 nodesByLevel[2].forEach(node => {
@@ -2315,14 +2754,14 @@
                     }
                     nodesByParent[parentPath].push(node);
                 });
-                
+
                 // Position each group around their parent
                 Object.entries(nodesByParent).forEach(([parentPath, childNodes]) => {
                     const parent = nodesByLevel[1].find(n => n.id === parentPath);
                     if (parent) {
                         // Calculate angle from center to parent
                         const parentAngle = Math.atan2(parent.y - centerY, parent.x - centerX);
-                        
+
                         // Position children in an arc around the parent's direction
                         childNodes.forEach((child, i) => {
                             const angleOffset = (i - (childNodes.length - 1) / 2) * (Math.PI / 6); // 30 degree spacing
@@ -2341,7 +2780,7 @@
                 });
             }
         }
-        
+
         function buildGraphDataFromMockData() {
             // Build graph data from the existing mock structure
             const nodes = [
@@ -2352,7 +2791,7 @@
                 { id: 'profile.interests', name: 'interests', level: 1, count: 21, x: 600, y: 400, fx: null, fy: null },
                 { id: 'profile.technology', name: 'technology', level: 1, count: 17, x: 400, y: 500, fx: null, fy: null }
             ];
-            
+
             const links = [
                 { source: 'profile', target: 'profile.personal', strength: 0.5 },
                 { source: 'profile', target: 'profile.professional', strength: 0.5 },
@@ -2360,7 +2799,7 @@
                 { source: 'profile', target: 'profile.interests', strength: 0.5 },
                 { source: 'profile', target: 'profile.technology', strength: 0.5 }
             ];
-            
+
             return { nodes, links };
         }
 
@@ -2371,7 +2810,7 @@
                 Object.entries(data.tree).forEach(([path, count]) => {
                     const pathParts = path.split('.');
                     const nodeName = pathParts[pathParts.length - 1];
-                    
+
                     document.querySelectorAll('.tree-node').forEach(node => {
                         const label = node.querySelector('.node-label');
                         if (label && label.textContent === nodeName) {
@@ -2403,56 +2842,56 @@
             } else {
                 graphData = buildGraphDataFromMockData();
             }
-            
+
             // Optimized D3.js force-directed graph with pre-calculated positions
             const svg = d3.select('#graphSvg');
             svg.selectAll('*').remove();
-            
+
             const width = svg.node().getBoundingClientRect().width;
             const height = svg.node().getBoundingClientRect().height;
-            
+
             // Create container group for zoom/pan functionality
             const container = svg.append('g').attr('class', 'zoom-container');
-            
+
             // Add zoom behavior
             const zoom = d3.zoom()
                 .scaleExtent([0.1, 4])
                 .on('zoom', function(event) {
                     container.attr('transform', event.transform);
                 });
-            
+
             svg.call(zoom);
-            
+
             // Connect zoom controls to D3 zoom behavior
             d3.select('#zoomIn').on('click', () => {
                 svg.transition().duration(300).call(
                     zoom.scaleBy, 1.5
                 );
             });
-            
+
             d3.select('#zoomOut').on('click', () => {
                 svg.transition().duration(300).call(
                     zoom.scaleBy, 1 / 1.5
                 );
             });
-            
+
             d3.select('#zoomReset').on('click', () => {
                 svg.transition().duration(500).call(
                     zoom.transform,
                     d3.zoomIdentity
                 );
             });
-            
+
             // Use the graph data from real or mock data
             const nodes = graphData.nodes;
             const links = graphData.links;
-            
+
             // Pre-calculated positions for comprehensive radial layout (fallback if no positions)
             const centerX = width / 2;
             const centerY = height / 2;
             const radius1 = 120; // Main categories
             const radius2 = 220; // Leaf nodes
-            
+
             // Ensure nodes have positions
             nodes.forEach((node, i) => {
                 if (!node.x || !node.y) {
@@ -2462,19 +2901,19 @@
                     node.y = centerY + radius * Math.sin((angle - 90) * Math.PI / 180);
                 }
             });
-            
+
             // Keep original static layout for reference
             const staticNodes = [
                 // Center node
                 {id: 'profile', group: 1, x: centerX, y: centerY, fixed: true},
-                
+
                 // Second ring - main categories (6 categories at 60° intervals)
                 {id: 'personal', group: 2, x: centerX + radius1 * Math.cos(-90 * Math.PI/180), y: centerY + radius1 * Math.sin(-90 * Math.PI/180), fixed: true},
                 {id: 'professional', group: 2, x: centerX + radius1 * Math.cos(-30 * Math.PI/180), y: centerY + radius1 * Math.sin(-30 * Math.PI/180), fixed: true},
                 {id: 'preferences', group: 2, x: centerX + radius1 * Math.cos(30 * Math.PI/180), y: centerY + radius1 * Math.sin(30 * Math.PI/180), fixed: true},
                 {id: 'interests', group: 2, x: centerX + radius1 * Math.cos(90 * Math.PI/180), y: centerY + radius1 * Math.sin(90 * Math.PI/180), fixed: true},
                 {id: 'technology', group: 2, x: centerX + radius1 * Math.cos(150 * Math.PI/180), y: centerY + radius1 * Math.sin(150 * Math.PI/180), fixed: true},
-                
+
                 // Third ring - All 23 leaf nodes evenly distributed around circle
                 // Personal subcategories (positions 0-4)
                 {id: 'identity', group: 3, x: centerX + radius2 * Math.cos(0 * Math.PI/180), y: centerY + radius2 * Math.sin(0 * Math.PI/180), fixed: true},
@@ -2482,33 +2921,33 @@
                 {id: 'relationships', group: 3, x: centerX + radius2 * Math.cos(30 * Math.PI/180), y: centerY + radius2 * Math.sin(30 * Math.PI/180), fixed: true},
                 {id: 'health', group: 3, x: centerX + radius2 * Math.cos(45 * Math.PI/180), y: centerY + radius2 * Math.sin(45 * Math.PI/180), fixed: true},
                 {id: 'goals', group: 3, x: centerX + radius2 * Math.cos(60 * Math.PI/180), y: centerY + radius2 * Math.sin(60 * Math.PI/180), fixed: true},
-                
-                // Professional subcategories (positions 5-9) 
+
+                // Professional subcategories (positions 5-9)
                 {id: 'skills', group: 3, x: centerX + radius2 * Math.cos(75 * Math.PI/180), y: centerY + radius2 * Math.sin(75 * Math.PI/180), fixed: true},
                 {id: 'experience', group: 3, x: centerX + radius2 * Math.cos(90 * Math.PI/180), y: centerY + radius2 * Math.sin(90 * Math.PI/180), fixed: true},
                 {id: 'companies', group: 3, x: centerX + radius2 * Math.cos(105 * Math.PI/180), y: centerY + radius2 * Math.sin(105 * Math.PI/180), fixed: true},
                 {id: 'education', group: 3, x: centerX + radius2 * Math.cos(120 * Math.PI/180), y: centerY + radius2 * Math.sin(120 * Math.PI/180), fixed: true},
                 {id: 'achievements', group: 3, x: centerX + radius2 * Math.cos(135 * Math.PI/180), y: centerY + radius2 * Math.sin(135 * Math.PI/180), fixed: true},
-                
+
                 // Preferences subcategories (positions 10-13)
                 {id: 'interface', group: 3, x: centerX + radius2 * Math.cos(150 * Math.PI/180), y: centerY + radius2 * Math.sin(150 * Math.PI/180), fixed: true},
                 {id: 'notifications', group: 3, x: centerX + radius2 * Math.cos(165 * Math.PI/180), y: centerY + radius2 * Math.sin(165 * Math.PI/180), fixed: true},
                 {id: 'privacy', group: 3, x: centerX + radius2 * Math.cos(180 * Math.PI/180), y: centerY + radius2 * Math.sin(180 * Math.PI/180), fixed: true},
                 {id: 'workflow', group: 3, x: centerX + radius2 * Math.cos(195 * Math.PI/180), y: centerY + radius2 * Math.sin(195 * Math.PI/180), fixed: true},
-                
+
                 // Interests subcategories (positions 14-18)
                 {id: 'music', group: 3, x: centerX + radius2 * Math.cos(210 * Math.PI/180), y: centerY + radius2 * Math.sin(210 * Math.PI/180), fixed: true},
                 {id: 'books', group: 3, x: centerX + radius2 * Math.cos(225 * Math.PI/180), y: centerY + radius2 * Math.sin(225 * Math.PI/180), fixed: true},
                 {id: 'movies', group: 3, x: centerX + radius2 * Math.cos(240 * Math.PI/180), y: centerY + radius2 * Math.sin(240 * Math.PI/180), fixed: true},
                 {id: 'sports', group: 3, x: centerX + radius2 * Math.cos(255 * Math.PI/180), y: centerY + radius2 * Math.sin(255 * Math.PI/180), fixed: true},
                 {id: 'hobbies', group: 3, x: centerX + radius2 * Math.cos(270 * Math.PI/180), y: centerY + radius2 * Math.sin(270 * Math.PI/180), fixed: true},
-                
+
                 // Technology subcategories (positions 19-21)
                 {id: 'devices', group: 3, x: centerX + radius2 * Math.cos(285 * Math.PI/180), y: centerY + radius2 * Math.sin(285 * Math.PI/180), fixed: true},
                 {id: 'tools', group: 3, x: centerX + radius2 * Math.cos(300 * Math.PI/180), y: centerY + radius2 * Math.sin(300 * Math.PI/180), fixed: true},
                 {id: 'platforms', group: 3, x: centerX + radius2 * Math.cos(315 * Math.PI/180), y: centerY + radius2 * Math.sin(315 * Math.PI/180), fixed: true}
             ];
-            
+
             // Links are now provided by graphData.links (defined above)
 
             // Create a minimal simulation since we're using fixed positioning
@@ -2570,7 +3009,7 @@
                 .attr('fill', d => {
                     // Color based on level
                     if (d.level === 0) return 'url(#centerGradient)';      // Blue gradient for root
-                    if (d.level === 1) return 'url(#midGradient)';         // Purple gradient for categories  
+                    if (d.level === 1) return 'url(#midGradient)';         // Purple gradient for categories
                     return 'url(#leafGradient)';                           // Pink gradient for specifics
                 })
                 .attr('stroke', d => {
@@ -2595,12 +3034,12 @@
                 })
                 .call(d3.drag()
                     .on('start', dragstarted)
-                    .on('drag', dragged)  
+                    .on('drag', dragged)
                     .on('end', dragended));
 
             // Add gradient definitions for modern styling
             const defs = svg.append('defs');
-            
+
             const centerGradient = defs.append('linearGradient')
                 .attr('id', 'centerGradient')
                 .attr('gradientUnits', 'userSpaceOnUse')
@@ -2642,7 +3081,7 @@
             let tickCount = 0;
             simulation.on('tick', () => {
                 tickCount++;
-                
+
                 // Only update DOM every few ticks for better performance
                 if (tickCount % 2 === 0) {
                     link.attr('x1', d => d.source.x)
@@ -2716,6 +3155,38 @@
             });
         }
 
+        // Available commands with descriptions
+        const availableCommands = [
+            { cmd: '/connect', args: '<path>', desc: 'Connect to memory store at path' },
+            { cmd: '/refresh', args: '', desc: 'Refresh current connection' },
+            { cmd: '/demo', args: '', desc: 'Show original demo data' },
+            { cmd: '/repo', args: '', desc: 'Show repository information' },
+            { cmd: '/code', args: '', desc: 'Show Python integration code' },
+            { cmd: '/help', args: '', desc: 'Show all available commands' },
+            { cmd: '/share', args: '<path>', desc: 'Share memory or branch (coming soon)', placeholder: true },
+            { cmd: '/summarize', args: '[path]', desc: 'Generate summary of memories (coming soon)', placeholder: true },
+            { cmd: '/remember', args: '<content>', desc: 'Add memory with smart classification (coming soon)', placeholder: true },
+            { cmd: '/forget', args: '<pattern>', desc: 'Remove memories matching pattern (coming soon)', placeholder: true },
+            { cmd: '/time-travel', args: '<commit>', desc: 'View memories at specific commit (coming soon)', placeholder: true },
+            { cmd: '/blame', args: '<path>', desc: 'Show history of memory changes (coming soon)', placeholder: true },
+            { cmd: '/timeline', args: '[filter]', desc: 'Show chronological memory timeline (coming soon)', placeholder: true },
+            { cmd: '/location', args: '<place>', desc: 'Filter memories by location context (coming soon)', placeholder: true },
+            { cmd: '/what-if', args: '<scenario>', desc: 'Simulate hypothetical memory scenarios (coming soon)', placeholder: true },
+            { cmd: '/never-mind', args: '', desc: 'Undo last operation or clear current context (coming soon)', placeholder: true },
+            { cmd: '/merge', args: '<branch>', desc: 'Merge memory branch into current branch (coming soon)', placeholder: true },
+            { cmd: '/what-happened', args: '[timeframe]', desc: 'Show recent memory changes and activity (coming soon)', placeholder: true },
+            { cmd: '/organize', args: '[pattern]', desc: 'Auto-organize and restructure memories (coming soon)', placeholder: true },
+            { cmd: '/sign-in', args: '[provider]', desc: 'Sign in to sync memories across devices (coming soon)', placeholder: true },
+            { cmd: '/sign-out', args: '', desc: 'Sign out and clear session data (coming soon)', placeholder: true },
+            { cmd: '/upgrade', args: '', desc: 'Upgrade to premium features (coming soon)', placeholder: true },
+            { cmd: '/portal', args: '[destination]', desc: 'Open web portal or external integrations (coming soon)', placeholder: true },
+            { cmd: '/test', args: '[suite]', desc: 'Run memory system tests and diagnostics (coming soon)', placeholder: true },
+            { cmd: '/prompt', args: '<template>', desc: 'Create and manage AI prompt templates (coming soon)', placeholder: true },
+            { cmd: '/encrypt', args: '[method]', desc: 'Encrypt memory data with security options (coming soon)', placeholder: true }
+        ];
+
+        let selectedCommandIndex = -1;
+
         // Memory Input Bar Functionality
         function initializeMemoryInput() {
             const input = document.getElementById('memoryInput');
@@ -2723,35 +3194,114 @@
             const addBtn = document.getElementById('addBtn');
             const suggestions = document.getElementById('inputSuggestions');
 
+            // Create command suggestions element
+            createCommandSuggestionsElement();
+
+            // Hide command suggestions when clicking outside input area
+            document.addEventListener('click', (e) => {
+                const input = document.getElementById('memoryInput');
+                const commandSuggestions = document.getElementById('commandSuggestions');
+
+                if (input && commandSuggestions &&
+                    !input.contains(e.target) &&
+                    !commandSuggestions.contains(e.target)) {
+                    hideCommandSuggestions();
+                }
+            });
+
+            // Hide command suggestions when mouse leaves the input container
+            const inputContainer = input.parentElement;
+            inputContainer.addEventListener('mouseleave', () => {
+                // Always hide when mouse leaves, regardless of focus
+                setTimeout(() => {
+                    hideCommandSuggestions();
+                }, 100);
+            });
+
+
             // Handle input focus and blur
             input.addEventListener('focus', () => {
-                suggestions.style.display = 'block';
+                if (!input.value.startsWith('/')) {
+                    suggestions.style.display = 'block';
+                }
             });
 
             input.addEventListener('blur', (e) => {
                 // Delay hiding to allow clicking on suggestions
                 setTimeout(() => {
                     suggestions.style.display = 'none';
+                    hideCommandSuggestions();
                 }, 200);
             });
 
             // Handle Enter key
-            input.addEventListener('keydown', (e) => {
+            input.addEventListener('keydown', async (e) => {
                 if (e.key === 'Enter') {
                     e.preventDefault();
+
+                    // Check if user selected a command suggestion with arrow keys
+                    const suggestions = document.getElementById('commandSuggestions');
+                    if (suggestions && suggestions.style.display === 'block' && selectedCommandIndex >= 0) {
+                        const items = suggestions.querySelectorAll('.command-suggestion');
+                        const selectedCmd = availableCommands[parseInt(items[selectedCommandIndex].dataset.index)];
+
+                        // Handle placeholder commands differently
+                        if (selectedCmd.placeholder) {
+                            showNotification(`${selectedCmd.cmd} - ${selectedCmd.desc}`, 'info', 3000);
+                            hideCommandSuggestions();
+                            input.value = '';
+                        } else {
+                            selectCommand(selectedCmd.cmd, selectedCmd.args);
+                        }
+                        return;
+                    }
+
                     const value = input.value.trim();
                     if (value) {
-                        // Default action: query if it's a question, add if it's a statement
-                        if (value.includes('?') || value.toLowerCase().startsWith('what') || 
-                            value.toLowerCase().startsWith('how') || value.toLowerCase().startsWith('when') ||
-                            value.toLowerCase().startsWith('where') || value.toLowerCase().startsWith('why')) {
-                            handleQuery(value);
+                        // Check if it's a command
+                        if (value.startsWith('/')) {
+                            console.log('Processing command:', value);
+                            await handleCommand(value);
+                            input.value = ''; // Clear input after command
+                            hideCommandSuggestions();
                         } else {
-                            handleAddMemory(value);
+                            // Default action: query if it's a question, add if it's a statement
+                            if (value.includes('?') || value.toLowerCase().startsWith('what') ||
+                                value.toLowerCase().startsWith('how') || value.toLowerCase().startsWith('when') ||
+                                value.toLowerCase().startsWith('where') || value.toLowerCase().startsWith('why')) {
+                                handleQuery(value);
+                            } else {
+                                handleAddMemory(value);
+                            }
                         }
+                    }
+                } else if (e.key === 'Escape') {
+                    hideCommandSuggestions();
+                } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                    const suggestions = document.getElementById('commandSuggestions');
+                    if (suggestions && suggestions.style.display === 'block') {
+                        e.preventDefault();
+                        navigateCommandSuggestions(e.key === 'ArrowDown' ? 1 : -1);
                     }
                 }
             });
+
+            // Handle input changes for command suggestions
+            input.addEventListener('input', (e) => {
+                const value = e.target.value;
+                if (value.startsWith('/')) {
+                    showCommandSuggestions(value);
+                    // Hide original suggestions when showing commands
+                    suggestions.style.display = 'none';
+                } else {
+                    hideCommandSuggestions();
+                    // Show original suggestions if input is focused and not a command
+                    if (document.activeElement === input) {
+                        suggestions.style.display = 'block';
+                    }
+                }
+            });
+
 
             // Query button functionality
             queryBtn.addEventListener('click', () => {
@@ -2761,7 +3311,7 @@
                 }
             });
 
-            // Add button functionality  
+            // Add button functionality
             addBtn.addEventListener('click', () => {
                 const value = input.value.trim();
                 if (value) {
@@ -2787,22 +3337,158 @@
             });
         }
 
+        function createCommandSuggestionsElement() {
+            const input = document.getElementById('memoryInput');
+            const inputContainer = input.parentElement;
+
+            const commandSuggestions = document.createElement('div');
+            commandSuggestions.id = 'commandSuggestions';
+            commandSuggestions.style.cssText = `
+                position: absolute;
+                bottom: 100%;
+                left: 0;
+                right: 0;
+                background: rgba(15, 23, 42, 0.95);
+                backdrop-filter: blur(12px);
+                border: 1px solid rgba(71, 85, 105, 0.3);
+                border-bottom: none;
+                border-radius: 12px 12px 0 0;
+                box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.3);
+                z-index: 1001;
+                display: none;
+                max-height: 300px;
+                pointer-events: none;
+                overflow-y: auto;
+            `;
+
+            inputContainer.appendChild(commandSuggestions);
+        }
+
+        function showCommandSuggestions(input) {
+            const suggestions = document.getElementById('commandSuggestions');
+            if (!suggestions) return;
+
+            const query = input.toLowerCase();
+            const matchingCommands = availableCommands.filter(cmd =>
+                cmd.cmd.startsWith(query) || query === '/'
+            );
+
+            if (matchingCommands.length === 0) {
+                hideCommandSuggestions();
+                return;
+            }
+
+            suggestions.innerHTML = matchingCommands.map((cmd, index) => {
+                const isPlaceholder = cmd.placeholder;
+                const commandColor = isPlaceholder ? '#6b7280' : '#22d3ee';
+                const descColor = isPlaceholder ? '#6b7280' : '#94a3b8';
+                const hoverBg = isPlaceholder ? 'rgba(107, 114, 128, 0.1)' : 'rgba(99, 102, 241, 0.1)';
+                const cursor = isPlaceholder ? 'not-allowed' : 'pointer';
+                const clickHandler = isPlaceholder ? `showNotification('${cmd.cmd} - ${cmd.desc}', 'info', 3000)` : `selectCommand('${cmd.cmd}', '${cmd.args}')`;
+
+                return `
+                <div class="command-suggestion" data-index="${index}" style="
+                    padding: 12px 16px;
+                    cursor: ${cursor};
+                    border-bottom: 1px solid rgba(71, 85, 105, 0.2);
+                    transition: all 0.2s ease;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    ${isPlaceholder ? 'opacity: 0.7;' : ''}
+                " onmouseover="this.style.background='${hoverBg}'"
+                   onmouseout="this.style.background='transparent'"
+                   onclick="${clickHandler}">
+                    <div>
+                        <div style="color: ${commandColor}; font-family: 'JetBrains Mono', monospace; font-weight: 600;">
+                            ${cmd.cmd}${cmd.args ? ' ' + cmd.args : ''}
+                            ${isPlaceholder ? ' <span style="color: #f59e0b; font-size: 10px;">⚡ SOON</span>' : ''}
+                        </div>
+                        <div style="color: ${descColor}; font-size: 12px; margin-top: 2px;">
+                            ${cmd.desc}
+                        </div>
+                    </div>
+                </div>
+            `}).join('');
+
+            suggestions.style.display = 'block';
+            suggestions.style.pointerEvents = 'auto';
+            selectedCommandIndex = -1;
+        }
+
+        function hideCommandSuggestions() {
+            const commandSuggestions = document.getElementById('commandSuggestions');
+            if (commandSuggestions) {
+                commandSuggestions.style.display = 'none';
+                commandSuggestions.style.pointerEvents = 'none';
+                selectedCommandIndex = -1;
+            }
+
+            // Restore original suggestions if input is focused and not a command
+            const input = document.getElementById('memoryInput');
+            const originalSuggestions = document.getElementById('inputSuggestions');
+            if (input && originalSuggestions && document.activeElement === input && !input.value.startsWith('/')) {
+                originalSuggestions.style.display = 'block';
+            }
+        }
+
+        function navigateCommandSuggestions(direction) {
+            const suggestions = document.getElementById('commandSuggestions');
+            const items = suggestions.querySelectorAll('.command-suggestion');
+
+            // Remove previous selection
+            if (selectedCommandIndex >= 0) {
+                items[selectedCommandIndex].style.background = 'transparent';
+            }
+
+            // Update selection
+            selectedCommandIndex += direction;
+            if (selectedCommandIndex < 0) selectedCommandIndex = items.length - 1;
+            if (selectedCommandIndex >= items.length) selectedCommandIndex = 0;
+
+            // Highlight new selection
+            items[selectedCommandIndex].style.background = 'rgba(99, 102, 241, 0.2)';
+            items[selectedCommandIndex].scrollIntoView({ block: 'nearest' });
+
+            // Update input with selected command
+            const input = document.getElementById('memoryInput');
+            const selectedCmd = availableCommands[parseInt(items[selectedCommandIndex].dataset.index)];
+            input.value = selectedCmd.cmd + (selectedCmd.args ? ' ' : '');
+
+            // Position cursor at end
+            setTimeout(() => input.setSelectionRange(input.value.length, input.value.length), 0);
+        }
+
+        function selectCommand(cmd, args) {
+            const input = document.getElementById('memoryInput');
+            input.value = cmd + (args ? ' ' : '');
+            input.focus();
+
+            // Position cursor at end or after space for args
+            setTimeout(() => {
+                const cursorPos = args ? input.value.length : input.value.length;
+                input.setSelectionRange(cursorPos, cursorPos);
+            }, 0);
+
+            hideCommandSuggestions();
+        }
+
         function handleQuery(query) {
             console.log('Querying memory:', query);
-            
+
             // Show visual feedback
             const input = document.getElementById('memoryInput');
             const queryBtn = document.getElementById('queryBtn');
-            
+
             queryBtn.style.background = 'rgba(34, 211, 238, 0.3)';
             queryBtn.style.color = '#22d3ee';
-            
+
             // Simulate search results (in real implementation, this would call the backend)
             setTimeout(() => {
                 // Reset button style
                 queryBtn.style.background = '';
                 queryBtn.style.color = '';
-                
+
                 // Show mock results
                 showQueryResults(query);
                 input.value = '';
@@ -2811,20 +3497,20 @@
 
         function handleAddMemory(content) {
             console.log('Adding memory:', content);
-            
+
             // Show visual feedback
             const input = document.getElementById('memoryInput');
             const addBtn = document.getElementById('addBtn');
-            
+
             addBtn.style.background = 'rgba(34, 197, 94, 0.3)';
             addBtn.style.color = '#22c55e';
-            
+
             // Simulate adding memory (in real implementation, this would call the backend)
             setTimeout(() => {
                 // Reset button style
                 addBtn.style.background = '';
                 addBtn.style.color = '';
-                
+
                 // Show success feedback
                 showAddSuccess(content);
                 input.value = '';
@@ -2836,7 +3522,7 @@
             const detailsPanel = document.getElementById('memoryDetails');
             const detailsPath = document.getElementById('detailsPath');
             const memoriesList = document.getElementById('memoriesList');
-            
+
             detailsPath.textContent = `Search Results: "${query}"`;
             memoriesList.innerHTML = `
                 <div class="memory-item">
@@ -2854,7 +3540,7 @@
                     </div>
                 </div>
             `;
-            
+
             detailsPanel.classList.add('open');
         }
 
@@ -2875,9 +3561,9 @@
                 backdrop-filter: blur(10px);
             `;
             notification.textContent = `✅ Memory added: "${content.substring(0, 50)}${content.length > 50 ? '...' : ''}"`;
-            
+
             document.body.appendChild(notification);
-            
+
             setTimeout(() => {
                 notification.remove();
             }, 3000);
