@@ -200,7 +200,11 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
             classification = await self.classifier.classify_async(
                 str(content), metadata=metadata
             )
-            semantic_key = classification.path
+            # Handle different classifier result formats
+            if hasattr(classification, 'primary_path'):
+                semantic_key = classification.primary_path  # SemanticClassifier
+            else:
+                semantic_key = classification.path  # IntelligentClassifier
 
             # Handle case where classification fails and returns None path
             if semantic_key is None:
