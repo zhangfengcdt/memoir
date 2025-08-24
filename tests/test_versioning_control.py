@@ -11,9 +11,12 @@ import tempfile
 import time
 from pathlib import Path
 
+import pytest
+
 from memoir.store.prolly_adapter import ProllyTreeStore
 
 
+@pytest.mark.skip(reason="ProllyTree package not officially published yet")
 class TestVersioningControl:
     """Test versioning control functionality."""
 
