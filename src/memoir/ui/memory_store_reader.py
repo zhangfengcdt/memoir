@@ -26,7 +26,7 @@ def read_store_data(store_path: str):
         # We only need to read data, not create new commits
         store = ProllyTreeStore(
             path=store_path,
-            enable_versioning=False,  # Disable to prevent new commits
+            enable_versioning=True,
             auto_commit=False,
             cache_size=10000,
         )

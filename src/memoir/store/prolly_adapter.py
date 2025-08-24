@@ -98,20 +98,6 @@ class ProllyTreeStore(BaseStore):
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
-                subprocess.run(
-                    ["git", "config", "user.name", "LangMem ProllyTree"],
-                    cwd=self.path,
-                    check=True,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
-                subprocess.run(
-                    ["git", "config", "user.email", "langmem@example.com"],
-                    cwd=self.path,
-                    check=True,
-                    stdout=subprocess.DEVNULL,
-                    stderr=subprocess.DEVNULL,
-                )
 
                 # Create initial commit
                 readme_path = os.path.join(self.path, "README.md")
@@ -125,7 +111,7 @@ class ProllyTreeStore(BaseStore):
                     stderr=subprocess.DEVNULL,
                 )
                 subprocess.run(
-                    ["git", "commit", "-m", "Initial commit"],
+                    ["git", "commit", "-m", "Initial Commit -- ProllyTree Store"],
                     cwd=self.path,
                     check=True,
                     stdout=subprocess.DEVNULL,
