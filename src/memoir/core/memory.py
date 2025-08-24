@@ -201,7 +201,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
                 str(content), metadata=metadata
             )
             # Handle different classifier result formats
-            if hasattr(classification, 'primary_path'):
+            if hasattr(classification, "primary_path"):
                 semantic_key = classification.primary_path  # SemanticClassifier
             else:
                 semantic_key = classification.path  # IntelligentClassifier
