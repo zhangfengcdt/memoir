@@ -28,5 +28,10 @@ lint.ignore = [
 "tests/**/*" = ["ARG", "S101", "S106", "S113"]
 "examples/**/*" = ["T201", "S101", "S106"]
 
+[lint.flake8-quotes]
+inline-quotes = "double"
+multiline-quotes = "double"
+docstring-quotes = "double"
+
 [lint.isort]
 known-first-party = ["memoir"]
