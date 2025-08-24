@@ -6,6 +6,10 @@
     <title>Memoir Memory Visualizer</title>
     <link rel="icon" type="image/png" href="static/memoir.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Syntax highlighting for code -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
     <script src="https://unpkg.com/d3@7"></script>
     <style>
         * {
@@ -13,6 +17,29 @@
             padding: 0;
             box-sizing: border-box;
         }
+
+        /* Custom styles for syntax highlighting in modal */
+        .hljs {
+            background: transparent !important;
+            padding: 0 !important;
+        }
+
+        pre code.hljs {
+            display: block;
+            overflow-x: auto;
+            padding: 0;
+        }
+
+        /* Enhance Python syntax colors for dark theme */
+        .hljs-keyword { color: #ff79c6 !important; }
+        .hljs-string { color: #f1fa8c !important; }
+        .hljs-number { color: #bd93f9 !important; }
+        .hljs-comment { color: #6272a4 !important; }
+        .hljs-function { color: #50fa7b !important; }
+        .hljs-class { color: #8be9fd !important; }
+        .hljs-decorator { color: #ff79c6 !important; }
+        .hljs-builtin { color: #8be9fd !important; }
+        .hljs-params { color: #f8f8f2 !important; }
 
         body {
             font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
@@ -2042,19 +2069,18 @@ config = {"configurable": {"store": langgraph_store}}`;
 
             const modalContent = document.createElement('div');
             modalContent.style.cssText = `
-                background: #1e293b;
+                background: #0d1117;
                 color: #f1f5f9;
                 border-radius: 12px;
                 padding: 24px;
-                max-width: 800px;
+                max-width: 900px;
                 max-height: 80vh;
                 overflow-y: auto;
                 font-family: 'JetBrains Mono', monospace;
-                font-size: 13px;
-                line-height: 1.5;
-                white-space: pre-line;
-                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
-                border: 1px solid rgba(71, 85, 105, 0.3);
+                font-size: 14px;
+                line-height: 1.6;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+                border: 1px solid rgba(48, 54, 61, 0.5);
             `;
 
             const closeButton = document.createElement('button');
@@ -2130,10 +2156,25 @@ config = {"configurable": {"store": langgraph_store}}`;
             modalContent.appendChild(closeButton);
             modalContent.appendChild(copyButton);
 
-            const codeText = document.createElement('div');
-            codeText.textContent = code;
-            codeText.style.marginRight = '20px'; // Space for close button
-            modalContent.appendChild(codeText);
+            // Create a pre/code element for syntax highlighting
+            const preElement = document.createElement('pre');
+            const codeElement = document.createElement('code');
+            codeElement.className = 'language-python';
+            codeElement.textContent = code;
+            
+            // Apply syntax highlighting
+            hljs.highlightElement(codeElement);
+            
+            preElement.appendChild(codeElement);
+            preElement.style.cssText = `
+                margin: 0;
+                padding: 0;
+                background: transparent;
+                overflow-x: auto;
+                margin-right: 20px;
+            `;
+            
+            modalContent.appendChild(preElement);
 
             modal.appendChild(modalContent);
             document.body.appendChild(modal);

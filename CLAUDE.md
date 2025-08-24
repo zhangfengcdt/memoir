@@ -37,6 +37,10 @@ make perf                    # Run benchmarks + show performance summary
 
 # Utility scripts
 python scripts/check_status.py            # Check repository and system status
+
+# UI Visualization Server
+python -m src.memoir.ui.serve_ui          # Start interactive memory visualization UI (port 8080)
+python -m src.memoir.ui.initialize_sample_store  # Create sample memory store for UI testing
 ```
 
 ## Architecture Overview
@@ -84,6 +88,13 @@ This project brings Git-like version control to AI memory systems, replacing opa
 - **BaseIntegration** (`base.py`): Abstract base for framework integrations
 - **MemoryConfig** (`langgraph/types.py`): Configuration management
 - **Utilities** (`langgraph/utils.py`): Helper functions for LangGraph workflows
+
+#### 7. **Interactive UI** (`src/memoir/ui/`)
+- **Web-based Visualization** (`visualization.html`): D3.js memory tree explorer
+- **Python code highlighting**: Syntax-highlighted code examples using highlight.js
+- **Git-like interface**: Branch switching, commit history, time-travel
+- **Command system**: `/connect`, `/code`, `/refresh` and more commands
+- **Real-time updates**: Connect to live memory stores and explore data
 
 ### Key Performance Metrics
 - **Search latency**: 0.1-1ms (vs 150-750ms traditional)
