@@ -1,8 +1,8 @@
 services:
   memoir-ui:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile
     container_name: memoir-ui-service
     ports:
       - "8080:8080"
@@ -27,8 +27,8 @@ services:
   # Optional: Add a data initialization service
   memoir-init:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile
     container_name: memoir-init-service
     volumes:
       - memoir_data:/app/data/memory_stores

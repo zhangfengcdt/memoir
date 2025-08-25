@@ -66,10 +66,11 @@ Just as Git transformed software development from fragile, unversioned code to r
 # Quick start with startup script
 git clone https://github.com/yourusername/memoir.git
 cd memoir
-./start-docker.sh start
+./docker.sh start
 
-# Or with Docker Compose directly
-docker-compose up -d
+# Or run directly from docker/ folder
+cd docker
+./start-docker.sh start
 
 # Open browser to http://localhost:8080
 ```
@@ -88,7 +89,7 @@ cd memoir
 pip install -e ".[dev]"
 ```
 
-> 📋 **See [DOCKER.md](./DOCKER.md) for comprehensive Docker setup and usage guide**
+> 📋 **See [docker/README.md](./docker/README.md) for comprehensive Docker setup and usage guide**
 
 ### Basic Usage with Version Control
 

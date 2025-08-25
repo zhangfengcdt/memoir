@@ -1,20 +1,18 @@
-version: '3.8'
-
 # Development override for docker-compose.yml
 # Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 
 services:
   memoir-ui:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: docker/Dockerfile
     volumes:
       # Mount source code for live development
-      - ./src:/app/src:ro
-      - ./examples:/app/examples:ro
-      - ./tests:/app/tests:ro
+      - ../src:/app/src:ro
+      - ../examples:/app/examples:ro
+      - ../tests:/app/tests:ro
       # Mount local data directory for development
-      - ./docker-data:/app/data/memory_stores
+      - ../docker-data:/app/data/memory_stores
     environment:
       - PYTHONPATH=/app
       - MEMOIR_DATA_DIR=/app/data/memory_stores

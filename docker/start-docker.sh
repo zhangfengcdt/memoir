@@ -21,9 +21,9 @@ if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/
     exit 1
 fi
 
-# Create data directory
+# Create data directory  
 echo "📁 Creating data directories..."
-mkdir -p docker-data
+mkdir -p ../docker-data
 
 # Function to use docker-compose or docker compose
 run_compose() {
@@ -118,7 +118,7 @@ case $COMMAND in
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             run_compose down -v --rmi local
             docker volume rm memoir_data 2>/dev/null || true
-            rm -rf docker-data
+            rm -rf ../docker-data
             echo "✅ Cleanup complete."
         else
             echo "❌ Cleanup cancelled."
