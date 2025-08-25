@@ -17,6 +17,11 @@ cd docker
 
 Then open your browser to http://localhost:8080
 
+**Getting Started**: Since the sample data initialization is temporarily disabled due to containerization constraints, use these commands in the UI:
+- `/demo` - Explore with demo data
+- `/repo` - View repository information  
+- `/code` - See Python integration examples
+
 ## Files in this Directory
 
 - **Dockerfile** - Multi-stage Docker image build configuration

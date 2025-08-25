@@ -22,8 +22,7 @@ if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/
 fi
 
 # Create data directory  
-echo "📁 Creating data directories..."
-mkdir -p ../docker-data
+echo "📁 Setting up Docker volumes..."
 
 # Function to use docker-compose or docker compose
 run_compose() {
@@ -62,9 +61,11 @@ case $COMMAND in
                 echo "   http://localhost:8080"
                 echo ""
                 echo "🧪 Try these commands in the UI:"
-                echo "   /connect /app/data/memory_stores/sample_store"
-                echo "   /proof profile.personal.name"
-                echo "   /verify"
+                echo "   /demo                           # Show demo data for exploration"
+                echo "   /repo                           # Show repository information"  
+                echo "   /code                           # Show Python integration code"
+                echo "   /proof profile.personal.name    # Generate cryptographic proof"
+                echo "   /verify                         # Verify the generated proof"
                 echo ""
                 echo "📚 For more help:"
                 echo "   • Type /help in the UI"
@@ -118,7 +119,7 @@ case $COMMAND in
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             run_compose down -v --rmi local
             docker volume rm memoir_data 2>/dev/null || true
-            rm -rf ../docker-data
+            # Docker volumes will be removed by docker-compose down -v
             echo "✅ Cleanup complete."
         else
             echo "❌ Cleanup cancelled."

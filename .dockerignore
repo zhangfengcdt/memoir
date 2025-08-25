@@ -68,13 +68,15 @@ docs/build/
 
 # Local data directories (keep these out of container)
 data/
+docker-data/
 tmp/
 temp/
 .tmp/
 
 # Docker files (don't copy into image)
-Dockerfile*
+docker/
 docker-compose*.yml
+docker.sh
 .dockerignore
 
 # CI/CD

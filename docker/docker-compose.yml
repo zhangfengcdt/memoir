@@ -24,7 +24,7 @@ services:
     networks:
       - memoir-network
 
-  # Optional: Add a data initialization service
+  # Optional: Add a data initialization service (temporarily disabled)
   memoir-init:
     build:
       context: ..
@@ -41,14 +41,12 @@ services:
     restart: "no"
     networks:
       - memoir-network
+    profiles:
+      - init  # This service won't start by default
 
 volumes:
   memoir_data:
     driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${PWD}/docker-data
 
 networks:
   memoir-network:

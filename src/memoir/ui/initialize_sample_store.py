@@ -7,6 +7,7 @@ import argparse
 import asyncio
 import json
 import os
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -86,6 +87,13 @@ async def main():
 
     # 1. Initialize storage layer
     print("1. Creating storage layer...")
+    
+    # Initialize git repository if needed for versioning
+    if not os.path.exists(os.path.join(store_path, '.git')):
+        print("   Initializing git repository for versioning...")
+        os.makedirs(store_path, exist_ok=True)
+        subprocess.run(['git', 'init'], cwd=store_path, check=True, capture_output=True)
+        
     store = ProllyTreeStore(
         path=store_path,
         enable_versioning=True,
