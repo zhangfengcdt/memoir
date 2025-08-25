@@ -31,6 +31,8 @@ Interactive visualization tool for exploring Memoir memory stores with Git-like 
 - `/demo` - Show original demo data visualization
 - `/repo` - Show repository information and Git details
 - `/code` - Show Python LangGraph integration code example with syntax highlighting
+- `/proof <memory-path>` - Generate cryptographic proof for a memory (e.g., `/proof profile.personal.name`)
+- `/verify` - Verify the last generated proof
 - `/help` - Show all available commands
 
 ### Planned Commands (Coming Soon)
@@ -64,6 +66,8 @@ Interactive visualization tool for exploring Memoir memory stores with Git-like 
 - **Branch switching**: View different branches and their commits
 - **Syntax highlighting**: Python code snippets displayed with full syntax highlighting
 - **Code integration examples**: Use `/code` command to see LangGraph integration examples with proper highlighting
+- **Cryptographic proofs**: Generate and verify cryptographic proofs for memory integrity
+- **Zero-knowledge verification**: Verify memory existence and integrity without revealing content
 
 ## Files
 
@@ -92,6 +96,16 @@ Then connect to it in the UI:
 - Modern web browser (Chrome, Firefox, Safari, Edge)
 
 ## Technical Details
+
+### Cryptographic Proof System
+The UI now supports cryptographic proof generation and verification:
+- **Generate proofs**: Use `/proof <memory-path>` to generate a cryptographic proof for any memory
+- **Verify proofs**: Use `/verify` to verify the last generated proof
+- **Proof format**: Proofs are encoded in Base64 for easy sharing and storage
+- **Integrity verification**: Proofs cryptographically verify that memory data hasn't been tampered with
+- **API endpoints**:
+  - `/api/proof` - Generate proof for a memory key
+  - `/api/verify` - Verify a proof against current state
 
 ### Syntax Highlighting
 The UI uses [highlight.js](https://highlightjs.org/) for syntax highlighting of Python code:

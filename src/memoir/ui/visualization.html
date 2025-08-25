@@ -1685,6 +1685,22 @@
                 showRepoInfo();
             } else if (cmd === '/code') {
                 showIntegrationCode();
+            } else if (cmd === '/proof') {
+                const memoryPath = parts.slice(1).join(' ').trim();
+                if (!memoryPath) {
+                    showNotification('Usage: /proof <memory-path>', 'error');
+                } else {
+                    generateProof(memoryPath);
+                }
+            } else if (cmd === '/verify') {
+                const proofData = parts.slice(1).join(' ').trim();
+                if (proofData) {
+                    // User provided proof data - try to parse it
+                    showVerifyWithInput(proofData);
+                } else {
+                    // No input - use last generated proof or show input dialog
+                    showVerifyUI();
+                }
             } else if (cmd === '/help') {
                 const workingCommands = availableCommands.filter(c => !c.placeholder).map(c => c.cmd + (c.args ? ' ' + c.args : '')).join(', ');
                 const comingSoonCommands = availableCommands.filter(c => c.placeholder).map(c => c.cmd).join(', ');
@@ -2045,6 +2061,162 @@ config = {"configurable": {"store": langgraph_store}}`;
 
             // Show code in a modal-like notification
             showCodeModal(integrationCode);
+        }
+
+        async function generateProof(memoryPath) {
+            if (!connectedStorePath) {
+                showNotification('Please connect to a store first with /connect <path>', 'error');
+                return;
+            }
+
+            showNotification(`Generating proof for: ${memoryPath}...`, 'info');
+
+            try {
+                const response = await fetch(`/api/proof?path=${encodeURIComponent(connectedStorePath)}&key=${encodeURIComponent(memoryPath)}&namespace=alice_chen`);
+                const result = await response.json();
+
+                if (result.success) {
+                    // Store the last proof for easy verification
+                    window.lastProof = result;
+
+                    // Show proof in modal
+                    const proofDisplay = `
+🔐 Cryptographic Proof Generated
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Memory Path: ${result.key}
+Namespace: ${result.namespace}
+Proof Size: ${result.proof_size} bytes
+
+Proof (Base64):
+${result.proof}
+
+Current Value:
+${JSON.stringify(result.value, null, 2)}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+To verify this proof:
+• Quick verify (uses cached data): /verify
+• Manual verify (copy this command):
+  /verify ${result.proof} ${result.key}
+
+• Share as JSON:
+  ${JSON.stringify({proof: result.proof, key: result.key, namespace: result.namespace})}
+
+💡 Tip: The manual verify command above is ready to copy-paste!
+                    `;
+                    showCodeModal(proofDisplay);
+                    showNotification('Proof generated successfully! ✓', 'success');
+                } else {
+                    showNotification(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showNotification(`Failed to generate proof: ${error.message}`, 'error');
+            }
+        }
+
+        function showVerifyUI() {
+            if (!window.lastProof) {
+                // Show instructions for manual verification
+                const helpText = `
+📝 Proof Verification Options
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+No cached proof found. You can:
+
+1. Generate a proof first:
+   /proof <memory-path>
+
+2. Verify a proof manually:
+   /verify <proof-base64> <memory-key>
+
+3. Paste a proof JSON:
+   /verify {"proof":"...", "key":"...", "namespace":"..."}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+The verify command uses the last generated proof by default,
+or you can provide proof data manually for verification.
+                `;
+                showCodeModal(helpText);
+                return;
+            }
+
+            // Use cached proof from last generation
+            showNotification(`Verifying last generated proof for: ${window.lastProof.key}`, 'info');
+            verifyProof(window.lastProof.proof, window.lastProof.key, window.lastProof.namespace);
+        }
+
+        function showVerifyWithInput(proofData) {
+            try {
+                // Try to parse as JSON first
+                if (proofData.startsWith('{')) {
+                    const parsed = JSON.parse(proofData);
+                    if (parsed.proof && parsed.key) {
+                        verifyProof(parsed.proof, parsed.key, parsed.namespace || 'alice_chen');
+                        return;
+                    }
+                }
+
+                // Otherwise treat as space-separated: proof key [namespace]
+                const parts = proofData.split(' ');
+                if (parts.length >= 2) {
+                    const [proof, key, namespace = 'alice_chen'] = parts;
+                    verifyProof(proof, key, namespace);
+                } else {
+                    showNotification('Invalid format. Use: /verify <proof> <key> [namespace]', 'error');
+                }
+            } catch (error) {
+                showNotification(`Failed to parse proof data: ${error.message}`, 'error');
+            }
+        }
+
+        async function verifyProof(proofB64, memoryKey, namespace = 'alice_chen') {
+            if (!connectedStorePath) {
+                showNotification('Please connect to a store first with /connect <path>', 'error');
+                return;
+            }
+
+            showNotification('Verifying proof...', 'info');
+
+            try {
+                const response = await fetch(`/api/verify?path=${encodeURIComponent(connectedStorePath)}&proof=${encodeURIComponent(proofB64)}&key=${encodeURIComponent(memoryKey)}&namespace=${namespace}`);
+                const result = await response.json();
+
+                if (result.success) {
+                    const verifyDisplay = `
+🔍 Proof Verification Result
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Memory Path: ${result.key}
+Namespace: ${result.namespace}
+
+Verification: ${result.valid ? '✅ VALID' : '❌ INVALID'}
+${result.message}
+
+Current Value:
+${JSON.stringify(result.current_value, null, 2)}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${result.valid ?
+'This proof cryptographically verifies that the memory exists\nand has not been tampered with.' :
+'This proof could not be verified. The memory may have been\nmodified or the proof may be corrupted.'}
+                    `;
+                    showCodeModal(verifyDisplay);
+
+                    if (result.valid) {
+                        showNotification('Proof verified successfully! ✅', 'success');
+                    } else {
+                        showNotification('Proof verification failed! ❌', 'error');
+                    }
+                } else {
+                    showNotification(`Error: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                showNotification(`Failed to verify proof: ${error.message}`, 'error');
+            }
         }
 
         function showCodeModal(code) {
@@ -3200,6 +3372,8 @@ config = {"configurable": {"store": langgraph_store}}`;
             { cmd: '/demo', args: '', desc: 'Show original demo data' },
             { cmd: '/repo', args: '', desc: 'Show repository information' },
             { cmd: '/code', args: '', desc: 'Show Python integration code' },
+            { cmd: '/proof', args: '<memory-path>', desc: 'Generate cryptographic proof for a memory' },
+            { cmd: '/verify', args: '[proof] [key]', desc: 'Verify last proof or provide proof data' },
             { cmd: '/help', args: '', desc: 'Show all available commands' },
             { cmd: '/share', args: '<path>', desc: 'Share memory or branch (coming soon)', placeholder: true },
             { cmd: '/summarize', args: '[path]', desc: 'Generate summary of memories (coming soon)', placeholder: true },
