@@ -19,13 +19,13 @@ Then open your browser to http://localhost:8080
 
 **Getting Started**: Since the sample data initialization is temporarily disabled due to containerization constraints, use these commands in the UI:
 - `/demo` - Explore with demo data
-- `/repo` - View repository information  
+- `/repo` - View repository information
 - `/code` - See Python integration examples
 
 ## Files in this Directory
 
 - **Dockerfile** - Multi-stage Docker image build configuration
-- **docker-compose.yml** - Production service orchestration  
+- **docker-compose.yml** - Production service orchestration
 - **docker-compose.dev.yml** - Development overrides for live coding
 - **start-docker.sh** - Convenient script with multiple commands
 - **README.md** - This documentation file
@@ -39,7 +39,7 @@ All commands work from either the project root (using `./docker.sh`) or from thi
 ./start-docker.sh start           # Production mode
 ./start-docker.sh start dev       # Development mode
 
-# Manage services  
+# Manage services
 ./start-docker.sh stop            # Stop all services
 ./start-docker.sh restart         # Restart services
 ./start-docker.sh status          # Check service status
@@ -88,7 +88,7 @@ docker/
 ├── Dockerfile              # Container image definition
 ├── docker-compose.yml      # Production services
 ├── docker-compose.dev.yml  # Development overrides
-├── start-docker.sh         # Management script  
+├── start-docker.sh         # Management script
 └── README.md               # This file
 
 ../docker-data/             # Persistent data (created on first run)

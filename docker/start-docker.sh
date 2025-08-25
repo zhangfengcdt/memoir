@@ -21,7 +21,7 @@ if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/
     exit 1
 fi
 
-# Create data directory  
+# Create data directory
 echo "📁 Setting up Docker volumes..."
 
 # Function to use docker-compose or docker compose
@@ -47,11 +47,11 @@ case $COMMAND in
             echo "   Mode: Production"
             run_compose up -d
         fi
-        
+
         echo ""
         echo "⏳ Waiting for service to be ready..."
         sleep 5
-        
+
         # Wait for service to be healthy
         for i in {1..30}; do
             if curl -s http://localhost:8080 > /dev/null 2>&1; then
@@ -62,7 +62,7 @@ case $COMMAND in
                 echo ""
                 echo "🧪 Try these commands in the UI:"
                 echo "   /demo                           # Show demo data for exploration"
-                echo "   /repo                           # Show repository information"  
+                echo "   /repo                           # Show repository information"
                 echo "   /code                           # Show Python integration code"
                 echo "   /proof profile.personal.name    # Generate cryptographic proof"
                 echo "   /verify                         # Verify the generated proof"
@@ -76,30 +76,30 @@ case $COMMAND in
             echo -n "."
             sleep 2
         done
-        
+
         echo ""
         echo "⚠️  Service might be starting slowly. Check status with:"
         echo "   docker logs memoir-ui-service"
         ;;
-        
+
     "stop")
         echo "🛑 Stopping Memoir services..."
         run_compose down
         echo "✅ Services stopped."
         ;;
-        
+
     "restart")
         echo "🔄 Restarting Memoir services..."
         run_compose down
         run_compose up -d
         echo "✅ Services restarted."
         ;;
-        
+
     "logs")
         echo "📋 Showing Memoir service logs..."
         run_compose logs -f memoir-ui
         ;;
-        
+
     "status")
         echo "📊 Memoir service status:"
         run_compose ps
@@ -110,7 +110,7 @@ case $COMMAND in
             echo "🔴 Service is not responding"
         fi
         ;;
-        
+
     "clean")
         echo "🧹 Cleaning up Memoir services and data..."
         echo "⚠️  This will remove all containers, volumes, and data!"
@@ -125,7 +125,7 @@ case $COMMAND in
             echo "❌ Cleanup cancelled."
         fi
         ;;
-        
+
     "help")
         echo "📖 Memoir Docker Commands:"
         echo ""
@@ -143,7 +143,7 @@ case $COMMAND in
         echo "  ./start-docker.sh logs          # View logs"
         echo "  ./start-docker.sh clean         # Clean everything"
         ;;
-        
+
     *)
         echo "❌ Unknown command: $COMMAND"
         echo "   Use './start-docker.sh help' for available commands"
