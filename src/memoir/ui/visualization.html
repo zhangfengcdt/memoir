@@ -550,7 +550,7 @@
         /* Memory Structure Area */
         .memory-structure {
             flex: 1;
-            padding: 32px;
+            padding: 0;
             overflow: auto;
             /* Chrome-specific fixes */
             position: relative;
@@ -565,6 +565,8 @@
             line-height: 1.8;
             position: relative;
             z-index: 10;
+            padding: 32px;
+            height: 100%;
             pointer-events: auto;
         }
 
@@ -648,6 +650,7 @@
             background: radial-gradient(ellipse at center, rgba(30, 41, 59, 0.3) 0%, rgba(15, 23, 42, 0.8) 100%);
             backdrop-filter: blur(10px);
             position: relative;
+            padding: 0;
             overflow: hidden;
         }
 
