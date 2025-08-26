@@ -643,6 +643,38 @@
             opacity: 1;
         }
 
+        /* Fold/Unfold functionality */
+        .fold-indicator {
+            color: rgba(148, 163, 184, 0.7);
+            cursor: pointer;
+            font-size: 14px;
+            font-family: monospace;
+            width: 16px;
+            text-align: center;
+            display: inline-block;
+            transition: all 0.2s ease;
+            user-select: none;
+        }
+
+        .fold-indicator:hover {
+            color: rgba(34, 211, 238, 0.8);
+            transform: scale(1.2);
+        }
+
+        .fold-spacer {
+            width: 16px;
+            display: inline-block;
+        }
+
+        .tree-node.folded .node-children {
+            overflow: hidden;
+            transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .tree-node:not(.folded) .node-children {
+            transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
         /* Graph View */
         .graph-view {
             width: 100%;
@@ -1325,7 +1357,7 @@
             <div class="toolbar">
                 <div class="store-path-display" id="storePathDisplay">
                     <span class="store-icon">📂</span>
-                    <span class="store-path-text" id="storePathText">Not connected</span>
+                    <span class="store-path-text" id="storePathText">Not connected - demo mode</span>
                     <span class="store-status" id="storeStatus">●</span>
                 </div>
 
@@ -1783,9 +1815,17 @@
 
             // Clear existing data
             storeData = null;
+            window.realStoreData = null; // Clear real data so graph falls back to mock data
+            window.isNewEmptyStore = false; // Ensure we show demo data, not empty state
 
-            // Restore original static HTML tree view directly
+            // Update store path display to show demo mode
+            updateStorePathDisplay(null, 'disconnected');
+
+            // Restore tree view with fold functionality
             restoreOriginalTreeView();
+
+            // Refresh graph view with demo data
+            renderGraph();
 
             // Update branches dropdown to original state
             updateBranchesDropdown(['main', 'feature/context-memory', 'feature/ui-improvements', 'experimental/ml-optimization'], 'main');
@@ -1810,7 +1850,12 @@
             const treeView = document.getElementById('treeView');
             if (!treeView) return;
 
-            // Restore the original static HTML tree structure
+            // Use the dynamic tree builder with demo data instead of static HTML
+            const demoTree = generateMockTree(1.0);
+            treeView.innerHTML = buildTreeFromPaths(demoTree);
+            return;
+
+            // OLD STATIC HTML - keeping for reference:
             treeView.innerHTML = `
                 <div class="tree-node">
                     <div class="node-content">
@@ -2436,8 +2481,8 @@ ${result.valid ?
                 storePathText.textContent = path;
                 storePathText.title = path; // Add tooltip for long paths
             } else {
-                storePathText.textContent = 'Not connected';
-                storePathText.title = 'No store connected';
+                storePathText.textContent = 'Not connected - demo mode';
+                storePathText.title = 'No store connected - viewing demo data';
             }
 
             // Update status indicator
@@ -3105,10 +3150,12 @@ ${result.valid ?
                 const icon = getIconForPath(name, level);
                 const hasMemories = node.count > 0;
                 const hasChildren = Object.keys(node.children).length > 0;
+                const foldIcon = hasChildren ? '▼' : '';
 
                 let html = `
-                    <div class="tree-node">
+                    <div class="tree-node ${hasChildren ? 'has-children' : ''}">
                         <div class="node-content">
+                            ${hasChildren ? `<span class="fold-indicator" onclick="toggleFold(event)">${foldIcon}</span>` : '<span class="fold-spacer"></span>'}
                             <span class="node-icon">${icon}</span>
                             <span class="node-label ${hasMemories ? 'has-memories' : ''}">${name}</span>
                             ${hasMemories ? `<span class="memory-count">${node.count}</span>` : ''}
@@ -3133,6 +3180,39 @@ ${result.valid ?
             });
 
             return result || '<div class="tree-node"><div class="node-content"><span class="node-icon">📁</span><span class="node-label">No memory paths found</span></div></div>';
+        }
+
+        function toggleFold(event) {
+            event.stopPropagation(); // Prevent triggering node click events
+
+            const foldIndicator = event.target;
+            const treeNode = foldIndicator.closest('.tree-node');
+            const nodeChildren = treeNode.querySelector('.node-children');
+
+            if (!nodeChildren) return; // No children to fold/unfold
+
+            const isCurrentlyFolded = treeNode.classList.contains('folded');
+
+            if (isCurrentlyFolded) {
+                // Unfold
+                treeNode.classList.remove('folded');
+                foldIndicator.textContent = '▼';
+                nodeChildren.style.maxHeight = nodeChildren.scrollHeight + 'px';
+                // Reset to auto after animation completes
+                setTimeout(() => {
+                    if (!treeNode.classList.contains('folded')) {
+                        nodeChildren.style.maxHeight = 'none';
+                    }
+                }, 300);
+            } else {
+                // Fold
+                nodeChildren.style.maxHeight = nodeChildren.scrollHeight + 'px';
+                // Force reflow
+                nodeChildren.offsetHeight;
+                treeNode.classList.add('folded');
+                foldIndicator.textContent = '▶';
+                nodeChildren.style.maxHeight = '0';
+            }
         }
 
         function getIconForPath(name, level) {
@@ -3190,11 +3270,17 @@ ${result.valid ?
 
                 // Only include paths up to 3 levels deep (0, 1, 2)
                 if (level <= 2 && !nodeMap.has(path)) {
+                    // Check if this is a leaf node (has direct count in pathCount and level > 0)
+                    const isLeafNode = pathCount.hasOwnProperty(path) && level > 0;
+                    const group = level === 0 ? 1 : (level === 1 ? 2 : 3); // Set group based on level for compatibility
+
                     nodes.push({
                         id: path,
                         name: name,
                         level: level,
+                        group: group,
                         count: pathCount[path] || 0,
+                        isLeaf: isLeafNode,
                         x: 0, // Will be positioned later
                         y: 0, // Will be positioned later
                         fx: null,
@@ -3304,23 +3390,97 @@ ${result.valid ?
         }
 
         function buildGraphDataFromMockData() {
-            // Build graph data from the existing mock structure
-            const nodes = [
-                { id: 'profile', name: 'profile', level: 0, count: 118, x: 400, y: 300, fx: null, fy: null },
-                { id: 'profile.personal', name: 'personal', level: 1, count: 26, x: 200, y: 200, fx: null, fy: null },
-                { id: 'profile.professional', name: 'professional', level: 1, count: 34, x: 600, y: 200, fx: null, fy: null },
-                { id: 'profile.preferences', name: 'preferences', level: 1, count: 14, x: 200, y: 400, fx: null, fy: null },
-                { id: 'profile.interests', name: 'interests', level: 1, count: 21, x: 600, y: 400, fx: null, fy: null },
-                { id: 'profile.technology', name: 'technology', level: 1, count: 17, x: 400, y: 500, fx: null, fy: null }
-            ];
+            // Build comprehensive graph data from the same mock tree structure used by tree view
+            const mockTree = generateMockTree(1.0); // Use full density to match tree view
+            const nodes = [];
+            const links = [];
+            const nodeMap = new Map();
 
-            const links = [
-                { source: 'profile', target: 'profile.personal', strength: 0.5 },
-                { source: 'profile', target: 'profile.professional', strength: 0.5 },
-                { source: 'profile', target: 'profile.preferences', strength: 0.5 },
-                { source: 'profile', target: 'profile.interests', strength: 0.5 },
-                { source: 'profile', target: 'profile.technology', strength: 0.5 }
-            ];
+            // Helper function to get node name from path
+            function getNodeName(path) {
+                return path.split('.').pop();
+            }
+
+            // Helper function to get parent path
+            function getParentPath(path) {
+                const parts = path.split('.');
+                return parts.length > 1 ? parts.slice(0, -1).join('.') : null;
+            }
+
+            // Build nodes from all paths in mock tree
+            const allPaths = Object.keys(mockTree);
+            const processedPaths = new Set();
+
+            // Add root node
+            nodes.push({
+                id: 'profile',
+                name: 'profile',
+                level: 0,
+                group: 1, // Root node group
+                count: Object.values(mockTree).reduce((sum, count) => sum + count, 0),
+                isLeaf: false, // Root is never a leaf
+                x: 400,
+                y: 300,
+                fx: null,
+                fy: null
+            });
+            nodeMap.set('profile', true);
+
+            // Process all intermediate paths
+            for (const fullPath of allPaths) {
+                const pathParts = fullPath.split('.');
+
+                // Create intermediate nodes for each level
+                for (let i = 1; i < pathParts.length; i++) {
+                    const partialPath = pathParts.slice(0, i + 1).join('.');
+
+                    if (!processedPaths.has(partialPath)) {
+                        processedPaths.add(partialPath);
+
+                        // Calculate count for this node (sum of all child paths)
+                        const nodeCount = Object.entries(mockTree)
+                            .filter(([path]) => path.startsWith(partialPath))
+                            .reduce((sum, [, count]) => sum + count, 0);
+
+                        const level = i;
+                        const name = getNodeName(partialPath);
+
+                        // Position calculation for better layout
+                        const centerX = 400;
+                        const centerY = 300;
+                        const radius = 100 + (level * 80);
+                        const angle = (processedPaths.size * (2 * Math.PI / 16)) + (level * 0.5);
+
+                        // Check if this is a leaf node (has direct memory count in mockTree)
+                        const isLeafNode = mockTree.hasOwnProperty(partialPath);
+                        const group = level === 0 ? 1 : (level === 1 ? 2 : 3); // Set group based on level for compatibility
+
+                        nodes.push({
+                            id: partialPath,
+                            name: name,
+                            level: level,
+                            group: group,
+                            count: nodeCount,
+                            isLeaf: isLeafNode,
+                            x: centerX + Math.cos(angle) * radius,
+                            y: centerY + Math.sin(angle) * radius,
+                            fx: null,
+                            fy: null
+                        });
+                        nodeMap.set(partialPath, true);
+
+                        // Create link to parent
+                        const parentPath = getParentPath(partialPath);
+                        if (parentPath && nodeMap.has(parentPath)) {
+                            links.push({
+                                source: parentPath,
+                                target: partialPath,
+                                strength: 0.5
+                            });
+                        }
+                    }
+                }
+            }
 
             return { nodes, links };
         }
@@ -3756,8 +3916,8 @@ ${result.valid ?
                     text.style('opacity', 1);
                 }, 2000);
 
-                // Show memory details if it's a leaf node
-                if (d.group === 3) {
+                // Show memory details if it's a leaf node with memories
+                if (d.isLeaf && d.count > 0) {
                     showMemoryDetails(d.id);
                 }
             });
@@ -4180,8 +4340,17 @@ ${result.valid ?
             }, 3000);
         }
 
-        // Initialize the memory input functionality
-        initializeMemoryInput();
+        // Initialize the page
+        function initializePage() {
+            // Initialize demo mode tree with fold functionality
+            restoreOriginalTreeView();
+
+            // Initialize the memory input functionality
+            initializeMemoryInput();
+        }
+
+        // Run initialization when page loads
+        initializePage();
     </script>
 </body>
 </html>
