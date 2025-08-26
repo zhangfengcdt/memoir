@@ -1642,7 +1642,7 @@
             console.log('Handling command:', command);
             const parts = command.trim().split(' ');
             let cmd = parts[0].toLowerCase();
-            
+
             // Command aliases mapping
             const aliases = {
                 '/con': '/connect',
@@ -1659,12 +1659,12 @@
                 '/clear': '/clear',
                 '/cls': '/clear'
             };
-            
+
             // Resolve alias to full command
             if (aliases[cmd]) {
                 cmd = aliases[cmd];
             }
-            
+
             console.log('Command parts:', parts);
             console.log('Resolved command:', cmd);
 
