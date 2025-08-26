@@ -467,10 +467,54 @@
             padding: 20px 32px;
             display: flex;
             align-items: center;
+            justify-content: space-between;
             gap: 24px;
         }
 
+        .store-path-display {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(51, 65, 85, 0.3);
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-family: 'JetBrains Mono', monospace;
+            flex: 1;
+            min-width: 0; /* Allow truncation */
+            max-width: 400px;
+        }
 
+        .store-icon {
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .store-path-text {
+            color: #e2e8f0;
+            font-size: 14px;
+            font-weight: 500;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex: 1;
+            min-width: 0;
+        }
+
+        .store-status {
+            font-size: 8px;
+            flex-shrink: 0;
+            color: #ef4444; /* Red by default (disconnected) */
+            transition: color 0.3s ease;
+        }
+
+        .store-status.connected {
+            color: #22c55e; /* Green when connected */
+        }
+
+        .store-status.connecting {
+            color: #f59e0b; /* Yellow when connecting */
+        }
 
         .view-toggle {
             display: flex;
@@ -1276,6 +1320,12 @@
         <!-- Main Panel -->
         <div class="main-panel">
             <div class="toolbar">
+                <div class="store-path-display" id="storePathDisplay">
+                    <span class="store-icon">📂</span>
+                    <span class="store-path-text" id="storePathText">Not connected</span>
+                    <span class="store-status" id="storeStatus">●</span>
+                </div>
+                
                 <div class="view-toggle">
                     <button class="view-btn active" data-view="tree">🌳 Tree</button>
                     <button class="view-btn" data-view="graph">🕸️ Graph</button>
@@ -2372,8 +2422,28 @@ ${result.valid ?
             document.addEventListener('keydown', handleKeydown);
         }
 
+        function updateStorePathDisplay(path = null, status = 'disconnected') {
+            const storePathText = document.getElementById('storePathText');
+            const storeStatus = document.getElementById('storeStatus');
+            
+            if (!storePathText || !storeStatus) return;
+            
+            // Update path text
+            if (path) {
+                storePathText.textContent = path;
+                storePathText.title = path; // Add tooltip for long paths
+            } else {
+                storePathText.textContent = 'Not connected';
+                storePathText.title = 'No store connected';
+            }
+            
+            // Update status indicator
+            storeStatus.className = `store-status ${status}`;
+        }
+
         async function connectToStore(path) {
             console.log('Attempting to connect to:', path);
+            updateStorePathDisplay(path, 'connecting');
             showNotification(`Connecting to ${path}...`, 'info');
 
             try {
@@ -2397,6 +2467,7 @@ ${result.valid ?
                         // Clear the new empty store flag when connecting to existing data
                         window.isNewEmptyStore = false;
 
+                        updateStorePathDisplay(path, 'connected');
                         showNotification(`Successfully connected to ${path}`, 'success');
                         updateUIWithRealData(data);
                         return;
@@ -2415,6 +2486,7 @@ ${result.valid ?
                         data = await response.json();
                         connectedStorePath = path;
                         storeData = data;
+                        updateStorePathDisplay(path, 'connected');
                         showNotification(`Connected to ${path} (file mode)`, 'success');
                         updateUIWithRealData(data);
                         return;
@@ -2424,10 +2496,12 @@ ${result.valid ?
                 }
 
                 // If both methods fail, show an error instead of falling back
+                updateStorePathDisplay(null, 'disconnected');
                 showNotification(`Failed to connect to ${path}. Path may not exist or store may be empty. Try:\n1. Check if path exists\n2. Run initialization script\n3. Use HTTP server (python serve_ui.py)`, 'error');
                 return;
             } catch (error) {
                 console.error('Connection error:', error);
+                updateStorePathDisplay(null, 'disconnected');
                 showNotification(`Connection failed: ${error.message}`, 'error');
             }
         }
@@ -2533,6 +2607,9 @@ ${result.valid ?
                     // Ensure flag is set for new empty store
                     window.isNewEmptyStore = true;
 
+                    // Update store path display
+                    updateStorePathDisplay(path, 'connected');
+
                     // Update status to show we're connected to the new store
                     const statusEl = document.getElementById('connectionStatus');
                     if (statusEl) {
@@ -2540,6 +2617,7 @@ ${result.valid ?
                     }
                 } else {
                     const errorMsg = result.message || `HTTP error! status: ${response.status}`;
+                    updateStorePathDisplay(null, 'disconnected');
                     showNotification(`Failed to create store: ${errorMsg}`, 'error');
 
                     // Suggest alternative paths
@@ -2550,6 +2628,7 @@ ${result.valid ?
                 }
             } catch (error) {
                 console.error('Create store error:', error);
+                updateStorePathDisplay(null, 'disconnected');
                 showNotification(`Failed to create store: ${error.message}`, 'error');
             }
         }
