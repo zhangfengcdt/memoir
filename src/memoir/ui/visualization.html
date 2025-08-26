@@ -276,6 +276,50 @@
             flex-direction: column;
             height: 100%;
             padding: 0;
+            gap: 20px;
+            position: relative;
+        }
+
+        .timeline-contributions-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            position: relative;
+        }
+
+        .timeline-contributions-title {
+            font-size: 16px;
+            color: var(--text-primary);
+        }
+
+        .timeline-contributions-count {
+            font-weight: 600;
+        }
+
+        .timeline-year-button {
+            background: var(--bg-glass-light);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 14px;
+            padding: 6px 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            outline: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .timeline-year-button:hover {
+            border-color: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .timeline-year-button.open {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.1);
         }
 
         .timeline-grid-container {
@@ -283,9 +327,8 @@
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 12px;
             padding: 20px;
-            margin-bottom: 20px;
             flex-shrink: 0;
-            min-height: 180px;
+            margin-bottom: 16px;
         }
 
         .timeline-grid-header {
@@ -293,12 +336,6 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 16px;
-        }
-
-        .timeline-header-left {
-            display: flex;
-            align-items: center;
-            gap: 12px;
         }
 
         .timeline-grid-title {
@@ -327,6 +364,52 @@
         .timeline-year-selector:focus {
             border-color: var(--accent);
             box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.1);
+        }
+
+        .timeline-year-panel {
+            position: absolute;
+            top: 40px;
+            right: 0;
+            background: var(--bg-glass);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 8px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(20px);
+            z-index: 1000;
+            display: none;
+            min-width: 120px;
+        }
+
+        .timeline-year-panel.show {
+            display: block;
+        }
+
+        .timeline-years-list {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .timeline-year-item {
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
+            text-align: left;
+        }
+
+        .timeline-year-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+        }
+
+        .timeline-year-item.active {
+            background: var(--accent);
+            color: white;
+            font-weight: 600;
         }
 
         .timeline-grid-legend {
@@ -433,6 +516,21 @@
         .activity-day:hover {
             transform: scale(1.2);
             z-index: 10;
+        }
+
+        .timeline-activity-section {
+            background: var(--bg-glass);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            flex: 1;
+        }
+
+        .timeline-activity-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
         }
 
         .timeline-details {
@@ -2216,52 +2314,67 @@
 
                     <!-- Timeline View -->
                     <div class="timeline-view" id="timelineView" style="display: none;">
-                        <div class="timeline-grid-container">
-                            <div class="timeline-grid-header">
-                                <div class="timeline-header-left">
-                                    <div class="timeline-grid-title">Memory Activity</div>
-                                    <select class="timeline-year-selector" id="timelineYearSelector">
-                                        <option value="2024">2024</option>
-                                        <option value="2023">2023</option>
-                                        <option value="2022">2022</option>
-                                        <option value="2021">2021</option>
-                                        <option value="2020">2020</option>
-                                    </select>
-                                </div>
-                                <div class="timeline-grid-legend">
-                                    <span>Less</span>
-                                    <div class="activity-day empty"></div>
-                                    <div class="activity-day level-1"></div>
-                                    <div class="activity-day level-2"></div>
-                                    <div class="activity-day level-3"></div>
-                                    <div class="activity-day level-4"></div>
-                                    <span>More</span>
-                                </div>
+                        <!-- Contributions Header -->
+                        <div class="timeline-contributions-header">
+                            <div class="timeline-contributions-title">
+                                <span class="timeline-contributions-count" id="contributionsCount">0</span> memories in the last year
                             </div>
-                            <div class="activity-grid-wrapper">
-                                <div class="activity-months" id="activityMonths">
-                                    <!-- Month labels will be generated by JavaScript -->
-                                </div>
-                                <div class="activity-main">
-                                    <div class="activity-weekdays">
-                                        <div class="activity-weekday">Sun</div>
-                                        <div class="activity-weekday"></div>
-                                        <div class="activity-weekday">Mon</div>
-                                        <div class="activity-weekday"></div>
-                                        <div class="activity-weekday">Wed</div>
-                                        <div class="activity-weekday"></div>
-                                        <div class="activity-weekday">Fri</div>
-                                    </div>
-                                    <div class="activity-grid" id="activityGrid">
-                                        <!-- Grid will be generated by JavaScript -->
-                                    </div>
+                            <button class="timeline-year-button" id="timelineYearButton">
+                                <span id="selectedYear">2024</span>
+                                <span>▼</span>
+                            </button>
+
+                            <!-- Floating Year Panel -->
+                            <div class="timeline-year-panel" id="timelineYearPanel">
+                                <div class="timeline-years-list" id="timelineYearsList">
+                                    <!-- Year items will be populated by JavaScript -->
                                 </div>
                             </div>
                         </div>
-                        <div class="timeline-details" id="timelineDetails">
-                            <div class="timeline-details-header">No date selected</div>
-                            <div id="timelineDetailsContent">
-                                <p style="color: var(--text-secondary); font-style: italic;">Click on a day above to see memory details</p>
+
+                            <!-- Activity Grid -->
+                            <div class="timeline-grid-container">
+                                <div class="timeline-grid-header">
+                                    <div style="opacity: 0;"></div>
+                                    <div class="timeline-grid-legend">
+                                        <span>Less</span>
+                                        <div class="activity-day empty"></div>
+                                        <div class="activity-day level-1"></div>
+                                        <div class="activity-day level-2"></div>
+                                        <div class="activity-day level-3"></div>
+                                        <div class="activity-day level-4"></div>
+                                        <span>More</span>
+                                    </div>
+                                </div>
+                                <div class="activity-grid-wrapper">
+                                    <div class="activity-months" id="activityMonths">
+                                        <!-- Month labels will be generated by JavaScript -->
+                                    </div>
+                                    <div class="activity-main">
+                                        <div class="activity-weekdays">
+                                            <div class="activity-weekday">Sun</div>
+                                            <div class="activity-weekday"></div>
+                                            <div class="activity-weekday">Mon</div>
+                                            <div class="activity-weekday"></div>
+                                            <div class="activity-weekday">Wed</div>
+                                            <div class="activity-weekday"></div>
+                                            <div class="activity-weekday">Fri</div>
+                                        </div>
+                                        <div class="activity-grid" id="activityGrid">
+                                            <!-- Grid will be generated by JavaScript -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        <!-- Activity Details Section -->
+                        <div class="timeline-activity-section">
+                            <div class="timeline-activity-title">Memory Activity</div>
+                            <div class="timeline-details" id="timelineDetails">
+                                <div class="timeline-details-header">Click on a day to see details</div>
+                                <div id="timelineDetailsContent">
+                                    <p style="color: var(--text-secondary); font-style: italic;">Select a day from the activity grid above to view memory details</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -6447,11 +6560,23 @@ Message: ${commit.message}`;
             });
         }
 
+        // Update contributions count display
+        function updateContributionsCount(activityData) {
+            const countElement = document.getElementById('contributionsCount');
+            if (countElement) {
+                let totalCount = 0;
+                for (const date in activityData) {
+                    totalCount += activityData[date].count;
+                }
+                countElement.textContent = totalCount;
+            }
+        }
+
         // Initialize timeline view with mock data
         function initializeTimelineView() {
             const activityGrid = document.getElementById('activityGrid');
             const activityMonths = document.getElementById('activityMonths');
-            const yearSelector = document.getElementById('timelineYearSelector');
+            const yearsList = document.getElementById('timelineYearsList');
 
             if (!activityGrid || activityGrid.children.length > 0) {
                 return; // Already initialized
@@ -6459,22 +6584,59 @@ Message: ${commit.message}`;
 
             // Set up year selector with current and past years
             const currentYear = new Date().getFullYear();
-            if (yearSelector) {
-                // Clear existing options and add current and past years
-                yearSelector.innerHTML = '';
-                for (let year = currentYear; year >= currentYear - 4; year--) {
-                    const option = document.createElement('option');
-                    option.value = year;
-                    option.textContent = year;
+            const yearButton = document.getElementById('timelineYearButton');
+            const yearPanel = document.getElementById('timelineYearPanel');
+            const selectedYearSpan = document.getElementById('selectedYear');
+
+            if (yearsList && yearButton && yearPanel && selectedYearSpan) {
+                // Set current year in button
+                selectedYearSpan.textContent = currentYear;
+
+                // Clear existing items and add current and past years
+                yearsList.innerHTML = '';
+                for (let year = currentYear; year >= currentYear - 8; year--) {
+                    const yearItem = document.createElement('div');
+                    yearItem.className = 'timeline-year-item';
+                    yearItem.textContent = year;
+                    yearItem.dataset.year = year;
+
                     if (year === currentYear) {
-                        option.selected = true;
+                        yearItem.classList.add('active');
                     }
-                    yearSelector.appendChild(option);
+
+                    // Add year click listener
+                    yearItem.addEventListener('click', function() {
+                        // Remove active from all years
+                        document.querySelectorAll('.timeline-year-item').forEach(item => {
+                            item.classList.remove('active');
+                        });
+                        // Add active to clicked year
+                        this.classList.add('active');
+                        // Update button text
+                        selectedYearSpan.textContent = this.dataset.year;
+                        // Hide panel
+                        yearPanel.classList.remove('show');
+                        yearButton.classList.remove('open');
+                        // Regenerate timeline
+                        regenerateTimelineForYear(parseInt(this.dataset.year));
+                    });
+
+                    yearsList.appendChild(yearItem);
                 }
 
-                // Add year change listener
-                yearSelector.addEventListener('change', function() {
-                    regenerateTimelineForYear(parseInt(this.value));
+                // Add button click listener to toggle panel
+                yearButton.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    yearPanel.classList.toggle('show');
+                    yearButton.classList.toggle('open');
+                });
+
+                // Close panel when clicking outside
+                document.addEventListener('click', function(e) {
+                    if (!yearPanel.contains(e.target) && !yearButton.contains(e.target)) {
+                        yearPanel.classList.remove('show');
+                        yearButton.classList.remove('open');
+                    }
                 });
             }
 
