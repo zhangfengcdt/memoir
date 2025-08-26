@@ -323,7 +323,6 @@ def get_blame_info(store_path: str, memory_key: str, namespace: str = "alice_che
                     if line.strip():
                         parts = line.split(" ", 1)
                         commit_hash = parts[0]
-                        commit_message = parts[1] if len(parts) > 1 else ""
 
                         # Get commit details
                         detail_result = subprocess.run(
@@ -405,18 +404,21 @@ def get_blame_info(store_path: str, memory_key: str, namespace: str = "alice_che
 
         # Get the current status of the key
         key_status = "exists" if current_value else "not_found"
-        
+
         # If key doesn't exist, return clear error message
         if key_status == "not_found":
-            return json.dumps({
-                "key": memory_key,
-                "full_key": full_key,
-                "namespace": namespace,
-                "status": key_status,
-                "error": f"Key '{memory_key}' does not exist in namespace '{namespace}'",
-                "message": f"The memory key '{memory_key}' was not found in the store. Please check the key name and try again.",
-                "store_path": store_path,
-            }, indent=2)
+            return json.dumps(
+                {
+                    "key": memory_key,
+                    "full_key": full_key,
+                    "namespace": namespace,
+                    "status": key_status,
+                    "error": f"Key '{memory_key}' does not exist in namespace '{namespace}'",
+                    "message": f"The memory key '{memory_key}' was not found in the store. Please check the key name and try again.",
+                    "store_path": store_path,
+                },
+                indent=2,
+            )
 
         result = {
             "key": memory_key,
