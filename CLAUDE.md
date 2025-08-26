@@ -21,6 +21,7 @@ make test-cov                 # Run tests with coverage report
 pytest tests/test_classifier.py -v        # Run single test file
 pytest tests/ -k "test_function_name"     # Run specific test by name
 pytest tests/ --tb=short                  # Compact traceback format
+pytest tests/test_versioning_control.py   # Test version control features
 
 # Examples and benchmarks
 make examples                 # Run all example scripts
@@ -30,10 +31,27 @@ python examples/intelligent_taxonomy.py   # Test intelligent classification
 python examples/locomo_evaluation.py      # Evaluate with LOCOMO dataset
 python examples/langgraph_with_memoir.py  # LangGraph integration demo
 python examples/langmem_style_with_memoir.py # LangMem-pattern agent example
+python examples/context_branching.py      # Demonstrate context branching
+python examples/production_debugging.py   # Production debugging patterns
+python examples/reproducible_testing.py   # Reproducible test scenarios
+python examples/state_debugging.py        # State debugging techniques
+python examples/versioning_control.py     # Git-like version control demo
+
+# Jupyter Notebooks
+jupyter notebook examples/notebooks/memoir_basic_usage.ipynb  # Interactive tutorial
 
 # Full CI pipeline
 make ci                      # Run complete CI: lint, test, security, examples
 make perf                    # Run benchmarks + show performance summary
+
+# Docker Support
+./docker.sh --help           # Show Docker environment help
+./docker.sh dev              # Start development environment
+./docker.sh prod             # Start production environment
+./docker.sh test             # Run tests in Docker
+./docker.sh build            # Build Docker images
+docker-compose -f docker/docker-compose.yml up     # Start with docker-compose
+docker-compose -f docker/docker-compose.dev.yml up # Start dev environment
 
 # Utility scripts
 python scripts/check_status.py            # Check repository and system status
@@ -93,8 +111,11 @@ This project brings Git-like version control to AI memory systems, replacing opa
 - **Web-based Visualization** (`visualization.html`): D3.js memory tree explorer
 - **Python code highlighting**: Syntax-highlighted code examples using highlight.js
 - **Git-like interface**: Branch switching, commit history, time-travel
-- **Command system**: `/connect`, `/code`, `/refresh` and more commands
+- **Command system**: `/connect`, `/code`, `/refresh`, `/proof`, `/verify` and more commands
 - **Real-time updates**: Connect to live memory stores and explore data
+- **Cryptographic proofs**: Generate and verify SHA-256 proofs for memory integrity
+- **Memory store reader** (`memory_store_reader.py`): API for reading store data
+- **Sample store initializer** (`initialize_sample_store.py`): Create demo data
 
 ### Key Performance Metrics
 - **Search latency**: 0.1-1ms (vs 150-750ms traditional)
@@ -131,6 +152,10 @@ historical_results = await memory_manager.search_memories(query, at_commit=commi
 
 # Merging
 await memory_manager.merge("experiment", into="main")
+
+# Cryptographic verification
+proof = await memory_manager.generate_proof(path="user.preferences")
+is_valid = await memory_manager.verify_proof(proof)
 ```
 
 ### Testing Strategy
@@ -138,6 +163,8 @@ await memory_manager.merge("experiment", into="main")
 - **Integration tests**: Test component interactions
 - **Performance benchmarks**: Validate latency claims
 - **LOCOMO evaluation**: Test with real conversation data
+- **Version control tests**: Test branching, merging, and time-travel features
+- **Docker tests**: Run full test suite in containerized environment
 
 ### Code Quality Requirements
 Before any commit or PR:
@@ -153,6 +180,44 @@ Before any commit or PR:
 - **Don't print debug info**: Use logging or write to `/tmp/` for debugging
 - **Don't commit without testing**: Run at least `make test` before pushing
 - **Don't create test data directories in project**: Use `/tmp/` for test data, never create data directories under the project folder
+
+## Recent Features & Capabilities
+
+### Docker Support
+Full containerization for development and production:
+- **Development environment**: Hot-reload, mounted volumes, debugging enabled
+- **Production environment**: Optimized builds, health checks, auto-restart
+- **Test environment**: Isolated testing with full CI pipeline
+- **Multi-stage builds**: Minimal production images with security hardening
+
+### LangGraph Integration
+Native integration with LangGraph's BaseStore interface:
+```python
+from memoir.integration.langgraph import LangGraphMemoryStore
+store = LangGraphMemoryStore(namespace=("memories",))
+await store.put(namespace, key, value)
+```
+
+### Enhanced UI Features
+- **Cryptographic proof generation**: Generate SHA-256 proofs for any memory path
+- **Proof verification**: Verify integrity of memory states
+- **Enhanced visualization**: Improved D3.js tree rendering with collapsible nodes
+- **Command palette**: Extended commands for debugging and exploration
+- **Code examples**: Interactive Python snippets with syntax highlighting
+
+### Advanced Examples
+New comprehensive examples demonstrating:
+- **Context branching**: Managing parallel conversation contexts
+- **Production debugging**: Real-world debugging patterns
+- **Reproducible testing**: Deterministic test scenarios
+- **State debugging**: Inspecting and manipulating memory states
+- **Version control**: Full Git-like workflow demonstrations
+
+### Documentation Improvements
+- **ReadTheDocs integration**: Full API documentation
+- **Jupyter notebooks**: Interactive tutorials
+- **FAQ section**: Common questions and troubleshooting
+- **Architecture diagrams**: Visual system overview
 
 ## Project-Specific Patterns
 
