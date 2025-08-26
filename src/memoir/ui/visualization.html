@@ -1641,8 +1641,32 @@
         async function handleCommand(command) {
             console.log('Handling command:', command);
             const parts = command.trim().split(' ');
-            const cmd = parts[0].toLowerCase();
+            let cmd = parts[0].toLowerCase();
+            
+            // Command aliases mapping
+            const aliases = {
+                '/con': '/connect',
+                '/conn': '/connect',
+                '/rem': '/remember',
+                '/forget': '/forget',
+                '/del': '/forget',
+                '/new': '/new',
+                '/create': '/new',
+                '/refresh': '/refresh',
+                '/ref': '/refresh',
+                '/help': '/help',
+                '/h': '/help',
+                '/clear': '/clear',
+                '/cls': '/clear'
+            };
+            
+            // Resolve alias to full command
+            if (aliases[cmd]) {
+                cmd = aliases[cmd];
+            }
+            
             console.log('Command parts:', parts);
+            console.log('Resolved command:', cmd);
 
             if (cmd === '/connect') {
                 const path = parts.slice(1).join(' ');
@@ -1701,9 +1725,12 @@
                     showVerifyUI();
                 }
             } else if (cmd === '/help') {
-                const workingCommands = availableCommands.filter(c => !c.placeholder).map(c => c.cmd + (c.args ? ' ' + c.args : '')).join(', ');
+                const workingCommands = availableCommands.filter(c => !c.placeholder).map(c => {
+                    const cmdStr = c.cmd + (c.args ? ' ' + c.args : '');
+                    return c.aliases ? `${cmdStr} (${c.aliases})` : cmdStr;
+                }).join('\n  ');
                 const comingSoonCommands = availableCommands.filter(c => c.placeholder).map(c => c.cmd).join(', ');
-                showNotification(`Working commands: ${workingCommands}\n\nComing soon: ${comingSoonCommands}`, 'info', 8000);
+                showNotification(`Available Commands:\n  ${workingCommands}\n\nComing Soon:\n  ${comingSoonCommands}\n\nNote: Use shorter aliases like /rem, /con, /del for faster typing!`, 'info', 10000);
             } else {
                 // Check if it's a placeholder command
                 const placeholderCmd = availableCommands.find(c => c.cmd === cmd && c.placeholder);
@@ -3673,17 +3700,17 @@ ${result.valid ?
 
         // Available commands with descriptions
         const availableCommands = [
-            { cmd: '/connect', args: '<path>', desc: 'Connect to memory store at path' },
-            { cmd: '/new', args: '<path>', desc: 'Create new memory store at path (e.g., /tmp/my_store)' },
-            { cmd: '/remember', args: '<content>', desc: 'Store and classify new memory' },
-            { cmd: '/forget', args: '<key>', desc: 'Delete memory by key' },
-            { cmd: '/refresh', args: '', desc: 'Refresh current connection' },
+            { cmd: '/connect', args: '<path>', desc: 'Connect to memory store at path', aliases: '/con, /conn' },
+            { cmd: '/new', args: '<path>', desc: 'Create new memory store at path (e.g., /tmp/my_store)', aliases: '/create' },
+            { cmd: '/remember', args: '<content>', desc: 'Store and classify new memory', aliases: '/rem' },
+            { cmd: '/forget', args: '<key>', desc: 'Delete memory by key', aliases: '/del' },
+            { cmd: '/refresh', args: '', desc: 'Refresh current connection', aliases: '/ref' },
             { cmd: '/demo', args: '', desc: 'Show original demo data' },
             { cmd: '/repo', args: '', desc: 'Show repository information' },
             { cmd: '/code', args: '', desc: 'Show Python integration code' },
             { cmd: '/proof', args: '<memory-path>', desc: 'Generate cryptographic proof for a memory' },
             { cmd: '/verify', args: '[proof] [key]', desc: 'Verify last proof or provide proof data' },
-            { cmd: '/help', args: '', desc: 'Show all available commands' },
+            { cmd: '/help', args: '', desc: 'Show all available commands', aliases: '/h' },
             { cmd: '/share', args: '<path>', desc: 'Share memory or branch (coming soon)', placeholder: true },
             { cmd: '/summarize', args: '[path]', desc: 'Generate summary of memories (coming soon)', placeholder: true },
             { cmd: '/time-travel', args: '<commit>', desc: 'View memories at specific commit (coming soon)', placeholder: true },
