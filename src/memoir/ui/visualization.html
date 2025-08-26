@@ -224,6 +224,354 @@
             display: none;
         }
 
+        /* View Navigation */
+        .view-navigation {
+            display: flex;
+            gap: 2px;
+            margin-bottom: 24px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .view-nav-btn {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .view-nav-btn:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .view-nav-btn.active {
+            background: var(--accent-primary);
+            color: white;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+        }
+
+        /* View Content Areas */
+        .view-content {
+            display: none;
+        }
+
+        .view-content.active {
+            display: block;
+        }
+
+        /* Timeline View - GitHub Style Activity Grid */
+        .timeline-view {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            padding: 0;
+        }
+
+        .timeline-grid-container {
+            background: var(--bg-glass);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            flex-shrink: 0;
+            min-height: 180px;
+        }
+
+        .timeline-grid-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .timeline-header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .timeline-grid-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .timeline-year-selector {
+            background: var(--bg-glass-light);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 13px;
+            padding: 4px 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            outline: none;
+        }
+
+        .timeline-year-selector:hover {
+            border-color: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .timeline-year-selector:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.1);
+        }
+
+        .timeline-grid-legend {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .activity-grid-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .activity-months {
+            display: flex;
+            gap: 3px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-left: 20px;
+        }
+
+        .activity-month {
+            text-align: center;
+            min-width: 52px;
+        }
+
+        .activity-main {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .activity-weekdays {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            padding-top: 20px;
+        }
+
+        .activity-weekday {
+            height: 12px;
+            line-height: 12px;
+            text-align: right;
+            width: 15px;
+        }
+
+        .activity-grid {
+            display: flex;
+            flex-direction: row;
+            gap: 3px;
+            font-size: 10px;
+            color: var(--text-secondary);
+            overflow-x: auto;
+            padding: 20px 10px 10px 0;
+        }
+
+        .activity-week {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            flex-shrink: 0;
+        }
+
+        .activity-day {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .activity-day.empty {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .activity-day.level-1 {
+            background: rgba(34, 197, 94, 0.3);
+            border: 1px solid rgba(34, 197, 94, 0.5);
+        }
+
+        .activity-day.level-2 {
+            background: rgba(34, 197, 94, 0.5);
+            border: 1px solid rgba(34, 197, 94, 0.7);
+        }
+
+        .activity-day.level-3 {
+            background: rgba(34, 197, 94, 0.7);
+            border: 1px solid rgba(34, 197, 94, 0.8);
+        }
+
+        .activity-day.level-4 {
+            background: rgba(34, 197, 94, 0.9);
+            border: 1px solid rgba(34, 197, 94, 1);
+        }
+
+        .activity-day:hover {
+            transform: scale(1.2);
+            z-index: 10;
+        }
+
+        .timeline-details {
+            background: var(--bg-glass);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+
+        .timeline-details-header {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            flex-shrink: 0;
+        }
+
+        #timelineDetailsContent {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+
+        .timeline-memory-item {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .timeline-memory-item:last-child {
+            border-bottom: none;
+        }
+
+        .timeline-memory-time {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .timeline-memory-content {
+            font-size: 13px;
+            color: var(--text-primary);
+            margin-top: 4px;
+        }
+
+        /* Places View */
+        .places-view {
+            padding: 20px 0;
+        }
+
+        .places-map-container {
+            background: var(--bg-glass);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .places-map-placeholder {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 12px;
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+        }
+
+        .places-map-icon {
+            font-size: 48px;
+            opacity: 0.5;
+        }
+
+        .places-map-text {
+            font-size: 16px;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        .places-list {
+            background: var(--bg-glass);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .places-list-header {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+
+        .place-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .place-item:last-child {
+            border-bottom: none;
+        }
+
+        .place-marker {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-primary);
+        }
+
+        .place-info {
+            flex: 1;
+        }
+
+        .place-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .place-count {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
         .branch-selector:hover {
             background: var(--bg-glass-lighter);
             border-color: var(--accent-primary-alpha);
@@ -1413,6 +1761,7 @@
                     <button class="branch-btn branch-btn-add" id="addBranchBtn" title="Create new branch">+</button>
                     <button class="branch-btn branch-btn-remove" id="removeBranchBtn" title="Delete current branch">-</button>
                 </div>
+
             </div>
 
             <div class="git-tree" id="gitTree">
@@ -1690,228 +2039,286 @@
                     <div class="view-toggle">
                         <button class="view-btn active" data-view="tree">🌳 Tree</button>
                         <button class="view-btn" data-view="graph">🕸️ Graph</button>
+                        <button class="view-btn" data-view="timeline">📅 Timeline</button>
+                        <button class="view-btn" data-view="places">🗺️ Places</button>
                     </div>
                 </div>
             </div>
 
-            <div class="memory-structure" id="memoryStructure">
-                <!-- Tree View (Default) -->
-                <div class="tree-view" id="treeView">
-                    <div class="tree-node">
-                        <div class="node-content">
-                            <span class="node-icon">📁</span>
-                            <span class="node-label">profile</span>
+            <!-- Memory Structure -->
+                <!-- Memory Structure Panel -->
+                <div class="memory-structure" id="memoryStructure">
+                    <!-- Tree View (Default) -->
+                    <div class="tree-view" id="treeView">
+                        <div class="tree-node">
+                            <div class="node-content">
+                                <span class="node-icon">📁</span>
+                                <span class="node-label">profile</span>
+                            </div>
+                            <div class="node-children">
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">📁</span>
+                                        <span class="node-label">personal</span>
+                                    </div>
+                                    <div class="node-children">
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">identity</span>
+                                                <span class="memory-count">8</span>
+                                            </div>
+                                        </div>
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">location</span>
+                                                <span class="memory-count">6</span>
+                                            </div>
+                                        </div>
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">relationships</span>
+                                                <span class="memory-count">5</span>
+                                            </div>
+                                        </div>
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">health</span>
+                                                <span class="memory-count">4</span>
+                                            </div>
+                                        </div>
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label">preferences</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">📁</span>
+                                        <span class="node-label">professional</span>
+                                    </div>
+                                    <div class="node-children">
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">skills</span>
+                                                <span class="memory-count">12</span>
+                                            </div>
+                                        </div>
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">experience</span>
+                                                <span class="memory-count">15</span>
+                                            </div>
+                                        </div>
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">networking</span>
+                                                <span class="memory-count">7</span>
+                                            </div>
+                                        </div>
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label">goals</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="node-children">
-                            <div class="tree-node">
-                                <div class="node-content">
-                                    <span class="node-icon">📁</span>
-                                    <span class="node-label">personal</span>
-                                </div>
-                                <div class="node-children">
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">identity</span>
-                                            <span class="memory-count">8</span>
-                                        </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">location</span>
-                                            <span class="memory-count">6</span>
-                                        </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">relationships</span>
-                                            <span class="memory-count">5</span>
-                                        </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">health</span>
-                                            <span class="memory-count">4</span>
-                                        </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">goals</span>
-                                            <span class="memory-count">3</span>
-                                        </div>
-                                    </div>
-                                </div>
+                        <div class="tree-node">
+                            <div class="node-content">
+                                <span class="node-icon">📁</span>
+                                <span class="node-label">interactions</span>
                             </div>
-                            <div class="tree-node">
-                                <div class="node-content">
-                                    <span class="node-icon">📁</span>
-                                    <span class="node-label">professional</span>
-                                </div>
-                                <div class="node-children">
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">skills</span>
-                                            <span class="memory-count">12</span>
-                                        </div>
+                            <div class="node-children">
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">📁</span>
+                                        <span class="node-label">conversations</span>
                                     </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">experience</span>
-                                            <span class="memory-count">9</span>
+                                    <div class="node-children">
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">recent</span>
+                                                <span class="memory-count">3</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">companies</span>
-                                            <span class="memory-count">4</span>
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">patterns</span>
+                                                <span class="memory-count">9</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">education</span>
-                                            <span class="memory-count">3</span>
-                                        </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">achievements</span>
-                                            <span class="memory-count">6</span>
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">topics</span>
+                                                <span class="memory-count">11</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="tree-node">
-                                <div class="node-content">
-                                    <span class="node-icon">📁</span>
-                                    <span class="node-label">preferences</span>
-                                </div>
-                                <div class="node-children">
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">interface</span>
-                                            <span class="memory-count">5</span>
-                                        </div>
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">📁</span>
+                                        <span class="node-label">context</span>
                                     </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">notifications</span>
-                                            <span class="memory-count">3</span>
+                                    <div class="node-children">
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">situational</span>
+                                                <span class="memory-count">6</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">privacy</span>
-                                            <span class="memory-count">4</span>
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">emotional</span>
+                                                <span class="memory-count">4</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">workflow</span>
-                                            <span class="memory-count">2</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="tree-node">
-                                <div class="node-content">
-                                    <span class="node-icon">📁</span>
-                                    <span class="node-label">interests</span>
-                                </div>
-                                <div class="node-children">
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">music</span>
-                                            <span class="memory-count">4</span>
-                                        </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">books</span>
-                                            <span class="memory-count">7</span>
-                                        </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">movies</span>
-                                            <span class="memory-count">3</span>
-                                        </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">sports</span>
-                                            <span class="memory-count">2</span>
-                                        </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">hobbies</span>
-                                            <span class="memory-count">5</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="tree-node">
-                                <div class="node-content">
-                                    <span class="node-icon">📁</span>
-                                    <span class="node-label">technology</span>
-                                </div>
-                                <div class="node-children">
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">devices</span>
-                                            <span class="memory-count">3</span>
-                                        </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">tools</span>
-                                            <span class="memory-count">8</span>
-                                        </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">platforms</span>
-                                            <span class="memory-count">6</span>
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">temporal</span>
+                                                <span class="memory-count">8</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Graph View (Hidden by default) -->
-                <div class="graph-view" id="graphView" style="display: none; pointer-events: none;">
-                    <div class="graph-watermark">MEMOIR</div>
-                    <div class="zoom-controls">
-                        <button class="zoom-btn" id="zoomIn" title="Zoom In">+</button>
-                        <button class="zoom-btn" id="zoomOut" title="Zoom Out">−</button>
-                        <button class="zoom-btn zoom-reset" id="zoomReset" title="Reset View">⌂</button>
+                    <!-- Graph View (Hidden by default) -->
+                    <div class="graph-view" id="graphView" style="display: none; pointer-events: none;">
+                        <div class="graph-watermark">MEMOIR</div>
+                        <div class="zoom-controls">
+                            <button class="zoom-btn" id="zoomIn" title="Zoom In">+</button>
+                            <button class="zoom-btn" id="zoomOut" title="Zoom Out">−</button>
+                            <button class="zoom-btn zoom-reset" id="zoomReset" title="Reset View">⌂</button>
+                        </div>
+                        <svg width="100%" height="100%" id="graphSvg"></svg>
                     </div>
-                    <svg width="100%" height="100%" id="graphSvg"></svg>
+
+                    <!-- Timeline View -->
+                    <div class="timeline-view" id="timelineView" style="display: none;">
+                        <div class="timeline-grid-container">
+                            <div class="timeline-grid-header">
+                                <div class="timeline-header-left">
+                                    <div class="timeline-grid-title">Memory Activity</div>
+                                    <select class="timeline-year-selector" id="timelineYearSelector">
+                                        <option value="2024">2024</option>
+                                        <option value="2023">2023</option>
+                                        <option value="2022">2022</option>
+                                        <option value="2021">2021</option>
+                                        <option value="2020">2020</option>
+                                    </select>
+                                </div>
+                                <div class="timeline-grid-legend">
+                                    <span>Less</span>
+                                    <div class="activity-day empty"></div>
+                                    <div class="activity-day level-1"></div>
+                                    <div class="activity-day level-2"></div>
+                                    <div class="activity-day level-3"></div>
+                                    <div class="activity-day level-4"></div>
+                                    <span>More</span>
+                                </div>
+                            </div>
+                            <div class="activity-grid-wrapper">
+                                <div class="activity-months" id="activityMonths">
+                                    <!-- Month labels will be generated by JavaScript -->
+                                </div>
+                                <div class="activity-main">
+                                    <div class="activity-weekdays">
+                                        <div class="activity-weekday">Sun</div>
+                                        <div class="activity-weekday"></div>
+                                        <div class="activity-weekday">Mon</div>
+                                        <div class="activity-weekday"></div>
+                                        <div class="activity-weekday">Wed</div>
+                                        <div class="activity-weekday"></div>
+                                        <div class="activity-weekday">Fri</div>
+                                    </div>
+                                    <div class="activity-grid" id="activityGrid">
+                                        <!-- Grid will be generated by JavaScript -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="timeline-details" id="timelineDetails">
+                            <div class="timeline-details-header">No date selected</div>
+                            <div id="timelineDetailsContent">
+                                <p style="color: var(--text-secondary); font-style: italic;">Click on a day above to see memory details</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Places View -->
+                    <div class="places-view" id="placesView" style="display: none;">
+                        <div class="places-map-container">
+                            <div class="places-map-placeholder">
+                                <div class="places-map-icon">🗺️</div>
+                                <div class="places-map-text">
+                                    <strong>Interactive Map Coming Soon</strong><br>
+                                    This will show markers for all locations mentioned in your memories
+                                </div>
+                            </div>
+                        </div>
+                        <div class="places-list">
+                            <div class="places-list-header">📍 Discovered Places</div>
+                            <div class="place-item">
+                                <div class="place-marker"></div>
+                                <div class="place-info">
+                                    <div class="place-name">San Francisco, CA</div>
+                                    <div class="place-count">12 memories</div>
+                                </div>
+                            </div>
+                            <div class="place-item">
+                                <div class="place-marker"></div>
+                                <div class="place-info">
+                                    <div class="place-name">New York, NY</div>
+                                    <div class="place-count">8 memories</div>
+                                </div>
+                            </div>
+                            <div class="place-item">
+                                <div class="place-marker"></div>
+                                <div class="place-info">
+                                    <div class="place-name">London, UK</div>
+                                    <div class="place-count">5 memories</div>
+                                </div>
+                            </div>
+                            <div class="place-item">
+                                <div class="place-marker"></div>
+                                <div class="place-info">
+                                    <div class="place-name">Tokyo, Japan</div>
+                                    <div class="place-count">3 memories</div>
+                                </div>
+                            </div>
+                            <div class="place-item">
+                                <div class="place-marker"></div>
+                                <div class="place-info">
+                                    <div class="place-name">Paris, France</div>
+                                    <div class="place-count">2 memories</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
+
         </div>
     </div>
 
@@ -3737,17 +4144,27 @@ ${result.valid ?
                     this.classList.add('active');
 
                     const view = this.dataset.view;
+
+                    // Hide all views first
+                    document.getElementById('treeView').style.display = 'none';
+                    const graphView = document.getElementById('graphView');
+                    graphView.style.display = 'none';
+                    graphView.style.pointerEvents = 'none';
+                    document.getElementById('timelineView').style.display = 'none';
+                    document.getElementById('placesView').style.display = 'none';
+
+                    // Show selected view
                     if (view === 'tree') {
                         document.getElementById('treeView').style.display = 'block';
-                        const graphView = document.getElementById('graphView');
-                        graphView.style.display = 'none';
-                        graphView.style.pointerEvents = 'none';
-                    } else {
-                        document.getElementById('treeView').style.display = 'none';
-                        const graphView = document.getElementById('graphView');
+                    } else if (view === 'graph') {
                         graphView.style.display = 'block';
                         graphView.style.pointerEvents = 'auto';
                         renderGraph();
+                    } else if (view === 'timeline') {
+                        document.getElementById('timelineView').style.display = 'block';
+                        initializeTimelineView();
+                    } else if (view === 'places') {
+                        document.getElementById('placesView').style.display = 'block';
                     }
                 });
             });
@@ -5999,6 +6416,369 @@ Message: ${commit.message}`;
         }
 
 
+        // Initialize view switching
+        function initializeViewSwitching() {
+            const viewButtons = document.querySelectorAll('.view-nav-btn');
+            const viewContents = document.querySelectorAll('.view-content');
+
+            viewButtons.forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const targetView = button.dataset.view;
+
+                    // Update button states
+                    viewButtons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+
+                    // Update view content visibility
+                    viewContents.forEach(content => {
+                        content.classList.remove('active');
+                    });
+
+                    const targetContent = document.getElementById(`${targetView}View`);
+                    if (targetContent) {
+                        targetContent.classList.add('active');
+
+                        // Initialize specific views when first shown
+                        if (targetView === 'timeline') {
+                            initializeTimelineView();
+                        }
+                    }
+                });
+            });
+        }
+
+        // Initialize timeline view with mock data
+        function initializeTimelineView() {
+            const activityGrid = document.getElementById('activityGrid');
+            const activityMonths = document.getElementById('activityMonths');
+            const yearSelector = document.getElementById('timelineYearSelector');
+
+            if (!activityGrid || activityGrid.children.length > 0) {
+                return; // Already initialized
+            }
+
+            // Set up year selector with current and past years
+            const currentYear = new Date().getFullYear();
+            if (yearSelector) {
+                // Clear existing options and add current and past years
+                yearSelector.innerHTML = '';
+                for (let year = currentYear; year >= currentYear - 4; year--) {
+                    const option = document.createElement('option');
+                    option.value = year;
+                    option.textContent = year;
+                    if (year === currentYear) {
+                        option.selected = true;
+                    }
+                    yearSelector.appendChild(option);
+                }
+
+                // Add year change listener
+                yearSelector.addEventListener('change', function() {
+                    regenerateTimelineForYear(parseInt(this.value));
+                });
+            }
+
+            // Generate mock timeline data (53 weeks for fuller year coverage)
+            const weeks = 53;
+            const daysPerWeek = 7;
+            const today = new Date();
+            const startDate = new Date(today);
+            startDate.setDate(today.getDate() - (weeks * daysPerWeek));
+
+            // Generate month labels
+            const monthLabels = [];
+            let currentMonth = null;
+            let monthWeekCount = 0;
+
+            // Mock activity data - simulate memory creation patterns
+            const mockActivityData = {};
+
+            // Generate some realistic patterns
+            for (let i = 0; i < weeks * daysPerWeek; i++) {
+                const currentDate = new Date(startDate);
+                currentDate.setDate(startDate.getDate() + i);
+                const dateStr = currentDate.toISOString().split('T')[0];
+
+                // Simulate different activity levels based on day patterns
+                const dayOfWeek = currentDate.getDay();
+                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                const isRecent = i > (weeks * daysPerWeek) - 30; // Last 30 days more active
+
+                let activityLevel = 0;
+                const rand = Math.random();
+
+                if (isRecent && !isWeekend && rand > 0.3) {
+                    // More activity in recent weekdays
+                    if (rand > 0.8) activityLevel = 4;
+                    else if (rand > 0.6) activityLevel = 3;
+                    else if (rand > 0.4) activityLevel = 2;
+                    else activityLevel = 1;
+                } else if (!isWeekend && rand > 0.5) {
+                    // Some weekday activity
+                    if (rand > 0.9) activityLevel = 3;
+                    else if (rand > 0.7) activityLevel = 2;
+                    else activityLevel = 1;
+                } else if (isWeekend && rand > 0.8) {
+                    // Rare weekend activity
+                    activityLevel = 1;
+                }
+
+                if (activityLevel > 0) {
+                    mockActivityData[dateStr] = {
+                        level: activityLevel,
+                        count: activityLevel * (Math.floor(Math.random() * 3) + 1),
+                        memories: generateMockMemories(activityLevel, currentDate)
+                    };
+                }
+            }
+
+            // Generate month labels
+            for (let week = 0; week < weeks; week++) {
+                const firstDayOfWeek = new Date(startDate);
+                firstDayOfWeek.setDate(startDate.getDate() + (week * daysPerWeek));
+                const monthName = firstDayOfWeek.toLocaleDateString('en', { month: 'short' });
+
+                if (currentMonth !== monthName) {
+                    monthLabels.push({
+                        month: monthName,
+                        startWeek: week,
+                        weekSpan: 1
+                    });
+                    currentMonth = monthName;
+                    monthWeekCount = 1;
+                } else if (monthLabels.length > 0) {
+                    monthLabels[monthLabels.length - 1].weekSpan++;
+                }
+            }
+
+            // Create month labels
+            monthLabels.forEach(monthInfo => {
+                const monthDiv = document.createElement('div');
+                monthDiv.className = 'activity-month';
+                monthDiv.textContent = monthInfo.month;
+                monthDiv.style.width = `${monthInfo.weekSpan * 15}px`; // 12px day + 3px gap
+                activityMonths.appendChild(monthDiv);
+            });
+
+            // Create the grid
+            for (let week = 0; week < weeks; week++) {
+                const weekDiv = document.createElement('div');
+                weekDiv.className = 'activity-week';
+
+                for (let day = 0; day < daysPerWeek; day++) {
+                    const currentDate = new Date(startDate);
+                    currentDate.setDate(startDate.getDate() + (week * daysPerWeek) + day);
+                    const dateStr = currentDate.toISOString().split('T')[0];
+
+                    const dayDiv = document.createElement('div');
+                    dayDiv.className = 'activity-day';
+                    dayDiv.dataset.date = dateStr;
+
+                    if (mockActivityData[dateStr]) {
+                        const level = mockActivityData[dateStr].level;
+                        dayDiv.classList.add(`level-${level}`);
+                        dayDiv.title = `${currentDate.toLocaleDateString()}: ${mockActivityData[dateStr].count} memories`;
+                    } else {
+                        dayDiv.classList.add('empty');
+                        dayDiv.title = `${currentDate.toLocaleDateString()}: No memories`;
+                    }
+
+                    // Add click handler
+                    dayDiv.addEventListener('click', () => {
+                        showTimelineDetails(dateStr, mockActivityData[dateStr] || null);
+                    });
+
+                    weekDiv.appendChild(dayDiv);
+                }
+
+                activityGrid.appendChild(weekDiv);
+            }
+        }
+
+        function generateMockMemories(level, date) {
+            const mockMemories = [
+                "Learned about React hooks",
+                "Had coffee with Sarah",
+                "Finished reading AI paper",
+                "Started new project",
+                "Meeting with team",
+                "Discovered new restaurant",
+                "Went to the gym",
+                "Coded late into the night",
+                "Watched a great documentary",
+                "Fixed a challenging bug",
+                "Visited the art museum",
+                "Had dinner with family",
+                "Completed online course",
+                "Walked in the park",
+                "Read an interesting article"
+            ];
+
+            const count = level * (Math.floor(Math.random() * 2) + 1);
+            const memories = [];
+
+            for (let i = 0; i < count; i++) {
+                const memory = mockMemories[Math.floor(Math.random() * mockMemories.length)];
+                const time = new Date(date);
+                time.setHours(Math.floor(Math.random() * 24), Math.floor(Math.random() * 60));
+
+                memories.push({
+                    content: memory,
+                    time: time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+                });
+            }
+
+            return memories;
+        }
+
+        function showTimelineDetails(dateStr, activityData) {
+            const timelineDetails = document.getElementById('timelineDetails');
+            const detailsHeader = document.querySelector('.timeline-details-header');
+            const detailsContent = document.getElementById('timelineDetailsContent');
+
+            if (!activityData) {
+                detailsHeader.textContent = `${new Date(dateStr).toLocaleDateString()} - No memories`;
+                detailsContent.innerHTML = '<p style="color: var(--text-secondary); font-style: italic;">No memories recorded on this day</p>';
+            } else {
+                detailsHeader.textContent = `${new Date(dateStr).toLocaleDateString()} - ${activityData.count} memories`;
+
+                let html = '';
+                activityData.memories.forEach(memory => {
+                    html += `
+                        <div class="timeline-memory-item">
+                            <div class="timeline-memory-time">${memory.time}</div>
+                            <div class="timeline-memory-content">${memory.content}</div>
+                        </div>
+                    `;
+                });
+
+                detailsContent.innerHTML = html;
+            }
+
+            // Timeline details are always visible in the new layout
+        }
+
+        // Regenerate timeline for a specific year
+        function regenerateTimelineForYear(year) {
+            const activityGrid = document.getElementById('activityGrid');
+            const activityMonths = document.getElementById('activityMonths');
+
+            if (!activityGrid || !activityMonths) return;
+
+            // Clear existing content
+            activityGrid.innerHTML = '';
+            activityMonths.innerHTML = '';
+
+            // Generate timeline for the selected year
+            const weeks = 53;
+            const daysPerWeek = 7;
+            const endDate = new Date(year, 11, 31); // December 31 of selected year
+            const startDate = new Date(endDate);
+            startDate.setDate(endDate.getDate() - (weeks * daysPerWeek));
+
+            // Generate mock activity data for selected year
+            const mockActivityData = {};
+
+            // Generate some realistic patterns (same logic as before)
+            for (let i = 0; i < weeks * daysPerWeek; i++) {
+                const currentDate = new Date(startDate);
+                currentDate.setDate(startDate.getDate() + i);
+                const dateStr = currentDate.toISOString().split('T')[0];
+
+                // Skip future dates
+                if (currentDate > new Date()) continue;
+
+                // Generate activity patterns (simplified version)
+                const dayOfWeek = currentDate.getDay();
+                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                const isRecentWeek = Math.abs(new Date() - currentDate) < (7 * 24 * 60 * 60 * 1000 * 4);
+
+                let activityLevel = 0;
+                const rand = Math.random();
+
+                if (!isWeekend) {
+                    if (isRecentWeek && rand > 0.3) activityLevel = Math.min(4, Math.floor(rand * 5) + 1);
+                    else if (rand > 0.6) activityLevel = Math.min(3, Math.floor(rand * 4) + 1);
+                } else if (rand > 0.8) {
+                    activityLevel = 1;
+                }
+
+                if (activityLevel > 0) {
+                    mockActivityData[dateStr] = {
+                        level: activityLevel,
+                        count: activityLevel * (Math.floor(Math.random() * 3) + 1),
+                        memories: generateMockMemories(activityLevel, currentDate)
+                    };
+                }
+            }
+
+            // Generate month labels for selected year
+            const monthLabels = [];
+            let currentMonth = null;
+
+            for (let week = 0; week < weeks; week++) {
+                const firstDayOfWeek = new Date(startDate);
+                firstDayOfWeek.setDate(startDate.getDate() + (week * daysPerWeek));
+                const monthName = firstDayOfWeek.toLocaleDateString('en', { month: 'short' });
+
+                if (currentMonth !== monthName) {
+                    monthLabels.push({
+                        month: monthName,
+                        startWeek: week,
+                        weekSpan: 1
+                    });
+                    currentMonth = monthName;
+                } else if (monthLabels.length > 0) {
+                    monthLabels[monthLabels.length - 1].weekSpan++;
+                }
+            }
+
+            // Create month labels
+            monthLabels.forEach(monthInfo => {
+                const monthDiv = document.createElement('div');
+                monthDiv.className = 'activity-month';
+                monthDiv.textContent = monthInfo.month;
+                monthDiv.style.width = `${monthInfo.weekSpan * 15}px`;
+                activityMonths.appendChild(monthDiv);
+            });
+
+            // Create the grid
+            for (let week = 0; week < weeks; week++) {
+                const weekDiv = document.createElement('div');
+                weekDiv.className = 'activity-week';
+
+                for (let day = 0; day < daysPerWeek; day++) {
+                    const currentDate = new Date(startDate);
+                    currentDate.setDate(startDate.getDate() + (week * daysPerWeek) + day);
+                    const dateStr = currentDate.toISOString().split('T')[0];
+
+                    const dayDiv = document.createElement('div');
+                    dayDiv.className = 'activity-day';
+                    dayDiv.dataset.date = dateStr;
+
+                    if (mockActivityData[dateStr]) {
+                        dayDiv.classList.add(`level-${mockActivityData[dateStr].level}`);
+                        dayDiv.title = `${currentDate.toLocaleDateString()}: ${mockActivityData[dateStr].count} memories`;
+
+                        dayDiv.addEventListener('click', function() {
+                            showTimelineDetails(dateStr, mockActivityData[dateStr]);
+                        });
+                    } else {
+                        dayDiv.classList.add('empty');
+                        dayDiv.title = `${currentDate.toLocaleDateString()}: No memories`;
+
+                        dayDiv.addEventListener('click', function() {
+                            showTimelineDetails(dateStr, null);
+                        });
+                    }
+
+                    weekDiv.appendChild(dayDiv);
+                }
+
+                activityGrid.appendChild(weekDiv);
+            }
+        }
+
         // Initialize the page
         function initializePage() {
             // Initialize demo mode tree with fold functionality
@@ -6012,6 +6792,9 @@ Message: ${commit.message}`;
 
             // Initialize branch control buttons
             initializeBranchButtons();
+
+            // Initialize view switching
+            initializeViewSwitching();
         }
 
         // Run initialization when page loads
