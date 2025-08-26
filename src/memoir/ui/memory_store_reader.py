@@ -267,14 +267,189 @@ def read_store_data(store_path: str):
         return json.dumps({"error": str(e)})
 
 
+def get_blame_info(store_path: str, memory_key: str, namespace: str = "alice_chen"):
+    """Get git blame-like information for a specific memory key."""
+
+    if not Path(store_path).exists():
+        return json.dumps({"error": f"Store path does not exist: {store_path}"})
+
+    try:
+        # Initialize store
+        store = ProllyTreeStore(
+            path=store_path,
+            enable_versioning=True,
+            auto_commit=False,
+            cache_size=10000,
+        )
+
+        # Create the full key
+        full_key = f"{namespace}:{memory_key}"
+
+        # Get current value to verify key exists
+        key_bytes = full_key.encode("utf-8")
+        current_value = None
+        try:
+            value_bytes = store.tree.get(key_bytes)
+            if value_bytes:
+                current_value = store._decode_value(value_bytes)
+        except Exception as e:
+            print(f"Error getting current value: {e}")
+
+        # Use git to get the blame information for this key
+        blame_info = []
+        try:
+            import subprocess
+
+            # Search git history for commits that mention this key
+            # Use git log to find all commits that changed files containing this key pattern
+            result = subprocess.run(
+                [
+                    "git",
+                    "log",
+                    "--oneline",
+                    "--all",
+                    "--grep",
+                    memory_key,
+                    "--grep",
+                    full_key,
+                ],
+                cwd=store_path,
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode == 0 and result.stdout.strip():
+                for line in result.stdout.strip().split("\n"):
+                    if line.strip():
+                        parts = line.split(" ", 1)
+                        commit_hash = parts[0]
+                        commit_message = parts[1] if len(parts) > 1 else ""
+
+                        # Get commit details
+                        detail_result = subprocess.run(
+                            [
+                                "git",
+                                "show",
+                                "--format=%H|%an|%ae|%ad|%s",
+                                "--date=iso",
+                                "--name-only",
+                                commit_hash,
+                            ],
+                            cwd=store_path,
+                            capture_output=True,
+                            text=True,
+                        )
+
+                        if detail_result.returncode == 0:
+                            lines = detail_result.stdout.strip().split("\n")
+                            if lines:
+                                commit_details = lines[0].split("|")
+                                if len(commit_details) >= 5:
+                                    blame_entry = {
+                                        "commit_hash": commit_details[0][
+                                            :8
+                                        ],  # Short hash
+                                        "full_hash": commit_details[0],
+                                        "author": commit_details[1],
+                                        "email": commit_details[2],
+                                        "date": commit_details[3],
+                                        "message": commit_details[4],
+                                        "files": lines[1:] if len(lines) > 1 else [],
+                                    }
+                                    blame_info.append(blame_entry)
+
+            # If no specific commits found, get general git history
+            if not blame_info:
+                result = subprocess.run(
+                    [
+                        "git",
+                        "log",
+                        "--oneline",
+                        "-10",  # Last 10 commits
+                        "--format=%H|%an|%ae|%ad|%s",
+                        "--date=iso",
+                    ],
+                    cwd=store_path,
+                    capture_output=True,
+                    text=True,
+                )
+
+                if result.returncode == 0:
+                    for line in result.stdout.strip().split("\n"):
+                        if line.strip():
+                            commit_details = line.split("|")
+                            if len(commit_details) >= 5:
+                                blame_entry = {
+                                    "commit_hash": commit_details[0][:8],
+                                    "full_hash": commit_details[0],
+                                    "author": commit_details[1],
+                                    "email": commit_details[2],
+                                    "date": commit_details[3],
+                                    "message": commit_details[4],
+                                    "files": [],
+                                    "note": "General repository history (key-specific history not found)",
+                                }
+                                blame_info.append(blame_entry)
+
+        except Exception as e:
+            print(f"Error getting git blame info: {e}")
+            blame_info.append(
+                {
+                    "error": f"Could not retrieve git history: {e!s}",
+                    "commit_hash": "unknown",
+                    "author": "unknown",
+                    "date": "unknown",
+                    "message": "Error retrieving history",
+                }
+            )
+
+        # Get the current status of the key
+        key_status = "exists" if current_value else "not_found"
+        
+        # If key doesn't exist, return clear error message
+        if key_status == "not_found":
+            return json.dumps({
+                "key": memory_key,
+                "full_key": full_key,
+                "namespace": namespace,
+                "status": key_status,
+                "error": f"Key '{memory_key}' does not exist in namespace '{namespace}'",
+                "message": f"The memory key '{memory_key}' was not found in the store. Please check the key name and try again.",
+                "store_path": store_path,
+            }, indent=2)
+
+        result = {
+            "key": memory_key,
+            "full_key": full_key,
+            "namespace": namespace,
+            "status": key_status,
+            "current_value": current_value,
+            "blame_info": blame_info,
+            "total_commits": len(blame_info),
+            "store_path": store_path,
+        }
+
+        return json.dumps(result, indent=2, default=str)
+
+    except Exception as e:
+        return json.dumps({"error": str(e)})
+
+
 def main():
     parser = argparse.ArgumentParser(description="Read memory store data")
     parser.add_argument("store_path", help="Path to the memory store")
     parser.add_argument("--output", help="Output file (default: stdout)")
+    parser.add_argument("--blame", help="Get blame info for specific key")
+    parser.add_argument(
+        "--namespace", default="alice_chen", help="Namespace for blame lookup"
+    )
 
     args = parser.parse_args()
 
-    result = read_store_data(args.store_path)
+    if args.blame:
+        result = get_blame_info(args.store_path, args.blame, args.namespace)
+    else:
+        result = read_store_data(args.store_path)
 
     if args.output:
         with open(args.output, "w") as f:

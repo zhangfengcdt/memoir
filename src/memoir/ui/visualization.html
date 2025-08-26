@@ -2028,6 +2028,13 @@
                     // No input - use last generated proof or show input dialog
                     showVerifyUI();
                 }
+            } else if (cmd === '/blame') {
+                const key = parts.slice(1).join(' ').trim();
+                if (!key) {
+                    showNotification('Usage: /blame <key>', 'error');
+                    return;
+                }
+                await showBlameInfo(key);
             } else if (cmd === '/help') {
                 const workingCommands = availableCommands.filter(c => !c.placeholder).map(c => {
                     const cmdStr = c.cmd + (c.args ? ' ' + c.args : '');
@@ -4485,7 +4492,7 @@ ${result.valid ?
             { cmd: '/help', args: '', desc: 'Show all available commands', aliases: '/h' },
             { cmd: '/summarize', args: '[path]', desc: 'Generate summary of memories (coming soon)', placeholder: true },
             { cmd: '/time-travel', args: '<commit>', desc: 'View memories at specific commit (coming soon)', placeholder: true },
-            { cmd: '/blame', args: '<path>', desc: 'Show history of memory changes (coming soon)', placeholder: true },
+            { cmd: '/blame', args: '<key>', desc: 'Show Git-like blame history for memory key' },
             { cmd: '/timeline', args: '[filter]', desc: 'Show chronological memory timeline (coming soon)', placeholder: true },
             { cmd: '/location', args: '<place>', desc: 'Filter memories by location context (coming soon)', placeholder: true },
             { cmd: '/what-if', args: '<scenario>', desc: 'Simulate hypothetical memory scenarios (coming soon)', placeholder: true },
@@ -4985,6 +4992,82 @@ ${result.valid ?
             `;
 
             detailsPanel.classList.add('open');
+        }
+
+        async function showBlameInfo(memoryKey) {
+            if (!connectedStorePath) {
+                showNotification('Please connect to a store first with /connect <path>', 'error');
+                return;
+            }
+
+            showNotification(`Getting blame information for: ${memoryKey}...`, 'info');
+
+            try {
+                const response = await fetch(`/api/blame?path=${encodeURIComponent(connectedStorePath)}&key=${encodeURIComponent(memoryKey)}&namespace=alice_chen`);
+                const result = await response.json();
+
+                if (result.error) {
+                    // Handle non-existent key with clear message
+                    if (result.status === 'not_found') {
+                        showNotification(`❌ Key Not Found: "${memoryKey}"\n\nThe memory key does not exist in the store.\nPlease check the key name and try again.`, 'error', 5000);
+                    } else {
+                        showNotification(`Error: ${result.error}`, 'error');
+                    }
+                    return;
+                }
+
+                // Format blame information for display
+                let blameDisplay = `🕰️ Git Blame for Memory Key: ${result.key}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Full Key: ${result.full_key}
+Status: ${result.status}
+Total Commits: ${result.total_commits}
+
+`;
+
+                if (result.current_value) {
+                    blameDisplay += `Current Value:
+${JSON.stringify(result.current_value, null, 2)}
+
+`;
+                }
+
+                blameDisplay += `Commit History:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+`;
+
+                if (result.blame_info && result.blame_info.length > 0) {
+                    result.blame_info.forEach((commit, index) => {
+                        const date = new Date(commit.date).toLocaleDateString();
+                        blameDisplay += `
+${index + 1}. ${commit.commit_hash} (${date})
+   Author: ${commit.author} <${commit.email}>
+   Message: ${commit.message}`;
+
+                        if (commit.files && commit.files.length > 0) {
+                            blameDisplay += `
+   Files: ${commit.files.join(', ')}`;
+                        }
+
+                        if (commit.note) {
+                            blameDisplay += `
+   Note: ${commit.note}`;
+                        }
+
+                        blameDisplay += '\\n';
+                    });
+                } else {
+                    blameDisplay += `
+No commit history found for this key.
+`;
+                }
+
+                // Show blame info in a modal-like notification
+                showCodeModal(blameDisplay);
+
+            } catch (error) {
+                showNotification(`Failed to get blame info: ${error.message}`, 'error');
+            }
         }
 
 

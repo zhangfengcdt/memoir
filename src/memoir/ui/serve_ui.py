@@ -38,6 +38,8 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_proof_api(parsed_path)
         elif parsed_path.path == "/api/verify":
             self.handle_verify_api(parsed_path)
+        elif parsed_path.path == "/api/blame":
+            self.handle_blame_api(parsed_path)
         elif parsed_path.path == "/":
             # Serve the visualization HTML
             self.path = "/visualization.html"
@@ -254,6 +256,43 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
         except Exception as e:
             self.send_error(500, f"Error verifying proof: {e!s}")
+
+    def handle_blame_api(self, parsed_path):
+        """Handle API requests for getting blame information for a memory key."""
+        query_params = parse_qs(parsed_path.query)
+        store_path = query_params.get("path", [None])[0]
+        memory_key = query_params.get("key", [None])[0]
+        namespace = query_params.get("namespace", ["alice_chen"])[0]
+
+        if not store_path:
+            self.send_error(400, "Missing 'path' parameter")
+            return
+
+        if not memory_key:
+            self.send_error(400, "Missing 'key' parameter")
+            return
+
+        if not Path(store_path).exists():
+            self.send_error(404, f"Store path does not exist: {store_path}")
+            return
+
+        try:
+            # Use the memory_store_reader to get blame data
+            sys.path.append(str(Path(__file__).parent))
+            from memory_store_reader import get_blame_info
+
+            data_json = get_blame_info(store_path, memory_key, namespace)
+            data = json.loads(data_json)
+
+            # Send response
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(data, indent=2).encode())
+
+        except Exception as e:
+            self.send_error(500, f"Error getting blame info: {e!s}")
 
     def handle_new_api(self):
         """Handle /new command to create a new git repository and initialize memory store."""
