@@ -18,6 +18,55 @@
             box-sizing: border-box;
         }
 
+        /* Theme Variables */
+        :root {
+            /* Dark theme (default) */
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #334155;
+            --bg-overlay: rgba(15, 23, 42, 0.95);
+            --bg-glass: rgba(30, 41, 59, 0.8);
+            --bg-glass-light: rgba(30, 41, 59, 0.6);
+            --bg-glass-lighter: rgba(30, 41, 59, 0.3);
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #94a3b8;
+            --text-accent: #22d3ee;
+            --border-color: rgba(51, 65, 85, 0.8);
+            --border-light: rgba(51, 65, 85, 0.6);
+            --border-glass: rgba(71, 85, 105, 0.5);
+            --accent-primary: #22d3ee;
+            --accent-secondary: #a855f7;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --shadow: rgba(0, 0, 0, 0.3);
+        }
+
+        /* Light theme */
+        [data-theme="light"] {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8fafc;
+            --bg-tertiary: #e2e8f0;
+            --bg-overlay: rgba(255, 255, 255, 0.95);
+            --bg-glass: rgba(248, 250, 252, 0.8);
+            --bg-glass-light: rgba(248, 250, 252, 0.6);
+            --bg-glass-lighter: rgba(248, 250, 252, 0.3);
+            --text-primary: #0f172a;
+            --text-secondary: #1e293b;
+            --text-muted: #64748b;
+            --text-accent: #0891b2;
+            --border-color: rgba(203, 213, 225, 0.8);
+            --border-light: rgba(148, 163, 184, 0.5);
+            --border-glass: rgba(100, 116, 139, 0.4);
+            --accent-primary: #0891b2;
+            --accent-secondary: #7c3aed;
+            --success: #059669;
+            --warning: #d97706;
+            --error: #dc2626;
+            --shadow: rgba(0, 0, 0, 0.1);
+        }
+
         /* Custom styles for syntax highlighting in modal */
         .hljs {
             background: transparent !important;
@@ -43,10 +92,11 @@
 
         body {
             font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
-            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a1a 100%);
-            color: #f8fafc;
+            background: var(--bg-primary);
+            color: var(--text-primary);
             height: 100vh;
             overflow: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
         .container {
@@ -57,9 +107,9 @@
         /* Git Tree Panel */
         .timeline-panel {
             width: 380px;
-            background: rgba(15, 23, 42, 0.8);
+            background: var(--bg-glass);
             backdrop-filter: blur(20px);
-            border-right: 1px solid rgba(51, 65, 85, 0.3);
+            border-right: 1px solid var(--border-light);
             overflow-y: auto;
             padding: 24px 20px;
         }
@@ -103,9 +153,9 @@
         }
 
         .branch-selector {
-            background: rgba(30, 41, 59, 0.8);
-            color: #f1f5f9;
-            border: 1px solid rgba(71, 85, 105, 0.5);
+            background: var(--bg-glass-darker);
+            color: var(--text-primary);
+            border: 1px solid var(--border-glass);
             border-radius: 8px;
             padding: 8px 14px;
             font-size: 13px;
@@ -121,15 +171,15 @@
         }
 
         .branch-selector:hover {
-            background: rgba(51, 65, 85, 0.8);
-            border-color: rgba(99, 102, 241, 0.5);
+            background: var(--bg-glass-lighter);
+            border-color: var(--accent-primary-alpha);
             transform: translateY(-1px);
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
         }
 
         .branch-selector option {
-            background: rgba(30, 41, 59, 0.95);
-            color: #f1f5f9;
+            background: var(--bg-glass-darker);
+            color: var(--text-primary);
             padding: 8px 12px;
             max-width: 200px;
             overflow: hidden;
@@ -170,7 +220,7 @@
         }
 
         .commit-node:hover .commit-info {
-            background: rgba(30, 41, 59, 0.4);
+            background: var(--bg-glass-light);
             transform: translateX(4px);
             border-radius: 8px;
             padding: 12px 16px;
@@ -204,30 +254,30 @@
 
         .commit-dot.main {
             left: 26px;
-            background: #22d3ee;
+            background: var(--accent-primary);
             box-shadow: 0 0 16px rgba(34, 211, 238, 0.6);
-            border: 2px solid rgba(15, 23, 42, 0.8);
+            border: 2px solid var(--bg-primary);
         }
 
         .commit-dot.branch {
             left: 46px;
-            background: #a78bfa;
+            background: var(--accent-secondary);
             box-shadow: 0 0 16px rgba(167, 139, 250, 0.6);
-            border: 2px solid rgba(15, 23, 42, 0.8);
+            border: 2px solid var(--bg-primary);
         }
 
         .commit-dot.merge {
             left: 26px;
             background: #fb7185;
             box-shadow: 0 0 16px rgba(251, 113, 133, 0.6);
-            border: 2px solid rgba(15, 23, 42, 0.8);
+            border: 2px solid var(--bg-primary);
         }
 
         .commit-dot.tag {
             left: 26px;
-            background: #fbbf24;
+            background: var(--warning);
             box-shadow: 0 0 16px rgba(251, 191, 36, 0.6);
-            border: 2px solid rgba(15, 23, 42, 0.8);
+            border: 2px solid var(--bg-primary);
         }
 
         .commit-node.active .commit-dot {
@@ -367,13 +417,13 @@
             position: absolute;
             right: 0px;
             top: 8px;
-            background: linear-gradient(135deg, rgba(251, 191, 36, 0.2) 0%, rgba(245, 158, 11, 0.2) 100%);
-            color: #fbbf24;
+            background: var(--bg-warning-alpha);
+            color: var(--warning);
             font-size: 9px;
             font-weight: 600;
             padding: 2px 6px;
             border-radius: 4px;
-            border: 1px solid rgba(251, 191, 36, 0.4);
+            border: 1px solid var(--border-warning);
             font-family: 'JetBrains Mono', monospace;
         }
 
@@ -394,8 +444,8 @@
         .commit-hash {
             font-family: 'JetBrains Mono', monospace;
             font-size: 11px;
-            color: #64748b;
-            background: rgba(30, 41, 59, 0.5);
+            color: var(--text-muted);
+            background: var(--bg-glass-light);
             padding: 2px 6px;
             border-radius: 4px;
             font-weight: 600;
@@ -403,17 +453,17 @@
 
         .branch-tag {
             font-size: 10px;
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%);
-            color: #c4b5fd;
+            background: var(--bg-accent-alpha);
+            color: var(--accent-secondary);
             padding: 2px 6px;
             border-radius: 10px;
             font-weight: 500;
-            border: 1px solid rgba(99, 102, 241, 0.3);
+            border: 1px solid var(--border-accent);
         }
 
         .commit-message {
             font-size: 13px;
-            color: #f1f5f9;
+            color: var(--text-primary);
             margin-bottom: 4px;
             font-weight: 500;
             overflow: hidden;
@@ -426,7 +476,7 @@
             align-items: center;
             gap: 12px;
             font-size: 11px;
-            color: #94a3b8;
+            color: var(--text-muted);
         }
 
         .commit-author {
@@ -457,13 +507,13 @@
             flex: 1;
             display: flex;
             flex-direction: column;
-            background: rgba(15, 23, 42, 0.3);
+            background: var(--bg-glass-lighter);
         }
 
         .toolbar {
-            background: rgba(30, 41, 59, 0.8);
+            background: var(--bg-glass);
             backdrop-filter: blur(20px);
-            border-bottom: 1px solid rgba(51, 65, 85, 0.3);
+            border-bottom: 1px solid var(--border-light);
             padding: 20px 32px;
             display: flex;
             align-items: center;
@@ -475,8 +525,8 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            background: rgba(15, 23, 42, 0.6);
-            border: 1px solid rgba(51, 65, 85, 0.3);
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
             border-radius: 8px;
             padding: 10px 16px;
             font-family: 'JetBrains Mono', monospace;
@@ -491,11 +541,20 @@
         }
 
         .store-path-text {
-            color: #e2e8f0;
+            color: var(--text-secondary);
             font-size: 14px;
             font-weight: 500;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+        .store-path-text.connected {
+            color: var(--success);
+        }
+        .store-path-text.disconnected {
+            color: var(--danger);
+        }
+        .store-path-text.connecting {
+            color: var(--warning);
             white-space: nowrap;
             flex: 1;
             min-width: 0;
@@ -504,22 +563,23 @@
         .store-status {
             font-size: 20px;
             flex-shrink: 0;
-            color: #ef4444; /* Red by default (disconnected) */
+            color: var(--danger); /* Red by default (disconnected) */
             transition: color 0.3s ease;
+            margin-left: auto; /* Push to the right */
         }
 
         .store-status.connected {
-            color: #22c55e; /* Green when connected */
+            color: var(--success); /* Green when connected */
         }
 
         .store-status.connecting {
-            color: #f59e0b; /* Yellow when connecting */
+            color: var(--warning); /* Yellow when connecting */
         }
 
         .view-toggle {
             display: flex;
-            background: rgba(30, 41, 59, 0.6);
-            border: 1px solid rgba(71, 85, 105, 0.3);
+            background: var(--bg-glass-light);
+            border: 1px solid var(--border-light);
             border-radius: 12px;
             overflow: hidden;
             backdrop-filter: blur(10px);
@@ -528,7 +588,7 @@
         .view-btn {
             background: transparent;
             border: none;
-            color: #94a3b8;
+            color: var(--text-muted);
             padding: 10px 20px;
             cursor: pointer;
             font-size: 13px;
@@ -537,14 +597,39 @@
         }
 
         .view-btn:hover {
-            color: #f1f5f9;
-            background: rgba(51, 65, 85, 0.5);
+            color: var(--text-primary);
+            background: var(--bg-glass);
         }
 
         .view-btn.active {
             background: linear-gradient(135deg, rgba(99, 102, 241, 0.8) 0%, rgba(139, 92, 246, 0.8) 100%);
             color: #fff;
             box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+        }
+
+        /* Theme Toggle Button */
+        .theme-toggle {
+            width: 40px;
+            height: 40px;
+            border: none;
+            border-radius: 10px;
+            background: var(--bg-glass-light);
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border-light);
+        }
+
+        .theme-toggle:hover {
+            background: var(--bg-glass);
+            color: var(--text-secondary);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px var(--shadow);
         }
 
         /* Memory Structure Area */
@@ -578,7 +663,7 @@
         }
 
         .tree-node:hover .node-content {
-            background: rgba(30, 41, 59, 0.6);
+            background: var(--bg-glass-light);
             border-radius: 8px;
         }
 
@@ -597,20 +682,20 @@
         }
 
         .node-label {
-            color: #ffffff;
+            color: var(--text-primary);
             padding: 4px 8px;
             font-weight: 500;
             transition: all 0.3s ease;
         }
 
         .node-label.has-memories {
-            color: #ffffff;
+            color: var(--text-primary);
             font-weight: 600;
         }
 
         .memory-count {
             background: linear-gradient(135deg, rgba(34, 211, 238, 0.2) 0%, rgba(167, 139, 250, 0.2) 100%);
-            color: #ffffff;
+            color: var(--text-primary);
             font-size: 11px;
             font-weight: 600;
             padding: 4px 8px;
@@ -622,7 +707,7 @@
 
         .node-children {
             margin-left: 32px;
-            border-left: 2px solid rgba(100, 116, 139, 0.2);
+            border-left: 2px solid var(--border-light);
             padding-left: 20px;
             position: relative;
         }
@@ -679,7 +764,7 @@
         .graph-view {
             width: 100%;
             height: 100%;
-            background: radial-gradient(ellipse at center, rgba(30, 41, 59, 0.3) 0%, rgba(15, 23, 42, 0.8) 100%);
+            background: var(--bg-glass-lighter);
             backdrop-filter: blur(10px);
             position: relative;
             padding: 0;
@@ -763,7 +848,7 @@
         }
 
         .node-text {
-            fill: #f1f5f9;
+            fill: var(--text-primary);
             font-size: 12px;
             font-family: 'Inter', sans-serif;
             font-weight: 500;
@@ -777,11 +862,11 @@
             right: 24px;
             top: 100px;
             width: 380px;
-            background: rgba(15, 23, 42, 0.98);
-            border: 1px solid rgba(51, 65, 85, 0.3);
+            background: var(--bg-overlay);
+            border: 1px solid var(--border-light);
             border-radius: 16px;
             padding: 28px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05);
+            box-shadow: 0 20px 40px var(--shadow), 0 0 0 1px rgba(255,255,255,0.05);
             /* Fix Chrome issues: use transform instead of display, lower z-index */
             transform: translateX(calc(100% + 24px));
             opacity: 0;
@@ -805,14 +890,14 @@
             align-items: center;
             margin-bottom: 24px;
             padding-bottom: 16px;
-            border-bottom: 1px solid rgba(51, 65, 85, 0.3);
+            border-bottom: 1px solid var(--border-light);
             gap: 12px; /* Add space between title and close button */
         }
 
         .details-title {
             font-size: 18px;
             font-weight: 700;
-            color: #f8fafc;
+            color: var(--text-primary);
             font-family: 'JetBrains Mono', monospace;
             letter-spacing: -0.025em;
             flex: 1; /* Allow title to grow but not push out close button */
@@ -824,9 +909,9 @@
         }
 
         .close-btn {
-            background: rgba(30, 41, 59, 0.6);
-            border: 1px solid rgba(71, 85, 105, 0.3);
-            color: #94a3b8;
+            background: var(--bg-glass-light);
+            border: 1px solid var(--border-light);
+            color: var(--text-muted);
             cursor: pointer;
             font-size: 14px;
             width: 32px;
@@ -841,14 +926,14 @@
         }
 
         .close-btn:hover {
-            background: rgba(51, 65, 85, 0.8);
-            color: #f1f5f9;
+            background: var(--bg-glass);
+            color: var(--text-primary);
             transform: scale(1.05);
         }
 
         .memory-item {
-            background: rgba(30, 41, 59, 0.4);
-            border: 1px solid rgba(51, 65, 85, 0.3);
+            background: var(--bg-glass-light);
+            border: 1px solid var(--border-light);
             border-radius: 12px;
             padding: 16px;
             margin-bottom: 16px;
@@ -857,14 +942,14 @@
         }
 
         .memory-item:hover {
-            background: rgba(30, 41, 59, 0.6);
+            background: var(--bg-glass);
             border-color: rgba(99, 102, 241, 0.3);
             transform: translateY(-2px);
         }
 
         .memory-content {
             font-size: 14px;
-            color: #f1f5f9;
+            color: var(--text-primary);
             margin-bottom: 12px;
             line-height: 1.6;
             font-weight: 400;
@@ -956,20 +1041,20 @@
 
         .input-container {
             position: relative;
-            background: rgba(15, 23, 42, 0.95);
+            background: var(--bg-overlay);
             backdrop-filter: blur(20px);
-            border: 1px solid rgba(51, 65, 85, 0.3);
+            border: 1px solid var(--border-light);
             border-radius: 24px;
             padding: 16px 80px 16px 24px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.05);
+            box-shadow: 0 20px 40px var(--shadow), 0 0 0 1px rgba(255,255,255,0.05);
             display: flex;
             align-items: center;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .input-container:focus-within {
-            border-color: rgba(34, 211, 238, 0.5);
-            box-shadow: 0 20px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(34, 211, 238, 0.2);
+            border-color: var(--accent-primary);
+            box-shadow: 0 20px 40px var(--shadow), 0 0 0 1px var(--accent-primary);
         }
 
         #memoryInput {
@@ -977,7 +1062,7 @@
             background: transparent;
             border: none;
             outline: none;
-            color: #f8fafc;
+            color: var(--text-primary);
             font-family: 'Inter', sans-serif;
             font-size: 16px;
             font-weight: 400;
@@ -986,7 +1071,7 @@
         }
 
         #memoryInput::placeholder {
-            color: rgba(148, 163, 184, 0.7);
+            color: var(--text-muted);
         }
 
         .input-actions {
@@ -1004,8 +1089,8 @@
             height: 36px;
             border: none;
             border-radius: 12px;
-            background: rgba(51, 65, 85, 0.3);
-            color: #94a3b8;
+            background: var(--bg-glass);
+            color: var(--text-secondary);
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -1014,14 +1099,14 @@
         }
 
         .input-btn:hover {
-            background: rgba(51, 65, 85, 0.5);
-            color: #f8fafc;
+            background: var(--bg-glass-lighter);
+            color: var(--text-primary);
             transform: translateY(-1px);
         }
 
         .query-btn:hover {
-            background: rgba(34, 211, 238, 0.2);
-            color: #22d3ee;
+            background: var(--bg-info-alpha);
+            color: var(--info);
         }
 
         .model-btn {
@@ -1050,11 +1135,11 @@
             top: -10px;
             right: 0;
             transform: translateY(-100%);
-            background: rgba(30, 41, 59, 0.95);
-            border: 1px solid rgba(51, 65, 85, 0.8);
+            background: var(--bg-overlay);
+            border: 1px solid var(--border-color);
             border-radius: 12px;
             backdrop-filter: blur(20px);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 8px 32px var(--shadow);
             min-width: 250px;
             z-index: 1000;
             display: none;
@@ -1062,10 +1147,10 @@
 
         .model-dropdown-header {
             padding: 12px 16px;
-            border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+            border-bottom: 1px solid var(--border-light);
             font-size: 14px;
             font-weight: 600;
-            color: #f8fafc;
+            color: var(--text-primary);
         }
 
         .model-option {
@@ -1074,8 +1159,8 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            color: #94a3b8;
-            border-bottom: 1px solid rgba(51, 65, 85, 0.3);
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--border-light);
             transition: all 0.2s ease;
         }
 
@@ -1085,8 +1170,8 @@
         }
 
         .model-option:hover {
-            background: rgba(51, 65, 85, 0.3);
-            color: #f8fafc;
+            background: var(--bg-glass-light);
+            color: var(--text-primary);
         }
 
         .model-option.selected {
@@ -1119,11 +1204,11 @@
         }
 
         .model-option.disabled .model-name {
-            color: #6b7280;
+            color: var(--text-muted);
         }
 
         .model-option.disabled .model-provider {
-            color: #6b7280;
+            color: var(--text-muted);
         }
 
 
@@ -1133,17 +1218,17 @@
             left: 0;
             right: 0;
             margin-bottom: 8px;
-            background: rgba(15, 23, 42, 0.95);
+            background: var(--bg-overlay);
             backdrop-filter: blur(20px);
-            border: 1px solid rgba(51, 65, 85, 0.3);
+            border: 1px solid var(--border-light);
             border-radius: 16px;
             padding: 12px;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+            box-shadow: 0 10px 20px var(--shadow);
         }
 
         .suggestion-item {
             padding: 8px 12px;
-            color: #94a3b8;
+            color: var(--text-muted);
             font-size: 14px;
             border-radius: 8px;
             cursor: pointer;
@@ -1151,8 +1236,8 @@
         }
 
         .suggestion-item:hover {
-            background: rgba(51, 65, 85, 0.3);
-            color: #f8fafc;
+            background: var(--bg-glass-light);
+            color: var(--text-primary);
         }
 
         @media (max-width: 768px) {
@@ -1459,9 +1544,14 @@
                     <span class="store-status" id="storeStatus">●</span>
                 </div>
 
-                <div class="view-toggle">
-                    <button class="view-btn active" data-view="tree">🌳 Tree</button>
-                    <button class="view-btn" data-view="graph">🕸️ Graph</button>
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <button class="theme-toggle" id="themeToggle" title="Toggle Theme">
+                        <span class="theme-icon">🌙</span>
+                    </button>
+                    <div class="view-toggle">
+                        <button class="view-btn active" data-view="tree">🌳 Tree</button>
+                        <button class="view-btn" data-view="graph">🕸️ Graph</button>
+                    </div>
                 </div>
             </div>
 
@@ -2909,8 +2999,9 @@ ${result.valid ?
                 storePathText.title = 'No store connected - viewing demo data';
             }
 
-            // Update status indicator
+            // Update status indicator and text color
             storeStatus.className = `store-status ${status}`;
+            storePathText.className = `store-path-text ${status}`;
         }
 
         async function connectToStore(path) {
@@ -3476,6 +3567,32 @@ ${result.valid ?
                     }
                 });
             });
+
+            // Theme toggle
+            const themeToggle = document.getElementById('themeToggle');
+            const themeIcon = themeToggle.querySelector('.theme-icon');
+
+            // Load saved theme or default to dark
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeIcon(savedTheme);
+
+            themeToggle.addEventListener('click', function() {
+                const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+
+                document.documentElement.setAttribute('data-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+                updateThemeIcon(newTheme);
+
+                // Show notification
+                showNotification(`Switched to ${newTheme} theme`, 'success', 2000);
+            });
+
+            function updateThemeIcon(theme) {
+                themeIcon.textContent = theme === 'dark' ? '🌙' : '☀️';
+                themeToggle.title = `Switch to ${theme === 'dark' ? 'light' : 'dark'} theme`;
+            }
 
             // Close details
             document.getElementById('closeDetails').addEventListener('click', function() {
