@@ -146,10 +146,16 @@
         }
 
         .memoir-logo-text {
-            color: #f8fafc;
+            color: var(--text-primary);
             font-size: 20px;
             font-weight: 700;
             letter-spacing: -0.025em;
+        }
+
+        .branch-controls {
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
 
         .branch-selector {
@@ -163,11 +169,59 @@
             cursor: pointer;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             backdrop-filter: blur(10px);
-            max-width: 200px;
-            width: 200px;
+            max-width: 140px;
+            width: 140px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+
+        .branch-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            border: 1px solid var(--border-glass);
+            background: var(--bg-glass-darker);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(4px);
+        }
+
+        .branch-btn:hover {
+            background: var(--bg-glass-lighter);
+            border-color: var(--accent-primary-alpha);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .branch-btn-add {
+            color: #10b981;
+        }
+
+        .branch-btn-add:hover {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.3);
+            color: #34d399;
+        }
+
+        .branch-btn-remove {
+            color: #ef4444;
+        }
+
+        .branch-btn-remove:hover {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #f87171;
+        }
+
+        .branch-btn-remove.hidden {
+            display: none;
         }
 
         .branch-selector:hover {
@@ -297,6 +351,86 @@
         .commit-node.active .commit-dot.merge,
         .commit-node.active .commit-dot.tag {
             left: 24px;
+        }
+
+        /* Commit context menu */
+        .commit-menu-btn {
+            position: absolute;
+            right: 6px;
+            top: 6px;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(4px);
+        }
+
+        .commit-node:hover .commit-menu-btn {
+            opacity: 1;
+        }
+
+        .commit-menu-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.25);
+            color: #f1f5f9;
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .commit-context-menu {
+            position: absolute;
+            background: var(--bg-glass);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 4px 0;
+            min-width: 160px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            display: none;
+        }
+
+        .commit-context-menu.show {
+            display: block;
+        }
+
+        .commit-menu-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            cursor: pointer;
+            color: var(--text-primary);
+            font-size: 13px;
+            transition: background 0.2s ease;
+        }
+
+        .commit-menu-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .commit-menu-item .menu-icon {
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+            opacity: 0.7;
+        }
+
+        .commit-menu-item.time-travel {
+            color: #8b5cf6;
+        }
+
+        .commit-menu-item.time-travel:hover {
+            background: rgba(139, 92, 246, 0.1);
         }
 
         /* Git tree lines */
@@ -432,6 +566,7 @@
             min-width: 0;
             padding: 8px 0px;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
         }
 
         .commit-header {
@@ -1269,11 +1404,15 @@
                     <span class="memoir-logo-text">Memoir</span>
                 </div>
 
-                <select class="branch-selector" id="branchSelector">
-                    <option value="main">main</option>
-                    <option value="experiment">experiment</option>
-                    <option value="user-profile">user-profile</option>
-                </select>
+                <div class="branch-controls">
+                    <select class="branch-selector" id="branchSelector">
+                        <option value="main">main</option>
+                        <option value="experiment">experiment</option>
+                        <option value="user-profile">user-profile</option>
+                    </select>
+                    <button class="branch-btn branch-btn-add" id="addBranchBtn" title="Create new branch">+</button>
+                    <button class="branch-btn branch-btn-remove" id="removeBranchBtn" title="Delete current branch">-</button>
+                </div>
             </div>
 
             <div class="git-tree" id="gitTree">
@@ -1961,7 +2100,11 @@
                 '/help': '/help',
                 '/h': '/help',
                 '/clear': '/clear',
-                '/cls': '/clear'
+                '/cls': '/clear',
+                '/br': '/branch',
+                '/co': '/checkout',
+                '/log': '/commits',
+                '/tt': '/time-travel'
             };
 
             // Resolve alias to full command
@@ -2035,6 +2178,35 @@
                     return;
                 }
                 await showBlameInfo(key);
+            } else if (cmd === '/time-travel') {
+                const target = parts.slice(1).join(' ').trim();
+                if (!target) {
+                    showNotification('Usage: /time-travel <commit-hash or date>', 'error');
+                    return;
+                }
+                await timeTravel(target);
+            } else if (cmd === '/branch') {
+                const subCmd = parts[1];
+                const args = parts.slice(2).join(' ').trim();
+                await handleBranchCommand(subCmd, args);
+            } else if (cmd === '/checkout') {
+                const target = parts.slice(1).join(' ').trim();
+                if (!target) {
+                    showNotification('Usage: /checkout <branch-name>', 'error');
+                    return;
+                }
+                await checkoutBranch(target);
+            } else if (cmd === '/merge') {
+                const source = parts.slice(1).join(' ').trim();
+                if (!source) {
+                    showNotification('Usage: /merge <source-branch>', 'error');
+                    return;
+                }
+                await mergeBranch(source);
+            } else if (cmd === '/commits' || cmd === '/log') {
+                await showCommitHistory();
+            } else if (cmd === '/branches') {
+                await showBranchList();
             } else if (cmd === '/help') {
                 const workingCommands = availableCommands.filter(c => !c.placeholder).map(c => {
                     const cmdStr = c.cmd + (c.args ? ' ' + c.args : '');
@@ -3040,6 +3212,8 @@ ${result.valid ?
                         updateStorePathDisplay(path, 'connected');
                         showNotification(`Successfully connected to ${path}`, 'success');
                         updateUIWithRealData(data);
+                        // Update branch display and git history for connected store
+                        await updateBranchDisplay();
                         return;
                     } else {
                         console.error('API returned error:', response.status, response.statusText);
@@ -3059,6 +3233,8 @@ ${result.valid ?
                         updateStorePathDisplay(path, 'connected');
                         showNotification(`Connected to ${path} (file mode)`, 'success');
                         updateUIWithRealData(data);
+                        // Update branch display and git history for connected store
+                        await updateBranchDisplay();
                         return;
                     }
                 } catch (e) {
@@ -3298,6 +3474,7 @@ ${result.valid ?
                 return;
             }
             await connectToStore(connectedStorePath);
+            await updateBranchDisplay();
         }
 
         function updateUIWithRealData(data) {
@@ -4489,14 +4666,18 @@ ${result.valid ?
             { cmd: '/code', args: '', desc: 'Show Python integration code' },
             { cmd: '/proof', args: '<memory-path>', desc: 'Generate cryptographic proof for a memory' },
             { cmd: '/verify', args: '[proof] [key]', desc: 'Verify last proof or provide proof data' },
+            { cmd: '/time-travel', args: '<commit>', desc: 'Travel to a specific commit and create a branch', aliases: '/tt' },
+            { cmd: '/branch', args: '<create|delete|list>', desc: 'Manage branches', aliases: '/br' },
+            { cmd: '/checkout', args: '<branch>', desc: 'Switch to a different branch', aliases: '/co' },
+            { cmd: '/merge', args: '<branch>', desc: 'Merge a branch into current branch' },
+            { cmd: '/commits', args: '', desc: 'Show recent commit history', aliases: '/log' },
+            { cmd: '/branches', args: '', desc: 'List all branches' },
+            { cmd: '/blame', args: '<key>', desc: 'Show Git-like blame history for memory key' },
             { cmd: '/help', args: '', desc: 'Show all available commands', aliases: '/h' },
             { cmd: '/summarize', args: '[path]', desc: 'Generate summary of memories (coming soon)', placeholder: true },
-            { cmd: '/time-travel', args: '<commit>', desc: 'View memories at specific commit (coming soon)', placeholder: true },
-            { cmd: '/blame', args: '<key>', desc: 'Show Git-like blame history for memory key' },
             { cmd: '/timeline', args: '[filter]', desc: 'Show chronological memory timeline (coming soon)', placeholder: true },
             { cmd: '/location', args: '<place>', desc: 'Filter memories by location context (coming soon)', placeholder: true },
-            { cmd: '/what-if', args: '<scenario>', desc: 'Simulate hypothetical memory scenarios (coming soon)', placeholder: true },
-            { cmd: '/merge', args: '<branch>', desc: 'Merge memory branch into current branch (coming soon)', placeholder: true }
+            { cmd: '/what-if', args: '<scenario>', desc: 'Simulate hypothetical memory scenarios (coming soon)', placeholder: true }
         ];
 
         let selectedCommandIndex = -1;
@@ -5070,6 +5251,753 @@ No commit history found for this key.
             }
         }
 
+        // Time-travel functionality
+        async function timeTravel(target) {
+            if (!connectedStorePath) {
+                showNotification('Please connect to a store first with /connect <path>', 'error');
+                return;
+            }
+
+            // Parse target - could be commit hash or relative time
+            let commitHash = target;
+
+            // Check if target looks like a date/time description
+            if (target.includes('ago') || target.includes('yesterday') || target.includes('hours') || target.includes('minutes')) {
+                // For now, show placeholder - could integrate with git log --since
+                showNotification('Date-based time travel coming soon. Please use commit hash for now.', 'info');
+                return;
+            }
+
+            // Auto-generate branch name with timestamp for uniqueness
+            const timestamp = Date.now();
+            const branchName = `time-travel-${commitHash.slice(0, 8)}-${timestamp}`;
+
+            try {
+                // Create and checkout new branch at target commit
+                const response = await fetch('/api/checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: connectedStorePath,
+                        target: commitHash,
+                        create_branch: branchName
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new Error(error);
+                }
+
+                const result = await response.json();
+                showNotification(`✨ Time-travel successful!\n${result.message}\n\nYou can now explore and modify memories at this point in time.\nChanges will be saved to branch: ${branchName}`, 'success', 8000);
+
+                // Refresh the store to show the state at that commit
+                await refreshStore();
+
+                // Update branch display
+                await updateBranchDisplay();
+
+            } catch (error) {
+                showNotification(`Time-travel failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function handleBranchCommand(subCmd, args) {
+            if (!connectedStorePath) {
+                showNotification('Please connect to a store first with /connect <path>', 'error');
+                return;
+            }
+
+            switch(subCmd) {
+                case 'create':
+                case 'new':
+                    if (!args) {
+                        showNotification('Usage: /branch create <branch-name>', 'error');
+                        return;
+                    }
+                    await createBranch(args);
+                    break;
+
+                case 'delete':
+                case 'rm':
+                    if (!args) {
+                        showNotification('Usage: /branch delete <branch-name>', 'error');
+                        return;
+                    }
+                    await deleteBranch(args);
+                    break;
+
+                case 'list':
+                case 'ls':
+                    await showBranchList();
+                    break;
+
+                default:
+                    showNotification('Usage: /branch <create|delete|list> [args]', 'error');
+            }
+        }
+
+        async function createBranch(branchName) {
+            try {
+                const response = await fetch('/api/create-branch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: connectedStorePath,
+                        branch: branchName
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new Error(error);
+                }
+
+                const result = await response.json();
+                showNotification(`✅ ${result.message}`, 'success');
+                await updateBranchDisplay();
+
+            } catch (error) {
+                showNotification(`Failed to create branch: ${error.message}`, 'error');
+            }
+        }
+
+        async function deleteBranch(branchName) {
+            const confirm = window.confirm(`Are you sure you want to delete branch '${branchName}'?`);
+            if (!confirm) return;
+
+            try {
+                const response = await fetch('/api/delete-branch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: connectedStorePath,
+                        branch: branchName,
+                        force: false
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    if (error.includes('not fully merged')) {
+                        const forceDelete = window.confirm(`Branch '${branchName}' is not fully merged. Force delete?`);
+                        if (forceDelete) {
+                            const forceResponse = await fetch('/api/delete-branch', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    path: connectedStorePath,
+                                    branch: branchName,
+                                    force: true
+                                })
+                            });
+                            if (!forceResponse.ok) {
+                                throw new Error(await forceResponse.text());
+                            }
+                            const forceResult = await forceResponse.json();
+                            showNotification(`✅ ${forceResult.message}`, 'success');
+                        }
+                    } else {
+                        throw new Error(error);
+                    }
+                } else {
+                    const result = await response.json();
+                    showNotification(`✅ ${result.message}`, 'success');
+                }
+
+                await updateBranchDisplay();
+
+            } catch (error) {
+                showNotification(`Failed to delete branch: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkoutBranch(branchName) {
+            try {
+                const response = await fetch('/api/checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: connectedStorePath,
+                        target: branchName
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new Error(error);
+                }
+
+                const result = await response.json();
+                showNotification(`✅ ${result.message}`, 'success');
+
+                // Refresh store to show new branch state
+                await refreshStore();
+                await updateBranchDisplay();
+
+            } catch (error) {
+                showNotification(`Failed to checkout branch: ${error.message}`, 'error');
+            }
+        }
+
+        async function mergeBranch(sourceBranch) {
+            const currentBranch = await getCurrentBranch();
+            const confirm = window.confirm(`Merge '${sourceBranch}' into '${currentBranch}'?`);
+            if (!confirm) return;
+
+            try {
+                const response = await fetch('/api/merge-branch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: connectedStorePath,
+                        source: sourceBranch
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    if (error.includes('conflict')) {
+                        showNotification(`❌ Merge conflict detected!\n\nPlease resolve conflicts manually using git.`, 'error', 8000);
+                    } else {
+                        throw new Error(error);
+                    }
+                } else {
+                    const result = await response.json();
+                    showNotification(`✅ ${result.message}`, 'success', 5000);
+
+                    // Refresh to show merged state
+                    await refreshStore();
+                }
+
+            } catch (error) {
+                showNotification(`Failed to merge: ${error.message}`, 'error');
+            }
+        }
+
+        async function showBranchList() {
+            if (!connectedStorePath) {
+                showNotification('Please connect to a store first with /connect <path>', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/branches?path=${encodeURIComponent(connectedStorePath)}`);
+                if (!response.ok) throw new Error(await response.text());
+
+                const data = await response.json();
+                const branchList = data.branches.map(b =>
+                    b === data.current ? `* ${b} (current)` : `  ${b}`
+                ).join('\n');
+
+                showNotification(`📌 Branches:\n${branchList}`, 'info', 8000);
+
+            } catch (error) {
+                showNotification(`Failed to get branches: ${error.message}`, 'error');
+            }
+        }
+
+        async function showCommitHistory() {
+            if (!connectedStorePath) {
+                showNotification('Please connect to a store first with /connect <path>', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/commits?path=${encodeURIComponent(connectedStorePath)}&limit=10`);
+                if (!response.ok) throw new Error(await response.text());
+
+                const data = await response.json();
+
+                if (data.commits.length === 0) {
+                    showNotification('No commits found', 'info');
+                    return;
+                }
+
+                const commitList = data.commits.map(c => {
+                    const date = new Date(c.timestamp * 1000);
+                    const timeAgo = getTimeAgo(date);
+                    return `${c.short_hash} - ${c.message} (${timeAgo})`;
+                }).join('\n');
+
+                showCodeModal(`📜 Recent Commits (${data.branch}):\n\n${commitList}`);
+
+            } catch (error) {
+                showNotification(`Failed to get commits: ${error.message}`, 'error');
+            }
+        }
+
+        async function getCurrentBranch() {
+            if (!connectedStorePath) return null;
+
+            try {
+                const response = await fetch(`/api/current-branch?path=${encodeURIComponent(connectedStorePath)}`);
+                if (!response.ok) throw new Error(await response.text());
+
+                const data = await response.json();
+                return data.branch;
+
+            } catch (error) {
+                console.error('Failed to get current branch:', error);
+                return null;
+            }
+        }
+
+        async function updateBranchDisplay() {
+            if (!connectedStorePath) return;
+
+            try {
+                // Get current branch info
+                const branchResponse = await fetch(`/api/current-branch?path=${encodeURIComponent(connectedStorePath)}`);
+                if (branchResponse.ok) {
+                    const branchData = await branchResponse.json();
+
+                    // Update the branch display in the UI
+                    const storePathElement = document.querySelector('.store-path');
+                    if (storePathElement) {
+                        const branchBadge = storePathElement.querySelector('.branch-badge') ||
+                                          document.createElement('span');
+                        branchBadge.className = 'branch-badge';
+                        branchBadge.style.cssText = 'margin-left: 10px; padding: 2px 8px; background: #4a5568; border-radius: 4px; font-size: 12px;';
+                        branchBadge.textContent = `📌 ${branchData.branch}`;
+
+                        if (!storePathElement.querySelector('.branch-badge')) {
+                            storePathElement.appendChild(branchBadge);
+                        }
+                    }
+
+                    // Hide/show remove button based on current branch
+                    const removeBtn = document.getElementById('removeBranchBtn');
+                    if (removeBtn) {
+                        if (branchData.branch === 'main') {
+                            removeBtn.classList.add('hidden');
+                        } else {
+                            removeBtn.classList.remove('hidden');
+                        }
+                    }
+                }
+
+                // Get branches for dropdown
+                const branchesResponse = await fetch(`/api/branches?path=${encodeURIComponent(connectedStorePath)}`);
+                if (branchesResponse.ok) {
+                    const branchesData = await branchesResponse.json();
+                    updateBranchesDropdown(branchesData.branches, branchesData.current);
+                }
+
+                // Update git history for current branch
+                await updateGitHistory();
+
+            } catch (error) {
+                console.error('Failed to update branch display:', error);
+            }
+        }
+
+        async function updateGitHistory() {
+            if (!connectedStorePath) return;
+
+            try {
+                const response = await fetch(`/api/commits?path=${encodeURIComponent(connectedStorePath)}&limit=15`);
+                if (!response.ok) return; // Don't show error, just keep existing history
+
+                const data = await response.json();
+                const gitTreeElement = document.querySelector('.git-tree');
+                if (!gitTreeElement || data.commits.length === 0) return;
+
+                // Generate git history HTML from real commits
+                let historyHTML = '';
+                data.commits.forEach((commit, index) => {
+                    const isActive = index === 0; // First commit is active
+                    const timeAgo = getTimeAgo(new Date(commit.timestamp * 1000));
+                    const authorInitials = commit.author.split(' ').map(n => n[0]).join('').toUpperCase();
+
+                    historyHTML += `
+                        <div class="commit-node ${isActive ? 'active' : ''}" data-commit="${commit.hash}">
+                            <div class="git-lines"><div class="commit-dot main"></div></div>
+                            <div class="commit-info">
+                                <button class="commit-menu-btn" data-commit="${commit.hash}">⋯</button>
+                                <div class="commit-header">
+                                    <div class="commit-hash">${commit.short_hash}</div>
+                                    <div class="branch-tag">${data.branch}</div>
+                                </div>
+                                <div class="commit-message">${commit.message}</div>
+                                <div class="commit-meta">
+                                    <div class="commit-author">
+                                        <div class="author-avatar">${authorInitials}</div>
+                                        <span>${commit.author}</span>
+                                    </div>
+                                    <div class="commit-time">${timeAgo}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                gitTreeElement.innerHTML = historyHTML;
+
+                // Add menu button handlers
+                initializeCommitMenus();
+
+            } catch (error) {
+                console.error('Failed to update git history:', error);
+                // Keep existing history on error
+            }
+        }
+
+        function getTimeAgo(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+            const intervals = {
+                year: 31536000,
+                month: 2592000,
+                week: 604800,
+                day: 86400,
+                hour: 3600,
+                minute: 60
+            };
+
+            for (const [unit, secondsInUnit] of Object.entries(intervals)) {
+                const interval = Math.floor(seconds / secondsInUnit);
+                if (interval >= 1) {
+                    return `${interval} ${unit}${interval === 1 ? '' : 's'} ago`;
+                }
+            }
+            return 'just now';
+        }
+
+        // Initialize commit context menus
+        function initializeCommitMenus() {
+            const gitTreeElement = document.querySelector('.git-tree');
+            if (!gitTreeElement) return;
+
+            // Remove any existing menus
+            document.querySelectorAll('.commit-context-menu').forEach(menu => menu.remove());
+
+            // Add click handlers to menu buttons
+            gitTreeElement.querySelectorAll('.commit-menu-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent any parent click handlers
+                    const commitHash = button.dataset.commit;
+                    showCommitContextMenu(e, commitHash);
+                });
+            });
+
+            // Close menus when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.commit-context-menu') && !e.target.closest('.commit-menu-btn')) {
+                    hideAllCommitMenus();
+                }
+            });
+        }
+
+        function showCommitContextMenu(event, commitHash) {
+            // Hide any existing menus first
+            hideAllCommitMenus();
+
+            // Create menu element
+            const menu = document.createElement('div');
+            menu.className = 'commit-context-menu show';
+
+            // Get commit info for display
+            const shortHash = commitHash.slice(0, 8);
+
+            menu.innerHTML = `
+                <div class="commit-menu-item time-travel" data-action="time-travel" data-commit="${commitHash}">
+                    <span class="menu-icon">🕐</span>
+                    Time-travel to ${shortHash}
+                </div>
+                <div class="commit-menu-item" data-action="copy-hash" data-commit="${commitHash}">
+                    <span class="menu-icon">📋</span>
+                    Copy commit hash
+                </div>
+                <div class="commit-menu-item" data-action="view-details" data-commit="${commitHash}">
+                    <span class="menu-icon">👁</span>
+                    View commit details
+                </div>
+            `;
+
+            // Position menu near the button
+            const rect = event.target.getBoundingClientRect();
+            menu.style.position = 'fixed';
+            menu.style.left = `${rect.right - 160}px`; // Align right edge with button
+            menu.style.top = `${rect.bottom + 4}px`;
+
+            // Add menu to document
+            document.body.appendChild(menu);
+
+            // Add click handlers to menu items
+            menu.querySelectorAll('.commit-menu-item').forEach(item => {
+                item.addEventListener('click', async (e) => {
+                    const action = e.currentTarget.dataset.action;
+                    const commit = e.currentTarget.dataset.commit;
+
+                    hideAllCommitMenus();
+
+                    switch(action) {
+                        case 'time-travel':
+                            await timeTravel(commit);
+                            break;
+                        case 'copy-hash':
+                            await copyToClipboard(commit);
+                            showNotification(`Copied commit hash: ${commit.slice(0, 8)}`, 'success', 3000);
+                            break;
+                        case 'view-details':
+                            await showCommitDetails(commit);
+                            break;
+                    }
+                });
+            });
+
+            // Adjust position if menu goes off screen
+            const menuRect = menu.getBoundingClientRect();
+            if (menuRect.right > window.innerWidth) {
+                menu.style.left = `${rect.left - menuRect.width}px`;
+            }
+            if (menuRect.bottom > window.innerHeight) {
+                menu.style.top = `${rect.top - menuRect.height - 4}px`;
+            }
+        }
+
+        function hideAllCommitMenus() {
+            document.querySelectorAll('.commit-context-menu').forEach(menu => {
+                menu.remove();
+            });
+        }
+
+        async function copyToClipboard(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+            } catch (err) {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+            }
+        }
+
+        async function showCommitDetails(commitHash) {
+            if (!connectedStorePath) return;
+
+            try {
+                // Get detailed commit info
+                const response = await fetch(`/api/commits?path=${encodeURIComponent(connectedStorePath)}&limit=100`);
+                if (!response.ok) throw new Error('Failed to get commit details');
+
+                const data = await response.json();
+                const commit = data.commits.find(c => c.hash === commitHash);
+
+                if (!commit) {
+                    showNotification('Commit details not found', 'error');
+                    return;
+                }
+
+                const date = new Date(commit.timestamp * 1000);
+                const timeAgo = getTimeAgo(date);
+
+                const details = `📋 Commit Details
+
+Hash: ${commit.hash}
+Short: ${commit.short_hash}
+Author: ${commit.author} <${commit.email}>
+Date: ${date.toLocaleString()}
+Time: ${timeAgo}
+Branch: ${data.branch}
+
+Message: ${commit.message}`;
+
+                showCodeModal(details);
+
+            } catch (error) {
+                showNotification(`Failed to get commit details: ${error.message}`, 'error');
+            }
+        }
+
+        // Initialize branch selector functionality
+        function initializeBranchSelector() {
+            const branchSelector = document.getElementById('branchSelector');
+            if (!branchSelector) return;
+
+            branchSelector.addEventListener('change', async (e) => {
+                const selectedBranch = e.target.value;
+
+                if (!connectedStorePath) {
+                    // Reset to previous selection if no store connected
+                    showNotification('Please connect to a store first with /connect <path>', 'error');
+                    return;
+                }
+
+                // Don't switch if already on the selected branch
+                const currentBranch = await getCurrentBranch();
+                if (currentBranch === selectedBranch) {
+                    return;
+                }
+
+                try {
+                    showNotification(`Switching to branch: ${selectedBranch}...`, 'info');
+
+                    // Use checkoutBranch function we already have
+                    await checkoutBranch(selectedBranch);
+
+                } catch (error) {
+                    console.error('Failed to switch branch via dropdown:', error);
+                    showNotification(`Failed to switch to branch: ${error.message}`, 'error');
+
+                    // Reset dropdown to current branch on error
+                    const actualCurrentBranch = await getCurrentBranch();
+                    if (actualCurrentBranch && branchSelector) {
+                        branchSelector.value = actualCurrentBranch;
+                    }
+                }
+            });
+        }
+
+        // Initialize branch control buttons
+        function initializeBranchButtons() {
+            const addBtn = document.getElementById('addBranchBtn');
+            const removeBtn = document.getElementById('removeBranchBtn');
+
+            if (addBtn) {
+                addBtn.addEventListener('click', handleCreateBranch);
+            }
+
+            if (removeBtn) {
+                removeBtn.addEventListener('click', handleRemoveBranch);
+            }
+        }
+
+        async function handleCreateBranch() {
+            if (!connectedStorePath) {
+                showNotification('Please connect to a store first with /connect <path>', 'error');
+                return;
+            }
+
+            const currentBranch = await getCurrentBranch();
+            const newBranchName = prompt(`Create new branch from '${currentBranch}':`, `feature/new-feature`);
+
+            if (!newBranchName) {
+                return; // User cancelled
+            }
+
+            if (newBranchName.trim() === '') {
+                showNotification('Branch name cannot be empty', 'error');
+                return;
+            }
+
+            // Validate branch name (basic validation)
+            if (!/^[a-zA-Z0-9_/-]+$/.test(newBranchName)) {
+                showNotification('Branch name can only contain letters, numbers, underscores, hyphens, and forward slashes', 'error');
+                return;
+            }
+
+            try {
+                showNotification(`Creating branch '${newBranchName}'...`, 'info');
+
+                const response = await fetch('/api/create-branch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: connectedStorePath,
+                        branch: newBranchName,
+                        from: currentBranch
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new Error(error);
+                }
+
+                const result = await response.json();
+
+                // Automatically checkout the new branch
+                await checkoutBranch(newBranchName);
+
+                showNotification(`✅ Created and switched to branch '${newBranchName}'`, 'success');
+
+            } catch (error) {
+                console.error('Failed to create branch:', error);
+                showNotification(`Failed to create branch: ${error.message}`, 'error');
+            }
+        }
+
+        async function handleRemoveBranch() {
+            if (!connectedStorePath) {
+                showNotification('Please connect to a store first with /connect <path>', 'error');
+                return;
+            }
+
+            const currentBranch = await getCurrentBranch();
+
+            // Don't allow removing main branch
+            if (currentBranch === 'main') {
+                showNotification('Cannot delete the main branch', 'error');
+                return;
+            }
+
+            const confirmDelete = confirm(`Are you sure you want to delete branch '${currentBranch}'?\n\nThis will switch to 'main' branch and delete '${currentBranch}'.`);
+            if (!confirmDelete) {
+                return;
+            }
+
+            try {
+                showNotification(`Switching to main and deleting '${currentBranch}'...`, 'info');
+
+                // First checkout main branch
+                await checkoutBranch('main');
+
+                // Then delete the branch
+                const response = await fetch('/api/delete-branch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: connectedStorePath,
+                        branch: currentBranch,
+                        force: false
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    if (error.includes('not fully merged')) {
+                        const forceDelete = confirm(`Branch '${currentBranch}' is not fully merged. Force delete anyway?`);
+                        if (forceDelete) {
+                            const forceResponse = await fetch('/api/delete-branch', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    path: connectedStorePath,
+                                    branch: currentBranch,
+                                    force: true
+                                })
+                            });
+                            if (!forceResponse.ok) {
+                                throw new Error(await forceResponse.text());
+                            }
+                            showNotification(`✅ Force deleted branch '${currentBranch}' and switched to main`, 'success');
+
+                            // Refresh branch dropdown to remove deleted branch
+                            await updateBranchDisplay();
+                        } else {
+                            showNotification('Branch deletion cancelled', 'info');
+                        }
+                    } else {
+                        throw new Error(error);
+                    }
+                } else {
+                    showNotification(`✅ Deleted branch '${currentBranch}' and switched to main`, 'success');
+
+                    // Refresh branch dropdown to remove deleted branch
+                    await updateBranchDisplay();
+                }
+
+            } catch (error) {
+                console.error('Failed to remove branch:', error);
+                showNotification(`Failed to remove branch: ${error.message}`, 'error');
+            }
+        }
+
 
         // Initialize the page
         function initializePage() {
@@ -5078,6 +6006,12 @@ No commit history found for this key.
 
             // Initialize the memory input functionality
             initializeMemoryInput();
+
+            // Initialize branch selector functionality
+            initializeBranchSelector();
+
+            // Initialize branch control buttons
+            initializeBranchButtons();
         }
 
         // Run initialization when page loads
