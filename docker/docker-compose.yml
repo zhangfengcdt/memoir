@@ -1,0 +1,53 @@
+services:
+  memoir-ui:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: memoir-ui-service
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount a volume for persistent memory stores
+      - memoir_data:/app/data/memory_stores
+      # Mount local directory for development (optional, uncomment for dev)
+      # - ./data:/app/data/memory_stores
+    environment:
+      - PYTHONPATH=/app
+      - MEMOIR_DATA_DIR=/app/data/memory_stores
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import http.client; conn = http.client.HTTPConnection('localhost:8080'); conn.request('GET', '/'); conn.getresponse()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - memoir-network
+
+  # Optional: Add a data initialization service (temporarily disabled)
+  memoir-init:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: memoir-init-service
+    volumes:
+      - memoir_data:/app/data/memory_stores
+    environment:
+      - PYTHONPATH=/app
+      - MEMOIR_DATA_DIR=/app/data/memory_stores
+    command: python -m src.memoir.ui.initialize_sample_store --store-path /app/data/memory_stores/sample_store
+    depends_on:
+      - memoir-ui
+    restart: "no"
+    networks:
+      - memoir-network
+    profiles:
+      - init  # This service won't start by default
+
+volumes:
+  memoir_data:
+    driver: local
+
+networks:
+  memoir-network:
+    driver: bridge

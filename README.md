@@ -60,9 +60,38 @@ Just as Git transformed software development from fragile, unversioned code to r
 
 ### Installation
 
+#### Option 1: Docker (Recommended for Testing)
+
+```bash
+# Quick start with startup script
+git clone https://github.com/yourusername/memoir.git
+cd memoir
+./docker.sh start
+
+# Or run directly from docker/ folder
+cd docker
+./start-docker.sh start
+
+# Open browser to http://localhost:8080
+```
+
+#### Option 2: Python Package
+
 ```bash
 pip install memoir
 ```
+
+#### Option 3: From Source
+
+```bash
+git clone https://github.com/yourusername/memoir.git
+cd memoir
+pip install -e ".[dev]"
+```
+
+> 📋 **See [docker/README.md](./docker/README.md) for comprehensive Docker setup and usage guide**
+>
+> **Quick Docker Test**: After starting with `./docker.sh start`, open http://localhost:8080 and try `/demo` to explore the interface with demo data.
 
 ### Basic Usage with Version Control
 
