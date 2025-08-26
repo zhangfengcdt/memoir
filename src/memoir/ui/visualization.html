@@ -146,10 +146,16 @@
         }
 
         .memoir-logo-text {
-            color: #f8fafc;
+            color: var(--text-primary);
             font-size: 20px;
             font-weight: 700;
             letter-spacing: -0.025em;
+        }
+
+        .branch-controls {
+            display: flex;
+            align-items: center;
+            gap: 4px;
         }
 
         .branch-selector {
@@ -163,11 +169,505 @@
             cursor: pointer;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             backdrop-filter: blur(10px);
-            max-width: 200px;
-            width: 200px;
+            max-width: 140px;
+            width: 140px;
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+        }
+
+        .branch-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            border: 1px solid var(--border-glass);
+            background: var(--bg-glass-darker);
+            color: var(--text-primary);
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(4px);
+        }
+
+        .branch-btn:hover {
+            background: var(--bg-glass-lighter);
+            border-color: var(--accent-primary-alpha);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        }
+
+        .branch-btn-add {
+            color: #10b981;
+        }
+
+        .branch-btn-add:hover {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.3);
+            color: #34d399;
+        }
+
+        .branch-btn-remove {
+            color: #ef4444;
+        }
+
+        .branch-btn-remove:hover {
+            background: rgba(239, 68, 68, 0.1);
+            border-color: rgba(239, 68, 68, 0.3);
+            color: #f87171;
+        }
+
+        .branch-btn-remove.hidden {
+            display: none;
+        }
+
+        /* View Navigation */
+        .view-navigation {
+            display: flex;
+            gap: 2px;
+            margin-bottom: 24px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .view-nav-btn {
+            padding: 8px 16px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 6px;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .view-nav-btn:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .view-nav-btn.active {
+            background: var(--accent-primary);
+            color: white;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+        }
+
+        /* View Content Areas */
+        .view-content {
+            display: none;
+        }
+
+        .view-content.active {
+            display: block;
+        }
+
+        /* Timeline View - GitHub Style Activity Grid */
+        .timeline-view {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            padding: 0;
+            gap: 20px;
+            position: relative;
+        }
+
+        .timeline-contributions-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            position: relative;
+        }
+
+        .timeline-contributions-title {
+            font-size: 16px;
+            color: var(--text-primary);
+        }
+
+        .timeline-contributions-count {
+            font-weight: 600;
+        }
+
+        .timeline-year-button {
+            background: var(--bg-glass-light);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 14px;
+            padding: 6px 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            outline: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .timeline-year-button:hover {
+            border-color: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .timeline-year-button.open {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.1);
+        }
+
+        .timeline-grid-container {
+            background: var(--bg-glass);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            flex-shrink: 0;
+            margin-bottom: 16px;
+        }
+
+        .timeline-grid-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .timeline-grid-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .timeline-year-selector {
+            background: var(--bg-glass-light);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-size: 13px;
+            padding: 4px 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            outline: none;
+        }
+
+        .timeline-year-selector:hover {
+            border-color: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .timeline-year-selector:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.1);
+        }
+
+        .timeline-year-panel {
+            position: absolute;
+            top: 40px;
+            right: 0;
+            background: var(--bg-glass);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 8px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(20px);
+            z-index: 1000;
+            display: none;
+            min-width: 120px;
+        }
+
+        .timeline-year-panel.show {
+            display: block;
+        }
+
+        .timeline-years-list {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .timeline-year-item {
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            color: var(--text-secondary);
+            transition: all 0.2s ease;
+            text-align: left;
+        }
+
+        .timeline-year-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+        }
+
+        .timeline-year-item.active {
+            background: var(--accent);
+            color: white;
+            font-weight: 600;
+        }
+
+        .timeline-grid-legend {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .activity-grid-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .activity-months {
+            display: flex;
+            gap: 3px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-left: 20px;
+        }
+
+        .activity-month {
+            text-align: center;
+            min-width: 52px;
+        }
+
+        .activity-main {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .activity-weekdays {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            font-size: 11px;
+            color: var(--text-secondary);
+            padding-top: 20px;
+        }
+
+        .activity-weekday {
+            height: 12px;
+            line-height: 12px;
+            text-align: right;
+            width: 15px;
+        }
+
+        .activity-grid {
+            display: flex;
+            flex-direction: row;
+            gap: 3px;
+            font-size: 10px;
+            color: var(--text-secondary);
+            overflow-x: auto;
+            padding: 20px 10px 10px 0;
+        }
+
+        .activity-week {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            flex-shrink: 0;
+        }
+
+        .activity-day {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+        }
+
+        .activity-day.empty {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .activity-day.level-1 {
+            background: rgba(34, 197, 94, 0.3);
+            border: 1px solid rgba(34, 197, 94, 0.5);
+        }
+
+        .activity-day.level-2 {
+            background: rgba(34, 197, 94, 0.5);
+            border: 1px solid rgba(34, 197, 94, 0.7);
+        }
+
+        .activity-day.level-3 {
+            background: rgba(34, 197, 94, 0.7);
+            border: 1px solid rgba(34, 197, 94, 0.8);
+        }
+
+        .activity-day.level-4 {
+            background: rgba(34, 197, 94, 0.9);
+            border: 1px solid rgba(34, 197, 94, 1);
+        }
+
+        .activity-day:hover {
+            transform: scale(1.2);
+            z-index: 10;
+        }
+
+        .timeline-activity-section {
+            background: var(--bg-glass);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            flex: 1;
+        }
+
+        .timeline-activity-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+
+        .timeline-details {
+            background: var(--bg-glass);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+
+        .timeline-details-header {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            flex-shrink: 0;
+        }
+
+        #timelineDetailsContent {
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+
+        .timeline-memory-item {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .timeline-memory-item:last-child {
+            border-bottom: none;
+        }
+
+        .timeline-memory-time {
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .timeline-memory-content {
+            font-size: 13px;
+            color: var(--text-primary);
+            margin-top: 4px;
+        }
+
+        /* Places View */
+        .places-view {
+            padding: 20px 0;
+        }
+
+        .places-map-container {
+            background: var(--bg-glass);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .places-map-placeholder {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 12px;
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+        }
+
+        .places-map-icon {
+            font-size: 48px;
+            opacity: 0.5;
+        }
+
+        .places-map-text {
+            font-size: 16px;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        .places-list {
+            background: var(--bg-glass);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .places-list-header {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+        }
+
+        .place-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .place-item:last-child {
+            border-bottom: none;
+        }
+
+        .place-marker {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-primary);
+        }
+
+        .place-info {
+            flex: 1;
+        }
+
+        .place-name {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .place-count {
+            font-size: 12px;
+            color: var(--text-secondary);
         }
 
         .branch-selector:hover {
@@ -297,6 +797,86 @@
         .commit-node.active .commit-dot.merge,
         .commit-node.active .commit-dot.tag {
             left: 24px;
+        }
+
+        /* Commit context menu */
+        .commit-menu-btn {
+            position: absolute;
+            right: 6px;
+            top: 6px;
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(4px);
+        }
+
+        .commit-node:hover .commit-menu-btn {
+            opacity: 1;
+        }
+
+        .commit-menu-btn:hover {
+            background: rgba(255, 255, 255, 0.15);
+            border-color: rgba(255, 255, 255, 0.25);
+            color: #f1f5f9;
+            transform: scale(1.05);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .commit-context-menu {
+            position: absolute;
+            background: var(--bg-glass);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 4px 0;
+            min-width: 160px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            display: none;
+        }
+
+        .commit-context-menu.show {
+            display: block;
+        }
+
+        .commit-menu-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            cursor: pointer;
+            color: var(--text-primary);
+            font-size: 13px;
+            transition: background 0.2s ease;
+        }
+
+        .commit-menu-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .commit-menu-item .menu-icon {
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+            opacity: 0.7;
+        }
+
+        .commit-menu-item.time-travel {
+            color: #8b5cf6;
+        }
+
+        .commit-menu-item.time-travel:hover {
+            background: rgba(139, 92, 246, 0.1);
         }
 
         /* Git tree lines */
@@ -432,6 +1012,7 @@
             min-width: 0;
             padding: 8px 0px;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
         }
 
         .commit-header {
@@ -1269,11 +1850,16 @@
                     <span class="memoir-logo-text">Memoir</span>
                 </div>
 
-                <select class="branch-selector" id="branchSelector">
-                    <option value="main">main</option>
-                    <option value="experiment">experiment</option>
-                    <option value="user-profile">user-profile</option>
-                </select>
+                <div class="branch-controls">
+                    <select class="branch-selector" id="branchSelector">
+                        <option value="main">main</option>
+                        <option value="experiment">experiment</option>
+                        <option value="user-profile">user-profile</option>
+                    </select>
+                    <button class="branch-btn branch-btn-add" id="addBranchBtn" title="Create new branch">+</button>
+                    <button class="branch-btn branch-btn-remove" id="removeBranchBtn" title="Delete current branch">-</button>
+                </div>
+
             </div>
 
             <div class="git-tree" id="gitTree">
@@ -1551,228 +2137,301 @@
                     <div class="view-toggle">
                         <button class="view-btn active" data-view="tree">🌳 Tree</button>
                         <button class="view-btn" data-view="graph">🕸️ Graph</button>
+                        <button class="view-btn" data-view="timeline">📅 Timeline</button>
+                        <button class="view-btn" data-view="places">🗺️ Places</button>
                     </div>
                 </div>
             </div>
 
-            <div class="memory-structure" id="memoryStructure">
-                <!-- Tree View (Default) -->
-                <div class="tree-view" id="treeView">
-                    <div class="tree-node">
-                        <div class="node-content">
-                            <span class="node-icon">📁</span>
-                            <span class="node-label">profile</span>
+            <!-- Memory Structure -->
+                <!-- Memory Structure Panel -->
+                <div class="memory-structure" id="memoryStructure">
+                    <!-- Tree View (Default) -->
+                    <div class="tree-view" id="treeView">
+                        <div class="tree-node">
+                            <div class="node-content">
+                                <span class="node-icon">📁</span>
+                                <span class="node-label">profile</span>
+                            </div>
+                            <div class="node-children">
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">📁</span>
+                                        <span class="node-label">personal</span>
+                                    </div>
+                                    <div class="node-children">
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">identity</span>
+                                                <span class="memory-count">8</span>
+                                            </div>
+                                        </div>
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">location</span>
+                                                <span class="memory-count">6</span>
+                                            </div>
+                                        </div>
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">relationships</span>
+                                                <span class="memory-count">5</span>
+                                            </div>
+                                        </div>
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">health</span>
+                                                <span class="memory-count">4</span>
+                                            </div>
+                                        </div>
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label">preferences</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">📁</span>
+                                        <span class="node-label">professional</span>
+                                    </div>
+                                    <div class="node-children">
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">skills</span>
+                                                <span class="memory-count">12</span>
+                                            </div>
+                                        </div>
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">experience</span>
+                                                <span class="memory-count">15</span>
+                                            </div>
+                                        </div>
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">networking</span>
+                                                <span class="memory-count">7</span>
+                                            </div>
+                                        </div>
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label">goals</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="node-children">
-                            <div class="tree-node">
-                                <div class="node-content">
-                                    <span class="node-icon">📁</span>
-                                    <span class="node-label">personal</span>
-                                </div>
-                                <div class="node-children">
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">identity</span>
-                                            <span class="memory-count">8</span>
-                                        </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">location</span>
-                                            <span class="memory-count">6</span>
-                                        </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">relationships</span>
-                                            <span class="memory-count">5</span>
-                                        </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">health</span>
-                                            <span class="memory-count">4</span>
-                                        </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">goals</span>
-                                            <span class="memory-count">3</span>
-                                        </div>
-                                    </div>
-                                </div>
+                        <div class="tree-node">
+                            <div class="node-content">
+                                <span class="node-icon">📁</span>
+                                <span class="node-label">interactions</span>
                             </div>
-                            <div class="tree-node">
-                                <div class="node-content">
-                                    <span class="node-icon">📁</span>
-                                    <span class="node-label">professional</span>
-                                </div>
-                                <div class="node-children">
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">skills</span>
-                                            <span class="memory-count">12</span>
-                                        </div>
+                            <div class="node-children">
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">📁</span>
+                                        <span class="node-label">conversations</span>
                                     </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">experience</span>
-                                            <span class="memory-count">9</span>
+                                    <div class="node-children">
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">recent</span>
+                                                <span class="memory-count">3</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">companies</span>
-                                            <span class="memory-count">4</span>
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">patterns</span>
+                                                <span class="memory-count">9</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">education</span>
-                                            <span class="memory-count">3</span>
-                                        </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">achievements</span>
-                                            <span class="memory-count">6</span>
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">topics</span>
+                                                <span class="memory-count">11</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="tree-node">
-                                <div class="node-content">
-                                    <span class="node-icon">📁</span>
-                                    <span class="node-label">preferences</span>
-                                </div>
-                                <div class="node-children">
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">interface</span>
-                                            <span class="memory-count">5</span>
-                                        </div>
+                                <div class="tree-node">
+                                    <div class="node-content">
+                                        <span class="node-icon">📁</span>
+                                        <span class="node-label">context</span>
                                     </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">notifications</span>
-                                            <span class="memory-count">3</span>
+                                    <div class="node-children">
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">situational</span>
+                                                <span class="memory-count">6</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">privacy</span>
-                                            <span class="memory-count">4</span>
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">emotional</span>
+                                                <span class="memory-count">4</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">workflow</span>
-                                            <span class="memory-count">2</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="tree-node">
-                                <div class="node-content">
-                                    <span class="node-icon">📁</span>
-                                    <span class="node-label">interests</span>
-                                </div>
-                                <div class="node-children">
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">music</span>
-                                            <span class="memory-count">4</span>
-                                        </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">books</span>
-                                            <span class="memory-count">7</span>
-                                        </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">movies</span>
-                                            <span class="memory-count">3</span>
-                                        </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">sports</span>
-                                            <span class="memory-count">2</span>
-                                        </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">hobbies</span>
-                                            <span class="memory-count">5</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="tree-node">
-                                <div class="node-content">
-                                    <span class="node-icon">📁</span>
-                                    <span class="node-label">technology</span>
-                                </div>
-                                <div class="node-children">
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">devices</span>
-                                            <span class="memory-count">3</span>
-                                        </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">tools</span>
-                                            <span class="memory-count">8</span>
-                                        </div>
-                                    </div>
-                                    <div class="tree-node">
-                                        <div class="node-content">
-                                            <span class="node-icon">📁</span>
-                                            <span class="node-label has-memories">platforms</span>
-                                            <span class="memory-count">6</span>
+                                        <div class="tree-node">
+                                            <div class="node-content">
+                                                <span class="node-icon">📁</span>
+                                                <span class="node-label has-memories">temporal</span>
+                                                <span class="memory-count">8</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Graph View (Hidden by default) -->
-                <div class="graph-view" id="graphView" style="display: none; pointer-events: none;">
-                    <div class="graph-watermark">MEMOIR</div>
-                    <div class="zoom-controls">
-                        <button class="zoom-btn" id="zoomIn" title="Zoom In">+</button>
-                        <button class="zoom-btn" id="zoomOut" title="Zoom Out">−</button>
-                        <button class="zoom-btn zoom-reset" id="zoomReset" title="Reset View">⌂</button>
+                    <!-- Graph View (Hidden by default) -->
+                    <div class="graph-view" id="graphView" style="display: none; pointer-events: none;">
+                        <div class="graph-watermark">MEMOIR</div>
+                        <div class="zoom-controls">
+                            <button class="zoom-btn" id="zoomIn" title="Zoom In">+</button>
+                            <button class="zoom-btn" id="zoomOut" title="Zoom Out">−</button>
+                            <button class="zoom-btn zoom-reset" id="zoomReset" title="Reset View">⌂</button>
+                        </div>
+                        <svg width="100%" height="100%" id="graphSvg"></svg>
                     </div>
-                    <svg width="100%" height="100%" id="graphSvg"></svg>
+
+                    <!-- Timeline View -->
+                    <div class="timeline-view" id="timelineView" style="display: none;">
+                        <!-- Contributions Header -->
+                        <div class="timeline-contributions-header">
+                            <div class="timeline-contributions-title">
+                                <span class="timeline-contributions-count" id="contributionsCount">0</span> memories in the last year
+                            </div>
+                            <button class="timeline-year-button" id="timelineYearButton">
+                                <span id="selectedYear">2024</span>
+                                <span>▼</span>
+                            </button>
+
+                            <!-- Floating Year Panel -->
+                            <div class="timeline-year-panel" id="timelineYearPanel">
+                                <div class="timeline-years-list" id="timelineYearsList">
+                                    <!-- Year items will be populated by JavaScript -->
+                                </div>
+                            </div>
+                        </div>
+
+                            <!-- Activity Grid -->
+                            <div class="timeline-grid-container">
+                                <div class="timeline-grid-header">
+                                    <div style="opacity: 0;"></div>
+                                    <div class="timeline-grid-legend">
+                                        <span>Less</span>
+                                        <div class="activity-day empty"></div>
+                                        <div class="activity-day level-1"></div>
+                                        <div class="activity-day level-2"></div>
+                                        <div class="activity-day level-3"></div>
+                                        <div class="activity-day level-4"></div>
+                                        <span>More</span>
+                                    </div>
+                                </div>
+                                <div class="activity-grid-wrapper">
+                                    <div class="activity-months" id="activityMonths">
+                                        <!-- Month labels will be generated by JavaScript -->
+                                    </div>
+                                    <div class="activity-main">
+                                        <div class="activity-weekdays">
+                                            <div class="activity-weekday">Sun</div>
+                                            <div class="activity-weekday"></div>
+                                            <div class="activity-weekday">Mon</div>
+                                            <div class="activity-weekday"></div>
+                                            <div class="activity-weekday">Wed</div>
+                                            <div class="activity-weekday"></div>
+                                            <div class="activity-weekday">Fri</div>
+                                        </div>
+                                        <div class="activity-grid" id="activityGrid">
+                                            <!-- Grid will be generated by JavaScript -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        <!-- Activity Details Section -->
+                        <div class="timeline-activity-section">
+                            <div class="timeline-activity-title">Memory Activity</div>
+                            <div class="timeline-details" id="timelineDetails">
+                                <div class="timeline-details-header">Click on a day to see details</div>
+                                <div id="timelineDetailsContent">
+                                    <p style="color: var(--text-secondary); font-style: italic;">Select a day from the activity grid above to view memory details</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Places View -->
+                    <div class="places-view" id="placesView" style="display: none;">
+                        <div class="places-map-container">
+                            <div class="places-map-placeholder">
+                                <div class="places-map-icon">🗺️</div>
+                                <div class="places-map-text">
+                                    <strong>Interactive Map Coming Soon</strong><br>
+                                    This will show markers for all locations mentioned in your memories
+                                </div>
+                            </div>
+                        </div>
+                        <div class="places-list">
+                            <div class="places-list-header">📍 Discovered Places</div>
+                            <div class="place-item">
+                                <div class="place-marker"></div>
+                                <div class="place-info">
+                                    <div class="place-name">San Francisco, CA</div>
+                                    <div class="place-count">12 memories</div>
+                                </div>
+                            </div>
+                            <div class="place-item">
+                                <div class="place-marker"></div>
+                                <div class="place-info">
+                                    <div class="place-name">New York, NY</div>
+                                    <div class="place-count">8 memories</div>
+                                </div>
+                            </div>
+                            <div class="place-item">
+                                <div class="place-marker"></div>
+                                <div class="place-info">
+                                    <div class="place-name">London, UK</div>
+                                    <div class="place-count">5 memories</div>
+                                </div>
+                            </div>
+                            <div class="place-item">
+                                <div class="place-marker"></div>
+                                <div class="place-info">
+                                    <div class="place-name">Tokyo, Japan</div>
+                                    <div class="place-count">3 memories</div>
+                                </div>
+                            </div>
+                            <div class="place-item">
+                                <div class="place-marker"></div>
+                                <div class="place-info">
+                                    <div class="place-name">Paris, France</div>
+                                    <div class="place-count">2 memories</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
+
         </div>
     </div>
 
@@ -1961,7 +2620,11 @@
                 '/help': '/help',
                 '/h': '/help',
                 '/clear': '/clear',
-                '/cls': '/clear'
+                '/cls': '/clear',
+                '/br': '/branch',
+                '/co': '/checkout',
+                '/log': '/commits',
+                '/tt': '/time-travel'
             };
 
             // Resolve alias to full command
@@ -2035,6 +2698,35 @@
                     return;
                 }
                 await showBlameInfo(key);
+            } else if (cmd === '/time-travel') {
+                const target = parts.slice(1).join(' ').trim();
+                if (!target) {
+                    showNotification('Usage: /time-travel <commit-hash or date>', 'error');
+                    return;
+                }
+                await timeTravel(target);
+            } else if (cmd === '/branch') {
+                const subCmd = parts[1];
+                const args = parts.slice(2).join(' ').trim();
+                await handleBranchCommand(subCmd, args);
+            } else if (cmd === '/checkout') {
+                const target = parts.slice(1).join(' ').trim();
+                if (!target) {
+                    showNotification('Usage: /checkout <branch-name>', 'error');
+                    return;
+                }
+                await checkoutBranch(target);
+            } else if (cmd === '/merge') {
+                const source = parts.slice(1).join(' ').trim();
+                if (!source) {
+                    showNotification('Usage: /merge <source-branch>', 'error');
+                    return;
+                }
+                await mergeBranch(source);
+            } else if (cmd === '/commits' || cmd === '/log') {
+                await showCommitHistory();
+            } else if (cmd === '/branches') {
+                await showBranchList();
             } else if (cmd === '/help') {
                 const workingCommands = availableCommands.filter(c => !c.placeholder).map(c => {
                     const cmdStr = c.cmd + (c.args ? ' ' + c.args : '');
@@ -3040,6 +3732,8 @@ ${result.valid ?
                         updateStorePathDisplay(path, 'connected');
                         showNotification(`Successfully connected to ${path}`, 'success');
                         updateUIWithRealData(data);
+                        // Update branch display and git history for connected store
+                        await updateBranchDisplay();
                         return;
                     } else {
                         console.error('API returned error:', response.status, response.statusText);
@@ -3059,6 +3753,8 @@ ${result.valid ?
                         updateStorePathDisplay(path, 'connected');
                         showNotification(`Connected to ${path} (file mode)`, 'success');
                         updateUIWithRealData(data);
+                        // Update branch display and git history for connected store
+                        await updateBranchDisplay();
                         return;
                     }
                 } catch (e) {
@@ -3298,6 +3994,7 @@ ${result.valid ?
                 return;
             }
             await connectToStore(connectedStorePath);
+            await updateBranchDisplay();
         }
 
         function updateUIWithRealData(data) {
@@ -3560,17 +4257,27 @@ ${result.valid ?
                     this.classList.add('active');
 
                     const view = this.dataset.view;
+
+                    // Hide all views first
+                    document.getElementById('treeView').style.display = 'none';
+                    const graphView = document.getElementById('graphView');
+                    graphView.style.display = 'none';
+                    graphView.style.pointerEvents = 'none';
+                    document.getElementById('timelineView').style.display = 'none';
+                    document.getElementById('placesView').style.display = 'none';
+
+                    // Show selected view
                     if (view === 'tree') {
                         document.getElementById('treeView').style.display = 'block';
-                        const graphView = document.getElementById('graphView');
-                        graphView.style.display = 'none';
-                        graphView.style.pointerEvents = 'none';
-                    } else {
-                        document.getElementById('treeView').style.display = 'none';
-                        const graphView = document.getElementById('graphView');
+                    } else if (view === 'graph') {
                         graphView.style.display = 'block';
                         graphView.style.pointerEvents = 'auto';
                         renderGraph();
+                    } else if (view === 'timeline') {
+                        document.getElementById('timelineView').style.display = 'block';
+                        initializeTimelineView();
+                    } else if (view === 'places') {
+                        document.getElementById('placesView').style.display = 'block';
                     }
                 });
             });
@@ -4489,14 +5196,18 @@ ${result.valid ?
             { cmd: '/code', args: '', desc: 'Show Python integration code' },
             { cmd: '/proof', args: '<memory-path>', desc: 'Generate cryptographic proof for a memory' },
             { cmd: '/verify', args: '[proof] [key]', desc: 'Verify last proof or provide proof data' },
+            { cmd: '/time-travel', args: '<commit>', desc: 'Travel to a specific commit and create a branch', aliases: '/tt' },
+            { cmd: '/branch', args: '<create|delete|list>', desc: 'Manage branches', aliases: '/br' },
+            { cmd: '/checkout', args: '<branch>', desc: 'Switch to a different branch', aliases: '/co' },
+            { cmd: '/merge', args: '<branch>', desc: 'Merge a branch into current branch' },
+            { cmd: '/commits', args: '', desc: 'Show recent commit history', aliases: '/log' },
+            { cmd: '/branches', args: '', desc: 'List all branches' },
+            { cmd: '/blame', args: '<key>', desc: 'Show Git-like blame history for memory key' },
             { cmd: '/help', args: '', desc: 'Show all available commands', aliases: '/h' },
             { cmd: '/summarize', args: '[path]', desc: 'Generate summary of memories (coming soon)', placeholder: true },
-            { cmd: '/time-travel', args: '<commit>', desc: 'View memories at specific commit (coming soon)', placeholder: true },
-            { cmd: '/blame', args: '<key>', desc: 'Show Git-like blame history for memory key' },
             { cmd: '/timeline', args: '[filter]', desc: 'Show chronological memory timeline (coming soon)', placeholder: true },
             { cmd: '/location', args: '<place>', desc: 'Filter memories by location context (coming soon)', placeholder: true },
-            { cmd: '/what-if', args: '<scenario>', desc: 'Simulate hypothetical memory scenarios (coming soon)', placeholder: true },
-            { cmd: '/merge', args: '<branch>', desc: 'Merge memory branch into current branch (coming soon)', placeholder: true }
+            { cmd: '/what-if', args: '<scenario>', desc: 'Simulate hypothetical memory scenarios (coming soon)', placeholder: true }
         ];
 
         let selectedCommandIndex = -1;
@@ -5070,6 +5781,1165 @@ No commit history found for this key.
             }
         }
 
+        // Time-travel functionality
+        async function timeTravel(target) {
+            if (!connectedStorePath) {
+                showNotification('Please connect to a store first with /connect <path>', 'error');
+                return;
+            }
+
+            // Parse target - could be commit hash or relative time
+            let commitHash = target;
+
+            // Check if target looks like a date/time description
+            if (target.includes('ago') || target.includes('yesterday') || target.includes('hours') || target.includes('minutes')) {
+                // For now, show placeholder - could integrate with git log --since
+                showNotification('Date-based time travel coming soon. Please use commit hash for now.', 'info');
+                return;
+            }
+
+            // Auto-generate branch name with timestamp for uniqueness
+            const timestamp = Date.now();
+            const branchName = `time-travel-${commitHash.slice(0, 8)}-${timestamp}`;
+
+            try {
+                // Create and checkout new branch at target commit
+                const response = await fetch('/api/checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: connectedStorePath,
+                        target: commitHash,
+                        create_branch: branchName
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new Error(error);
+                }
+
+                const result = await response.json();
+                showNotification(`✨ Time-travel successful!\n${result.message}\n\nYou can now explore and modify memories at this point in time.\nChanges will be saved to branch: ${branchName}`, 'success', 8000);
+
+                // Refresh the store to show the state at that commit
+                await refreshStore();
+
+                // Update branch display
+                await updateBranchDisplay();
+
+            } catch (error) {
+                showNotification(`Time-travel failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function handleBranchCommand(subCmd, args) {
+            if (!connectedStorePath) {
+                showNotification('Please connect to a store first with /connect <path>', 'error');
+                return;
+            }
+
+            switch(subCmd) {
+                case 'create':
+                case 'new':
+                    if (!args) {
+                        showNotification('Usage: /branch create <branch-name>', 'error');
+                        return;
+                    }
+                    await createBranch(args);
+                    break;
+
+                case 'delete':
+                case 'rm':
+                    if (!args) {
+                        showNotification('Usage: /branch delete <branch-name>', 'error');
+                        return;
+                    }
+                    await deleteBranch(args);
+                    break;
+
+                case 'list':
+                case 'ls':
+                    await showBranchList();
+                    break;
+
+                default:
+                    showNotification('Usage: /branch <create|delete|list> [args]', 'error');
+            }
+        }
+
+        async function createBranch(branchName) {
+            try {
+                const response = await fetch('/api/create-branch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: connectedStorePath,
+                        branch: branchName
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new Error(error);
+                }
+
+                const result = await response.json();
+                showNotification(`✅ ${result.message}`, 'success');
+                await updateBranchDisplay();
+
+            } catch (error) {
+                showNotification(`Failed to create branch: ${error.message}`, 'error');
+            }
+        }
+
+        async function deleteBranch(branchName) {
+            const confirm = window.confirm(`Are you sure you want to delete branch '${branchName}'?`);
+            if (!confirm) return;
+
+            try {
+                const response = await fetch('/api/delete-branch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: connectedStorePath,
+                        branch: branchName,
+                        force: false
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    if (error.includes('not fully merged')) {
+                        const forceDelete = window.confirm(`Branch '${branchName}' is not fully merged. Force delete?`);
+                        if (forceDelete) {
+                            const forceResponse = await fetch('/api/delete-branch', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    path: connectedStorePath,
+                                    branch: branchName,
+                                    force: true
+                                })
+                            });
+                            if (!forceResponse.ok) {
+                                throw new Error(await forceResponse.text());
+                            }
+                            const forceResult = await forceResponse.json();
+                            showNotification(`✅ ${forceResult.message}`, 'success');
+                        }
+                    } else {
+                        throw new Error(error);
+                    }
+                } else {
+                    const result = await response.json();
+                    showNotification(`✅ ${result.message}`, 'success');
+                }
+
+                await updateBranchDisplay();
+
+            } catch (error) {
+                showNotification(`Failed to delete branch: ${error.message}`, 'error');
+            }
+        }
+
+        async function checkoutBranch(branchName) {
+            try {
+                const response = await fetch('/api/checkout', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: connectedStorePath,
+                        target: branchName
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new Error(error);
+                }
+
+                const result = await response.json();
+                showNotification(`✅ ${result.message}`, 'success');
+
+                // Refresh store to show new branch state
+                await refreshStore();
+                await updateBranchDisplay();
+
+            } catch (error) {
+                showNotification(`Failed to checkout branch: ${error.message}`, 'error');
+            }
+        }
+
+        async function mergeBranch(sourceBranch) {
+            const currentBranch = await getCurrentBranch();
+            const confirm = window.confirm(`Merge '${sourceBranch}' into '${currentBranch}'?`);
+            if (!confirm) return;
+
+            try {
+                const response = await fetch('/api/merge-branch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: connectedStorePath,
+                        source: sourceBranch
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    if (error.includes('conflict')) {
+                        showNotification(`❌ Merge conflict detected!\n\nPlease resolve conflicts manually using git.`, 'error', 8000);
+                    } else {
+                        throw new Error(error);
+                    }
+                } else {
+                    const result = await response.json();
+                    showNotification(`✅ ${result.message}`, 'success', 5000);
+
+                    // Refresh to show merged state
+                    await refreshStore();
+                }
+
+            } catch (error) {
+                showNotification(`Failed to merge: ${error.message}`, 'error');
+            }
+        }
+
+        async function showBranchList() {
+            if (!connectedStorePath) {
+                showNotification('Please connect to a store first with /connect <path>', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/branches?path=${encodeURIComponent(connectedStorePath)}`);
+                if (!response.ok) throw new Error(await response.text());
+
+                const data = await response.json();
+                const branchList = data.branches.map(b =>
+                    b === data.current ? `* ${b} (current)` : `  ${b}`
+                ).join('\n');
+
+                showNotification(`📌 Branches:\n${branchList}`, 'info', 8000);
+
+            } catch (error) {
+                showNotification(`Failed to get branches: ${error.message}`, 'error');
+            }
+        }
+
+        async function showCommitHistory() {
+            if (!connectedStorePath) {
+                showNotification('Please connect to a store first with /connect <path>', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/commits?path=${encodeURIComponent(connectedStorePath)}&limit=10`);
+                if (!response.ok) throw new Error(await response.text());
+
+                const data = await response.json();
+
+                if (data.commits.length === 0) {
+                    showNotification('No commits found', 'info');
+                    return;
+                }
+
+                const commitList = data.commits.map(c => {
+                    const date = new Date(c.timestamp * 1000);
+                    const timeAgo = getTimeAgo(date);
+                    return `${c.short_hash} - ${c.message} (${timeAgo})`;
+                }).join('\n');
+
+                showCodeModal(`📜 Recent Commits (${data.branch}):\n\n${commitList}`);
+
+            } catch (error) {
+                showNotification(`Failed to get commits: ${error.message}`, 'error');
+            }
+        }
+
+        async function getCurrentBranch() {
+            if (!connectedStorePath) return null;
+
+            try {
+                const response = await fetch(`/api/current-branch?path=${encodeURIComponent(connectedStorePath)}`);
+                if (!response.ok) throw new Error(await response.text());
+
+                const data = await response.json();
+                return data.branch;
+
+            } catch (error) {
+                console.error('Failed to get current branch:', error);
+                return null;
+            }
+        }
+
+        async function updateBranchDisplay() {
+            if (!connectedStorePath) return;
+
+            try {
+                // Get current branch info
+                const branchResponse = await fetch(`/api/current-branch?path=${encodeURIComponent(connectedStorePath)}`);
+                if (branchResponse.ok) {
+                    const branchData = await branchResponse.json();
+
+                    // Update the branch display in the UI
+                    const storePathElement = document.querySelector('.store-path');
+                    if (storePathElement) {
+                        const branchBadge = storePathElement.querySelector('.branch-badge') ||
+                                          document.createElement('span');
+                        branchBadge.className = 'branch-badge';
+                        branchBadge.style.cssText = 'margin-left: 10px; padding: 2px 8px; background: #4a5568; border-radius: 4px; font-size: 12px;';
+                        branchBadge.textContent = `📌 ${branchData.branch}`;
+
+                        if (!storePathElement.querySelector('.branch-badge')) {
+                            storePathElement.appendChild(branchBadge);
+                        }
+                    }
+
+                    // Hide/show remove button based on current branch
+                    const removeBtn = document.getElementById('removeBranchBtn');
+                    if (removeBtn) {
+                        if (branchData.branch === 'main') {
+                            removeBtn.classList.add('hidden');
+                        } else {
+                            removeBtn.classList.remove('hidden');
+                        }
+                    }
+                }
+
+                // Get branches for dropdown
+                const branchesResponse = await fetch(`/api/branches?path=${encodeURIComponent(connectedStorePath)}`);
+                if (branchesResponse.ok) {
+                    const branchesData = await branchesResponse.json();
+                    updateBranchesDropdown(branchesData.branches, branchesData.current);
+                }
+
+                // Update git history for current branch
+                await updateGitHistory();
+
+            } catch (error) {
+                console.error('Failed to update branch display:', error);
+            }
+        }
+
+        async function updateGitHistory() {
+            if (!connectedStorePath) return;
+
+            try {
+                const response = await fetch(`/api/commits?path=${encodeURIComponent(connectedStorePath)}&limit=15`);
+                if (!response.ok) return; // Don't show error, just keep existing history
+
+                const data = await response.json();
+                const gitTreeElement = document.querySelector('.git-tree');
+                if (!gitTreeElement || data.commits.length === 0) return;
+
+                // Generate git history HTML from real commits
+                let historyHTML = '';
+                data.commits.forEach((commit, index) => {
+                    const isActive = index === 0; // First commit is active
+                    const timeAgo = getTimeAgo(new Date(commit.timestamp * 1000));
+                    const authorInitials = commit.author.split(' ').map(n => n[0]).join('').toUpperCase();
+
+                    historyHTML += `
+                        <div class="commit-node ${isActive ? 'active' : ''}" data-commit="${commit.hash}">
+                            <div class="git-lines"><div class="commit-dot main"></div></div>
+                            <div class="commit-info">
+                                <button class="commit-menu-btn" data-commit="${commit.hash}">⋯</button>
+                                <div class="commit-header">
+                                    <div class="commit-hash">${commit.short_hash}</div>
+                                    <div class="branch-tag">${data.branch}</div>
+                                </div>
+                                <div class="commit-message">${commit.message}</div>
+                                <div class="commit-meta">
+                                    <div class="commit-author">
+                                        <div class="author-avatar">${authorInitials}</div>
+                                        <span>${commit.author}</span>
+                                    </div>
+                                    <div class="commit-time">${timeAgo}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                gitTreeElement.innerHTML = historyHTML;
+
+                // Add menu button handlers
+                initializeCommitMenus();
+
+            } catch (error) {
+                console.error('Failed to update git history:', error);
+                // Keep existing history on error
+            }
+        }
+
+        function getTimeAgo(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+            const intervals = {
+                year: 31536000,
+                month: 2592000,
+                week: 604800,
+                day: 86400,
+                hour: 3600,
+                minute: 60
+            };
+
+            for (const [unit, secondsInUnit] of Object.entries(intervals)) {
+                const interval = Math.floor(seconds / secondsInUnit);
+                if (interval >= 1) {
+                    return `${interval} ${unit}${interval === 1 ? '' : 's'} ago`;
+                }
+            }
+            return 'just now';
+        }
+
+        // Initialize commit context menus
+        function initializeCommitMenus() {
+            const gitTreeElement = document.querySelector('.git-tree');
+            if (!gitTreeElement) return;
+
+            // Remove any existing menus
+            document.querySelectorAll('.commit-context-menu').forEach(menu => menu.remove());
+
+            // Add click handlers to menu buttons
+            gitTreeElement.querySelectorAll('.commit-menu-btn').forEach(button => {
+                button.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent any parent click handlers
+                    const commitHash = button.dataset.commit;
+                    showCommitContextMenu(e, commitHash);
+                });
+            });
+
+            // Close menus when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.commit-context-menu') && !e.target.closest('.commit-menu-btn')) {
+                    hideAllCommitMenus();
+                }
+            });
+        }
+
+        function showCommitContextMenu(event, commitHash) {
+            // Hide any existing menus first
+            hideAllCommitMenus();
+
+            // Create menu element
+            const menu = document.createElement('div');
+            menu.className = 'commit-context-menu show';
+
+            // Get commit info for display
+            const shortHash = commitHash.slice(0, 8);
+
+            menu.innerHTML = `
+                <div class="commit-menu-item time-travel" data-action="time-travel" data-commit="${commitHash}">
+                    <span class="menu-icon">🕐</span>
+                    Time-travel to ${shortHash}
+                </div>
+                <div class="commit-menu-item" data-action="copy-hash" data-commit="${commitHash}">
+                    <span class="menu-icon">📋</span>
+                    Copy commit hash
+                </div>
+                <div class="commit-menu-item" data-action="view-details" data-commit="${commitHash}">
+                    <span class="menu-icon">👁</span>
+                    View commit details
+                </div>
+            `;
+
+            // Position menu near the button
+            const rect = event.target.getBoundingClientRect();
+            menu.style.position = 'fixed';
+            menu.style.left = `${rect.right - 160}px`; // Align right edge with button
+            menu.style.top = `${rect.bottom + 4}px`;
+
+            // Add menu to document
+            document.body.appendChild(menu);
+
+            // Add click handlers to menu items
+            menu.querySelectorAll('.commit-menu-item').forEach(item => {
+                item.addEventListener('click', async (e) => {
+                    const action = e.currentTarget.dataset.action;
+                    const commit = e.currentTarget.dataset.commit;
+
+                    hideAllCommitMenus();
+
+                    switch(action) {
+                        case 'time-travel':
+                            await timeTravel(commit);
+                            break;
+                        case 'copy-hash':
+                            await copyToClipboard(commit);
+                            showNotification(`Copied commit hash: ${commit.slice(0, 8)}`, 'success', 3000);
+                            break;
+                        case 'view-details':
+                            await showCommitDetails(commit);
+                            break;
+                    }
+                });
+            });
+
+            // Adjust position if menu goes off screen
+            const menuRect = menu.getBoundingClientRect();
+            if (menuRect.right > window.innerWidth) {
+                menu.style.left = `${rect.left - menuRect.width}px`;
+            }
+            if (menuRect.bottom > window.innerHeight) {
+                menu.style.top = `${rect.top - menuRect.height - 4}px`;
+            }
+        }
+
+        function hideAllCommitMenus() {
+            document.querySelectorAll('.commit-context-menu').forEach(menu => {
+                menu.remove();
+            });
+        }
+
+        async function copyToClipboard(text) {
+            try {
+                await navigator.clipboard.writeText(text);
+            } catch (err) {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+            }
+        }
+
+        async function showCommitDetails(commitHash) {
+            if (!connectedStorePath) return;
+
+            try {
+                // Get detailed commit info
+                const response = await fetch(`/api/commits?path=${encodeURIComponent(connectedStorePath)}&limit=100`);
+                if (!response.ok) throw new Error('Failed to get commit details');
+
+                const data = await response.json();
+                const commit = data.commits.find(c => c.hash === commitHash);
+
+                if (!commit) {
+                    showNotification('Commit details not found', 'error');
+                    return;
+                }
+
+                const date = new Date(commit.timestamp * 1000);
+                const timeAgo = getTimeAgo(date);
+
+                const details = `📋 Commit Details
+
+Hash: ${commit.hash}
+Short: ${commit.short_hash}
+Author: ${commit.author} <${commit.email}>
+Date: ${date.toLocaleString()}
+Time: ${timeAgo}
+Branch: ${data.branch}
+
+Message: ${commit.message}`;
+
+                showCodeModal(details);
+
+            } catch (error) {
+                showNotification(`Failed to get commit details: ${error.message}`, 'error');
+            }
+        }
+
+        // Initialize branch selector functionality
+        function initializeBranchSelector() {
+            const branchSelector = document.getElementById('branchSelector');
+            if (!branchSelector) return;
+
+            branchSelector.addEventListener('change', async (e) => {
+                const selectedBranch = e.target.value;
+
+                if (!connectedStorePath) {
+                    // Reset to previous selection if no store connected
+                    showNotification('Please connect to a store first with /connect <path>', 'error');
+                    return;
+                }
+
+                // Don't switch if already on the selected branch
+                const currentBranch = await getCurrentBranch();
+                if (currentBranch === selectedBranch) {
+                    return;
+                }
+
+                try {
+                    showNotification(`Switching to branch: ${selectedBranch}...`, 'info');
+
+                    // Use checkoutBranch function we already have
+                    await checkoutBranch(selectedBranch);
+
+                } catch (error) {
+                    console.error('Failed to switch branch via dropdown:', error);
+                    showNotification(`Failed to switch to branch: ${error.message}`, 'error');
+
+                    // Reset dropdown to current branch on error
+                    const actualCurrentBranch = await getCurrentBranch();
+                    if (actualCurrentBranch && branchSelector) {
+                        branchSelector.value = actualCurrentBranch;
+                    }
+                }
+            });
+        }
+
+        // Initialize branch control buttons
+        function initializeBranchButtons() {
+            const addBtn = document.getElementById('addBranchBtn');
+            const removeBtn = document.getElementById('removeBranchBtn');
+
+            if (addBtn) {
+                addBtn.addEventListener('click', handleCreateBranch);
+            }
+
+            if (removeBtn) {
+                removeBtn.addEventListener('click', handleRemoveBranch);
+            }
+        }
+
+        async function handleCreateBranch() {
+            if (!connectedStorePath) {
+                showNotification('Please connect to a store first with /connect <path>', 'error');
+                return;
+            }
+
+            const currentBranch = await getCurrentBranch();
+            const newBranchName = prompt(`Create new branch from '${currentBranch}':`, `feature/new-feature`);
+
+            if (!newBranchName) {
+                return; // User cancelled
+            }
+
+            if (newBranchName.trim() === '') {
+                showNotification('Branch name cannot be empty', 'error');
+                return;
+            }
+
+            // Validate branch name (basic validation)
+            if (!/^[a-zA-Z0-9_/-]+$/.test(newBranchName)) {
+                showNotification('Branch name can only contain letters, numbers, underscores, hyphens, and forward slashes', 'error');
+                return;
+            }
+
+            try {
+                showNotification(`Creating branch '${newBranchName}'...`, 'info');
+
+                const response = await fetch('/api/create-branch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: connectedStorePath,
+                        branch: newBranchName,
+                        from: currentBranch
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new Error(error);
+                }
+
+                const result = await response.json();
+
+                // Automatically checkout the new branch
+                await checkoutBranch(newBranchName);
+
+                showNotification(`✅ Created and switched to branch '${newBranchName}'`, 'success');
+
+            } catch (error) {
+                console.error('Failed to create branch:', error);
+                showNotification(`Failed to create branch: ${error.message}`, 'error');
+            }
+        }
+
+        async function handleRemoveBranch() {
+            if (!connectedStorePath) {
+                showNotification('Please connect to a store first with /connect <path>', 'error');
+                return;
+            }
+
+            const currentBranch = await getCurrentBranch();
+
+            // Don't allow removing main branch
+            if (currentBranch === 'main') {
+                showNotification('Cannot delete the main branch', 'error');
+                return;
+            }
+
+            const confirmDelete = confirm(`Are you sure you want to delete branch '${currentBranch}'?\n\nThis will switch to 'main' branch and delete '${currentBranch}'.`);
+            if (!confirmDelete) {
+                return;
+            }
+
+            try {
+                showNotification(`Switching to main and deleting '${currentBranch}'...`, 'info');
+
+                // First checkout main branch
+                await checkoutBranch('main');
+
+                // Then delete the branch
+                const response = await fetch('/api/delete-branch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: connectedStorePath,
+                        branch: currentBranch,
+                        force: false
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    if (error.includes('not fully merged')) {
+                        const forceDelete = confirm(`Branch '${currentBranch}' is not fully merged. Force delete anyway?`);
+                        if (forceDelete) {
+                            const forceResponse = await fetch('/api/delete-branch', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    path: connectedStorePath,
+                                    branch: currentBranch,
+                                    force: true
+                                })
+                            });
+                            if (!forceResponse.ok) {
+                                throw new Error(await forceResponse.text());
+                            }
+                            showNotification(`✅ Force deleted branch '${currentBranch}' and switched to main`, 'success');
+
+                            // Refresh branch dropdown to remove deleted branch
+                            await updateBranchDisplay();
+                        } else {
+                            showNotification('Branch deletion cancelled', 'info');
+                        }
+                    } else {
+                        throw new Error(error);
+                    }
+                } else {
+                    showNotification(`✅ Deleted branch '${currentBranch}' and switched to main`, 'success');
+
+                    // Refresh branch dropdown to remove deleted branch
+                    await updateBranchDisplay();
+                }
+
+            } catch (error) {
+                console.error('Failed to remove branch:', error);
+                showNotification(`Failed to remove branch: ${error.message}`, 'error');
+            }
+        }
+
+
+        // Initialize view switching
+        function initializeViewSwitching() {
+            const viewButtons = document.querySelectorAll('.view-nav-btn');
+            const viewContents = document.querySelectorAll('.view-content');
+
+            viewButtons.forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const targetView = button.dataset.view;
+
+                    // Update button states
+                    viewButtons.forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+
+                    // Update view content visibility
+                    viewContents.forEach(content => {
+                        content.classList.remove('active');
+                    });
+
+                    const targetContent = document.getElementById(`${targetView}View`);
+                    if (targetContent) {
+                        targetContent.classList.add('active');
+
+                        // Initialize specific views when first shown
+                        if (targetView === 'timeline') {
+                            initializeTimelineView();
+                        }
+                    }
+                });
+            });
+        }
+
+        // Update contributions count display
+        function updateContributionsCount(activityData) {
+            const countElement = document.getElementById('contributionsCount');
+            if (countElement) {
+                let totalCount = 0;
+                for (const date in activityData) {
+                    totalCount += activityData[date].count;
+                }
+                countElement.textContent = totalCount;
+            }
+        }
+
+        // Initialize timeline view with mock data
+        function initializeTimelineView() {
+            const activityGrid = document.getElementById('activityGrid');
+            const activityMonths = document.getElementById('activityMonths');
+            const yearsList = document.getElementById('timelineYearsList');
+
+            if (!activityGrid || activityGrid.children.length > 0) {
+                return; // Already initialized
+            }
+
+            // Set up year selector with current and past years
+            const currentYear = new Date().getFullYear();
+            const yearButton = document.getElementById('timelineYearButton');
+            const yearPanel = document.getElementById('timelineYearPanel');
+            const selectedYearSpan = document.getElementById('selectedYear');
+
+            if (yearsList && yearButton && yearPanel && selectedYearSpan) {
+                // Set current year in button
+                selectedYearSpan.textContent = currentYear;
+
+                // Clear existing items and add current and past years
+                yearsList.innerHTML = '';
+                for (let year = currentYear; year >= currentYear - 8; year--) {
+                    const yearItem = document.createElement('div');
+                    yearItem.className = 'timeline-year-item';
+                    yearItem.textContent = year;
+                    yearItem.dataset.year = year;
+
+                    if (year === currentYear) {
+                        yearItem.classList.add('active');
+                    }
+
+                    // Add year click listener
+                    yearItem.addEventListener('click', function() {
+                        // Remove active from all years
+                        document.querySelectorAll('.timeline-year-item').forEach(item => {
+                            item.classList.remove('active');
+                        });
+                        // Add active to clicked year
+                        this.classList.add('active');
+                        // Update button text
+                        selectedYearSpan.textContent = this.dataset.year;
+                        // Hide panel
+                        yearPanel.classList.remove('show');
+                        yearButton.classList.remove('open');
+                        // Regenerate timeline
+                        regenerateTimelineForYear(parseInt(this.dataset.year));
+                    });
+
+                    yearsList.appendChild(yearItem);
+                }
+
+                // Add button click listener to toggle panel
+                yearButton.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    yearPanel.classList.toggle('show');
+                    yearButton.classList.toggle('open');
+                });
+
+                // Close panel when clicking outside
+                document.addEventListener('click', function(e) {
+                    if (!yearPanel.contains(e.target) && !yearButton.contains(e.target)) {
+                        yearPanel.classList.remove('show');
+                        yearButton.classList.remove('open');
+                    }
+                });
+            }
+
+            // Generate mock timeline data (53 weeks for fuller year coverage)
+            const weeks = 53;
+            const daysPerWeek = 7;
+            const today = new Date();
+            const startDate = new Date(today);
+            startDate.setDate(today.getDate() - (weeks * daysPerWeek));
+
+            // Generate month labels
+            const monthLabels = [];
+            let currentMonth = null;
+            let monthWeekCount = 0;
+
+            // Mock activity data - simulate memory creation patterns
+            const mockActivityData = {};
+
+            // Generate some realistic patterns
+            for (let i = 0; i < weeks * daysPerWeek; i++) {
+                const currentDate = new Date(startDate);
+                currentDate.setDate(startDate.getDate() + i);
+                const dateStr = currentDate.toISOString().split('T')[0];
+
+                // Simulate different activity levels based on day patterns
+                const dayOfWeek = currentDate.getDay();
+                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                const isRecent = i > (weeks * daysPerWeek) - 30; // Last 30 days more active
+
+                let activityLevel = 0;
+                const rand = Math.random();
+
+                if (isRecent && !isWeekend && rand > 0.3) {
+                    // More activity in recent weekdays
+                    if (rand > 0.8) activityLevel = 4;
+                    else if (rand > 0.6) activityLevel = 3;
+                    else if (rand > 0.4) activityLevel = 2;
+                    else activityLevel = 1;
+                } else if (!isWeekend && rand > 0.5) {
+                    // Some weekday activity
+                    if (rand > 0.9) activityLevel = 3;
+                    else if (rand > 0.7) activityLevel = 2;
+                    else activityLevel = 1;
+                } else if (isWeekend && rand > 0.8) {
+                    // Rare weekend activity
+                    activityLevel = 1;
+                }
+
+                if (activityLevel > 0) {
+                    mockActivityData[dateStr] = {
+                        level: activityLevel,
+                        count: activityLevel * (Math.floor(Math.random() * 3) + 1),
+                        memories: generateMockMemories(activityLevel, currentDate)
+                    };
+                }
+            }
+
+            // Generate month labels
+            for (let week = 0; week < weeks; week++) {
+                const firstDayOfWeek = new Date(startDate);
+                firstDayOfWeek.setDate(startDate.getDate() + (week * daysPerWeek));
+                const monthName = firstDayOfWeek.toLocaleDateString('en', { month: 'short' });
+
+                if (currentMonth !== monthName) {
+                    monthLabels.push({
+                        month: monthName,
+                        startWeek: week,
+                        weekSpan: 1
+                    });
+                    currentMonth = monthName;
+                    monthWeekCount = 1;
+                } else if (monthLabels.length > 0) {
+                    monthLabels[monthLabels.length - 1].weekSpan++;
+                }
+            }
+
+            // Create month labels
+            monthLabels.forEach(monthInfo => {
+                const monthDiv = document.createElement('div');
+                monthDiv.className = 'activity-month';
+                monthDiv.textContent = monthInfo.month;
+                monthDiv.style.width = `${monthInfo.weekSpan * 15}px`; // 12px day + 3px gap
+                activityMonths.appendChild(monthDiv);
+            });
+
+            // Create the grid
+            for (let week = 0; week < weeks; week++) {
+                const weekDiv = document.createElement('div');
+                weekDiv.className = 'activity-week';
+
+                for (let day = 0; day < daysPerWeek; day++) {
+                    const currentDate = new Date(startDate);
+                    currentDate.setDate(startDate.getDate() + (week * daysPerWeek) + day);
+                    const dateStr = currentDate.toISOString().split('T')[0];
+
+                    const dayDiv = document.createElement('div');
+                    dayDiv.className = 'activity-day';
+                    dayDiv.dataset.date = dateStr;
+
+                    if (mockActivityData[dateStr]) {
+                        const level = mockActivityData[dateStr].level;
+                        dayDiv.classList.add(`level-${level}`);
+                        dayDiv.title = `${currentDate.toLocaleDateString()}: ${mockActivityData[dateStr].count} memories`;
+                    } else {
+                        dayDiv.classList.add('empty');
+                        dayDiv.title = `${currentDate.toLocaleDateString()}: No memories`;
+                    }
+
+                    // Add click handler
+                    dayDiv.addEventListener('click', () => {
+                        showTimelineDetails(dateStr, mockActivityData[dateStr] || null);
+                    });
+
+                    weekDiv.appendChild(dayDiv);
+                }
+
+                activityGrid.appendChild(weekDiv);
+            }
+        }
+
+        function generateMockMemories(level, date) {
+            const mockMemories = [
+                "Learned about React hooks",
+                "Had coffee with Sarah",
+                "Finished reading AI paper",
+                "Started new project",
+                "Meeting with team",
+                "Discovered new restaurant",
+                "Went to the gym",
+                "Coded late into the night",
+                "Watched a great documentary",
+                "Fixed a challenging bug",
+                "Visited the art museum",
+                "Had dinner with family",
+                "Completed online course",
+                "Walked in the park",
+                "Read an interesting article"
+            ];
+
+            const count = level * (Math.floor(Math.random() * 2) + 1);
+            const memories = [];
+
+            for (let i = 0; i < count; i++) {
+                const memory = mockMemories[Math.floor(Math.random() * mockMemories.length)];
+                const time = new Date(date);
+                time.setHours(Math.floor(Math.random() * 24), Math.floor(Math.random() * 60));
+
+                memories.push({
+                    content: memory,
+                    time: time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+                });
+            }
+
+            return memories;
+        }
+
+        function showTimelineDetails(dateStr, activityData) {
+            const timelineDetails = document.getElementById('timelineDetails');
+            const detailsHeader = document.querySelector('.timeline-details-header');
+            const detailsContent = document.getElementById('timelineDetailsContent');
+
+            if (!activityData) {
+                detailsHeader.textContent = `${new Date(dateStr).toLocaleDateString()} - No memories`;
+                detailsContent.innerHTML = '<p style="color: var(--text-secondary); font-style: italic;">No memories recorded on this day</p>';
+            } else {
+                detailsHeader.textContent = `${new Date(dateStr).toLocaleDateString()} - ${activityData.count} memories`;
+
+                let html = '';
+                activityData.memories.forEach(memory => {
+                    html += `
+                        <div class="timeline-memory-item">
+                            <div class="timeline-memory-time">${memory.time}</div>
+                            <div class="timeline-memory-content">${memory.content}</div>
+                        </div>
+                    `;
+                });
+
+                detailsContent.innerHTML = html;
+            }
+
+            // Timeline details are always visible in the new layout
+        }
+
+        // Regenerate timeline for a specific year
+        function regenerateTimelineForYear(year) {
+            const activityGrid = document.getElementById('activityGrid');
+            const activityMonths = document.getElementById('activityMonths');
+
+            if (!activityGrid || !activityMonths) return;
+
+            // Clear existing content
+            activityGrid.innerHTML = '';
+            activityMonths.innerHTML = '';
+
+            // Generate timeline for the selected year
+            const weeks = 53;
+            const daysPerWeek = 7;
+            const endDate = new Date(year, 11, 31); // December 31 of selected year
+            const startDate = new Date(endDate);
+            startDate.setDate(endDate.getDate() - (weeks * daysPerWeek));
+
+            // Generate mock activity data for selected year
+            const mockActivityData = {};
+
+            // Generate some realistic patterns (same logic as before)
+            for (let i = 0; i < weeks * daysPerWeek; i++) {
+                const currentDate = new Date(startDate);
+                currentDate.setDate(startDate.getDate() + i);
+                const dateStr = currentDate.toISOString().split('T')[0];
+
+                // Skip future dates
+                if (currentDate > new Date()) continue;
+
+                // Generate activity patterns (simplified version)
+                const dayOfWeek = currentDate.getDay();
+                const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+                const isRecentWeek = Math.abs(new Date() - currentDate) < (7 * 24 * 60 * 60 * 1000 * 4);
+
+                let activityLevel = 0;
+                const rand = Math.random();
+
+                if (!isWeekend) {
+                    if (isRecentWeek && rand > 0.3) activityLevel = Math.min(4, Math.floor(rand * 5) + 1);
+                    else if (rand > 0.6) activityLevel = Math.min(3, Math.floor(rand * 4) + 1);
+                } else if (rand > 0.8) {
+                    activityLevel = 1;
+                }
+
+                if (activityLevel > 0) {
+                    mockActivityData[dateStr] = {
+                        level: activityLevel,
+                        count: activityLevel * (Math.floor(Math.random() * 3) + 1),
+                        memories: generateMockMemories(activityLevel, currentDate)
+                    };
+                }
+            }
+
+            // Generate month labels for selected year
+            const monthLabels = [];
+            let currentMonth = null;
+
+            for (let week = 0; week < weeks; week++) {
+                const firstDayOfWeek = new Date(startDate);
+                firstDayOfWeek.setDate(startDate.getDate() + (week * daysPerWeek));
+                const monthName = firstDayOfWeek.toLocaleDateString('en', { month: 'short' });
+
+                if (currentMonth !== monthName) {
+                    monthLabels.push({
+                        month: monthName,
+                        startWeek: week,
+                        weekSpan: 1
+                    });
+                    currentMonth = monthName;
+                } else if (monthLabels.length > 0) {
+                    monthLabels[monthLabels.length - 1].weekSpan++;
+                }
+            }
+
+            // Create month labels
+            monthLabels.forEach(monthInfo => {
+                const monthDiv = document.createElement('div');
+                monthDiv.className = 'activity-month';
+                monthDiv.textContent = monthInfo.month;
+                monthDiv.style.width = `${monthInfo.weekSpan * 15}px`;
+                activityMonths.appendChild(monthDiv);
+            });
+
+            // Create the grid
+            for (let week = 0; week < weeks; week++) {
+                const weekDiv = document.createElement('div');
+                weekDiv.className = 'activity-week';
+
+                for (let day = 0; day < daysPerWeek; day++) {
+                    const currentDate = new Date(startDate);
+                    currentDate.setDate(startDate.getDate() + (week * daysPerWeek) + day);
+                    const dateStr = currentDate.toISOString().split('T')[0];
+
+                    const dayDiv = document.createElement('div');
+                    dayDiv.className = 'activity-day';
+                    dayDiv.dataset.date = dateStr;
+
+                    if (mockActivityData[dateStr]) {
+                        dayDiv.classList.add(`level-${mockActivityData[dateStr].level}`);
+                        dayDiv.title = `${currentDate.toLocaleDateString()}: ${mockActivityData[dateStr].count} memories`;
+
+                        dayDiv.addEventListener('click', function() {
+                            showTimelineDetails(dateStr, mockActivityData[dateStr]);
+                        });
+                    } else {
+                        dayDiv.classList.add('empty');
+                        dayDiv.title = `${currentDate.toLocaleDateString()}: No memories`;
+
+                        dayDiv.addEventListener('click', function() {
+                            showTimelineDetails(dateStr, null);
+                        });
+                    }
+
+                    weekDiv.appendChild(dayDiv);
+                }
+
+                activityGrid.appendChild(weekDiv);
+            }
+        }
 
         // Initialize the page
         function initializePage() {
@@ -5078,6 +6948,15 @@ No commit history found for this key.
 
             // Initialize the memory input functionality
             initializeMemoryInput();
+
+            // Initialize branch selector functionality
+            initializeBranchSelector();
+
+            // Initialize branch control buttons
+            initializeBranchButtons();
+
+            // Initialize view switching
+            initializeViewSwitching();
         }
 
         // Run initialization when page loads
