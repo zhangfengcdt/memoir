@@ -749,6 +749,7 @@
             margin-bottom: 24px;
             padding-bottom: 16px;
             border-bottom: 1px solid rgba(51, 65, 85, 0.3);
+            gap: 12px; /* Add space between title and close button */
         }
 
         .details-title {
@@ -757,6 +758,12 @@
             color: #f8fafc;
             font-family: 'JetBrains Mono', monospace;
             letter-spacing: -0.025em;
+            flex: 1; /* Allow title to grow but not push out close button */
+            min-width: 0; /* Allow title to shrink */
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: calc(100% - 60px); /* Reserve space for close button */
         }
 
         .close-btn {
@@ -772,6 +779,8 @@
             align-items: center;
             justify-content: center;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            flex-shrink: 0; /* Prevent close button from shrinking */
+            z-index: 10; /* Ensure close button stays on top */
         }
 
         .close-btn:hover {
@@ -3326,8 +3335,9 @@ ${result.valid ?
             const detailsPath = document.getElementById('detailsPath');
             const memoriesList = document.getElementById('memoriesList');
 
-            // Set the path title
+            // Set the path title with tooltip for long paths
             detailsPath.textContent = path;
+            detailsPath.title = path; // Add tooltip to show full path on hover
 
             // Filter memories that match this path
             const matchingMemories = [];
