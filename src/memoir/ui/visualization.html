@@ -470,28 +470,6 @@
             gap: 24px;
         }
 
-        .current-commit {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-
-        .commit-label {
-            font-size: 14px;
-            font-weight: 500;
-            color: #cbd5e1;
-        }
-
-        .commit-badge {
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%);
-            color: #c4b5fd;
-            padding: 6px 12px;
-            border-radius: 8px;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 12px;
-            font-weight: 600;
-            border: 1px solid rgba(99, 102, 241, 0.3);
-        }
 
 
         .view-toggle {
@@ -1298,12 +1276,6 @@
         <!-- Main Panel -->
         <div class="main-panel">
             <div class="toolbar">
-                <div class="current-commit">
-                    <span class="commit-label">Viewing:</span>
-                    <span class="commit-badge" id="currentCommit">d75e832</span>
-                </div>
-
-
                 <div class="view-toggle">
                     <button class="view-btn active" data-view="tree">🌳 Tree</button>
                     <button class="view-btn" data-view="graph">🕸️ Graph</button>
@@ -2787,7 +2759,7 @@ ${result.valid ?
                             document.querySelectorAll('.commit-node').forEach(i => i.classList.remove('active'));
                             this.classList.add('active');
                             const commitId = this.dataset.commit;
-                            document.getElementById('currentCommit').textContent = commitId;
+                            // Removed currentCommit display - was confusing for users
                             updateMemoryStructure(commitId);
                         });
                     });
@@ -2796,10 +2768,11 @@ ${result.valid ?
 
             // Update commits if available
             if (data.commits && data.commits.main) {
-                const currentCommit = document.getElementById('currentCommit');
-                if (currentCommit && data.commits.main.length > 0) {
-                    currentCommit.textContent = data.commits.main[0];
-                }
+                // Removed currentCommit display - was confusing for users
+                // const currentCommit = document.getElementById('currentCommit');
+                // if (currentCommit && data.commits.main.length > 0) {
+                //     currentCommit.textContent = data.commits.main[0];
+                // }
             }
 
             // Update status
@@ -2910,7 +2883,7 @@ ${result.valid ?
                     this.classList.add('active');
 
                     const commitId = this.dataset.commit;
-                    document.getElementById('currentCommit').textContent = commitId;
+                    // Removed currentCommit display - was confusing for users
 
                     // Update memory structure based on commit
                     updateMemoryStructure(commitId);
