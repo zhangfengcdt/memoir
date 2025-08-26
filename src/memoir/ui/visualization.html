@@ -1328,7 +1328,7 @@
                     <span class="store-path-text" id="storePathText">Not connected</span>
                     <span class="store-status" id="storeStatus">●</span>
                 </div>
-                
+
                 <div class="view-toggle">
                     <button class="view-btn active" data-view="tree">🌳 Tree</button>
                     <button class="view-btn" data-view="graph">🕸️ Graph</button>
@@ -2428,9 +2428,9 @@ ${result.valid ?
         function updateStorePathDisplay(path = null, status = 'disconnected') {
             const storePathText = document.getElementById('storePathText');
             const storeStatus = document.getElementById('storeStatus');
-            
+
             if (!storePathText || !storeStatus) return;
-            
+
             // Update path text
             if (path) {
                 storePathText.textContent = path;
@@ -2439,7 +2439,7 @@ ${result.valid ?
                 storePathText.textContent = 'Not connected';
                 storePathText.title = 'No store connected';
             }
-            
+
             // Update status indicator
             storeStatus.className = `store-status ${status}`;
         }
