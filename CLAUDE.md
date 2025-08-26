@@ -190,7 +190,7 @@ Full containerization for development and production:
 - **Test environment**: Isolated testing with full CI pipeline
 - **Multi-stage builds**: Minimal production images with security hardening
 
-### LangGraph Integration 
+### LangGraph Integration
 Native integration with LangGraph's BaseStore interface:
 ```python
 from memoir.integration.langgraph import LangGraphMemoryStore

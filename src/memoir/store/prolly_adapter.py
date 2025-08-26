@@ -139,8 +139,34 @@ class ProllyTreeStore(BaseStore):
         # Key registry for memory mode (since ProllyTree doesn't have list_keys in memory mode)
         self._keys = set()
 
+        # Populate key registry from existing data
+        self._populate_key_registry()
+
         # Track aggregated memories to avoid redundant updates
         self._aggregation_cache = {}
+
+    def _populate_key_registry(self):
+        """Populate the key registry from existing data in the store."""
+        try:
+            if hasattr(self.tree, "scan"):
+                # Use scan if available to iterate through all keys
+                for key_bytes, _ in self.tree.scan():
+                    key_str = key_bytes.decode("utf-8")
+                    self._keys.add(key_str)
+            elif hasattr(self.tree, "list_keys"):
+                # Use list_keys if available
+                for key_bytes in self.tree.list_keys():
+                    key_str = key_bytes.decode("utf-8")
+                    self._keys.add(key_str)
+            else:
+                # No way to enumerate keys, registry will be empty initially
+                # Keys will be added as they are accessed via put()
+                pass
+
+            logger.info(f"Populated key registry with {len(self._keys)} existing keys")
+        except Exception as e:
+            logger.warning(f"Could not populate key registry: {e}")
+            # Continue without existing keys - they'll be added as accessed
 
     def _encode_value(self, value: Any) -> bytes:
         """Encode any value to bytes for storage."""

@@ -93,156 +93,163 @@ def read_store_data(store_path: str):
         except Exception:
             pass
 
-        # Get memory entries using BaseStore interface
+        # Get memory entries using list_keys approach as suggested
         memories = []
         tree_paths = {}
 
         try:
-            # Use BaseStore search method to get all items for the namespace
-            namespace = ("alice_chen",)  # The namespace we used when storing
-            items = list(store.search(namespace))
-            print(f"Found {len(items)} items using BaseStore.search()")
+            # Try to get all keys using list_keys if available
+            all_keys = []
+            if hasattr(store.tree, "list_keys"):
+                print("Using list_keys to get all keys...")
+                try:
+                    keys = store.tree.list_keys()
+                    all_keys = [key.decode("utf-8") for key in keys]
+                    print(f"Found {len(all_keys)} total keys in store")
+                except Exception as e:
+                    print(f"Error with list_keys: {e}")
 
-            # Also try with empty search to get all items
-            if not items:
-                print("Trying search with empty query...")
-                items = list(store.search(namespace, query=""))
-                print(f"Found {len(items)} items with empty query")
+            # If no list_keys, fall back to search
+            if not all_keys:
+                print("Falling back to BaseStore.search...")
+                # Use BaseStore search method to get all items for the namespace
+                namespace = ("alice_chen",)  # The namespace we used when storing
+                items = list(store.search(namespace))
+                print(f"Found {len(items)} items using BaseStore.search()")
 
-            # Try getting all namespaces first
-            if not items:
-                print("Checking available namespaces...")
-                namespaces = store.list_namespaces()
-                print(f"Available namespaces: {namespaces}")
-                if namespaces:
-                    for ns in namespaces:
+                # Also try with empty search to get all items
+                if not items:
+                    print("Trying search with no filter...")
+                    items = list(store.search(namespace, limit=100))
+                    print(f"Found {len(items)} items with no filter")
+
+                # Try different possible namespaces since list_namespaces doesn't exist
+                if not items:
+                    print("Trying different namespaces...")
+                    possible_namespaces = [
+                        ("alice_chen",),
+                        ("default",),
+                        ("",),
+                        (),
+                    ]
+                    for ns in possible_namespaces:
                         try:
-                            ns_items = list(store.search(ns))
+                            ns_items = list(store.search(ns, limit=100))
                             print(f"Namespace {ns}: {len(ns_items)} items")
-                            items.extend(ns_items)
+                            if ns_items:
+                                items.extend(ns_items)
+                                break  # Found items, stop searching
                         except Exception as e:
                             print(f"Error searching namespace {ns}: {e}")
 
-            for item in items:
-                try:
-                    # Extract path and value from the store item
-                    semantic_path = item.key
-                    value_data = item.value
+                for item in items:
+                    try:
+                        # Extract path and value from the store item
+                        # ProllyTreeStore.search() returns tuples: (namespace, key, value)
+                        if isinstance(item, tuple) and len(item) == 3:
+                            item_namespace, semantic_path, value_data = item
+                        else:
+                            # Fallback to object attributes if not tuple format
+                            semantic_path = item.key
+                            value_data = item.value
 
-                    memory_entry = {
-                        "key": f"alice_chen:{semantic_path}",
-                        "namespace": "alice_chen",
-                        "path": semantic_path,
-                        "value": value_data,
-                        "content": (
-                            value_data.get("content")
-                            if isinstance(value_data, dict)
-                            else str(value_data)
-                        ),
-                    }
-                    memories.append(memory_entry)
+                        memory_entry = {
+                            "key": f"alice_chen:{semantic_path}",
+                            "namespace": "alice_chen",
+                            "path": semantic_path,
+                            "value": value_data,
+                            "content": (
+                                value_data.get("content")
+                                if isinstance(value_data, dict)
+                                else str(value_data)
+                            ),
+                        }
+                        memories.append(memory_entry)
 
-                    # Build tree structure from semantic paths
-                    if semantic_path and "." in semantic_path:
-                        parts = semantic_path.split(".")
-                        for i in range(len(parts)):
-                            path_prefix = ".".join(parts[: i + 1])
-                            tree_paths[path_prefix] = tree_paths.get(path_prefix, 0) + 1
-                    elif semantic_path:
-                        tree_paths[semantic_path] = tree_paths.get(semantic_path, 0) + 1
+                        # Build tree structure from semantic paths
+                        if semantic_path and "." in semantic_path:
+                            parts = semantic_path.split(".")
+                            for i in range(len(parts)):
+                                path_prefix = ".".join(parts[: i + 1])
+                                tree_paths[path_prefix] = (
+                                    tree_paths.get(path_prefix, 0) + 1
+                                )
+                        elif semantic_path:
+                            tree_paths[semantic_path] = (
+                                tree_paths.get(semantic_path, 0) + 1
+                            )
 
-                    print(f"  Found memory: {semantic_path}")
+                        print(f"  Found memory: {semantic_path}")
 
-                except Exception as e:
-                    print(f"Error processing item: {e}")
-                    continue
+                    except Exception as e:
+                        print(f"Error processing item: {e}")
+                        continue
+            else:
+                # Process keys directly using list_keys approach
+                print("Processing keys from list_keys...")
+                for full_key in all_keys:
+                    try:
+                        # Parse the key to extract namespace and semantic path
+                        # Format: namespace:key (e.g., "alice_chen:memory.1724123456")
+                        if ":" in full_key:
+                            namespace_part, semantic_path = full_key.split(":", 1)
+                        else:
+                            namespace_part = ""
+                            semantic_path = full_key
+
+                        # Only include alice_chen namespace for UI
+                        if namespace_part != "alice_chen":
+                            continue
+
+                        # Get the value for this key
+                        key_bytes = full_key.encode("utf-8")
+                        value_bytes = store.tree.get(key_bytes)
+                        if not value_bytes:
+                            continue
+
+                        # Decode the value
+                        value_data = store._decode_value(value_bytes)
+
+                        memory_entry = {
+                            "key": full_key,
+                            "namespace": namespace_part,
+                            "path": semantic_path,
+                            "value": value_data,
+                            "content": (
+                                value_data.get("content")
+                                if isinstance(value_data, dict)
+                                else str(value_data)
+                            ),
+                        }
+                        memories.append(memory_entry)
+
+                        # Build tree structure from semantic paths
+                        if semantic_path and "." in semantic_path:
+                            parts = semantic_path.split(".")
+                            for i in range(len(parts)):
+                                path_prefix = ".".join(parts[: i + 1])
+                                tree_paths[path_prefix] = (
+                                    tree_paths.get(path_prefix, 0) + 1
+                                )
+                        elif semantic_path:
+                            tree_paths[semantic_path] = (
+                                tree_paths.get(semantic_path, 0) + 1
+                            )
+
+                        print(f"  Found memory: {semantic_path}")
+
+                    except Exception as e:
+                        print(f"Error processing key {full_key}: {e}")
+                        continue
 
         except Exception as e:
-            print(f"Error reading from BaseStore: {e}")
+            print(f"Error reading from store: {e}")
             pass
 
-        # If no memories found, use sample data to demonstrate the UI
+        # Don't use sample data for real stores - return empty if no memories found
+        # This prevents fake data from appearing in new/empty stores
         if not memories:
-            print("No memories found, using sample data for demonstration")
-            sample_memories = [
-                {
-                    "path": "profile.personal.name",
-                    "content": "User's name is Alice Chen",
-                },
-                {
-                    "path": "profile.personal.location",
-                    "content": "Lives in San Francisco, CA",
-                },
-                {
-                    "path": "profile.professional.role",
-                    "content": "Senior Software Engineer at TechCorp",
-                },
-                {
-                    "path": "profile.professional.skills.python",
-                    "content": "Expert in Python programming",
-                },
-                {
-                    "path": "profile.professional.skills.typescript",
-                    "content": "Proficient in TypeScript development",
-                },
-                {
-                    "path": "profile.professional.skills.systems",
-                    "content": "Specializes in distributed systems",
-                },
-                {
-                    "path": "profile.preferences.ui.theme",
-                    "content": "Prefers dark mode in all applications",
-                },
-                {
-                    "path": "profile.preferences.communication.style",
-                    "content": "Likes technical explanations with code examples",
-                },
-                {
-                    "path": "profile.interests.hobbies.photography",
-                    "content": "Enjoys hiking and photography on weekends",
-                },
-                {
-                    "path": "profile.learning.languages.rust",
-                    "content": "Currently learning Rust programming language",
-                },
-                {
-                    "path": "projects.chatbot.description",
-                    "content": "Working on LangChain-based chatbot project",
-                },
-                {
-                    "path": "projects.chatbot.integrations",
-                    "content": "Needs Slack and Discord integration",
-                },
-                {
-                    "path": "projects.knowledge_system.goal",
-                    "content": "Building personal knowledge management system",
-                },
-                {
-                    "path": "technical.testing.framework",
-                    "content": "Uses pytest for testing, prefers TDD approach",
-                },
-                {
-                    "path": "technical.workflow.git",
-                    "content": "Team follows GitFlow branching strategy",
-                },
-            ]
-
-            for mem in sample_memories:
-                memories.append(
-                    {
-                        "key": f"alice_chen:{mem['path']}",
-                        "namespace": "alice_chen",
-                        "path": mem["path"],
-                        "content": mem["content"],
-                        "value": {"content": mem["content"], "path": mem["path"]},
-                    }
-                )
-
-                # Build tree structure
-                path_parts = mem["path"].split(".")
-                for i in range(len(path_parts)):
-                    path_prefix = ".".join(path_parts[: i + 1])
-                    tree_paths[path_prefix] = tree_paths.get(path_prefix, 0) + 1
+            print("No memories found in store - returning empty result")
 
         result = {
             "store_path": store_path,

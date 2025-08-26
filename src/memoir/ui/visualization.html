@@ -1530,29 +1530,7 @@
         </div>
 
         <div id="memoriesList">
-            <div class="memory-item">
-                <div class="memory-content">Name: John Doe, prefers to be called Johnny</div>
-                <div class="memory-meta">
-                    <span class="confidence-score">0.95</span>
-                    <span>2h ago</span>
-                </div>
-            </div>
-
-            <div class="memory-item">
-                <div class="memory-content">Age: 28, born March 15th, 1995</div>
-                <div class="memory-meta">
-                    <span class="confidence-score">1.0</span>
-                    <span>1d ago</span>
-                </div>
-            </div>
-
-            <div class="memory-item">
-                <div class="memory-content">Pronouns: he/him</div>
-                <div class="memory-meta">
-                    <span class="confidence-score">1.0</span>
-                    <span>3d ago</span>
-                </div>
-            </div>
+            <!-- Memories will be populated dynamically from real store data -->
         </div>
     </div>
 
@@ -1673,6 +1651,27 @@
                     return;
                 }
                 await connectToStore(path);
+            } else if (cmd === '/new') {
+                const path = parts.slice(1).join(' ');
+                if (!path) {
+                    showNotification('Usage: /new <path>', 'error');
+                    return;
+                }
+                await createNewStore(path);
+            } else if (cmd === '/remember') {
+                const content = parts.slice(1).join(' ');
+                if (!content) {
+                    showNotification('Usage: /remember <content>', 'error');
+                    return;
+                }
+                await rememberContent(content);
+            } else if (cmd === '/forget') {
+                const key = parts.slice(1).join(' ');
+                if (!key) {
+                    showNotification('Usage: /forget <key>', 'error');
+                    return;
+                }
+                await forgetMemory(key);
             } else if (cmd === '/refresh') {
                 if (!connectedStorePath) {
                     showNotification('Not connected. Use /connect <path> first', 'error');
@@ -2386,6 +2385,10 @@ ${result.valid ?
                         console.log('Data received from API:', data);
                         connectedStorePath = path;
                         storeData = data;
+
+                        // Clear the new empty store flag when connecting to existing data
+                        window.isNewEmptyStore = false;
+
                         showNotification(`Successfully connected to ${path}`, 'success');
                         updateUIWithRealData(data);
                         return;
@@ -2418,6 +2421,217 @@ ${result.valid ?
             } catch (error) {
                 console.error('Connection error:', error);
                 showNotification(`Connection failed: ${error.message}`, 'error');
+            }
+        }
+
+        function clearUIViews() {
+            console.log('Clearing UI views for new store');
+
+            // Clear global data
+            storeData = null;
+            connectedStorePath = null;
+
+            // Clear tree view
+            const treeView = document.getElementById('treeView');
+            if (treeView) {
+                treeView.innerHTML = `
+                    <div class="tree-node">
+                        <div class="node-content">
+                            <span class="node-icon">📁</span>
+                            <span class="node-label">Empty memory store</span>
+                        </div>
+                        <div class="node-children">
+                            <div class="tree-node">
+                                <div class="node-content">
+                                    <span class="node-icon">💭</span>
+                                    <span class="node-label">Use /remember to add your first memory</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Clear graph view (D3.js)
+            d3.select('#graphSvg').selectAll('*').remove();
+
+            // Also clear any cached graph data
+            window.realStoreData = null;
+
+            // Set flag to indicate this is a new empty store
+            window.isNewEmptyStore = true;
+
+            // Clear branches dropdown
+            const branchSelector = document.querySelector('#branchSelector');
+            if (branchSelector) {
+                branchSelector.innerHTML = '<option value="main">main</option>';
+            }
+
+            // Clear git timeline
+            const gitHistory = document.querySelector('.git-tree');
+            if (gitHistory) {
+                gitHistory.innerHTML = `
+                    <div class="commit-node">
+                        <div class="git-lines">
+                            <div class="commit-dot main"></div>
+                        </div>
+                        <div class="commit-content">
+                            <div class="commit-message">Initial commit</div>
+                            <div class="commit-meta">New memory store created</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Clear status
+            const statusEl = document.getElementById('connectionStatus');
+            if (statusEl) {
+                statusEl.innerHTML = `<span style="margin-right: 5px;">📁</span> New empty store`;
+            }
+        }
+
+        async function createNewStore(path) {
+            // Provide helpful suggestions if path looks problematic
+            if (path === '/temp' || path === '/tmp') {
+                path = '/tmp/memoir_store_' + Date.now();
+                showNotification(`Using writable path: ${path}`, 'info');
+            } else if (path.startsWith('/temp/')) {
+                path = path.replace('/temp/', '/tmp/');
+                showNotification(`Corrected path to: ${path}`, 'info');
+            }
+
+            console.log('Creating new store at:', path);
+
+            // Clear UI immediately to show it's a new store
+            clearUIViews();
+            showNotification(`Creating new memory store at ${path}...`, 'info');
+
+            try {
+                const response = await fetch('/api/new', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ path })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    showNotification(`✓ Memory store created at ${path}`, 'success');
+                    // Set the connected path but don't load data (since it's empty)
+                    connectedStorePath = path;
+
+                    // Ensure flag is set for new empty store
+                    window.isNewEmptyStore = true;
+
+                    // Update status to show we're connected to the new store
+                    const statusEl = document.getElementById('connectionStatus');
+                    if (statusEl) {
+                        statusEl.innerHTML = `<span style="margin-right: 5px;">📁</span> Connected: ${path}`;
+                    }
+                } else {
+                    const errorMsg = result.message || `HTTP error! status: ${response.status}`;
+                    showNotification(`Failed to create store: ${errorMsg}`, 'error');
+
+                    // Suggest alternative paths
+                    if (errorMsg.includes('Permission denied') || errorMsg.includes('Read-only')) {
+                        const suggestedPath = `/tmp/memoir_store_${Date.now()}`;
+                        showNotification(`💡 Try a writable path like: ${suggestedPath}`, 'info', 5000);
+                    }
+                }
+            } catch (error) {
+                console.error('Create store error:', error);
+                showNotification(`Failed to create store: ${error.message}`, 'error');
+            }
+        }
+
+        async function rememberContent(content) {
+            if (!connectedStorePath) {
+                showNotification('Not connected. Use /connect or /new first', 'error');
+                return;
+            }
+
+            console.log('Remembering content:', content);
+            showNotification('Processing memory...', 'info');
+
+            try {
+                const response = await fetch('/api/remember', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        path: connectedStorePath,
+                        content: content,
+                        namespace: 'alice_chen'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                if (result.success) {
+                    let message = `✓ Memory stored at: ${result.key}`;
+                    if (result.confidence) {
+                        message += ` (confidence: ${(result.confidence * 100).toFixed(0)}%)`;
+                    }
+                    showNotification(message, 'success');
+
+                    console.log('Memory stored successfully, refreshing view...');
+                    // Refresh the view to show the new memory
+                    await refreshStore();
+                } else {
+                    showNotification(`Not stored: ${result.message}`, 'warning');
+                }
+            } catch (error) {
+                console.error('Remember error:', error);
+                showNotification(`Failed to store memory: ${error.message}`, 'error');
+            }
+        }
+
+        async function forgetMemory(key) {
+            if (!connectedStorePath) {
+                showNotification('Not connected. Use /connect first', 'error');
+                return;
+            }
+
+            console.log('Forgetting memory:', key);
+            showNotification(`Deleting memory: ${key}...`, 'info');
+
+            try {
+                const response = await fetch('/api/forget', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        path: connectedStorePath,
+                        key: key,
+                        namespace: 'alice_chen'
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification(`✓ Memory deleted: ${result.key}`, 'success');
+
+                    // Refresh the view to reflect the deletion
+                    await refreshStore();
+                } else {
+                    showNotification(`Failed to delete: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                console.error('Forget error:', error);
+                showNotification(`Failed to delete memory: ${error.message}`, 'error');
             }
         }
 
@@ -2583,6 +2797,11 @@ ${result.valid ?
             // Also update the global variable for graph rendering
             window.realStoreData = data;
 
+            // Clear the new empty store flag since we now have real data
+            if (data && (data.memories && data.memories.length > 0) || (data.tree && Object.keys(data.tree).length > 0)) {
+                window.isNewEmptyStore = false;
+            }
+
             // Update graph view if it's currently visible
             const graphView = document.getElementById('graphView');
             const isGraphVisible = graphView && graphView.style.display !== 'none';
@@ -2669,7 +2888,9 @@ ${result.valid ?
                     const label = node.querySelector('.node-label');
 
                     if (label.classList.contains('has-memories')) {
-                        showMemoryDetails(label.textContent);
+                        // Build the full path by traversing up the tree
+                        const fullPath = buildFullPath(node);
+                        showMemoryDetails(fullPath);
                     }
                 }
             });
@@ -3039,17 +3260,102 @@ ${result.valid ?
             }
         }
 
+        function formatTimeAgo(timestamp) {
+            const now = Date.now();
+            const diff = now - timestamp;
+            const seconds = Math.floor(diff / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+            const weeks = Math.floor(days / 7);
+            const months = Math.floor(days / 30);
+
+            if (seconds < 60) return `${seconds}s ago`;
+            if (minutes < 60) return `${minutes}m ago`;
+            if (hours < 24) return `${hours}h ago`;
+            if (days < 7) return `${days}d ago`;
+            if (weeks < 4) return `${weeks}w ago`;
+            return `${months}mo ago`;
+        }
+
+        function buildFullPath(node) {
+            const pathParts = [];
+            let currentNode = node;
+
+            // Traverse up the tree to build the full path
+            while (currentNode && currentNode.classList.contains('tree-node')) {
+                const label = currentNode.querySelector('.node-label');
+                if (label) {
+                    pathParts.unshift(label.textContent);
+                }
+                currentNode = currentNode.parentElement?.closest('.tree-node');
+            }
+
+            return pathParts.join('.');
+        }
+
         function showMemoryDetails(path) {
-            document.getElementById('detailsPath').textContent = `profile.personal.${path}`;
-            document.getElementById('memoryDetails').classList.add('open');
+            const detailsPanel = document.getElementById('memoryDetails');
+            const detailsPath = document.getElementById('detailsPath');
+            const memoriesList = document.getElementById('memoriesList');
+
+            // Set the path title
+            detailsPath.textContent = path;
+
+            // Filter memories that match this path
+            const matchingMemories = [];
+            if (window.realStoreData && window.realStoreData.memories) {
+                for (const memory of window.realStoreData.memories) {
+                    if (memory.path && memory.path.startsWith(path)) {
+                        matchingMemories.push(memory);
+                    }
+                }
+            }
+
+            // Populate with real memory data
+            if (matchingMemories.length > 0) {
+                memoriesList.innerHTML = matchingMemories.map(memory => {
+                    const timeAgo = memory.value && memory.value.timestamp ?
+                        formatTimeAgo(memory.value.timestamp * 1000) : 'Unknown time';
+                    const confidence = memory.value && memory.value.confidence ?
+                        memory.value.confidence.toFixed(2) : '1.0';
+                    const content = memory.content || memory.value?.content || 'No content';
+
+                    return `
+                        <div class="memory-item">
+                            <div class="memory-content">${content}</div>
+                            <div class="memory-meta">
+                                <span class="confidence-score">${confidence}</span>
+                                <span>${timeAgo}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } else {
+                memoriesList.innerHTML = `
+                    <div class="memory-item">
+                        <div class="memory-content">No memories found for this path</div>
+                        <div class="memory-meta">
+                            <span>Try storing some memories first</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Show the details panel
+            detailsPanel.classList.add('open');
         }
 
         function renderGraph() {
-            // Use real data if available, otherwise fall back to mock data
+            // Use real data if available, otherwise fall back to mock data (unless it's a new empty store)
             let graphData;
             if (window.realStoreData && (window.realStoreData.memories || window.realStoreData.tree)) {
                 graphData = buildGraphDataFromRealData(window.realStoreData);
+            } else if (window.isNewEmptyStore) {
+                // For new empty stores, show truly empty graph
+                graphData = { nodes: [], links: [] };
             } else {
+                // Only show mock data when not connected to any store (demo mode)
                 graphData = buildGraphDataFromMockData();
             }
 
@@ -3368,6 +3674,9 @@ ${result.valid ?
         // Available commands with descriptions
         const availableCommands = [
             { cmd: '/connect', args: '<path>', desc: 'Connect to memory store at path' },
+            { cmd: '/new', args: '<path>', desc: 'Create new memory store at path (e.g., /tmp/my_store)' },
+            { cmd: '/remember', args: '<content>', desc: 'Store and classify new memory' },
+            { cmd: '/forget', args: '<key>', desc: 'Delete memory by key' },
             { cmd: '/refresh', args: '', desc: 'Refresh current connection' },
             { cmd: '/demo', args: '', desc: 'Show original demo data' },
             { cmd: '/repo', args: '', desc: 'Show repository information' },
@@ -3377,8 +3686,6 @@ ${result.valid ?
             { cmd: '/help', args: '', desc: 'Show all available commands' },
             { cmd: '/share', args: '<path>', desc: 'Share memory or branch (coming soon)', placeholder: true },
             { cmd: '/summarize', args: '[path]', desc: 'Generate summary of memories (coming soon)', placeholder: true },
-            { cmd: '/remember', args: '<content>', desc: 'Add memory with smart classification (coming soon)', placeholder: true },
-            { cmd: '/forget', args: '<pattern>', desc: 'Remove memories matching pattern (coming soon)', placeholder: true },
             { cmd: '/time-travel', args: '<commit>', desc: 'View memories at specific commit (coming soon)', placeholder: true },
             { cmd: '/blame', args: '<path>', desc: 'Show history of memory changes (coming soon)', placeholder: true },
             { cmd: '/timeline', args: '[filter]', desc: 'Show chronological memory timeline (coming soon)', placeholder: true },
