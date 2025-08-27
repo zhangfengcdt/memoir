@@ -1793,9 +1793,11 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                     {
                         "path": path,
                         "data_type": str(type(data)),
-                        "data": str(data)[:200] + "..."
-                        if len(str(data)) > 200
-                        else str(data),
+                        "data": (
+                            str(data)[:200] + "..."
+                            if len(str(data)) > 200
+                            else str(data)
+                        ),
                     }
                     for path, data in all_memories
                 ],
@@ -1863,9 +1865,11 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                     {
                         "path": path,
                         "data_type": str(type(data)),
-                        "data": str(data)[:200] + "..."
-                        if len(str(data)) > 200
-                        else str(data),
+                        "data": (
+                            str(data)[:200] + "..."
+                            if len(str(data)) > 200
+                            else str(data)
+                        ),
                     }
                     for path, data in all_memories
                 ],
@@ -2070,10 +2074,6 @@ Provide a clear, informative summary in 2-3 paragraphs."""
     async def _summarize_timeline(self, store, llm):
         """Summarize timeline events in chronological order."""
         try:
-            from memoir.memento.timeline import TimelineMemento
-
-            timeline_memento = TimelineMemento(store)
-
             # Get timeline memories
             timeline_memories = await store.asearch("memory:general", "timeline.")
 
@@ -2103,7 +2103,7 @@ Provide a clear, informative summary in 2-3 paragraphs."""
                 try:
                     year, month, day = date_str[:4], date_str[4:6], date_str[6:8]
                     formatted_date = f"{month}/{day}/{year}"
-                except:
+                except (ValueError, IndexError):
                     formatted_date = date_str
                 timeline_summary += f"• {formatted_date}: {content[:150]}{'...' if len(content) > 150 else ''}\n"
 
@@ -2128,10 +2128,6 @@ Provide a narrative summary in 2-3 paragraphs that tells the story of what happe
     async def _summarize_places(self, store, llm):
         """Summarize location/place information."""
         try:
-            from memoir.memento.location import LocationMemento
-
-            location_memento = LocationMemento(store)
-
             # Get location memories
             location_memories = await store.asearch("memory:general", "location.")
 
