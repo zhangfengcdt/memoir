@@ -106,7 +106,7 @@
 
         /* Git Tree Panel */
         .timeline-panel {
-            width: 380px;
+            width: 420px;
             background: var(--bg-glass);
             backdrop-filter: blur(20px);
             border-right: 1px solid var(--border-light);
@@ -1122,17 +1122,14 @@
         }
 
         .store-path-text {
-            color: var(--text-secondary);
+            color: var(--text-primary);
             font-size: 14px;
             font-weight: 500;
             overflow: hidden;
             text-overflow: ellipsis;
         }
-        .store-path-text.connected {
-            color: var(--success);
-        }
         .store-path-text.disconnected {
-            color: var(--danger);
+            color: var(--text-secondary);
         }
         .store-path-text.connecting {
             color: var(--warning);
@@ -1141,20 +1138,57 @@
             min-width: 0;
         }
 
-        .store-status {
-            font-size: 20px;
+        .connection-status-btn {
+            display: none; /* Hidden by default, shown only when connected */
+            background: transparent;
+            border: none;
+            color: var(--success);
+            cursor: default;
+            padding: 4px;
+            margin-left: auto;
             flex-shrink: 0;
-            color: var(--danger); /* Red by default (disconnected) */
-            transition: color 0.3s ease;
-            margin-left: auto; /* Push to the right */
+            transition: all 0.2s ease;
         }
 
-        .store-status.connected {
-            color: var(--success); /* Green when connected */
+        .connection-status-btn.show {
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
-        .store-status.connecting {
-            color: var(--warning); /* Yellow when connecting */
+        .connection-status-btn svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        .branch-btn-refresh {
+            color: var(--success);
+            display: none; /* Hidden by default, shown when connected */
+        }
+
+        .branch-btn-refresh:hover {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.3);
+            color: #34d399;
+        }
+
+        .branch-btn-refresh.show {
+            display: flex;
+        }
+
+        .branch-btn-refresh.refreshing {
+            animation: spin 1s linear infinite;
+        }
+
+        .branch-btn-refresh svg {
+            width: 16px;
+            height: 16px;
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
         }
 
         .view-toggle {
@@ -1858,6 +1892,13 @@
                     </select>
                     <button class="branch-btn branch-btn-add" id="addBranchBtn" title="Create new branch">+</button>
                     <button class="branch-btn branch-btn-remove" id="removeBranchBtn" title="Delete current branch">-</button>
+                    <button class="branch-btn branch-btn-refresh" id="refreshBtn" title="Refresh store data">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="23 4 23 10 17 10"></polyline>
+                            <polyline points="1 20 1 14 7 14"></polyline>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                        </svg>
+                    </button>
                 </div>
 
             </div>
@@ -2127,7 +2168,12 @@
                 <div class="store-path-display" id="storePathDisplay">
                     <span class="store-icon">📂</span>
                     <span class="store-path-text" id="storePathText">Not connected - demo mode</span>
-                    <span class="store-status" id="storeStatus">●</span>
+                    <button class="connection-status-btn" id="connectionStatusBtn" title="Connected">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                        </svg>
+                    </button>
                 </div>
 
                 <div style="display: flex; align-items: center; gap: 16px;">
@@ -3685,9 +3731,10 @@ ${result.valid ?
 
         function updateStorePathDisplay(path = null, status = 'disconnected') {
             const storePathText = document.getElementById('storePathText');
-            const storeStatus = document.getElementById('storeStatus');
+            const connectionBtn = document.getElementById('connectionStatusBtn');
+            const refreshBtn = document.getElementById('refreshBtn');
 
-            if (!storePathText || !storeStatus) return;
+            if (!storePathText) return;
 
             // Update path text
             if (path) {
@@ -3698,9 +3745,26 @@ ${result.valid ?
                 storePathText.title = 'No store connected - viewing demo data';
             }
 
-            // Update status indicator and text color
-            storeStatus.className = `store-status ${status}`;
+            // Update text color based on connection status
             storePathText.className = `store-path-text ${status}`;
+
+            // Show/hide connection status button based on status
+            if (connectionBtn) {
+                if (status === 'connected') {
+                    connectionBtn.classList.add('show');
+                } else {
+                    connectionBtn.classList.remove('show');
+                }
+            }
+
+            // Show/hide refresh button based on connection status (if it exists)
+            if (refreshBtn) {
+                if (status === 'connected') {
+                    refreshBtn.classList.add('show');
+                } else {
+                    refreshBtn.classList.remove('show');
+                }
+            }
         }
 
         async function connectToStore(path) {
@@ -3993,8 +4057,17 @@ ${result.valid ?
                 showNotification('Not connected to any store', 'error');
                 return;
             }
+
+            console.log('Refreshing store data for:', connectedStorePath);
+
+            // Reconnect to the store to get fresh data
             await connectToStore(connectedStorePath);
+
+            // Update branch display and git history
             await updateBranchDisplay();
+
+            // The connectToStore function already calls updateUIWithRealData
+            // which refreshes the tree view, so all views are now updated
         }
 
         function updateUIWithRealData(data) {
@@ -4235,6 +4308,34 @@ ${result.valid ?
                     updateMemoryStructure(commitId);
                 });
             });
+
+            // Refresh button click handler
+            const refreshBtn = document.getElementById('refreshBtn');
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', async function() {
+                    if (!connectedStorePath) {
+                        showNotification('Not connected to any store', 'error');
+                        return;
+                    }
+
+                    // Add refreshing animation
+                    refreshBtn.classList.add('refreshing');
+                    refreshBtn.disabled = true;
+
+                    try {
+                        showNotification('Refreshing store data...', 'info');
+                        await refreshStore();
+                        showNotification('Store data refreshed successfully', 'success');
+                    } catch (error) {
+                        console.error('Refresh error:', error);
+                        showNotification(`Failed to refresh: ${error.message}`, 'error');
+                    } finally {
+                        // Remove refreshing animation
+                        refreshBtn.classList.remove('refreshing');
+                        refreshBtn.disabled = false;
+                    }
+                });
+            }
 
             // Tree node clicks
             document.addEventListener('click', function(e) {
@@ -6352,6 +6453,16 @@ Message: ${commit.message}`;
             branchSelector.addEventListener('change', async (e) => {
                 const selectedBranch = e.target.value;
 
+                // Update remove button visibility immediately based on selection
+                const removeBtn = document.getElementById('removeBranchBtn');
+                if (removeBtn) {
+                    if (selectedBranch === 'main') {
+                        removeBtn.classList.add('hidden');
+                    } else {
+                        removeBtn.classList.remove('hidden');
+                    }
+                }
+
                 if (!connectedStorePath) {
                     // Reset to previous selection if no store connected
                     showNotification('Please connect to a store first with /connect <path>', 'error');
@@ -6387,6 +6498,7 @@ Message: ${commit.message}`;
         function initializeBranchButtons() {
             const addBtn = document.getElementById('addBranchBtn');
             const removeBtn = document.getElementById('removeBranchBtn');
+            const branchSelector = document.getElementById('branchSelector');
 
             if (addBtn) {
                 addBtn.addEventListener('click', handleCreateBranch);
@@ -6394,6 +6506,11 @@ Message: ${commit.message}`;
 
             if (removeBtn) {
                 removeBtn.addEventListener('click', handleRemoveBranch);
+
+                // Set initial visibility based on current branch selection
+                if (branchSelector && branchSelector.value === 'main') {
+                    removeBtn.classList.add('hidden');
+                }
             }
         }
 
