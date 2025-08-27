@@ -11,6 +11,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
     <script src="https://unpkg.com/d3@7"></script>
+    <!-- Leaflet Map Library -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
         * {
             margin: 0;
@@ -637,6 +640,20 @@
             height: 100%;
             border-radius: 8px;
             min-height: 400px;
+            z-index: 1;
+        }
+
+        /* Ensure Leaflet controls are properly styled */
+        .leaflet-container {
+            border-radius: 8px;
+        }
+
+        .leaflet-popup-content-wrapper {
+            border-radius: 8px;
+        }
+
+        .leaflet-popup-content {
+            margin: 12px 16px;
         }
 
         .places-map-placeholder {
@@ -5360,9 +5377,18 @@ ${result.valid ?
 
             try {
                 await loadPlacesData();
+                
                 // Initialize map if not already done
                 if (!window.placesMapInitialized) {
-                    initializePlacesMap();
+                    // Small delay to ensure DOM is ready
+                    setTimeout(() => {
+                        initializePlacesMap();
+                    }, 100);
+                } else if (window.placesMap) {
+                    // Resize map when view is shown
+                    setTimeout(() => {
+                        window.placesMap.invalidateSize();
+                    }, 100);
                 }
             } catch (error) {
                 console.error('Failed to initialize Places view:', error);
@@ -5385,7 +5411,7 @@ ${result.valid ?
                 console.log('DEBUG: Places API response:', result);
 
                 if (result.success) {
-                    updatePlacesDisplay(result.places_data);
+                    await updatePlacesDisplay(result.places_data);
                 } else {
                     console.error('Failed to load places data:', result.error);
                     document.getElementById('placesListContent').innerHTML = `
@@ -5411,7 +5437,7 @@ ${result.valid ?
             }
         }
 
-        function updatePlacesDisplay(placesData) {
+        async function updatePlacesDisplay(placesData) {
             const placesListContent = document.getElementById('placesListContent');
             
             if (!placesData || Object.keys(placesData).length === 0) {
@@ -5464,10 +5490,11 @@ ${result.valid ?
             placesListContent.innerHTML = placesHTML;
 
             // Update map with places data
-            updatePlacesMap(sortedPlaces);
+            console.log('About to update places map with:', sortedPlaces);
+            await updatePlacesMap(sortedPlaces);
         }
 
-        function selectPlace(placeName, displayName, content) {
+        async function selectPlace(placeName, displayName, content) {
             // Remove selection from other places
             document.querySelectorAll('.place-item').forEach(item => item.classList.remove('selected'));
             
@@ -5487,6 +5514,29 @@ ${result.valid ?
             placeContentElement.innerHTML = formattedContent;
             
             detailsContainer.style.display = 'block';
+            
+            // Center map on selected location
+            if (window.placesMap) {
+                try {
+                    const coords = await geocodeLocation(placeName);
+                    if (coords) {
+                        window.placesMap.setView([coords.lat, coords.lon], 12);
+                        
+                        // Find and open the marker popup
+                        window.placesMarkers.eachLayer((layer) => {
+                            if (layer instanceof L.Marker) {
+                                const markerLatLng = layer.getLatLng();
+                                if (Math.abs(markerLatLng.lat - coords.lat) < 0.001 && 
+                                    Math.abs(markerLatLng.lng - coords.lon) < 0.001) {
+                                    layer.openPopup();
+                                }
+                            }
+                        });
+                    }
+                } catch (error) {
+                    console.warn('Failed to center map on selected location:', error);
+                }
+            }
         }
 
         async function addLocationEvent(args) {
@@ -5536,26 +5586,137 @@ ${result.valid ?
         }
 
         function initializePlacesMap() {
-            // Simple map placeholder for now - could integrate with actual mapping library
             const mapElement = document.getElementById('placesMapElement');
             const placeholder = document.getElementById('placesMapPlaceholder');
             
-            // For now, show a simple visualization instead of a full map
-            placeholder.innerHTML = `
-                <div class="places-map-icon">🌍</div>
-                <div class="places-map-text">
-                    <strong>Places Visualization</strong><br>
-                    Your location memories are displayed in the sidebar
-                </div>
-            `;
-            
-            window.placesMapInitialized = true;
+            if (!mapElement) {
+                console.error('Places map element not found');
+                return;
+            }
+
+            try {
+                // Hide placeholder and show map
+                placeholder.style.display = 'none';
+                mapElement.style.display = 'block';
+                
+                // Initialize Leaflet map
+                window.placesMap = L.map('placesMapElement').setView([40.7128, -74.0060], 2); // Default to world view
+                
+                // Add OpenStreetMap tiles
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                    maxZoom: 18,
+                }).addTo(window.placesMap);
+                
+                // Initialize marker layer group
+                window.placesMarkers = L.layerGroup().addTo(window.placesMap);
+                
+                console.log('Places map initialized successfully');
+                window.placesMapInitialized = true;
+                
+            } catch (error) {
+                console.error('Error initializing places map:', error);
+                // Show error in placeholder
+                placeholder.innerHTML = `
+                    <div class="places-map-icon">⚠️</div>
+                    <div class="places-map-text">
+                        <strong>Map Initialization Error</strong><br>
+                        Unable to load the interactive map
+                    </div>
+                `;
+            }
         }
 
-        function updatePlacesMap(places) {
-            // Update map visualization with places data
-            // For now, this is a placeholder - could integrate with actual mapping service
-            console.log('Places data for map:', places);
+        async function updatePlacesMap(places) {
+            if (!window.placesMap || !window.placesMarkers) {
+                console.log('Map not initialized, skipping marker update');
+                return;
+            }
+
+            console.log('Updating places map with data:', places);
+            
+            // Clear existing markers
+            window.placesMarkers.clearLayers();
+            
+            // Add markers for each place
+            const bounds = [];
+            
+            for (const place of places) {
+                try {
+                    const coords = await geocodeLocation(place.name);
+                    if (coords) {
+                        // Create marker with custom popup
+                        const marker = L.marker([coords.lat, coords.lon])
+                            .bindPopup(`
+                                <div style="min-width: 200px;">
+                                    <h4 style="margin: 0 0 8px 0; color: #333;">${place.displayName}</h4>
+                                    <p style="margin: 0; color: #666; font-size: 12px;">${place.eventCount} ${place.eventCount === 1 ? 'memory' : 'memories'}</p>
+                                    <div style="margin-top: 8px; font-size: 13px; line-height: 1.4; color: #555;">
+                                        ${place.events.map(event => `• ${event.trim()}`).join('<br>')}
+                                    </div>
+                                </div>
+                            `);
+                            
+                        window.placesMarkers.addLayer(marker);
+                        bounds.push([coords.lat, coords.lon]);
+                        
+                        console.log(`Added marker for ${place.displayName} at ${coords.lat}, ${coords.lon}`);
+                    }
+                } catch (error) {
+                    console.warn(`Failed to geocode location: ${place.name}`, error);
+                }
+            }
+            
+            // Fit map to show all markers
+            if (bounds.length > 0) {
+                if (bounds.length === 1) {
+                    // Single marker - center on it
+                    window.placesMap.setView(bounds[0], 10);
+                } else {
+                    // Multiple markers - fit bounds
+                    window.placesMap.fitBounds(bounds, { padding: [20, 20] });
+                }
+            }
+        }
+
+        async function geocodeLocation(locationName) {
+            // Use Nominatim (OpenStreetMap) geocoding service
+            const encodedLocation = encodeURIComponent(locationName);
+            const url = `https://nominatim.openstreetmap.org/search?q=${encodedLocation}&format=json&limit=1&addressdetails=1`;
+            
+            console.log(`Geocoding location: "${locationName}" -> URL: ${url}`);
+            
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        'User-Agent': 'Memoir-Places-Viewer/1.0'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log(`Geocoding response for "${locationName}":`, data);
+                
+                if (data && data.length > 0) {
+                    const result = data[0];
+                    const coords = {
+                        lat: parseFloat(result.lat),
+                        lon: parseFloat(result.lon),
+                        display_name: result.display_name
+                    };
+                    console.log(`Successfully geocoded "${locationName}" to:`, coords);
+                    return coords;
+                }
+                
+                console.warn(`No geocoding results found for "${locationName}"`);
+                return null;
+            } catch (error) {
+                console.error(`Geocoding failed for "${locationName}":`, error);
+                return null;
+            }
         }
 
         async function updateUIWithRealData(data) {
@@ -5890,7 +6051,7 @@ ${result.valid ?
 
             // View toggle
             document.querySelectorAll('.view-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
+                btn.addEventListener('click', async function() {
                     document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
                     this.classList.add('active');
 
@@ -5916,7 +6077,7 @@ ${result.valid ?
                         initializeTimelineView();
                     } else if (view === 'places') {
                         document.getElementById('placesView').style.display = 'block';
-                        initializePlacesView();
+                        await initializePlacesView();
                     }
                 });
             });
