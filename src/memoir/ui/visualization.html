@@ -270,7 +270,7 @@
             display: block;
         }
 
-        /* Timeline View - GitHub Style Activity Grid */
+        /* Timeline View - Split Layout */
         .timeline-view {
             display: flex;
             flex-direction: column;
@@ -278,6 +278,23 @@
             padding: 0;
             gap: 20px;
             position: relative;
+        }
+
+        .timeline-content-split {
+            display: flex;
+            flex: 1;
+            gap: 24px;
+            min-height: 0;
+        }
+
+        .timeline-left-panel {
+            flex: 2;
+            min-width: 0;
+        }
+
+        .timeline-right-panel {
+            flex: 1;
+            min-width: 300px;
         }
 
         .timeline-contributions-header {
@@ -494,23 +511,23 @@
         }
 
         .activity-day.level-1 {
-            background: rgba(34, 197, 94, 0.3);
-            border: 1px solid rgba(34, 197, 94, 0.5);
+            background: rgba(147, 51, 234, 0.3);
+            border: 1px solid rgba(147, 51, 234, 0.5);
         }
 
         .activity-day.level-2 {
-            background: rgba(34, 197, 94, 0.5);
-            border: 1px solid rgba(34, 197, 94, 0.7);
+            background: rgba(147, 51, 234, 0.5);
+            border: 1px solid rgba(147, 51, 234, 0.7);
         }
 
         .activity-day.level-3 {
-            background: rgba(34, 197, 94, 0.7);
-            border: 1px solid rgba(34, 197, 94, 0.8);
+            background: rgba(147, 51, 234, 0.7);
+            border: 1px solid rgba(147, 51, 234, 0.8);
         }
 
         .activity-day.level-4 {
-            background: rgba(34, 197, 94, 0.9);
-            border: 1px solid rgba(34, 197, 94, 1);
+            background: rgba(147, 51, 234, 0.9);
+            border: 1px solid rgba(147, 51, 234, 1);
         }
 
         .activity-day:hover {
@@ -1855,6 +1872,314 @@
             color: var(--text-primary);
         }
 
+        /* Timeline Modal Styles */
+        .timeline-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .timeline-modal-backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+        }
+
+        .timeline-modal-content {
+            position: relative;
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-light);
+            border-radius: 20px;
+            max-width: 800px;
+            max-height: 80vh;
+            width: 90%;
+            overflow: hidden;
+            box-shadow: 0 20px 40px var(--shadow);
+        }
+
+        .timeline-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .timeline-modal-header h2 {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .timeline-modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 24px;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .timeline-modal-close:hover {
+            background: var(--bg-glass-light);
+            color: var(--text-primary);
+        }
+
+        .timeline-modal-body {
+            padding: 24px;
+            overflow-y: auto;
+            max-height: calc(80vh - 80px);
+        }
+
+        .timeline-container {
+            color: var(--text-primary);
+        }
+
+        .timeline-summary {
+            margin-bottom: 24px;
+            padding: 16px;
+            background: var(--bg-glass-light);
+            border-radius: 12px;
+            border: 1px solid var(--border-light);
+        }
+
+        .timeline-summary h3 {
+            margin: 0 0 12px 0;
+            color: var(--text-primary);
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .timeline-summary pre {
+            margin: 0;
+            white-space: pre-wrap;
+            font-family: inherit;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .timeline-events h3 {
+            margin: 0 0 16px 0;
+            color: var(--text-primary);
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .timeline-entry {
+            margin-bottom: 16px;
+            padding: 16px;
+            background: var(--bg-glass-light);
+            border-radius: 12px;
+            border-left: 4px solid var(--accent);
+        }
+
+        .timeline-date {
+            font-weight: 600;
+            color: var(--accent);
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .timeline-content {
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .timeline-empty {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        /* Timeline Grid Styles */
+        .timeline-grid-container {
+            padding: 16px;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .timeline-empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: var(--text-muted);
+        }
+
+        .timeline-empty-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+
+        .timeline-empty-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+        }
+
+        .timeline-empty-subtitle {
+            font-size: 14px;
+            opacity: 0.7;
+        }
+
+        .timeline-month {
+            margin-bottom: 32px;
+        }
+
+        .timeline-month-header {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid var(--accent);
+        }
+
+        .timeline-month-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            max-width: 280px;
+        }
+
+        .timeline-day {
+            position: relative;
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-glass-light);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .timeline-day:hover {
+            background: var(--bg-glass);
+            border-color: var(--accent);
+            transform: scale(1.05);
+        }
+
+        .timeline-day.has-event {
+            background: var(--accent);
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(147, 51, 234, 0.3);
+        }
+
+        .timeline-day.has-event:hover {
+            background: var(--accent-hover);
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(147, 51, 234, 0.4);
+        }
+
+        .timeline-day-number {
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .timeline-event-dot {
+            position: absolute;
+            top: 2px;
+            right: 2px;
+            width: 6px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+        }
+
+        /* Event Detail Modal */
+        .timeline-event-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1001;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .timeline-event-modal-backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(8px);
+        }
+
+        .timeline-event-modal-content {
+            position: relative;
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-light);
+            border-radius: 20px;
+            max-width: 500px;
+            width: 90%;
+            overflow: hidden;
+            box-shadow: 0 20px 40px var(--shadow);
+        }
+
+        .timeline-event-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .timeline-event-modal-header h3 {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .timeline-event-modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 24px;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+
+        .timeline-event-modal-close:hover {
+            background: var(--bg-glass-light);
+            color: var(--text-primary);
+        }
+
+        .timeline-event-modal-body {
+            padding: 24px;
+        }
+
+        .timeline-event-modal-body p {
+            margin: 0;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            font-size: 16px;
+        }
+
         @media (max-width: 768px) {
             .memory-input-bar {
                 bottom: 16px;
@@ -1870,6 +2195,19 @@
 
             #memoryInput {
                 font-size: 14px;
+            }
+
+            .timeline-modal-content {
+                width: 95%;
+                max-height: 90vh;
+            }
+
+            .timeline-modal-header {
+                padding: 16px 20px;
+            }
+
+            .timeline-modal-body {
+                padding: 20px;
             }
         }
     </style>
@@ -2378,48 +2716,56 @@
                             </div>
                         </div>
 
-                            <!-- Activity Grid -->
-                            <div class="timeline-grid-container">
-                                <div class="timeline-grid-header">
-                                    <div style="opacity: 0;"></div>
-                                    <div class="timeline-grid-legend">
-                                        <span>Less</span>
-                                        <div class="activity-day empty"></div>
-                                        <div class="activity-day level-1"></div>
-                                        <div class="activity-day level-2"></div>
-                                        <div class="activity-day level-3"></div>
-                                        <div class="activity-day level-4"></div>
-                                        <span>More</span>
-                                    </div>
-                                </div>
-                                <div class="activity-grid-wrapper">
-                                    <div class="activity-months" id="activityMonths">
-                                        <!-- Month labels will be generated by JavaScript -->
-                                    </div>
-                                    <div class="activity-main">
-                                        <div class="activity-weekdays">
-                                            <div class="activity-weekday">Sun</div>
-                                            <div class="activity-weekday"></div>
-                                            <div class="activity-weekday">Mon</div>
-                                            <div class="activity-weekday"></div>
-                                            <div class="activity-weekday">Wed</div>
-                                            <div class="activity-weekday"></div>
-                                            <div class="activity-weekday">Fri</div>
+                        <!-- Split Content Layout -->
+                        <div class="timeline-content-split">
+                            <!-- Left Panel - Timeline Calendar -->
+                            <div class="timeline-left-panel">
+                                <!-- Activity Grid -->
+                                <div class="timeline-grid-container">
+                                    <div class="timeline-grid-header">
+                                        <div style="opacity: 0;"></div>
+                                        <div class="timeline-grid-legend">
+                                            <span>Less</span>
+                                            <div class="activity-day empty"></div>
+                                            <div class="activity-day level-1"></div>
+                                            <div class="activity-day level-2"></div>
+                                            <div class="activity-day level-3"></div>
+                                            <div class="activity-day level-4"></div>
+                                            <span>More</span>
                                         </div>
-                                        <div class="activity-grid" id="activityGrid">
-                                            <!-- Grid will be generated by JavaScript -->
+                                    </div>
+                                    <div class="activity-grid-wrapper">
+                                        <div class="activity-months" id="activityMonths">
+                                            <!-- Month labels will be generated by JavaScript -->
+                                        </div>
+                                        <div class="activity-main">
+                                            <div class="activity-weekdays">
+                                                <div class="activity-weekday">Sun</div>
+                                                <div class="activity-weekday"></div>
+                                                <div class="activity-weekday">Mon</div>
+                                                <div class="activity-weekday"></div>
+                                                <div class="activity-weekday">Wed</div>
+                                                <div class="activity-weekday"></div>
+                                                <div class="activity-weekday">Fri</div>
+                                            </div>
+                                            <div class="activity-grid" id="activityGrid">
+                                                <!-- Grid will be generated by JavaScript -->
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                        <!-- Activity Details Section -->
-                        <div class="timeline-activity-section">
-                            <div class="timeline-activity-title">Memory Activity</div>
-                            <div class="timeline-details" id="timelineDetails">
-                                <div class="timeline-details-header">Click on a day to see details</div>
-                                <div id="timelineDetailsContent">
-                                    <p style="color: var(--text-secondary); font-style: italic;">Select a day from the activity grid above to view memory details</p>
+                            <!-- Right Panel - Memory Activities -->
+                            <div class="timeline-right-panel">
+                                <div class="timeline-activity-section">
+                                    <div class="timeline-activity-title">Memory Activity</div>
+                                    <div class="timeline-details" id="timelineDetails">
+                                        <div class="timeline-details-header">Click on a day to see details</div>
+                                        <div id="timelineDetailsContent">
+                                            <p style="color: var(--text-secondary); font-style: italic;">Select a day from the activity grid to view memory details</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -2670,7 +3016,8 @@
                 '/br': '/branch',
                 '/co': '/checkout',
                 '/log': '/commits',
-                '/tt': '/time-travel'
+                '/tt': '/time-travel',
+                '/tl': '/timeline'
             };
 
             // Resolve alias to full command
@@ -2773,6 +3120,28 @@
                 await showCommitHistory();
             } else if (cmd === '/branches') {
                 await showBranchList();
+            } else if (cmd === '/timeline') {
+                if (parts.length === 1) {
+                    // Show timeline
+                    await showTimeline();
+                } else {
+                    // Add timeline event: /timeline YYYY-MM-DD description
+                    const args = parts.slice(1).join(' ');
+                    await addTimelineEvent(args);
+                }
+            } else if (cmd === '/debug-timeline') {
+                await debugTimeline();
+            } else if (cmd === '/refresh-timeline') {
+                await updateTimelineView();
+                showNotification('Timeline view refreshed', 'success');
+            } else if (cmd === '/inspect-dom') {
+                inspectCurrentDOM();
+            } else if (cmd === '/force-timeline') {
+                await forceTimelineView();
+            } else if (cmd === '/check-styles') {
+                checkTimelineStyles();
+            } else if (cmd === '/restore-layout') {
+                restoreNormalLayout();
             } else if (cmd === '/help') {
                 const workingCommands = availableCommands.filter(c => !c.placeholder).map(c => {
                     const cmdStr = c.cmd + (c.args ? ' ' + c.args : '');
@@ -2823,6 +3192,9 @@
         function restoreOriginalGitHistory() {
             const gitHistory = document.querySelector('.git-tree');
             if (!gitHistory) return;
+
+            // Update panel header to show "Git History" mode
+            updateTimelinePanelHeader('Git History');
 
             // Restore the complete original git history HTML
             const originalGitHTML = `
@@ -3795,7 +4167,7 @@ ${result.valid ?
 
                         updateStorePathDisplay(path, 'connected');
                         showNotification(`Successfully connected to ${path}`, 'success');
-                        updateUIWithRealData(data);
+                        await updateUIWithRealData(data);
                         // Update branch display and git history for connected store
                         await updateBranchDisplay();
                         return;
@@ -3816,7 +4188,7 @@ ${result.valid ?
                         storeData = data;
                         updateStorePathDisplay(path, 'connected');
                         showNotification(`Connected to ${path} (file mode)`, 'success');
-                        updateUIWithRealData(data);
+                        await updateUIWithRealData(data);
                         // Update branch display and git history for connected store
                         await updateBranchDisplay();
                         return;
@@ -4070,7 +4442,624 @@ ${result.valid ?
             // which refreshes the tree view, so all views are now updated
         }
 
-        function updateUIWithRealData(data) {
+        async function showTimeline() {
+            console.log('DEBUG: showTimeline called');
+            
+            if (!connectedStorePath) {
+                showNotification('Not connected to any store. Use /connect <path> first', 'error');
+                return;
+            }
+
+            console.log('DEBUG: Fetching timeline from:', `/api/timeline?path=${encodeURIComponent(connectedStorePath)}`);
+
+            try {
+                const response = await fetch(`/api/timeline?path=${encodeURIComponent(connectedStorePath)}`);
+                const result = await response.json();
+                
+                console.log('DEBUG: Timeline API response:', result);
+
+                if (result.success) {
+                    console.log('DEBUG: Timeline data received:', result.timeline_data);
+                    // Display timeline in a modal or notification
+                    const timelineHtml = formatTimelineData(result.timeline_data, result.summary);
+                    console.log('DEBUG: Formatted timeline HTML:', timelineHtml);
+                    showTimelineModal(timelineHtml);
+                } else {
+                    showNotification('Failed to retrieve timeline data', 'error');
+                    console.log('DEBUG: Timeline API failed:', result);
+                }
+            } catch (error) {
+                console.error('Timeline error:', error);
+                showNotification(`Failed to retrieve timeline: ${error.message}`, 'error');
+            }
+        }
+
+        async function loadTimelineData() {
+            if (!connectedStorePath) {
+                return { success: false, timeline_data: {} };
+            }
+
+            try {
+                const response = await fetch(`/api/timeline?path=${encodeURIComponent(connectedStorePath)}`);
+                const result = await response.json();
+                return result;
+            } catch (error) {
+                console.error('Error loading timeline data:', error);
+                return { success: false, timeline_data: {} };
+            }
+        }
+
+        async function addTimelineEvent(args) {
+            console.log('DEBUG: addTimelineEvent called with args:', args);
+            
+            if (!connectedStorePath) {
+                showNotification('Not connected to any store. Use /connect <path> first', 'error');
+                return;
+            }
+
+            // Parse arguments: YYYY-MM-DD description
+            const parts = args.trim().split(' ');
+            console.log('DEBUG: Parsed timeline args:', parts);
+            if (parts.length < 2) {
+                showNotification('Usage: /timeline YYYY-MM-DD description', 'error');
+                return;
+            }
+
+            const dateInput = parts[0];
+            const description = parts.slice(1).join(' ');
+
+            // Convert YYYY-MM-DD to YYYYMMDD format
+            let dateStr;
+            if (dateInput.includes('-')) {
+                dateStr = dateInput.replace(/-/g, '');
+            } else {
+                dateStr = dateInput;
+            }
+
+            // Validate date format
+            if (dateStr.length !== 8 || !/^\d{8}$/.test(dateStr)) {
+                showNotification('Invalid date format. Use YYYY-MM-DD (e.g., 2025-01-07)', 'error');
+                return;
+            }
+
+            console.log('DEBUG: Sending timeline event to server:', {
+                path: connectedStorePath,
+                date: dateStr,
+                description: description
+            });
+
+            try {
+                const response = await fetch('/api/timeline', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        path: connectedStorePath,
+                        date: dateStr,
+                        description: description
+                    })
+                });
+
+                const result = await response.json();
+                console.log('DEBUG: Server response:', result);
+
+                if (result.success) {
+                    showNotification(`✓ Timeline event added for ${dateInput}: ${description}`, 'success');
+                    // Refresh the timeline view to show the new event
+                    await updateTimelineView();
+                    // Also refresh the store to update other views
+                    await refreshStore();
+                } else {
+                    showNotification(`Failed to add timeline event: ${result.message || 'Unknown error'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Timeline add error:', error);
+                showNotification(`Failed to add timeline event: ${error.message}`, 'error');
+            }
+        }
+
+        function formatTimelineData(timelineData, summary) {
+            if (!timelineData || Object.keys(timelineData).length === 0) {
+                return '<div class="timeline-empty">No timeline events found.</div>';
+            }
+
+            let html = '<div class="timeline-container">';
+            
+            // Add summary if available
+            if (summary && summary !== 'No timeline events available.') {
+                html += '<div class="timeline-summary">';
+                html += '<h3>Timeline Summary</h3>';
+                html += `<pre>${summary}</pre>`;
+                html += '</div>';
+            }
+
+            // Add structured timeline data
+            html += '<div class="timeline-events">';
+            html += '<h3>Timeline Events</h3>';
+            
+            // Sort dates in reverse chronological order
+            const sortedDates = Object.keys(timelineData).sort().reverse();
+            
+            for (const dateStr of sortedDates) {
+                const events = timelineData[dateStr];
+                const formattedDate = formatDisplayDate(dateStr);
+                
+                html += `<div class="timeline-entry">`;
+                html += `<div class="timeline-date">${formattedDate}</div>`;
+                html += `<div class="timeline-content">${events}</div>`;
+                html += `</div>`;
+            }
+            
+            html += '</div>';
+            html += '</div>';
+            
+            return html;
+        }
+
+        function formatDisplayDate(dateStr) {
+            // Convert YYYYMMDD to readable format
+            if (dateStr.length === 8) {
+                const year = dateStr.substring(0, 4);
+                const month = dateStr.substring(4, 6);
+                const day = dateStr.substring(6, 8);
+                const date = new Date(year, month - 1, day);
+                return date.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                    weekday: 'long'
+                });
+            }
+            return dateStr;
+        }
+
+        function showTimelineModal(content) {
+            // Create modal
+            const modal = document.createElement('div');
+            modal.className = 'timeline-modal';
+            modal.innerHTML = `
+                <div class="timeline-modal-backdrop"></div>
+                <div class="timeline-modal-content">
+                    <div class="timeline-modal-header">
+                        <h2>Timeline View</h2>
+                        <button class="timeline-modal-close">&times;</button>
+                    </div>
+                    <div class="timeline-modal-body">
+                        ${content}
+                    </div>
+                </div>
+            `;
+
+            // Add event listeners
+            modal.querySelector('.timeline-modal-close').addEventListener('click', () => {
+                document.body.removeChild(modal);
+            });
+            modal.querySelector('.timeline-modal-backdrop').addEventListener('click', () => {
+                document.body.removeChild(modal);
+            });
+
+            // Add modal to page
+            document.body.appendChild(modal);
+        }
+
+        function renderTimelineGrid(timelineData) {
+            console.log('renderTimelineGrid called with data:', timelineData);
+            console.log('Timeline data keys:', Object.keys(timelineData || {}));
+            
+            const gitTreeElement = document.getElementById('gitTree');
+            if (!gitTreeElement) {
+                console.error('gitTree element not found!');
+                return;
+            }
+
+            console.log('gitTree element found, updating header and clearing content');
+
+            // Update panel header to show "Timeline" mode
+            updateTimelinePanelHeader('Timeline');
+
+            // Force clear existing content and reset to proper container styles
+            gitTreeElement.innerHTML = '';
+            gitTreeElement.style.display = 'block';
+            gitTreeElement.style.visibility = 'visible';
+            gitTreeElement.style.opacity = '1';
+            gitTreeElement.style.position = 'relative';
+            gitTreeElement.style.width = '100%';
+            gitTreeElement.style.height = '100%';
+            gitTreeElement.style.overflow = 'auto';
+
+            // Create timeline grid container
+            const timelineContainer = document.createElement('div');
+            timelineContainer.className = 'timeline-grid-container';
+            
+            console.log('Created timeline container with class:', timelineContainer.className);
+
+            if (!timelineData || Object.keys(timelineData).length === 0) {
+                // Show empty state with high visibility
+                timelineContainer.innerHTML = `
+                    <div class="timeline-empty-state" style="background: #1a1a2e; padding: 40px; border-radius: 12px; text-align: center; margin: 20px;">
+                        <div class="timeline-empty-icon" style="font-size: 48px; margin-bottom: 16px;">📅</div>
+                        <div class="timeline-empty-title" style="font-size: 18px; font-weight: 600; color: #fff; margin-bottom: 8px;">No Timeline Events</div>
+                        <div class="timeline-empty-subtitle" style="font-size: 14px; color: #888;">Add events with /timeline YYYY-MM-DD description</div>
+                    </div>
+                `;
+                gitTreeElement.appendChild(timelineContainer);
+                console.log('Showing empty timeline state with high visibility styling');
+                return;
+            }
+
+            // Group events by month for better organization
+            const eventsByMonth = groupEventsByMonth(timelineData);
+            
+            // Create timeline grid
+            for (const [monthKey, events] of Object.entries(eventsByMonth)) {
+                const monthContainer = document.createElement('div');
+                monthContainer.className = 'timeline-month';
+                
+                // Month header with inline styling
+                const monthHeader = document.createElement('div');
+                monthHeader.className = 'timeline-month-header';
+                monthHeader.textContent = formatMonthHeader(monthKey);
+                monthHeader.style.fontSize = '18px';
+                monthHeader.style.fontWeight = '600';
+                monthHeader.style.color = '#fff';
+                monthHeader.style.marginBottom = '16px';
+                monthHeader.style.paddingBottom = '8px';
+                monthHeader.style.borderBottom = '2px solid #9333ea';
+                monthContainer.appendChild(monthHeader);
+
+                // Month grid with inline styling
+                const monthGrid = document.createElement('div');
+                monthGrid.className = 'timeline-month-grid';
+                monthGrid.style.display = 'grid';
+                monthGrid.style.gridTemplateColumns = 'repeat(7, 1fr)';
+                monthGrid.style.gap = '4px';
+                monthGrid.style.maxWidth = '280px';
+                monthGrid.style.marginBottom = '32px';
+                
+                // Create calendar grid for the month
+                const daysInMonth = getDaysInMonth(monthKey);
+                for (let day = 1; day <= daysInMonth; day++) {
+                    const dayStr = monthKey + String(day).padStart(2, '0');
+                    const dayElement = document.createElement('div');
+                    dayElement.className = 'timeline-day';
+                    dayElement.dataset.date = dayStr;
+                    
+                    // Base styling for all days
+                    dayElement.style.position = 'relative';
+                    dayElement.style.aspectRatio = '1';
+                    dayElement.style.display = 'flex';
+                    dayElement.style.alignItems = 'center';
+                    dayElement.style.justifyContent = 'center';
+                    dayElement.style.background = '#2d3748';
+                    dayElement.style.border = '1px solid #4a5568';
+                    dayElement.style.borderRadius = '8px';
+                    dayElement.style.cursor = 'pointer';
+                    dayElement.style.transition = 'all 0.2s ease';
+                    dayElement.style.color = '#e2e8f0';
+                    
+                    const dayNumber = document.createElement('div');
+                    dayNumber.className = 'timeline-day-number';
+                    dayNumber.textContent = day;
+                    dayNumber.style.fontSize = '12px';
+                    dayNumber.style.fontWeight = '500';
+                    dayElement.appendChild(dayNumber);
+
+                    if (events[dayStr]) {
+                        dayElement.classList.add('has-event');
+                        dayElement.title = `${formatDisplayDate(dayStr)}: ${events[dayStr]}`;
+                        
+                        // Add inline styling to ensure visibility
+                        dayElement.style.background = '#9333ea';
+                        dayElement.style.color = 'white';
+                        dayElement.style.fontWeight = '600';
+                        dayElement.style.border = '2px solid #7c3aed';
+                        dayElement.style.boxShadow = '0 2px 8px rgba(147, 51, 234, 0.3)';
+                        
+                        // Add event indicator
+                        const eventDot = document.createElement('div');
+                        eventDot.className = 'timeline-event-dot';
+                        eventDot.style.position = 'absolute';
+                        eventDot.style.top = '2px';
+                        eventDot.style.right = '2px';
+                        eventDot.style.width = '6px';
+                        eventDot.style.height = '6px';
+                        eventDot.style.background = 'rgba(255, 255, 255, 0.8)';
+                        eventDot.style.borderRadius = '50%';
+                        dayElement.appendChild(eventDot);
+
+                        // Add click handler
+                        dayElement.addEventListener('click', () => showEventDetail(dayStr, events[dayStr]));
+                    }
+
+                    monthGrid.appendChild(dayElement);
+                }
+
+                monthContainer.appendChild(monthGrid);
+                timelineContainer.appendChild(monthContainer);
+            }
+
+            gitTreeElement.appendChild(timelineContainer);
+            console.log('Timeline container appended to gitTree element');
+            console.log('Final gitTree innerHTML length:', gitTreeElement.innerHTML.length);
+            
+            // Mark this element as showing timeline to prevent overwrites
+            gitTreeElement.setAttribute('data-showing', 'timeline');
+            console.log('Marked gitTree as showing timeline');
+        }
+
+        function groupEventsByMonth(timelineData) {
+            const eventsByMonth = {};
+            
+            for (const [dateStr, content] of Object.entries(timelineData)) {
+                if (dateStr.length === 8) {
+                    const monthKey = dateStr.substring(0, 6); // YYYYMM
+                    if (!eventsByMonth[monthKey]) {
+                        eventsByMonth[monthKey] = {};
+                    }
+                    eventsByMonth[monthKey][dateStr] = content;
+                }
+            }
+
+            // Sort months in reverse chronological order
+            const sortedMonths = Object.keys(eventsByMonth).sort().reverse();
+            const sortedEventsByMonth = {};
+            for (const month of sortedMonths) {
+                sortedEventsByMonth[month] = eventsByMonth[month];
+            }
+
+            return sortedEventsByMonth;
+        }
+
+        function formatMonthHeader(monthKey) {
+            if (monthKey.length === 6) {
+                const year = monthKey.substring(0, 4);
+                const month = monthKey.substring(4, 6);
+                const date = new Date(year, month - 1, 1);
+                return date.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+            }
+            return monthKey;
+        }
+
+        function getDaysInMonth(monthKey) {
+            if (monthKey.length === 6) {
+                const year = parseInt(monthKey.substring(0, 4));
+                const month = parseInt(monthKey.substring(4, 6));
+                return new Date(year, month, 0).getDate();
+            }
+            return 31; // fallback
+        }
+
+        function showEventDetail(dateStr, content) {
+            const formattedDate = formatDisplayDate(dateStr);
+            
+            // Update the Memory Activity panel instead of showing a modal
+            const timelineDetailsContent = document.getElementById('timelineDetailsContent');
+            if (timelineDetailsContent) {
+                timelineDetailsContent.innerHTML = `
+                    <div style="margin-bottom: 16px;">
+                        <h3 style="color: var(--text-primary); font-size: 18px; font-weight: 600; margin: 0 0 12px 0;">
+                            📅 ${formattedDate}
+                        </h3>
+                    </div>
+                    <div style="background: var(--bg-glass-light); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; padding: 16px;">
+                        <p style="color: var(--text-secondary); line-height: 1.6; margin: 0; font-size: 14px;">
+                            ${content}
+                        </p>
+                    </div>
+                    <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255, 255, 255, 0.1);">
+                        <small style="color: var(--text-muted); font-size: 12px;">
+                            Timeline event from ${dateStr}
+                        </small>
+                    </div>
+                `;
+                
+                // Update the timeline details header
+                const timelineDetailsHeader = document.querySelector('.timeline-details-header');
+                if (timelineDetailsHeader) {
+                    timelineDetailsHeader.textContent = 'Timeline Event Details';
+                }
+            }
+        }
+
+        function updateTimelinePanelHeader(mode) {
+            // Find the timeline header element (currently just shows "Memoir")
+            const memoirLogoText = document.querySelector('.memoir-logo-text');
+            if (memoirLogoText) {
+                // Update to show current mode
+                memoirLogoText.textContent = `Memoir - ${mode}`;
+            }
+        }
+
+        function inspectCurrentDOM() {
+            const gitTreeElement = document.querySelector('.git-tree');
+            if (gitTreeElement) {
+                console.log('=== DOM INSPECTION ===');
+                console.log('gitTree element found:', gitTreeElement);
+                console.log('gitTree innerHTML preview:', gitTreeElement.innerHTML.substring(0, 200) + '...');
+                console.log('gitTree children count:', gitTreeElement.children.length);
+                console.log('Timeline container present:', !!gitTreeElement.querySelector('.timeline-grid-container'));
+                console.log('Commit nodes present:', gitTreeElement.querySelectorAll('.commit-node').length);
+                
+                // Show classes on direct children
+                Array.from(gitTreeElement.children).forEach((child, i) => {
+                    console.log(`Child ${i}:`, child.tagName, child.className, child.id || '(no id)');
+                });
+                
+                showNotification(`DOM Inspection complete - check console`, 'info');
+            } else {
+                console.log('gitTree element not found!');
+                showNotification('gitTree element not found!', 'error');
+            }
+        }
+
+        async function forceTimelineView() {
+            if (!connectedStorePath) {
+                showNotification('Not connected to any store', 'error');
+                return;
+            }
+
+            console.log('=== FORCING TIMELINE VIEW ===');
+            
+            // Force clear any existing content
+            const gitTreeElement = document.querySelector('.git-tree');
+            if (gitTreeElement) {
+                console.log('Clearing gitTree element completely');
+                gitTreeElement.innerHTML = '';
+                
+                // Force reload timeline data
+                const timelineResult = await loadTimelineData();
+                console.log('Forced timeline data load result:', timelineResult);
+                
+                if (timelineResult.success) {
+                    console.log('Force rendering timeline with data:', timelineResult.timeline_data);
+                    renderTimelineGrid(timelineResult.timeline_data);
+                    
+                    // Double-check it was added
+                    setTimeout(() => {
+                        const timelineContainer = gitTreeElement.querySelector('.timeline-grid-container');
+                        console.log('Timeline container after force render:', !!timelineContainer);
+                        if (timelineContainer) {
+                            console.log('Timeline container content preview:', timelineContainer.innerHTML.substring(0, 200));
+                        }
+                    }, 100);
+                    
+                    showNotification('Timeline view forced', 'success');
+                } else {
+                    showNotification('Failed to load timeline data', 'error');
+                }
+            } else {
+                showNotification('gitTree element not found', 'error');
+            }
+        }
+
+        function checkTimelineStyles() {
+            console.log('=== CSS STYLES CHECK ===');
+            
+            const gitTreeElement = document.querySelector('.git-tree');
+            if (gitTreeElement) {
+                const computedStyle = window.getComputedStyle(gitTreeElement);
+                console.log('gitTree element styles:', {
+                    display: computedStyle.display,
+                    visibility: computedStyle.visibility,
+                    opacity: computedStyle.opacity,
+                    height: computedStyle.height,
+                    width: computedStyle.width,
+                    position: computedStyle.position
+                });
+
+                const timelineContainer = gitTreeElement.querySelector('.timeline-grid-container');
+                if (timelineContainer) {
+                    const containerStyle = window.getComputedStyle(timelineContainer);
+                    console.log('Timeline container styles:', {
+                        display: containerStyle.display,
+                        visibility: containerStyle.visibility,
+                        opacity: containerStyle.opacity,
+                        height: containerStyle.height,
+                        width: containerStyle.width,
+                        position: containerStyle.position
+                    });
+
+                    const timelineMonths = timelineContainer.querySelectorAll('.timeline-month');
+                    console.log(`Found ${timelineMonths.length} timeline months`);
+                    
+                    timelineMonths.forEach((month, i) => {
+                        const monthStyle = window.getComputedStyle(month);
+                        console.log(`Month ${i} styles:`, {
+                            display: monthStyle.display,
+                            visibility: monthStyle.visibility,
+                            opacity: monthStyle.opacity
+                        });
+
+                        const days = month.querySelectorAll('.timeline-day.has-event');
+                        console.log(`Month ${i} has ${days.length} event days`);
+                        
+                        days.forEach((day, j) => {
+                            const dayStyle = window.getComputedStyle(day);
+                            console.log(`Event day ${j} (${day.dataset.date}):`, {
+                                display: dayStyle.display,
+                                backgroundColor: dayStyle.backgroundColor,
+                                color: dayStyle.color,
+                                visibility: dayStyle.visibility
+                            });
+                        });
+                    });
+                } else {
+                    console.log('Timeline container not found in DOM');
+                }
+            } else {
+                console.log('gitTree element not found');
+            }
+
+            showNotification('CSS styles check complete - see console', 'info');
+        }
+
+        function restoreNormalLayout() {
+            console.log('Restoring normal layout');
+            
+            // Clear timeline and restore git history
+            restoreOriginalGitHistory();
+            
+            // Reset any modified styles
+            const gitTreeElement = document.querySelector('.git-tree');
+            if (gitTreeElement) {
+                gitTreeElement.style.position = '';
+                gitTreeElement.style.width = '';
+                gitTreeElement.style.height = '';
+                gitTreeElement.style.overflow = '';
+                gitTreeElement.removeAttribute('data-showing');
+            }
+
+            showNotification('Layout restored to normal git history view', 'success');
+        }
+
+        async function debugTimeline() {
+            if (!connectedStorePath) {
+                showNotification('Not connected to any store. Use /connect <path> first', 'error');
+                return;
+            }
+
+            try {
+                // Use the dedicated debug-timeline API to get raw timeline data
+                const response = await fetch(`/api/debug-timeline?path=${encodeURIComponent(connectedStorePath)}`);
+                const result = await response.json();
+                
+                console.log('DEBUG: Debug timeline response:', result);
+
+                if (result.success) {
+                    console.log('DEBUG: Timeline memories:', result.timeline_memories);
+                    console.log('DEBUG: All memories:', result.all_memories);
+                    
+                    // Show detailed timeline memory structures
+                    if (result.timeline_memories && result.timeline_memories.length > 0) {
+                        result.timeline_memories.forEach((tm, index) => {
+                            console.log(`DEBUG: Timeline Memory ${index + 1}:`, {
+                                path: tm.path,
+                                data: tm.data
+                            });
+                            console.log(`DEBUG: Timeline Memory ${index + 1} Data Structure:`, JSON.stringify(tm.data, null, 2));
+                        });
+                    }
+                    
+                    showNotification(
+                        `Debug Results:\n` +
+                        `${result.timeline_memories_count} timeline memories found\n` +
+                        `${result.all_memories_count} total memories\n` +
+                        `Check console for detailed structures`,
+                        'info',
+                        8000
+                    );
+                } else {
+                    showNotification('Failed to retrieve store data for debugging', 'error');
+                    console.log('DEBUG: Store response:', result);
+                }
+            } catch (error) {
+                console.error('Debug timeline error:', error);
+                showNotification(`Failed to debug timeline: ${error.message}`, 'error');
+            }
+        }
+
+        async function updateUIWithRealData(data) {
             console.log('Updating UI with real data:', data);
 
             // Update branches
@@ -4238,8 +5227,17 @@ ${result.valid ?
                 renderGraph();
             }
 
+            // Load and display timeline data
+            await updateTimelineView();
+
             // Show success in console
             console.log('Successfully updated UI with data:', data);
+        }
+
+        async function updateTimelineView() {
+            console.log('updateTimelineView called - this should NOT affect git history anymore');
+            // This function now does nothing - timeline is handled by the Timeline tab
+            // Git history should remain in the left panel
         }
 
         function showNotification(message, type = 'info', duration = 3000) {
@@ -5306,7 +6304,7 @@ ${result.valid ?
             { cmd: '/blame', args: '<key>', desc: 'Show Git-like blame history for memory key' },
             { cmd: '/help', args: '', desc: 'Show all available commands', aliases: '/h' },
             { cmd: '/summarize', args: '[path]', desc: 'Generate summary of memories (coming soon)', placeholder: true },
-            { cmd: '/timeline', args: '[filter]', desc: 'Show chronological memory timeline (coming soon)', placeholder: true },
+            { cmd: '/timeline', args: '[YYYY-MM-DD description]', desc: 'Show timeline or add timeline event', aliases: '/tl' },
             { cmd: '/location', args: '<place>', desc: 'Filter memories by location context (coming soon)', placeholder: true },
             { cmd: '/what-if', args: '<scenario>', desc: 'Simulate hypothetical memory scenarios (coming soon)', placeholder: true }
         ];
@@ -6227,12 +7225,34 @@ No commit history found for this key.
         async function updateGitHistory() {
             if (!connectedStorePath) return;
 
+            // Don't update git history if we're showing timeline view
+            const gitTreeElement = document.querySelector('.git-tree');
+            if (gitTreeElement) {
+                if (gitTreeElement.querySelector('.timeline-grid-container') || gitTreeElement.getAttribute('data-showing') === 'timeline') {
+                    console.log('Timeline view is active, skipping git history update');
+                    return;
+                }
+            }
+
+            // Also check if we have timeline data available - if so, don't show git history
+            try {
+                if (connectedStorePath) {
+                    const timelineCheck = await loadTimelineData();
+                    if (timelineCheck.success && timelineCheck.timeline_data && Object.keys(timelineCheck.timeline_data).length > 0) {
+                        console.log('Timeline data exists, preferring timeline view over git history');
+                        await updateTimelineView(); // Force show timeline instead
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.log('Timeline check failed, proceeding with git history');
+            }
+
             try {
                 const response = await fetch(`/api/commits?path=${encodeURIComponent(connectedStorePath)}&limit=15`);
                 if (!response.ok) return; // Don't show error, just keep existing history
 
                 const data = await response.json();
-                const gitTreeElement = document.querySelector('.git-tree');
                 if (!gitTreeElement || data.commits.length === 0) return;
 
                 // Generate git history HTML from real commits
@@ -6689,14 +7709,423 @@ Message: ${commit.message}`;
             }
         }
 
+        async function renderGitHubStyleTimelineGrid(selectedYear = null) {
+            const activityGrid = document.getElementById('activityGrid');
+            const activityMonths = document.getElementById('activityMonths');
+            const yearsList = document.getElementById('timelineYearsList');
+            
+            if (!activityGrid || !activityMonths) return;
+
+            console.log('Rendering GitHub-style timeline grid with real data for year:', selectedYear);
+
+            // Set up year selector if not already done
+            const currentYear = new Date().getFullYear();
+            const targetYear = selectedYear || currentYear;
+            const yearButton = document.getElementById('timelineYearButton');
+            const yearPanel = document.getElementById('timelineYearPanel');
+            const selectedYearSpan = document.getElementById('selectedYear');
+
+            if (yearsList && yearButton && yearPanel && selectedYearSpan && !yearsList.hasChildNodes()) {
+                // Set current year in button
+                selectedYearSpan.textContent = targetYear;
+
+                // Clear existing items and add current and past years
+                yearsList.innerHTML = '';
+                for (let year = currentYear; year >= currentYear - 8; year--) {
+                    const yearItem = document.createElement('div');
+                    yearItem.className = 'timeline-year-item';
+                    yearItem.textContent = year;
+                    yearItem.dataset.year = year;
+
+                    if (year === targetYear) {
+                        yearItem.classList.add('active');
+                    }
+
+                    // Add year click listener
+                    yearItem.addEventListener('click', function() {
+                        // Remove active from all years
+                        document.querySelectorAll('.timeline-year-item').forEach(item => {
+                            item.classList.remove('active');
+                        });
+                        // Add active to clicked year
+                        this.classList.add('active');
+                        // Update button text
+                        selectedYearSpan.textContent = this.dataset.year;
+                        // Hide panel
+                        yearPanel.classList.remove('show');
+                        yearButton.classList.remove('open');
+                        // Regenerate timeline for selected year
+                        renderGitHubStyleTimelineGrid(parseInt(this.dataset.year));
+                    });
+
+                    yearsList.appendChild(yearItem);
+                }
+
+                // Add button click listener to toggle panel
+                yearButton.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    yearPanel.classList.toggle('show');
+                    yearButton.classList.toggle('open');
+                });
+
+                // Close panel when clicking outside
+                document.addEventListener('click', function(e) {
+                    if (!yearPanel.contains(e.target) && !yearButton.contains(e.target)) {
+                        yearPanel.classList.remove('show');
+                        yearButton.classList.remove('open');
+                    }
+                });
+            }
+
+            console.log('Rendering GitHub-style timeline grid with real data');
+
+            try {
+                // Load real timeline data
+                const timelineResult = await loadTimelineData();
+                console.log('Timeline data for GitHub-style grid:', timelineResult);
+                
+                let realTimelineData = {};
+                if (timelineResult.success && timelineResult.timeline_data) {
+                    // Convert timeline data from YYYYMMDD format to YYYY-MM-DD format
+                    const timelineData = timelineResult.timeline_data;
+                    for (const [dateKey, content] of Object.entries(timelineData)) {
+                        // Convert YYYYMMDD to YYYY-MM-DD
+                        if (dateKey.length === 8) {
+                            const formattedDate = `${dateKey.substring(0,4)}-${dateKey.substring(4,6)}-${dateKey.substring(6,8)}`;
+                            realTimelineData[formattedDate] = {
+                                level: 4, // High activity level for timeline events
+                                count: 1,
+                                content: content,
+                                originalKey: dateKey
+                            };
+                        }
+                    }
+                }
+
+                // Generate GitHub-style grid (53 weeks) for the selected year
+                const weeks = 53;
+                const daysPerWeek = 7;
+                
+                // Calculate start date based on selected year
+                let startDate;
+                if (targetYear === currentYear) {
+                    // For current year, show last 53 weeks from today
+                    const today = new Date();
+                    startDate = new Date(today);
+                    startDate.setDate(today.getDate() - (weeks * daysPerWeek));
+                } else {
+                    // For past years, show the full year (start from Jan 1 minus some weeks to align grid)
+                    startDate = new Date(targetYear, 0, 1); // Jan 1 of target year
+                    const dayOfWeek = startDate.getDay(); // 0 = Sunday
+                    startDate.setDate(startDate.getDate() - dayOfWeek); // Go back to the Sunday of that week
+                }
+
+                // Generate month labels
+                const monthLabels = [];
+                let currentMonth = null;
+                let monthWeekCount = 0;
+
+                // Create activity data mapping
+                const activityData = {};
+                for (let i = 0; i < weeks * daysPerWeek; i++) {
+                    const currentDate = new Date(startDate);
+                    currentDate.setDate(startDate.getDate() + i);
+                    const dateStr = currentDate.toISOString().split('T')[0];
+                    
+                    // Check if we have real timeline data for this date
+                    if (realTimelineData[dateStr]) {
+                        activityData[dateStr] = realTimelineData[dateStr];
+                    }
+                }
+
+                // Generate month labels
+                for (let week = 0; week < weeks; week++) {
+                    const weekStartDate = new Date(startDate);
+                    weekStartDate.setDate(startDate.getDate() + (week * 7));
+                    const monthName = weekStartDate.toLocaleDateString('en-US', { month: 'short' });
+                    
+                    if (currentMonth !== monthName) {
+                        currentMonth = monthName;
+                        monthWeekCount = 0;
+                        
+                        // Only show month label if it has enough weeks to be visible
+                        if (week === 0 || monthWeekCount === 0) {
+                            monthLabels[week] = monthName;
+                        }
+                    }
+                    monthWeekCount++;
+                }
+
+                // Clear and populate month labels
+                activityMonths.innerHTML = '';
+                monthLabels.forEach((month, weekIndex) => {
+                    const monthDiv = document.createElement('div');
+                    monthDiv.className = 'activity-month';
+                    monthDiv.textContent = month || '';
+                    monthDiv.style.gridColumnStart = weekIndex + 1;
+                    activityMonths.appendChild(monthDiv);
+                });
+
+                // Generate grid
+                activityGrid.innerHTML = '';
+                activityGrid.style.display = 'grid';
+                activityGrid.style.gridTemplateColumns = `repeat(${weeks}, 1fr)`;
+                activityGrid.style.gridTemplateRows = 'repeat(7, 1fr)';
+                activityGrid.style.gap = '3px';
+
+                for (let week = 0; week < weeks; week++) {
+                    for (let day = 0; day < daysPerWeek; day++) {
+                        const currentDate = new Date(startDate);
+                        currentDate.setDate(startDate.getDate() + (week * 7) + day);
+                        const dateStr = currentDate.toISOString().split('T')[0];
+                        
+                        const dayElement = document.createElement('div');
+                        dayElement.className = 'activity-day';
+                        dayElement.style.gridColumn = week + 1;
+                        dayElement.style.gridRow = day + 1;
+                        
+                        const activity = activityData[dateStr];
+                        if (activity) {
+                            dayElement.classList.add(`level-${activity.level}`);
+                            dayElement.title = `${formatDisplayDate(activity.originalKey)}: ${activity.content}`;
+                            
+                            // Add click handler for timeline events
+                            dayElement.addEventListener('click', () => {
+                                showEventDetail(activity.originalKey, activity.content);
+                            });
+                            
+                            dayElement.style.cursor = 'pointer';
+                        } else {
+                            dayElement.classList.add('empty');
+                            dayElement.title = formatDisplayDate(dateStr.replace(/-/g, ''));
+                        }
+                        
+                        activityGrid.appendChild(dayElement);
+                    }
+                }
+
+                // Update contributions count
+                const totalEvents = Object.keys(realTimelineData).length;
+                const countElement = document.getElementById('contributionsCount');
+                if (countElement) {
+                    countElement.textContent = totalEvents;
+                }
+
+                // Initialize the Memory Activities panel
+                const timelineDetailsContent = document.getElementById('timelineDetailsContent');
+                if (timelineDetailsContent) {
+                    if (totalEvents > 0) {
+                        timelineDetailsContent.innerHTML = `
+                            <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+                                <div style="font-size: 36px; margin-bottom: 16px;">👆</div>
+                                <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px; color: var(--text-primary);">Click on a Purple Square</div>
+                                <div style="font-size: 14px; opacity: 0.7;">Select a day with timeline events to see details here</div>
+                            </div>
+                        `;
+                    } else {
+                        timelineDetailsContent.innerHTML = `
+                            <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+                                <div style="font-size: 48px; margin-bottom: 16px;">📅</div>
+                                <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px; color: var(--text-primary);">No Timeline Events</div>
+                                <div style="font-size: 14px; opacity: 0.7;">Add events with /timeline YYYY-MM-DD description</div>
+                            </div>
+                        `;
+                    }
+                }
+
+                console.log(`GitHub-style timeline grid rendered with ${totalEvents} events`);
+
+            } catch (error) {
+                console.error('Error rendering GitHub-style timeline grid:', error);
+                activityGrid.innerHTML = `
+                    <div style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">
+                        <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+                        <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px; color: var(--text-primary);">Error Loading Timeline</div>
+                        <div style="font-size: 14px; opacity: 0.7;">${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
+        async function renderRealTimelineInView() {
+            const activityGrid = document.getElementById('activityGrid');
+            if (!activityGrid) return;
+
+            console.log('Rendering real timeline data in Timeline view');
+
+            try {
+                // Load timeline data
+                const timelineResult = await loadTimelineData();
+                console.log('Timeline data for view:', timelineResult);
+                
+                if (timelineResult.success && timelineResult.timeline_data) {
+                    // Clear the activity grid and add our timeline calendar
+                    activityGrid.innerHTML = '';
+                    activityGrid.style.display = 'block';
+                    activityGrid.style.overflowY = 'auto';
+                    activityGrid.style.maxHeight = '600px';
+                    
+                    const timelineData = timelineResult.timeline_data;
+                    
+                    if (Object.keys(timelineData).length === 0) {
+                        // Show empty state
+                        activityGrid.innerHTML = `
+                            <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+                                <div style="font-size: 48px; margin-bottom: 16px;">📅</div>
+                                <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px; color: var(--text-primary);">No Timeline Events</div>
+                                <div style="font-size: 14px; opacity: 0.7;">Add events with /timeline YYYY-MM-DD description</div>
+                            </div>
+                        `;
+                    } else {
+                        // Group events by month
+                        const eventsByMonth = groupEventsByMonth(timelineData);
+                        
+                        // Create calendar for each month
+                        for (const [monthKey, events] of Object.entries(eventsByMonth)) {
+                            const monthContainer = document.createElement('div');
+                            monthContainer.style.marginBottom = '30px';
+                            
+                            // Month header
+                            const monthHeader = document.createElement('div');
+                            monthHeader.textContent = formatMonthHeader(monthKey);
+                            monthHeader.style.fontSize = '20px';
+                            monthHeader.style.fontWeight = '600';
+                            monthHeader.style.marginBottom = '16px';
+                            monthHeader.style.color = 'var(--text-primary)';
+                            monthHeader.style.borderBottom = '2px solid #9333ea';
+                            monthHeader.style.paddingBottom = '8px';
+                            monthContainer.appendChild(monthHeader);
+
+                            // Month grid
+                            const monthGrid = document.createElement('div');
+                            monthGrid.style.display = 'grid';
+                            monthGrid.style.gridTemplateColumns = 'repeat(7, 1fr)';
+                            monthGrid.style.gap = '8px';
+                            monthGrid.style.maxWidth = '400px';
+                            
+                            // Add weekday headers
+                            const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                            weekdays.forEach(day => {
+                                const dayHeader = document.createElement('div');
+                                dayHeader.textContent = day;
+                                dayHeader.style.textAlign = 'center';
+                                dayHeader.style.fontWeight = '600';
+                                dayHeader.style.padding = '8px';
+                                dayHeader.style.color = '#9ca3af';
+                                dayHeader.style.fontSize = '12px';
+                                monthGrid.appendChild(dayHeader);
+                            });
+                            
+                            // Get first day of month and days in month
+                            const year = parseInt(monthKey.substring(0, 4));
+                            const month = parseInt(monthKey.substring(4, 6)) - 1;
+                            const firstDay = new Date(year, month, 1).getDay();
+                            const daysInMonth = new Date(year, month + 1, 0).getDate();
+                            
+                            // Add empty cells for days before month starts
+                            for (let i = 0; i < firstDay; i++) {
+                                const emptyCell = document.createElement('div');
+                                monthGrid.appendChild(emptyCell);
+                            }
+                            
+                            // Add days of the month
+                            for (let day = 1; day <= daysInMonth; day++) {
+                                const dayStr = monthKey + String(day).padStart(2, '0');
+                                const dayElement = document.createElement('div');
+                                dayElement.textContent = day;
+                                dayElement.style.padding = '12px 8px';
+                                dayElement.style.textAlign = 'center';
+                                dayElement.style.borderRadius = '8px';
+                                dayElement.style.cursor = 'pointer';
+                                dayElement.style.transition = 'all 0.2s ease';
+                                dayElement.style.fontSize = '14px';
+                                dayElement.style.fontWeight = '500';
+                                
+                                if (events[dayStr]) {
+                                    // Event day
+                                    dayElement.style.background = '#9333ea';
+                                    dayElement.style.color = 'white';
+                                    dayElement.style.fontWeight = '600';
+                                    dayElement.style.boxShadow = '0 2px 8px rgba(147, 51, 234, 0.3)';
+                                    dayElement.title = `${formatDisplayDate(dayStr)}: ${events[dayStr]}`;
+                                    
+                                    // Add click handler
+                                    dayElement.addEventListener('click', () => showEventDetail(dayStr, events[dayStr]));
+                                    
+                                    // Hover effect
+                                    dayElement.addEventListener('mouseenter', () => {
+                                        dayElement.style.transform = 'scale(1.1)';
+                                        dayElement.style.boxShadow = '0 4px 12px rgba(147, 51, 234, 0.4)';
+                                    });
+                                    dayElement.addEventListener('mouseleave', () => {
+                                        dayElement.style.transform = 'scale(1)';
+                                        dayElement.style.boxShadow = '0 2px 8px rgba(147, 51, 234, 0.3)';
+                                    });
+                                } else {
+                                    // Regular day
+                                    dayElement.style.background = '#374151';
+                                    dayElement.style.color = '#9ca3af';
+                                    dayElement.style.border = '1px solid #4b5563';
+                                }
+                                
+                                monthGrid.appendChild(dayElement);
+                            }
+
+                            monthContainer.appendChild(monthGrid);
+                            activityGrid.appendChild(monthContainer);
+                        }
+                    }
+                    
+                    // Initialize the Memory Activities panel with instructions
+                    const timelineDetailsContent = document.getElementById('timelineDetailsContent');
+                    if (timelineDetailsContent) {
+                        timelineDetailsContent.innerHTML = `
+                            <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+                                <div style="font-size: 36px; margin-bottom: 16px;">👆</div>
+                                <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px; color: var(--text-primary);">Click on a Purple Date</div>
+                                <div style="font-size: 14px; opacity: 0.7;">Select a day with timeline events to see details here</div>
+                            </div>
+                        `;
+                    }
+                    
+                    console.log('Real timeline calendar added to Timeline view');
+                } else {
+                    // Show error or empty state
+                    activityGrid.innerHTML = `
+                        <div style="text-align: center; padding: 60px 20px; color: #fff;">
+                            <div style="font-size: 48px; margin-bottom: 16px;">❌</div>
+                            <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">Failed to Load Timeline</div>
+                            <div style="font-size: 14px; opacity: 0.7;">Could not retrieve timeline data</div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error rendering timeline in view:', error);
+                activityGrid.innerHTML = `
+                    <div style="text-align: center; padding: 60px 20px; color: #fff;">
+                        <div style="font-size: 48px; margin-bottom: 16px;">⚠️</div>
+                        <div style="font-size: 18px; font-weight: 600; margin-bottom: 8px;">Error Loading Timeline</div>
+                        <div style="font-size: 14px; opacity: 0.7;">${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+
         // Initialize timeline view with mock data
-        function initializeTimelineView() {
+        async function initializeTimelineView() {
             const activityGrid = document.getElementById('activityGrid');
             const activityMonths = document.getElementById('activityMonths');
             const yearsList = document.getElementById('timelineYearsList');
 
-            if (!activityGrid || activityGrid.children.length > 0) {
-                return; // Already initialized
+            // Clear existing content to show real timeline data
+            if (activityGrid) {
+                activityGrid.innerHTML = '';
+            }
+
+            // If connected to a store, show real timeline data in GitHub-style grid
+            if (connectedStorePath) {
+                await renderGitHubStyleTimelineGrid();
+                return;
             }
 
             // Set up year selector with current and past years
