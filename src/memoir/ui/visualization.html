@@ -107,6 +107,9 @@
         /* Git Tree Panel */
         .timeline-panel {
             width: 420px;
+            min-width: 420px;
+            max-width: 420px;
+            flex-shrink: 0;
             background: var(--bg-glass);
             backdrop-filter: blur(20px);
             border-right: 1px solid var(--border-light);
@@ -275,9 +278,11 @@
             display: flex;
             flex-direction: column;
             height: 100%;
+            width: 100%;
             padding: 0;
             gap: 20px;
             position: relative;
+            max-width: 100%;
         }
 
         .timeline-content-split {
@@ -285,16 +290,20 @@
             flex: 1;
             gap: 24px;
             min-height: 0;
+            max-width: 100%;
+            overflow: hidden;
         }
 
         .timeline-left-panel {
             flex: 2;
-            min-width: 0;
+            min-width: 400px;
+            max-width: 60%;
         }
 
         .timeline-right-panel {
             flex: 1;
             min-width: 300px;
+            max-width: 40%;
         }
 
         .timeline-contributions-header {
@@ -1106,6 +1115,9 @@
             display: flex;
             flex-direction: column;
             background: var(--bg-glass-lighter);
+            width: calc(100vw - 420px);
+            max-width: calc(100vw - 420px);
+            min-width: 0;
         }
 
         .toolbar {
@@ -5256,12 +5268,21 @@ ${result.valid ?
         }
 
         function showNotification(message, type = 'info', duration = 3000) {
+            // Calculate position to stack notifications vertically
+            const existingNotifications = document.querySelectorAll('.notification');
+            let topPosition = 100;
+
+            existingNotifications.forEach(notif => {
+                const rect = notif.getBoundingClientRect();
+                topPosition = Math.max(topPosition, rect.bottom + 10);
+            });
+
             // Create notification element
             const notification = document.createElement('div');
             notification.className = 'notification';
             notification.style.cssText = `
                 position: fixed;
-                top: 100px;
+                top: ${topPosition}px;
                 right: 20px;
                 padding: 12px 20px;
                 background: ${type === 'error' ? '#ef4444' : type === 'success' ? '#10b981' : '#3b82f6'};
@@ -5275,6 +5296,7 @@ ${result.valid ?
                 font-size: 12px;
                 max-width: 400px;
                 line-height: 1.4;
+                transition: all 0.3s ease;
             `;
             notification.textContent = message;
 
@@ -5283,8 +5305,23 @@ ${result.valid ?
             // Remove after specified duration
             setTimeout(() => {
                 notification.style.animation = 'slideOut 0.3s ease';
-                setTimeout(() => notification.remove(), 300);
+                setTimeout(() => {
+                    notification.remove();
+                    // Reposition remaining notifications
+                    repositionNotifications();
+                }, 300);
             }, duration);
+        }
+
+        function repositionNotifications() {
+            const notifications = document.querySelectorAll('.notification');
+            let topPosition = 100;
+
+            notifications.forEach(notif => {
+                notif.style.top = `${topPosition}px`;
+                const rect = notif.getBoundingClientRect();
+                topPosition = rect.bottom + 10;
+            });
         }
 
         // Add CSS animation
