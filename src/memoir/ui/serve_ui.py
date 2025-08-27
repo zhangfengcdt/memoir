@@ -56,6 +56,8 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_debug_timeline_api(parsed_path)
         elif parsed_path.path == "/api/debug-location":
             self.handle_debug_location_api(parsed_path)
+        elif parsed_path.path == "/api/summarize":
+            self.handle_summarize_api(parsed_path)
         elif parsed_path.path == "/":
             # Serve the visualization HTML
             self.path = "/visualization.html"
@@ -1284,11 +1286,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
                     # Priority 1: raw_text (this contains the actual description)
                     content = content_obj.get("raw_text", "")
-                    if (
-                        content
-                        and content.strip()
-                        and not content.startswith("Timeline event on")
-                    ):
+                    if content and content.strip():
                         print(f"DEBUG: Found raw_text in memory: {content}")
                         return content.strip()
 
@@ -1513,11 +1511,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                             f"DEBUG: Final extracted content for {location_key}: '{content}'"
                         )
 
-                        if (
-                            content
-                            and content.strip()
-                            and not content.startswith("Location event at")
-                        ):
+                        if content and content.strip():
                             # Convert location key back to display name
                             display_name = location_key.replace("_", " ").title()
                             location_data[location_key] = {
@@ -1529,7 +1523,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                             )
                         else:
                             print(
-                                f"DEBUG: Content extraction failed or returned summary for {location_key}, content: '{content}'"
+                                f"DEBUG: Content extraction failed for {location_key}, content: '{content}'"
                             )
 
             finally:
@@ -1711,11 +1705,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
                     # Priority 1: raw_text (this contains the actual description)
                     content = content_obj.get("raw_text", "")
-                    if (
-                        content
-                        and content.strip()
-                        and not content.startswith("Location event at")
-                    ):
+                    if content and content.strip():
                         print(f"DEBUG: Found raw_text in memory: {content}")
                         return content.strip()
 
@@ -1890,6 +1880,378 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
         except Exception as e:
             self.send_error(500, f"Error debugging timeline: {e!s}")
+
+    def handle_summarize_api(self, parsed_path):
+        """Handle API requests for summarizing memory store data."""
+        query_params = parse_qs(parsed_path.query)
+        store_path = query_params.get("path", [None])[0]
+        summary_type = query_params.get("type", ["all"])[
+            0
+        ]  # all, taxonomy, timeline, places
+
+        if not store_path:
+            self.send_error(400, "Missing 'path' parameter")
+            return
+
+        if not Path(store_path).exists():
+            self.send_error(404, f"Store path does not exist: {store_path}")
+            return
+
+        try:
+            # Get branch information first
+            import subprocess
+
+            try:
+                current_result = subprocess.run(
+                    ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                    cwd=store_path,
+                    capture_output=True,
+                    text=True,
+                )
+                current_branch = (
+                    current_result.stdout.strip()
+                    if current_result.returncode == 0
+                    else "unknown"
+                )
+
+                commit_result = subprocess.run(
+                    ["git", "rev-parse", "--short", "HEAD"],
+                    cwd=store_path,
+                    capture_output=True,
+                    text=True,
+                )
+                current_commit = (
+                    commit_result.stdout.strip()
+                    if commit_result.returncode == 0
+                    else "unknown"
+                )
+            except Exception:
+                current_branch = "unknown"
+                current_commit = "unknown"
+
+            # Initialize store
+            store = ProllyTreeStore(
+                path=store_path,
+                enable_versioning=True,
+                auto_commit=False,
+                cache_size=10000,
+            )
+
+            # Initialize LLM for summarization
+            try:
+                from langchain_openai import ChatOpenAI
+
+                llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+            except Exception as e:
+                self.send_error(500, f"Error initializing LLM: {e!s}")
+                return
+
+            import asyncio
+            import time
+
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+            try:
+                # Track timing
+                start_time = time.time()
+                timing_info = {}
+
+                # Collect summaries based on type
+                summaries = {}
+
+                if summary_type in ["all", "taxonomy"]:
+                    taxonomy_start = time.time()
+                    summaries["taxonomy"] = loop.run_until_complete(
+                        self._summarize_taxonomy_keys(store, llm)
+                    )
+                    timing_info["taxonomy"] = round(time.time() - taxonomy_start, 2)
+
+                if summary_type in ["all", "timeline"]:
+                    timeline_start = time.time()
+                    summaries["timeline"] = loop.run_until_complete(
+                        self._summarize_timeline(store, llm)
+                    )
+                    timing_info["timeline"] = round(time.time() - timeline_start, 2)
+
+                if summary_type in ["all", "places"]:
+                    places_start = time.time()
+                    summaries["places"] = loop.run_until_complete(
+                        self._summarize_places(store, llm)
+                    )
+                    timing_info["places"] = round(time.time() - places_start, 2)
+
+                # Generate overall summary if requesting all
+                if summary_type == "all":
+                    overall_start = time.time()
+                    summaries["overall"] = loop.run_until_complete(
+                        self._generate_overall_summary(summaries, llm)
+                    )
+                    timing_info["overall"] = round(time.time() - overall_start, 2)
+
+                total_time = round(time.time() - start_time, 2)
+
+                result = {
+                    "success": True,
+                    "summary_type": summary_type,
+                    "summaries": summaries,
+                    "metadata": {
+                        "store_path": store_path,
+                        "current_branch": current_branch,
+                        "current_commit": current_commit,
+                        "total_time_seconds": total_time,
+                        "timing_breakdown": timing_info,
+                        "generated_at": time.strftime(
+                            "%Y-%m-%d %H:%M:%S UTC", time.gmtime()
+                        ),
+                    },
+                }
+
+                # Send response
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps(result, indent=2).encode())
+
+            finally:
+                loop.close()
+
+        except Exception as e:
+            self.send_error(500, f"Error generating summary: {e!s}")
+
+    async def _summarize_taxonomy_keys(self, store, llm):
+        """Summarize all taxonomy keys and their data."""
+        try:
+            # Get all memories from the store
+            all_memories = await store.asearch("memory:general", "")
+
+            if not all_memories:
+                return "No memories found in the store."
+
+            # Organize memories by taxonomy path
+            taxonomy_data = {}
+            for path, data in all_memories:
+                # Skip timeline and location specific entries
+                if not (path.startswith("timeline.") or path.startswith("location.")):
+                    taxonomy_data[path] = data
+
+            if not taxonomy_data:
+                return (
+                    "No taxonomic data found (only timeline and location data present)."
+                )
+
+            # Prepare data for LLM
+            taxonomy_summary = "Memory Store Taxonomy Data:\n\n"
+            for path, data in taxonomy_data.items():
+                content = self._extract_memory_content(data)
+                taxonomy_summary += (
+                    f"• {path}: {content[:200]}{'...' if len(content) > 200 else ''}\n"
+                )
+
+            # Create LLM prompt
+            prompt = f"""Analyze this memory store's taxonomy structure and data. Provide a concise summary of:
+1. What types of information are stored (categories/domains)
+2. The organizational structure and key taxonomy paths
+3. Notable patterns or themes in the data
+4. Overall scope and purpose of this memory collection
+
+Data to analyze:
+{taxonomy_summary}
+
+Provide a clear, informative summary in 2-3 paragraphs."""
+
+            response = await llm.ainvoke([{"role": "user", "content": prompt}])
+            return response.content.strip()
+
+        except Exception as e:
+            return f"Error summarizing taxonomy: {e!s}"
+
+    async def _summarize_timeline(self, store, llm):
+        """Summarize timeline events in chronological order."""
+        try:
+            from memoir.memento.timeline import TimelineMemento
+
+            timeline_memento = TimelineMemento(store)
+
+            # Get timeline memories
+            timeline_memories = await store.asearch("memory:general", "timeline.")
+
+            if not timeline_memories:
+                return "No timeline events found in memory store."
+
+            # Organize by date
+            timeline_events = {}
+            for path, data in timeline_memories:
+                if "." in path:
+                    date_str = path.split(".")[-1]
+                    if len(date_str) == 8:  # YYYYMMDD format
+                        content = self._extract_timeline_content(data, date_str)
+                        if content and content.strip():
+                            timeline_events[date_str] = content
+
+            if not timeline_events:
+                return "No meaningful timeline events found."
+
+            # Sort by date
+            sorted_events = sorted(timeline_events.items())
+
+            # Prepare timeline data for LLM
+            timeline_summary = "Timeline Events:\n\n"
+            for date_str, content in sorted_events:
+                # Format date for display
+                try:
+                    year, month, day = date_str[:4], date_str[4:6], date_str[6:8]
+                    formatted_date = f"{month}/{day}/{year}"
+                except:
+                    formatted_date = date_str
+                timeline_summary += f"• {formatted_date}: {content[:150]}{'...' if len(content) > 150 else ''}\n"
+
+            # Create LLM prompt
+            prompt = f"""Analyze this timeline of events and provide a chronological summary. Focus on:
+1. Key themes and patterns over time
+2. Important milestones or turning points
+3. The overall narrative or story these events tell
+4. Temporal relationships between events
+
+Timeline data:
+{timeline_summary}
+
+Provide a narrative summary in 2-3 paragraphs that tells the story of what happened over time."""
+
+            response = await llm.ainvoke([{"role": "user", "content": prompt}])
+            return response.content.strip()
+
+        except Exception as e:
+            return f"Error summarizing timeline: {e!s}"
+
+    async def _summarize_places(self, store, llm):
+        """Summarize location/place information."""
+        try:
+            from memoir.memento.location import LocationMemento
+
+            location_memento = LocationMemento(store)
+
+            # Get location memories
+            location_memories = await store.asearch("memory:general", "location.")
+
+            if not location_memories:
+                return "No location data found in memory store."
+
+            # Organize location data
+            location_data = {}
+            for path, data in location_memories:
+                if "." in path:
+                    location_key = path.split(".")[-1]
+                    content = self._extract_location_content(data, location_key)
+                    if content and not content.startswith("Location event at"):
+                        display_name = location_key.replace("_", " ").title()
+                        location_data[display_name] = content
+
+            if not location_data:
+                return "No meaningful location data found."
+
+            # Prepare location data for LLM
+            location_summary = "Location Data:\n\n"
+            for location, content in location_data.items():
+                location_summary += f"• {location}: {content[:150]}{'...' if len(content) > 150 else ''}\n"
+
+            # Create LLM prompt
+            prompt = f"""Analyze this collection of location-based memories and provide a summary. Focus on:
+1. Geographic scope and types of places mentioned
+2. Activities, events, or significance of each location
+3. Patterns in location usage or importance
+4. The overall geographic footprint of these memories
+
+Location data:
+{location_summary}
+
+Provide an informative summary in 2-3 paragraphs about the places and locations in this memory store."""
+
+            response = await llm.ainvoke([{"role": "user", "content": prompt}])
+            return response.content.strip()
+
+        except Exception as e:
+            return f"Error summarizing locations: {e!s}"
+
+    async def _generate_overall_summary(self, summaries, llm):
+        """Generate an overall summary combining all aspects."""
+        try:
+            # Combine all summaries
+            combined_summary = "MEMORY STORE ANALYSIS:\n\n"
+
+            if "taxonomy" in summaries:
+                combined_summary += f"TAXONOMY DATA:\n{summaries['taxonomy']}\n\n"
+
+            if "timeline" in summaries:
+                combined_summary += f"TIMELINE EVENTS:\n{summaries['timeline']}\n\n"
+
+            if "places" in summaries:
+                combined_summary += f"LOCATION DATA:\n{summaries['places']}\n\n"
+
+            # Create LLM prompt for overall synthesis
+            prompt = f"""Based on these detailed analyses of a memory store, provide a brief executive summary in 2-3 sentences that captures:
+
+1. The main purpose/scope of this memory collection
+2. Key insights about the person/entity these memories belong to
+3. The primary story these memories tell
+
+Analysis data:
+{combined_summary}
+
+Provide a concise summary (maximum 3 sentences) that captures the essence of this memory store."""
+
+            response = await llm.ainvoke([{"role": "user", "content": prompt}])
+            return response.content.strip()
+
+        except Exception as e:
+            return f"Error generating overall summary: {e!s}"
+
+    def _extract_memory_content(self, data):
+        """Extract meaningful content from memory data structure."""
+        if isinstance(data, str):
+            return data
+
+        if isinstance(data, dict):
+            # Try different extraction strategies
+            if (
+                "memories" in data
+                and isinstance(data["memories"], list)
+                and len(data["memories"]) > 0
+            ):
+                memory_item = data["memories"][0]
+                if "content" in memory_item:
+                    content_obj = memory_item["content"]
+                    if isinstance(content_obj, dict):
+                        # Look for actual content
+                        for key in [
+                            "content",
+                            "raw_text",
+                            "original_content",
+                            "description",
+                        ]:
+                            if content_obj.get(key):
+                                return str(content_obj[key])
+                        # Look in structured_data
+                        if "structured_data" in content_obj:
+                            structured = content_obj["structured_data"]
+                            if isinstance(structured, dict):
+                                for key in [
+                                    "original_content",
+                                    "content",
+                                    "description",
+                                ]:
+                                    if structured.get(key):
+                                        return str(structured[key])
+                    elif isinstance(content_obj, str):
+                        return content_obj
+
+            # Direct field access
+            for field in ["content", "raw_text", "description", "summary"]:
+                if data.get(field):
+                    return str(data[field])
+
+        return str(data) if data else ""
 
 
 def main():

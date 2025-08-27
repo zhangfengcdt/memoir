@@ -3364,6 +3364,9 @@
                 checkTimelineStyles();
             } else if (cmd === '/restore-layout') {
                 restoreNormalLayout();
+            } else if (cmd === '/summarize') {
+                const summaryType = parts.length > 1 ? parts[1].toLowerCase() : 'all';
+                await summarizeMemoryStore(summaryType);
             } else if (cmd === '/help') {
                 const workingCommands = availableCommands.filter(c => !c.placeholder).map(c => {
                     const cmdStr = c.cmd + (c.args ? ' ' + c.args : '');
@@ -5767,6 +5770,395 @@ ${result.valid ?
             }
         }
 
+        async function summarizeMemoryStore(summaryType = 'all') {
+            if (!connectedStorePath) {
+                showNotification('Please connect to a memory store first', 'error');
+                return;
+            }
+
+            // Check if we're in demo mode
+            if (connectedStorePath === null || window.isNewEmptyStore === true) {
+                showNotification('Summarization is not available in demo mode. Please connect to a real memory store using /connect <path>', 'error', 5000);
+                return;
+            }
+
+            // Validate summary type
+            const validTypes = ['all', 'taxonomy', 'timeline', 'places'];
+            if (!validTypes.includes(summaryType)) {
+                showNotification(`Invalid summary type: ${summaryType}. Use: ${validTypes.join(', ')}`, 'error');
+                return;
+            }
+
+            // Show progress modal
+            const progressModal = showProgressModal('Generating Summary', 'Analyzing memory store data...');
+
+            // Create AbortController for cancellation
+            const abortController = new AbortController();
+            progressModal.abortController = abortController;
+
+            try {
+                // Update progress
+                updateProgressModal(progressModal, 'Sending request to server...', 20);
+
+                const response = await fetch(`/api/summarize?path=${encodeURIComponent(connectedStorePath)}&type=${encodeURIComponent(summaryType)}`, {
+                    signal: abortController.signal
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                // Update progress
+                updateProgressModal(progressModal, 'Processing memory data with AI...', 60);
+
+                const result = await response.json();
+
+                // Update progress
+                updateProgressModal(progressModal, 'Generating summary display...', 90);
+
+                if (result.success) {
+                    // Create a comprehensive summary display
+                    let summaryContent = `<div class="summary-content">`;
+                    summaryContent += `<h3>Memory Store Summary (${summaryType})</h3>`;
+
+                    // Add metadata section
+                    if (result.metadata) {
+                        summaryContent += `<div class="summary-metadata">`;
+                        summaryContent += `<div class="metadata-grid">`;
+                        summaryContent += `<div class="metadata-item">`;
+                        summaryContent += `<span class="metadata-label">📁 Store Path:</span>`;
+                        summaryContent += `<span class="metadata-value">${result.metadata.store_path}</span>`;
+                        summaryContent += `</div>`;
+                        summaryContent += `<div class="metadata-item">`;
+                        summaryContent += `<span class="metadata-label">🌿 Branch:</span>`;
+                        summaryContent += `<span class="metadata-value">${result.metadata.current_branch} (${result.metadata.current_commit})</span>`;
+                        summaryContent += `</div>`;
+                        summaryContent += `<div class="metadata-item">`;
+                        summaryContent += `<span class="metadata-label">⏱️ Generation Time:</span>`;
+                        summaryContent += `<span class="metadata-value">${result.metadata.total_time_seconds}s</span>`;
+                        summaryContent += `</div>`;
+                        summaryContent += `<div class="metadata-item">`;
+                        summaryContent += `<span class="metadata-label">🕒 Generated At:</span>`;
+                        summaryContent += `<span class="metadata-value">${result.metadata.generated_at}</span>`;
+                        summaryContent += `</div>`;
+
+                        // Add timing breakdown if available
+                        if (result.metadata.timing_breakdown && Object.keys(result.metadata.timing_breakdown).length > 1) {
+                            summaryContent += `<div class="metadata-item full-width">`;
+                            summaryContent += `<span class="metadata-label">📊 Timing Breakdown:</span>`;
+                            summaryContent += `<span class="metadata-value">`;
+                            const timings = Object.entries(result.metadata.timing_breakdown)
+                                .map(([key, value]) => `${key}: ${value}s`)
+                                .join(', ');
+                            summaryContent += timings;
+                            summaryContent += `</span>`;
+                            summaryContent += `</div>`;
+                        }
+
+                        summaryContent += `</div>`;
+                        summaryContent += `</div>`;
+                    }
+
+                    const summaries = result.summaries;
+
+                    if (summaries.overall) {
+                        summaryContent += `<div class="summary-section">`;
+                        summaryContent += `<h4>📋 Executive Summary</h4>`;
+                        summaryContent += `<p>${summaries.overall.replace(/\n/g, '<br>')}</p>`;
+                        summaryContent += `</div>`;
+                    }
+
+                    if (summaries.taxonomy) {
+                        summaryContent += `<div class="summary-section">`;
+                        summaryContent += `<h4>🗂️ Data Organization & Taxonomy</h4>`;
+                        summaryContent += `<p>${summaries.taxonomy.replace(/\n/g, '<br>')}</p>`;
+                        summaryContent += `</div>`;
+                    }
+
+                    if (summaries.timeline) {
+                        summaryContent += `<div class="summary-section">`;
+                        summaryContent += `<h4>⏰ Timeline & Events</h4>`;
+                        summaryContent += `<p>${summaries.timeline.replace(/\n/g, '<br>')}</p>`;
+                        summaryContent += `</div>`;
+                    }
+
+                    if (summaries.places) {
+                        summaryContent += `<div class="summary-section">`;
+                        summaryContent += `<h4>📍 Places & Locations</h4>`;
+                        summaryContent += `<p>${summaries.places.replace(/\n/g, '<br>')}</p>`;
+                        summaryContent += `</div>`;
+                    }
+
+                    summaryContent += `</div>`;
+
+                    // Create and show a modal popup for the summary
+                    const modal = document.createElement('div');
+                    modal.className = 'summary-modal';
+                    modal.innerHTML = `
+                        <div class="summary-modal-content">
+                            <div class="summary-modal-header">
+                                <h2>Memory Store Summary</h2>
+                                <button class="summary-modal-close">&times;</button>
+                            </div>
+                            <div class="summary-modal-body">
+                                ${summaryContent}
+                            </div>
+                            <div class="summary-modal-footer">
+                                <button class="summary-button secondary" onclick="copySummaryToClipboard()">📋 Copy to Clipboard</button>
+                                <button class="summary-button primary" onclick="closeSummaryModal()">Close</button>
+                            </div>
+                        </div>
+                    `;
+
+                    // Add CSS for the modal
+                    if (!document.getElementById('summary-modal-styles')) {
+                        const styles = document.createElement('style');
+                        styles.id = 'summary-modal-styles';
+                        styles.textContent = 'TEMPORARY PLACEHOLDER';
+                        document.head.appendChild(styles);
+                    }
+
+                    // Store summary for clipboard copying
+                    window.currentSummary = result;
+
+                    // Add modal to DOM
+                    document.body.appendChild(modal);
+
+                    // Add event listeners
+                    modal.querySelector('.summary-modal-close').onclick = () => document.body.removeChild(modal);
+                    modal.onclick = (e) => {
+                        if (e.target === modal) document.body.removeChild(modal);
+                    };
+
+                    // Global functions for modal buttons
+                    window.closeSummaryModal = () => {
+                        const modal = document.querySelector('.summary-modal');
+                        if (modal) document.body.removeChild(modal);
+                    };
+
+                    window.copySummaryToClipboard = () => {
+                        if (window.currentSummary) {
+                            let textSummary = `Memory Store Summary (${window.currentSummary.summary_type})\n\n`;
+
+                            // Add metadata information
+                            if (window.currentSummary.metadata) {
+                                const meta = window.currentSummary.metadata;
+                                textSummary += `METADATA:\n`;
+                                textSummary += `Store Path: ${meta.store_path}\n`;
+                                textSummary += `Branch: ${meta.current_branch} (${meta.current_commit})\n`;
+                                textSummary += `Generation Time: ${meta.total_time_seconds}s\n`;
+                                textSummary += `Generated At: ${meta.generated_at}\n`;
+
+                                if (meta.timing_breakdown && Object.keys(meta.timing_breakdown).length > 1) {
+                                    const timings = Object.entries(meta.timing_breakdown)
+                                        .map(([key, value]) => `${key}: ${value}s`)
+                                        .join(', ');
+                                    textSummary += `Timing Breakdown: ${timings}\n`;
+                                }
+                                textSummary += '\n';
+                            }
+
+                            Object.entries(window.currentSummary.summaries).forEach(([key, value]) => {
+                                const sectionTitles = {
+                                    overall: 'Executive Summary',
+                                    taxonomy: 'Data Organization & Taxonomy',
+                                    timeline: 'Timeline & Events',
+                                    places: 'Places & Locations'
+                                };
+                                textSummary += `${sectionTitles[key] || key}:\n${value}\n\n`;
+                            });
+
+                            navigator.clipboard.writeText(textSummary).then(() => {
+                                showNotification('Summary copied to clipboard!', 'success');
+                            }).catch(() => {
+                                showNotification('Failed to copy to clipboard', 'error');
+                            });
+                        }
+                    };
+
+                    // Complete progress and close modal
+                    updateProgressModal(progressModal, 'Summary completed!', 100);
+                    setTimeout(() => closeProgressModal(progressModal), 500);
+                    showNotification('Summary generated successfully!', 'success');
+
+                } else {
+                    closeProgressModal(progressModal);
+                    showNotification(`Summary generation failed: ${result.error || 'Unknown error'}`, 'error');
+                }
+
+            } catch (error) {
+                closeProgressModal(progressModal);
+
+                if (error.name === 'AbortError') {
+                    showNotification('Summary generation cancelled', 'info');
+                } else {
+                    console.error('Summary generation error:', error);
+                    showNotification(`Error generating summary: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        function showProgressModal(title, message) {
+            // Create progress modal
+            const modal = document.createElement('div');
+            modal.className = 'progress-modal';
+            modal.innerHTML = `
+                <div class="progress-modal-content">
+                    <div class="progress-modal-header">
+                        <h3>${title}</h3>
+                    </div>
+                    <div class="progress-modal-body">
+                        <div class="progress-message">${message}</div>
+                        <div class="progress-container">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: 0%"></div>
+                            </div>
+                            <div class="progress-percentage">0%</div>
+                        </div>
+                        <div class="progress-actions">
+                            <button class="progress-cancel-btn">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Add CSS for progress modal
+            if (!document.getElementById('progress-modal-styles')) {
+                const styles = document.createElement('style');
+                styles.id = 'progress-modal-styles';
+                styles.textContent = `
+                    .progress-modal {
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: rgba(0, 0, 0, 0.7);
+                        backdrop-filter: blur(8px);
+                        z-index: 10001;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        animation: fadeIn 0.3s ease-out;
+                    }
+
+                    .progress-modal-content {
+                        background: var(--bg-primary);
+                        border: 1px solid var(--border-light);
+                        border-radius: 16px;
+                        width: 400px;
+                        max-width: 90%;
+                        overflow: hidden;
+                        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                        animation: slideIn 0.3s ease-out;
+                    }
+
+                    .progress-modal-header {
+                        padding: 20px 24px 16px;
+                        background: var(--bg-glass);
+                        border-bottom: 1px solid var(--border-light);
+                    }
+
+                    .progress-modal-header h3 {
+                        margin: 0;
+                        color: var(--text-primary);
+                        font-size: 1.2em;
+                        font-weight: 600;
+                    }
+
+                    .progress-modal-body {
+                        padding: 24px;
+                    }
+
+                    .progress-message {
+                        color: var(--text-secondary);
+                        margin-bottom: 20px;
+                        font-size: 14px;
+                    }
+
+                    .progress-container {
+                        margin-bottom: 20px;
+                    }
+
+                    .progress-bar {
+                        width: 100%;
+                        height: 8px;
+                        background: var(--bg-glass);
+                        border-radius: 4px;
+                        overflow: hidden;
+                        margin-bottom: 8px;
+                        border: 1px solid var(--border-light);
+                    }
+
+                    .progress-fill {
+                        height: 100%;
+                        background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+                        transition: width 0.3s ease;
+                        border-radius: 4px;
+                    }
+
+                    .progress-percentage {
+                        text-align: center;
+                        color: var(--text-muted);
+                        font-size: 12px;
+                        font-weight: 500;
+                    }
+
+                    .progress-actions {
+                        display: flex;
+                        justify-content: center;
+                    }
+
+                    .progress-cancel-btn {
+                        padding: 8px 16px;
+                        background: var(--bg-glass);
+                        border: 1px solid var(--border-light);
+                        border-radius: 8px;
+                        color: var(--text-primary);
+                        cursor: pointer;
+                        font-size: 14px;
+                        transition: all 0.2s ease;
+                    }
+
+                    .progress-cancel-btn:hover {
+                        background: var(--bg-glass-light);
+                        transform: translateY(-1px);
+                    }
+                `;
+                document.head.appendChild(styles);
+            }
+
+            // Add to DOM
+            document.body.appendChild(modal);
+
+            // Add cancel functionality
+            const cancelBtn = modal.querySelector('.progress-cancel-btn');
+            cancelBtn.onclick = () => {
+                if (modal.abortController) {
+                    modal.abortController.abort();
+                }
+                closeProgressModal(modal);
+            };
+
+            return modal;
+        }
+
+        function updateProgressModal(modal, message, percentage) {
+            const messageEl = modal.querySelector('.progress-message');
+            const fillEl = modal.querySelector('.progress-fill');
+            const percentEl = modal.querySelector('.progress-percentage');
+
+            if (messageEl) messageEl.textContent = message;
+            if (fillEl) fillEl.style.width = `${percentage}%`;
+            if (percentEl) percentEl.textContent = `${percentage}%`;
+        }
+
+        function closeProgressModal(modal) {
+            if (modal && modal.parentNode) {
+                document.body.removeChild(modal);
+            }
+        }
+
         function updateMapTheme(theme) {
             if (!window.placesMap || !window.mapTileLayer) return;
 
@@ -6308,39 +6700,6 @@ ${result.valid ?
                     } else {
                     }
                 }
-            });
-
-            // View toggle
-            document.querySelectorAll('.view-btn').forEach(btn => {
-                btn.addEventListener('click', async function() {
-                    document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
-                    this.classList.add('active');
-
-                    const view = this.dataset.view;
-
-                    // Hide all views first
-                    document.getElementById('treeView').style.display = 'none';
-                    const graphView = document.getElementById('graphView');
-                    graphView.style.display = 'none';
-                    graphView.style.pointerEvents = 'none';
-                    document.getElementById('timelineView').style.display = 'none';
-                    document.getElementById('placesView').style.display = 'none';
-
-                    // Show selected view
-                    if (view === 'tree') {
-                        document.getElementById('treeView').style.display = 'block';
-                    } else if (view === 'graph') {
-                        graphView.style.display = 'block';
-                        graphView.style.pointerEvents = 'auto';
-                        renderGraph();
-                    } else if (view === 'timeline') {
-                        document.getElementById('timelineView').style.display = 'block';
-                        await initializeTimelineView();
-                    } else if (view === 'places') {
-                        document.getElementById('placesView').style.display = 'block';
-                        await initializePlacesView();
-                    }
-                });
             });
 
             // Theme toggle
@@ -7395,7 +7754,7 @@ ${result.valid ?
             { cmd: '/branches', args: '', desc: 'List all branches' },
             { cmd: '/blame', args: '<key>', desc: 'Show Git-like blame history for memory key' },
             { cmd: '/help', args: '', desc: 'Show all available commands', aliases: '/h' },
-            { cmd: '/summarize', args: '[path]', desc: 'Generate summary of memories (coming soon)', placeholder: true },
+            { cmd: '/summarize', args: '[type]', desc: 'Generate summary of memories (all, taxonomy, timeline, places)', aliases: '/sum' },
             { cmd: '/timeline', args: '[YYYY-MM-DD description]', desc: 'Show timeline or add timeline event', aliases: '/tl' },
             { cmd: '/location', args: '[place description]', desc: 'Show places or add location event', aliases: '/loc' },
             { cmd: '/what-if', args: '<scenario>', desc: 'Simulate hypothetical memory scenarios (coming soon)', placeholder: true }
@@ -8748,30 +9107,39 @@ Message: ${commit.message}`;
 
         // Initialize view switching
         function initializeViewSwitching() {
-            const viewButtons = document.querySelectorAll('.view-nav-btn');
-            const viewContents = document.querySelectorAll('.view-content');
+            // View toggle - using the correct .view-btn class from HTML
+            document.querySelectorAll('.view-btn').forEach(btn => {
+                btn.addEventListener('click', async function() {
+                    document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
 
-            viewButtons.forEach(button => {
-                button.addEventListener('click', (e) => {
-                    const targetView = button.dataset.view;
+                    const view = this.dataset.view;
 
-                    // Update button states
-                    viewButtons.forEach(btn => btn.classList.remove('active'));
-                    button.classList.add('active');
+                    // Hide all views first
+                    document.getElementById('treeView').style.display = 'none';
+                    const graphView = document.getElementById('graphView');
+                    if (graphView) {
+                        graphView.style.display = 'none';
+                        graphView.style.pointerEvents = 'none';
+                    }
+                    document.getElementById('timelineView').style.display = 'none';
+                    document.getElementById('placesView').style.display = 'none';
 
-                    // Update view content visibility
-                    viewContents.forEach(content => {
-                        content.classList.remove('active');
-                    });
-
-                    const targetContent = document.getElementById(`${targetView}View`);
-                    if (targetContent) {
-                        targetContent.classList.add('active');
-
-                        // Initialize specific views when first shown
-                        if (targetView === 'timeline') {
-                            initializeTimelineView();
+                    // Show selected view
+                    if (view === 'tree') {
+                        document.getElementById('treeView').style.display = 'block';
+                    } else if (view === 'graph') {
+                        if (graphView) {
+                            graphView.style.display = 'block';
+                            graphView.style.pointerEvents = 'auto';
+                            renderGraph();
                         }
+                    } else if (view === 'timeline') {
+                        document.getElementById('timelineView').style.display = 'block';
+                        await initializeTimelineView();
+                    } else if (view === 'places') {
+                        document.getElementById('placesView').style.display = 'block';
+                        await initializePlacesView();
                     }
                 });
             });
