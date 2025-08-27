@@ -5380,11 +5380,18 @@ ${result.valid ?
                 
                 // Initialize map if not already done
                 if (!window.placesMapInitialized) {
+                    console.log('Map not initialized yet, initializing...');
                     // Small delay to ensure DOM is ready
-                    setTimeout(() => {
+                    setTimeout(async () => {
                         initializePlacesMap();
+                        // Wait a bit more for map to be fully ready, then reload places data
+                        setTimeout(async () => {
+                            console.log('Map should be ready now, reloading places data...');
+                            await loadPlacesData();
+                        }, 200);
                     }, 100);
                 } else if (window.placesMap) {
+                    console.log('Map already initialized, resizing...');
                     // Resize map when view is shown
                     setTimeout(() => {
                         window.placesMap.invalidateSize();
@@ -5411,7 +5418,9 @@ ${result.valid ?
                 console.log('DEBUG: Places API response:', result);
 
                 if (result.success) {
-                    await updatePlacesDisplay(result.places_data);
+                    console.log('DEBUG: result.places_data structure:', result.places_data);
+                    console.log('DEBUG: result.location_data structure:', result.location_data);
+                    await updatePlacesDisplay(result.places_data || result.location_data);
                 } else {
                     console.error('Failed to load places data:', result.error);
                     document.getElementById('placesListContent').innerHTML = `
@@ -5438,6 +5447,7 @@ ${result.valid ?
         }
 
         async function updatePlacesDisplay(placesData) {
+            console.log('updatePlacesDisplay called with:', placesData);
             const placesListContent = document.getElementById('placesListContent');
             
             if (!placesData || Object.keys(placesData).length === 0) {
@@ -5628,8 +5638,10 @@ ${result.valid ?
         }
 
         async function updatePlacesMap(places) {
+            console.log('updatePlacesMap called with places:', places);
+            
             if (!window.placesMap || !window.placesMarkers) {
-                console.log('Map not initialized, skipping marker update');
+                console.log('Map not initialized, skipping marker update. Map:', !!window.placesMap, 'Markers:', !!window.placesMarkers);
                 return;
             }
 
