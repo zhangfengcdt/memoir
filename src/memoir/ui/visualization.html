@@ -4600,6 +4600,25 @@ ${result.valid ?
             // which refreshes the tree view, so all views are now updated
         }
 
+        async function refreshVisualizationData() {
+            if (!connectedStorePath) {
+                console.log('No store connected, skipping visualization refresh');
+                return;
+            }
+
+            console.log('Refreshing visualization data for all views...');
+            
+            try {
+                // Refresh the main store data (tree and graph views)
+                await refreshStore();
+                
+                console.log('Visualization data refreshed successfully');
+            } catch (error) {
+                console.error('Failed to refresh visualization data:', error);
+                showNotification('Failed to refresh data views', 'error');
+            }
+        }
+
         async function showTimeline() {
             console.log('DEBUG: showTimeline called');
 
@@ -4707,7 +4726,7 @@ ${result.valid ?
                     // Refresh the timeline view to show the new event
                     await updateTimelineView();
                     // Also refresh the store to update other views
-                    await refreshStore();
+                    await refreshVisualizationData();
                 } else {
                     showNotification(`Failed to add timeline event: ${result.message || 'Unknown error'}`, 'error');
                 }
@@ -5418,9 +5437,8 @@ ${result.valid ?
                 console.log('DEBUG: Places API response:', result);
 
                 if (result.success) {
-                    console.log('DEBUG: result.places_data structure:', result.places_data);
                     console.log('DEBUG: result.location_data structure:', result.location_data);
-                    await updatePlacesDisplay(result.places_data || result.location_data);
+                    await updatePlacesDisplay(result.location_data);
                 } else {
                     console.error('Failed to load places data:', result.error);
                     document.getElementById('placesListContent').innerHTML = `
@@ -5501,6 +5519,10 @@ ${result.valid ?
 
             // Update map with places data
             console.log('About to update places map with:', sortedPlaces);
+            console.log('Number of places to add to map:', sortedPlaces.length);
+            if (sortedPlaces.length > 0) {
+                console.log('First place data:', sortedPlaces[0]);
+            }
             await updatePlacesMap(sortedPlaces);
         }
 
@@ -5600,10 +5622,14 @@ ${result.valid ?
 
                 if (result.success) {
                     showNotification(`Location event added: ${location}`, 'success');
+                    
                     // Refresh places view if it's currently active
                     if (document.getElementById('placesView').style.display === 'block') {
                         await loadPlacesData();
                     }
+                    
+                    // Refresh tree and graph views to show new data
+                    await refreshVisualizationData();
                 } else {
                     showNotification(`Failed to add location event: ${result.error}`, 'error');
                     console.error('Location event error:', result.error);

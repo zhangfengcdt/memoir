@@ -112,10 +112,17 @@ def read_store_data(store_path: str):
             # If no list_keys, fall back to search
             if not all_keys:
                 print("Falling back to BaseStore.search...")
-                # Use BaseStore search method to get all items for the namespace
-                namespace = ("alice_chen",)  # The namespace we used when storing
-                items = list(store.search(namespace))
-                print(f"Found {len(items)} items using BaseStore.search()")
+                # Search both primary namespaces: alice_chen and memory:general
+                items = []
+                for namespace in [("alice_chen",), ("memory", "general")]:
+                    try:
+                        ns_items = list(store.search(namespace))
+                        items.extend(ns_items)
+                        print(f"Found {len(ns_items)} items in namespace {namespace}")
+                    except Exception as e:
+                        print(f"Error searching namespace {namespace}: {e}")
+                
+                print(f"Found {len(items)} total items using BaseStore.search()")
 
                 # Also try with empty search to get all items
                 if not items:
@@ -128,6 +135,7 @@ def read_store_data(store_path: str):
                     print("Trying different namespaces...")
                     possible_namespaces = [
                         ("alice_chen",),
+                        ("memory", "general"),  # Add memory:general namespace for timeline/location data
                         ("default",),
                         ("",),
                         (),
@@ -153,9 +161,15 @@ def read_store_data(store_path: str):
                             semantic_path = item.key
                             value_data = item.value
 
+                        # Convert namespace tuple back to string format for display
+                        if isinstance(item_namespace, tuple):
+                            namespace_str = ":".join(item_namespace)
+                        else:
+                            namespace_str = str(item_namespace)
+
                         memory_entry = {
-                            "key": f"alice_chen:{semantic_path}",
-                            "namespace": "alice_chen",
+                            "key": f"{namespace_str}:{semantic_path}",
+                            "namespace": namespace_str,
                             "path": semantic_path,
                             "value": value_data,
                             "content": (
@@ -191,14 +205,25 @@ def read_store_data(store_path: str):
                     try:
                         # Parse the key to extract namespace and semantic path
                         # Format: namespace:key (e.g., "alice_chen:memory.1724123456")
+                        # Or: namespace:subnspace:key (e.g., "memory:general:timeline.20241127")
                         if ":" in full_key:
-                            namespace_part, semantic_path = full_key.split(":", 1)
+                            parts = full_key.split(":")
+                            if len(parts) >= 3 and parts[0] == "memory" and parts[1] == "general":
+                                # Handle memory:general:path format
+                                namespace_part = "memory:general"
+                                semantic_path = ":".join(parts[2:])
+                            elif len(parts) == 2:
+                                # Handle alice_chen:path format
+                                namespace_part, semantic_path = parts
+                            else:
+                                namespace_part = ":".join(parts[:-1])
+                                semantic_path = parts[-1]
                         else:
                             namespace_part = ""
                             semantic_path = full_key
 
-                        # Only include alice_chen namespace for UI
-                        if namespace_part != "alice_chen":
+                        # Include alice_chen and memory:general namespaces for UI
+                        if namespace_part not in ["alice_chen", "memory:general"]:
                             continue
 
                         # Get the value for this key
