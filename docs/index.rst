@@ -22,6 +22,12 @@ Welcome to Memoir's Documentation
 
 .. toctree::
    :maxdepth: 2
+   :caption: Theory & Architecture
+
+   theory/index
+
+.. toctree::
+   :maxdepth: 2
    :caption: API Reference
 
    api/memoir
