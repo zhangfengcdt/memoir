@@ -6303,9 +6303,10 @@ ${result.valid ?
                 });
             });
 
-            // Only include folders that have content
-            Object.keys(organizedPaths).forEach(folderName => {
-                if (Object.keys(organizedPaths[folderName].children).length > 0) {
+            // Add folders in specific order: taxonomy first, then memento
+            const folderOrder = ['taxonomy', 'memento'];
+            folderOrder.forEach(folderName => {
+                if (organizedPaths[folderName] && Object.keys(organizedPaths[folderName].children).length > 0) {
                     tree[folderName] = organizedPaths[folderName];
                 }
             });
