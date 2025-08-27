@@ -4627,11 +4627,11 @@ ${result.valid ?
             }
 
             console.log('Refreshing visualization data for all views...');
-            
+
             try {
                 // Refresh the main store data (tree and graph views)
                 await refreshStore();
-                
+
                 console.log('Visualization data refreshed successfully');
             } catch (error) {
                 console.error('Failed to refresh visualization data:', error);
@@ -5642,12 +5642,12 @@ ${result.valid ?
 
                 if (result.success) {
                     showNotification(`Location event added: ${location}`, 'success');
-                    
+
                     // Refresh places view if it's currently active
                     if (document.getElementById('placesView').style.display === 'block') {
                         await loadPlacesData();
                     }
-                    
+
                     // Refresh tree and graph views to show new data
                     await refreshVisualizationData();
                 } else {
@@ -6264,7 +6264,7 @@ ${result.valid ?
 
         function buildTreeFromPaths(pathCount) {
             const tree = {};
-            
+
             // Create organized structure with memento and taxonomy folders
             const organizedPaths = {
                 'memento': { children: {}, count: 0 },
@@ -6275,21 +6275,21 @@ ${result.valid ?
             Object.keys(pathCount).forEach(path => {
                 const parts = path.split('.');
                 const rootCategory = parts[0];
-                
+
                 // Determine if this is memento (timeline/location) or taxonomy data
                 let targetFolder, pathInFolder;
                 if (rootCategory === 'timeline' || rootCategory === 'location') {
                     targetFolder = 'memento';
                     pathInFolder = path; // Keep full path under memento
                 } else {
-                    targetFolder = 'taxonomy';  
+                    targetFolder = 'taxonomy';
                     pathInFolder = path; // Keep full path under taxonomy
                 }
-                
+
                 // Build nested structure within the appropriate folder
                 const pathParts = pathInFolder.split('.');
                 let current = organizedPaths[targetFolder];
-                
+
                 pathParts.forEach((part, index) => {
                     if (!current.children[part]) {
                         current.children[part] = { children: {}, count: 0 };
@@ -6302,7 +6302,7 @@ ${result.valid ?
                     current = current.children[part];
                 });
             });
-            
+
             // Only include folders that have content
             Object.keys(organizedPaths).forEach(folderName => {
                 if (Object.keys(organizedPaths[folderName].children).length > 0) {
@@ -6694,7 +6694,7 @@ ${result.valid ?
             if (fullPath.startsWith('memento.') || fullPath.startsWith('taxonomy.')) {
                 return pathParts.slice(1).join('.');
             }
-            
+
             return fullPath;
         }
 
@@ -6710,16 +6710,16 @@ ${result.valid ?
             // Debug logging
             console.log('showMemoryDetails called with path:', path);
             console.log('window.realStoreData:', window.realStoreData);
-            
+
             // Filter memories that match this path
             const matchingMemories = [];
             if (window.realStoreData && window.realStoreData.memories) {
                 console.log('Total memories available:', window.realStoreData.memories.length);
-                
+
                 // Log first few memory paths for debugging
                 const memoryPaths = window.realStoreData.memories.map(m => m.path).slice(0, 10);
                 console.log('Sample memory paths:', memoryPaths);
-                
+
                 for (const memory of window.realStoreData.memories) {
                     if (memory.path && memory.path.startsWith(path)) {
                         matchingMemories.push(memory);
@@ -6727,7 +6727,7 @@ ${result.valid ?
                     }
                 }
             }
-            
+
             console.log('Matching memories found:', matchingMemories.length);
 
             // Populate with real memory data
@@ -6739,7 +6739,7 @@ ${result.valid ?
                         memory.value.confidence.toFixed(2) : '1.0';
                     // Handle different data structures for different memory types
                     let content = 'No content';
-                    
+
                     // Debug: log the full memory structure
                     console.log('Processing memory for content extraction:', {
                         path: memory.path,
@@ -6749,7 +6749,7 @@ ${result.valid ?
                         valueType: typeof memory.value,
                         content: memory.content
                     });
-                    
+
                     // If value exists, log its internal structure
                     if (memory.value && typeof memory.value === 'object') {
                         console.log('memory.value detailed structure:', memory.value);
@@ -6761,7 +6761,7 @@ ${result.valid ?
                             }
                         }
                     }
-                    
+
                     if (memory.content) {
                         content = memory.content;
                         console.log('Found content in memory.content:', content);
@@ -6786,7 +6786,7 @@ ${result.valid ?
                         console.log('Found memories array:', memory.value.memories);
                         const firstMemory = memory.value.memories[0];
                         console.log('First memory in array:', firstMemory);
-                        
+
                         if (firstMemory.content) {
                             // Extract content from the first memory entry
                             if (typeof firstMemory.content === 'string') {
@@ -6818,7 +6818,7 @@ ${result.valid ?
                     let summary = '';
                     let memoryType = '';
                     let structuredData = null;
-                    
+
                     // Check if we have memories array (AggregatedMemory format)
                     if (memory.value?.memories && Array.isArray(memory.value.memories) && memory.value.memories.length > 0) {
                         const firstMemory = memory.value.memories[0];

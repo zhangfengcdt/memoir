@@ -121,7 +121,7 @@ def read_store_data(store_path: str):
                         print(f"Found {len(ns_items)} items in namespace {namespace}")
                     except Exception as e:
                         print(f"Error searching namespace {namespace}: {e}")
-                
+
                 print(f"Found {len(items)} total items using BaseStore.search()")
 
                 # Also try with empty search to get all items
@@ -135,7 +135,10 @@ def read_store_data(store_path: str):
                     print("Trying different namespaces...")
                     possible_namespaces = [
                         ("alice_chen",),
-                        ("memory", "general"),  # Add memory:general namespace for timeline/location data
+                        (
+                            "memory",
+                            "general",
+                        ),  # Add memory:general namespace for timeline/location data
                         ("default",),
                         ("",),
                         (),
@@ -208,7 +211,11 @@ def read_store_data(store_path: str):
                         # Or: namespace:subnspace:key (e.g., "memory:general:timeline.20241127")
                         if ":" in full_key:
                             parts = full_key.split(":")
-                            if len(parts) >= 3 and parts[0] == "memory" and parts[1] == "general":
+                            if (
+                                len(parts) >= 3
+                                and parts[0] == "memory"
+                                and parts[1] == "general"
+                            ):
                                 # Handle memory:general:path format
                                 namespace_part = "memory:general"
                                 semantic_path = ":".join(parts[2:])
