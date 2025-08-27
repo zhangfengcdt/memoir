@@ -6100,9 +6100,7 @@ ${result.valid ?
                     window.currentSummary = result;
 
                     // Add modal to DOM
-                    console.log('🎭 Adding modal to DOM:', modal);
                     document.body.appendChild(modal);
-                    console.log('✅ Modal added to DOM, visible:', modal.style.display);
 
                     // Add event listeners
                     modal.querySelector('.summary-modal-close').onclick = () => document.body.removeChild(modal);
@@ -6157,12 +6155,8 @@ ${result.valid ?
                     };
 
                     // Complete progress and close modal
-                    console.log('📊 Completing progress modal...');
                     updateProgressModal(progressModal, 'Summary completed!', 100);
-                    setTimeout(() => {
-                        console.log('⏰ Closing progress modal after 500ms delay');
-                        closeProgressModal(progressModal);
-                    }, 500);
+                    setTimeout(() => closeProgressModal(progressModal), 500);
                     showNotification('Summary generated successfully!', 'success');
 
                 } else {
