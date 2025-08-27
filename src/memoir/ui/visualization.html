@@ -5914,7 +5914,185 @@ ${result.valid ?
                     if (!document.getElementById('summary-modal-styles')) {
                         const styles = document.createElement('style');
                         styles.id = 'summary-modal-styles';
-                        styles.textContent = 'TEMPORARY PLACEHOLDER';
+                        styles.textContent = `
+                            .summary-modal {
+                                position: fixed;
+                                top: 0;
+                                left: 0;
+                                width: 100%;
+                                height: 100%;
+                                background: rgba(0, 0, 0, 0.8);
+                                backdrop-filter: blur(10px);
+                                z-index: 10000;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                animation: fadeIn 0.3s ease-out;
+                            }
+                            
+                            .summary-modal-content {
+                                background: var(--bg-primary);
+                                border: 1px solid var(--border-light);
+                                border-radius: 20px;
+                                max-width: 80%;
+                                max-height: 80%;
+                                overflow: hidden;
+                                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+                                animation: slideIn 0.3s ease-out;
+                            }
+                            
+                            .summary-modal-header {
+                                padding: 20px 30px;
+                                border-bottom: 1px solid var(--border-light);
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                background: var(--bg-glass);
+                            }
+                            
+                            .summary-modal-header h2 {
+                                margin: 0;
+                                color: var(--text-primary);
+                                font-size: 1.5em;
+                            }
+                            
+                            .summary-modal-close {
+                                background: none;
+                                border: none;
+                                font-size: 1.5em;
+                                color: var(--text-muted);
+                                cursor: pointer;
+                                padding: 5px;
+                                border-radius: 50%;
+                                transition: all 0.2s ease;
+                            }
+                            
+                            .summary-modal-close:hover {
+                                color: var(--text-primary);
+                                background: var(--bg-glass-light);
+                            }
+                            
+                            .summary-modal-body {
+                                padding: 30px;
+                                max-height: 60vh;
+                                overflow-y: auto;
+                            }
+                            
+                            .summary-content h3 {
+                                color: var(--accent-primary);
+                                margin-bottom: 20px;
+                                font-size: 1.3em;
+                            }
+                            
+                            .summary-section {
+                                margin-bottom: 25px;
+                                padding: 15px;
+                                background: var(--bg-glass);
+                                border-radius: 12px;
+                                border: 1px solid var(--border-light);
+                            }
+                            
+                            .summary-section h4 {
+                                color: var(--text-primary);
+                                margin-bottom: 10px;
+                                font-size: 1.1em;
+                            }
+                            
+                            .summary-section p {
+                                color: var(--text-secondary);
+                                line-height: 1.6;
+                                margin: 0;
+                            }
+                            
+                            .summary-metadata {
+                                margin-bottom: 25px;
+                                padding: 15px;
+                                background: rgba(168, 85, 247, 0.1);
+                                border-radius: 12px;
+                                border: 1px solid rgba(168, 85, 247, 0.2);
+                            }
+                            
+                            .metadata-grid {
+                                display: grid;
+                                grid-template-columns: 1fr 1fr;
+                                gap: 12px;
+                            }
+                            
+                            .metadata-item {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 4px;
+                            }
+                            
+                            .metadata-item.full-width {
+                                grid-column: 1 / -1;
+                            }
+                            
+                            .metadata-label {
+                                font-size: 12px;
+                                font-weight: 600;
+                                color: var(--accent-primary);
+                                text-transform: uppercase;
+                                letter-spacing: 0.5px;
+                            }
+                            
+                            .metadata-value {
+                                font-size: 13px;
+                                color: var(--text-primary);
+                                font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+                                word-break: break-all;
+                            }
+                            
+                            .summary-modal-footer {
+                                padding: 20px 30px;
+                                border-top: 1px solid var(--border-light);
+                                display: flex;
+                                gap: 15px;
+                                justify-content: flex-end;
+                                background: var(--bg-glass);
+                            }
+                            
+                            .summary-button {
+                                padding: 10px 20px;
+                                border: none;
+                                border-radius: 8px;
+                                font-size: 14px;
+                                cursor: pointer;
+                                transition: all 0.2s ease;
+                                font-weight: 500;
+                            }
+                            
+                            .summary-button.primary {
+                                background: var(--accent-primary);
+                                color: white;
+                            }
+                            
+                            .summary-button.primary:hover {
+                                background: var(--accent-secondary);
+                                transform: translateY(-1px);
+                            }
+                            
+                            .summary-button.secondary {
+                                background: var(--bg-glass);
+                                color: var(--text-primary);
+                                border: 1px solid var(--border-light);
+                            }
+                            
+                            .summary-button.secondary:hover {
+                                background: var(--bg-glass-light);
+                                transform: translateY(-1px);
+                            }
+                            
+                            @keyframes fadeIn {
+                                from { opacity: 0; }
+                                to { opacity: 1; }
+                            }
+                            
+                            @keyframes slideIn {
+                                from { transform: scale(0.9) translateY(-20px); opacity: 0; }
+                                to { transform: scale(1) translateY(0); opacity: 1; }
+                            }
+                        `;
                         document.head.appendChild(styles);
                     }
 
@@ -5922,7 +6100,9 @@ ${result.valid ?
                     window.currentSummary = result;
 
                     // Add modal to DOM
+                    console.log('🎭 Adding modal to DOM:', modal);
                     document.body.appendChild(modal);
+                    console.log('✅ Modal added to DOM, visible:', modal.style.display);
 
                     // Add event listeners
                     modal.querySelector('.summary-modal-close').onclick = () => document.body.removeChild(modal);
@@ -5977,8 +6157,12 @@ ${result.valid ?
                     };
 
                     // Complete progress and close modal
+                    console.log('📊 Completing progress modal...');
                     updateProgressModal(progressModal, 'Summary completed!', 100);
-                    setTimeout(() => closeProgressModal(progressModal), 500);
+                    setTimeout(() => {
+                        console.log('⏰ Closing progress modal after 500ms delay');
+                        closeProgressModal(progressModal);
+                    }, 500);
                     showNotification('Summary generated successfully!', 'success');
 
                 } else {
