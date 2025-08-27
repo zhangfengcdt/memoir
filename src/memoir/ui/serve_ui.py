@@ -18,8 +18,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 
 from memoir.classifier.intelligent import IntelligentClassifier
-from memoir.memento.timeline import TimelineMemento
 from memoir.memento.location import LocationMemento
+from memoir.memento.timeline import TimelineMemento
 from memoir.store.prolly_adapter import ProllyTreeStore
 
 PORT = 8080
@@ -1522,7 +1522,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                             display_name = location_key.replace("_", " ").title()
                             location_data[location_key] = {
                                 "name": display_name,
-                                "content": content.strip()
+                                "content": content.strip(),
                             }
                             print(
                                 f"DEBUG: Successfully stored content for {location_key}"
@@ -1567,28 +1567,47 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_response(400)
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "error": "Missing 'path' parameter"}).encode())
+                self.wfile.write(
+                    json.dumps(
+                        {"success": False, "error": "Missing 'path' parameter"}
+                    ).encode()
+                )
                 return
 
             if not location_name:
                 self.send_response(400)
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "error": "Missing 'location' parameter"}).encode())
+                self.wfile.write(
+                    json.dumps(
+                        {"success": False, "error": "Missing 'location' parameter"}
+                    ).encode()
+                )
                 return
 
             if not description:
                 self.send_response(400)
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "error": "Missing 'description' parameter"}).encode())
+                self.wfile.write(
+                    json.dumps(
+                        {"success": False, "error": "Missing 'description' parameter"}
+                    ).encode()
+                )
                 return
 
             if not Path(store_path).exists():
                 self.send_response(404)
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
-                self.wfile.write(json.dumps({"success": False, "error": f"Store path does not exist: {store_path}"}).encode())
+                self.wfile.write(
+                    json.dumps(
+                        {
+                            "success": False,
+                            "error": f"Store path does not exist: {store_path}",
+                        }
+                    ).encode()
+                )
                 return
 
             # Initialize store
@@ -1619,7 +1638,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 print("DEBUG: Location event added successfully")
 
                 # Debug: Check what was stored
-                normalized_location = location_memento._normalize_location_name(location_name)
+                normalized_location = location_memento._normalize_location_name(
+                    location_name
+                )
                 test_search = loop.run_until_complete(
                     store.asearch("memory:general", f"location.{normalized_location}")
                 )
@@ -1634,7 +1655,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 "success": success,
                 "location": location_name,
                 "description": description,
-                "normalized_location": location_memento._normalize_location_name(location_name),
+                "normalized_location": location_memento._normalize_location_name(
+                    location_name
+                ),
                 "path": f"location.{location_memento._normalize_location_name(location_name)}",
             }
 
@@ -1649,7 +1672,11 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             self.send_response(500)
             self.send_header("Content-type", "application/json")
             self.end_headers()
-            self.wfile.write(json.dumps({"success": False, "error": f"Error adding location event: {e!s}"}).encode())
+            self.wfile.write(
+                json.dumps(
+                    {"success": False, "error": f"Error adding location event: {e!s}"}
+                ).encode()
+            )
 
     def _extract_location_content(self, data, location_key):
         """Extract location content from various data structure formats."""
