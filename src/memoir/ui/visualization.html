@@ -4671,14 +4671,69 @@ ${result.valid ?
             }
         }
 
+        async function refreshStoreData() {
+            if (!connectedStorePath) {
+                console.log('No store path to refresh');
+                return false;
+            }
+            
+            try {
+                console.log('Refreshing store data from:', connectedStorePath);
+                const apiUrl = `/api/store?path=${encodeURIComponent(connectedStorePath)}`;
+                const response = await fetch(apiUrl);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Refreshed store data:', data);
+                    
+                    // Update the global realStoreData
+                    window.realStoreData = data;
+                    
+                    // Also update the tree view with fresh data
+                    updateTreeViewWithRealData(data);
+                    
+                    return true;
+                } else {
+                    console.error('Failed to refresh store data:', response.status);
+                    return false;
+                }
+            } catch (error) {
+                console.error('Error refreshing store data:', error);
+                return false;
+            }
+        }
+
         async function loadTimelineData() {
             if (!connectedStorePath) {
                 return { success: false, timeline_data: {} };
+            }
+            
+            // Refresh store data to ensure we have the latest timeline/location entries
+            console.log('DEBUG: Refreshing store data before loading timeline...');
+            await refreshStoreData();
+            
+            // Also check what's in our raw memory store data
+            console.log('DEBUG: Checking raw memory store data for timeline entries');
+            if (window.realStoreData && window.realStoreData.memories) {
+                // Debug: show ALL memory paths to see what we have
+                console.log('DEBUG: ALL memory paths in store:');
+                window.realStoreData.memories.forEach((m, i) => {
+                    console.log(`${i}: ${m.path} (namespace: ${m.namespace})`);
+                });
+                
+                const timelineMemories = window.realStoreData.memories.filter(m => 
+                    m.path && (m.path.startsWith('timeline.') || m.path.includes('timeline'))
+                );
+                console.log('DEBUG: Found timeline memories in raw data:', timelineMemories.length);
+                timelineMemories.forEach(m => {
+                    console.log('DEBUG: Timeline memory:', m.path, m);
+                });
             }
 
             try {
                 const response = await fetch(`/api/timeline?path=${encodeURIComponent(connectedStorePath)}`);
                 const result = await response.json();
+                console.log('DEBUG: Timeline API response:', result);
                 return result;
             } catch (error) {
                 console.error('Error loading timeline data:', error);
@@ -5449,6 +5504,28 @@ ${result.valid ?
             }
 
             console.log('DEBUG: Fetching places from:', `/api/location?path=${encodeURIComponent(connectedStorePath)}`);
+            
+            // Refresh store data to ensure we have the latest timeline/location entries
+            console.log('DEBUG: Refreshing store data before loading places...');
+            await refreshStoreData();
+            
+            // Also check what's in our raw memory store data
+            console.log('DEBUG: Checking raw memory store data for location entries');
+            if (window.realStoreData && window.realStoreData.memories) {
+                // Debug: show ALL memory paths to see what we have
+                console.log('DEBUG: ALL memory paths in store:');
+                window.realStoreData.memories.forEach((m, i) => {
+                    console.log(`${i}: ${m.path} (namespace: ${m.namespace})`);
+                });
+                
+                const locationMemories = window.realStoreData.memories.filter(m => 
+                    m.path && (m.path.startsWith('location.') || m.path.includes('location'))
+                );
+                console.log('DEBUG: Found location memories in raw data:', locationMemories.length);
+                locationMemories.forEach(m => {
+                    console.log('DEBUG: Location memory:', m.path, m);
+                });
+            }
 
             try {
                 const response = await fetch(`/api/location?path=${encodeURIComponent(connectedStorePath)}`);
@@ -6154,9 +6231,11 @@ ${result.valid ?
                         renderGraph();
                     } else if (view === 'timeline') {
                         document.getElementById('timelineView').style.display = 'block';
-                        initializeTimelineView();
+                        console.log('Switching to timeline view, connected to:', connectedStorePath);
+                        await initializeTimelineView();
                     } else if (view === 'places') {
                         document.getElementById('placesView').style.display = 'block';
+                        console.log('Switching to places view, connected to:', connectedStorePath);
                         await initializePlacesView();
                     }
                 });
