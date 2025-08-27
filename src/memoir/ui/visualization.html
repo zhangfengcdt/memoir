@@ -290,23 +290,20 @@
 
         .timeline-content-split {
             display: flex;
+            flex-direction: column;
             flex: 1;
             gap: 24px;
             min-height: 0;
             max-width: 100%;
-            overflow: hidden;
+            overflow-y: auto;
         }
 
         .timeline-left-panel {
-            flex: 2;
-            min-width: 400px;
-            max-width: 60%;
+            width: 100%;
         }
 
         .timeline-right-panel {
-            flex: 1;
-            min-width: 300px;
-            max-width: 40%;
+            width: 100%;
         }
 
         .timeline-contributions-header {
@@ -454,6 +451,7 @@
             flex-direction: column;
             align-items: center;
             gap: 8px;
+            margin-left: 20px;
         }
 
         .activity-months {
@@ -641,6 +639,43 @@
             border-radius: 8px;
             min-height: 400px;
             z-index: 1;
+        }
+
+        /* Map control buttons */
+        .map-controls {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 1000;
+        }
+
+        .map-control-btn {
+            width: 36px;
+            height: 36px;
+            background: var(--bg-glass);
+            border: 1px solid var(--border-light);
+            border-radius: 8px;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 18px;
+            backdrop-filter: blur(10px);
+        }
+
+        .map-control-btn:hover {
+            background: var(--bg-secondary);
+            border-color: var(--accent-primary);
+            transform: scale(1.05);
+        }
+
+        .map-control-btn:active {
+            transform: scale(0.95);
         }
 
         /* Ensure Leaflet controls are properly styled */
@@ -2887,6 +2922,10 @@
 
                     <!-- Timeline View -->
                     <div class="timeline-view" id="timelineView" style="display: none;">
+                        <!-- Demo Mode Banner (shown only in demo mode) -->
+                        <div id="timelineDemoBanner" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 20px; margin-bottom: 16px; border-radius: 8px; text-align: center; font-size: 14px; display: none;">
+                            📅 <strong>Demo Mode</strong> - Sample timeline data shown. Connect to a memory store to see your real timeline.
+                        </div>
                         <!-- Contributions Header -->
                         <div class="timeline-contributions-header">
                             <div class="timeline-contributions-title">
@@ -2905,9 +2944,9 @@
                             </div>
                         </div>
 
-                        <!-- Split Content Layout -->
+                        <!-- Content Layout (stacked vertically) -->
                         <div class="timeline-content-split">
-                            <!-- Left Panel - Timeline Calendar -->
+                            <!-- Timeline Calendar (full width) -->
                             <div class="timeline-left-panel">
                                 <!-- Activity Grid -->
                                 <div class="timeline-grid-container">
@@ -2945,7 +2984,7 @@
                                 </div>
                             </div>
 
-                            <!-- Right Panel - Memory Activities -->
+                            <!-- Memory Activities Panel (below timeline, full width) -->
                             <div class="timeline-right-panel">
                                 <div class="timeline-activity-section">
                                     <div class="timeline-activity-title">Memory Activity</div>
@@ -2970,6 +3009,11 @@
                                     <strong>Loading Map...</strong><br>
                                     Preparing to show all your location memories
                                 </div>
+                            </div>
+                            <!-- Map Control Buttons -->
+                            <div class="map-controls" id="mapControls" style="display: none;">
+                                <button class="map-control-btn" id="mapHomeBtn" title="Reset to default view">🏠</button>
+                                <button class="map-control-btn" id="mapRefreshBtn" title="Refresh places">🔄</button>
                             </div>
                         </div>
                         <div class="places-details-container">
@@ -5723,6 +5767,30 @@ ${result.valid ?
             }
         }
 
+        function updateMapTheme(theme) {
+            if (!window.placesMap || !window.mapTileLayer) return;
+
+            // Remove current tile layer
+            window.placesMap.removeLayer(window.mapTileLayer);
+
+            // Add new tile layer based on theme
+            if (theme === 'dark') {
+                // Dark mode tiles (CartoDB Dark Matter)
+                window.mapTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+                    subdomains: 'abcd',
+                    maxZoom: 19,
+                }).addTo(window.placesMap);
+            } else {
+                // Light mode tiles (CartoDB Positron)
+                window.mapTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+                    subdomains: 'abcd',
+                    maxZoom: 19,
+                }).addTo(window.placesMap);
+            }
+        }
+
         function initializePlacesMap() {
             const mapElement = document.getElementById('placesMapElement');
             const placeholder = document.getElementById('placesMapPlaceholder');
@@ -5737,20 +5805,72 @@ ${result.valid ?
                 placeholder.style.display = 'none';
                 mapElement.style.display = 'block';
 
+                // Show map controls
+                const mapControls = document.getElementById('mapControls');
+                if (mapControls) {
+                    mapControls.style.display = 'flex';
+                }
+
                 // Initialize Leaflet map
                 window.placesMap = L.map('placesMapElement').setView([40.7128, -74.0060], 2); // Default to world view
 
-                // Add OpenStreetMap tiles
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-                    maxZoom: 18,
-                }).addTo(window.placesMap);
+                // Store default view for home button
+                window.mapDefaultView = {
+                    center: [40.7128, -74.0060],
+                    zoom: 2
+                };
+
+                // Get current theme
+                const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+
+                // Add appropriate tile layer based on theme
+                if (currentTheme === 'dark') {
+                    // Dark mode tiles (CartoDB Dark Matter)
+                    window.mapTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+                        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+                        subdomains: 'abcd',
+                        maxZoom: 19,
+                    }).addTo(window.placesMap);
+                } else {
+                    // Light mode tiles (CartoDB Positron)
+                    window.mapTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+                        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+                        subdomains: 'abcd',
+                        maxZoom: 19,
+                    }).addTo(window.placesMap);
+                }
 
                 // Initialize marker layer group
                 window.placesMarkers = L.layerGroup().addTo(window.placesMap);
 
                 console.log('Places map initialized successfully');
                 window.placesMapInitialized = true;
+
+                // Add event handlers for map control buttons
+                const mapHomeBtn = document.getElementById('mapHomeBtn');
+                const mapRefreshBtn = document.getElementById('mapRefreshBtn');
+
+                if (mapHomeBtn) {
+                    mapHomeBtn.addEventListener('click', () => {
+                        if (window.placesMap && window.mapDefaultView) {
+                            window.placesMap.setView(window.mapDefaultView.center, window.mapDefaultView.zoom);
+                            showNotification('Map reset to default view', 'success', 2000);
+                        }
+                    });
+                }
+
+                if (mapRefreshBtn) {
+                    mapRefreshBtn.addEventListener('click', async () => {
+                        if (connectedStorePath) {
+                            await loadPlacesData();
+                            showNotification('Places data refreshed', 'success', 2000);
+                        } else {
+                            // Demo mode
+                            await initializePlacesDemoMode();
+                            showNotification('Demo places refreshed', 'success', 2000);
+                        }
+                    });
+                }
 
             } catch (error) {
                 console.error('Error initializing places map:', error);
@@ -6239,6 +6359,9 @@ ${result.valid ?
                 document.documentElement.setAttribute('data-theme', newTheme);
                 localStorage.setItem('theme', newTheme);
                 updateThemeIcon(newTheme);
+
+                // Update map tiles if map is initialized
+                updateMapTheme(newTheme);
 
                 // Show notification
                 showNotification(`Switched to ${newTheme} theme`, 'success', 2000);
@@ -8203,19 +8326,7 @@ No commit history found for this key.
                 }
             }
 
-            // Also check if we have timeline data available - if so, don't show git history
-            try {
-                if (connectedStorePath) {
-                    const timelineCheck = await loadTimelineData();
-                    if (timelineCheck.success && timelineCheck.timeline_data && Object.keys(timelineCheck.timeline_data).length > 0) {
-                        console.log('Timeline data exists, preferring timeline view over git history');
-                        await updateTimelineView(); // Force show timeline instead
-                        return;
-                    }
-                }
-            } catch (error) {
-                console.log('Timeline check failed, proceeding with git history');
-            }
+            // Removed automatic timeline view switching - let user control which view to see
 
             try {
                 const response = await fetch(`/api/commits?path=${encodeURIComponent(connectedStorePath)}&limit=15`);
@@ -8682,8 +8793,14 @@ Message: ${commit.message}`;
             const activityGrid = document.getElementById('activityGrid');
             const activityMonths = document.getElementById('activityMonths');
             const yearsList = document.getElementById('timelineYearsList');
+            const demoBanner = document.getElementById('timelineDemoBanner');
 
             if (!activityGrid || !activityMonths) return;
+
+            // Hide demo banner when showing real data
+            if (demoBanner) {
+                demoBanner.style.display = 'none';
+            }
 
             console.log('Rendering GitHub-style timeline grid with real data for year:', selectedYear);
 
@@ -8771,8 +8888,8 @@ Message: ${commit.message}`;
                     }
                 }
 
-                // Generate GitHub-style grid (53 weeks) for the selected year
-                const weeks = 53;
+                // Generate GitHub-style grid (65 weeks - about 15 months)
+                const weeks = 65;
                 const daysPerWeek = 7;
 
                 // Calculate start date based on selected year
@@ -9085,6 +9202,7 @@ Message: ${commit.message}`;
             const activityGrid = document.getElementById('activityGrid');
             const activityMonths = document.getElementById('activityMonths');
             const yearsList = document.getElementById('timelineYearsList');
+            const demoBanner = document.getElementById('timelineDemoBanner');
 
             // Clear existing content to show real timeline data
             if (activityGrid) {
@@ -9093,8 +9211,17 @@ Message: ${commit.message}`;
 
             // If connected to a store, show real timeline data in GitHub-style grid
             if (connectedStorePath) {
+                // Hide demo banner when connected
+                if (demoBanner) {
+                    demoBanner.style.display = 'none';
+                }
                 await renderGitHubStyleTimelineGrid();
                 return;
+            }
+
+            // Show demo banner when in demo mode
+            if (demoBanner) {
+                demoBanner.style.display = 'block';
             }
 
             // Set up year selector with current and past years
@@ -9132,8 +9259,12 @@ Message: ${commit.message}`;
                         // Hide panel
                         yearPanel.classList.remove('show');
                         yearButton.classList.remove('open');
-                        // Regenerate timeline
-                        regenerateTimelineForYear(parseInt(this.dataset.year));
+                        // Regenerate timeline - check if we're connected to a store
+                        if (connectedStorePath) {
+                            renderGitHubStyleTimelineGrid(parseInt(this.dataset.year));
+                        } else {
+                            regenerateTimelineForYear(parseInt(this.dataset.year));
+                        }
                     });
 
                     yearsList.appendChild(yearItem);
@@ -9155,8 +9286,8 @@ Message: ${commit.message}`;
                 });
             }
 
-            // Generate mock timeline data (53 weeks for fuller year coverage)
-            const weeks = 53;
+            // Generate mock timeline data (65 weeks - about 15 months)
+            const weeks = 65;
             const daysPerWeek = 7;
             const today = new Date();
             const startDate = new Date(today);
@@ -9346,8 +9477,8 @@ Message: ${commit.message}`;
             activityGrid.innerHTML = '';
             activityMonths.innerHTML = '';
 
-            // Generate timeline for the selected year
-            const weeks = 53;
+            // Generate timeline for the selected year (65 weeks - about 15 months)
+            const weeks = 65;
             const daysPerWeek = 7;
             const endDate = new Date(year, 11, 31); // December 31 of selected year
             const startDate = new Date(endDate);
