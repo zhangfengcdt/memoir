@@ -3367,13 +3367,61 @@
             } else if (cmd === '/summarize') {
                 const summaryType = parts.length > 1 ? parts[1].toLowerCase() : 'all';
                 await summarizeMemoryStore(summaryType);
+
+            // Developer & Debugging Commands
+            } else if (cmd === '/inspect') {
+                const path = parts.slice(1).join(' ');
+                if (!path) {
+                    showNotification('Usage: /inspect <path>\nExample: /inspect profile.professional.skills', 'error');
+                } else {
+                    await handleInspectCommand(path);
+                }
+            } else if (cmd === '/diff') {
+                if (parts.length < 4) {
+                    showNotification('Usage: /diff <path> <commit1> <commit2>\nExample: /diff profile.skills abc123 def456', 'error');
+                } else {
+                    const [, path, commit1, commit2] = parts;
+                    await handleDiffCommand(path, commit1, commit2);
+                }
+            } else if (cmd === '/test-scenario') {
+                const scenarioName = parts.slice(1).join(' ');
+                if (!scenarioName) {
+                    showNotification('Usage: /test-scenario <name>\nExample: /test-scenario user-onboarding', 'error');
+                } else {
+                    await handleTestScenarioCommand(scenarioName);
+                }
+            } else if (cmd === '/mock-data') {
+                await handleMockDataCommand();
+            } else if (cmd === '/benchmark') {
+                await handleBenchmarkCommand();
+            } else if (cmd === '/export') {
+                const format = parts.length > 1 ? parts[1].toLowerCase() : 'json';
+                await handleExportCommand(format);
+            } else if (cmd === '/compare-stores') {
+                if (parts.length < 3) {
+                    showNotification('Usage: /compare-stores <path1> <path2>\nExample: /compare-stores /tmp/store1 /tmp/store2', 'error');
+                } else {
+                    const [, path1, path2] = parts;
+                    await handleCompareStoresCommand(path1, path2);
+                }
+            } else if (cmd === '/trace') {
+                await handleTraceCommand();
+            } else if (cmd === '/replay') {
+                const sessionId = parts.slice(1).join(' ');
+                if (!sessionId) {
+                    showNotification('Usage: /replay <session>\nExample: /replay session-123', 'error');
+                } else {
+                    await handleReplayCommand(sessionId);
+                }
+            } else if (cmd === '/template') {
+                const templateType = parts.slice(1).join(' ');
+                if (!templateType) {
+                    showNotification('Usage: /template <type>\nAvailable types: langchain, langgraph, basic, advanced', 'error');
+                } else {
+                    await handleTemplateCommand(templateType);
+                }
             } else if (cmd === '/help') {
-                const workingCommands = availableCommands.filter(c => !c.placeholder).map(c => {
-                    const cmdStr = c.cmd + (c.args ? ' ' + c.args : '');
-                    return c.aliases ? `${cmdStr} (${c.aliases})` : cmdStr;
-                }).join('\n  ');
-                const comingSoonCommands = availableCommands.filter(c => c.placeholder).map(c => c.cmd).join(', ');
-                showNotification(`Available Commands:\n  ${workingCommands}\n\nComing Soon:\n  ${comingSoonCommands}\n\nNote: Use shorter aliases like /rem, /con, /del for faster typing!`, 'info', 10000);
+                showHelpModal();
             } else {
                 // Check if it's a placeholder command
                 const placeholderCmd = availableCommands.find(c => c.cmd === cmd && c.placeholder);
@@ -7935,7 +7983,18 @@ ${result.valid ?
             { cmd: '/summarize', args: '[type]', desc: 'Generate summary of memories (all, taxonomy, timeline, places)', aliases: '/sum' },
             { cmd: '/timeline', args: '[YYYY-MM-DD description]', desc: 'Show timeline or add timeline event', aliases: '/tl' },
             { cmd: '/location', args: '[place description]', desc: 'Show places or add location event', aliases: '/loc' },
-            { cmd: '/what-if', args: '<scenario>', desc: 'Simulate hypothetical memory scenarios (coming soon)', placeholder: true }
+
+            // Developer & Debugging Commands (Coming Soon)
+            { cmd: '/inspect', args: '<path>', desc: 'Deep dive into a specific memory path with full history', placeholder: true },
+            { cmd: '/diff', args: '<path> <commit1> <commit2>', desc: 'Compare memory content between commits', placeholder: true },
+            { cmd: '/test-scenario', args: '<name>', desc: 'Run predefined test scenarios against memory store', placeholder: true },
+            { cmd: '/mock-data', args: '', desc: 'Generate realistic test data for development', placeholder: true },
+            { cmd: '/benchmark', args: '', desc: 'Performance benchmarks for search, retrieval, classification', placeholder: true },
+            { cmd: '/export', args: '<format>', desc: 'Export memories to JSON/CSV for external analysis', placeholder: true },
+            { cmd: '/compare-stores', args: '<path1> <path2>', desc: 'Compare two memory stores', placeholder: true },
+            { cmd: '/trace', args: '', desc: 'Enable memory access tracing for debugging agent behavior', placeholder: true },
+            { cmd: '/replay', args: '<session>', desc: 'Replay agent interactions with memory', placeholder: true },
+            { cmd: '/template', args: '<type>', desc: 'Generate prompt templates for common integration patterns', placeholder: true }
         ];
 
         let selectedCommandIndex = -1;
@@ -10149,6 +10208,454 @@ Message: ${commit.message}`;
 
             // Initialize view switching
             initializeViewSwitching();
+        }
+
+        // Help Modal Function
+        function showHelpModal() {
+            const helpContent = generateHelpContent();
+
+            const modal = document.createElement('div');
+            modal.className = 'help-modal';
+            modal.innerHTML = `
+                <div class="help-modal-content">
+                    <div class="help-modal-header">
+                        <h2>🛠️ Git for AI Memory - Command Reference</h2>
+                        <button class="help-modal-close">&times;</button>
+                    </div>
+                    <div class="help-modal-body">
+                        ${helpContent}
+                    </div>
+                    <div class="help-modal-footer">
+                        <div class="help-footer-info">
+                            <span class="help-version">Memoir v0.1.0 • Git for AI Memory</span>
+                        </div>
+                        <button class="help-button primary" onclick="closeHelpModal()">Close</button>
+                    </div>
+                </div>
+            `;
+
+            // Add help modal CSS if not exists
+            if (!document.getElementById('help-modal-styles')) {
+                const styles = document.createElement('style');
+                styles.id = 'help-modal-styles';
+                styles.textContent = `
+                    .help-modal {
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        background: rgba(0, 0, 0, 0.8);
+                        backdrop-filter: blur(10px);
+                        z-index: 10002;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        animation: fadeIn 0.3s ease-out;
+                    }
+
+                    .help-modal-content {
+                        background: var(--bg-primary);
+                        border: 1px solid var(--border-light);
+                        border-radius: 20px;
+                        max-width: 90%;
+                        max-height: 85%;
+                        width: 900px;
+                        overflow: hidden;
+                        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+                        animation: slideIn 0.3s ease-out;
+                        display: flex;
+                        flex-direction: column;
+                    }
+
+                    .help-modal-header {
+                        padding: 24px 30px 20px;
+                        border-bottom: 1px solid var(--border-light);
+                        background: var(--bg-glass);
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        flex-shrink: 0;
+                    }
+
+                    .help-modal-header h2 {
+                        margin: 0;
+                        color: var(--text-primary);
+                        font-size: 1.4em;
+                        font-weight: 600;
+                        display: flex;
+                        align-items: center;
+                        gap: 12px;
+                    }
+
+                    .help-modal-close {
+                        background: none;
+                        border: none;
+                        color: var(--text-secondary);
+                        font-size: 24px;
+                        cursor: pointer;
+                        padding: 8px;
+                        border-radius: 8px;
+                        transition: all 0.2s ease;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        width: 40px;
+                        height: 40px;
+                    }
+
+                    .help-modal-close:hover {
+                        background: var(--bg-glass-light);
+                        color: var(--text-primary);
+                        transform: scale(1.1);
+                    }
+
+                    .help-modal-body {
+                        padding: 30px;
+                        overflow-y: auto;
+                        flex-grow: 1;
+                        max-height: calc(85vh - 180px);
+                    }
+
+                    .help-modal-footer {
+                        padding: 20px 30px;
+                        border-top: 1px solid var(--border-light);
+                        background: var(--bg-glass);
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        flex-shrink: 0;
+                    }
+
+                    .help-footer-info {
+                        display: flex;
+                        align-items: center;
+                        gap: 16px;
+                    }
+
+                    .help-version {
+                        color: var(--text-muted);
+                        font-size: 13px;
+                        font-weight: 500;
+                    }
+
+                    .help-button {
+                        padding: 10px 24px;
+                        border: none;
+                        border-radius: 10px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        font-size: 14px;
+                        transition: all 0.2s ease;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                    }
+
+                    .help-button.primary {
+                        background: var(--accent-primary);
+                        color: white;
+                    }
+
+                    .help-button.primary:hover {
+                        background: var(--accent-secondary);
+                        transform: translateY(-1px);
+                        box-shadow: 0 4px 12px rgba(168, 85, 247, 0.3);
+                    }
+
+                    .help-section {
+                        margin-bottom: 32px;
+                    }
+
+                    .help-section h3 {
+                        color: var(--text-primary);
+                        font-size: 1.2em;
+                        font-weight: 600;
+                        margin-bottom: 16px;
+                        padding-bottom: 8px;
+                        border-bottom: 2px solid var(--accent-primary);
+                        display: flex;
+                        align-items: center;
+                        gap: 10px;
+                    }
+
+                    .help-command-grid {
+                        display: grid;
+                        grid-template-columns: 1fr 1fr;
+                        gap: 16px;
+                        margin-bottom: 20px;
+                    }
+
+                    .help-command-item {
+                        background: var(--bg-glass);
+                        border: 1px solid var(--border-light);
+                        border-radius: 12px;
+                        padding: 16px;
+                        transition: all 0.2s ease;
+                    }
+
+                    .help-command-item:hover {
+                        background: var(--bg-glass-light);
+                        transform: translateY(-2px);
+                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                    }
+
+                    .help-command-syntax {
+                        font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+                        font-size: 14px;
+                        font-weight: 600;
+                        color: var(--accent-primary);
+                        margin-bottom: 6px;
+                    }
+
+                    .help-command-desc {
+                        font-size: 13px;
+                        color: var(--text-secondary);
+                        line-height: 1.4;
+                        margin-bottom: 8px;
+                    }
+
+                    .help-command-aliases {
+                        font-size: 11px;
+                        color: var(--text-muted);
+                        font-style: italic;
+                    }
+
+                    .help-coming-soon-badge {
+                        background: linear-gradient(135deg, #fbbf24, #f59e0b);
+                        color: #ffffff;
+                        font-size: 10px;
+                        font-weight: 700;
+                        padding: 3px 8px;
+                        border-radius: 12px;
+                        margin-left: 8px;
+                        box-shadow: 0 2px 4px rgba(251, 191, 36, 0.3);
+                        animation: pulse 2s infinite;
+                    }
+
+                    .help-command-placeholder {
+                        opacity: 0.75;
+                        border: 1px dashed var(--border-light);
+                    }
+
+                    .help-command-placeholder:hover {
+                        opacity: 0.9;
+                        border-style: solid;
+                    }
+
+                    .help-placeholder-indicator {
+                        background: linear-gradient(135deg, #fbbf24, #f59e0b);
+                        color: #ffffff;
+                        font-size: 9px;
+                        font-weight: 700;
+                        padding: 2px 6px;
+                        border-radius: 8px;
+                        margin-left: 8px;
+                        box-shadow: 0 1px 3px rgba(251, 191, 36, 0.4);
+                        animation: glow 1.5s ease-in-out infinite alternate;
+                    }
+
+                    .help-placeholder-note {
+                        background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(245, 158, 11, 0.1));
+                        border: 1px solid rgba(251, 191, 36, 0.3);
+                        border-radius: 12px;
+                        padding: 16px;
+                        margin-top: 20px;
+                    }
+
+                    .help-placeholder-note p {
+                        color: var(--text-secondary);
+                        margin: 0;
+                        font-size: 13px;
+                        line-height: 1.5;
+                    }
+
+                    .help-api-docs {
+                        background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(147, 51, 234, 0.1));
+                        border: 1px solid rgba(59, 130, 246, 0.3);
+                        border-radius: 12px;
+                        padding: 16px;
+                        margin-bottom: 20px;
+                    }
+
+                    .help-api-docs h4 {
+                        color: var(--accent-secondary);
+                        margin-bottom: 10px;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                    }
+
+                    .help-api-link {
+                        color: var(--accent-secondary);
+                        text-decoration: none;
+                        font-weight: 600;
+                        border-bottom: 1px solid transparent;
+                        transition: all 0.2s ease;
+                    }
+
+                    .help-api-link:hover {
+                        border-bottom-color: var(--accent-secondary);
+                        transform: translateY(-1px);
+                    }
+
+                    @keyframes pulse {
+                        0%, 100% { opacity: 1; }
+                        50% { opacity: 0.8; }
+                    }
+
+                    @keyframes glow {
+                        from { box-shadow: 0 1px 3px rgba(251, 191, 36, 0.4); }
+                        to { box-shadow: 0 2px 8px rgba(251, 191, 36, 0.6); }
+                    }
+
+                    .help-info-box {
+                        background: var(--bg-glass);
+                        border: 1px solid var(--border-light);
+                        border-radius: 12px;
+                        padding: 20px;
+                        margin-bottom: 24px;
+                    }
+
+                    .help-info-box h4 {
+                        color: var(--accent-primary);
+                        font-size: 1.1em;
+                        font-weight: 600;
+                        margin-bottom: 12px;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                    }
+
+                    .help-info-box p {
+                        color: var(--text-secondary);
+                        font-size: 14px;
+                        line-height: 1.5;
+                        margin-bottom: 8px;
+                    }
+
+                    @media (max-width: 768px) {
+                        .help-command-grid {
+                            grid-template-columns: 1fr;
+                        }
+
+                        .help-modal-content {
+                            max-width: 95%;
+                            width: auto;
+                        }
+                    }
+                `;
+                document.head.appendChild(styles);
+            }
+
+            document.body.appendChild(modal);
+
+            // Add event listeners
+            const closeBtn = modal.querySelector('.help-modal-close');
+            closeBtn.onclick = () => closeHelpModal();
+
+            // Close on background click
+            modal.onclick = (e) => {
+                if (e.target === modal) {
+                    closeHelpModal();
+                }
+            };
+
+            // Store reference for cleanup
+            window.currentHelpModal = modal;
+        }
+
+        function generateHelpContent() {
+            const coreCommands = availableCommands.filter(c => ['connect', 'new', 'remember', 'forget', 'refresh'].some(cmd => c.cmd.includes(cmd)));
+            const gitCommands = availableCommands.filter(c => ['branch', 'checkout', 'merge', 'time-travel', 'commits', 'blame'].some(cmd => c.cmd.includes(cmd)));
+            const viewCommands = availableCommands.filter(c => ['timeline', 'location', 'summarize', 'proof', 'verify'].some(cmd => c.cmd.includes(cmd)));
+            const devCommands = availableCommands.filter(c => ['inspect', 'diff', 'test-scenario', 'mock-data', 'benchmark', 'export', 'compare-stores', 'trace', 'replay', 'template'].some(cmd => c.cmd.includes(cmd)));
+
+            return `
+                <div class="help-api-docs">
+                    <h4>📚 API Documentation</h4>
+                    <p>For comprehensive API documentation, integration guides, and developer resources, visit: <a href="https://memoir-memoir.readthedocs-hosted.com/en/latest/" target="_blank" rel="noopener noreferrer" class="help-api-link">memoir-memoir.readthedocs-hosted.com</a></p>
+                </div>
+
+                <div class="help-info-box">
+                    <h4>💡 Getting Started</h4>
+                    <p>Memoir brings Git-like version control to AI memory systems. Connect to a memory store to start exploring your data with cryptographic integrity and full history tracking.</p>
+                    <p><strong>Quick Start:</strong> Use <code>/connect /path/to/store</code> or <code>/new /tmp/my_store</code> to begin.</p>
+                </div>
+
+                <div class="help-section">
+                    <h3>🔗 Core Operations</h3>
+                    <div class="help-command-grid">
+                        ${coreCommands.map(cmd => `
+                            <div class="help-command-item">
+                                <div class="help-command-syntax">${cmd.cmd}${cmd.args ? ' ' + cmd.args : ''}</div>
+                                <div class="help-command-desc">${cmd.desc}</div>
+                                ${cmd.aliases ? `<div class="help-command-aliases">Aliases: ${cmd.aliases}</div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div class="help-section">
+                    <h3>🌿 Git-like Version Control</h3>
+                    <div class="help-command-grid">
+                        ${gitCommands.map(cmd => `
+                            <div class="help-command-item">
+                                <div class="help-command-syntax">${cmd.cmd}${cmd.args ? ' ' + cmd.args : ''}</div>
+                                <div class="help-command-desc">${cmd.desc}</div>
+                                ${cmd.aliases ? `<div class="help-command-aliases">Aliases: ${cmd.aliases}</div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div class="help-section">
+                    <h3>📊 Data Views & Analysis</h3>
+                    <div class="help-command-grid">
+                        ${viewCommands.map(cmd => `
+                            <div class="help-command-item">
+                                <div class="help-command-syntax">${cmd.cmd}${cmd.args ? ' ' + cmd.args : ''}</div>
+                                <div class="help-command-desc">${cmd.desc}</div>
+                                ${cmd.aliases ? `<div class="help-command-aliases">Aliases: ${cmd.aliases}</div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div class="help-section">
+                    <h3>🛠️ Developer & Debugging Tools <span class="help-coming-soon-badge">Supported Soon</span></h3>
+                    <div class="help-command-grid">
+                        ${devCommands.map(cmd => `
+                            <div class="help-command-item ${cmd.placeholder ? 'help-command-placeholder' : ''}">
+                                <div class="help-command-syntax">
+                                    ${cmd.cmd}${cmd.args ? ' ' + cmd.args : ''}
+                                    ${cmd.placeholder ? '<span class="help-placeholder-indicator">Soon</span>' : ''}
+                                </div>
+                                <div class="help-command-desc">${cmd.desc}</div>
+                                ${cmd.aliases ? `<div class="help-command-aliases">Aliases: ${cmd.aliases}</div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="help-placeholder-note">
+                        <p><strong>🚀 Coming Soon:</strong> Advanced developer tools are in active development. These commands will provide powerful debugging and analysis capabilities for AI agent development.</p>
+                    </div>
+                </div>
+
+                <div class="help-info-box">
+                    <h4>⚡ Pro Tips</h4>
+                    <p>• Use aliases for faster typing: <code>/con</code> instead of <code>/connect</code>, <code>/rem</code> for <code>/remember</code></p>
+                    <p>• Commands support tab completion and history - use ↑/↓ arrow keys to browse previous commands</p>
+                    <p>• All memory operations are cryptographically secured with SHA-256 hashing</p>
+                    <p>• Use <code>/demo</code> to explore sample data, <code>/repo</code> for GitHub repository information</p>
+                </div>
+            `;
+        }
+
+        function closeHelpModal() {
+            if (window.currentHelpModal && window.currentHelpModal.parentNode) {
+                document.body.removeChild(window.currentHelpModal);
+                window.currentHelpModal = null;
+            }
         }
 
         // Run initialization when page loads
