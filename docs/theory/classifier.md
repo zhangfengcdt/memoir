@@ -172,10 +172,10 @@ Captures geographic references:
 ```python
 HIGH confidence (>0.8):
   → Direct classification to suggested path
-  
+
 MEDIUM confidence (0.6-0.8):
   → Classify but consider alternatives
-  
+
 LOW confidence (<0.6):
   → Trigger expansion decision:
      - EXPAND: Create new subcategories
@@ -327,7 +327,7 @@ results = classifier.batch_classify(memories, shared_context)
    - Use SemanticClassifier for initial fast classification
    - Fall back to IntelligentClassifier for low-confidence cases
 
-2. **Embedding-Based Pre-filtering**: 
+2. **Embedding-Based Pre-filtering**:
    - Use embeddings to narrow taxonomy search space
    - Reduce LLM prompt size for large taxonomies
 

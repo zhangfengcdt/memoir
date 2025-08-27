@@ -472,13 +472,13 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                     try:
                         # Get current date for timeline extraction context
                         from datetime import datetime
+
                         current_date = datetime.now().strftime("%Y-%m-%d")
-                        
+
                         # Classify with metadata including session date for timeline extraction
                         result = loop.run_until_complete(
                             classifier.classify_input(
-                                content,
-                                metadata={"session_date": current_date}
+                                content, metadata={"session_date": current_date}
                             )
                         )
                         key = result.path if result.path else "context.current.session"
@@ -486,10 +486,10 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                         reasoning = (
                             f"Classified as {key} (confidence: {confidence:.2f})"
                         )
-                        
+
                         # Extract timeline events if any were detected
                         timeline_events = result.timeline_events
-                        
+
                     finally:
                         loop.close()
                 except Exception as e:
@@ -535,14 +535,17 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 try:
                     # Initialize timeline memento
                     timeline_memento = TimelineMemento(store)
-                    
+
                     # Apply timeline events asynchronously
                     import asyncio
+
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
                     try:
                         loop.run_until_complete(
-                            timeline_memento.apply_timeline_events(timeline_events, original_content=content)
+                            timeline_memento.apply_timeline_events(
+                                timeline_events, original_content=content
+                            )
                         )
                         timeline_applied = True
                     finally:
@@ -1088,7 +1091,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
         super().end_headers()
 
-
     def handle_timeline_get_api(self, parsed_path):
         """Handle GET /api/timeline to retrieve timeline data."""
         try:
@@ -1118,42 +1120,54 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
             # Get timeline summary asynchronously
             import asyncio
+
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
                 timeline_summary = loop.run_until_complete(
                     timeline_memento.get_timeline_summary(
-                        start_date=start_date,
-                        end_date=end_date
+                        start_date=start_date, end_date=end_date
                     )
                 )
-                
+
                 # Also get raw timeline data for structured display
                 timeline_memories = loop.run_until_complete(
                     store.asearch("memory:general", "timeline.")
                 )
-                
+
                 print(f"DEBUG: Found {len(timeline_memories)} timeline memories")
-                
+
                 # Process timeline memories into structured format
                 timeline_data = {}
                 for path, data in timeline_memories:
                     print(f"DEBUG: Processing timeline memory - path: {path}")
                     print(f"DEBUG: Data type: {type(data)}")
-                    print(f"DEBUG: Raw data structure: {json.dumps(data, indent=2, default=str)[:1000]}...")
-                    
+                    print(
+                        f"DEBUG: Raw data structure: {json.dumps(data, indent=2, default=str)[:1000]}..."
+                    )
+
                     if "." in path:
                         date_str = path.split(".")[-1]
                         if len(date_str) == 8:  # YYYYMMDD format
                             content = self._extract_timeline_content(data, date_str)
-                            
-                            print(f"DEBUG: Final extracted content for {date_str}: '{content}'")
-                            
-                            if content and content.strip() and not content.startswith("Timeline event on"):
+
+                            print(
+                                f"DEBUG: Final extracted content for {date_str}: '{content}'"
+                            )
+
+                            if (
+                                content
+                                and content.strip()
+                                and not content.startswith("Timeline event on")
+                            ):
                                 timeline_data[date_str] = content.strip()
-                                print(f"DEBUG: Successfully stored content for {date_str}")
+                                print(
+                                    f"DEBUG: Successfully stored content for {date_str}"
+                                )
                             else:
-                                print(f"DEBUG: Content extraction failed or returned summary for {date_str}, content: '{content}'")
+                                print(
+                                    f"DEBUG: Content extraction failed or returned summary for {date_str}, content: '{content}'"
+                                )
                                 # Let's add a more obvious fallback to see if this is being reached
                                 fallback_text = f"FALLBACK EVENT on {date_str[4:6]}/{date_str[6:8]}/{date_str[:4]}"
                                 timeline_data[date_str] = fallback_text
@@ -1166,19 +1180,33 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                                         if depth > 3:  # Prevent infinite recursion
                                             return ""
                                         for key, value in d.items():
-                                            if isinstance(value, str) and len(value) > 10 and key in ['raw_text', 'content', 'description', 'timeline_content']:
+                                            if (
+                                                isinstance(value, str)
+                                                and len(value) > 10
+                                                and key
+                                                in [
+                                                    "raw_text",
+                                                    "content",
+                                                    "description",
+                                                    "timeline_content",
+                                                ]
+                                            ):
                                                 return value
                                             elif isinstance(value, dict):
-                                                result = extract_text_from_dict(value, depth + 1)
+                                                result = extract_text_from_dict(
+                                                    value, depth + 1
+                                                )
                                                 if result:
                                                     return result
                                         return ""
-                                    
+
                                     fallback_content = extract_text_from_dict(data)
-                                
+
                                 if fallback_content:
                                     timeline_data[date_str] = fallback_content.strip()
-                                    print(f"DEBUG: Found fallback content for {date_str}: '{fallback_content[:50]}...'")
+                                    print(
+                                        f"DEBUG: Found fallback content for {date_str}: '{fallback_content[:50]}...'"
+                                    )
                                 else:
                                     # Format the date for display
                                     try:
@@ -1186,11 +1214,15 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                                         month = date_str[4:6]
                                         day = date_str[6:8]
                                         formatted_date = f"{month}/{day}/{year}"
-                                    except:
+                                    except (ValueError, IndexError):
                                         formatted_date = date_str
-                                    timeline_data[date_str] = f"Event on {formatted_date}"
-                                    print(f"DEBUG: Using generic event description for {date_str}")
-                
+                                    timeline_data[date_str] = (
+                                        f"Event on {formatted_date}"
+                                    )
+                                    print(
+                                        f"DEBUG: Using generic event description for {date_str}"
+                                    )
+
             finally:
                 loop.close()
 
@@ -1215,82 +1247,110 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
     def _extract_timeline_content(self, data, date_str):
         """Extract timeline content from various data structure formats."""
         print(f"DEBUG: _extract_timeline_content called for {date_str}")
-        
+
         if not data:
             return ""
-        
+
         # Try different extraction strategies
         content = ""
-        
+
         if isinstance(data, dict):
             print(f"DEBUG: Data is dict with keys: {list(data.keys())}")
-            
+
             # NEW Strategy: Handle the memory store format with "memories" array
-            if "memories" in data and isinstance(data["memories"], list) and len(data["memories"]) > 0:
+            if (
+                "memories" in data
+                and isinstance(data["memories"], list)
+                and len(data["memories"]) > 0
+            ):
                 # Get the first (and usually only) memory from the array
                 memory_item = data["memories"][0]
                 print(f"DEBUG: Found memory item with keys: {list(memory_item.keys())}")
-                
-                if "content" in memory_item and isinstance(memory_item["content"], dict):
+
+                if "content" in memory_item and isinstance(
+                    memory_item["content"], dict
+                ):
                     content_obj = memory_item["content"]
-                    print(f"DEBUG: Found memory content with keys: {list(content_obj.keys())}")
-                    
+                    print(
+                        f"DEBUG: Found memory content with keys: {list(content_obj.keys())}"
+                    )
+
                     # Priority 1: raw_text (this contains the actual description)
                     content = content_obj.get("raw_text", "")
-                    if content and content.strip() and not content.startswith("Timeline event on"):
+                    if (
+                        content
+                        and content.strip()
+                        and not content.startswith("Timeline event on")
+                    ):
                         print(f"DEBUG: Found raw_text in memory: {content}")
                         return content.strip()
-                    
+
                     # Priority 2: structured_data -> original_content
                     if "structured_data" in content_obj:
                         structured = content_obj["structured_data"]
                         if isinstance(structured, dict):
                             content = structured.get("original_content", "")
                             if content and content.strip():
-                                print(f"DEBUG: Found original_content in structured_data: {content}")
+                                print(
+                                    f"DEBUG: Found original_content in structured_data: {content}"
+                                )
                                 return content.strip()
-                            
+
                             content = structured.get("timeline_content", "")
                             if content and content.strip():
-                                print(f"DEBUG: Found timeline_content in structured_data: {content}")
+                                print(
+                                    f"DEBUG: Found timeline_content in structured_data: {content}"
+                                )
                                 return content.strip()
-            
+
             # OLD Strategy 1: Check if it's the old format with nested content
             if "content" in data and isinstance(data["content"], dict):
                 timeline_data_obj = data["content"]
-                print(f"DEBUG: Found content object with keys: {list(timeline_data_obj.keys())}")
-                
+                print(
+                    f"DEBUG: Found content object with keys: {list(timeline_data_obj.keys())}"
+                )
+
                 # Priority 1: original_content from structured_data
                 if "structured_data" in timeline_data_obj:
                     structured = timeline_data_obj["structured_data"]
                     if isinstance(structured, dict):
                         content = structured.get("original_content", "")
                         if content:
-                            print(f"DEBUG: Found original_content in structured_data: {content}")
+                            print(
+                                f"DEBUG: Found original_content in structured_data: {content}"
+                            )
                             return content
-                        
+
                         content = structured.get("timeline_content", "")
                         if content:
-                            print(f"DEBUG: Found timeline_content in structured_data: {content}")
+                            print(
+                                f"DEBUG: Found timeline_content in structured_data: {content}"
+                            )
                             return content
-                
+
                 # Priority 2: raw_text
                 content = timeline_data_obj.get("raw_text", "")
                 if content:
                     print(f"DEBUG: Found raw_text: {content}")
                     return content
-            
+
             # Strategy 3: Direct fields
-            for field in ["raw_text", "timeline_content", "original_content", "summary", "description"]:
-                if field in data and data[field]:
+            for field in [
+                "raw_text",
+                "timeline_content",
+                "original_content",
+                "summary",
+                "description",
+            ]:
+                if data.get(field):
                     content = str(data[field])
                     print(f"DEBUG: Found content in direct field {field}: {content}")
                     return content
-        
+
         elif isinstance(data, str):
             print(f"DEBUG: Data is string: {data}")
             return data
-        
+
         # Last resort: convert to string and hope for the best
         content = str(data) if data else ""
         print(f"DEBUG: Last resort string conversion: {content}")
@@ -1326,7 +1386,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
             # Validate date format
             if len(date_str) != 8 or not date_str.isdigit():
-                self.send_error(400, f"Invalid date format. Expected YYYYMMDD, got: {date_str}")
+                self.send_error(
+                    400, f"Invalid date format. Expected YYYYMMDD, got: {date_str}"
+                )
                 return
 
             # Initialize store
@@ -1341,13 +1403,11 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             timeline_memento = TimelineMemento(store)
 
             # Create timeline event
-            timeline_event = {
-                "date": date_str,
-                "description": description
-            }
+            timeline_event = {"date": date_str, "description": description}
 
             # Apply timeline event asynchronously
             import asyncio
+
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
@@ -1356,14 +1416,16 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                     timeline_memento.apply_timeline_events([timeline_event])
                 )
                 success = True
-                print(f"DEBUG: Timeline event added successfully")
-                
+                print("DEBUG: Timeline event added successfully")
+
                 # Debug: Check what was stored
                 test_search = loop.run_until_complete(
                     store.asearch("memory:general", f"timeline.{date_str}")
                 )
-                print(f"DEBUG: Immediate search for timeline.{date_str} returned: {test_search}")
-                
+                print(
+                    f"DEBUG: Immediate search for timeline.{date_str} returned: {test_search}"
+                )
+
             finally:
                 loop.close()
 
@@ -1409,6 +1471,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
             # Get all timeline-related data for debugging
             import asyncio
+
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
@@ -1416,21 +1479,32 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 timeline_memories = loop.run_until_complete(
                     store.asearch("memory:general", "timeline.")
                 )
-                
+
                 # Also get all data to see what else is stored
                 all_memories = loop.run_until_complete(
                     store.asearch("memory:general", "")
                 )
-                
+
             finally:
                 loop.close()
 
             result = {
                 "success": True,
                 "timeline_memories_count": len(timeline_memories),
-                "timeline_memories": [{"path": path, "data": data} for path, data in timeline_memories],
+                "timeline_memories": [
+                    {"path": path, "data": data} for path, data in timeline_memories
+                ],
                 "all_memories_count": len(all_memories),
-                "all_memories": [{"path": path, "data_type": str(type(data)), "data": str(data)[:200] + "..." if len(str(data)) > 200 else str(data)} for path, data in all_memories]
+                "all_memories": [
+                    {
+                        "path": path,
+                        "data_type": str(type(data)),
+                        "data": str(data)[:200] + "..."
+                        if len(str(data)) > 200
+                        else str(data),
+                    }
+                    for path, data in all_memories
+                ],
             }
 
             # Send response

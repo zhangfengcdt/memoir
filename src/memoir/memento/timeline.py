@@ -20,7 +20,10 @@ class TimelineMemento:
         self.memory_store = memory_store
 
     async def apply_timeline_events(
-        self, timeline_events: list[dict[str, str]], metadata: Optional[dict] = None, original_content: Optional[str] = None
+        self,
+        timeline_events: list[dict[str, str]],
+        metadata: Optional[dict] = None,
+        original_content: Optional[str] = None,
     ) -> None:
         """
         Apply timeline events to the memory store.
@@ -63,7 +66,8 @@ class TimelineMemento:
             # Store the timeline event as a memory
             memory_data = {
                 "raw_text": merged_content,
-                "original_content": original_content or merged_content,  # Store original input if available
+                "original_content": original_content
+                or merged_content,  # Store original input if available
                 "summary": f"Timeline event on {self._format_date_display(date_str)}",
                 "structured_data": {
                     "timeline_date": date_str,
@@ -73,7 +77,7 @@ class TimelineMemento:
                 },
                 "memory_type": "timeline_event",
             }
-            
+
             logger.info(f"DEBUG: Storing timeline memory_data: {memory_data}")
 
             # Store directly using the memory store with correct signature (async)

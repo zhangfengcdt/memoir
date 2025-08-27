@@ -4444,7 +4444,7 @@ ${result.valid ?
 
         async function showTimeline() {
             console.log('DEBUG: showTimeline called');
-            
+
             if (!connectedStorePath) {
                 showNotification('Not connected to any store. Use /connect <path> first', 'error');
                 return;
@@ -4455,7 +4455,7 @@ ${result.valid ?
             try {
                 const response = await fetch(`/api/timeline?path=${encodeURIComponent(connectedStorePath)}`);
                 const result = await response.json();
-                
+
                 console.log('DEBUG: Timeline API response:', result);
 
                 if (result.success) {
@@ -4491,7 +4491,7 @@ ${result.valid ?
 
         async function addTimelineEvent(args) {
             console.log('DEBUG: addTimelineEvent called with args:', args);
-            
+
             if (!connectedStorePath) {
                 showNotification('Not connected to any store. Use /connect <path> first', 'error');
                 return;
@@ -4565,7 +4565,7 @@ ${result.valid ?
             }
 
             let html = '<div class="timeline-container">';
-            
+
             // Add summary if available
             if (summary && summary !== 'No timeline events available.') {
                 html += '<div class="timeline-summary">';
@@ -4577,23 +4577,23 @@ ${result.valid ?
             // Add structured timeline data
             html += '<div class="timeline-events">';
             html += '<h3>Timeline Events</h3>';
-            
+
             // Sort dates in reverse chronological order
             const sortedDates = Object.keys(timelineData).sort().reverse();
-            
+
             for (const dateStr of sortedDates) {
                 const events = timelineData[dateStr];
                 const formattedDate = formatDisplayDate(dateStr);
-                
+
                 html += `<div class="timeline-entry">`;
                 html += `<div class="timeline-date">${formattedDate}</div>`;
                 html += `<div class="timeline-content">${events}</div>`;
                 html += `</div>`;
             }
-            
+
             html += '</div>';
             html += '</div>';
-            
+
             return html;
         }
 
@@ -4646,7 +4646,7 @@ ${result.valid ?
         function renderTimelineGrid(timelineData) {
             console.log('renderTimelineGrid called with data:', timelineData);
             console.log('Timeline data keys:', Object.keys(timelineData || {}));
-            
+
             const gitTreeElement = document.getElementById('gitTree');
             if (!gitTreeElement) {
                 console.error('gitTree element not found!');
@@ -4671,7 +4671,7 @@ ${result.valid ?
             // Create timeline grid container
             const timelineContainer = document.createElement('div');
             timelineContainer.className = 'timeline-grid-container';
-            
+
             console.log('Created timeline container with class:', timelineContainer.className);
 
             if (!timelineData || Object.keys(timelineData).length === 0) {
@@ -4690,12 +4690,12 @@ ${result.valid ?
 
             // Group events by month for better organization
             const eventsByMonth = groupEventsByMonth(timelineData);
-            
+
             // Create timeline grid
             for (const [monthKey, events] of Object.entries(eventsByMonth)) {
                 const monthContainer = document.createElement('div');
                 monthContainer.className = 'timeline-month';
-                
+
                 // Month header with inline styling
                 const monthHeader = document.createElement('div');
                 monthHeader.className = 'timeline-month-header';
@@ -4716,7 +4716,7 @@ ${result.valid ?
                 monthGrid.style.gap = '4px';
                 monthGrid.style.maxWidth = '280px';
                 monthGrid.style.marginBottom = '32px';
-                
+
                 // Create calendar grid for the month
                 const daysInMonth = getDaysInMonth(monthKey);
                 for (let day = 1; day <= daysInMonth; day++) {
@@ -4724,7 +4724,7 @@ ${result.valid ?
                     const dayElement = document.createElement('div');
                     dayElement.className = 'timeline-day';
                     dayElement.dataset.date = dayStr;
-                    
+
                     // Base styling for all days
                     dayElement.style.position = 'relative';
                     dayElement.style.aspectRatio = '1';
@@ -4737,7 +4737,7 @@ ${result.valid ?
                     dayElement.style.cursor = 'pointer';
                     dayElement.style.transition = 'all 0.2s ease';
                     dayElement.style.color = '#e2e8f0';
-                    
+
                     const dayNumber = document.createElement('div');
                     dayNumber.className = 'timeline-day-number';
                     dayNumber.textContent = day;
@@ -4748,14 +4748,14 @@ ${result.valid ?
                     if (events[dayStr]) {
                         dayElement.classList.add('has-event');
                         dayElement.title = `${formatDisplayDate(dayStr)}: ${events[dayStr]}`;
-                        
+
                         // Add inline styling to ensure visibility
                         dayElement.style.background = '#9333ea';
                         dayElement.style.color = 'white';
                         dayElement.style.fontWeight = '600';
                         dayElement.style.border = '2px solid #7c3aed';
                         dayElement.style.boxShadow = '0 2px 8px rgba(147, 51, 234, 0.3)';
-                        
+
                         // Add event indicator
                         const eventDot = document.createElement('div');
                         eventDot.className = 'timeline-event-dot';
@@ -4782,7 +4782,7 @@ ${result.valid ?
             gitTreeElement.appendChild(timelineContainer);
             console.log('Timeline container appended to gitTree element');
             console.log('Final gitTree innerHTML length:', gitTreeElement.innerHTML.length);
-            
+
             // Mark this element as showing timeline to prevent overwrites
             gitTreeElement.setAttribute('data-showing', 'timeline');
             console.log('Marked gitTree as showing timeline');
@@ -4790,7 +4790,7 @@ ${result.valid ?
 
         function groupEventsByMonth(timelineData) {
             const eventsByMonth = {};
-            
+
             for (const [dateStr, content] of Object.entries(timelineData)) {
                 if (dateStr.length === 8) {
                     const monthKey = dateStr.substring(0, 6); // YYYYMM
@@ -4832,7 +4832,7 @@ ${result.valid ?
 
         function showEventDetail(dateStr, content) {
             const formattedDate = formatDisplayDate(dateStr);
-            
+
             // Update the Memory Activity panel instead of showing a modal
             const timelineDetailsContent = document.getElementById('timelineDetailsContent');
             if (timelineDetailsContent) {
@@ -4853,7 +4853,7 @@ ${result.valid ?
                         </small>
                     </div>
                 `;
-                
+
                 // Update the timeline details header
                 const timelineDetailsHeader = document.querySelector('.timeline-details-header');
                 if (timelineDetailsHeader) {
@@ -4880,12 +4880,12 @@ ${result.valid ?
                 console.log('gitTree children count:', gitTreeElement.children.length);
                 console.log('Timeline container present:', !!gitTreeElement.querySelector('.timeline-grid-container'));
                 console.log('Commit nodes present:', gitTreeElement.querySelectorAll('.commit-node').length);
-                
+
                 // Show classes on direct children
                 Array.from(gitTreeElement.children).forEach((child, i) => {
                     console.log(`Child ${i}:`, child.tagName, child.className, child.id || '(no id)');
                 });
-                
+
                 showNotification(`DOM Inspection complete - check console`, 'info');
             } else {
                 console.log('gitTree element not found!');
@@ -4900,21 +4900,21 @@ ${result.valid ?
             }
 
             console.log('=== FORCING TIMELINE VIEW ===');
-            
+
             // Force clear any existing content
             const gitTreeElement = document.querySelector('.git-tree');
             if (gitTreeElement) {
                 console.log('Clearing gitTree element completely');
                 gitTreeElement.innerHTML = '';
-                
+
                 // Force reload timeline data
                 const timelineResult = await loadTimelineData();
                 console.log('Forced timeline data load result:', timelineResult);
-                
+
                 if (timelineResult.success) {
                     console.log('Force rendering timeline with data:', timelineResult.timeline_data);
                     renderTimelineGrid(timelineResult.timeline_data);
-                    
+
                     // Double-check it was added
                     setTimeout(() => {
                         const timelineContainer = gitTreeElement.querySelector('.timeline-grid-container');
@@ -4923,7 +4923,7 @@ ${result.valid ?
                             console.log('Timeline container content preview:', timelineContainer.innerHTML.substring(0, 200));
                         }
                     }, 100);
-                    
+
                     showNotification('Timeline view forced', 'success');
                 } else {
                     showNotification('Failed to load timeline data', 'error');
@@ -4935,7 +4935,7 @@ ${result.valid ?
 
         function checkTimelineStyles() {
             console.log('=== CSS STYLES CHECK ===');
-            
+
             const gitTreeElement = document.querySelector('.git-tree');
             if (gitTreeElement) {
                 const computedStyle = window.getComputedStyle(gitTreeElement);
@@ -4962,7 +4962,7 @@ ${result.valid ?
 
                     const timelineMonths = timelineContainer.querySelectorAll('.timeline-month');
                     console.log(`Found ${timelineMonths.length} timeline months`);
-                    
+
                     timelineMonths.forEach((month, i) => {
                         const monthStyle = window.getComputedStyle(month);
                         console.log(`Month ${i} styles:`, {
@@ -4973,7 +4973,7 @@ ${result.valid ?
 
                         const days = month.querySelectorAll('.timeline-day.has-event');
                         console.log(`Month ${i} has ${days.length} event days`);
-                        
+
                         days.forEach((day, j) => {
                             const dayStyle = window.getComputedStyle(day);
                             console.log(`Event day ${j} (${day.dataset.date}):`, {
@@ -4996,10 +4996,10 @@ ${result.valid ?
 
         function restoreNormalLayout() {
             console.log('Restoring normal layout');
-            
+
             // Clear timeline and restore git history
             restoreOriginalGitHistory();
-            
+
             // Reset any modified styles
             const gitTreeElement = document.querySelector('.git-tree');
             if (gitTreeElement) {
@@ -5023,13 +5023,13 @@ ${result.valid ?
                 // Use the dedicated debug-timeline API to get raw timeline data
                 const response = await fetch(`/api/debug-timeline?path=${encodeURIComponent(connectedStorePath)}`);
                 const result = await response.json();
-                
+
                 console.log('DEBUG: Debug timeline response:', result);
 
                 if (result.success) {
                     console.log('DEBUG: Timeline memories:', result.timeline_memories);
                     console.log('DEBUG: All memories:', result.all_memories);
-                    
+
                     // Show detailed timeline memory structures
                     if (result.timeline_memories && result.timeline_memories.length > 0) {
                         result.timeline_memories.forEach((tm, index) => {
@@ -5040,7 +5040,7 @@ ${result.valid ?
                             console.log(`DEBUG: Timeline Memory ${index + 1} Data Structure:`, JSON.stringify(tm.data, null, 2));
                         });
                     }
-                    
+
                     showNotification(
                         `Debug Results:\n` +
                         `${result.timeline_memories_count} timeline memories found\n` +
@@ -5235,9 +5235,24 @@ ${result.valid ?
         }
 
         async function updateTimelineView() {
-            console.log('updateTimelineView called - this should NOT affect git history anymore');
-            // This function now does nothing - timeline is handled by the Timeline tab
-            // Git history should remain in the left panel
+            console.log('updateTimelineView called - refreshing Timeline view if active');
+
+            // Only refresh if Timeline view is currently active
+            const timelineView = document.getElementById('timelineView');
+            if (timelineView && timelineView.style.display !== 'none') {
+                console.log('Timeline view is active, refreshing...');
+
+                // Re-initialize the timeline view to show updated data
+                if (connectedStorePath) {
+                    await renderGitHubStyleTimelineGrid();
+                } else {
+                    await initializeTimelineView();
+                }
+
+                console.log('Timeline view refreshed');
+            } else {
+                console.log('Timeline view not active, skipping refresh');
+            }
         }
 
         function showNotification(message, type = 'info', duration = 3000) {
@@ -7713,7 +7728,7 @@ Message: ${commit.message}`;
             const activityGrid = document.getElementById('activityGrid');
             const activityMonths = document.getElementById('activityMonths');
             const yearsList = document.getElementById('timelineYearsList');
-            
+
             if (!activityGrid || !activityMonths) return;
 
             console.log('Rendering GitHub-style timeline grid with real data for year:', selectedYear);
@@ -7783,7 +7798,7 @@ Message: ${commit.message}`;
                 // Load real timeline data
                 const timelineResult = await loadTimelineData();
                 console.log('Timeline data for GitHub-style grid:', timelineResult);
-                
+
                 let realTimelineData = {};
                 if (timelineResult.success && timelineResult.timeline_data) {
                     // Convert timeline data from YYYYMMDD format to YYYY-MM-DD format
@@ -7805,7 +7820,7 @@ Message: ${commit.message}`;
                 // Generate GitHub-style grid (53 weeks) for the selected year
                 const weeks = 53;
                 const daysPerWeek = 7;
-                
+
                 // Calculate start date based on selected year
                 let startDate;
                 if (targetYear === currentYear) {
@@ -7831,7 +7846,7 @@ Message: ${commit.message}`;
                     const currentDate = new Date(startDate);
                     currentDate.setDate(startDate.getDate() + i);
                     const dateStr = currentDate.toISOString().split('T')[0];
-                    
+
                     // Check if we have real timeline data for this date
                     if (realTimelineData[dateStr]) {
                         activityData[dateStr] = realTimelineData[dateStr];
@@ -7843,11 +7858,11 @@ Message: ${commit.message}`;
                     const weekStartDate = new Date(startDate);
                     weekStartDate.setDate(startDate.getDate() + (week * 7));
                     const monthName = weekStartDate.toLocaleDateString('en-US', { month: 'short' });
-                    
+
                     if (currentMonth !== monthName) {
                         currentMonth = monthName;
                         monthWeekCount = 0;
-                        
+
                         // Only show month label if it has enough weeks to be visible
                         if (week === 0 || monthWeekCount === 0) {
                             monthLabels[week] = monthName;
@@ -7878,28 +7893,28 @@ Message: ${commit.message}`;
                         const currentDate = new Date(startDate);
                         currentDate.setDate(startDate.getDate() + (week * 7) + day);
                         const dateStr = currentDate.toISOString().split('T')[0];
-                        
+
                         const dayElement = document.createElement('div');
                         dayElement.className = 'activity-day';
                         dayElement.style.gridColumn = week + 1;
                         dayElement.style.gridRow = day + 1;
-                        
+
                         const activity = activityData[dateStr];
                         if (activity) {
                             dayElement.classList.add(`level-${activity.level}`);
                             dayElement.title = `${formatDisplayDate(activity.originalKey)}: ${activity.content}`;
-                            
+
                             // Add click handler for timeline events
                             dayElement.addEventListener('click', () => {
                                 showEventDetail(activity.originalKey, activity.content);
                             });
-                            
+
                             dayElement.style.cursor = 'pointer';
                         } else {
                             dayElement.classList.add('empty');
                             dayElement.title = formatDisplayDate(dateStr.replace(/-/g, ''));
                         }
-                        
+
                         activityGrid.appendChild(dayElement);
                     }
                 }
@@ -7957,16 +7972,16 @@ Message: ${commit.message}`;
                 // Load timeline data
                 const timelineResult = await loadTimelineData();
                 console.log('Timeline data for view:', timelineResult);
-                
+
                 if (timelineResult.success && timelineResult.timeline_data) {
                     // Clear the activity grid and add our timeline calendar
                     activityGrid.innerHTML = '';
                     activityGrid.style.display = 'block';
                     activityGrid.style.overflowY = 'auto';
                     activityGrid.style.maxHeight = '600px';
-                    
+
                     const timelineData = timelineResult.timeline_data;
-                    
+
                     if (Object.keys(timelineData).length === 0) {
                         // Show empty state
                         activityGrid.innerHTML = `
@@ -7979,12 +7994,12 @@ Message: ${commit.message}`;
                     } else {
                         // Group events by month
                         const eventsByMonth = groupEventsByMonth(timelineData);
-                        
+
                         // Create calendar for each month
                         for (const [monthKey, events] of Object.entries(eventsByMonth)) {
                             const monthContainer = document.createElement('div');
                             monthContainer.style.marginBottom = '30px';
-                            
+
                             // Month header
                             const monthHeader = document.createElement('div');
                             monthHeader.textContent = formatMonthHeader(monthKey);
@@ -8002,7 +8017,7 @@ Message: ${commit.message}`;
                             monthGrid.style.gridTemplateColumns = 'repeat(7, 1fr)';
                             monthGrid.style.gap = '8px';
                             monthGrid.style.maxWidth = '400px';
-                            
+
                             // Add weekday headers
                             const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
                             weekdays.forEach(day => {
@@ -8015,19 +8030,19 @@ Message: ${commit.message}`;
                                 dayHeader.style.fontSize = '12px';
                                 monthGrid.appendChild(dayHeader);
                             });
-                            
+
                             // Get first day of month and days in month
                             const year = parseInt(monthKey.substring(0, 4));
                             const month = parseInt(monthKey.substring(4, 6)) - 1;
                             const firstDay = new Date(year, month, 1).getDay();
                             const daysInMonth = new Date(year, month + 1, 0).getDate();
-                            
+
                             // Add empty cells for days before month starts
                             for (let i = 0; i < firstDay; i++) {
                                 const emptyCell = document.createElement('div');
                                 monthGrid.appendChild(emptyCell);
                             }
-                            
+
                             // Add days of the month
                             for (let day = 1; day <= daysInMonth; day++) {
                                 const dayStr = monthKey + String(day).padStart(2, '0');
@@ -8040,7 +8055,7 @@ Message: ${commit.message}`;
                                 dayElement.style.transition = 'all 0.2s ease';
                                 dayElement.style.fontSize = '14px';
                                 dayElement.style.fontWeight = '500';
-                                
+
                                 if (events[dayStr]) {
                                     // Event day
                                     dayElement.style.background = '#9333ea';
@@ -8048,10 +8063,10 @@ Message: ${commit.message}`;
                                     dayElement.style.fontWeight = '600';
                                     dayElement.style.boxShadow = '0 2px 8px rgba(147, 51, 234, 0.3)';
                                     dayElement.title = `${formatDisplayDate(dayStr)}: ${events[dayStr]}`;
-                                    
+
                                     // Add click handler
                                     dayElement.addEventListener('click', () => showEventDetail(dayStr, events[dayStr]));
-                                    
+
                                     // Hover effect
                                     dayElement.addEventListener('mouseenter', () => {
                                         dayElement.style.transform = 'scale(1.1)';
@@ -8067,7 +8082,7 @@ Message: ${commit.message}`;
                                     dayElement.style.color = '#9ca3af';
                                     dayElement.style.border = '1px solid #4b5563';
                                 }
-                                
+
                                 monthGrid.appendChild(dayElement);
                             }
 
@@ -8075,7 +8090,7 @@ Message: ${commit.message}`;
                             activityGrid.appendChild(monthContainer);
                         }
                     }
-                    
+
                     // Initialize the Memory Activities panel with instructions
                     const timelineDetailsContent = document.getElementById('timelineDetailsContent');
                     if (timelineDetailsContent) {
@@ -8087,7 +8102,7 @@ Message: ${commit.message}`;
                             </div>
                         `;
                     }
-                    
+
                     console.log('Real timeline calendar added to Timeline view');
                 } else {
                     // Show error or empty state

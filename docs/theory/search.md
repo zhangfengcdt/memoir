@@ -53,11 +53,11 @@ The search system exploits the pre-classified semantic structure to:
 def _extract_keywords(query):
     # Normalize: lowercase, remove punctuation
     normalized = re.sub(r"[^\w\s]", " ", query.lower())
-    
+
     # Filter stop words (173 common English words)
-    keywords = {word for word in words 
+    keywords = {word for word in words
                 if len(word) > 2 and word not in stop_words}
-    
+
     return keywords
 ```
 
@@ -73,7 +73,7 @@ def _extract_keywords(query):
 all_memories = store.search(namespace_tuple, limit=1000)
 ```
 
-**Key Design Decision**: 
+**Key Design Decision**:
 - Retrieves ALL memories upfront (bounded by 1000)
 - Trades memory for latency (single store query)
 - Enables in-memory scoring and ranking
@@ -83,17 +83,17 @@ all_memories = store.search(namespace_tuple, limit=1000)
 def _calculate_relevance(keywords, path, data):
     score = 0.0
     max_possible = len(keywords) * 2
-    
+
     # Path matching (1.5x weight)
     for keyword in keywords:
         if keyword in path.lower():
             score += 1.5
-    
+
     # Content matching (1.0x weight)
     for keyword in keywords:
         if keyword in content.lower():
             score += 1.0
-    
+
     return min(score / max_possible, 1.0)
 ```
 
@@ -208,7 +208,7 @@ Instructions:
 for path in selected_paths[:limit]:
     path_memories = _get_memories_from_path(namespace, path, all_memories)
     results.extend(path_memories)
-    
+
     if len(results) >= limit:
         break
 ```
@@ -325,7 +325,7 @@ Combine with version control for time-based queries:
 ```python
 # Search at specific commit/timestamp
 historical_results = engine.search(
-    query, namespace, 
+    query, namespace,
     at_commit="abc123"  # Git-like time travel
 )
 ```
@@ -489,7 +489,7 @@ Speed ←→ Understanding
   SemanticSearchEngine: Fast, literal
   IntelligentSearchEngine: Slower, semantic
 
-Cost ←→ Quality  
+Cost ←→ Quality
   SemanticSearchEngine: Free, good enough
   IntelligentSearchEngine: Paid, higher quality
 

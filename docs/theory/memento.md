@@ -27,7 +27,7 @@ Memoir:      Dimensional separation → targeted storage → coherent retrieval
 
 The memento system recognizes that human memory naturally organizes along three primary dimensions:
 - **Identity** (Who am I?) → ProfileMemento
-- **Time** (When did it happen?) → TimelineMemento  
+- **Time** (When did it happen?) → TimelineMemento
 - **Space** (Where did it occur?) → LocationMemento
 
 ## Architecture Overview
@@ -63,7 +63,7 @@ ProfileMemento manages **definitive biographical facts** that replace previous i
 
 ##### Profile Updates vs Regular Memories
 ```python
-Profile Update: "I'm 25 years old" 
+Profile Update: "I'm 25 years old"
 → Replaces any previous age
 → Stored at: profile.personal.identity.age.current
 
@@ -100,7 +100,7 @@ async def apply_profile_updates(profile_updates):
     for update in profile_updates:
         path = update["path"]  # e.g., "profile.personal.identity.age.current"
         value = update["value"]  # e.g., "25"
-        
+
         # Create structured memory
         memory_data = {
             "raw_text": value,
@@ -111,7 +111,7 @@ async def apply_profile_updates(profile_updates):
                 "update_type": "profile_update"  # Critical marker
             }
         }
-        
+
         # Store (replaces existing at same path)
         await store.store_memory_async(namespace, memory_data, path)
 ```
@@ -125,13 +125,13 @@ async def apply_profile_updates(profile_updates):
 ```python
 def _organize_profile_data(memories):
     organized = {}
-    
+
     for path, data in memories:
         if data["update_type"] != "profile_update":
             continue  # Skip non-profile memories
-            
+
         # Build nested dictionary from path
-        # "profile.personal.identity.age.current" → 
+        # "profile.personal.identity.age.current" →
         # organized["personal"]["identity"]["age"]["current"] = value
         parts = path.split(".")
         current = organized
@@ -167,7 +167,7 @@ Professional Profile:
 
 **LLM-Enhanced Narrative**:
 ```
-John Smith is a 25-year-old software engineer currently working at Google. 
+John Smith is a 25-year-old software engineer currently working at Google.
 His professional journey reflects a strong technical background...
 ```
 
@@ -226,15 +226,15 @@ async def apply_timeline_events(timeline_events):
         date_str = event["date"]  # "20230315"
         description = event["description"]
         path = f"timeline.{date_str}"
-        
+
         # Check for existing events on same day
         existing = await store.asearch(namespace, path)
-        
+
         if existing:
             content = merge_events(existing_content, description)
         else:
             content = description
-            
+
         memory_data = {
             "raw_text": content,
             "structured_data": {
@@ -254,14 +254,14 @@ async def apply_timeline_events(timeline_events):
 ```python
 def _organize_timeline_data(memories):
     organized = {}
-    
+
     for key, data in memories:
         date_str = key.split(".")[-1]  # Extract YYYYMMDD
         if validate_date(date_str):
             organized[date_str] = data["timeline_content"]
-    
+
     # Sort by date
-    return {date: organized[date] 
+    return {date: organized[date]
             for date in sorted(organized.keys())}
 ```
 
@@ -272,10 +272,10 @@ def _organize_timeline_data(memories):
 2023:
   December:
     01: Promoted to senior engineer
-    
+
   June:
     20: Attended AI conference | Met Dr. Smith as mentor
-    
+
   March:
     15: Started new job at Google
     14: Last day at previous company
@@ -320,11 +320,11 @@ location.san_francisco
 ```python
 def _normalize_location_name(location_name):
     normalized = location_name.strip().lower()
-    
+
     # Remove special characters, replace spaces
     normalized = re.sub(r"[^\w\s-]", "", normalized)
     normalized = re.sub(r"[\s-]+", "_", normalized)
-    
+
     # Apply common mappings
     location_mappings = {
         "nyc": "new_york_city",
@@ -332,10 +332,10 @@ def _normalize_location_name(location_name):
         "la": "los_angeles",
         "usa": "united_states"
     }
-    
+
     if normalized in location_mappings:
         normalized = location_mappings[normalized]
-        
+
     return normalized if len(normalized) >= 2 else ""
 ```
 
@@ -349,13 +349,13 @@ def _normalize_location_name(location_name):
 ```python
 def _merge_location_descriptions(existing, new):
     existing_events = existing.split(" | ")
-    
+
     # Check for duplicates (fuzzy)
     new_lower = new.lower()
     for event in existing_events:
         if event.lower() == new_lower:
             return existing  # Skip duplicate
-    
+
     # Append new event
     return f"{existing} | {new}"
 ```
@@ -370,16 +370,16 @@ def _merge_location_descriptions(existing, new):
 ```python
 async def get_location_events_for_search(query):
     all_items = await store.asearch(namespace, "location.")
-    
+
     relevant_events = []
     query_lower = query.lower()
-    
+
     for path, data in all_items:
         location_name = path.split(".")[1].replace("_", " ")
         content = data["raw_text"]
-        
+
         # Match location name or content
-        if query_lower in location_name.lower() or 
+        if query_lower in location_name.lower() or
            query_lower in content.lower():
             relevant_events.append({
                 "location": location_name.title(),
@@ -422,7 +422,7 @@ Track how profile facts change over time:
 Timeline: "20230315" → "Started at Google"
 Profile: "profile.professional.current.company" → "Google"
 
-Timeline: "20231201" → "Promoted"  
+Timeline: "20231201" → "Promoted"
 Profile: "profile.professional.current.position.title" → "Senior Engineer"
 ```
 
@@ -442,14 +442,14 @@ Combine all three dimensions for complete memory reconstruction:
 ```python
 async def reconstruct_memory(date=None, location=None, profile_aspect=None):
     results = {}
-    
+
     if date:
         results["timeline"] = await timeline.get_event(date)
     if location:
         results["location"] = await location.get_events(location)
     if profile_aspect:
         results["profile"] = await profile.get_aspect(profile_aspect)
-        
+
     return synthesize_memory(results)
 ```
 
@@ -502,7 +502,7 @@ location_memories = await store.asearch(namespace, "location.")
 ```python
 # Get events in date range
 def filter_by_date_range(memories, start="20230101", end="20231231"):
-    return [m for m in memories 
+    return [m for m in memories
             if start <= m.date <= end]
 ```
 
@@ -534,7 +534,7 @@ async def batch_apply_updates(updates):
 class LazyMemento:
     def __init__(self):
         self._summary = None
-    
+
     async def get_summary(self):
         if not self._summary:
             self._summary = await self._generate_summary()
