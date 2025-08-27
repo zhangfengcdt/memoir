@@ -1659,12 +1659,32 @@
             font-weight: 400;
         }
 
+        .memory-summary,
+        .memory-type,
+        .timeline-date,
+        .location-name {
+            font-size: 12px;
+            color: #64748b;
+            margin: 4px 0;
+            padding: 2px 0;
+            border-left: 2px solid rgba(34, 211, 238, 0.3);
+            padding-left: 8px;
+        }
+
+        .memory-summary strong,
+        .memory-type strong,
+        .timeline-date strong,
+        .location-name strong {
+            color: #22d3ee;
+        }
+
         .memory-meta {
             font-size: 12px;
             color: #94a3b8;
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-top: 8px;
         }
 
         .confidence-score {
@@ -6101,7 +6121,10 @@ ${result.valid ?
                     if (label.classList.contains('has-memories')) {
                         // Build the full path by traversing up the tree
                         const fullPath = buildFullPath(node);
+                        console.log('Tree node clicked, built path:', fullPath);
                         showMemoryDetails(fullPath);
+                    } else {
+                        console.log('Clicked node has no memories, label classes:', label.classList);
                     }
                 }
             });
@@ -6241,20 +6264,50 @@ ${result.valid ?
 
         function buildTreeFromPaths(pathCount) {
             const tree = {};
+            
+            // Create organized structure with memento and taxonomy folders
+            const organizedPaths = {
+                'memento': { children: {}, count: 0 },
+                'taxonomy': { children: {}, count: 0 }
+            };
 
-            // Build nested structure
+            // Categorize paths
             Object.keys(pathCount).forEach(path => {
                 const parts = path.split('.');
-                let current = tree;
-                parts.forEach((part, index) => {
-                    if (!current[part]) {
-                        current[part] = { children: {}, count: 0 };
+                const rootCategory = parts[0];
+                
+                // Determine if this is memento (timeline/location) or taxonomy data
+                let targetFolder, pathInFolder;
+                if (rootCategory === 'timeline' || rootCategory === 'location') {
+                    targetFolder = 'memento';
+                    pathInFolder = path; // Keep full path under memento
+                } else {
+                    targetFolder = 'taxonomy';  
+                    pathInFolder = path; // Keep full path under taxonomy
+                }
+                
+                // Build nested structure within the appropriate folder
+                const pathParts = pathInFolder.split('.');
+                let current = organizedPaths[targetFolder];
+                
+                pathParts.forEach((part, index) => {
+                    if (!current.children[part]) {
+                        current.children[part] = { children: {}, count: 0 };
                     }
-                    if (index === parts.length - 1) {
-                        current[part].count = pathCount[path];
+                    if (index === pathParts.length - 1) {
+                        current.children[part].count = pathCount[path];
+                        // Also increment the parent folder count
+                        organizedPaths[targetFolder].count += pathCount[path];
                     }
-                    current = current[part].children;
+                    current = current.children[part];
                 });
+            });
+            
+            // Only include folders that have content
+            Object.keys(organizedPaths).forEach(folderName => {
+                if (Object.keys(organizedPaths[folderName].children).length > 0) {
+                    tree[folderName] = organizedPaths[folderName];
+                }
             });
 
             // Convert to HTML
@@ -6329,33 +6382,8 @@ ${result.valid ?
         }
 
         function getIconForPath(name, level, isLeafNode = false) {
-            // If it's a leaf node (has memories but no children), use document icon
-            if (isLeafNode) {
-                return '📄';
-            }
-
-            // Otherwise use folder icons for directories
-            const icons = {
-                'profile': '📁',
-                'personal': '📁',
-                'professional': '📁',
-                'preferences': '📁',
-                'interests': '📁',
-                'technology': '📁',
-                'skills': '📁',
-                'experience': '📁',
-                'identity': '📁',
-                'location': '📁',
-                'relationships': '📁',
-                'health': '📁',
-                'goals': '📁',
-                'learning': '📁',
-                'project': '📁',
-                'technical': '📁',
-                'experimental': '📁',
-                'default': '📁'
-            };
-            return icons[name] || icons.default;
+            // Use folder icon for directories, document icon for items with memories
+            return isLeafNode ? '📄' : '📁';
         }
 
         function buildGraphDataFromRealData(data) {
@@ -6660,7 +6688,14 @@ ${result.valid ?
                 currentNode = currentNode.parentElement?.closest('.tree-node');
             }
 
-            return pathParts.join('.');
+            // Remove the folder prefixes (memento/taxonomy) from the path
+            // since the actual memory paths don't include these organizational folders
+            const fullPath = pathParts.join('.');
+            if (fullPath.startsWith('memento.') || fullPath.startsWith('taxonomy.')) {
+                return pathParts.slice(1).join('.');
+            }
+            
+            return fullPath;
         }
 
         function showMemoryDetails(path) {
@@ -6672,15 +6707,28 @@ ${result.valid ?
             detailsPath.textContent = path;
             detailsPath.title = path; // Add tooltip to show full path on hover
 
+            // Debug logging
+            console.log('showMemoryDetails called with path:', path);
+            console.log('window.realStoreData:', window.realStoreData);
+            
             // Filter memories that match this path
             const matchingMemories = [];
             if (window.realStoreData && window.realStoreData.memories) {
+                console.log('Total memories available:', window.realStoreData.memories.length);
+                
+                // Log first few memory paths for debugging
+                const memoryPaths = window.realStoreData.memories.map(m => m.path).slice(0, 10);
+                console.log('Sample memory paths:', memoryPaths);
+                
                 for (const memory of window.realStoreData.memories) {
                     if (memory.path && memory.path.startsWith(path)) {
                         matchingMemories.push(memory);
+                        console.log('Matched memory:', memory.path, memory);
                     }
                 }
             }
+            
+            console.log('Matching memories found:', matchingMemories.length);
 
             // Populate with real memory data
             if (matchingMemories.length > 0) {
@@ -6689,11 +6737,76 @@ ${result.valid ?
                         formatTimeAgo(memory.value.timestamp * 1000) : 'Unknown time';
                     const confidence = memory.value && memory.value.confidence ?
                         memory.value.confidence.toFixed(2) : '1.0';
-                    const content = memory.content || memory.value?.content || 'No content';
+                    // Handle different data structures for different memory types
+                    let content = 'No content';
+                    if (memory.content) {
+                        content = memory.content;
+                    } else if (memory.value?.content) {
+                        // Standard memory format
+                        if (typeof memory.value.content === 'string') {
+                            content = memory.value.content;
+                        } else if (memory.value.content.raw_text) {
+                            // Timeline/location format with raw_text
+                            content = memory.value.content.raw_text;
+                        } else if (memory.value.content.content) {
+                            // Nested content structure
+                            content = memory.value.content.content;
+                        }
+                    } else if (memory.value?.raw_text) {
+                        // Direct raw_text field
+                        content = memory.value.raw_text;
+                    } else if (typeof memory.value === 'string') {
+                        content = memory.value;
+                    }
+
+                    // Extract additional metadata for timeline/location entries
+                    let summary = '';
+                    let memoryType = '';
+                    let structuredData = null;
+                    
+                    if (memory.value?.content) {
+                        if (memory.value.content.summary) {
+                            summary = memory.value.content.summary;
+                        }
+                        if (memory.value.content.memory_type) {
+                            memoryType = memory.value.content.memory_type;
+                        }
+                        if (memory.value.content.structured_data) {
+                            structuredData = memory.value.content.structured_data;
+                        }
+                    } else if (memory.value) {
+                        if (memory.value.summary) {
+                            summary = memory.value.summary;
+                        }
+                        if (memory.value.memory_type) {
+                            memoryType = memory.value.memory_type;
+                        }
+                        if (memory.value.structured_data) {
+                            structuredData = memory.value.structured_data;
+                        }
+                    }
+
+                    // Build additional info display
+                    let additionalInfo = '';
+                    if (summary && summary !== content) {
+                        additionalInfo += `<div class="memory-summary"><strong>Summary:</strong> ${summary}</div>`;
+                    }
+                    if (memoryType) {
+                        additionalInfo += `<div class="memory-type"><strong>Type:</strong> ${memoryType}</div>`;
+                    }
+                    if (structuredData) {
+                        if (structuredData.timeline_date) {
+                            additionalInfo += `<div class="timeline-date"><strong>Date:</strong> ${structuredData.timeline_date}</div>`;
+                        }
+                        if (structuredData.location_name) {
+                            additionalInfo += `<div class="location-name"><strong>Location:</strong> ${structuredData.location_name}</div>`;
+                        }
+                    }
 
                     return `
                         <div class="memory-item">
                             <div class="memory-content">${content}</div>
+                            ${additionalInfo}
                             <div class="memory-meta">
                                 <span class="confidence-score">${confidence}</span>
                                 <span>${timeAgo}</span>
