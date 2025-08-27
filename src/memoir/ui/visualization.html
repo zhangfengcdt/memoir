@@ -608,19 +608,35 @@
         /* Places View */
         .places-view {
             padding: 20px 0;
+            display: flex;
+            gap: 20px;
+            height: calc(100vh - 200px);
         }
 
         .places-map-container {
+            flex: 1;
             background: var(--bg-glass);
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 12px;
             padding: 20px;
-            height: 400px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-direction: column;
-            gap: 20px;
+            min-height: 400px;
+            position: relative;
+        }
+
+        .places-details-container {
+            flex: 1;
+            background: var(--bg-glass);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .places-map {
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+            min-height: 400px;
         }
 
         .places-map-placeholder {
@@ -648,11 +664,23 @@
         }
 
         .places-list {
-            background: var(--bg-glass);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .places-location-details {
             margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .places-location-content {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 8px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            line-height: 1.4;
         }
 
         .places-list-header {
@@ -668,6 +696,22 @@
             gap: 12px;
             padding: 12px 0;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .place-item:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            margin: 0 -8px;
+            padding: 12px 8px;
+        }
+
+        .place-item.selected {
+            background-color: rgba(59, 130, 246, 0.1);
+            border-radius: 8px;
+            margin: 0 -8px;
+            padding: 12px 8px;
         }
 
         .place-item:last-child {
@@ -1115,9 +1159,8 @@
             display: flex;
             flex-direction: column;
             background: var(--bg-glass-lighter);
-            width: calc(100vw - 420px);
-            max-width: calc(100vw - 420px);
             min-width: 0;
+            overflow: hidden;
         }
 
         .toolbar {
@@ -1957,6 +2000,90 @@
             max-height: calc(80vh - 80px);
         }
 
+        /* Places Modal Styles */
+        .places-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .places-modal-backdrop {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+        }
+
+        .places-modal-content {
+            position: relative;
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border-light);
+            border-radius: 20px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+
+        .places-modal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            border-bottom: 1px solid var(--border-light);
+        }
+
+        .places-modal-header h2 {
+            margin: 0;
+            color: var(--text-primary);
+            font-size: 20px;
+            font-weight: 600;
+        }
+
+        .places-modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 24px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+
+        .places-modal-close:hover {
+            background: var(--bg-glass-light);
+            color: var(--text-primary);
+        }
+
+        .places-modal-body {
+            padding: 24px;
+            overflow-y: auto;
+            max-height: calc(80vh - 80px);
+        }
+
+        .place-item-popup {
+            margin-bottom: 20px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .place-item-popup:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
         .timeline-container {
             color: var(--text-primary);
         }
@@ -2219,6 +2346,19 @@
             }
 
             .timeline-modal-body {
+                padding: 20px;
+            }
+
+            .places-modal-content {
+                width: 95%;
+                max-height: 90vh;
+            }
+
+            .places-modal-header {
+                padding: 16px 20px;
+            }
+
+            .places-modal-body {
                 padding: 20px;
             }
         }
@@ -2786,49 +2926,28 @@
                     <!-- Places View -->
                     <div class="places-view" id="placesView" style="display: none;">
                         <div class="places-map-container">
-                            <div class="places-map-placeholder">
+                            <div id="placesMapElement" class="places-map" style="display: none;"></div>
+                            <div id="placesMapPlaceholder" class="places-map-placeholder">
                                 <div class="places-map-icon">🗺️</div>
                                 <div class="places-map-text">
-                                    <strong>Interactive Map Coming Soon</strong><br>
-                                    This will show markers for all locations mentioned in your memories
+                                    <strong>Loading Map...</strong><br>
+                                    Preparing to show all your location memories
                                 </div>
                             </div>
                         </div>
-                        <div class="places-list">
-                            <div class="places-list-header">📍 Discovered Places</div>
-                            <div class="place-item">
-                                <div class="place-marker"></div>
-                                <div class="place-info">
-                                    <div class="place-name">San Francisco, CA</div>
-                                    <div class="place-count">12 memories</div>
+                        <div class="places-details-container">
+                            <div class="places-list">
+                                <div class="places-list-header">📍 Your Places</div>
+                                <div id="placesListContent">
+                                    <div style="text-align: center; color: #888; padding: 20px;">
+                                        Loading places...
+                                    </div>
                                 </div>
                             </div>
-                            <div class="place-item">
-                                <div class="place-marker"></div>
-                                <div class="place-info">
-                                    <div class="place-name">New York, NY</div>
-                                    <div class="place-count">8 memories</div>
-                                </div>
-                            </div>
-                            <div class="place-item">
-                                <div class="place-marker"></div>
-                                <div class="place-info">
-                                    <div class="place-name">London, UK</div>
-                                    <div class="place-count">5 memories</div>
-                                </div>
-                            </div>
-                            <div class="place-item">
-                                <div class="place-marker"></div>
-                                <div class="place-info">
-                                    <div class="place-name">Tokyo, Japan</div>
-                                    <div class="place-count">3 memories</div>
-                                </div>
-                            </div>
-                            <div class="place-item">
-                                <div class="place-marker"></div>
-                                <div class="place-info">
-                                    <div class="place-name">Paris, France</div>
-                                    <div class="place-count">2 memories</div>
+                            <div class="places-location-details" id="placesLocationDetails" style="display: none;">
+                                <div class="places-list-header">📍 <span id="selectedPlaceName">Selected Place</span></div>
+                                <div class="places-location-content" id="selectedPlaceContent">
+                                    Select a place to view details
                                 </div>
                             </div>
                         </div>
@@ -3029,7 +3148,8 @@
                 '/co': '/checkout',
                 '/log': '/commits',
                 '/tt': '/time-travel',
-                '/tl': '/timeline'
+                '/tl': '/timeline',
+                '/loc': '/location'
             };
 
             // Resolve alias to full command
@@ -3140,6 +3260,15 @@
                     // Add timeline event: /timeline YYYY-MM-DD description
                     const args = parts.slice(1).join(' ');
                     await addTimelineEvent(args);
+                }
+            } else if (cmd === '/location') {
+                if (parts.length === 1) {
+                    // Show places popup
+                    await showPlacesPopup();
+                } else {
+                    // Add location event: /location <place> <description>
+                    const args = parts.slice(1).join(' ');
+                    await addLocationEvent(args);
                 }
             } else if (cmd === '/debug-timeline') {
                 await debugTimeline();
@@ -4655,6 +4784,141 @@ ${result.valid ?
             document.body.appendChild(modal);
         }
 
+        async function showPlacesPopup() {
+            if (!connectedStorePath) {
+                showNotification('Not connected to any store. Use /connect <path> first', 'error');
+                return;
+            }
+
+            console.log('DEBUG: Fetching places from:', `/api/location?path=${encodeURIComponent(connectedStorePath)}`);
+
+            try {
+                const response = await fetch(`/api/location?path=${encodeURIComponent(connectedStorePath)}`);
+                const result = await response.json();
+
+                console.log('DEBUG: Places API response:', result);
+
+                if (result.success) {
+                    console.log('DEBUG: Places data received:', result.location_data);
+                    // Display places in a modal popup
+                    const placesHtml = formatPlacesData(result.location_data, result.summary);
+                    console.log('DEBUG: Formatted places HTML:', placesHtml);
+                    showPlacesModal(placesHtml);
+                } else {
+                    showNotification('Failed to retrieve places data', 'error');
+                    console.log('DEBUG: Places API failed:', result);
+                }
+            } catch (error) {
+                console.error('Places error:', error);
+                showNotification(`Failed to retrieve places: ${error.message}`, 'error');
+            }
+        }
+
+        function showPlacesModal(content) {
+            // Create modal
+            const modal = document.createElement('div');
+            modal.className = 'places-modal';
+            modal.innerHTML = `
+                <div class="places-modal-backdrop"></div>
+                <div class="places-modal-content">
+                    <div class="places-modal-header">
+                        <h2>📍 Your Places</h2>
+                        <button class="places-modal-close">&times;</button>
+                    </div>
+                    <div class="places-modal-body">
+                        ${content}
+                    </div>
+                </div>
+            `;
+
+            // Add event listeners
+            modal.querySelector('.places-modal-close').addEventListener('click', () => {
+                document.body.removeChild(modal);
+            });
+            modal.querySelector('.places-modal-backdrop').addEventListener('click', () => {
+                document.body.removeChild(modal);
+            });
+
+            // Add modal to page
+            document.body.appendChild(modal);
+        }
+
+        function formatPlacesData(placesData, summary) {
+            if (!placesData || Object.keys(placesData).length === 0) {
+                return `
+                    <div style="text-align: center; color: #888; padding: 40px 20px;">
+                        <div style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;">🏜️</div>
+                        <div style="font-size: 16px; margin-bottom: 8px;">No places found</div>
+                        <div style="font-size: 14px; opacity: 0.7;">Add places with /location &lt;place&gt; &lt;description&gt;</div>
+                    </div>
+                `;
+            }
+
+            // Convert places data to array and sort by event count
+            const sortedPlaces = Object.entries(placesData)
+                .map(([place, data]) => {
+                    // Handle different data structures
+                    let content;
+                    
+                    if (typeof data === 'string') {
+                        content = data;
+                    } else if (data && typeof data === 'object' && data.content) {
+                        content = data.content;
+                    } else {
+                        content = String(data || '');
+                    }
+                    
+                    const events = content.split(' | ').filter(e => e.trim());
+                    return {
+                        name: place,
+                        displayName: (data && typeof data === 'object' && data.name) ? data.name : place.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                        events: events,
+                        eventCount: events.length,
+                        content: content
+                    };
+                })
+                .sort((a, b) => b.eventCount - a.eventCount);
+
+            let html = `
+                <div style="margin-bottom: 20px; padding: 16px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                    <div style="font-size: 14px; font-weight: 600; margin-bottom: 8px; color: var(--text-primary);">
+                        📊 Places Summary
+                    </div>
+                    <div style="font-size: 13px; color: var(--text-secondary);">
+                        ${sortedPlaces.length} place${sortedPlaces.length !== 1 ? 's' : ''} • ${sortedPlaces.reduce((sum, p) => sum + p.eventCount, 0)} total memories
+                    </div>
+                </div>
+                <div class="places-list-popup">
+            `;
+
+            // Generate places list HTML
+            sortedPlaces.forEach(place => {
+                const formattedEvents = place.events.map(event => `• ${event.trim()}`).join('<br>');
+                html += `
+                    <div class="place-item-popup">
+                        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+                            <div style="width: 8px; height: 8px; border-radius: 50%; background: var(--accent-primary);"></div>
+                            <div>
+                                <div style="font-size: 14px; font-weight: 500; color: var(--text-primary);">
+                                    ${place.displayName}
+                                </div>
+                                <div style="font-size: 12px; color: var(--text-secondary);">
+                                    ${place.eventCount} ${place.eventCount === 1 ? 'memory' : 'memories'}
+                                </div>
+                            </div>
+                        </div>
+                        <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.4; margin-left: 20px; padding: 8px 12px; background: rgba(255,255,255,0.05); border-radius: 6px;">
+                            ${formattedEvents}
+                        </div>
+                    </div>
+                `;
+            });
+
+            html += `</div>`;
+            
+            return html;
+        }
+
         function renderTimelineGrid(timelineData) {
             console.log('renderTimelineGrid called with data:', timelineData);
             console.log('Timeline data keys:', Object.keys(timelineData || {}));
@@ -5071,6 +5335,229 @@ ${result.valid ?
             }
         }
 
+        // ==================== PLACES VIEW FUNCTIONS ====================
+
+        async function showPlacesView() {
+            // Switch to Places view tab
+            document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector('.view-btn[data-view="places"]').classList.add('active');
+            
+            // Show places view
+            document.getElementById('treeView').style.display = 'none';
+            document.getElementById('graphView').style.display = 'none';
+            document.getElementById('timelineView').style.display = 'none';
+            document.getElementById('placesView').style.display = 'block';
+            
+            await initializePlacesView();
+            showNotification('Switched to Places view', 'success');
+        }
+
+        async function initializePlacesView() {
+            if (!connectedStorePath) {
+                showNotification('Please connect to a memory store first', 'error');
+                return;
+            }
+
+            try {
+                await loadPlacesData();
+                // Initialize map if not already done
+                if (!window.placesMapInitialized) {
+                    initializePlacesMap();
+                }
+            } catch (error) {
+                console.error('Failed to initialize Places view:', error);
+                showNotification('Failed to load places data', 'error');
+            }
+        }
+
+        async function loadPlacesData() {
+            if (!connectedStorePath) {
+                console.error('No store path connected for places data');
+                return { success: false, places_data: {} };
+            }
+
+            console.log('DEBUG: Fetching places from:', `/api/location?path=${encodeURIComponent(connectedStorePath)}`);
+
+            try {
+                const response = await fetch(`/api/location?path=${encodeURIComponent(connectedStorePath)}`);
+                const result = await response.json();
+
+                console.log('DEBUG: Places API response:', result);
+
+                if (result.success) {
+                    updatePlacesDisplay(result.places_data);
+                } else {
+                    console.error('Failed to load places data:', result.error);
+                    document.getElementById('placesListContent').innerHTML = `
+                        <div style="text-align: center; color: #ef4444; padding: 20px;">
+                            <div style="font-size: 16px; margin-bottom: 8px;">⚠️ Error Loading Places</div>
+                            <div style="font-size: 14px; opacity: 0.8;">${result.error || 'Unknown error'}</div>
+                            <div style="font-size: 14px; opacity: 0.7; margin-top: 8px;">Add places with /location place description</div>
+                        </div>
+                    `;
+                }
+
+                return result;
+            } catch (error) {
+                console.error('Error loading places data:', error);
+                document.getElementById('placesListContent').innerHTML = `
+                    <div style="text-align: center; color: #ef4444; padding: 20px;">
+                        <div style="font-size: 16px; margin-bottom: 8px;">⚠️ Connection Error</div>
+                        <div style="font-size: 14px; opacity: 0.8;">Failed to fetch places data</div>
+                        <div style="font-size: 14px; opacity: 0.7; margin-top: 8px;">Check your connection and try again</div>
+                    </div>
+                `;
+                return { success: false, places_data: {} };
+            }
+        }
+
+        function updatePlacesDisplay(placesData) {
+            const placesListContent = document.getElementById('placesListContent');
+            
+            if (!placesData || Object.keys(placesData).length === 0) {
+                placesListContent.innerHTML = `
+                    <div style="text-align: center; color: #888; padding: 40px 20px;">
+                        <div style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;">🏜️</div>
+                        <div style="font-size: 16px; margin-bottom: 8px;">No places found</div>
+                        <div style="font-size: 14px; opacity: 0.7;">Add places with /location place description</div>
+                    </div>
+                `;
+                return;
+            }
+
+            // Convert places data to array and sort by event count
+            const sortedPlaces = Object.entries(placesData)
+                .map(([place, data]) => {
+                    // Handle different data structures
+                    let content;
+                    
+                    if (typeof data === 'string') {
+                        content = data;
+                    } else if (data && typeof data === 'object' && data.content) {
+                        content = data.content;
+                    } else {
+                        content = String(data || '');
+                    }
+                    
+                    const events = content.split(' | ').filter(e => e.trim());
+                    return {
+                        name: place,
+                        displayName: (data && typeof data === 'object' && data.name) ? data.name : place.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+                        events: events,
+                        eventCount: events.length,
+                        content: content
+                    };
+                })
+                .sort((a, b) => b.eventCount - a.eventCount);
+
+            // Generate places list HTML
+            const placesHTML = sortedPlaces.map(place => `
+                <div class="place-item" onclick="selectPlace('${place.name}', '${place.displayName}', '${place.content.replace(/'/g, "\\'")}')">
+                    <div class="place-marker"></div>
+                    <div class="place-info">
+                        <div class="place-name">${place.displayName}</div>
+                        <div class="place-count">${place.eventCount} ${place.eventCount === 1 ? 'memory' : 'memories'}</div>
+                    </div>
+                </div>
+            `).join('');
+
+            placesListContent.innerHTML = placesHTML;
+
+            // Update map with places data
+            updatePlacesMap(sortedPlaces);
+        }
+
+        function selectPlace(placeName, displayName, content) {
+            // Remove selection from other places
+            document.querySelectorAll('.place-item').forEach(item => item.classList.remove('selected'));
+            
+            // Select clicked place
+            event.target.closest('.place-item').classList.add('selected');
+            
+            // Show place details
+            const detailsContainer = document.getElementById('placesLocationDetails');
+            const placeNameElement = document.getElementById('selectedPlaceName');
+            const placeContentElement = document.getElementById('selectedPlaceContent');
+            
+            placeNameElement.textContent = displayName;
+            
+            // Format content with events separated
+            const events = content.split(' | ').filter(e => e.trim());
+            const formattedContent = events.map(event => `• ${event.trim()}`).join('<br>');
+            placeContentElement.innerHTML = formattedContent;
+            
+            detailsContainer.style.display = 'block';
+        }
+
+        async function addLocationEvent(args) {
+            if (!connectedStorePath) {
+                showNotification('Please connect to a memory store first', 'error');
+                return;
+            }
+
+            const parts = args.trim().split(/\s+/);
+            if (parts.length < 2) {
+                showNotification('Usage: /location <place> <description>', 'error');
+                return;
+            }
+
+            const location = parts[0];
+            const description = parts.slice(1).join(' ');
+
+            try {
+                const response = await fetch('/api/location', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        path: connectedStorePath,
+                        location: location,
+                        description: description
+                    }),
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    showNotification(`Location event added: ${location}`, 'success');
+                    // Refresh places view if it's currently active
+                    if (document.getElementById('placesView').style.display === 'block') {
+                        await loadPlacesData();
+                    }
+                } else {
+                    showNotification(`Failed to add location event: ${result.error}`, 'error');
+                    console.error('Location event error:', result.error);
+                }
+            } catch (error) {
+                console.error('Location event submission error:', error);
+                showNotification(`Error adding location event: ${error.message}`, 'error');
+            }
+        }
+
+        function initializePlacesMap() {
+            // Simple map placeholder for now - could integrate with actual mapping library
+            const mapElement = document.getElementById('placesMapElement');
+            const placeholder = document.getElementById('placesMapPlaceholder');
+            
+            // For now, show a simple visualization instead of a full map
+            placeholder.innerHTML = `
+                <div class="places-map-icon">🌍</div>
+                <div class="places-map-text">
+                    <strong>Places Visualization</strong><br>
+                    Your location memories are displayed in the sidebar
+                </div>
+            `;
+            
+            window.placesMapInitialized = true;
+        }
+
+        function updatePlacesMap(places) {
+            // Update map visualization with places data
+            // For now, this is a placeholder - could integrate with actual mapping service
+            console.log('Places data for map:', places);
+        }
+
         async function updateUIWithRealData(data) {
             console.log('Updating UI with real data:', data);
 
@@ -5429,6 +5916,7 @@ ${result.valid ?
                         initializeTimelineView();
                     } else if (view === 'places') {
                         document.getElementById('placesView').style.display = 'block';
+                        initializePlacesView();
                     }
                 });
             });
@@ -6357,7 +6845,7 @@ ${result.valid ?
             { cmd: '/help', args: '', desc: 'Show all available commands', aliases: '/h' },
             { cmd: '/summarize', args: '[path]', desc: 'Generate summary of memories (coming soon)', placeholder: true },
             { cmd: '/timeline', args: '[YYYY-MM-DD description]', desc: 'Show timeline or add timeline event', aliases: '/tl' },
-            { cmd: '/location', args: '<place>', desc: 'Filter memories by location context (coming soon)', placeholder: true },
+            { cmd: '/location', args: '[place description]', desc: 'Show places or add location event', aliases: '/loc' },
             { cmd: '/what-if', args: '<scenario>', desc: 'Simulate hypothetical memory scenarios (coming soon)', placeholder: true }
         ];
 

@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from memoir.classifier.intelligent import IntelligentClassifier
 from memoir.memento.timeline import TimelineMemento
+from memoir.memento.location import LocationMemento
 from memoir.store.prolly_adapter import ProllyTreeStore
 
 PORT = 8080
@@ -49,8 +50,12 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_current_branch_api(parsed_path)
         elif parsed_path.path == "/api/timeline":
             self.handle_timeline_get_api(parsed_path)
+        elif parsed_path.path == "/api/location":
+            self.handle_location_get_api(parsed_path)
         elif parsed_path.path == "/api/debug-timeline":
             self.handle_debug_timeline_api(parsed_path)
+        elif parsed_path.path == "/api/debug-location":
+            self.handle_debug_location_api(parsed_path)
         elif parsed_path.path == "/":
             # Serve the visualization HTML
             self.path = "/visualization.html"
@@ -79,6 +84,8 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_delete_branch_api()
         elif parsed_path.path == "/api/timeline":
             self.handle_timeline_post_api()
+        elif parsed_path.path == "/api/location":
+            self.handle_location_post_api()
         else:
             self.send_error(404, "Endpoint not found")
 
@@ -1446,6 +1453,346 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
         except Exception as e:
             self.send_error(500, f"Error adding timeline event: {e!s}")
+
+    def handle_location_get_api(self, parsed_path):
+        """Handle GET /api/location to retrieve location data."""
+        try:
+            query_params = parse_qs(parsed_path.query)
+            store_path = query_params.get("path", [None])[0]
+
+            if not store_path:
+                self.send_error(400, "Missing 'path' parameter")
+                return
+
+            if not Path(store_path).exists():
+                self.send_error(404, f"Store path does not exist: {store_path}")
+                return
+
+            # Initialize store
+            store = ProllyTreeStore(
+                path=store_path,
+                enable_versioning=True,
+                auto_commit=False,
+                cache_size=10000,
+            )
+
+            # Initialize location memento
+            location_memento = LocationMemento(store)
+
+            # Get location summary asynchronously
+            import asyncio
+
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                location_summary = loop.run_until_complete(
+                    location_memento.get_location_summary()
+                )
+
+                # Also get raw location data for structured display
+                location_memories = loop.run_until_complete(
+                    store.asearch("memory:general", "location.")
+                )
+
+                print(f"DEBUG: Found {len(location_memories)} location memories")
+
+                # Process location memories into structured format
+                location_data = {}
+                for path, data in location_memories:
+                    print(f"DEBUG: Processing location memory - path: {path}")
+                    print(f"DEBUG: Data type: {type(data)}")
+                    print(
+                        f"DEBUG: Raw data structure: {json.dumps(data, indent=2, default=str)[:1000]}..."
+                    )
+
+                    if "." in path:
+                        location_key = path.split(".")[-1]
+                        content = self._extract_location_content(data, location_key)
+
+                        print(
+                            f"DEBUG: Final extracted content for {location_key}: '{content}'"
+                        )
+
+                        if (
+                            content
+                            and content.strip()
+                            and not content.startswith("Location event at")
+                        ):
+                            # Convert location key back to display name
+                            display_name = location_key.replace("_", " ").title()
+                            location_data[location_key] = {
+                                "name": display_name,
+                                "content": content.strip()
+                            }
+                            print(
+                                f"DEBUG: Successfully stored content for {location_key}"
+                            )
+                        else:
+                            print(
+                                f"DEBUG: Content extraction failed or returned summary for {location_key}, content: '{content}'"
+                            )
+
+            finally:
+                loop.close()
+
+            result = {
+                "success": True,
+                "summary": location_summary,
+                "location_data": location_data,
+            }
+
+            # Send response
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(result, indent=2).encode())
+
+        except Exception as e:
+            self.send_error(500, f"Error retrieving location: {e!s}")
+
+    def handle_location_post_api(self):
+        """Handle POST /api/location to add explicit location events."""
+        try:
+            # Read POST data
+            content_length = int(self.headers["Content-Length"])
+            post_data = self.rfile.read(content_length)
+            data = json.loads(post_data.decode("utf-8"))
+
+            store_path = data.get("path")
+            location_name = data.get("location")
+            description = data.get("description")
+
+            if not store_path:
+                self.send_response(400)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "error": "Missing 'path' parameter"}).encode())
+                return
+
+            if not location_name:
+                self.send_response(400)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "error": "Missing 'location' parameter"}).encode())
+                return
+
+            if not description:
+                self.send_response(400)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "error": "Missing 'description' parameter"}).encode())
+                return
+
+            if not Path(store_path).exists():
+                self.send_response(404)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "error": f"Store path does not exist: {store_path}"}).encode())
+                return
+
+            # Initialize store
+            store = ProllyTreeStore(
+                path=store_path,
+                enable_versioning=True,
+                auto_commit=True,
+                cache_size=10000,
+            )
+
+            # Initialize location memento
+            location_memento = LocationMemento(store)
+
+            # Create location event
+            location_event = {"location": location_name, "description": description}
+
+            # Apply location event asynchronously
+            import asyncio
+
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                print(f"DEBUG: Adding location event: {location_event}")
+                loop.run_until_complete(
+                    location_memento.apply_location_events([location_event])
+                )
+                success = True
+                print("DEBUG: Location event added successfully")
+
+                # Debug: Check what was stored
+                normalized_location = location_memento._normalize_location_name(location_name)
+                test_search = loop.run_until_complete(
+                    store.asearch("memory:general", f"location.{normalized_location}")
+                )
+                print(
+                    f"DEBUG: Immediate search for location.{normalized_location} returned: {test_search}"
+                )
+
+            finally:
+                loop.close()
+
+            result = {
+                "success": success,
+                "location": location_name,
+                "description": description,
+                "normalized_location": location_memento._normalize_location_name(location_name),
+                "path": f"location.{location_memento._normalize_location_name(location_name)}",
+            }
+
+            # Send response
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(result, indent=2).encode())
+
+        except Exception as e:
+            self.send_response(500)
+            self.send_header("Content-type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": False, "error": f"Error adding location event: {e!s}"}).encode())
+
+    def _extract_location_content(self, data, location_key):
+        """Extract location content from various data structure formats."""
+        print(f"DEBUG: _extract_location_content called for {location_key}")
+
+        if not data:
+            return ""
+
+        # Try different extraction strategies
+        content = ""
+
+        if isinstance(data, dict):
+            print(f"DEBUG: Data is dict with keys: {list(data.keys())}")
+
+            # NEW Strategy: Handle the memory store format with "memories" array
+            if (
+                "memories" in data
+                and isinstance(data["memories"], list)
+                and len(data["memories"]) > 0
+            ):
+                # Get the first (and usually only) memory from the array
+                memory_item = data["memories"][0]
+                print(f"DEBUG: Found memory item with keys: {list(memory_item.keys())}")
+
+                if "content" in memory_item and isinstance(
+                    memory_item["content"], dict
+                ):
+                    content_obj = memory_item["content"]
+                    print(
+                        f"DEBUG: Found memory content with keys: {list(content_obj.keys())}"
+                    )
+
+                    # Priority 1: raw_text (this contains the actual description)
+                    content = content_obj.get("raw_text", "")
+                    if (
+                        content
+                        and content.strip()
+                        and not content.startswith("Location event at")
+                    ):
+                        print(f"DEBUG: Found raw_text in memory: {content}")
+                        return content.strip()
+
+                    # Priority 2: structured_data -> location_content
+                    if "structured_data" in content_obj:
+                        structured = content_obj["structured_data"]
+                        if isinstance(structured, dict):
+                            content = structured.get("location_content", "")
+                            if content and content.strip():
+                                print(
+                                    f"DEBUG: Found location_content in structured_data: {content}"
+                                )
+                                return content.strip()
+
+            # Strategy 3: Direct fields
+            for field in [
+                "raw_text",
+                "location_content",
+                "summary",
+                "description",
+            ]:
+                if data.get(field):
+                    content = str(data[field])
+                    print(f"DEBUG: Found content in direct field {field}: {content}")
+                    return content
+
+        elif isinstance(data, str):
+            print(f"DEBUG: Data is string: {data}")
+            return data
+
+        # Last resort: convert to string and hope for the best
+        content = str(data) if data else ""
+        print(f"DEBUG: Last resort string conversion: {content}")
+        return content
+
+    def handle_debug_location_api(self, parsed_path):
+        """Handle GET /api/debug-location for debugging location data structures."""
+        try:
+            query_params = parse_qs(parsed_path.query)
+            store_path = query_params.get("path", [None])[0]
+
+            if not store_path:
+                self.send_error(400, "Missing 'path' parameter")
+                return
+
+            if not Path(store_path).exists():
+                self.send_error(404, f"Store path does not exist: {store_path}")
+                return
+
+            # Initialize store
+            store = ProllyTreeStore(
+                path=store_path,
+                enable_versioning=True,
+                auto_commit=False,
+                cache_size=10000,
+            )
+
+            # Get all location-related data for debugging
+            import asyncio
+
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                # Get all data with location prefix
+                location_memories = loop.run_until_complete(
+                    store.asearch("memory:general", "location.")
+                )
+
+                # Also get all data to see what else is stored
+                all_memories = loop.run_until_complete(
+                    store.asearch("memory:general", "")
+                )
+
+            finally:
+                loop.close()
+
+            result = {
+                "success": True,
+                "location_memories_count": len(location_memories),
+                "location_memories": [
+                    {"path": path, "data": data} for path, data in location_memories
+                ],
+                "all_memories_count": len(all_memories),
+                "all_memories": [
+                    {
+                        "path": path,
+                        "data_type": str(type(data)),
+                        "data": str(data)[:200] + "..."
+                        if len(str(data)) > 200
+                        else str(data),
+                    }
+                    for path, data in all_memories
+                ],
+            }
+
+            # Send response
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(result, indent=2).encode())
+
+        except Exception as e:
+            self.send_error(500, f"Error retrieving debug location: {e!s}")
 
     def handle_debug_timeline_api(self, parsed_path):
         """Handle GET /api/debug-timeline for debugging timeline data structures."""
