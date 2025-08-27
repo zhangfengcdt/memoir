@@ -6739,24 +6739,79 @@ ${result.valid ?
                         memory.value.confidence.toFixed(2) : '1.0';
                     // Handle different data structures for different memory types
                     let content = 'No content';
+                    
+                    // Debug: log the full memory structure
+                    console.log('Processing memory for content extraction:', {
+                        path: memory.path,
+                        memoryKeys: Object.keys(memory),
+                        value: memory.value,
+                        valueKeys: memory.value ? Object.keys(memory.value) : 'no value',
+                        valueType: typeof memory.value,
+                        content: memory.content
+                    });
+                    
+                    // If value exists, log its internal structure
+                    if (memory.value && typeof memory.value === 'object') {
+                        console.log('memory.value detailed structure:', memory.value);
+                        if (memory.value.content) {
+                            console.log('memory.value.content:', memory.value.content);
+                            console.log('memory.value.content type:', typeof memory.value.content);
+                            if (typeof memory.value.content === 'object') {
+                                console.log('memory.value.content keys:', Object.keys(memory.value.content));
+                            }
+                        }
+                    }
+                    
                     if (memory.content) {
                         content = memory.content;
+                        console.log('Found content in memory.content:', content);
                     } else if (memory.value?.content) {
                         // Standard memory format
                         if (typeof memory.value.content === 'string') {
                             content = memory.value.content;
+                            console.log('Found string content in memory.value.content:', content);
                         } else if (memory.value.content.raw_text) {
                             // Timeline/location format with raw_text
                             content = memory.value.content.raw_text;
+                            console.log('Found raw_text in memory.value.content.raw_text:', content);
                         } else if (memory.value.content.content) {
                             // Nested content structure
                             content = memory.value.content.content;
+                            console.log('Found nested content:', content);
+                        } else {
+                            console.log('memory.value.content exists but no recognized format:', memory.value.content);
+                        }
+                    } else if (memory.value?.memories && Array.isArray(memory.value.memories) && memory.value.memories.length > 0) {
+                        // AggregatedMemory format - content is in the memories array
+                        console.log('Found memories array:', memory.value.memories);
+                        const firstMemory = memory.value.memories[0];
+                        console.log('First memory in array:', firstMemory);
+                        
+                        if (firstMemory.content) {
+                            // Extract content from the first memory entry
+                            if (typeof firstMemory.content === 'string') {
+                                content = firstMemory.content;
+                            } else if (firstMemory.content.raw_text) {
+                                content = firstMemory.content.raw_text;
+                            } else if (firstMemory.content.content) {
+                                content = firstMemory.content.content;
+                            } else {
+                                // Try JSON stringify as fallback
+                                content = JSON.stringify(firstMemory.content, null, 2);
+                            }
+                            console.log('Extracted content from memories array:', content);
+                        } else {
+                            console.log('No content field in first memory entry');
                         }
                     } else if (memory.value?.raw_text) {
                         // Direct raw_text field
                         content = memory.value.raw_text;
+                        console.log('Found content in memory.value.raw_text:', content);
                     } else if (typeof memory.value === 'string') {
                         content = memory.value;
+                        console.log('Found string value:', content);
+                    } else {
+                        console.log('No content found in any expected location. Full memory:', memory);
                     }
 
                     // Extract additional metadata for timeline/location entries
@@ -6764,7 +6819,21 @@ ${result.valid ?
                     let memoryType = '';
                     let structuredData = null;
                     
-                    if (memory.value?.content) {
+                    // Check if we have memories array (AggregatedMemory format)
+                    if (memory.value?.memories && Array.isArray(memory.value.memories) && memory.value.memories.length > 0) {
+                        const firstMemory = memory.value.memories[0];
+                        if (firstMemory.content) {
+                            if (firstMemory.content.summary) {
+                                summary = firstMemory.content.summary;
+                            }
+                            if (firstMemory.content.memory_type) {
+                                memoryType = firstMemory.content.memory_type;
+                            }
+                            if (firstMemory.content.structured_data) {
+                                structuredData = firstMemory.content.structured_data;
+                            }
+                        }
+                    } else if (memory.value?.content) {
                         if (memory.value.content.summary) {
                             summary = memory.value.content.summary;
                         }
