@@ -79,34 +79,38 @@ class MemoirClient(ABC):
     
     # --- Primary Interface ---
     @abstractmethod
-    async def execute(self, command: str) -> Dict[str, Any]:
+    async def execute(self, command: str | List[str]) -> Dict[str, Any] | List[Dict[str, Any]]:
         """
         Execute commands against the memory store using natural language or structured commands.
+        Supports both single and batch operations.
         
         Args:
-            command: Natural language instruction OR structured command (starting with /)
+            command: Single command (str) OR list of commands for batch execution
             
         Returns:
+            Single result dict for single command, list of results for batch
             Dictionary containing:
             - action: The interpreted action
             - result: The action result  
             - explanation: Human-readable explanation
+            - (batch only) index: Position in batch
+            - (batch only) success: Whether operation succeeded
             
-        Natural Language Examples:
+        Single Command Examples:
             "Remember that Alice prefers morning meetings"
-            "What do I know about Alice?"
-            "Create a branch for testing" 
-            "Go back to yesterday"
-            "Summarize everything"
-            "Export as JSON"
-            
-        Structured Command Examples:
-            "/remember Alice prefers Python programming"
             "/search Alice"
-            "/branch create testing"
-            "/timeline go 2024-01-01"  
-            "/summarize timeline"
-            "/export json"
+            
+        Batch Command Examples:
+            ["Remember Alice is a developer",
+             "Remember Bob is a designer", 
+             "Remember Charlie is a manager"]
+            
+        Complex Batch with Natural Language:
+            "Store the following facts about our team:
+             - Alice leads the frontend team
+             - Bob manages the database
+             - Charlie handles DevOps
+             And then create a branch called team-updates"
         """
         pass
     
@@ -116,8 +120,8 @@ class MemoirClient(ABC):
         import asyncio
         return asyncio.run(self.ability())
     
-    def execute_sync(self, command: str) -> Dict[str, Any]:
-        """Synchronous wrapper for execute()."""
+    def execute_sync(self, command: str | List[str]) -> Dict[str, Any] | List[Dict[str, Any]]:
+        """Synchronous wrapper for execute(). Supports both single and batch operations."""
         import asyncio
         return asyncio.run(self.execute(command))
 ```
@@ -147,6 +151,100 @@ def connect(connection_string: str, **kwargs) -> MemoirClient:
         connect("cloud://my-org/production")
         connect("https://api.memoir.ai/store", api_key="...")
     """
+```
+
+## Batch Execution
+
+The `execute()` method supports batch operations for efficiency and atomicity:
+
+### List-Based Batch Execution
+
+```python
+# Execute multiple commands in one call
+results = await client.execute([
+    "Remember Alice joined the team in 2024",
+    "Remember Bob is Alice's manager",
+    "Remember Charlie works with Alice",
+    "/commit 'Added team structure'"
+])
+
+# Each result includes success status and index
+for result in results:
+    print(f"Command {result['index']}: {result['success']}")
+    if not result['success']:
+        print(f"  Error: {result['error']}")
+```
+
+### Natural Language Batch Commands
+
+```python
+# Single string with multiple operations
+await client.execute("""
+    First, create a branch called daily-notes.
+    Then remember these facts:
+    - Meeting with Alice at 10am about the API design
+    - Bob approved the budget increase  
+    - Charlie needs help with deployment
+    Finally, commit with message 'Daily notes for Monday'
+""")
+```
+
+### Transactional Batch Operations
+
+```python
+# Atomic operations - all succeed or all fail
+result = await client.execute({
+    "type": "transaction",
+    "commands": [
+        "/branch create feature-x",
+        "/remember feature.name 'User Authentication'",
+        "/remember feature.status 'In Progress'",
+        "/commit 'Initialize feature X'"
+    ]
+})
+# If any command fails, all are rolled back
+```
+
+### Performance Benefits
+
+**Single Operations:**
+- Network roundtrip for each command
+- LLM processing for each natural language input
+- Separate commits for each operation
+
+**Batch Operations:**
+- Single network roundtrip
+- Optimized LLM processing
+- Optional single commit for all changes
+- Potential for parallel execution
+
+### Use Cases for Batch Execution
+
+```python
+# Data import
+records = load_csv("contacts.csv")
+commands = [f"/remember contact.{r['id']} {r}" for r in records]
+await client.execute(commands)
+
+# Complex state updates
+await client.execute([
+    "/branch create experiment",
+    "Clear all temporary data",
+    "Import the test dataset",
+    "Run analysis on current state",
+    "/commit 'Experiment setup complete'"
+])
+
+# Conditional operations
+await client.execute("""
+    If there are memories about 'Project Alpha':
+        Update the project status to completed
+        Archive all related tasks
+        Create a summary report
+    Otherwise:
+        Create a new project called 'Project Alpha'
+        Set status to planning
+""")
 ```
 
 ## Hybrid Command System
@@ -259,16 +357,26 @@ print(capabilities)
 # Output: "I can store and retrieve memories, create branches, search content, 
 #          export data, travel through time, summarize information, and more..."
 
-# Natural language operations
+# Single operations
 await client.execute("Remember that Alice prefers Python")
 await client.execute("What do I know about Alice?")
-await client.execute("Create a branch called testing")
 
-# Structured command operations (more precise)
-await client.execute("/remember Bob role Senior Engineer")
-await client.execute("/search Bob")
-await client.execute("/branch switch testing")
-await client.execute("/export json")
+# Batch operations - multiple commands at once
+results = await client.execute([
+    "Remember Bob is a Senior Engineer",
+    "Remember Charlie is a Product Manager",
+    "Create a branch called testing",
+    "/commit 'Added team info'"
+])
+
+# Natural language batch - describe multiple operations
+await client.execute("""
+    Store the following about our team:
+    - Alice prefers Python and morning meetings
+    - Bob specializes in distributed systems
+    - Charlie owns the product roadmap
+    Then create a summary of the team structure
+""")
 
 # Mix both approaches as needed
 await client.execute("Show me recent changes")  # Natural
@@ -380,6 +488,16 @@ await client.execute("help me to test the memory in a test environment")
 # 1. Creates a new branch: /branch create test-environment-[timestamp]
 # 2. Switches to that branch: /branch switch test-environment-[timestamp]
 # 3. Records the commit hash before branching for later recovery
+
+# Efficient batch import of test data
+await client.execute([
+    "Remember test user Alice with ID 001",
+    "Remember test user Bob with ID 002",
+    "Remember test project Alpha starting January 2024",
+    "Remember test project Beta starting March 2024",
+    "/commit 'Imported test data'"
+])
+# All 5 operations in single call - much faster than 5 separate calls
 
 # User adds test data
 await client.execute("My friend told me AI will replace programmers")
@@ -495,10 +613,15 @@ The natural language interface creates a **game-changing paradigm** where Memoir
 
 **Agent Development & Debugging:**
 ```python
-# Any AI tool can easily debug agents
-await client.execute("Remember this agent failed because of rate limiting on OpenAI API")
-await client.execute("What rate limiting solutions have worked before?")
-await client.execute("Store the backoff strategy that fixed the timeout issue")
+# AI tools can batch operations for efficiency
+await client.execute([
+    "Remember this agent failed because of rate limiting on OpenAI API",
+    "Remember the error code was 429 Too Many Requests",
+    "Remember it happened during parallel processing of 50 documents",
+    "Search for previous rate limiting solutions",
+    "Store the exponential backoff strategy that fixed it"
+])
+# Single call instead of 5 - faster and atomic
 ```
 
 **Institutional Knowledge Building:**
