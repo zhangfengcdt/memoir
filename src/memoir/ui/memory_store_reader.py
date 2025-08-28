@@ -112,9 +112,9 @@ def read_store_data(store_path: str):
             # If no list_keys, fall back to search
             if not all_keys:
                 print("Falling back to BaseStore.search...")
-                # Search both primary namespaces: alice_chen and memory:general
+                # Search primary namespaces: default and memory:general
                 items = []
-                for namespace in [("alice_chen",), ("memory", "general")]:
+                for namespace in [("default",), ("memory", "general")]:
                     try:
                         ns_items = list(store.search(namespace))
                         items.extend(ns_items)
@@ -134,12 +134,11 @@ def read_store_data(store_path: str):
                 if not items:
                     print("Trying different namespaces...")
                     possible_namespaces = [
-                        ("alice_chen",),
+                        ("default",),
                         (
                             "memory",
                             "general",
                         ),  # Add memory:general namespace for timeline/location data
-                        ("default",),
                         ("",),
                         (),
                     ]
@@ -207,7 +206,7 @@ def read_store_data(store_path: str):
                 for full_key in all_keys:
                     try:
                         # Parse the key to extract namespace and semantic path
-                        # Format: namespace:key (e.g., "alice_chen:memory.1724123456")
+                        # Format: namespace:key (e.g., "default:memory.1724123456")
                         # Or: namespace:subnspace:key (e.g., "memory:general:timeline.20241127")
                         if ":" in full_key:
                             parts = full_key.split(":")
@@ -220,7 +219,7 @@ def read_store_data(store_path: str):
                                 namespace_part = "memory:general"
                                 semantic_path = ":".join(parts[2:])
                             elif len(parts) == 2:
-                                # Handle alice_chen:path format
+                                # Handle default:path format
                                 namespace_part, semantic_path = parts
                             else:
                                 namespace_part = ":".join(parts[:-1])
@@ -229,8 +228,8 @@ def read_store_data(store_path: str):
                             namespace_part = ""
                             semantic_path = full_key
 
-                        # Include alice_chen and memory:general namespaces for UI
-                        if namespace_part not in ["alice_chen", "memory:general"]:
+                        # Include default and memory:general namespaces for UI
+                        if namespace_part not in ["default", "memory:general"]:
                             continue
 
                         # Get the value for this key
@@ -299,7 +298,7 @@ def read_store_data(store_path: str):
         return json.dumps({"error": str(e)})
 
 
-def get_blame_info(store_path: str, memory_key: str, namespace: str = "alice_chen"):
+def get_blame_info(store_path: str, memory_key: str, namespace: str = "default"):
     """Get git blame-like information for a specific memory key."""
 
     if not Path(store_path).exists():
@@ -475,7 +474,7 @@ def main():
     parser.add_argument("--output", help="Output file (default: stdout)")
     parser.add_argument("--blame", help="Get blame info for specific key")
     parser.add_argument(
-        "--namespace", default="alice_chen", help="Namespace for blame lookup"
+        "--namespace", default="default", help="Namespace for blame lookup"
     )
 
     args = parser.parse_args()

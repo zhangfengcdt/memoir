@@ -133,7 +133,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         query_params = parse_qs(parsed_path.query)
         store_path = query_params.get("path", [None])[0]
         memory_key = query_params.get("key", [None])[0]
-        namespace = query_params.get("namespace", ["alice_chen"])[0]
+        namespace = query_params.get("namespace", [None])[0] or "default"
 
         if not store_path:
             self.send_error(400, "Missing 'path' parameter")
@@ -206,7 +206,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         store_path = query_params.get("path", [None])[0]
         proof_b64 = query_params.get("proof", [None])[0]
         memory_key = query_params.get("key", [None])[0]
-        namespace = query_params.get("namespace", ["alice_chen"])[0]
+        namespace = query_params.get("namespace", [None])[0] or "default"
         expected_value = query_params.get("value", [None])[0]
 
         if not store_path:
@@ -295,7 +295,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         query_params = parse_qs(parsed_path.query)
         store_path = query_params.get("path", [None])[0]
         memory_key = query_params.get("key", [None])[0]
-        namespace = query_params.get("namespace", ["alice_chen"])[0]
+        namespace = query_params.get("namespace", [None])[0] or "default"
 
         if not store_path:
             self.send_error(400, "Missing 'path' parameter")
@@ -434,7 +434,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
             store_path = data.get("path")
             content = data.get("content")
-            namespace = data.get("namespace", "alice_chen")
+            namespace = data.get("namespace") or "default"
 
             if not store_path:
                 self.send_error(400, "Missing 'path' parameter")
@@ -662,7 +662,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
             store_path = data.get("path")
             key = data.get("key")
-            namespace = data.get("namespace", "alice_chen")
+            namespace = data.get("namespace") or "default"
 
             if not store_path:
                 self.send_error(400, "Missing 'path' parameter")
@@ -2333,12 +2333,13 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
                 results = loop.run_until_complete(
                     search_engine.search(query, namespace="memory:general", limit=10)
                 )
+                print(f"🔍 Search in memory:general found {len(results)} results")
 
                 timing_info["path_discovery_and_selection"] = round(
                     time.time() - search_start, 2
                 )
 
-                # If no results found, try other namespaces (like alice_chen)
+                # If no results found, try other namespaces
                 if not results:
                     namespace_search_start = time.time()
 
@@ -2360,15 +2361,21 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
                             )  # Take first two parts as namespace
                             namespaces.add(namespace)
 
+                    print(f"🔍 Found namespaces: {namespaces}")
+
                     # Try each namespace
                     for ns in namespaces:
                         if ns != "memory:general":
                             # Extract just the base namespace (first part before colon)
                             base_namespace = ns.split(":")[0] if ":" in ns else ns
+                            print(f"🔍 Trying namespace: {base_namespace}")
                             ns_results = loop.run_until_complete(
                                 search_engine.search(
                                     query, namespace=base_namespace, limit=10
                                 )
+                            )
+                            print(
+                                f"🔍 Search in {base_namespace} found {len(ns_results)} results"
                             )
                             if ns_results:
                                 results.extend(ns_results)
@@ -2388,9 +2395,22 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
                 format_start = time.time()
                 search_time = round(time.time() - start_time, 2)
 
-                # Format results
+                # Format results (filter out timing-only dummy results)
                 formatted_results = []
+                step_timings = None
+
                 for result in results:
+                    # Extract timing data from any result (including dummy ones)
+                    if hasattr(result, "metadata") and result.metadata:
+                        result_step_timings = result.metadata.get("step_timings")
+                        if result_step_timings:
+                            step_timings = result_step_timings
+
+                        # Skip dummy timing-only results from formatted output
+                        if result.metadata.get("is_timing_only", False):
+                            continue
+
+                    # Add real results to formatted output
                     formatted_results.append(
                         {
                             "path": result.path,
@@ -2403,13 +2423,6 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
 
                 timing_info["formatting"] = round(time.time() - format_start, 2)
                 total_time = round(time.time() - start_time, 2)
-
-                # Extract step timings from search results if available
-                step_timings = None
-                if results and len(results) > 0:
-                    first_result = results[0]
-                    if hasattr(first_result, "metadata") and first_result.metadata:
-                        step_timings = first_result.metadata.get("step_timings")
 
                 # Create four-step timing breakdown matching UI steps
                 four_step_timings = {}

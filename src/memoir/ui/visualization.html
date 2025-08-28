@@ -4133,7 +4133,7 @@ config = {"configurable": {"store": langgraph_store}}`;
             showNotification(`Generating proof for: ${memoryPath}...`, 'info');
 
             try {
-                const response = await fetch(`/api/proof?path=${encodeURIComponent(connectedStorePath)}&key=${encodeURIComponent(memoryPath)}&namespace=alice_chen`);
+                const response = await fetch(`/api/proof?path=${encodeURIComponent(connectedStorePath)}&key=${encodeURIComponent(memoryPath)}&namespace=default`);
                 const result = await response.json();
 
                 if (result.success) {
@@ -4215,7 +4215,7 @@ or you can provide proof data manually for verification.
                 if (proofData.startsWith('{')) {
                     const parsed = JSON.parse(proofData);
                     if (parsed.proof && parsed.key) {
-                        verifyProof(parsed.proof, parsed.key, parsed.namespace || 'alice_chen');
+                        verifyProof(parsed.proof, parsed.key, parsed.namespace || 'default');
                         return;
                     }
                 }
@@ -4223,7 +4223,7 @@ or you can provide proof data manually for verification.
                 // Otherwise treat as space-separated: proof key [namespace]
                 const parts = proofData.split(' ');
                 if (parts.length >= 2) {
-                    const [proof, key, namespace = 'alice_chen'] = parts;
+                    const [proof, key, namespace = 'default'] = parts;
                     verifyProof(proof, key, namespace);
                 } else {
                     showNotification('Invalid format. Use: /verify <proof> <key> [namespace]', 'error');
@@ -4233,7 +4233,7 @@ or you can provide proof data manually for verification.
             }
         }
 
-        async function verifyProof(proofB64, memoryKey, namespace = 'alice_chen') {
+        async function verifyProof(proofB64, memoryKey, namespace = 'default') {
             if (!connectedStorePath) {
                 showNotification('Please connect to a store first with /connect <path>', 'error');
                 return;
@@ -4707,7 +4707,7 @@ ${result.valid ?
                     body: JSON.stringify({
                         path: connectedStorePath,
                         content: content,
-                        namespace: 'alice_chen'
+                        namespace: 'default'
                     })
                 });
 
@@ -4764,7 +4764,7 @@ ${result.valid ?
                     body: JSON.stringify({
                         path: connectedStorePath,
                         key: key,
-                        namespace: 'alice_chen'
+                        namespace: 'default'
                     })
                 });
 
@@ -10212,7 +10212,7 @@ ${result.valid ?
             showNotification(`Getting blame information for: ${memoryKey}...`, 'info');
 
             try {
-                const response = await fetch(`/api/blame?path=${encodeURIComponent(connectedStorePath)}&key=${encodeURIComponent(memoryKey)}&namespace=alice_chen`);
+                const response = await fetch(`/api/blame?path=${encodeURIComponent(connectedStorePath)}&key=${encodeURIComponent(memoryKey)}&namespace=default`);
                 const result = await response.json();
 
                 if (result.error) {

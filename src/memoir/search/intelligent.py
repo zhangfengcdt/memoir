@@ -71,68 +71,83 @@ class IntelligentSearchEngine:
             else:
                 namespace_tuple = namespace
 
-            # Use VersionedKvStore's list_keys() to get ALL keys, then filter by namespace and get data
+            # Step 1a: Get all memories using the working store.search() approach
+            # This loads data but ensures we find existing memories correctly
+            all_memories = []
             try:
-                if hasattr(self.store, "tree") and hasattr(
-                    self.store.tree, "list_keys"
-                ):
-                    all_keys = self.store.tree.list_keys()
-                elif hasattr(self.store, "_keys"):
-                    all_keys = list(self.store._keys)
+                # Use the proven store.search() method that we know works
+                print(
+                    f"🔍 IntelligentSearchEngine: Searching for namespace_tuple: {namespace_tuple}"
+                )
+                all_memories = self.store.search(namespace_tuple, limit=10000)
+                print(
+                    f"🔍 IntelligentSearchEngine: Found {len(all_memories)} memories in namespace {namespace_tuple}"
+                )
+                logger.info(
+                    f"Found {len(all_memories)} memories in namespace {namespace_tuple}"
+                )
+
+                # Debug: show first few memory paths if any found
+                if all_memories:
+                    print("🔍 IntelligentSearchEngine: Found memories:")
+                    for i, (_, path, _) in enumerate(all_memories[:5]):
+                        print(f"🔍   Memory {i + 1}: {path}")
+                        logger.info(f"Memory {i + 1}: {path}")
                 else:
-                    all_memories = self.store.search(namespace_tuple, limit=1000)
-                    if not all_memories:
-                        logger.info(f"No memories found in namespace {namespace}")
-                        return []
-                    all_keys = None
-            except Exception:
-                all_memories = self.store.search(namespace_tuple, limit=1000)
-                if not all_memories:
-                    logger.info(f"No memories found in namespace {namespace}")
-                    return []
-                all_keys = None
-
-            if all_keys is not None:
-                all_memories = []
-
-                for key in all_keys:
-                    # Convert bytes key to string if needed
-                    key_str = (
-                        key.decode("utf-8") if isinstance(key, bytes) else str(key)
-                    )
-
-                    # Parse the key string back to components
-                    key_parts = key_str.split(":")
-
-                    # Check if this key matches our target namespace
-                    if len(key_parts) >= len(namespace_tuple):
-                        key_namespace = tuple(key_parts[: len(namespace_tuple)])
-                        if key_namespace == namespace_tuple:
-                            # Extract the path (everything after the namespace)
-                            path = (
-                                ".".join(key_parts[len(namespace_tuple) :])
-                                if len(key_parts) > len(namespace_tuple)
-                                else key_parts[-1]
+                    logger.info("No memories found - checking what's in the store...")
+                    # Debug: Try to get ALL keys to see what namespaces exist
+                    if hasattr(self.store, "tree") and hasattr(
+                        self.store.tree, "list_keys"
+                    ):
+                        all_keys = self.store.tree.list_keys()
+                        logger.info(f"Store has {len(all_keys)} total keys")
+                        for key in all_keys[:10]:
+                            key_str = (
+                                key.decode("utf-8")
+                                if isinstance(key, bytes)
+                                else str(key)
                             )
+                            logger.info(f"Key example: {key_str}")
 
-                            # Get the data for this key
-                            try:
-                                data = self.store.get(namespace_tuple, path)
-                                if data is not None:
-                                    all_memories.append((namespace_tuple, path, data))
-                                else:
-                                    logger.warning(f"Data is None for key {key_str}")
-                            except Exception as e:
-                                logger.warning(
-                                    f"Could not retrieve data for key {key_str}: {e}"
-                                )
-                                continue
+                # Debug: Test a direct search for default namespace to compare
+                if namespace_tuple == ("memory", "general"):
+                    print("🔍 Testing default namespace search for comparison:")
+                    try:
+                        default_memories = self.store.search(("default",), limit=10000)
+                        print(
+                            f"🔍 Default namespace has {len(default_memories)} memories"
+                        )
+                        if default_memories:
+                            for i, (_, path, _) in enumerate(default_memories[:3]):
+                                print(f"🔍   Default Memory {i + 1}: {path}")
+                    except Exception as e:
+                        print(f"🔍 Error searching default: {e}")
+
+            except Exception as e:
+                logger.error(f"Failed to search memories: {e}")
+                return []
 
             if not all_memories:
                 logger.info(f"No memories found in namespace {namespace}")
-                return []
+                # Return timing-only result for early exit
+                step_timings["step1_path_discovery"] = round(
+                    time.time() - step1_start, 3
+                )
+                step_timings["step2_path_selection"] = 0.0
+                step_timings["step3_content_refinement"] = 0.0
+                step_timings["step4_memory_retrieval"] = 0.0
+                step_timings["total_search"] = round(time.time() - search_start, 3)
 
-            # Extract unique paths and create path info
+                dummy_result = IntelligentSearchResult(
+                    path="",
+                    content="",
+                    metadata={"step_timings": step_timings, "is_timing_only": True},
+                    relevance_score=0.0,
+                    namespace="",
+                )
+                return [dummy_result]
+
+            # Step 1b: Create path info from loaded memories (like the original logic)
             paths_info = {}
             for _, path, data in all_memories:
                 if path not in paths_info and data is not None:
@@ -168,7 +183,23 @@ class IntelligentSearchEngine:
 
             if not paths_info:
                 logger.info("No valid paths found")
-                return []
+                # Return timing-only result for early exit
+                step_timings["step1_path_discovery"] = round(
+                    time.time() - step1_start, 3
+                )
+                step_timings["step2_path_selection"] = 0.0
+                step_timings["step3_content_refinement"] = 0.0
+                step_timings["step4_memory_retrieval"] = 0.0
+                step_timings["total_search"] = round(time.time() - search_start, 3)
+
+                dummy_result = IntelligentSearchResult(
+                    path="",
+                    content="",
+                    metadata={"step_timings": step_timings, "is_timing_only": True},
+                    relevance_score=0.0,
+                    namespace="",
+                )
+                return [dummy_result]
 
             step_timings["step1_path_discovery"] = round(time.time() - step1_start, 3)
 
@@ -178,11 +209,26 @@ class IntelligentSearchEngine:
 
             if not selected_paths:
                 logger.info(f"LLM didn't select any relevant paths for query: {query}")
-                return []
+                # Return timing-only result for early exit
+                step_timings["step2_path_selection"] = round(
+                    time.time() - step2_start, 3
+                )
+                step_timings["step3_content_refinement"] = 0.0
+                step_timings["step4_memory_retrieval"] = 0.0
+                step_timings["total_search"] = round(time.time() - search_start, 3)
+
+                dummy_result = IntelligentSearchResult(
+                    path="",
+                    content="",
+                    metadata={"step_timings": step_timings, "is_timing_only": True},
+                    relevance_score=0.0,
+                    namespace="",
+                )
+                return [dummy_result]
 
             step_timings["step2_path_selection"] = round(time.time() - step2_start, 3)
 
-            # Step 3: Content Refinement - get actual content and let LLM refine selection
+            # Step 3: Content Refinement - use already-loaded data for LLM refinement
             step3_start = time.time()
             refined_paths = await self._refine_paths_with_content(
                 query, selected_paths, all_memories, namespace_tuple
@@ -192,20 +238,40 @@ class IntelligentSearchEngine:
                 logger.info(
                     f"LLM content refinement didn't select any paths for query: {query}"
                 )
-                return []
+                # Return timing-only result for early exit
+                step_timings["step3_content_refinement"] = round(
+                    time.time() - step3_start, 3
+                )
+                step_timings["step4_memory_retrieval"] = 0.0
+                step_timings["total_search"] = round(time.time() - search_start, 3)
+
+                dummy_result = IntelligentSearchResult(
+                    path="",
+                    content="",
+                    metadata={"step_timings": step_timings, "is_timing_only": True},
+                    relevance_score=0.0,
+                    namespace="",
+                )
+                return [dummy_result]
 
             step_timings["step3_content_refinement"] = round(
                 time.time() - step3_start, 3
             )
 
-            # Step 4: Memory Retrieval - Retrieve memories from refined paths
+            # Step 4: Memory Retrieval - Extract results from already-loaded memories
             step4_start = time.time()
             results = []
+
+            # Create a lookup dict for faster access (O(1) instead of O(n))
+            memory_dict = {path: data for _, path, data in all_memories}
+
             for path in refined_paths[:limit]:  # Limit paths processed
-                path_memories = self._get_memories_from_path(
-                    namespace_tuple, path, all_memories
-                )
-                results.extend(path_memories)
+                if path in memory_dict:
+                    data = memory_dict[path]
+                    path_memories = self._extract_memories_from_data(
+                        namespace_tuple, path, data
+                    )
+                    results.extend(path_memories)
 
                 if len(results) >= limit:
                     break
@@ -220,10 +286,32 @@ class IntelligentSearchEngine:
                         result.metadata = {}
                     result.metadata["step_timings"] = step_timings
 
+            # If no results but we have timing data, create a dummy result to carry timing info
+            if not results and step_timings:
+                dummy_result = IntelligentSearchResult(
+                    path="",
+                    content="",
+                    metadata={"step_timings": step_timings, "is_timing_only": True},
+                    relevance_score=0.0,
+                    namespace="",
+                )
+                return [dummy_result]
+
             return results[:limit]
 
         except Exception as e:
             logger.error(f"Error in intelligent search: {e}")
+            # Return timing-only result even for exceptions
+            if "step_timings" in locals():
+                step_timings["total_search"] = round(time.time() - search_start, 3)
+                dummy_result = IntelligentSearchResult(
+                    path="",
+                    content="",
+                    metadata={"step_timings": step_timings, "is_timing_only": True},
+                    relevance_score=0.0,
+                    namespace="",
+                )
+                return [dummy_result]
             return []
 
     async def _select_relevant_paths(self, query: str, paths_info: dict) -> list[str]:
@@ -302,19 +390,18 @@ Selected paths:"""
         namespace_tuple: tuple,
     ) -> list[str]:
         """
-        Second-stage LLM refinement: show actual content and let LLM make final selection.
+        Second-stage LLM refinement: Load content for selected paths and let LLM make final selection.
 
         Args:
             query: User's search query
             selected_paths: Paths selected in first stage
-            all_memories: All memory data from store
             namespace_tuple: Namespace as tuple
 
         Returns:
             List of refined path strings
         """
         try:
-            # Get actual content for each selected path
+            # Get actual content for each selected path from already-loaded memories
             path_contents = {}
             for path in selected_paths:
                 content_preview = ""
@@ -391,6 +478,60 @@ Selected paths:"""
             logger.error(f"Error in LLM content refinement: {e}")
             # Fallback: return original selected paths
             return selected_paths
+
+    def _extract_memories_from_data(
+        self, namespace_tuple: tuple, path: str, data: any
+    ) -> list[IntelligentSearchResult]:
+        """
+        Extract memories from data for a specific path (optimized version).
+
+        Args:
+            namespace_tuple: Namespace as tuple
+            path: Memory path
+            data: Memory data
+
+        Returns:
+            List of search results from this data
+        """
+        results = []
+        namespace_str = ":".join(namespace_tuple)
+
+        if isinstance(data, dict) and "memories" in data:
+            # Aggregated memory - expand all individual memories
+            memories = data.get("memories", [])
+            for memory_entry in memories:
+                content = memory_entry.get("content", "")
+                confidence = memory_entry.get("confidence", 1.0)
+                metadata = memory_entry.get("metadata", {})
+                metadata.update({"path": path, "source": "aggregated"})
+
+                result = IntelligentSearchResult(
+                    path=path,
+                    content=str(content),
+                    metadata=metadata,
+                    relevance_score=confidence,
+                    namespace=namespace_str,
+                )
+                results.append(result)
+        else:
+            # Single memory
+            content = (
+                data.get("content", str(data)) if isinstance(data, dict) else str(data)
+            )
+            confidence = data.get("confidence", 1.0) if isinstance(data, dict) else 1.0
+            metadata = data.get("metadata", {}) if isinstance(data, dict) else {}
+            metadata.update({"path": path, "source": "single"})
+
+            result = IntelligentSearchResult(
+                path=path,
+                content=str(content),
+                metadata=metadata,
+                relevance_score=confidence,
+                namespace=namespace_str,
+            )
+            results.append(result)
+
+        return results
 
     def _get_memories_from_path(
         self, namespace_tuple: tuple, path: str, all_memories: list

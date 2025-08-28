@@ -24,6 +24,7 @@ class TimelineMemento:
         timeline_events: list[dict[str, str]],
         metadata: Optional[dict] = None,
         original_content: Optional[str] = None,
+        namespace: str = "default",
     ) -> None:
         """
         Apply timeline events to the memory store.
@@ -33,6 +34,7 @@ class TimelineMemento:
         Args:
             timeline_events: List of timeline events with date and description
             metadata: Optional metadata to include with events
+            namespace: Namespace to store timeline events in (default: "default")
         """
         if not timeline_events:
             return
@@ -54,7 +56,7 @@ class TimelineMemento:
             path = f"timeline.{date_str}"
 
             # Check if there's already an event for this date
-            existing_events = await self.memory_store.asearch("memory:general", path)
+            existing_events = await self.memory_store.asearch(namespace, path)
 
             if existing_events:
                 # Merge with existing event(s) for the same day
@@ -81,13 +83,15 @@ class TimelineMemento:
             logger.info(f"DEBUG: Storing timeline memory_data: {memory_data}")
 
             # Store directly using the memory store with correct signature (async)
-            await self.memory_store.store_memory_async(
-                "memory:general", memory_data, path
-            )
+            await self.memory_store.store_memory_async(namespace, memory_data, path)
             logger.info(f"Applied timeline event: {path} = {merged_content[:100]}...")
 
     async def get_timeline_summary(
-        self, start_date: Optional[str] = None, end_date: Optional[str] = None, llm=None
+        self,
+        start_date: Optional[str] = None,
+        end_date: Optional[str] = None,
+        llm=None,
+        namespace: str = "default",
     ) -> str:
         """
         Generate a comprehensive timeline summary from stored timeline data.
@@ -102,9 +106,7 @@ class TimelineMemento:
         """
         try:
             # Search for all timeline memories
-            timeline_memories = await self.memory_store.asearch(
-                "memory:general", "timeline."
-            )
+            timeline_memories = await self.memory_store.asearch(namespace, "timeline.")
 
             # Debug: log what we found
             logger.debug(f"Found {len(timeline_memories)} timeline memories")

@@ -18,7 +18,10 @@ class ProfileMemento:
         self.memory_store = memory_store
 
     async def apply_profile_updates(
-        self, profile_updates: list[dict[str, str]], metadata: Optional[dict] = None
+        self,
+        profile_updates: list[dict[str, str]],
+        metadata: Optional[dict] = None,
+        namespace: str = "default",
     ) -> None:
         """
         Apply profile updates to the memory store.
@@ -26,6 +29,7 @@ class ProfileMemento:
         Args:
             profile_updates: List of profile updates with path and value
             metadata: Optional metadata to include with updates
+            namespace: Namespace to store the profile updates in (default: "default")
         """
         if not profile_updates:
             return
@@ -56,27 +60,24 @@ class ProfileMemento:
             }
 
             # Store directly using the async method (consistent with timeline manager)
-            await self.memory_store.store_memory_async(
-                "memory:general", memory_data, path
-            )
+            await self.memory_store.store_memory_async(namespace, memory_data, path)
             logger.info(f"Applied profile update: {path} = {value}")
 
-    async def get_profile_summary(self, llm=None) -> str:
+    async def get_profile_summary(self, llm=None, namespace: str = "default") -> str:
         """
         Generate a comprehensive profile summary from stored profile data.
 
         Args:
             llm: Optional LLM for generating narrative summary
+            namespace: Namespace to search for profile data (default: "default")
 
         Returns:
             Profile summary string
         """
         try:
             # Search for all profile memories using the correct method signature
-            # Use "memory:general" namespace string as expected by asearch method
-            profile_memories = await self.memory_store.asearch(
-                "memory:general", "profile."
-            )
+            # Use provided namespace string as expected by asearch method
+            profile_memories = await self.memory_store.asearch(namespace, "profile.")
 
             # Debug: log what we found
             logger.debug(f"Found {len(profile_memories)} profile memories")

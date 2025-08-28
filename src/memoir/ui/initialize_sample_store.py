@@ -138,8 +138,8 @@ async def main():
     # Initialize main branch with sample memories
     print("\n=== Adding memories to main branch ===")
 
-    # Define namespace for this user
-    namespace = "alice_chen"
+    # Use default namespace - let the system handle namespace assignment naturally
+    namespace = "default"
 
     # User profile memories
     await memory_manager.store_memory(
