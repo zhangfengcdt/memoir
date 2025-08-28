@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Cache-buster: 2025-08-28-12-00 Disabled old popup completely -->
+<!-- Cache-buster: 2025-08-28-12-10 Enhanced progress steps for 4-stage search -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -6297,10 +6297,13 @@ ${result.valid ?
             progressModal.abortController = abortController;
 
             try {
-                // Update progress
-                updateProgressModal(progressModal, 'Sending search query to server...', 20);
+                // Step 1: Send query
+                updateProgressModal(progressModal, 'Step 1/4: Sending search query...', 10);
 
                 console.log('🌐 Making API call to:', `/api/recall?path=${encodeURIComponent(connectedStorePath)}&query=${encodeURIComponent(query)}`);
+
+                // Step 2: Getting memory paths
+                updateProgressModal(progressModal, 'Step 2/4: Scanning memory store for paths...', 25);
 
                 const response = await fetch(`/api/recall?path=${encodeURIComponent(connectedStorePath)}&query=${encodeURIComponent(query)}`, {
                     signal: abortController.signal
@@ -6314,15 +6317,20 @@ ${result.valid ?
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
 
-                // Update progress
-                updateProgressModal(progressModal, 'Analyzing memories with AI...', 60);
+                // Step 3: LLM analysis
+                updateProgressModal(progressModal, 'Step 3/4: AI analyzing paths and content...', 50);
+
+                // Brief pause for user to see the step
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
+                updateProgressModal(progressModal, 'Step 3/4: AI refining based on content...', 75);
 
                 const result = await response.json();
                 console.log('📋 API result:', result);
                 console.log('📋 Results array length:', result.results ? result.results.length : 'no results array');
 
-                // Update progress
-                updateProgressModal(progressModal, 'Formatting search results...', 90);
+                // Step 4: Final formatting
+                updateProgressModal(progressModal, 'Step 4/4: Formatting results...', 90);
 
                 if (result.success) {
                     console.log('✅ API returned success=true');
