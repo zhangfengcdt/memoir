@@ -3367,6 +3367,35 @@
             } else if (cmd === '/summarize') {
                 const summaryType = parts.length > 1 ? parts[1].toLowerCase() : 'all';
                 await summarizeMemoryStore(summaryType);
+            } else if (cmd === '/recall' || cmd === '/search') {
+                const query = parts.slice(1).join(' ');
+                if (!query) {
+                    showNotification('Usage: /recall <query>\nExample: /recall user preferences about colors', 'error');
+                } else {
+                    await recallMemories(query);
+                }
+            } else if (cmd === '/debug-store') {
+                // Quick debug command to check store contents
+                if (!connectedStorePath) {
+                    showNotification('Not connected to any store', 'error');
+                    return;
+                }
+                
+                console.log('🔍 Frontend store debug:');
+                console.log('Connected store path:', connectedStorePath);
+                console.log('window.isNewEmptyStore:', window.isNewEmptyStore);
+                
+                // Make a direct API call to list all memories
+                try {
+                    const response = await fetch(`/api/store?path=${encodeURIComponent(connectedStorePath)}`);
+                    const result = await response.json();
+                    console.log('Store API response:', result);
+                    
+                    showNotification(`Debug: ${connectedStorePath} - Check console for details`, 'info');
+                } catch (error) {
+                    console.error('Store debug error:', error);
+                    showNotification('Store debug failed - check console', 'error');
+                }
 
             // Developer & Debugging Commands
             } else if (cmd === '/inspect') {
@@ -3423,12 +3452,27 @@
             } else if (cmd === '/help') {
                 showHelpModal();
             } else {
-                // Check if it's a placeholder command
-                const placeholderCmd = availableCommands.find(c => c.cmd === cmd && c.placeholder);
-                if (placeholderCmd) {
-                    showNotification(`${placeholderCmd.cmd} - ${placeholderCmd.desc}`, 'info', 4000);
+                // Check if input starts with "/" (indicating it's an unknown command)
+                if (command.trim().startsWith('/')) {
+                    // Check if it's a placeholder command
+                    const placeholderCmd = availableCommands.find(c => c.cmd === cmd && c.placeholder);
+                    if (placeholderCmd) {
+                        showNotification(`${placeholderCmd.cmd} - ${placeholderCmd.desc}`, 'info', 4000);
+                    } else {
+                        showNotification(`Unknown command: ${cmd}`, 'error');
+                    }
                 } else {
-                    showNotification(`Unknown command: ${cmd}`, 'error');
+                    // Input doesn't start with "/" - treat it as a natural language query
+                    // Default to recall functionality
+                    console.log('🔍 Natural language query detected:', command);
+                    const query = command.trim();
+                    if (query) {
+                        console.log('🔍 Calling recallMemories with query:', query);
+                        console.log('🔍 Connected store path:', connectedStorePath);
+                        await recallMemories(query);
+                    } else {
+                        showNotification('Please enter a question or search query', 'error');
+                    }
                 }
             }
         }
@@ -6224,6 +6268,422 @@ ${result.valid ?
             }
         }
 
+        async function recallMemories(query) {
+            console.log('🧠 recallMemories called with query:', query);
+            console.log('🔌 connectedStorePath:', connectedStorePath);
+            console.log('🔌 window.isNewEmptyStore:', window.isNewEmptyStore);
+            
+            if (!connectedStorePath) {
+                console.log('❌ No store connected - showing error notification');
+                showNotification('Please connect to a memory store first', 'error');
+                return;
+            }
+
+            // Check if we're in demo mode
+            if (connectedStorePath === null || window.isNewEmptyStore === true) {
+                console.log('❌ Demo mode detected - showing error notification');
+                showNotification('Recall is not available in demo mode. Please connect to a real memory store using /connect <path>', 'error', 5000);
+                return;
+            }
+            
+            console.log('✅ All checks passed - showing progress modal');
+
+            // Show progress modal
+            const progressModal = showProgressModal('Recalling Memories', `Searching for: "${query}"`);
+
+            // Create AbortController for cancellation
+            const abortController = new AbortController();
+            progressModal.abortController = abortController;
+
+            try {
+                // Update progress
+                updateProgressModal(progressModal, 'Sending search query to server...', 20);
+
+                console.log('🌐 Making API call to:', `/api/recall?path=${encodeURIComponent(connectedStorePath)}&query=${encodeURIComponent(query)}`);
+
+                const response = await fetch(`/api/recall?path=${encodeURIComponent(connectedStorePath)}&query=${encodeURIComponent(query)}`, {
+                    signal: abortController.signal
+                });
+
+                console.log('📡 API response status:', response.status);
+                console.log('📡 API response ok:', response.ok);
+
+                if (!response.ok) {
+                    console.log('❌ API response not ok, throwing error');
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                // Update progress
+                updateProgressModal(progressModal, 'Analyzing memories with AI...', 60);
+
+                const result = await response.json();
+                console.log('📋 API result:', result);
+                console.log('📋 Results array length:', result.results ? result.results.length : 'no results array');
+
+                // Update progress
+                updateProgressModal(progressModal, 'Formatting search results...', 90);
+
+                if (result.success) {
+                    console.log('✅ API returned success=true');
+                    console.log('📊 Results to display:', result.results);
+                    // Create recall results display
+                    let recallContent = `<div class="recall-content">`;
+                    recallContent += `<h3>Memory Recall Results</h3>`;
+                    recallContent += `<div class="recall-query">Query: "${query}"</div>`;
+
+                    // Display search metadata
+                    if (result.metadata) {
+                        recallContent += `
+                            <div class="recall-metadata">
+                                <div class="metadata-grid">
+                                    <div class="metadata-item">
+                                        <span class="metadata-label">Results Found</span>
+                                        <span class="metadata-value">${result.metadata.results_count || 0}</span>
+                                    </div>
+                                    <div class="metadata-item">
+                                        <span class="metadata-label">Search Time</span>
+                                        <span class="metadata-value">${result.metadata.search_time || 'N/A'}</span>
+                                    </div>
+                                    <div class="metadata-item full-width">
+                                        <span class="metadata-label">Store Path</span>
+                                        <span class="metadata-value">${result.metadata.store_path || connectedStorePath}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    // Display search results
+                    if (result.results && result.results.length > 0) {
+                        console.log('📝 Displaying', result.results.length, 'results');
+                        recallContent += `<div class="recall-results">`;
+                        result.results.forEach((item, index) => {
+                            recallContent += `
+                                <div class="recall-item">
+                                    <div class="recall-item-header">
+                                        <span class="recall-path">${item.path}</span>
+                                        <span class="recall-score">${(item.relevance_score * 100).toFixed(0)}% match</span>
+                                    </div>
+                                    <div class="recall-item-content">${escapeHtml(item.content)}</div>
+                                    ${item.metadata ? `
+                                        <div class="recall-item-metadata">
+                                            <span class="recall-meta-label">Namespace:</span>
+                                            <span class="recall-meta-value">${item.namespace || 'default'}</span>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `;
+                        });
+                        recallContent += `</div>`;
+                    } else {
+                        console.log('❌ No results found - showing no results message');
+                        console.log('📊 result.results:', result.results);
+                        recallContent += `<div class="recall-no-results">No relevant memories found for your query.</div>`;
+                    }
+
+                    recallContent += `</div>`;
+
+                    // Complete progress and close modal
+                    updateProgressModal(progressModal, 'Recall completed!', 100);
+                    setTimeout(() => closeProgressModal(progressModal), 500);
+
+                    // Create and show results modal
+                    const modal = document.createElement('div');
+                    modal.className = 'recall-modal';
+                    modal.innerHTML = `
+                        <div class="recall-modal-content">
+                            <div class="recall-modal-header">
+                                <h2>🔍 Memory Recall</h2>
+                                <button class="recall-modal-close">&times;</button>
+                            </div>
+                            <div class="recall-modal-body">
+                                ${recallContent}
+                            </div>
+                            <div class="recall-modal-footer">
+                                <button class="recall-button secondary" onclick="closeRecallModal()">Close</button>
+                                <button class="recall-button primary" onclick="copyRecallToClipboard()">Copy Results</button>
+                            </div>
+                        </div>
+                    `;
+
+                    // Add CSS for recall modal (reuse summary modal styles)
+                    if (!document.getElementById('recall-modal-styles')) {
+                        const styles = document.createElement('style');
+                        styles.id = 'recall-modal-styles';
+                        styles.textContent = `
+                            .recall-modal {
+                                position: fixed;
+                                top: 0;
+                                left: 0;
+                                width: 100%;
+                                height: 100%;
+                                background: rgba(0, 0, 0, 0.8);
+                                backdrop-filter: blur(10px);
+                                z-index: 10000;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                animation: fadeIn 0.3s ease-out;
+                            }
+
+                            .recall-modal-content {
+                                background: var(--bg-primary);
+                                border: 1px solid var(--border-light);
+                                border-radius: 16px;
+                                max-width: 900px;
+                                width: 90%;
+                                max-height: 80vh;
+                                display: flex;
+                                flex-direction: column;
+                                animation: slideIn 0.3s ease-out;
+                                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+                            }
+
+                            .recall-modal-header {
+                                padding: 20px 30px;
+                                border-bottom: 1px solid var(--border-light);
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                background: var(--bg-glass);
+                                border-radius: 16px 16px 0 0;
+                            }
+
+                            .recall-modal-header h2 {
+                                margin: 0;
+                                color: var(--text-primary);
+                                font-size: 24px;
+                            }
+
+                            .recall-modal-close {
+                                background: none;
+                                border: none;
+                                color: var(--text-secondary);
+                                font-size: 28px;
+                                cursor: pointer;
+                                padding: 0;
+                                width: 32px;
+                                height: 32px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                border-radius: 6px;
+                                transition: all 0.2s ease;
+                            }
+
+                            .recall-modal-close:hover {
+                                background: rgba(255, 255, 255, 0.1);
+                                color: var(--text-primary);
+                            }
+
+                            .recall-modal-body {
+                                padding: 30px;
+                                overflow-y: auto;
+                                flex: 1;
+                            }
+
+                            .recall-content h3 {
+                                margin-top: 0;
+                                margin-bottom: 20px;
+                                color: var(--accent-primary);
+                            }
+
+                            .recall-query {
+                                padding: 15px;
+                                background: rgba(34, 211, 238, 0.1);
+                                border-radius: 8px;
+                                border: 1px solid rgba(34, 211, 238, 0.3);
+                                margin-bottom: 20px;
+                                font-size: 14px;
+                                color: var(--text-primary);
+                            }
+
+                            .recall-metadata {
+                                margin-bottom: 25px;
+                                padding: 15px;
+                                background: rgba(168, 85, 247, 0.1);
+                                border-radius: 12px;
+                                border: 1px solid rgba(168, 85, 247, 0.2);
+                            }
+
+                            .recall-results {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 15px;
+                            }
+
+                            .recall-item {
+                                padding: 15px;
+                                background: var(--bg-glass);
+                                border-radius: 10px;
+                                border: 1px solid var(--border-light);
+                                transition: all 0.2s ease;
+                            }
+
+                            .recall-item:hover {
+                                border-color: var(--accent-primary);
+                                box-shadow: 0 4px 12px rgba(34, 211, 238, 0.1);
+                            }
+
+                            .recall-item-header {
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                margin-bottom: 10px;
+                            }
+
+                            .recall-path {
+                                font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+                                font-size: 13px;
+                                color: var(--accent-primary);
+                                font-weight: 600;
+                            }
+
+                            .recall-score {
+                                font-size: 12px;
+                                color: var(--text-secondary);
+                                background: rgba(34, 211, 238, 0.1);
+                                padding: 4px 8px;
+                                border-radius: 4px;
+                            }
+
+                            .recall-item-content {
+                                font-size: 14px;
+                                color: var(--text-primary);
+                                line-height: 1.6;
+                                margin-bottom: 10px;
+                            }
+
+                            .recall-item-metadata {
+                                font-size: 12px;
+                                color: var(--text-secondary);
+                                display: flex;
+                                gap: 8px;
+                            }
+
+                            .recall-meta-label {
+                                font-weight: 600;
+                            }
+
+                            .recall-no-results {
+                                padding: 40px;
+                                text-align: center;
+                                color: var(--text-secondary);
+                                font-size: 16px;
+                            }
+
+                            .recall-modal-footer {
+                                padding: 20px 30px;
+                                border-top: 1px solid var(--border-light);
+                                display: flex;
+                                gap: 15px;
+                                justify-content: flex-end;
+                                background: var(--bg-glass);
+                            }
+
+                            .recall-button {
+                                padding: 10px 20px;
+                                border: none;
+                                border-radius: 8px;
+                                font-size: 14px;
+                                cursor: pointer;
+                                transition: all 0.2s ease;
+                                font-weight: 500;
+                            }
+
+                            .recall-button.primary {
+                                background: var(--accent-primary);
+                                color: white;
+                            }
+
+                            .recall-button.primary:hover {
+                                background: var(--accent-secondary);
+                                transform: translateY(-1px);
+                            }
+
+                            .recall-button.secondary {
+                                background: var(--bg-glass);
+                                color: var(--text-primary);
+                                border: 1px solid var(--border-light);
+                            }
+
+                            .recall-button.secondary:hover {
+                                background: var(--bg-glass-light);
+                                transform: translateY(-1px);
+                            }
+                        `;
+                        document.head.appendChild(styles);
+                    }
+
+                    // Store results for clipboard copying
+                    window.currentRecallResults = result;
+
+                    // Add modal to DOM
+                    document.body.appendChild(modal);
+
+                    // Add event listeners
+                    modal.querySelector('.recall-modal-close').onclick = () => document.body.removeChild(modal);
+                    modal.onclick = (e) => {
+                        if (e.target === modal) document.body.removeChild(modal);
+                    };
+
+                    // Global functions for modal buttons
+                    window.closeRecallModal = () => {
+                        const modal = document.querySelector('.recall-modal');
+                        if (modal) document.body.removeChild(modal);
+                    };
+
+                    window.copyRecallToClipboard = () => {
+                        if (window.currentRecallResults) {
+                            let textResults = `Memory Recall Results\n`;
+                            textResults += `Query: "${query}"\n\n`;
+
+                            if (window.currentRecallResults.metadata) {
+                                textResults += `Results Found: ${window.currentRecallResults.metadata.results_count || 0}\n`;
+                                textResults += `Search Time: ${window.currentRecallResults.metadata.search_time || 'N/A'}\n\n`;
+                            }
+
+                            if (window.currentRecallResults.results && window.currentRecallResults.results.length > 0) {
+                                window.currentRecallResults.results.forEach((item, index) => {
+                                    textResults += `--- Result ${index + 1} ---\n`;
+                                    textResults += `Path: ${item.path}\n`;
+                                    textResults += `Relevance: ${(item.relevance_score * 100).toFixed(0)}%\n`;
+                                    textResults += `Content: ${item.content}\n`;
+                                    if (item.namespace) {
+                                        textResults += `Namespace: ${item.namespace}\n`;
+                                    }
+                                    textResults += `\n`;
+                                });
+                            } else {
+                                textResults += 'No relevant memories found.\n';
+                            }
+
+                            navigator.clipboard.writeText(textResults).then(() => {
+                                showNotification('Recall results copied to clipboard', 'success');
+                            }).catch(err => {
+                                console.error('Failed to copy:', err);
+                                showNotification('Failed to copy results', 'error');
+                            });
+                        }
+                    };
+
+                } else {
+                    console.log('❌ API returned success=false');
+                    console.log('❌ Error details:', result.error);
+                    throw new Error(result.error || 'Unknown error occurred');
+                }
+            } catch (error) {
+                console.error('Recall error:', error);
+                closeProgressModal(progressModal);
+
+                if (error.name === 'AbortError') {
+                    showNotification('Recall search cancelled', 'info');
+                } else {
+                    showNotification(`Error recalling memories: ${error.message}`, 'error', 5000);
+                }
+            }
+        }
+
         function showProgressModal(title, message) {
             // Create progress modal
             const modal = document.createElement('div');
@@ -7427,6 +7887,18 @@ ${result.valid ?
             }
         }
 
+        function escapeHtml(text) {
+            if (typeof text !== 'string') {
+                text = String(text);
+            }
+            return text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
         function formatTimeAgo(timestamp) {
             const now = Date.now();
             const diff = now - timestamp;
@@ -7981,6 +8453,7 @@ ${result.valid ?
             { cmd: '/blame', args: '<key>', desc: 'Show Git-like blame history for memory key' },
             { cmd: '/help', args: '', desc: 'Show all available commands', aliases: '/h' },
             { cmd: '/summarize', args: '[type]', desc: 'Generate summary of memories (all, taxonomy, timeline, places)', aliases: '/sum' },
+            { cmd: '/recall', args: '<query>', desc: 'Search and recall relevant memories using AI', aliases: '/search' },
             { cmd: '/timeline', args: '[YYYY-MM-DD description]', desc: 'Show timeline or add timeline event', aliases: '/tl' },
             { cmd: '/location', args: '[place description]', desc: 'Show places or add location event', aliases: '/loc' },
 
@@ -8083,18 +8556,10 @@ ${result.valid ?
                         resetHistoryIndex(); // Reset history navigation
 
                         // Check if it's a command
-                        if (value.startsWith('/')) {
-                            console.log('Processing command:', value);
-                            hideCommandSuggestions();
-                            await handleCommand(value);
-                        } else {
-                            // Default action: query if it's a question, add if it's a statement
-                            if (value.includes('?') || value.toLowerCase().startsWith('what') ||
-                                value.toLowerCase().startsWith('how') || value.toLowerCase().startsWith('when') ||
-                                value.toLowerCase().startsWith('where') || value.toLowerCase().startsWith('why')) {
-                                handleQuery(value);
-                            }
-                        }
+                        // Always call handleCommand - it now handles both commands and natural language
+                        console.log('Processing input:', value);
+                        hideCommandSuggestions();
+                        await handleCommand(value);
                     }
                 } else if (e.key === 'Escape') {
                     hideCommandSuggestions();
@@ -10568,7 +11033,7 @@ Message: ${commit.message}`;
         function generateHelpContent() {
             const coreCommands = availableCommands.filter(c => ['connect', 'new', 'remember', 'forget', 'refresh'].some(cmd => c.cmd.includes(cmd)));
             const gitCommands = availableCommands.filter(c => ['branch', 'checkout', 'merge', 'time-travel', 'commits', 'blame'].some(cmd => c.cmd.includes(cmd)));
-            const viewCommands = availableCommands.filter(c => ['timeline', 'location', 'summarize', 'proof', 'verify'].some(cmd => c.cmd.includes(cmd)));
+            const viewCommands = availableCommands.filter(c => ['timeline', 'location', 'summarize', 'recall', 'proof', 'verify'].some(cmd => c.cmd.includes(cmd)));
             const devCommands = availableCommands.filter(c => ['inspect', 'diff', 'test-scenario', 'mock-data', 'benchmark', 'export', 'compare-stores', 'trace', 'replay', 'template'].some(cmd => c.cmd.includes(cmd)));
 
             return `
@@ -10581,6 +11046,7 @@ Message: ${commit.message}`;
                     <h4>💡 Getting Started</h4>
                     <p>Memoir brings Git-like version control to AI memory systems. Connect to a memory store to start exploring your data with cryptographic integrity and full history tracking.</p>
                     <p><strong>Quick Start:</strong> Use <code>/connect /path/to/store</code> or <code>/new /tmp/my_store</code> to begin.</p>
+                    <p><strong>🔍 Smart Search:</strong> Just type natural questions without commands! Example: <code>user preferences about colors</code> will automatically search your memories.</p>
                 </div>
 
                 <div class="help-section">

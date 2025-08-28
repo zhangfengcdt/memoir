@@ -59,13 +59,58 @@ class IntelligentSearchEngine:
             List of IntelligentSearchResult objects
         """
         try:
-            # Step 1: Get all available paths from the store
-            namespace_tuple = (
-                (namespace,)
-                if isinstance(namespace, str)
-                else tuple(namespace.split(":"))
-            )
-            all_memories = self.store.search(namespace_tuple, limit=1000)
+            # Step 1: Get all available paths from the store using list_keys()
+            if isinstance(namespace, str):
+                namespace_tuple = tuple(namespace.split(":"))
+            else:
+                namespace_tuple = namespace
+            
+            # Use VersionedKvStore's list_keys() to get ALL keys, then filter by namespace and get data
+            try:
+                if hasattr(self.store, 'tree') and hasattr(self.store.tree, 'list_keys'):
+                    all_keys = self.store.tree.list_keys()
+                elif hasattr(self.store, '_keys'):
+                    all_keys = list(self.store._keys)
+                else:
+                    all_memories = self.store.search(namespace_tuple, limit=1000)
+                    if not all_memories:
+                        logger.info(f"No memories found in namespace {namespace}")
+                        return []
+                    all_keys = None
+            except Exception as e:
+                all_memories = self.store.search(namespace_tuple, limit=1000)
+                if not all_memories:
+                    logger.info(f"No memories found in namespace {namespace}")
+                    return []
+                all_keys = None
+
+            if all_keys is not None:
+                all_memories = []
+                
+                for key in all_keys:
+                    # Convert bytes key to string if needed
+                    key_str = key.decode('utf-8') if isinstance(key, bytes) else str(key)
+                    
+                    # Parse the key string back to components
+                    key_parts = key_str.split(':')
+                    
+                    # Check if this key matches our target namespace
+                    if len(key_parts) >= len(namespace_tuple):
+                        key_namespace = tuple(key_parts[:len(namespace_tuple)])
+                        if key_namespace == namespace_tuple:
+                            # Extract the path (everything after the namespace)
+                            path = ".".join(key_parts[len(namespace_tuple):]) if len(key_parts) > len(namespace_tuple) else key_parts[-1]
+                            
+                            # Get the data for this key
+                            try:
+                                data = self.store.get(namespace_tuple, path)
+                                if data is not None:
+                                    all_memories.append((namespace_tuple, path, data))
+                                else:
+                                    logger.warning(f"Data is None for key {key_str}")
+                            except Exception as e:
+                                logger.warning(f"Could not retrieve data for key {key_str}: {e}")
+                                continue
 
             if not all_memories:
                 logger.info(f"No memories found in namespace {namespace}")
@@ -74,7 +119,7 @@ class IntelligentSearchEngine:
             # Extract unique paths and create path info
             paths_info = {}
             for _, path, data in all_memories:
-                if path not in paths_info:
+                if path not in paths_info and data is not None:
                     # Get a preview of what's stored at this path
                     if isinstance(data, dict) and "memories" in data:
                         # Aggregated memory
@@ -89,13 +134,20 @@ class IntelligentSearchEngine:
                             "count": memory_count,
                             "sample": sample_content,
                         }
-                    else:
+                    elif isinstance(data, dict):
                         # Single memory
                         content = data.get("content", str(data))
                         paths_info[path] = {
                             "type": "single",
                             "count": 1,
                             "sample": str(content)[:100],
+                        }
+                    else:
+                        # Non-dict data
+                        paths_info[path] = {
+                            "type": "single",
+                            "count": 1,
+                            "sample": str(data)[:100] if data else "",
                         }
 
             if not paths_info:
@@ -183,6 +235,10 @@ Selected paths:"""
             logger.info(
                 f"LLM selected {len(selected_paths)} paths for query '{query}': {selected_paths}"
             )
+            print(f"🤖 DEBUG: LLM path selection for '{query}':")
+            print(f"   Available paths: {list(paths_info.keys())}")
+            print(f"   LLM selected: {selected_paths}")
+            print(f"   LLM response: {response_text}")
             return selected_paths
 
         except Exception as e:

@@ -58,6 +58,8 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_debug_location_api(parsed_path)
         elif parsed_path.path == "/api/summarize":
             self.handle_summarize_api(parsed_path)
+        elif parsed_path.path == "/api/recall":
+            self.handle_recall_api(parsed_path)
         elif parsed_path.path == "/":
             # Serve the visualization HTML
             self.path = "/visualization.html"
@@ -2202,6 +2204,146 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
 
         except Exception as e:
             return f"Error generating overall summary: {e!s}"
+
+    def handle_recall_api(self, parsed_path):
+        """Handle API requests for recalling memories using IntelligentSearchEngine."""
+        query_params = parse_qs(parsed_path.query)
+        store_path = query_params.get("path", [None])[0]
+        query = query_params.get("query", [None])[0]
+
+        if not store_path:
+            self.send_error(400, "Missing 'path' parameter")
+            return
+
+        if not query:
+            self.send_error(400, "Missing 'query' parameter")
+            return
+
+        if not Path(store_path).exists():
+            self.send_error(404, f"Store path does not exist: {store_path}")
+            return
+
+        try:
+            # Initialize store
+            store = ProllyTreeStore(
+                path=store_path,
+                enable_versioning=True,
+                auto_commit=False,
+                cache_size=10000,
+            )
+
+            # Initialize LLM for intelligent search
+            try:
+                from langchain_openai import ChatOpenAI
+
+                llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+            except Exception as e:
+                self.send_error(500, f"Error initializing LLM: {e!s}")
+                return
+
+            # Initialize IntelligentSearchEngine
+            from memoir.search.intelligent import IntelligentSearchEngine
+
+            search_engine = IntelligentSearchEngine(llm=llm, store=store)
+
+            import asyncio
+            import time
+
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+            try:
+                # Track timing
+                start_time = time.time()
+                
+                # Much cleaner: just track the search
+                print(f"🔍 Searching for: '{query}'")
+
+                # Try searching in multiple namespaces - first memory:general, then others
+                results = []
+                
+                # First try the default namespace
+                results = loop.run_until_complete(
+                    search_engine.search(query, namespace="memory:general", limit=10)
+                )
+                
+                # If no results found, try other namespaces (like alice_chen)
+                if not results:
+                    print(f"🔍 No results in memory:general, trying other namespaces...")
+                    
+                    # Get all unique namespaces from the keys we found
+                    all_keys = search_engine.store.tree.list_keys() if hasattr(search_engine.store, 'tree') else []
+                    namespaces = set()
+                    for key in all_keys:
+                        key_str = key.decode('utf-8') if isinstance(key, bytes) else str(key)
+                        key_parts = key_str.split(':')
+                        if len(key_parts) >= 2:
+                            namespace = ":".join(key_parts[:2])  # Take first two parts as namespace
+                            namespaces.add(namespace)
+                    
+                    print(f"🔍 Found namespaces: {namespaces}")
+                    
+                    # Try each namespace
+                    for ns in namespaces:
+                        if ns != "memory:general":
+                            print(f"🔍 Trying namespace: {ns}")
+                            # Extract just the base namespace (first part before colon)
+                            base_namespace = ns.split(":")[0] if ":" in ns else ns
+                            print(f"🔍 Using base namespace: {base_namespace}")
+                            ns_results = loop.run_until_complete(
+                                search_engine.search(query, namespace=base_namespace, limit=10)
+                            )
+                            if ns_results:
+                                print(f"✅ Found {len(ns_results)} results in namespace {ns}")
+                                results.extend(ns_results)
+                                break  # Stop after finding results in first namespace
+
+                search_time = round(time.time() - start_time, 2)
+                print(f"🎯 DEBUG: Search completed, found {len(results)} results")
+
+                # Format results
+                formatted_results = []
+                for result in results:
+                    formatted_results.append({
+                        "path": result.path,
+                        "content": result.content,
+                        "relevance_score": result.relevance_score,
+                        "namespace": result.namespace,
+                        "metadata": result.metadata,
+                    })
+
+                # Create response
+                response_data = {
+                    "success": True,
+                    "results": formatted_results,
+                    "metadata": {
+                        "store_path": store_path,
+                        "results_count": len(formatted_results),
+                        "search_time": f"{search_time}s",
+                    },
+                }
+
+            finally:
+                loop.close()
+
+            # Send response
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(response_data).encode())
+
+        except Exception as e:
+            error_msg = f"Error during recall search: {str(e)}"
+            print(f"Recall API error: {e}")
+            import traceback
+
+            traceback.print_exc()
+
+            response_data = {"success": False, "error": error_msg}
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(response_data).encode())
 
     def _extract_memory_content(self, data):
         """Extract meaningful content from memory data structure."""
