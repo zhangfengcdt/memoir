@@ -6322,7 +6322,7 @@ ${result.valid ?
 
                 // Brief pause for user to see the step
                 await new Promise(resolve => setTimeout(resolve, 300));
-                
+
                 updateProgressModal(progressModal, 'Step 3/4: AI refining based on content...', 75);
 
                 const result = await response.json();
