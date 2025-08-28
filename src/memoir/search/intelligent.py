@@ -60,7 +60,12 @@ class IntelligentSearchEngine:
             List of IntelligentSearchResult objects
         """
         try:
-            # Step 1: Get all available paths from the store using list_keys()
+            import time
+
+            step_timings = {}
+            search_start = time.time()
+            # Step 1: Path Discovery - Get all available paths from the store
+            step1_start = time.time()
             if isinstance(namespace, str):
                 namespace_tuple = tuple(namespace.split(":"))
             else:
@@ -165,14 +170,20 @@ class IntelligentSearchEngine:
                 logger.info("No valid paths found")
                 return []
 
-            # Step 2: Ask LLM to select relevant paths
+            step_timings["step1_path_discovery"] = round(time.time() - step1_start, 3)
+
+            # Step 2: Semantic Path Selection - Ask LLM to select relevant paths
+            step2_start = time.time()
             selected_paths = await self._select_relevant_paths(query, paths_info)
 
             if not selected_paths:
                 logger.info(f"LLM didn't select any relevant paths for query: {query}")
                 return []
 
-            # Step 3: Content-based refinement - get actual content and let LLM refine selection
+            step_timings["step2_path_selection"] = round(time.time() - step2_start, 3)
+
+            # Step 3: Content Refinement - get actual content and let LLM refine selection
+            step3_start = time.time()
             refined_paths = await self._refine_paths_with_content(
                 query, selected_paths, all_memories, namespace_tuple
             )
@@ -183,7 +194,12 @@ class IntelligentSearchEngine:
                 )
                 return []
 
-            # Step 4: Retrieve memories from refined paths
+            step_timings["step3_content_refinement"] = round(
+                time.time() - step3_start, 3
+            )
+
+            # Step 4: Memory Retrieval - Retrieve memories from refined paths
+            step4_start = time.time()
             results = []
             for path in refined_paths[:limit]:  # Limit paths processed
                 path_memories = self._get_memories_from_path(
@@ -193,6 +209,16 @@ class IntelligentSearchEngine:
 
                 if len(results) >= limit:
                     break
+
+            step_timings["step4_memory_retrieval"] = round(time.time() - step4_start, 3)
+            step_timings["total_search"] = round(time.time() - search_start, 3)
+
+            # Store timing info in the results for access by the API
+            for result in results:
+                if hasattr(result, "metadata"):
+                    if not result.metadata:
+                        result.metadata = {}
+                    result.metadata["step_timings"] = step_timings
 
             return results[:limit]
 

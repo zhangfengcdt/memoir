@@ -6277,71 +6277,97 @@ ${result.valid ?
         }
 
         async function recallMemories(query) {
-            console.log('🧠 recallMemories called with query:', query);
-            console.log('🔌 connectedStorePath:', connectedStorePath);
-            console.log('🔌 window.isNewEmptyStore:', window.isNewEmptyStore);
-
             if (!connectedStorePath) {
-                console.log('❌ No store connected - showing error notification');
                 showNotification('Please connect to a memory store first', 'error');
                 return;
             }
 
             // Check if we're in demo mode
             if (connectedStorePath === null || window.isNewEmptyStore === true) {
-                console.log('❌ Demo mode detected - showing error notification');
                 showNotification('Recall is not available in demo mode. Please connect to a real memory store using /connect <path>', 'error', 5000);
                 return;
             }
 
-            console.log('✅ All checks passed - showing progress modal');
+            // Track timing
+            const startTime = Date.now();
 
             // Show progress modal
             const progressModal = showProgressModal('Recalling Memories', `Searching for: "${query}"`);
+            progressModal.startTime = startTime;
 
             // Create AbortController for cancellation
             const abortController = new AbortController();
             progressModal.abortController = abortController;
 
             try {
-                // Step 1: Send query
-                updateProgressModal(progressModal, 'Step 1/4: Sending search query...', 10);
+                // Start with initial progress
+                updateProgressModalWithTime(progressModal, 'Initializing search...', 5);
 
-                console.log('🌐 Making API call to:', `/api/recall?path=${encodeURIComponent(connectedStorePath)}&query=${encodeURIComponent(query)}`);
-
-                // Step 2: Getting memory paths
-                updateProgressModal(progressModal, 'Step 2/4: Scanning memory store for paths...', 25);
-
-                const response = await fetch(`/api/recall?path=${encodeURIComponent(connectedStorePath)}&query=${encodeURIComponent(query)}`, {
+                // The actual search happens in the API call, so we simulate progress during the fetch
+                const fetchPromise = fetch(`/api/recall?path=${encodeURIComponent(connectedStorePath)}&query=${encodeURIComponent(query)}`, {
                     signal: abortController.signal
                 });
 
-                console.log('📡 API response status:', response.status);
-                console.log('📡 API response ok:', response.ok);
+                // Start continuous progress updates with elapsed time
+                let progressStep = 0;
+                const progressMessages = [
+                    'Initializing search...',
+                    'Step 1/4: Discovering memory paths...',
+                    'Step 2/4: AI selecting relevant paths...',
+                    'Step 3/4: AI analyzing content...',
+                    'Step 4/4: Retrieving memories...'
+                ];
+
+                const progressInterval = setInterval(() => {
+                    if (!abortController.signal.aborted) {
+                        const elapsedMs = Date.now() - startTime;
+                        const elapsedSec = (elapsedMs / 1000).toFixed(1);
+
+                        // Determine step and progress based on elapsed time
+                        let step = 0;
+                        let percent = 5;
+
+                        if (elapsedSec < 0.5) {
+                            step = 0; percent = 5;
+                        } else if (elapsedSec < 1.0) {
+                            step = 1; percent = 15;
+                        } else if (elapsedSec < 2.0) {
+                            step = 2; percent = 35;
+                        } else if (elapsedSec < 3.0) {
+                            step = 3; percent = 65;
+                        } else {
+                            step = 4; percent = 85;
+                        }
+
+                        // Only update if step changed or every 100ms for time display
+                        if (step !== progressStep || elapsedMs % 100 < 50) {
+                            progressStep = step;
+                            const message = progressMessages[step] || progressMessages[4];
+                            updateProgressModalWithTime(progressModal, message, percent);
+                        }
+                    }
+                }, 100); // Update every 100ms
+
+                // Clear interval when request completes
+                const cleanupProgress = () => {
+                    if (progressInterval) {
+                        clearInterval(progressInterval);
+                    }
+                };
+
+                // Wait for the API response
+                const response = await fetchPromise;
+                cleanupProgress(); // Stop the progress updates
 
                 if (!response.ok) {
-                    console.log('❌ API response not ok, throwing error');
                     throw new Error(`HTTP ${response.status}: ${response.statusText}`);
                 }
 
-                // Step 3: LLM analysis
-                updateProgressModal(progressModal, 'Step 3/4: AI analyzing paths and content...', 50);
-
-                // Brief pause for user to see the step
-                await new Promise(resolve => setTimeout(resolve, 300));
-
-                updateProgressModal(progressModal, 'Step 3/4: AI refining based on content...', 75);
+                updateProgressModalWithTime(progressModal, 'Processing results...', 95);
 
                 const result = await response.json();
-                console.log('📋 API result:', result);
-                console.log('📋 Results array length:', result.results ? result.results.length : 'no results array');
-
-                // Step 4: Final formatting
-                updateProgressModal(progressModal, 'Step 4/4: Formatting results...', 90);
 
                 if (result.success) {
-                    console.log('✅ API returned success=true');
-                    console.log('📊 Results to display:', result.results);
                     // Create recall results display
                     let recallContent = `<div class="recall-content">`;
                     recallContent += `<h3>Memory Recall Results</h3>`;
@@ -6357,21 +6383,65 @@ ${result.valid ?
                                         <span class="metadata-value">${result.metadata.results_count || 0}</span>
                                     </div>
                                     <div class="metadata-item">
-                                        <span class="metadata-label">Search Time</span>
-                                        <span class="metadata-value">${result.metadata.search_time || 'N/A'}</span>
+                                        <span class="metadata-label">Total Time</span>
+                                        <span class="metadata-value">${result.metadata.total_time_seconds || 0}s</span>
                                     </div>
                                     <div class="metadata-item full-width">
                                         <span class="metadata-label">Store Path</span>
                                         <span class="metadata-value">${result.metadata.store_path || connectedStorePath}</span>
                                     </div>
                                 </div>
-                            </div>
                         `;
+
+                        // Display four-step timing breakdown if available
+                        if (result.metadata.four_step_timings) {
+                            recallContent += `
+                                <div class="timing-breakdown">
+                                    <div class="timing-header">⏱️ Recall Process Breakdown</div>
+                                    <div class="timing-grid">
+                            `;
+
+                            const timing = result.metadata.four_step_timings;
+                            const stepLabels = {
+                                'step1_path_discovery': 'Step 1: Path Discovery',
+                                'step2_path_selection': 'Step 2: Semantic Path Selection',
+                                'step3_content_refinement': 'Step 3: Content Refinement',
+                                'step4_memory_retrieval': 'Step 4: Memory Retrieval'
+                            };
+
+                            // Calculate total for percentages
+                            const totalStepTime = Object.values(timing).reduce((sum, val) => sum + val, 0);
+
+                            for (const [key, value] of Object.entries(timing)) {
+                                const label = stepLabels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                                const percentage = totalStepTime > 0 ?
+                                    Math.round((value / totalStepTime) * 100) : 0;
+
+                                recallContent += `
+                                    <div class="timing-item">
+                                        <div class="timing-label">${label}</div>
+                                        <div class="timing-value">
+                                            <span class="timing-duration">${value}s</span>
+                                            <span class="timing-percentage">(${percentage}%)</span>
+                                        </div>
+                                        <div class="timing-bar">
+                                            <div class="timing-fill" style="width: ${percentage}%"></div>
+                                        </div>
+                                    </div>
+                                `;
+                            }
+
+                            recallContent += `
+                                    </div>
+                                </div>
+                            `;
+                        }
+
+                        recallContent += `</div>`;
                     }
 
                     // Display search results
                     if (result.results && result.results.length > 0) {
-                        console.log('📝 Displaying', result.results.length, 'results');
                         recallContent += `<div class="recall-results">`;
                         result.results.forEach((item, index) => {
                             const fullPath = `${item.namespace || 'default'}:${item.path}`;
@@ -6418,7 +6488,7 @@ ${result.valid ?
                     recallContent += `</div>`;
 
                     // Complete progress and close modal
-                    updateProgressModal(progressModal, 'Recall completed!', 100);
+                    updateProgressModalWithTime(progressModal, 'Recall completed!', 100);
                     setTimeout(() => closeProgressModal(progressModal), 500);
 
                     // Create and show results modal
@@ -6538,6 +6608,76 @@ ${result.valid ?
                                 background: rgba(168, 85, 247, 0.1);
                                 border-radius: 12px;
                                 border: 1px solid rgba(168, 85, 247, 0.2);
+                            }
+
+                            .timing-breakdown {
+                                margin-top: 20px;
+                                padding: 15px;
+                                background: rgba(34, 211, 238, 0.1);
+                                border-radius: 12px;
+                                border: 1px solid rgba(34, 211, 238, 0.2);
+                            }
+
+                            .timing-header {
+                                font-size: 14px;
+                                font-weight: 600;
+                                color: var(--text-primary);
+                                margin-bottom: 12px;
+                                display: flex;
+                                align-items: center;
+                                gap: 6px;
+                            }
+
+                            .timing-grid {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 8px;
+                            }
+
+                            .timing-item {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 4px;
+                            }
+
+                            .timing-label {
+                                font-size: 12px;
+                                color: var(--text-secondary);
+                                font-weight: 500;
+                            }
+
+                            .timing-value {
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                            }
+
+                            .timing-duration {
+                                font-size: 13px;
+                                font-weight: 600;
+                                color: var(--text-primary);
+                                font-family: 'SF Mono', Monaco, monospace;
+                            }
+
+                            .timing-percentage {
+                                font-size: 11px;
+                                color: var(--text-secondary);
+                                font-family: 'SF Mono', Monaco, monospace;
+                            }
+
+                            .timing-bar {
+                                height: 4px;
+                                background: rgba(255, 255, 255, 0.1);
+                                border-radius: 2px;
+                                overflow: hidden;
+                                margin-top: 2px;
+                            }
+
+                            .timing-fill {
+                                height: 100%;
+                                background: linear-gradient(90deg, #22d3ee, #06b6d4);
+                                border-radius: 2px;
+                                transition: width 0.3s ease;
                             }
 
                             .recall-results {
@@ -6783,12 +6923,11 @@ ${result.valid ?
                     };
 
                 } else {
-                    console.log('❌ API returned success=false');
-                    console.log('❌ Error details:', result.error);
                     throw new Error(result.error || 'Unknown error occurred');
                 }
             } catch (error) {
                 console.error('Recall error:', error);
+                cleanupProgress(); // Stop the progress updates
                 closeProgressModal(progressModal);
 
                 if (error.name === 'AbortError') {
@@ -6952,6 +7091,14 @@ ${result.valid ?
             if (messageEl) messageEl.textContent = message;
             if (fillEl) fillEl.style.width = `${percentage}%`;
             if (percentEl) percentEl.textContent = `${percentage}%`;
+        }
+
+        function updateProgressModalWithTime(modal, message, percentage) {
+            const elapsedMs = Date.now() - (modal.startTime || Date.now());
+            const elapsedSec = (elapsedMs / 1000).toFixed(1);
+            const messageWithTime = `${message} (${elapsedSec}s)`;
+
+            updateProgressModal(modal, messageWithTime, percentage);
         }
 
         function closeProgressModal(modal) {

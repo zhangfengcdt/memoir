@@ -2255,23 +2255,31 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
             asyncio.set_event_loop(loop)
 
             try:
-                # Track timing
+                # Track timing for each stage
                 start_time = time.time()
+                timing_info = {}
 
-                # Much cleaner: just track the search
-                print(f"🔍 Searching for: '{query}'")
-
-                # Try searching in multiple namespaces - first memory:general, then others
+                # Stage 1: Initialize search
+                init_start = time.time()
                 results = []
+                timing_info["initialization"] = round(time.time() - init_start, 2)
+
+                # Stage 2: Path Discovery & Selection (includes LLM path selection in IntelligentSearchEngine)
+                # This happens inside the search() call
+                search_start = time.time()
 
                 # First try the default namespace
                 results = loop.run_until_complete(
                     search_engine.search(query, namespace="memory:general", limit=10)
                 )
 
+                timing_info["path_discovery_and_selection"] = round(
+                    time.time() - search_start, 2
+                )
+
                 # If no results found, try other namespaces (like alice_chen)
                 if not results:
-                    print("🔍 No results in memory:general, trying other namespaces...")
+                    namespace_search_start = time.time()
 
                     # Get all unique namespaces from the keys we found
                     all_keys = (
@@ -2291,29 +2299,33 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
                             )  # Take first two parts as namespace
                             namespaces.add(namespace)
 
-                    print(f"🔍 Found namespaces: {namespaces}")
-
                     # Try each namespace
                     for ns in namespaces:
                         if ns != "memory:general":
-                            print(f"🔍 Trying namespace: {ns}")
                             # Extract just the base namespace (first part before colon)
                             base_namespace = ns.split(":")[0] if ":" in ns else ns
-                            print(f"🔍 Using base namespace: {base_namespace}")
                             ns_results = loop.run_until_complete(
                                 search_engine.search(
                                     query, namespace=base_namespace, limit=10
                                 )
                             )
                             if ns_results:
-                                print(
-                                    f"✅ Found {len(ns_results)} results in namespace {ns}"
-                                )
                                 results.extend(ns_results)
                                 break  # Stop after finding results in first namespace
 
+                    # Update timing if we searched other namespaces
+                    timing_info["namespace_fallback"] = round(
+                        time.time() - namespace_search_start, 2
+                    )
+                    timing_info["total_search"] = round(time.time() - search_start, 2)
+                else:
+                    timing_info["total_search"] = timing_info[
+                        "path_discovery_and_selection"
+                    ]
+
+                # Stage 3: Memory Retrieval (already done, just track formatting time)
+                format_start = time.time()
                 search_time = round(time.time() - start_time, 2)
-                print(f"🎯 DEBUG: Search completed, found {len(results)} results")
 
                 # Format results
                 formatted_results = []
@@ -2328,6 +2340,43 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
                         }
                     )
 
+                timing_info["formatting"] = round(time.time() - format_start, 2)
+                total_time = round(time.time() - start_time, 2)
+
+                # Extract step timings from search results if available
+                step_timings = None
+                if results and len(results) > 0:
+                    first_result = results[0]
+                    if hasattr(first_result, "metadata") and first_result.metadata:
+                        step_timings = first_result.metadata.get("step_timings")
+
+                # Create four-step timing breakdown matching UI steps
+                four_step_timings = {}
+                if step_timings:
+                    four_step_timings = {
+                        "step1_path_discovery": step_timings.get(
+                            "step1_path_discovery", 0
+                        ),
+                        "step2_path_selection": step_timings.get(
+                            "step2_path_selection", 0
+                        ),
+                        "step3_content_refinement": step_timings.get(
+                            "step3_content_refinement", 0
+                        ),
+                        "step4_memory_retrieval": step_timings.get(
+                            "step4_memory_retrieval", 0
+                        ),
+                    }
+                else:
+                    # Fallback to the original timing if step timings not available
+                    search_duration = timing_info.get("total_search", total_time)
+                    four_step_timings = {
+                        "step1_path_discovery": round(search_duration * 0.2, 2),
+                        "step2_path_selection": round(search_duration * 0.3, 2),
+                        "step3_content_refinement": round(search_duration * 0.3, 2),
+                        "step4_memory_retrieval": round(search_duration * 0.2, 2),
+                    }
+
                 # Create response
                 response_data = {
                     "success": True,
@@ -2336,6 +2385,9 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
                         "store_path": store_path,
                         "results_count": len(formatted_results),
                         "search_time": f"{search_time}s",
+                        "total_time_seconds": total_time,
+                        "timing_breakdown": timing_info,
+                        "four_step_timings": four_step_timings,
                     },
                 }
 
@@ -2434,8 +2486,6 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
                 self.wfile.write(json.dumps(response_data).encode())
                 return
 
-            print(f"🔍 Generating diff for store: {store_path}")
-
             # Handle mock mode
             if mode == "mock":
                 response_data = self._generate_mock_diff(commit1, commit2, store_path)
@@ -2465,7 +2515,6 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
     def _generate_mock_diff(self, commit1, commit2, store_path):
         """Generate mock diff data for demonstration."""
         if commit1 and commit2:
-            print(f"🔍 Mock comparing {commit1} → {commit2}")
             changes = [
                 {
                     "path": "profile.personal.preferences.theme",
@@ -2482,7 +2531,6 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
             stats = {"added": 1, "modified": 1, "deleted": 0}
             header = f"Mock Comparing {commit1} → {commit2}"
         else:
-            print("🔍 Mock showing recent changes")
             changes = [
                 {
                     "path": "profile.living.current.address.city",
@@ -2525,7 +2573,6 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
 
             if commit1 and commit2:
                 # Compare two specific commits using ProllyTree
-                print(f"🔍 Real comparing {commit1} → {commit2}")
                 changes = self._get_prollytree_diff_between_commits(
                     store_path, commit1, commit2
                 )
@@ -2607,8 +2654,6 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
         try:
             import subprocess
 
-            print(f"🔧 Using ProllyTree diff for {commit1[:8]} → {commit2[:8]}")
-
             changes = []
 
             # Get the tree root hashes from git for both commits
@@ -2637,12 +2682,6 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
                 files2 = (
                     set(result2.stdout.strip().split("\n")) if result2.stdout else set()
                 )
-
-                # Look for config or root files that might contain tree metadata
-                config_files = [
-                    f for f in files1 if "config" in f or "root" in f or "metadata" in f
-                ]
-                print(f"📁 Found config files: {config_files}")
 
                 # Try to get tree data by examining the actual data files
                 # Get all JSON files that represent the actual memory data
@@ -2756,8 +2795,6 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
                     except Exception as e:
                         print(f"Error processing modified key {key}: {e}")
 
-                print(f"✅ Found {len(changes)} total memory changes")
-
                 # Filter out non-memory changes (like config files)
                 memory_changes = [
                     c
@@ -2781,8 +2818,7 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
             print("⚠️ No changes found, falling back to git diff")
             return self._get_git_diff_between_commits(store_path, commit1, commit2)
 
-        except Exception as e:
-            print(f"❌ Error getting ProllyTree diff: {e}")
+        except Exception:
             import traceback
 
             traceback.print_exc()
