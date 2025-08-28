@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- Cache-buster: 2025-08-28-12-00 Disabled old popup completely -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -6358,19 +6359,37 @@ ${result.valid ?
                         console.log('📝 Displaying', result.results.length, 'results');
                         recallContent += `<div class="recall-results">`;
                         result.results.forEach((item, index) => {
+                            const fullPath = `${item.namespace || 'default'}:${item.path}`;
+                            const itemId = `recall-item-${index}`;
                             recallContent += `
-                                <div class="recall-item">
+                                <div class="recall-item" id="${itemId}">
                                     <div class="recall-item-header">
-                                        <span class="recall-path">${item.path}</span>
+                                        <div class="recall-path-section">
+                                            <div class="recall-path-main">
+                                                <span class="recall-path-label">Path:</span>
+                                                <span class="recall-path">${item.path}</span>
+                                                <button class="copy-btn" onclick="copyToClipboard('${item.path.replace(/'/g, "\\'")}', this)" title="Copy path">📋</button>
+                                            </div>
+                                            <div class="recall-path-full">
+                                                <span class="recall-path-label">Full Key:</span>
+                                                <span class="recall-fullpath">${fullPath}</span>
+                                                <button class="copy-btn" onclick="copyToClipboard('${fullPath.replace(/'/g, "\\'")}', this)" title="Copy full key">📋</button>
+                                            </div>
+                                            <div class="recall-namespace">
+                                                <span class="recall-path-label">Namespace:</span>
+                                                <span class="recall-namespace-value">${item.namespace || 'default'}</span>
+                                                <button class="copy-btn" onclick="copyToClipboard('${(item.namespace || 'default').replace(/'/g, "\\'")}', this)" title="Copy namespace">📋</button>
+                                            </div>
+                                        </div>
                                         <span class="recall-score">${(item.relevance_score * 100).toFixed(0)}% match</span>
                                     </div>
-                                    <div class="recall-item-content">${escapeHtml(item.content)}</div>
-                                    ${item.metadata ? `
-                                        <div class="recall-item-metadata">
-                                            <span class="recall-meta-label">Namespace:</span>
-                                            <span class="recall-meta-value">${item.namespace || 'default'}</span>
+                                    <div class="recall-item-content">
+                                        <div class="recall-content-header">
+                                            <span class="recall-content-label">Content:</span>
+                                            <button class="copy-btn" onclick="copyToClipboard(\`${escapeHtml(item.content).replace(/`/g, '\\`').replace(/\\/g, '\\\\')}\`, this)" title="Copy content">📋</button>
                                         </div>
-                                    ` : ''}
+                                        <div class="recall-content-text">${escapeHtml(item.content)}</div>
+                                    </div>
                                 </div>
                             `;
                         });
@@ -6611,6 +6630,87 @@ ${result.valid ?
                                 background: var(--bg-glass-light);
                                 transform: translateY(-1px);
                             }
+
+                            /* Enhanced path and copy functionality styles */
+                            .recall-path-section {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 8px;
+                                flex: 1;
+                            }
+
+                            .recall-path-main, .recall-path-full, .recall-namespace {
+                                display: flex;
+                                align-items: center;
+                                gap: 8px;
+                            }
+
+                            .recall-path-label {
+                                font-size: 11px;
+                                font-weight: 600;
+                                color: var(--text-secondary);
+                                min-width: 70px;
+                                text-transform: uppercase;
+                                letter-spacing: 0.5px;
+                            }
+
+                            .recall-fullpath {
+                                font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+                                font-size: 12px;
+                                color: var(--accent-secondary);
+                                font-weight: 500;
+                            }
+
+                            .recall-namespace-value {
+                                font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+                                font-size: 12px;
+                                color: var(--text-primary);
+                                font-weight: 500;
+                            }
+
+                            .copy-btn {
+                                background: var(--bg-glass);
+                                border: 1px solid var(--border-light);
+                                border-radius: 4px;
+                                padding: 2px 6px;
+                                font-size: 12px;
+                                cursor: pointer;
+                                transition: all 0.2s ease;
+                                color: var(--text-secondary);
+                                opacity: 0.7;
+                            }
+
+                            .copy-btn:hover {
+                                background: var(--accent-primary);
+                                color: white;
+                                opacity: 1;
+                                transform: translateY(-1px);
+                            }
+
+                            .recall-content-header {
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                margin-bottom: 8px;
+                            }
+
+                            .recall-content-label {
+                                font-size: 11px;
+                                font-weight: 600;
+                                color: var(--text-secondary);
+                                text-transform: uppercase;
+                                letter-spacing: 0.5px;
+                            }
+
+                            .recall-content-text {
+                                font-size: 14px;
+                                color: var(--text-primary);
+                                line-height: 1.6;
+                                padding: 10px;
+                                background: rgba(0, 0, 0, 0.1);
+                                border-radius: 6px;
+                                border-left: 3px solid var(--accent-primary);
+                            }
                         `;
                         document.head.appendChild(styles);
                     }
@@ -6843,6 +6943,296 @@ ${result.valid ?
             if (modal && modal.parentNode) {
                 document.body.removeChild(modal);
             }
+        }
+
+        function showNodeDetailsPopup(nodeData, event) {
+            // Close any existing node popup
+            const existingPopup = document.querySelector('.node-details-popup');
+            if (existingPopup) {
+                document.body.removeChild(existingPopup);
+            }
+
+            // Find node data from current store
+            let nodeInfo = null;
+            let nodeContent = '';
+            let nodeNamespace = 'default';
+            let fullPath = nodeData.id;
+
+            // Try to find the node in the current data
+            if (window.realStoreData && window.realStoreData.memories) {
+                // Look through memories to find this path
+                for (const memory of window.realStoreData.memories) {
+                    if (memory.path === nodeData.id) {
+                        nodeInfo = memory;
+                        nodeContent = memory.content || '';
+                        nodeNamespace = memory.namespace || 'default';
+                        fullPath = `${nodeNamespace}:${memory.path}`;
+                        break;
+                    }
+                }
+            }
+
+            // If not found in memories, check if it's demo data
+            if (!nodeInfo && window.demoData && window.demoData.memories) {
+                for (const memory of window.demoData.memories) {
+                    if (memory.path === nodeData.id) {
+                        nodeInfo = memory;
+                        nodeContent = memory.content || '';
+                        nodeNamespace = memory.namespace || 'demo';
+                        fullPath = `${nodeNamespace}:${memory.path}`;
+                        break;
+                    }
+                }
+            }
+
+            // Create popup
+            const popup = document.createElement('div');
+            popup.className = 'node-details-popup';
+
+            popup.innerHTML = `
+                <div class="node-popup-content">
+                    <div class="node-popup-header">
+                        <h3>📍 Node Details</h3>
+                        <button class="node-popup-close">&times;</button>
+                    </div>
+                    <div class="node-popup-body">
+                        <div class="node-path-section">
+                            <div class="node-path-full">
+                                <span class="node-path-label">FULL KEY:</span>
+                                <span class="node-fullpath-value">${fullPath}</span>
+                                <button class="copy-btn" onclick="copyToClipboard('${fullPath.replace(/'/g, "\\'")}', this)" title="Copy full key">Copy</button>
+                            </div>
+                            <div class="node-namespace">
+                                <span class="node-path-label">NAMESPACE:</span>
+                                <span class="node-namespace-value">${nodeNamespace}</span>
+                                <button class="copy-btn" onclick="copyToClipboard('${nodeNamespace.replace(/'/g, "\\'")}', this)" title="Copy namespace">Copy</button>
+                            </div>
+                        </div>
+                        <div class="node-content-section">
+                            <div class="node-content-header">
+                                <span class="node-content-label">CONTENT:</span>
+                                ${nodeContent ? `<button class="copy-btn" onclick="copyToClipboard(\`${nodeContent.replace(/`/g, '\\`').replace(/\\/g, '\\\\')}\`, this)" title="Copy content">Copy</button>` : ''}
+                            </div>
+                            ${nodeContent ? `
+                                <div class="node-content-text">${escapeHtml(nodeContent)}</div>
+                            ` : `
+                                <div class="node-no-content">
+                                    <span class="no-content-text">No content stored for this path</span>
+                                </div>
+                            `}
+                        </div>
+                        <div class="node-meta-section">
+                            <div class="node-meta-item">
+                                <span class="node-meta-label">TYPE:</span>
+                                <span class="node-meta-value">${nodeData.group === 1 ? 'Root' : nodeData.group === 2 ? 'Branch' : 'Leaf'}</span>
+                            </div>
+                            <div class="node-meta-item">
+                                <span class="node-meta-label">CONNECTIONS:</span>
+                                <span class="node-meta-value">${nodeData.connections || 0}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Add styles for node popup
+            if (!document.getElementById('node-popup-styles')) {
+                const styles = document.createElement('style');
+                styles.id = 'node-popup-styles';
+                styles.textContent = `
+                    .node-details-popup {
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        bottom: 0;
+                        background: rgba(0, 0, 0, 0.8);
+                        backdrop-filter: blur(8px);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        z-index: 10000;
+                        animation: fadeIn 0.2s ease;
+                    }
+
+                    .node-popup-content {
+                        background: var(--bg-primary);
+                        border-radius: 16px;
+                        border: 1px solid var(--border-light);
+                        max-width: 600px;
+                        width: 90%;
+                        max-height: 80vh;
+                        overflow-y: auto;
+                        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+                    }
+
+                    .node-popup-header {
+                        padding: 20px 25px;
+                        border-bottom: 1px solid var(--border-light);
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        background: var(--bg-glass);
+                    }
+
+                    .node-popup-header h3 {
+                        margin: 0;
+                        color: var(--accent-primary);
+                        font-size: 18px;
+                        font-weight: 600;
+                    }
+
+                    .node-popup-close {
+                        background: none;
+                        border: none;
+                        font-size: 24px;
+                        color: var(--text-secondary);
+                        cursor: pointer;
+                        padding: 0;
+                        width: 32px;
+                        height: 32px;
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        transition: all 0.2s ease;
+                    }
+
+                    .node-popup-close:hover {
+                        background: var(--bg-glass);
+                        color: var(--accent-primary);
+                    }
+
+                    .node-popup-body {
+                        padding: 25px;
+                    }
+
+                    .node-path-section, .node-content-section, .node-meta-section {
+                        margin-bottom: 20px;
+                    }
+
+                    .node-path-main, .node-path-full, .node-namespace, .node-meta-item {
+                        display: flex;
+                        align-items: center;
+                        gap: 12px;
+                        margin-bottom: 12px;
+                    }
+
+                    .node-path-label, .node-content-label, .node-meta-label {
+                        font-size: 11px;
+                        font-weight: 700;
+                        color: var(--text-secondary);
+                        min-width: 80px;
+                        text-transform: uppercase;
+                        letter-spacing: 1px;
+                    }
+
+                    .node-path-value, .node-fullpath-value {
+                        font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+                        font-size: 13px;
+                        color: var(--accent-primary);
+                        font-weight: 600;
+                        flex: 1;
+                    }
+
+                    .node-namespace-value, .node-meta-value {
+                        font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+                        font-size: 13px;
+                        color: var(--text-primary);
+                        font-weight: 500;
+                        flex: 1;
+                    }
+
+                    .node-content-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 12px;
+                    }
+
+                    .node-content-text {
+                        font-size: 14px;
+                        color: var(--text-primary);
+                        line-height: 1.6;
+                        padding: 15px;
+                        background: rgba(0, 0, 0, 0.2);
+                        border-radius: 8px;
+                        border-left: 4px solid var(--accent-primary);
+                        font-family: system-ui, -apple-system, sans-serif;
+                    }
+
+                    .node-no-content {
+                        padding: 20px;
+                        text-align: center;
+                        background: rgba(0, 0, 0, 0.1);
+                        border-radius: 8px;
+                        border: 1px dashed var(--border-light);
+                    }
+
+                    .no-content-text {
+                        color: var(--text-secondary);
+                        font-style: italic;
+                    }
+
+                    .node-meta-section {
+                        padding-top: 15px;
+                        border-top: 1px solid var(--border-light);
+                    }
+
+                    /* Copy button styles for node popup */
+                    .copy-btn {
+                        background: #22d3ee;
+                        border: 1px solid #0891b2;
+                        border-radius: 6px;
+                        padding: 4px 8px;
+                        font-size: 11px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                        color: white;
+                        min-width: 45px;
+                        height: 26px;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        text-transform: uppercase;
+                        letter-spacing: 0.5px;
+                    }
+
+                    .copy-btn:hover {
+                        background: #0891b2;
+                        transform: translateY(-1px);
+                        box-shadow: 0 4px 8px rgba(34, 211, 238, 0.4);
+                    }
+                `;
+                document.head.appendChild(styles);
+            }
+
+            // Position popup and add to DOM
+            document.body.appendChild(popup);
+
+            // Add event listeners
+            popup.querySelector('.node-popup-close').onclick = () => {
+                document.body.removeChild(popup);
+            };
+
+            // Close on background click
+            popup.onclick = (e) => {
+                if (e.target === popup) {
+                    document.body.removeChild(popup);
+                }
+            };
+
+            // Close on escape key
+            const escapeHandler = (e) => {
+                if (e.key === 'Escape') {
+                    if (document.body.contains(popup)) {
+                        document.body.removeChild(popup);
+                    }
+                    document.removeEventListener('keydown', escapeHandler);
+                }
+            };
+            document.addEventListener('keydown', escapeHandler);
         }
 
         function updateMapTheme(theme) {
@@ -7941,6 +8331,18 @@ ${result.valid ?
         }
 
         function showMemoryDetails(path) {
+            // Create node data for the popup
+            const nodeData = {
+                id: path,
+                group: 3, // leaf node
+                connections: 0
+            };
+
+            // Only call our enhanced popup function - skip the old UI
+            showNodeDetailsPopup(nodeData, null);
+            return; // Exit early to prevent old popup from showing
+
+            // Old function disabled - only our new popup is shown
             const detailsPanel = document.getElementById('memoryDetails');
             const detailsPath = document.getElementById('detailsPath');
             const memoriesList = document.getElementById('memoriesList');
@@ -7949,9 +8351,6 @@ ${result.valid ?
             detailsPath.textContent = path;
             detailsPath.title = path; // Add tooltip to show full path on hover
 
-            // Debug logging
-            console.log('showMemoryDetails called with path:', path);
-            console.log('window.realStoreData:', window.realStoreData);
 
             // Filter memories that match this path
             const matchingMemories = [];
@@ -8398,6 +8797,9 @@ ${result.valid ?
 
             // Add click interactions for nodes
             node.on('click', function(event, d) {
+                // Show detailed node information popup
+                showNodeDetailsPopup(d, event);
+
                 // Highlight connected nodes
                 const connectedNodes = new Set([d.id]);
                 links.forEach(link => {
@@ -8425,10 +8827,7 @@ ${result.valid ?
                     text.style('opacity', 1);
                 }, 2000);
 
-                // Show memory details if it's a leaf node with memories
-                if (d.isLeaf && d.count > 0) {
-                    showMemoryDetails(d.id);
-                }
+                // Memory details are now shown in the popup above
             });
         }
 
