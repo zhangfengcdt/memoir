@@ -2531,22 +2531,35 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
                 )
                 header = f"Comparing {commit1} → {commit2}"
             else:
-                # Compare current vs last commit
-                print("🔍 Real showing current vs last commit")
-                # Get the last commit hash
+                # Compare last two commits
+                print("🔍 Real showing last two commits")
+                # Get the last two commit hashes
                 result = subprocess.run(
-                    ["git", "log", "--format=%H", "-1"],
+                    ["git", "log", "--format=%H", "-2"],
                     cwd=store_path,
                     capture_output=True,
                     text=True,
                 )
                 if result.returncode == 0 and result.stdout.strip():
-                    last_commit = result.stdout.strip()
-                    # Compare working directory against last commit
-                    changes = self._get_git_diff_working_vs_commit(
-                        store_path, last_commit
-                    )
-                    header = f"Working directory vs {last_commit[:8]}"
+                    commits = result.stdout.strip().split("\n")
+                    if len(commits) >= 2:
+                        # Compare the two most recent commits
+                        latest_commit = commits[0]
+                        previous_commit = commits[1]
+                        changes = self._get_git_diff_between_commits(
+                            store_path, previous_commit, latest_commit
+                        )
+                        header = f"Changes: {previous_commit[:8]} → {latest_commit[:8]}"
+                    elif len(commits) == 1:
+                        # Only one commit, compare against empty tree
+                        latest_commit = commits[0]
+                        changes = self._get_git_diff_from_empty(
+                            store_path, latest_commit
+                        )
+                        header = f"Initial commit: {latest_commit[:8]}"
+                    else:
+                        changes = []
+                        header = "No commits found"
                 else:
                     # No commits yet or git error
                     changes = []
@@ -2699,6 +2712,55 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
 
         except Exception as e:
             print(f"Error getting git diff working vs commit: {e}")
+            return []
+
+    def _get_git_diff_from_empty(self, store_path, commit):
+        """Get diff from empty tree to a specific commit (for initial commit)."""
+        import subprocess
+
+        try:
+            # Get list of all files in the commit (everything is added)
+            result = subprocess.run(
+                ["git", "diff-tree", "--name-only", "--no-commit-id", commit],
+                cwd=store_path,
+                capture_output=True,
+                text=True,
+            )
+
+            changes = []
+            if result.returncode == 0 and result.stdout:
+                for filename in result.stdout.strip().split("\n"):
+                    if filename:
+                        # Get content for the added file
+                        new_content = None
+                        try:
+                            content_result = subprocess.run(
+                                ["git", "show", f"{commit}:{filename}"],
+                                cwd=store_path,
+                                capture_output=True,
+                                text=True,
+                            )
+                            if content_result.returncode == 0:
+                                new_content = self._parse_memory_content(
+                                    content_result.stdout
+                                )
+                        except Exception:
+                            pass
+
+                        change = {
+                            "path": filename.replace(".json", "").replace("/", "."),
+                            "type": "added",
+                        }
+
+                        if new_content is not None:
+                            change["new_content"] = new_content
+
+                        changes.append(change)
+
+            return changes
+
+        except Exception as e:
+            print(f"Error getting git diff from empty: {e}")
             return []
 
     def _get_file_content_at_commits(
