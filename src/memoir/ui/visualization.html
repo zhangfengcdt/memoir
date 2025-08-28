@@ -3380,17 +3380,17 @@
                     showNotification('Not connected to any store', 'error');
                     return;
                 }
-                
+
                 console.log('🔍 Frontend store debug:');
                 console.log('Connected store path:', connectedStorePath);
                 console.log('window.isNewEmptyStore:', window.isNewEmptyStore);
-                
+
                 // Make a direct API call to list all memories
                 try {
                     const response = await fetch(`/api/store?path=${encodeURIComponent(connectedStorePath)}`);
                     const result = await response.json();
                     console.log('Store API response:', result);
-                    
+
                     showNotification(`Debug: ${connectedStorePath} - Check console for details`, 'info');
                 } catch (error) {
                     console.error('Store debug error:', error);
@@ -6272,7 +6272,7 @@ ${result.valid ?
             console.log('🧠 recallMemories called with query:', query);
             console.log('🔌 connectedStorePath:', connectedStorePath);
             console.log('🔌 window.isNewEmptyStore:', window.isNewEmptyStore);
-            
+
             if (!connectedStorePath) {
                 console.log('❌ No store connected - showing error notification');
                 showNotification('Please connect to a memory store first', 'error');
@@ -6285,7 +6285,7 @@ ${result.valid ?
                 showNotification('Recall is not available in demo mode. Please connect to a real memory store using /connect <path>', 'error', 5000);
                 return;
             }
-            
+
             console.log('✅ All checks passed - showing progress modal');
 
             // Show progress modal

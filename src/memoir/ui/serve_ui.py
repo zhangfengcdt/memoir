@@ -2255,34 +2255,42 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
             try:
                 # Track timing
                 start_time = time.time()
-                
+
                 # Much cleaner: just track the search
                 print(f"🔍 Searching for: '{query}'")
 
                 # Try searching in multiple namespaces - first memory:general, then others
                 results = []
-                
+
                 # First try the default namespace
                 results = loop.run_until_complete(
                     search_engine.search(query, namespace="memory:general", limit=10)
                 )
-                
+
                 # If no results found, try other namespaces (like alice_chen)
                 if not results:
-                    print(f"🔍 No results in memory:general, trying other namespaces...")
-                    
+                    print("🔍 No results in memory:general, trying other namespaces...")
+
                     # Get all unique namespaces from the keys we found
-                    all_keys = search_engine.store.tree.list_keys() if hasattr(search_engine.store, 'tree') else []
+                    all_keys = (
+                        search_engine.store.tree.list_keys()
+                        if hasattr(search_engine.store, "tree")
+                        else []
+                    )
                     namespaces = set()
                     for key in all_keys:
-                        key_str = key.decode('utf-8') if isinstance(key, bytes) else str(key)
-                        key_parts = key_str.split(':')
+                        key_str = (
+                            key.decode("utf-8") if isinstance(key, bytes) else str(key)
+                        )
+                        key_parts = key_str.split(":")
                         if len(key_parts) >= 2:
-                            namespace = ":".join(key_parts[:2])  # Take first two parts as namespace
+                            namespace = ":".join(
+                                key_parts[:2]
+                            )  # Take first two parts as namespace
                             namespaces.add(namespace)
-                    
+
                     print(f"🔍 Found namespaces: {namespaces}")
-                    
+
                     # Try each namespace
                     for ns in namespaces:
                         if ns != "memory:general":
@@ -2291,10 +2299,14 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
                             base_namespace = ns.split(":")[0] if ":" in ns else ns
                             print(f"🔍 Using base namespace: {base_namespace}")
                             ns_results = loop.run_until_complete(
-                                search_engine.search(query, namespace=base_namespace, limit=10)
+                                search_engine.search(
+                                    query, namespace=base_namespace, limit=10
+                                )
                             )
                             if ns_results:
-                                print(f"✅ Found {len(ns_results)} results in namespace {ns}")
+                                print(
+                                    f"✅ Found {len(ns_results)} results in namespace {ns}"
+                                )
                                 results.extend(ns_results)
                                 break  # Stop after finding results in first namespace
 
@@ -2304,13 +2316,15 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
                 # Format results
                 formatted_results = []
                 for result in results:
-                    formatted_results.append({
-                        "path": result.path,
-                        "content": result.content,
-                        "relevance_score": result.relevance_score,
-                        "namespace": result.namespace,
-                        "metadata": result.metadata,
-                    })
+                    formatted_results.append(
+                        {
+                            "path": result.path,
+                            "content": result.content,
+                            "relevance_score": result.relevance_score,
+                            "namespace": result.namespace,
+                            "metadata": result.metadata,
+                        }
+                    )
 
                 # Create response
                 response_data = {
@@ -2333,7 +2347,7 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
             self.wfile.write(json.dumps(response_data).encode())
 
         except Exception as e:
-            error_msg = f"Error during recall search: {str(e)}"
+            error_msg = f"Error during recall search: {e!s}"
             print(f"Recall API error: {e}")
             import traceback
 

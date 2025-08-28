@@ -64,12 +64,14 @@ class IntelligentSearchEngine:
                 namespace_tuple = tuple(namespace.split(":"))
             else:
                 namespace_tuple = namespace
-            
+
             # Use VersionedKvStore's list_keys() to get ALL keys, then filter by namespace and get data
             try:
-                if hasattr(self.store, 'tree') and hasattr(self.store.tree, 'list_keys'):
+                if hasattr(self.store, "tree") and hasattr(
+                    self.store.tree, "list_keys"
+                ):
                     all_keys = self.store.tree.list_keys()
-                elif hasattr(self.store, '_keys'):
+                elif hasattr(self.store, "_keys"):
                     all_keys = list(self.store._keys)
                 else:
                     all_memories = self.store.search(namespace_tuple, limit=1000)
@@ -77,7 +79,7 @@ class IntelligentSearchEngine:
                         logger.info(f"No memories found in namespace {namespace}")
                         return []
                     all_keys = None
-            except Exception as e:
+            except Exception:
                 all_memories = self.store.search(namespace_tuple, limit=1000)
                 if not all_memories:
                     logger.info(f"No memories found in namespace {namespace}")
@@ -86,21 +88,27 @@ class IntelligentSearchEngine:
 
             if all_keys is not None:
                 all_memories = []
-                
+
                 for key in all_keys:
                     # Convert bytes key to string if needed
-                    key_str = key.decode('utf-8') if isinstance(key, bytes) else str(key)
-                    
+                    key_str = (
+                        key.decode("utf-8") if isinstance(key, bytes) else str(key)
+                    )
+
                     # Parse the key string back to components
-                    key_parts = key_str.split(':')
-                    
+                    key_parts = key_str.split(":")
+
                     # Check if this key matches our target namespace
                     if len(key_parts) >= len(namespace_tuple):
-                        key_namespace = tuple(key_parts[:len(namespace_tuple)])
+                        key_namespace = tuple(key_parts[: len(namespace_tuple)])
                         if key_namespace == namespace_tuple:
                             # Extract the path (everything after the namespace)
-                            path = ".".join(key_parts[len(namespace_tuple):]) if len(key_parts) > len(namespace_tuple) else key_parts[-1]
-                            
+                            path = (
+                                ".".join(key_parts[len(namespace_tuple) :])
+                                if len(key_parts) > len(namespace_tuple)
+                                else key_parts[-1]
+                            )
+
                             # Get the data for this key
                             try:
                                 data = self.store.get(namespace_tuple, path)
@@ -109,7 +117,9 @@ class IntelligentSearchEngine:
                                 else:
                                     logger.warning(f"Data is None for key {key_str}")
                             except Exception as e:
-                                logger.warning(f"Could not retrieve data for key {key_str}: {e}")
+                                logger.warning(
+                                    f"Could not retrieve data for key {key_str}: {e}"
+                                )
                                 continue
 
             if not all_memories:
@@ -189,28 +199,32 @@ class IntelligentSearchEngine:
         Returns:
             List of selected path strings
         """
-        # Create the prompt for path selection
+        # Create the prompt for path selection (semantic paths only, no content samples)
         paths_list = []
-        for path, info in paths_info.items():
-            sample = (
-                info["sample"][:60] + "..."
-                if len(info["sample"]) > 60
-                else info["sample"]
-            )
-            paths_list.append(f"- {path} ({info['count']} memories): {sample}")
+        for path, _info in paths_info.items():
+            paths_list.append(f"- {path}")
 
         paths_text = "\n".join(paths_list)
 
-        prompt = f"""Given this search query: "{query}"
+        prompt = f"""You are selecting memory paths based on semantic meaning. Find paths that would logically contain the answer to this query.
 
-Please select the most relevant memory paths from the following available paths:
+Query: "{query}"
 
+Available paths:
 {paths_text}
 
+Example:
+- Query: "What is my favorite color?" → select "preferences.personal.favorites.color"
+- Query: "Where do I work?" → select "profile.professional.current.company"
+- Query: "What programming languages do I know?" → select "profile.professional.skills.technical.programming"
+
 Instructions:
-- Select 1-3 paths that are most likely to contain information relevant to the query
-- Return ONLY the path names, one per line, no explanations
-- If no paths seem relevant, return "NONE"
+- Select 1-3 paths that most directly answer the query
+- Focus on semantic path meaning, not guessing content
+- If asking about location → select paths with "living", "address", "location"
+- If asking about work → select paths with "professional", "company", "career"
+- If asking about skills → select paths with "skills", "technical"
+- Return ONLY the exact path names, one per line
 
 Selected paths:"""
 
@@ -235,10 +249,6 @@ Selected paths:"""
             logger.info(
                 f"LLM selected {len(selected_paths)} paths for query '{query}': {selected_paths}"
             )
-            print(f"🤖 DEBUG: LLM path selection for '{query}':")
-            print(f"   Available paths: {list(paths_info.keys())}")
-            print(f"   LLM selected: {selected_paths}")
-            print(f"   LLM response: {response_text}")
             return selected_paths
 
         except Exception as e:
