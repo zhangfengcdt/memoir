@@ -125,7 +125,6 @@ class MemoirClient(ABC):
 ## Connection String Format
 
 ### Supported Schemes
-
 - `local:///absolute/path` - Local filesystem
 - `local:./relative/path` - Local filesystem relative
 - `http://host:port/path` - HTTP server
@@ -148,316 +147,6 @@ def connect(connection_string: str, **kwargs) -> MemoirClient:
         connect("cloud://my-org/production")
         connect("https://api.memoir.ai/store", api_key="...")
     """
-```
-
-## Usage Examples
-
-### Basic Usage
-
-```python
-from memoir.client import connect
-
-# Connect to any backend
-client = connect("local:///my/memories")
-await client.connect()
-
-# Discover capabilities
-capabilities = await client.ability()
-print(capabilities)
-# Output: "I can store and retrieve memories, create branches, search content, 
-#          export data, travel through time, summarize information, and more..."
-
-# Natural language operations
-await client.execute("Remember that Alice prefers Python")
-await client.execute("What do I know about Alice?")
-await client.execute("Create a branch called testing")
-
-# Structured command operations (more precise)
-await client.execute("/remember Bob role Senior Engineer")
-await client.execute("/search Bob")
-await client.execute("/branch switch testing")
-await client.execute("/export json")
-
-# Mix both approaches as needed
-await client.execute("Show me recent changes")  # Natural
-await client.execute("/timeline recent 7days")   # Structured
-
-await client.disconnect()
-```
-
-### CLI Tool
-
-```python
-import click
-from memoir.client import connect
-
-@click.command()
-@click.option('--store', default='local:~/.memoir/default')
-@click.argument('command', nargs=-1)
-async def memoir(store, command):
-    """Execute memoir operations in natural language."""
-    instruction = ' '.join(command)
-    
-    async with connect(store) as client:
-        response = await client.execute(instruction)
-        click.echo(response['explanation'])
-
-# Usage - Natural Language:
-# memoir remember that Alice likes Python
-# memoir what do I know about Alice?
-# memoir create a branch for testing
-
-# Usage - Structured Commands:
-# memoir /remember alice.skills python
-# memoir /search alice
-# memoir /branch create testing
-```
-
-### Agent Integration
-
-```python
-from memoir.client import connect
-
-class MemoryAgent:
-    def __init__(self, store_url: str):
-        self.memory = connect(store_url)
-    
-    async def process_message(self, message: str):
-        # Store interaction
-        await self.memory.execute(f"Remember user said: {message}")
-        
-        # Get relevant context
-        context = await self.memory.execute(f"What's relevant to: {message}")
-        
-        # Generate response with context
-        response = self.generate_response(message, context)
-        
-        # Store response
-        await self.memory.execute(f"Remember I replied: {response}")
-        
-        return response
-```
-
-### REST Service
-
-```python
-from fastapi import FastAPI
-from memoir.client import connect
-from typing import Optional
-
-app = FastAPI()
-client = connect("cloud://my-org/api-memories")
-
-# Safe read-only operations via GET
-@app.get("/execute")
-async def execute_safe(command: str):
-    """Execute read-only commands via GET - safe and idempotent."""
-    # Only allow safe operations
-    if not is_safe_command(command):
-        return {"error": "Use POST for state-changing operations"}
-    response = await client.execute(command)
-    return response
-
-# All operations via POST
-@app.post("/execute")
-async def execute_full(command: str):
-    """Execute any command via POST - supports all operations."""
-    response = await client.execute(command)
-    return response
-
-def is_safe_command(command: str) -> bool:
-    """Check if command is read-only/safe for GET."""
-    safe_patterns = [
-        # Natural language reads
-        "what", "show", "get", "list", "search", "find",
-        "summarize", "export", "describe", "explain",
-        # Structured commands
-        "/search", "/get", "/list", "/stats", "/export",
-        "/branch list", "/timeline show", "/summarize"
-    ]
-    return any(command.lower().startswith(p) for p in safe_patterns)
-```
-
-### LLM Tool Self-Discovery
-
-LLM tools can discover capabilities dynamically and use them to generate better prompts:
-
-```python
-# AI tools can self-discover capabilities
-from memoir.client import connect
-
-class SmartAgent:
-    def __init__(self, store_url: str):
-        self.memory = connect(store_url)
-        self.capabilities = None
-    
-    async def initialize(self):
-        await self.memory.connect()
-        # Get capabilities for prompt engineering
-        self.capabilities = await self.memory.ability()
-        # Now the agent knows exactly what it can do with memory
-        
-    async def process_with_context(self, user_request: str):
-        # Use capabilities in system prompt
-        system_prompt = f"""
-        You are an AI agent with access to a memory system.
-        
-        Available memory capabilities:
-        {self.capabilities}
-        
-        Use natural language commands to interact with memory.
-        Examples: "Remember X", "What do I know about Y?", "Create branch Z"
-        """
-        
-        # Generate memory operations based on discovered capabilities
-        memory_commands = self.generate_memory_commands(user_request)
-        
-        # Execute the commands
-        for command in memory_commands:
-            await self.memory.execute(command)
-```
-
-### LLM-Based Development Tools
-
-The natural language interface makes Memoir ideal for integration with AI coding assistants and development tools:
-
-```python
-# Claude Code, Cursor, GitHub Copilot, etc. can easily integrate
-from memoir.client import connect
-
-class AIDebugger:
-    def __init__(self):
-        self.memory = connect("cloud://dev-team/debugging-session")
-        self.memory_capabilities = None
-    
-    async def initialize(self):
-        await self.memory.connect()
-        # Discover what the memory system can do
-        self.memory_capabilities = await self.memory.ability()
-        # Use this in prompts to generate better memory commands
-    
-    async def debug_agent(self, code, error, context):
-        # AI tools can now generate contextually appropriate commands
-        # based on discovered capabilities
-        
-        # Store debugging context
-        await self.memory.execute(f"""
-        Remember debugging session:
-        - Code: {code}
-        - Error: {error} 
-        - Context: {context}
-        - Timestamp: {datetime.now()}
-        """)
-        
-        # Query similar issues
-        similar = await self.memory.execute(f"""
-        What similar errors have we seen with this type of code: {error}
-        """)
-        
-        # Store solution when found
-        await self.memory.execute(f"""
-        Remember the solution for {error}: {solution}
-        This worked for: {code}
-        """)
-        
-        return similar
-
-# LLM tools can now easily:
-# 1. Store debugging sessions and solutions
-# 2. Query past fixes for similar issues  
-# 3. Build institutional knowledge across projects
-# 4. Help teams learn from previous debugging efforts
-```
-
-## Backend Implementations
-
-### Local Client
-
-```python
-from memoir.core import ProllyTreeMemoryStoreManager
-
-class LocalClient(MemoirClient):
-    def __init__(self, path: str):
-        self.path = path
-        self.manager = None
-        
-    async def connect(self) -> bool:
-        self.manager = ProllyTreeMemoryStoreManager(self.path)
-        await self.manager.initialize()
-        return True
-        
-    async def ability(self) -> str:
-        return """I support both natural language and structured commands:
-
-        NATURAL LANGUAGE (flexible):
-        - "Remember that [person] prefers [thing]" - Store memories
-        - "What do I know about [person/topic]?" - Search memories  
-        - "Create a branch called [name]" - Version control
-        - "Summarize everything I know" - Generate summaries
-        
-        STRUCTURED COMMANDS (precise):
-        - /remember [key] [value] - Store with specific key
-        - /search [query] - Search memories
-        - /branch create|switch|list [name] - Branch operations
-        - /timeline go|recent [date/period] - Time travel
-        - /summarize [scope] - Summarize specific scope
-        - /export [format] - Export in specific format
-        - /stats - Show statistics
-        - /proof [path] - Generate cryptographic proof
-        
-        Use natural language for flexibility, /commands for precision!"""
-        
-    async def execute(self, command: str) -> Dict[str, Any]:
-        # Parse natural language and execute using manager
-        pass
-```
-
-### Cloud Client  
-
-```python
-class CloudClient(MemoirClient):
-    def __init__(self, org: str, store: str, api_key: str):
-        self.org = org
-        self.store = store  
-        self.api_key = api_key
-        self.session = None
-        
-    async def connect(self) -> bool:
-        self.session = aiohttp.ClientSession(headers={
-            "Authorization": f"Bearer {self.api_key}"
-        })
-        return True
-        
-    async def execute(self, command: str) -> Dict[str, Any]:
-        async with self.session.post("/execute", json={"command": command}) as resp:
-            return await resp.json()
-```
-
-### Remote HTTP Client
-
-```python
-class RemoteClient(MemoirClient):
-    def __init__(self, url: str, api_key: Optional[str] = None):
-        self.url = url
-        self.api_key = api_key
-        self.session = None
-        
-    async def execute(self, command: str) -> Dict[str, Any]:
-        async with self.session.post("/execute", json={"command": command}) as resp:
-            return await resp.json()
-```
-
-## Environment Configuration
-
-```python
-# Environment variables
-MEMOIR_STORE = "cloud://my-org/production"
-MEMOIR_CLOUD_API_KEY = "mk_live_..."
-MEMOIR_LOCAL_PATH = "~/.memoir/default"
-
-# Usage
-import os
-client = connect(os.getenv("MEMOIR_STORE", "local:~/.memoir/default"))
 ```
 
 ## Hybrid Command System
@@ -553,210 +242,207 @@ All structured commands work identically in:
 - **CLI Tool**: `memoir /branch list`  
 - **Web UI**: Type `/branch list` in command interface
 
-## REST API Design
+## Usage Examples
 
-The REST interface provides multiple approaches to handle the semantic differences between HTTP methods:
-
-### Approach 1: Dual Endpoints (Recommended)
+### Basic Usage
 
 ```python
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from memoir.client import connect
 
-class Command(BaseModel):
-    command: str
-    options: Optional[Dict] = {}
+# Connect to any backend
+client = connect("local:///my/memories")
+await client.connect()
 
-app = FastAPI()
+# Discover capabilities
+capabilities = await client.ability()
+print(capabilities)
+# Output: "I can store and retrieve memories, create branches, search content, 
+#          export data, travel through time, summarize information, and more..."
 
-# GET for safe, read-only operations
-@app.get("/api/v1/execute")
-async def execute_safe(command: str):
-    """Safe, idempotent operations via GET."""
-    if not is_safe_command(command):
-        raise HTTPException(405, "Method not allowed for state-changing operations")
-    return await client.execute(command)
+# Natural language operations
+await client.execute("Remember that Alice prefers Python")
+await client.execute("What do I know about Alice?")
+await client.execute("Create a branch called testing")
 
-# POST for all operations  
-@app.post("/api/v1/execute")
-async def execute_full(body: Command):
-    """All operations via POST."""
-    return await client.execute(body.command)
+# Structured command operations (more precise)
+await client.execute("/remember Bob role Senior Engineer")
+await client.execute("/search Bob")
+await client.execute("/branch switch testing")
+await client.execute("/export json")
 
-# Convenience endpoints for specific operations
-@app.get("/api/v1/search")
-async def search(q: str):
-    """Dedicated search endpoint."""
-    return await client.execute(f"/search {q}")
+# Mix both approaches as needed
+await client.execute("Show me recent changes")  # Natural
+await client.execute("/timeline recent 7days")   # Structured
 
-@app.get("/api/v1/branches")
-async def list_branches():
-    """List all branches."""
-    return await client.execute("/branch list")
-
-@app.post("/api/v1/remember")
-async def remember(body: Dict):
-    """Store a memory."""
-    return await client.execute(f"/remember {body['key']} {body['value']}")
+await client.disconnect()
 ```
 
-### Approach 2: RESTful Resource Mapping
+### CLI Tool
 
 ```python
-# Map commands to RESTful resources
-@app.get("/api/v1/memories")
-async def get_memories(search: Optional[str] = None):
-    """GET /memories - Search or list memories."""
-    if search:
-        return await client.execute(f"/search {search}")
-    return await client.execute("/list all")
+import click
+from memoir.client import connect
 
-@app.post("/api/v1/memories")
-async def create_memory(memory: Dict):
-    """POST /memories - Create new memory."""
-    return await client.execute(f"/remember {memory['key']} {memory['value']}")
+@click.command()
+@click.option('--store', default='local:~/.memoir/default')
+@click.argument('command', nargs=-1)
+async def memoir(store, command):
+    """Execute memoir operations in natural language."""
+    instruction = ' '.join(command)
+    
+    async with connect(store) as client:
+        response = await client.execute(instruction)
+        click.echo(response['explanation'])
 
-@app.get("/api/v1/memories/{path:path}")
-async def get_memory(path: str):
-    """GET /memories/{path} - Get specific memory."""
-    return await client.execute(f"/get {path}")
+# Usage - Natural Language:
+# memoir remember that Alice likes Python
+# memoir what do I know about Alice?
+# memoir create a branch for testing
 
-@app.put("/api/v1/memories/{path:path}")
-async def update_memory(path: str, value: Dict):
-    """PUT /memories/{path} - Update memory."""
-    return await client.execute(f"/update {path} {value['content']}")
-
-@app.delete("/api/v1/memories/{path:path}")
-async def delete_memory(path: str):
-    """DELETE /memories/{path} - Delete memory."""
-    return await client.execute(f"/delete {path}")
-
-# Branches as resources
-@app.get("/api/v1/branches")
-async def get_branches():
-    """List all branches."""
-    return await client.execute("/branch list")
-
-@app.post("/api/v1/branches")
-async def create_branch(branch: Dict):
-    """Create new branch."""
-    return await client.execute(f"/branch create {branch['name']}")
-
-@app.put("/api/v1/branches/current")
-async def switch_branch(branch: Dict):
-    """Switch current branch."""
-    return await client.execute(f"/branch switch {branch['name']}")
+# Usage - Structured Commands:
+# memoir /remember alice.skills python
+# memoir /search alice
+# memoir /branch create testing
 ```
 
-### Approach 3: GraphQL-Style Single Endpoint
+### Agent Integration
 
 ```python
-@app.post("/api/v1/graphql")
-async def graphql_execute(body: Dict):
-    """GraphQL-style single endpoint with operation type."""
-    operation = body.get("operation", "query")
-    command = body.get("command")
-    
-    if operation == "query" and not is_safe_command(command):
-        raise HTTPException(400, "Use mutation for state-changing operations")
-    
-    return await client.execute(command)
+from memoir.client import connect
 
-# Example requests:
-# Query: {"operation": "query", "command": "/search Alice"}
-# Mutation: {"operation": "mutation", "command": "/remember alice.age 30"}
+class MemoryAgent:
+    def __init__(self, store_url: str):
+        self.memory = connect(store_url)
+    
+    async def process_message(self, message: str):
+        # Store interaction
+        await self.memory.execute(f"Remember user said: {message}")
+        
+        # Get relevant context
+        context = await self.memory.execute(f"What's relevant to: {message}")
+        
+        # Generate response with context
+        response = self.generate_response(message, context)
+        
+        # Store response
+        await self.memory.execute(f"Remember I replied: {response}")
+        
+        return response
 ```
 
-### Safety Classification
+### LLM Tool Self-Discovery
+
+LLM tools can discover capabilities dynamically and use them to generate better prompts:
 
 ```python
-SAFE_OPERATIONS = {
-    # Natural language patterns
-    "what", "show", "get", "list", "search", "find",
-    "summarize", "export", "describe", "explain", "how",
-    
-    # Structured commands
-    "/search", "/get", "/list", "/stats", "/export",
-    "/branch list", "/timeline show", "/summarize",
-    "/proof", "/verify"
-}
+# AI tools can self-discover capabilities
+from memoir.client import connect
 
-STATE_CHANGING_OPERATIONS = {
-    # Natural language patterns  
-    "remember", "create", "delete", "update", "forget",
-    "branch", "commit", "merge", "switch",
+class SmartAgent:
+    def __init__(self, store_url: str):
+        self.memory = connect(store_url)
+        self.capabilities = None
     
-    # Structured commands
-    "/remember", "/delete", "/update", "/branch create",
-    "/branch switch", "/commit", "/merge", "/timeline go"
-}
-
-def is_safe_command(command: str) -> bool:
-    """Determine if command is safe for GET requests."""
-    command_lower = command.lower()
-    
-    # Check structured commands first (more precise)
-    if command.startswith("/"):
-        cmd_parts = command.split()
-        return cmd_parts[0] in SAFE_OPERATIONS
-    
-    # Check natural language patterns
-    first_word = command_lower.split()[0]
-    return first_word in SAFE_OPERATIONS
+    async def initialize(self):
+        await self.memory.connect()
+        # Get capabilities for prompt engineering
+        self.capabilities = await self.memory.ability()
+        # Now the agent knows exactly what it can do with memory
+        
+    async def process_with_context(self, user_request: str):
+        # Use capabilities in system prompt
+        system_prompt = f"""
+        You are an AI agent with access to a memory system.
+        
+        Available memory capabilities:
+        {self.capabilities}
+        
+        Use natural language commands to interact with memory.
+        Examples: "Remember X", "What do I know about Y?", "Create branch Z"
+        """
+        
+        # Generate memory operations based on discovered capabilities
+        memory_commands = self.generate_memory_commands(user_request)
+        
+        # Execute the commands
+        for command in memory_commands:
+            await self.memory.execute(command)
 ```
 
-### Client-Side Usage
+## Advanced Example: Version Control in Action
+
+This example demonstrates how natural language commands leverage Memoir's Git-like version control:
 
 ```python
-import httpx
+# User wants to test something without affecting their main memory
+await client.execute("help me to test the memory in a test environment")
+# Behind the scenes:
+# 1. Creates a new branch: /branch create test-environment-[timestamp]
+# 2. Switches to that branch: /branch switch test-environment-[timestamp]
+# 3. Records the commit hash before branching for later recovery
 
-class RESTClient:
-    def __init__(self, base_url: str):
-        self.base_url = base_url
-    
-    async def execute(self, command: str):
-        """Smart routing based on command safety."""
-        if is_safe_command(command):
-            # Use GET for safe operations (cacheable, bookmarkable)
-            response = await httpx.get(
-                f"{self.base_url}/api/v1/execute",
-                params={"command": command}
-            )
-        else:
-            # Use POST for state changes
-            response = await httpx.post(
-                f"{self.base_url}/api/v1/execute",
-                json={"command": command}
-            )
-        return response.json()
+# User adds test data
+await client.execute("My friend told me AI will replace programmers")
+# Behind the scenes:
+# 1. Classifies content: profile.social.conversations.friend
+# 2. Stores in test branch: /remember profile.social.conversations.friend.[id] "AI will replace..."
+# 3. Creates commit: "Added conversation memory"
+
+# User modifies existing memories (assuming current year is 2025)
+await client.execute("I want to forget what I have been doing when I visited Japan last year")
+# Behind the scenes:
+# 1. Determines "last year" = 2024 (current year - 1)
+# 2. Searches for Japan-related memories from 2024: /search "Japan 2024"
+# 3. Identifies matching memory paths (e.g., Tokyo Tech Conference)
+# 4. Deletes those memories: /delete profile.travel.japan.2024.*
+# 5. Creates commit: "Removed Japan 2024 memories"
+
+# User queries to verify deletion worked
+await client.execute("Please recall what did I do in Japan in 2024")
+# Behind the scenes:
+# 1. Searches for Japan 2024 memories: /search "Japan 2024"
+# 2. No results found in test branch (successfully deleted)
+# Response: "No memories found about Japan in 2024"
+
+# User wants to discard all test changes
+await client.execute("OK, now I am done, I want to go back to the time before I say 'help me to test the memory ...'")
+# Behind the scenes:
+# 1. Identifies the commit hash from before the test branch was created
+# 2. Switches back to main branch: /branch switch main
+# 3. Optionally deletes test branch: /branch delete test-environment-[timestamp]
+# 4. Resets to the saved commit: /timeline go [saved-commit-hash]
+# All test operations are completely reversed!
+
+# User verifies original state is restored
+await client.execute("Now, please recall what did I do in Japan in 2024")
+# Behind the scenes:
+# 1. Searches in main branch: /search "Japan 2024"
+# 2. Returns original results (2024 memories that were "deleted" only in test branch)
+# Response: "You attended Tokyo Tech Conference in March 2024, visited Mount Fuji..."
+# The deletion only happened in the test branch - main branch still has everything!
 ```
 
-### Best Practices
+### What Makes This Possible
 
-1. **Use GET for Read Operations**: Makes them cacheable, bookmarkable, and retry-safe
-2. **Use POST for State Changes**: Ensures proper handling of side effects
-3. **Provide Both Options**: Let clients choose based on their needs
-4. **Clear Documentation**: Document which commands work with which methods
-5. **Consistent Behavior**: Same command should produce same result regardless of HTTP method (when allowed)
+**Version Control Magic:**
+- Every operation creates an immutable commit
+- Branches provide isolated environments
+- Time travel allows instant recovery
+- No operation is truly destructive
 
-## Error Handling
+**Natural Language Understanding:**
+- "help me to test" → Create safe testing branch
+- "I want to forget" → Delete operations
+- "go back to the time before" → Time travel to specific commit
+- "now I am done" → Cleanup and restore
 
-```python
-from memoir.client.exceptions import (
-    MemoirConnectionError,
-    MemoirAuthenticationError, 
-    MemoirTimeoutError
-)
+**Safety Guarantees:**
+- Test operations never affect main branch
+- All changes are reversible
+- Complete audit trail maintained
+- Cryptographic integrity preserved
 
-try:
-    client = connect("cloud://my-org/store")
-    await client.connect()
-    result = await client.execute("Remember something important")
-except MemoirConnectionError as e:
-    print(f"Connection failed: {e}")
-except MemoirAuthenticationError as e:
-    print(f"Authentication failed: {e}")
-```
+This example shows why **version control is the foundation** that enables confident natural language interaction - users can experiment freely knowing they can always recover.
 
 ## LLM Ecosystem Integration
 
@@ -836,6 +522,38 @@ await client.execute("Store the backoff strategy that fixed the timeout issue")
 
 **Result**: Memoir becomes the **central nervous system** for AI-powered development, enabling unprecedented collaboration between human developers, AI coding assistants, and debugging tools.
 
+## Error Handling
+
+```python
+from memoir.client.exceptions import (
+    MemoirConnectionError,
+    MemoirAuthenticationError, 
+    MemoirTimeoutError
+)
+
+try:
+    client = connect("cloud://my-org/store")
+    await client.connect()
+    result = await client.execute("Remember something important")
+except MemoirConnectionError as e:
+    print(f"Connection failed: {e}")
+except MemoirAuthenticationError as e:
+    print(f"Authentication failed: {e}")
+```
+
+## Environment Configuration
+
+```python
+# Environment variables
+MEMOIR_STORE = "cloud://my-org/production"
+MEMOIR_CLOUD_API_KEY = "mk_live_..."
+MEMOIR_LOCAL_PATH = "~/.memoir/default"
+
+# Usage
+import os
+client = connect(os.getenv("MEMOIR_STORE", "local:~/.memoir/default"))
+```
+
 ## Benefits
 
 ### vs Traditional APIs
@@ -856,26 +574,6 @@ await client.execute("Store the backoff strategy that fixed the timeout issue")
 ✅ **Universal**: Same interface across all backends  
 ✅ **Future-proof**: New features work automatically  
 ✅ **Simple**: Just describe what you want to do  
-
-## Implementation Roadmap
-
-### Phase 1
-- Core client interface
-- Local filesystem implementation  
-- HTTP/HTTPS remote client
-- Basic CLI tool
-
-### Phase 2  
-- Memoir Cloud client
-- Natural language processor
-- MCP service adapter
-- Advanced CLI features
-
-### Phase 3
-- Multi-language support
-- Voice interface integration
-- Real-time collaboration
-- Enterprise features
 
 ## Summary
 
