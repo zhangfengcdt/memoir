@@ -4666,10 +4666,39 @@ ${result.valid ?
                 return;
             }
 
-            console.log('Remembering content:', content);
-            showNotification('Processing memory...', 'info');
+            // Show progress modal
+            const progressModal = showProgressModal('Storing Memory', 'Preparing to store memory...');
+            const startTime = Date.now();
+            progressModal.startTime = startTime;
 
             try {
+                // Start progress tracking with messages for the four steps
+                const progressMessages = [
+                    'Step 1/4: Initializing store...',
+                    'Step 2/4: Classifying content...',
+                    'Step 3/4: Storing memory...',
+                    'Step 4/4: Processing timeline...'
+                ];
+
+                let progressStep = 0;
+                const progressInterval = setInterval(() => {
+                    const elapsedMs = Date.now() - startTime;
+                    const elapsedSec = (elapsedMs / 1000).toFixed(1);
+
+                    // Cycle through progress steps
+                    const currentMessage = progressMessages[progressStep % progressMessages.length];
+                    const messageWithTime = `${currentMessage} (${elapsedSec}s)`;
+
+                    // Update progress bar (simulate progress)
+                    const percentage = Math.min(95, (progressStep + 1) * 20 + (elapsedMs / 100) % 20);
+                    updateProgressModal(progressModal, messageWithTime, percentage);
+
+                    // Move to next step periodically
+                    if (elapsedMs > (progressStep + 1) * 500) {
+                        progressStep++;
+                    }
+                }, 100);
+
                 const response = await fetch('/api/remember', {
                     method: 'POST',
                     headers: {
@@ -4688,20 +4717,30 @@ ${result.valid ?
 
                 const result = await response.json();
 
+                // Clear progress tracking and close modal
+                clearInterval(progressInterval);
+                closeProgressModal(progressModal);
+
                 if (result.success) {
+                    // Show results in modal popup
+                    showRememberResultsModal(result);
+
                     let message = `✓ Memory stored at: ${result.key}`;
                     if (result.confidence) {
                         message += ` (confidence: ${(result.confidence * 100).toFixed(0)}%)`;
                     }
                     showNotification(message, 'success');
 
-                    console.log('Memory stored successfully, refreshing view...');
                     // Refresh the view to show the new memory
                     await refreshStore();
                 } else {
                     showNotification(`Not stored: ${result.message}`, 'warning');
                 }
             } catch (error) {
+                // Clear progress tracking on error
+                if (progressInterval) clearInterval(progressInterval);
+                closeProgressModal(progressModal);
+
                 console.error('Remember error:', error);
                 showNotification(`Failed to store memory: ${error.message}`, 'error');
             }
@@ -7105,6 +7144,264 @@ ${result.valid ?
             if (modal && modal.parentNode) {
                 document.body.removeChild(modal);
             }
+        }
+
+        function showRememberResultsModal(result) {
+            // Create modal overlay
+            const modal = document.createElement('div');
+            modal.className = 'remember-results-modal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.7);
+                z-index: 1000;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            `;
+
+            // Format timing breakdown
+            const timings = result.four_step_timings || {};
+            const timingBars = Object.entries(timings).map(([step, time], index) => {
+                const stepNames = [
+                    'Store Initialization',
+                    'Classification & Path Generation',
+                    'Memory Storage',
+                    'Timeline Processing'
+                ];
+                const percentage = time > 0 ? Math.max(10, Math.min(100, (time / Math.max(0.1, Object.values(timings).reduce((a, b) => Math.max(a, b), 0.1)) * 100))) : 0;
+
+                return `
+                    <div class="timing-step">
+                        <div class="step-name">${stepNames[index] || step}</div>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar-fill" style="width: ${percentage}%"></div>
+                        </div>
+                        <div class="step-time">${time.toFixed(3)}s</div>
+                    </div>
+                `;
+            }).join('');
+
+            // Format timeline events if present
+            let timelineSection = '';
+            if (result.timeline_events && result.timeline_events.length > 0) {
+                timelineSection = `
+                    <div class="timeline-events-section">
+                        <h4>🕒 Timeline Events Detected:</h4>
+                        <ul class="timeline-events-list">
+                            ${result.timeline_events.map(event => `
+                                <li>${event.description || event.event || JSON.stringify(event)}</li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            modal.innerHTML = `
+                <div class="modal-content" style="
+                    background: var(--bg-primary);
+                    color: var(--text-primary);
+                    padding: 30px;
+                    border-radius: 12px;
+                    max-width: 800px;
+                    width: 90%;
+                    max-height: 80vh;
+                    overflow-y: auto;
+                    box-shadow: 0 20px 60px var(--shadow);
+                    border: 1px solid var(--border-light);
+                ">
+                    <div class="modal-header" style="
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 20px;
+                        padding-bottom: 15px;
+                        border-bottom: 2px solid var(--border-light);
+                    ">
+                        <h2 style="margin: 0; color: var(--success); font-size: 24px;">
+                            ✅ Memory Stored Successfully
+                        </h2>
+                        <button class="close-btn" style="
+                            background: none;
+                            border: none;
+                            font-size: 24px;
+                            cursor: pointer;
+                            color: var(--text-secondary);
+                            padding: 5px;
+                        ">&times;</button>
+                    </div>
+
+                    <div class="remember-results-content">
+                        <!-- Memory Details -->
+                        <div class="memory-details" style="margin-bottom: 25px;">
+                            <h3 style="color: var(--success); margin-bottom: 15px;">📝 Memory Details</h3>
+                            <div class="detail-row" style="margin-bottom: 10px;">
+                                <strong>Path:</strong> <code style="background: var(--bg-secondary); color: var(--text-primary); padding: 2px 6px; border-radius: 3px; border: 1px solid var(--border-light);">${result.key}</code>
+                                <button class="copy-btn" data-copy="${result.key}" style="margin-left: 10px; padding: 4px 8px; font-size: 12px; background: var(--accent-primary); color: white; border: none; border-radius: 3px; cursor: pointer;">Copy</button>
+                            </div>
+                            <div class="detail-row" style="margin-bottom: 10px;">
+                                <strong>Full Key:</strong> <code style="background: var(--bg-secondary); color: var(--text-primary); padding: 2px 6px; border-radius: 3px; border: 1px solid var(--border-light);">${result.full_key}</code>
+                                <button class="copy-btn" data-copy="${result.full_key}" style="margin-left: 10px; padding: 4px 8px; font-size: 12px; background: var(--accent-primary); color: white; border: none; border-radius: 3px; cursor: pointer;">Copy</button>
+                            </div>
+                            <div class="detail-row" style="margin-bottom: 10px;">
+                                <strong>Confidence:</strong> <span style="color: ${result.confidence > 0.8 ? 'var(--success)' : result.confidence > 0.5 ? 'var(--warning)' : 'var(--error)'};">${(result.confidence * 100).toFixed(0)}%</span>
+                            </div>
+                            <div class="detail-row" style="margin-bottom: 10px;">
+                                <strong>Namespace:</strong> ${result.namespace}
+                            </div>
+                            ${result.commit_hash ? `
+                                <div class="detail-row" style="margin-bottom: 10px;">
+                                    <strong>Commit:</strong> ${result.commit_hash}
+                                </div>
+                            ` : ''}
+                            ${result.commit_date ? `
+                                <div class="detail-row" style="margin-bottom: 10px;">
+                                    <strong>Date:</strong> ${new Date(result.commit_date).toLocaleString()}
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <!-- Stored Content -->
+                        <div class="stored-content" style="margin-bottom: 25px;">
+                            <h3 style="color: var(--success); margin-bottom: 15px;">💾 Stored Content</h3>
+                            <div class="content-box" style="
+                                background: var(--bg-secondary);
+                                color: var(--text-primary);
+                                border: 1px solid var(--border-light);
+                                border-radius: 8px;
+                                padding: 15px;
+                                max-height: 200px;
+                                overflow-y: auto;
+                                font-family: 'JetBrains Mono', monospace;
+                                white-space: pre-wrap;
+                                word-wrap: break-word;
+                            ">${result.content}</div>
+                            <button class="copy-btn" data-copy="${result.content}" style="margin-top: 10px; padding: 6px 12px; background: var(--success); color: white; border: none; border-radius: 3px; cursor: pointer;">Copy Content</button>
+                        </div>
+
+                        <!-- Classification Reasoning -->
+                        <div class="classification-reasoning" style="margin-bottom: 25px;">
+                            <h3 style="color: var(--success); margin-bottom: 15px;">🧠 Classification Reasoning</h3>
+                            <div style="
+                                background: var(--bg-glass);
+                                border-left: 4px solid var(--accent-primary);
+                                padding: 15px;
+                                border-radius: 0 8px 8px 0;
+                                font-style: italic;
+                                color: var(--text-primary);
+                                border: 1px solid var(--border-light);
+                                border-left: 4px solid var(--accent-primary);
+                            ">${result.reasoning}</div>
+                        </div>
+
+                        <!-- Performance Timing -->
+                        <div class="performance-timing" style="margin-bottom: 25px;">
+                            <h3 style="color: var(--success); margin-bottom: 15px;">⚡ Performance Breakdown</h3>
+                            <div class="timing-breakdown" style="
+                                background: var(--bg-secondary);
+                                border: 1px solid var(--border-light);
+                                border-radius: 8px;
+                                padding: 20px;
+                            ">
+                                ${timingBars}
+                                <div class="total-time" style="
+                                    margin-top: 15px;
+                                    padding-top: 15px;
+                                    border-top: 2px solid var(--border-light);
+                                    font-weight: bold;
+                                    color: var(--success);
+                                ">
+                                    Total Time: ${(result.step_timings.total_remember || 0).toFixed(3)}s
+                                </div>
+                            </div>
+                        </div>
+
+                        ${timelineSection}
+                    </div>
+                </div>
+            `;
+
+            // Add click handlers
+            const closeBtn = modal.querySelector('.close-btn');
+            closeBtn.addEventListener('click', () => {
+                document.body.removeChild(modal);
+            });
+
+            // Close on backdrop click
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    document.body.removeChild(modal);
+                }
+            });
+
+            // Add copy functionality
+            const copyBtns = modal.querySelectorAll('.copy-btn');
+            copyBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const textToCopy = btn.getAttribute('data-copy');
+                    navigator.clipboard.writeText(textToCopy).then(() => {
+                        btn.textContent = 'Copied!';
+                        btn.style.background = 'var(--success)';
+                        setTimeout(() => {
+                            btn.textContent = btn.getAttribute('data-copy') === result.content ? 'Copy Content' : 'Copy';
+                            btn.style.background = btn.getAttribute('data-copy') === result.content ? 'var(--success)' : 'var(--accent-primary)';
+                        }, 2000);
+                    }).catch(() => {
+                        btn.textContent = 'Copy failed';
+                        setTimeout(() => {
+                            btn.textContent = btn.getAttribute('data-copy') === result.content ? 'Copy Content' : 'Copy';
+                        }, 2000);
+                    });
+                });
+            });
+
+            // Add styles for timing breakdown
+            const style = document.createElement('style');
+            style.textContent = `
+                .timing-step {
+                    display: flex;
+                    align-items: center;
+                    margin-bottom: 10px;
+                    gap: 15px;
+                }
+                .step-name {
+                    min-width: 200px;
+                    font-weight: 500;
+                }
+                .progress-bar-container {
+                    flex: 1;
+                    background: var(--bg-tertiary);
+                    height: 20px;
+                    border-radius: 10px;
+                    overflow: hidden;
+                    border: 1px solid var(--border-light);
+                }
+                .progress-bar-fill {
+                    height: 100%;
+                    background: linear-gradient(45deg, var(--accent-primary), var(--accent-secondary));
+                    border-radius: 10px;
+                    transition: width 0.3s ease;
+                }
+                .step-time {
+                    min-width: 60px;
+                    text-align: right;
+                    font-weight: bold;
+                    color: var(--accent-primary);
+                }
+                .timeline-events-list {
+                    margin: 0;
+                    padding-left: 20px;
+                }
+                .timeline-events-list li {
+                    margin-bottom: 5px;
+                }
+            `;
+            document.head.appendChild(style);
+
+            document.body.appendChild(modal);
         }
 
         function showNodeDetailsPopup(nodeData, event) {

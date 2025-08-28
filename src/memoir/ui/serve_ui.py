@@ -9,7 +9,6 @@ import json
 import socketserver
 import subprocess
 import sys
-import time
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
@@ -423,6 +422,11 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
     def handle_remember_api(self):
         """Handle /remember command to classify and store content."""
         try:
+            import time
+
+            step_timings = {}
+            remember_start = time.time()
+
             # Read POST data
             content_length = int(self.headers["Content-Length"])
             post_data = self.rfile.read(content_length)
@@ -444,15 +448,20 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error(404, f"Store path does not exist: {store_path}")
                 return
 
-            # Initialize store
+            # Step 1: Store Initialization
+            step1_start = time.time()
             store = ProllyTreeStore(
                 path=store_path,
                 enable_versioning=True,
                 auto_commit=True,
                 cache_size=10000,
             )
+            step_timings["step1_store_initialization"] = round(
+                time.time() - step1_start, 3
+            )
 
-            # Use intelligent classification to generate semantic keys
+            # Step 2: Classification & Path Generation
+            step2_start = time.time()
             try:
                 # Initialize the intelligent classifier
                 from langchain_openai import ChatOpenAI
@@ -525,6 +534,10 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 confidence = 1.0
                 reasoning = "Fallback to timestamp key due to classification error"
 
+            step_timings["step2_classification"] = round(time.time() - step2_start, 3)
+
+            # Step 3: Memory Storage
+            step3_start = time.time()
             # Store in memory
             namespace_tuple = (
                 tuple(namespace.split(":")) if ":" in namespace else (namespace,)
@@ -542,7 +555,33 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             # Store the memory using sync method
             store.put(namespace_tuple, key, memory_item)
 
-            # Apply timeline events if any were detected
+            # Get commit information after storage
+            commit_hash = None
+            commit_date = None
+            try:
+                # Get the latest commit information
+                import subprocess
+
+                result = subprocess.run(
+                    ["git", "log", "-1", "--format=%H|%ci"],
+                    cwd=store_path,
+                    capture_output=True,
+                    text=True,
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    parts = result.stdout.strip().split("|")
+                    commit_hash = parts[0][:8]  # Short hash
+                    commit_date = parts[1] if len(parts) > 1 else None
+            except Exception:
+                # Fallback to timestamp if git is not available
+                from datetime import datetime
+
+                commit_date = datetime.now().isoformat()
+
+            step_timings["step3_memory_storage"] = round(time.time() - step3_start, 3)
+
+            # Step 4: Timeline Processing (if applicable)
+            step4_start = time.time()
             timeline_applied = False
             if timeline_events and isinstance(timeline_events, list):
                 try:
@@ -566,8 +605,25 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 except Exception as e:
                     print(f"Failed to apply timeline events: {e}")
 
+            step_timings["step4_timeline_processing"] = round(
+                time.time() - step4_start, 3
+            )
+            step_timings["total_remember"] = round(time.time() - remember_start, 3)
+
             # Full key for display
             full_key = ":".join(namespace_tuple) + ":" + key
+
+            # Extract individual step timings for frontend display
+            four_step_timings = {
+                "step1_store_initialization": step_timings.get(
+                    "step1_store_initialization", 0
+                ),
+                "step2_classification": step_timings.get("step2_classification", 0),
+                "step3_memory_storage": step_timings.get("step3_memory_storage", 0),
+                "step4_timeline_processing": step_timings.get(
+                    "step4_timeline_processing", 0
+                ),
+            }
 
             result = {
                 "success": True,
@@ -579,6 +635,11 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 "message": f"Memory stored at {key}",
                 "timeline_events": timeline_events if timeline_events else None,
                 "timeline_applied": timeline_applied,
+                "commit_hash": commit_hash,
+                "commit_date": commit_date,
+                "content": content,  # Include the stored content
+                "step_timings": step_timings,
+                "four_step_timings": four_step_timings,
             }
 
             # Send response
