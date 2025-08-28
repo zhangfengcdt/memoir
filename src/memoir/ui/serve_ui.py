@@ -60,6 +60,8 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_summarize_api(parsed_path)
         elif parsed_path.path == "/api/recall":
             self.handle_recall_api(parsed_path)
+        elif parsed_path.path == "/api/diff":
+            self.handle_diff_api(parsed_path)
         elif parsed_path.path == "/":
             # Serve the visualization HTML
             self.path = "/visualization.html"
@@ -2404,6 +2406,398 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
                     return str(data[field])
 
         return str(data) if data else ""
+
+    def handle_diff_api(self, parsed_path):
+        """Handle diff API requests."""
+        try:
+            query_params = parse_qs(parsed_path.query)
+            store_path = query_params.get("path", [""])[0]
+            commit1 = query_params.get("commit1", [None])[0]
+            commit2 = query_params.get("commit2", [None])[0]
+            mode = query_params.get("mode", [""])[0]  # 'mock', or empty for real
+
+            if not store_path:
+                response_data = {"success": False, "error": "Store path is required"}
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps(response_data).encode())
+                return
+
+            # Check if store exists
+            store_path_obj = Path(store_path)
+            if not store_path_obj.exists():
+                response_data = {"success": False, "error": "Store path does not exist"}
+                self.send_response(404)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps(response_data).encode())
+                return
+
+            print(f"🔍 Generating diff for store: {store_path}")
+
+            # Handle mock mode
+            if mode == "mock":
+                response_data = self._generate_mock_diff(commit1, commit2, store_path)
+            else:
+                # Generate real diff using git/store
+                response_data = self._generate_real_diff(store_path, commit1, commit2)
+
+            # Send response
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(response_data).encode())
+
+        except Exception as e:
+            error_msg = f"Error generating diff: {e!s}"
+            print(f"Diff API error: {e}")
+            import traceback
+
+            traceback.print_exc()
+
+            response_data = {"success": False, "error": error_msg}
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(response_data).encode())
+
+    def _generate_mock_diff(self, commit1, commit2, store_path):
+        """Generate mock diff data for demonstration."""
+        if commit1 and commit2:
+            print(f"🔍 Mock comparing {commit1} → {commit2}")
+            changes = [
+                {
+                    "path": "profile.personal.preferences.theme",
+                    "type": "modified",
+                    "old_content": "dark",
+                    "new_content": "light",
+                },
+                {
+                    "path": "experience.memories.recent.learning",
+                    "type": "added",
+                    "new_content": "Learned about intelligent search algorithms today",
+                },
+            ]
+            stats = {"added": 1, "modified": 1, "deleted": 0}
+            header = f"Mock Comparing {commit1} → {commit2}"
+        else:
+            print("🔍 Mock showing recent changes")
+            changes = [
+                {
+                    "path": "profile.living.current.address.city",
+                    "type": "modified",
+                    "old_content": "My hometown is in Wuhan, China.",
+                    "new_content": "I currently live in San Francisco, California.",
+                },
+                {
+                    "path": "experience.memories.recent.positive",
+                    "type": "added",
+                    "new_content": "Yesterday we went skiing and had an amazing time at the resort",
+                },
+                {
+                    "path": "preferences.deprecated.old_setting",
+                    "type": "deleted",
+                    "old_content": "This setting is no longer used",
+                },
+            ]
+            stats = {"added": 1, "modified": 1, "deleted": 1}
+            header = "Mock Recent Changes"
+
+        return {
+            "success": True,
+            "changes": changes,
+            "stats": stats,
+            "header": header,
+            "is_mock": True,
+            "metadata": {
+                "store_path": store_path,
+                "commit1": commit1,
+                "commit2": commit2,
+                "total_changes": len(changes),
+            },
+        }
+
+    def _generate_real_diff(self, store_path, commit1, commit2):
+        """Generate real diff using git and memory store."""
+        try:
+            import subprocess
+
+            if commit1 and commit2:
+                # Compare two specific commits
+                print(f"🔍 Real comparing {commit1} → {commit2}")
+                changes = self._get_git_diff_between_commits(
+                    store_path, commit1, commit2
+                )
+                header = f"Comparing {commit1} → {commit2}"
+            else:
+                # Compare current vs last commit
+                print("🔍 Real showing current vs last commit")
+                # Get the last commit hash
+                result = subprocess.run(
+                    ["git", "log", "--format=%H", "-1"],
+                    cwd=store_path,
+                    capture_output=True,
+                    text=True,
+                )
+                if result.returncode == 0 and result.stdout.strip():
+                    last_commit = result.stdout.strip()
+                    # Compare working directory against last commit
+                    changes = self._get_git_diff_working_vs_commit(
+                        store_path, last_commit
+                    )
+                    header = f"Working directory vs {last_commit[:8]}"
+                else:
+                    # No commits yet or git error
+                    changes = []
+                    header = "No commits found"
+
+            # Calculate stats
+            stats = {"added": 0, "modified": 0, "deleted": 0}
+            for change in changes:
+                stats[change["type"]] += 1
+
+            return {
+                "success": True,
+                "changes": changes,
+                "stats": stats,
+                "header": header,
+                "is_mock": False,
+                "metadata": {
+                    "store_path": store_path,
+                    "commit1": commit1,
+                    "commit2": commit2,
+                    "total_changes": len(changes),
+                },
+            }
+
+        except Exception as e:
+            print(f"Error generating real diff: {e}")
+            # Fallback to showing no changes
+            return {
+                "success": True,
+                "changes": [],
+                "stats": {"added": 0, "modified": 0, "deleted": 0},
+                "header": "Unable to generate diff",
+                "is_mock": False,
+                "error": str(e),
+                "metadata": {
+                    "store_path": store_path,
+                    "commit1": commit1,
+                    "commit2": commit2,
+                    "total_changes": 0,
+                },
+            }
+
+    def _get_git_diff_between_commits(self, store_path, commit1, commit2):
+        """Get diff between two specific commits."""
+        import subprocess
+
+        try:
+            # Get list of changed files between commits
+            result = subprocess.run(
+                ["git", "diff", "--name-status", f"{commit1}..{commit2}"],
+                cwd=store_path,
+                capture_output=True,
+                text=True,
+            )
+
+            changes = []
+            if result.returncode == 0 and result.stdout:
+                for line in result.stdout.strip().split("\n"):
+                    if line:
+                        parts = line.split("\t", 1)
+                        if len(parts) >= 2:
+                            status, filename = parts[0], parts[1]
+
+                            # Convert git status to our format
+                            if status == "A":
+                                change_type = "added"
+                            elif status == "D":
+                                change_type = "deleted"
+                            elif status == "M":
+                                change_type = "modified"
+                            else:
+                                change_type = "modified"  # fallback
+
+                            # Try to get file content for the changes
+                            old_content, new_content = (
+                                self._get_file_content_at_commits(
+                                    store_path, filename, commit1, commit2, change_type
+                                )
+                            )
+
+                            change = {
+                                "path": filename.replace(".json", "").replace("/", "."),
+                                "type": change_type,
+                            }
+
+                            if old_content is not None:
+                                change["old_content"] = old_content
+                            if new_content is not None:
+                                change["new_content"] = new_content
+
+                            changes.append(change)
+
+            return changes
+
+        except Exception as e:
+            print(f"Error getting git diff between commits: {e}")
+            return []
+
+    def _get_git_diff_working_vs_commit(self, store_path, commit):
+        """Get diff between working directory and a specific commit."""
+        import subprocess
+
+        try:
+            # Get list of changed files between working directory and commit
+            result = subprocess.run(
+                ["git", "diff", "--name-status", commit],
+                cwd=store_path,
+                capture_output=True,
+                text=True,
+            )
+
+            changes = []
+            if result.returncode == 0 and result.stdout:
+                for line in result.stdout.strip().split("\n"):
+                    if line:
+                        parts = line.split("\t", 1)
+                        if len(parts) >= 2:
+                            status, filename = parts[0], parts[1]
+
+                            # Convert git status to our format
+                            if status == "A":
+                                change_type = "added"
+                            elif status == "D":
+                                change_type = "deleted"
+                            elif status == "M":
+                                change_type = "modified"
+                            else:
+                                change_type = "modified"
+
+                            # Get file content for the changes
+                            old_content, new_content = (
+                                self._get_file_content_working_vs_commit(
+                                    store_path, filename, commit, change_type
+                                )
+                            )
+
+                            change = {
+                                "path": filename.replace(".json", "").replace("/", "."),
+                                "type": change_type,
+                            }
+
+                            if old_content is not None:
+                                change["old_content"] = old_content
+                            if new_content is not None:
+                                change["new_content"] = new_content
+
+                            changes.append(change)
+
+            return changes
+
+        except Exception as e:
+            print(f"Error getting git diff working vs commit: {e}")
+            return []
+
+    def _get_file_content_at_commits(
+        self, store_path, filename, commit1, commit2, change_type
+    ):
+        """Get file content at specific commits."""
+        import subprocess
+
+        old_content = None
+        new_content = None
+
+        try:
+            if change_type != "added":
+                # Get old content from commit1
+                result = subprocess.run(
+                    ["git", "show", f"{commit1}:{filename}"],
+                    cwd=store_path,
+                    capture_output=True,
+                    text=True,
+                )
+                if result.returncode == 0:
+                    old_content = self._parse_memory_content(result.stdout)
+
+            if change_type != "deleted":
+                # Get new content from commit2
+                result = subprocess.run(
+                    ["git", "show", f"{commit2}:{filename}"],
+                    cwd=store_path,
+                    capture_output=True,
+                    text=True,
+                )
+                if result.returncode == 0:
+                    new_content = self._parse_memory_content(result.stdout)
+
+        except Exception as e:
+            print(f"Error getting file content at commits: {e}")
+
+        return old_content, new_content
+
+    def _get_file_content_working_vs_commit(
+        self, store_path, filename, commit, change_type
+    ):
+        """Get file content comparing working directory vs commit."""
+        import subprocess
+
+        old_content = None
+        new_content = None
+
+        try:
+            if change_type != "added":
+                # Get old content from commit
+                result = subprocess.run(
+                    ["git", "show", f"{commit}:{filename}"],
+                    cwd=store_path,
+                    capture_output=True,
+                    text=True,
+                )
+                if result.returncode == 0:
+                    old_content = self._parse_memory_content(result.stdout)
+
+            if change_type != "deleted":
+                # Get current content from working directory
+                file_path = Path(store_path) / filename
+                if file_path.exists():
+                    with open(file_path) as f:
+                        new_content = self._parse_memory_content(f.read())
+
+        except Exception as e:
+            print(f"Error getting file content working vs commit: {e}")
+
+        return old_content, new_content
+
+    def _parse_memory_content(self, raw_content):
+        """Parse memory content from JSON file."""
+        try:
+            import json
+
+            data = json.loads(raw_content)
+
+            # Extract meaningful content from the memory data
+            if isinstance(data, dict):
+                if "content" in data:
+                    return str(data["content"])
+                elif "memories" in data and isinstance(data["memories"], list):
+                    # Aggregated memory - show first few entries
+                    memories = data["memories"][:3]  # Show first 3
+                    content_parts = []
+                    for memory in memories:
+                        if isinstance(memory, dict) and "content" in memory:
+                            content_parts.append(str(memory["content"])[:100])
+                    return " | ".join(content_parts) if content_parts else str(data)
+                else:
+                    return str(data)
+            else:
+                return str(data)
+
+        except Exception:
+            # If not valid JSON or other error, return raw content truncated
+            return str(raw_content)[:200] if raw_content else ""
 
 
 def main():

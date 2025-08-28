@@ -1182,9 +1182,7 @@ Return ONLY a decimal F1 score between 0.0 and 1.0 (like 0.75 or 0.82)."""
             llm_j_score_color = (
                 "green"
                 if llm_j_score >= 0.8
-                else "red"
-                if llm_j_score == 0
-                else "yellow"
+                else "red" if llm_j_score == 0 else "yellow"
             )
 
             question_text = (
