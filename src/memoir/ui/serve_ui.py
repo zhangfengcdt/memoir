@@ -2519,17 +2519,17 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
         }
 
     def _generate_real_diff(self, store_path, commit1, commit2):
-        """Generate real diff using git and memory store."""
+        """Generate real diff using ProllyTree's diff functionality."""
         try:
             import subprocess
 
             if commit1 and commit2:
-                # Compare two specific commits
+                # Compare two specific commits using ProllyTree
                 print(f"🔍 Real comparing {commit1} → {commit2}")
-                changes = self._get_git_diff_between_commits(
+                changes = self._get_prollytree_diff_between_commits(
                     store_path, commit1, commit2
                 )
-                header = f"Comparing {commit1} → {commit2}"
+                header = f"Comparing {commit1[:8]} → {commit2[:8]}"
             else:
                 # Compare last two commits
                 print("🔍 Real showing last two commits")
@@ -2543,17 +2543,17 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
                 if result.returncode == 0 and result.stdout.strip():
                     commits = result.stdout.strip().split("\n")
                     if len(commits) >= 2:
-                        # Compare the two most recent commits
+                        # Compare the two most recent commits using ProllyTree
                         latest_commit = commits[0]
                         previous_commit = commits[1]
-                        changes = self._get_git_diff_between_commits(
+                        changes = self._get_prollytree_diff_between_commits(
                             store_path, previous_commit, latest_commit
                         )
                         header = f"Changes: {previous_commit[:8]} → {latest_commit[:8]}"
                     elif len(commits) == 1:
-                        # Only one commit, compare against empty tree
+                        # Only one commit, show all data as added
                         latest_commit = commits[0]
-                        changes = self._get_git_diff_from_empty(
+                        changes = self._get_prollytree_initial_commit(
                             store_path, latest_commit
                         )
                         header = f"Initial commit: {latest_commit[:8]}"
@@ -2601,6 +2601,300 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
                     "total_changes": 0,
                 },
             }
+
+    def _get_prollytree_diff_between_commits(self, store_path, commit1, commit2):
+        """Get diff between two commits using ProllyTree's native diff."""
+        try:
+            import subprocess
+
+            print(f"🔧 Using ProllyTree diff for {commit1[:8]} → {commit2[:8]}")
+
+            changes = []
+
+            # Get the tree root hashes from git for both commits
+            # The root hash should be stored in a file or as part of the commit
+
+            # Method 1: Try to get root hash from the commit message or a special file
+            # First, let's check what files exist at each commit
+            result1 = subprocess.run(
+                ["git", "ls-tree", "-r", "--name-only", commit1],
+                cwd=store_path,
+                capture_output=True,
+                text=True,
+            )
+
+            result2 = subprocess.run(
+                ["git", "ls-tree", "-r", "--name-only", commit2],
+                cwd=store_path,
+                capture_output=True,
+                text=True,
+            )
+
+            if result1.returncode == 0 and result2.returncode == 0:
+                files1 = (
+                    set(result1.stdout.strip().split("\n")) if result1.stdout else set()
+                )
+                files2 = (
+                    set(result2.stdout.strip().split("\n")) if result2.stdout else set()
+                )
+
+                # Look for config or root files that might contain tree metadata
+                config_files = [
+                    f for f in files1 if "config" in f or "root" in f or "metadata" in f
+                ]
+                print(f"📁 Found config files: {config_files}")
+
+                # Try to get tree data by examining the actual data files
+                # Get all JSON files that represent the actual memory data
+                data_files1 = [
+                    f
+                    for f in files1
+                    if f.endswith(".json") and not ("config" in f or "metadata" in f)
+                ]
+                data_files2 = [
+                    f
+                    for f in files2
+                    if f.endswith(".json") and not ("config" in f or "metadata" in f)
+                ]
+
+                # Build data dictionaries from the files
+                data1 = {}
+                for file in data_files1:
+                    result = subprocess.run(
+                        ["git", "show", f"{commit1}:{file}"],
+                        cwd=store_path,
+                        capture_output=True,
+                        text=True,
+                    )
+                    if result.returncode == 0:
+                        try:
+                            # Convert file path to memory key
+                            key = file.replace(".json", "").replace("/", ":")
+                            data1[key] = result.stdout
+                        except Exception:
+                            pass
+
+                data2 = {}
+                for file in data_files2:
+                    result = subprocess.run(
+                        ["git", "show", f"{commit2}:{file}"],
+                        cwd=store_path,
+                        capture_output=True,
+                        text=True,
+                    )
+                    if result.returncode == 0:
+                        try:
+                            # Convert file path to memory key
+                            key = file.replace(".json", "").replace("/", ":")
+                            data2[key] = result.stdout
+                        except Exception:
+                            pass
+
+                print(
+                    f"📊 Commit1 has {len(data1)} memory keys, Commit2 has {len(data2)} memory keys"
+                )
+
+                # Compare the data
+                keys1_set = set(data1.keys())
+                keys2_set = set(data2.keys())
+
+                added_keys = keys2_set - keys1_set
+                removed_keys = keys1_set - keys2_set
+                common_keys = keys1_set & keys2_set
+
+                print(
+                    f"📈 Added: {len(added_keys)}, Removed: {len(removed_keys)}, Common: {len(common_keys)}"
+                )
+
+                # Process added keys
+                for key in added_keys:
+                    try:
+                        content = self._parse_memory_content(data2[key])
+                        if content:  # Only add if there's actual content
+                            changes.append(
+                                {
+                                    "path": self._format_key_as_path(key),
+                                    "type": "added",
+                                    "new_content": content,
+                                }
+                            )
+                    except Exception as e:
+                        print(f"Error processing added key {key}: {e}")
+
+                # Process removed keys
+                for key in removed_keys:
+                    try:
+                        content = self._parse_memory_content(data1[key])
+                        if content:  # Only add if there's actual content
+                            changes.append(
+                                {
+                                    "path": self._format_key_as_path(key),
+                                    "type": "deleted",
+                                    "old_content": content,
+                                }
+                            )
+                    except Exception as e:
+                        print(f"Error processing removed key {key}: {e}")
+
+                # Process potentially modified keys
+                for key in common_keys:
+                    try:
+                        if data1[key] != data2[key]:
+                            old_content = self._parse_memory_content(data1[key])
+                            new_content = self._parse_memory_content(data2[key])
+                            if (
+                                old_content != new_content
+                            ):  # Only add if content actually changed
+                                changes.append(
+                                    {
+                                        "path": self._format_key_as_path(key),
+                                        "type": "modified",
+                                        "old_content": old_content,
+                                        "new_content": new_content,
+                                    }
+                                )
+                    except Exception as e:
+                        print(f"Error processing modified key {key}: {e}")
+
+                print(f"✅ Found {len(changes)} total memory changes")
+
+                # Filter out non-memory changes (like config files)
+                memory_changes = [
+                    c
+                    for c in changes
+                    if not any(
+                        skip in c["path"] for skip in ["config", "metadata", "mapping"]
+                    )
+                ]
+
+                if memory_changes:
+                    print(
+                        f"✨ Returning {len(memory_changes)} memory changes (filtered from {len(changes)} total)"
+                    )
+                    return memory_changes
+                elif changes:
+                    print(
+                        f"⚠️ Only found config/metadata changes, returning all {len(changes)} changes"
+                    )
+                    return changes
+
+            print("⚠️ No changes found, falling back to git diff")
+            return self._get_git_diff_between_commits(store_path, commit1, commit2)
+
+        except Exception as e:
+            print(f"❌ Error getting ProllyTree diff: {e}")
+            import traceback
+
+            traceback.print_exc()
+            # Fallback to git-based diff
+            return self._get_git_diff_between_commits(store_path, commit1, commit2)
+
+    def _get_prollytree_initial_commit(self, store_path, commit):
+        """Get all content from the initial commit using ProllyTree."""
+        try:
+            import subprocess
+
+            from prollytree import VersionedKvStore
+
+            store = VersionedKvStore(store_path)
+
+            # Save current branch
+            result = subprocess.run(
+                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                cwd=store_path,
+                capture_output=True,
+                text=True,
+            )
+            current_branch = result.stdout.strip() if result.returncode == 0 else "main"
+
+            changes = []
+
+            try:
+                # Checkout to the commit
+                subprocess.run(
+                    ["git", "checkout", commit], cwd=store_path, capture_output=True
+                )
+
+                # Get all keys
+                all_keys = store.list_keys()
+
+                for key in all_keys:
+                    try:
+                        key_str = (
+                            key.decode("utf-8") if isinstance(key, bytes) else str(key)
+                        )
+                        value = store.get(key)
+                        if value:
+                            content = self._parse_prollytree_value(value)
+                            changes.append(
+                                {
+                                    "path": self._format_key_as_path(key_str),
+                                    "type": "added",
+                                    "new_content": content,
+                                }
+                            )
+                    except Exception:
+                        pass
+
+            finally:
+                # Restore original branch
+                subprocess.run(
+                    ["git", "checkout", current_branch],
+                    cwd=store_path,
+                    capture_output=True,
+                )
+
+            return changes
+
+        except Exception as e:
+            print(f"Error getting ProllyTree initial commit: {e}")
+            # Fallback to git-based diff
+            return self._get_git_diff_from_empty(store_path, commit)
+
+    def _format_key_as_path(self, key):
+        """Format a ProllyTree key as a semantic path."""
+        # Remove namespace prefix and convert to dot notation
+        if ":" in key:
+            parts = key.split(":")
+            # Skip namespace parts and join the rest with dots
+            if len(parts) > 1:
+                return ".".join(parts[1:])
+        return key
+
+    def _parse_prollytree_value(self, value):
+        """Parse a value from ProllyTree store."""
+        try:
+            import json
+
+            # If it's bytes, decode it
+            if isinstance(value, bytes):
+                value = value.decode("utf-8")
+
+            # Try to parse as JSON
+            if isinstance(value, str):
+                try:
+                    data = json.loads(value)
+                    return self._parse_memory_content(json.dumps(data))
+                except json.JSONDecodeError:
+                    return str(value)[:200]
+
+            # If it's already a dict or other type
+            if isinstance(value, dict):
+                if "content" in value:
+                    return str(value["content"])
+                elif "memories" in value and isinstance(value["memories"], list):
+                    # Aggregated memory
+                    memories = value["memories"][:3]
+                    content_parts = []
+                    for memory in memories:
+                        if isinstance(memory, dict) and "content" in memory:
+                            content_parts.append(str(memory["content"])[:100])
+                    return " | ".join(content_parts) if content_parts else str(value)
+
+            return str(value)[:200] if value else ""
+
+        except Exception:
+            return str(value)[:200] if value else ""
 
     def _get_git_diff_between_commits(self, store_path, commit1, commit2):
         """Get diff between two specific commits."""
