@@ -20,7 +20,10 @@ class LocationMemento:
         self.memory_store = memory_store
 
     async def apply_location_events(
-        self, location_events: list[dict[str, str]], metadata: Optional[dict] = None, namespace: str = "default"
+        self,
+        location_events: list[dict[str, str]],
+        metadata: Optional[dict] = None,
+        namespace: str = "default",
     ) -> None:
         """
         Apply location events to the memory store.
@@ -119,7 +122,11 @@ class LocationMemento:
         return normalized
 
     async def _store_or_merge_location_event(
-        self, location_path: str, description: str, metadata: Optional[dict] = None, namespace: str = "default"
+        self,
+        location_path: str,
+        description: str,
+        metadata: Optional[dict] = None,
+        namespace: str = "default",
     ) -> None:
         """
         Store location event or merge with existing location events.
@@ -243,7 +250,9 @@ class LocationMemento:
         existing_events.append(new.strip())
         return " | ".join(existing_events)
 
-    async def get_location_summary(self, llm: Optional[Any] = None, namespace: str = "default") -> str:
+    async def get_location_summary(
+        self, llm: Optional[Any] = None, namespace: str = "default"
+    ) -> str:
         """
         Generate a summary of all location events.
 
@@ -389,7 +398,9 @@ Location Summary:"""
             logger.error(f"LLM location summary failed: {e}")
             return self._generate_structured_location_summary(location_items)
 
-    async def get_location_events_for_search(self, location_query: str, namespace: str = "default") -> list[dict]:
+    async def get_location_events_for_search(
+        self, location_query: str, namespace: str = "default"
+    ) -> list[dict]:
         """
         Get location events relevant to a search query.
 

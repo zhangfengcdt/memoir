@@ -4913,7 +4913,7 @@ ${result.valid ?
             // Check if input matches old format (YYYY-MM-DD at start) or use natural language
             const datePattern = /^\d{4}-\d{2}-\d{2}\s/;
             let requestBody = { path: connectedStorePath };
-            
+
             if (datePattern.test(args.trim())) {
                 // Old format: YYYY-MM-DD description
                 const parts = args.trim().split(' ');
@@ -4921,10 +4921,10 @@ ${result.valid ?
                     showNotification('Usage: /timeline YYYY-MM-DD description', 'error');
                     return;
                 }
-                
+
                 const dateInput = parts[0];
                 const description = parts.slice(1).join(' ');
-                
+
                 // Convert YYYY-MM-DD to YYYYMMDD format
                 let dateStr;
                 if (dateInput.includes('-')) {
@@ -4932,13 +4932,13 @@ ${result.valid ?
                 } else {
                     dateStr = dateInput;
                 }
-                
+
                 // Validate date format
                 if (dateStr.length !== 8 || !/^\d{8}$/.test(dateStr)) {
                     showNotification('Invalid date format. Use YYYY-MM-DD (e.g., 2025-01-07)', 'error');
                     return;
                 }
-                
+
                 requestBody.date = dateStr;
                 requestBody.description = description;
                 console.log('DEBUG: Using structured format:', requestBody);
@@ -5857,15 +5857,15 @@ ${result.valid ?
             // Check if input looks like structured format (starts with a single word that could be a location)
             // Otherwise use natural language processing
             let requestBody = { path: connectedStorePath };
-            
+
             const parts = args.trim().split(/\s+/);
-            
+
             // Simple heuristic: if first word looks like a place name and there's more text, treat as structured
             // Otherwise send the whole thing for natural language processing
             const firstWord = parts[0];
             const hasMultipleParts = parts.length >= 2;
             const looksLikeStructured = hasMultipleParts && /^[A-Z][a-zA-Z]+$/.test(firstWord);
-            
+
             if (looksLikeStructured) {
                 // Structured format: <location> <description>
                 requestBody.location = parts[0];
@@ -11158,7 +11158,13 @@ Message: ${commit.message}`;
                         yearPanel.classList.remove('show');
                         yearButton.classList.remove('open');
                         // Regenerate timeline for selected year
-                        renderGitHubStyleTimelineGrid(parseInt(this.dataset.year));
+                        const selectedYear = parseInt(this.dataset.year);
+                        console.log('Year dropdown clicked, regenerating timeline for year:', selectedYear);
+                        try {
+                            renderGitHubStyleTimelineGrid(selectedYear);
+                        } catch (error) {
+                            console.error('Error regenerating timeline for year', selectedYear, ':', error);
+                        }
                     });
 
                     yearsList.appendChild(yearItem);
@@ -11205,17 +11211,30 @@ Message: ${commit.message}`;
                     }
                 }
 
-                // Generate GitHub-style grid (65 weeks - about 15 months)
+                // Generate GitHub-style grid - expand range to include all timeline events
                 const weeks = 65;
                 const daysPerWeek = 7;
 
-                // Calculate start date based on selected year
+                // Calculate start date based on selected year, but expand to include all events
                 let startDate;
                 if (targetYear === currentYear) {
-                    // For current year, show last 53 weeks from today
+                    // For current year, show last 53 weeks from today but extend to include future events
                     const today = new Date();
+                    console.log('Today is:', today.toISOString().split('T')[0]);
                     startDate = new Date(today);
                     startDate.setDate(today.getDate() - (weeks * daysPerWeek));
+
+                    // Find the latest timeline event to ensure we include it
+                    const eventDates = Object.keys(realTimelineData).map(dateStr => new Date(dateStr));
+                    if (eventDates.length > 0) {
+                        const maxEventDate = new Date(Math.max(...eventDates));
+                        const endDate = new Date(today);
+                        endDate.setDate(today.getDate() + (weeks * daysPerWeek));
+
+                        // If the latest event is beyond our normal range, we still show it
+                        console.log(`Timeline range: ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]}`);
+                        console.log(`Latest event: ${maxEventDate.toISOString().split('T')[0]}`);
+                    }
                 } else {
                     // For past years, show the full year (start from Jan 1 minus some weeks to align grid)
                     startDate = new Date(targetYear, 0, 1); // Jan 1 of target year
@@ -11228,22 +11247,62 @@ Message: ${commit.message}`;
                 let currentMonth = null;
                 let monthWeekCount = 0;
 
+                // Filter timeline data by selected year if not current year
+                let filteredTimelineData = realTimelineData;
+                if (targetYear !== currentYear) {
+                    filteredTimelineData = {};
+                    for (const [dateStr, event] of Object.entries(realTimelineData)) {
+                        const eventYear = new Date(dateStr).getFullYear();
+                        if (eventYear === targetYear) {
+                            filteredTimelineData[dateStr] = event;
+                        }
+                    }
+                    console.log(`Filtered timeline data for year ${targetYear}:`, filteredTimelineData);
+                }
+
                 // Create activity data mapping
                 const activityData = {};
-                console.log('Creating activity data from realTimelineData:', realTimelineData);
-                for (let i = 0; i < weeks * daysPerWeek; i++) {
+                console.log('Creating activity data from timeline data:', filteredTimelineData);
+
+                // Calculate date range being checked - extend to include all timeline events
+                let endDate = new Date(startDate);
+                endDate.setDate(startDate.getDate() + (weeks * daysPerWeek) - 1);
+
+                // Extend range to include all timeline events for the selected year
+                const eventDates = Object.keys(filteredTimelineData).map(dateStr => new Date(dateStr));
+                if (eventDates.length > 0) {
+                    const maxEventDate = new Date(Math.max(...eventDates));
+                    if (maxEventDate > endDate) {
+                        endDate = maxEventDate;
+                        console.log('Extended end date to include all events:', endDate.toISOString().split('T')[0]);
+                    }
+                }
+
+                // Calculate total days needed
+                const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+                console.log(`Checking date range from ${startDate.toISOString().split('T')[0]} to ${endDate.toISOString().split('T')[0]} (${totalDays} days)`);
+
+                for (let i = 0; i < totalDays; i++) {
                     const currentDate = new Date(startDate);
                     currentDate.setDate(startDate.getDate() + i);
                     const dateStr = currentDate.toISOString().split('T')[0];
 
-                    // Check if we have real timeline data for this date
-                    if (realTimelineData[dateStr]) {
-                        console.log(`Found timeline data for ${dateStr}:`, realTimelineData[dateStr]);
-                        // realTimelineData already has the correct structure
-                        activityData[dateStr] = realTimelineData[dateStr];
+                    // Check if we have timeline data for this date
+                    if (filteredTimelineData[dateStr]) {
+                        console.log(`Found timeline data for ${dateStr}:`, filteredTimelineData[dateStr]);
+                        // filteredTimelineData already has the correct structure
+                        activityData[dateStr] = filteredTimelineData[dateStr];
                     }
                 }
                 console.log('Final activityData:', activityData);
+
+                // Debug: show which timeline events are outside the range and add them anyway
+                for (const [date, event] of Object.entries(filteredTimelineData)) {
+                    if (!activityData[date]) {
+                        console.log(`Timeline event ${date} is outside the displayed range, adding it anyway:`, event);
+                        activityData[date] = event;
+                    }
+                }
 
                 // Generate month labels
                 for (let week = 0; week < weeks; week++) {
@@ -11273,18 +11332,25 @@ Message: ${commit.message}`;
                     activityMonths.appendChild(monthDiv);
                 });
 
+                // Calculate weeks needed for the extended range
+                const totalWeeks = Math.ceil(totalDays / 7);
+                console.log(`Generating grid for ${totalWeeks} weeks (was ${weeks}) to cover ${totalDays} days`);
+
                 // Generate grid
                 activityGrid.innerHTML = '';
                 activityGrid.style.display = 'grid';
-                activityGrid.style.gridTemplateColumns = `repeat(${weeks}, 1fr)`;
+                activityGrid.style.gridTemplateColumns = `repeat(${totalWeeks}, 1fr)`;
                 activityGrid.style.gridTemplateRows = 'repeat(7, 1fr)';
                 activityGrid.style.gap = '3px';
 
-                for (let week = 0; week < weeks; week++) {
+                for (let week = 0; week < totalWeeks; week++) {
                     for (let day = 0; day < daysPerWeek; day++) {
                         const currentDate = new Date(startDate);
                         currentDate.setDate(startDate.getDate() + (week * 7) + day);
                         const dateStr = currentDate.toISOString().split('T')[0];
+
+                        // Skip dates beyond our calculated end date
+                        if (currentDate > endDate) continue;
 
                         const dayElement = document.createElement('div');
                         dayElement.className = 'activity-day';
@@ -11292,9 +11358,10 @@ Message: ${commit.message}`;
                         dayElement.style.gridRow = day + 1;
 
                         const activity = activityData[dateStr];
-                        if (dateStr === '2025-08-30') {
+                        if (dateStr === '2025-08-30' || dateStr === '2025-09-01') {
                             console.log(`Checking date ${dateStr} for activity:`, activity);
                             console.log('Available activityData keys:', Object.keys(activityData));
+                            console.log('Current grid cell date:', dateStr, 'Week:', week, 'Day:', day);
                         }
                         if (activity) {
                             console.log(`Found activity for ${dateStr}:`, activity);
@@ -11586,10 +11653,16 @@ Message: ${commit.message}`;
                         yearPanel.classList.remove('show');
                         yearButton.classList.remove('open');
                         // Regenerate timeline - check if we're connected to a store
-                        if (connectedStorePath) {
-                            renderGitHubStyleTimelineGrid(parseInt(this.dataset.year));
-                        } else {
-                            regenerateTimelineForYear(parseInt(this.dataset.year));
+                        const selectedYear = parseInt(this.dataset.year);
+                        console.log('Year dropdown clicked (second handler), regenerating timeline for year:', selectedYear);
+                        try {
+                            if (connectedStorePath) {
+                                renderGitHubStyleTimelineGrid(selectedYear);
+                            } else {
+                                regenerateTimelineForYear(selectedYear);
+                            }
+                        } catch (error) {
+                            console.error('Error regenerating timeline for year', selectedYear, ':', error);
                         }
                     });
 

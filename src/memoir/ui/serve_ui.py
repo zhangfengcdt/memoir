@@ -1437,7 +1437,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             store_path = data.get("path")
             date_str = data.get("date")  # YYYYMMDD format
             description = data.get("description")
-            content = data.get("content")  # Natural language input (alternative to date+description)
+            content = data.get(
+                "content"
+            )  # Natural language input (alternative to date+description)
 
             if not store_path:
                 self.send_error(400, "Missing 'path' parameter")
@@ -1445,53 +1447,68 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
             # If content is provided, use the IntelligentClassifier to extract timeline events
             if content and not (date_str and description):
-                print(f"DEBUG: Using IntelligentClassifier to extract timeline events from: {content}")
-                
+                print(
+                    f"DEBUG: Using IntelligentClassifier to extract timeline events from: {content}"
+                )
+
                 # Initialize the IntelligentClassifier
                 try:
                     from langchain_openai import ChatOpenAI
+
                     from memoir.classifier.intelligent import IntelligentClassifier
                     from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
-                    
+
                     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
                     classifier = IntelligentClassifier(
                         llm=llm,
                         taxonomy_version=TaxonomyVersion.GENERAL,
                     )
-                    
+
                     # Classify the content to extract timeline events
                     import asyncio
+
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
-                    
+
                     try:
                         classification = loop.run_until_complete(
                             classifier.classify_async(content)
                         )
-                        
+
                         if classification.timeline_events:
                             # Use the first timeline event
                             event = classification.timeline_events[0]
                             date_str = event.get("date")
                             description = event.get("description")
-                            print(f"DEBUG: Extracted timeline event - Date: {date_str}, Description: {description}")
+                            print(
+                                f"DEBUG: Extracted timeline event - Date: {date_str}, Description: {description}"
+                            )
                         else:
-                            self.send_error(400, "No timeline event detected in content. Include a date and event description.")
+                            self.send_error(
+                                400,
+                                "No timeline event detected in content. Include a date and event description.",
+                            )
                             return
                     finally:
                         loop.close()
-                        
+
                 except Exception as e:
                     print(f"DEBUG: Error using IntelligentClassifier: {e}")
                     self.send_error(500, f"Error processing timeline content: {e}")
                     return
 
             if not date_str:
-                self.send_error(400, "Missing 'date' parameter or could not extract date from content")
+                self.send_error(
+                    400,
+                    "Missing 'date' parameter or could not extract date from content",
+                )
                 return
 
             if not description:
-                self.send_error(400, "Missing 'description' parameter or could not extract description from content")
+                self.send_error(
+                    400,
+                    "Missing 'description' parameter or could not extract description from content",
+                )
                 return
 
             if not Path(store_path).exists():
@@ -1527,7 +1544,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             try:
                 print(f"DEBUG: Adding timeline event: {timeline_event}")
                 loop.run_until_complete(
-                    timeline_memento.apply_timeline_events([timeline_event], namespace="default")
+                    timeline_memento.apply_timeline_events(
+                        [timeline_event], namespace="default"
+                    )
                 )
                 success = True
                 print("DEBUG: Timeline event added successfully")
@@ -1665,7 +1684,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             store_path = data.get("path")
             location_name = data.get("location")
             description = data.get("description")
-            content = data.get("content")  # Natural language input (alternative to location+description)
+            content = data.get(
+                "content"
+            )  # Natural language input (alternative to location+description)
 
             if not store_path:
                 self.send_response(400)
@@ -1680,49 +1701,58 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
             # If content is provided, use the IntelligentClassifier to extract location events
             if content and not (location_name and description):
-                print(f"DEBUG: Using IntelligentClassifier to extract location events from: {content}")
-                
+                print(
+                    f"DEBUG: Using IntelligentClassifier to extract location events from: {content}"
+                )
+
                 # Initialize the IntelligentClassifier
                 try:
                     from langchain_openai import ChatOpenAI
+
                     from memoir.classifier.intelligent import IntelligentClassifier
                     from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
-                    
+
                     llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
                     classifier = IntelligentClassifier(
                         llm=llm,
                         taxonomy_version=TaxonomyVersion.GENERAL,
                     )
-                    
+
                     # Classify the content to extract location events
                     import asyncio
+
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
-                    
+
                     try:
                         classification = loop.run_until_complete(
                             classifier.classify_async(content)
                         )
-                        
+
                         if classification.location_events:
                             # Use the first location event
                             event = classification.location_events[0]
                             location_name = event.get("location")
                             description = event.get("description")
-                            print(f"DEBUG: Extracted location event - Location: {location_name}, Description: {description}")
+                            print(
+                                f"DEBUG: Extracted location event - Location: {location_name}, Description: {description}"
+                            )
                         else:
                             self.send_response(400)
                             self.send_header("Content-type", "application/json")
                             self.end_headers()
                             self.wfile.write(
                                 json.dumps(
-                                    {"success": False, "error": "No location event detected in content. Include a place and activity description."}
+                                    {
+                                        "success": False,
+                                        "error": "No location event detected in content. Include a place and activity description.",
+                                    }
                                 ).encode()
                             )
                             return
                     finally:
                         loop.close()
-                        
+
                 except Exception as e:
                     print(f"DEBUG: Error using IntelligentClassifier: {e}")
                     self.send_response(500)
@@ -1730,7 +1760,10 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                     self.end_headers()
                     self.wfile.write(
                         json.dumps(
-                            {"success": False, "error": f"Error processing location content: {e}"}
+                            {
+                                "success": False,
+                                "error": f"Error processing location content: {e}",
+                            }
                         ).encode()
                     )
                     return
@@ -1741,7 +1774,10 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(
                     json.dumps(
-                        {"success": False, "error": "Missing 'location' parameter or could not extract location from content"}
+                        {
+                            "success": False,
+                            "error": "Missing 'location' parameter or could not extract location from content",
+                        }
                     ).encode()
                 )
                 return
@@ -1752,7 +1788,10 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(
                     json.dumps(
-                        {"success": False, "error": "Missing 'description' parameter or could not extract description from content"}
+                        {
+                            "success": False,
+                            "error": "Missing 'description' parameter or could not extract description from content",
+                        }
                     ).encode()
                 )
                 return
@@ -1942,9 +1981,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 )
 
                 # Also get all data to see what else is stored
-                all_memories = loop.run_until_complete(
-                    store.asearch("default", "")
-                )
+                all_memories = loop.run_until_complete(store.asearch("default", ""))
 
             finally:
                 loop.close()
@@ -2014,9 +2051,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 )
 
                 # Also get all data to see what else is stored
-                all_memories = loop.run_until_complete(
-                    store.asearch("default", "")
-                )
+                all_memories = loop.run_until_complete(store.asearch("default", ""))
 
             finally:
                 loop.close()
