@@ -1209,13 +1209,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                     store.asearch("default", "timeline.")
                 )
 
-                print(f"DEBUG: Found {len(timeline_memories)} timeline memories")
-
                 # Process timeline memories into structured format
                 timeline_data = {}
                 for path, data in timeline_memories:
-                    print(f"DEBUG: Processing timeline memory - path: {path}")
-                    print(f"DEBUG: Data type: {type(data)}")
                     print(
                         f"DEBUG: Raw data structure: {json.dumps(data, indent=2, default=str)[:1000]}..."
                     )
@@ -1245,7 +1241,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                                 # Let's add a more obvious fallback to see if this is being reached
                                 fallback_text = f"FALLBACK EVENT on {date_str[4:6]}/{date_str[6:8]}/{date_str[:4]}"
                                 timeline_data[date_str] = fallback_text
-                                print(f"DEBUG: Using fallback text: {fallback_text}")
                                 # Try to extract any meaningful text from the data structure
                                 fallback_content = ""
                                 if isinstance(data, dict):
@@ -1320,7 +1315,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
     def _extract_timeline_content(self, data, date_str):
         """Extract timeline content from various data structure formats."""
-        print(f"DEBUG: _extract_timeline_content called for {date_str}")
 
         if not data:
             return ""
@@ -1329,8 +1323,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         content = ""
 
         if isinstance(data, dict):
-            print(f"DEBUG: Data is dict with keys: {list(data.keys())}")
-
             # NEW Strategy: Handle the memory store format with "memories" array
             if (
                 "memories" in data
@@ -1339,7 +1331,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             ):
                 # Get the first (and usually only) memory from the array
                 memory_item = data["memories"][0]
-                print(f"DEBUG: Found memory item with keys: {list(memory_item.keys())}")
 
                 if "content" in memory_item and isinstance(
                     memory_item["content"], dict
@@ -1352,7 +1343,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                     # Priority 1: raw_text (this contains the actual description)
                     content = content_obj.get("raw_text", "")
                     if content and content.strip():
-                        print(f"DEBUG: Found raw_text in memory: {content}")
                         return content.strip()
 
                     # Priority 2: structured_data -> original_content
@@ -1401,7 +1391,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 # Priority 2: raw_text
                 content = timeline_data_obj.get("raw_text", "")
                 if content:
-                    print(f"DEBUG: Found raw_text: {content}")
                     return content
 
             # Strategy 3: Direct fields
@@ -1414,16 +1403,13 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             ]:
                 if data.get(field):
                     content = str(data[field])
-                    print(f"DEBUG: Found content in direct field {field}: {content}")
                     return content
 
         elif isinstance(data, str):
-            print(f"DEBUG: Data is string: {data}")
             return data
 
         # Last resort: convert to string and hope for the best
         content = str(data) if data else ""
-        print(f"DEBUG: Last resort string conversion: {content}")
         return content
 
     def handle_timeline_post_api(self):
@@ -1493,7 +1479,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                         loop.close()
 
                 except Exception as e:
-                    print(f"DEBUG: Error using IntelligentClassifier: {e}")
                     self.send_error(500, f"Error processing timeline content: {e}")
                     return
 
@@ -1542,14 +1527,12 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
-                print(f"DEBUG: Adding timeline event: {timeline_event}")
                 loop.run_until_complete(
                     timeline_memento.apply_timeline_events(
                         [timeline_event], namespace="default"
                     )
                 )
                 success = True
-                print("DEBUG: Timeline event added successfully")
 
                 # Debug: Check what was stored
                 test_search = loop.run_until_complete(
@@ -1620,13 +1603,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                     store.asearch("default", "location.")
                 )
 
-                print(f"DEBUG: Found {len(location_memories)} location memories")
-
                 # Process location memories into structured format
                 location_data = {}
                 for path, data in location_memories:
-                    print(f"DEBUG: Processing location memory - path: {path}")
-                    print(f"DEBUG: Data type: {type(data)}")
                     print(
                         f"DEBUG: Raw data structure: {json.dumps(data, indent=2, default=str)[:1000]}..."
                     )
@@ -1754,7 +1733,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                         loop.close()
 
                 except Exception as e:
-                    print(f"DEBUG: Error using IntelligentClassifier: {e}")
                     self.send_response(500)
                     self.send_header("Content-type", "application/json")
                     self.end_headers()
@@ -1830,12 +1808,10 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
             try:
-                print(f"DEBUG: Adding location event: {location_event}")
                 loop.run_until_complete(
                     location_memento.apply_location_events([location_event])
                 )
                 success = True
-                print("DEBUG: Location event added successfully")
 
                 # Debug: Check what was stored
                 normalized_location = location_memento._normalize_location_name(
@@ -1880,7 +1856,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
     def _extract_location_content(self, data, location_key):
         """Extract location content from various data structure formats."""
-        print(f"DEBUG: _extract_location_content called for {location_key}")
 
         if not data:
             return ""
@@ -1889,8 +1864,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         content = ""
 
         if isinstance(data, dict):
-            print(f"DEBUG: Data is dict with keys: {list(data.keys())}")
-
             # NEW Strategy: Handle the memory store format with "memories" array
             if (
                 "memories" in data
@@ -1899,7 +1872,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             ):
                 # Get the first (and usually only) memory from the array
                 memory_item = data["memories"][0]
-                print(f"DEBUG: Found memory item with keys: {list(memory_item.keys())}")
 
                 if "content" in memory_item and isinstance(
                     memory_item["content"], dict
@@ -1912,7 +1884,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                     # Priority 1: raw_text (this contains the actual description)
                     content = content_obj.get("raw_text", "")
                     if content and content.strip():
-                        print(f"DEBUG: Found raw_text in memory: {content}")
                         return content.strip()
 
                     # Priority 2: structured_data -> location_content
@@ -1935,16 +1906,13 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             ]:
                 if data.get(field):
                     content = str(data[field])
-                    print(f"DEBUG: Found content in direct field {field}: {content}")
                     return content
 
         elif isinstance(data, str):
-            print(f"DEBUG: Data is string: {data}")
             return data
 
         # Last resort: convert to string and hope for the best
         content = str(data) if data else ""
-        print(f"DEBUG: Last resort string conversion: {content}")
         return content
 
     def handle_debug_location_api(self, parsed_path):
