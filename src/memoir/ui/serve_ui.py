@@ -1286,18 +1286,14 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 # Process timeline memories into structured format
                 timeline_data = {}
                 for path, data in timeline_memories:
-                    print(
-                        f"DEBUG: Raw data structure: {json.dumps(data, indent=2, default=str)[:1000]}..."
-                    )
+                    print()
 
                     if "." in path:
                         date_str = path.split(".")[-1]
                         if len(date_str) == 8:  # YYYYMMDD format
                             content = self._extract_timeline_content(data, date_str)
 
-                            print(
-                                f"DEBUG: Final extracted content for {date_str}: '{content}'"
-                            )
+                            print()
 
                             if (
                                 content
@@ -1305,13 +1301,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                                 and not content.startswith("Timeline event on")
                             ):
                                 timeline_data[date_str] = content.strip()
-                                print(
-                                    f"DEBUG: Successfully stored content for {date_str}"
-                                )
+                                print()
                             else:
-                                print(
-                                    f"DEBUG: Content extraction failed or returned summary for {date_str}, content: '{content}'"
-                                )
+                                print()
                                 # Let's add a more obvious fallback to see if this is being reached
                                 fallback_text = f"FALLBACK EVENT on {date_str[4:6]}/{date_str[6:8]}/{date_str[:4]}"
                                 timeline_data[date_str] = fallback_text
@@ -1347,9 +1339,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
                                 if fallback_content:
                                     timeline_data[date_str] = fallback_content.strip()
-                                    print(
-                                        f"DEBUG: Found fallback content for {date_str}: '{fallback_content[:50]}...'"
-                                    )
+                                    print()
                                 else:
                                     # Format the date for display
                                     try:
@@ -1362,9 +1352,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                                     timeline_data[date_str] = (
                                         f"Event on {formatted_date}"
                                     )
-                                    print(
-                                        f"DEBUG: Using generic event description for {date_str}"
-                                    )
+                                    print()
 
             finally:
                 loop.close()
@@ -1410,9 +1398,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                     memory_item["content"], dict
                 ):
                     content_obj = memory_item["content"]
-                    print(
-                        f"DEBUG: Found memory content with keys: {list(content_obj.keys())}"
-                    )
+                    print()
 
                     # Priority 1: raw_text (this contains the actual description)
                     content = content_obj.get("raw_text", "")
@@ -1425,24 +1411,18 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                         if isinstance(structured, dict):
                             content = structured.get("original_content", "")
                             if content and content.strip():
-                                print(
-                                    f"DEBUG: Found original_content in structured_data: {content}"
-                                )
+                                print()
                                 return content.strip()
 
                             content = structured.get("timeline_content", "")
                             if content and content.strip():
-                                print(
-                                    f"DEBUG: Found timeline_content in structured_data: {content}"
-                                )
+                                print()
                                 return content.strip()
 
             # OLD Strategy 1: Check if it's the old format with nested content
             if "content" in data and isinstance(data["content"], dict):
                 timeline_data_obj = data["content"]
-                print(
-                    f"DEBUG: Found content object with keys: {list(timeline_data_obj.keys())}"
-                )
+                print()
 
                 # Priority 1: original_content from structured_data
                 if "structured_data" in timeline_data_obj:
@@ -1450,16 +1430,12 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                     if isinstance(structured, dict):
                         content = structured.get("original_content", "")
                         if content:
-                            print(
-                                f"DEBUG: Found original_content in structured_data: {content}"
-                            )
+                            print()
                             return content
 
                         content = structured.get("timeline_content", "")
                         if content:
-                            print(
-                                f"DEBUG: Found timeline_content in structured_data: {content}"
-                            )
+                            print()
                             return content
 
                 # Priority 2: raw_text
@@ -1507,9 +1483,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
             # If content is provided, use the IntelligentClassifier to extract timeline events
             if content and not (date_str and description):
-                print(
-                    f"DEBUG: Using IntelligentClassifier to extract timeline events from: {content}"
-                )
+                print()
 
                 # Initialize the IntelligentClassifier
                 try:
@@ -1540,9 +1514,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                             event = classification.timeline_events[0]
                             date_str = event.get("date")
                             description = event.get("description")
-                            print(
-                                f"DEBUG: Extracted timeline event - Date: {date_str}, Description: {description}"
-                            )
+                            print()
                         else:
                             self.send_error(
                                 400,
@@ -1609,12 +1581,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 success = True
 
                 # Debug: Check what was stored
-                test_search = loop.run_until_complete(
-                    store.asearch("default", f"timeline.{date_str}")
-                )
-                print(
-                    f"DEBUG: Immediate search for timeline.{date_str} returned: {test_search}"
-                )
+                print()
 
             finally:
                 loop.close()
@@ -1680,17 +1647,13 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 # Process location memories into structured format
                 location_data = {}
                 for path, data in location_memories:
-                    print(
-                        f"DEBUG: Raw data structure: {json.dumps(data, indent=2, default=str)[:1000]}..."
-                    )
+                    print()
 
                     if "." in path:
                         location_key = path.split(".")[-1]
                         content = self._extract_location_content(data, location_key)
 
-                        print(
-                            f"DEBUG: Final extracted content for {location_key}: '{content}'"
-                        )
+                        print()
 
                         if content and content.strip():
                             # Convert location key back to display name
@@ -1699,13 +1662,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                                 "name": display_name,
                                 "content": content.strip(),
                             }
-                            print(
-                                f"DEBUG: Successfully stored content for {location_key}"
-                            )
+                            print()
                         else:
-                            print(
-                                f"DEBUG: Content extraction failed for {location_key}, content: '{content}'"
-                            )
+                            print()
 
             finally:
                 loop.close()
@@ -1754,9 +1713,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
             # If content is provided, use the IntelligentClassifier to extract location events
             if content and not (location_name and description):
-                print(
-                    f"DEBUG: Using IntelligentClassifier to extract location events from: {content}"
-                )
+                print()
 
                 # Initialize the IntelligentClassifier
                 try:
@@ -1787,9 +1744,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                             event = classification.location_events[0]
                             location_name = event.get("location")
                             description = event.get("description")
-                            print(
-                                f"DEBUG: Extracted location event - Location: {location_name}, Description: {description}"
-                            )
+                            print()
                         else:
                             self.send_response(400)
                             self.send_header("Content-type", "application/json")
@@ -1888,15 +1843,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 success = True
 
                 # Debug: Check what was stored
-                normalized_location = location_memento._normalize_location_name(
-                    location_name
-                )
-                test_search = loop.run_until_complete(
-                    store.asearch("default", f"location.{normalized_location}")
-                )
-                print(
-                    f"DEBUG: Immediate search for location.{normalized_location} returned: {test_search}"
-                )
+                print()
 
             finally:
                 loop.close()
@@ -1951,9 +1898,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                     memory_item["content"], dict
                 ):
                     content_obj = memory_item["content"]
-                    print(
-                        f"DEBUG: Found memory content with keys: {list(content_obj.keys())}"
-                    )
+                    print()
 
                     # Priority 1: raw_text (this contains the actual description)
                     content = content_obj.get("raw_text", "")
@@ -1966,9 +1911,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                         if isinstance(structured, dict):
                             content = structured.get("location_content", "")
                             if content and content.strip():
-                                print(
-                                    f"DEBUG: Found location_content in structured_data: {content}"
-                                )
+                                print()
                                 return content.strip()
 
             # Strategy 3: Direct fields

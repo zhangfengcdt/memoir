@@ -221,10 +221,13 @@ class IntelligentSearchEngine:
                 step_timings["step4_memory_retrieval"] = 0.0
                 step_timings["total_search"] = round(time.time() - search_start, 3)
 
+                metadata = {"step_timings": step_timings, "is_timing_only": True}
+                if llm_prompts:
+                    metadata["llm_prompts"] = llm_prompts
                 dummy_result = IntelligentSearchResult(
                     path="",
                     content="",
-                    metadata={"step_timings": step_timings, "is_timing_only": True},
+                    metadata=metadata,
                     relevance_score=0.0,
                     namespace="",
                 )
@@ -249,10 +252,13 @@ class IntelligentSearchEngine:
                 step_timings["step4_memory_retrieval"] = 0.0
                 step_timings["total_search"] = round(time.time() - search_start, 3)
 
+                metadata = {"step_timings": step_timings, "is_timing_only": True}
+                if llm_prompts:
+                    metadata["llm_prompts"] = llm_prompts
                 dummy_result = IntelligentSearchResult(
                     path="",
                     content="",
-                    metadata={"step_timings": step_timings, "is_timing_only": True},
+                    metadata=metadata,
                     relevance_score=0.0,
                     namespace="",
                 )

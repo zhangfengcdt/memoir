@@ -60,8 +60,8 @@ def read_store_data(store_path: str):
                 )
                 if result.returncode == 0 and result.stdout.strip():
                     current_branch = result.stdout.strip()
-        except Exception as e:
-            print(f"Error reading git branches: {e}")
+        except Exception:
+            # print(f"Error reading git branches: {e}")
             branches = ["main"]
 
         # Get commits for current branch
@@ -101,38 +101,40 @@ def read_store_data(store_path: str):
             # Try to get all keys using list_keys if available
             all_keys = []
             if hasattr(store.tree, "list_keys"):
-                print("Using list_keys to get all keys...")
+                # Using list_keys to get all keys
                 try:
                     keys = store.tree.list_keys()
                     all_keys = [key.decode("utf-8") for key in keys]
-                    print(f"Found {len(all_keys)} total keys in store")
-                except Exception as e:
-                    print(f"Error with list_keys: {e}")
+                    # Found {len(all_keys)} total keys in store
+                except Exception:
+                    # Error with list_keys: {e}
+                    pass
 
             # If no list_keys, fall back to search
             if not all_keys:
-                print("Falling back to BaseStore.search...")
+                # print("Falling back to BaseStore.search...")
                 # Search primary namespaces: default and memory:general
                 items = []
                 for namespace in [("default",), ("memory", "general")]:
                     try:
                         ns_items = list(store.search(namespace))
                         items.extend(ns_items)
-                        print(f"Found {len(ns_items)} items in namespace {namespace}")
-                    except Exception as e:
-                        print(f"Error searching namespace {namespace}: {e}")
+                    # print(f"Found {len(ns_items)} items in namespace {namespace}")
+                    except Exception:
+                        # print(f"Error searching namespace {namespace}: {e}")
+                        pass
 
-                print(f"Found {len(items)} total items using BaseStore.search()")
+                # print(f"Found {len(items)} total items using BaseStore.search()")
 
                 # Also try with empty search to get all items
                 if not items:
-                    print("Trying search with no filter...")
+                    # print("Trying search with no filter...")
                     items = list(store.search(namespace, limit=100))
-                    print(f"Found {len(items)} items with no filter")
+                # print(f"Found {len(items)} items with no filter")
 
                 # Try different possible namespaces since list_namespaces doesn't exist
                 if not items:
-                    print("Trying different namespaces...")
+                    # print("Trying different namespaces...")
                     possible_namespaces = [
                         ("default",),
                         (
@@ -145,12 +147,13 @@ def read_store_data(store_path: str):
                     for ns in possible_namespaces:
                         try:
                             ns_items = list(store.search(ns, limit=100))
-                            print(f"Namespace {ns}: {len(ns_items)} items")
+                            # print(f"Namespace {ns}: {len(ns_items)} items")
                             if ns_items:
                                 items.extend(ns_items)
                                 break  # Found items, stop searching
-                        except Exception as e:
-                            print(f"Error searching namespace {ns}: {e}")
+                        except Exception:
+                            # print(f"Error searching namespace {ns}: {e}")
+                            pass
 
                 for item in items:
                     try:
@@ -195,14 +198,14 @@ def read_store_data(store_path: str):
                                 tree_paths.get(semantic_path, 0) + 1
                             )
 
-                        print(f"  Found memory: {semantic_path}")
+                    # print(f"  Found memory: {semantic_path}")
 
-                    except Exception as e:
-                        print(f"Error processing item: {e}")
+                    except (KeyError, ValueError, TypeError, AttributeError):
+                        # Skip malformed items
                         continue
             else:
                 # Process keys directly using list_keys approach
-                print("Processing keys from list_keys...")
+                # print("Processing keys from list_keys...")
                 for full_key in all_keys:
                     try:
                         # Parse the key to extract namespace and semantic path
@@ -267,20 +270,21 @@ def read_store_data(store_path: str):
                                 tree_paths.get(semantic_path, 0) + 1
                             )
 
-                        print(f"  Found memory: {semantic_path}")
+                    # print(f"  Found memory: {semantic_path}")
 
-                    except Exception as e:
-                        print(f"Error processing key {full_key}: {e}")
+                    except (KeyError, ValueError, TypeError, AttributeError):
+                        # Skip malformed keys
                         continue
 
-        except Exception as e:
-            print(f"Error reading from store: {e}")
+        except Exception:
+            # print(f"Error reading from store: {e}")
             pass
 
         # Don't use sample data for real stores - return empty if no memories found
         # This prevents fake data from appearing in new/empty stores
         if not memories:
-            print("No memories found in store - returning empty result")
+            # print("No memories found in store - returning empty result")
+            pass
 
         result = {
             "store_path": store_path,
@@ -323,8 +327,9 @@ def get_blame_info(store_path: str, memory_key: str, namespace: str = "default")
             value_bytes = store.tree.get(key_bytes)
             if value_bytes:
                 current_value = store._decode_value(value_bytes)
-        except Exception as e:
-            print(f"Error getting current value: {e}")
+        except Exception:
+            # print(f"Error getting current value: {e}")
+            pass
 
         # Use git to get the blame information for this key
         blame_info = []
@@ -422,7 +427,7 @@ def get_blame_info(store_path: str, memory_key: str, namespace: str = "default")
                                 blame_info.append(blame_entry)
 
         except Exception as e:
-            print(f"Error getting git blame info: {e}")
+            # print(f"Error getting git blame info: {e}")
             blame_info.append(
                 {
                     "error": f"Could not retrieve git history: {e!s}",
