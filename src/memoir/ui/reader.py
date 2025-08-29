@@ -15,6 +15,59 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from memoir.store.prolly_adapter import ProllyTreeStore
 
 
+def _extract_content(value_data):
+    """Extract content from various memory storage formats."""
+    if not isinstance(value_data, dict):
+        return str(value_data)
+
+    # If content is directly available
+    if "content" in value_data:
+        content = value_data["content"]
+        # If content is itself a dict (e.g., timeline data), extract meaningful text
+        if isinstance(content, dict):
+            if "raw_text" in content:
+                return content["raw_text"]
+            elif "original_content" in content:
+                return content["original_content"]
+            elif "summary" in content:
+                return content["summary"]
+            else:
+                # Return JSON representation for complex content
+                return json.dumps(content, indent=2)
+        return content
+
+    # If memories list is present (new format from memory manager)
+    if (
+        "memories" in value_data
+        and isinstance(value_data["memories"], list)
+        and len(value_data["memories"]) > 0
+    ):
+        # Get the first memory's content or combine all memories
+        memories = value_data["memories"]
+        contents = []
+        for mem in memories:
+            if isinstance(mem, dict) and "content" in mem:
+                content = mem["content"]
+                # Handle nested content objects
+                if isinstance(content, dict):
+                    if "raw_text" in content:
+                        contents.append(content["raw_text"])
+                    elif "original_content" in content:
+                        contents.append(content["original_content"])
+                    elif "summary" in content:
+                        contents.append(content["summary"])
+                    else:
+                        contents.append(json.dumps(content, indent=2))
+                else:
+                    contents.append(str(content))
+        if contents:
+            # Return all contents joined
+            return "\n---\n".join(contents) if len(contents) > 1 else contents[0]
+
+    # Fallback to string representation
+    return str(value_data)
+
+
 def read_store_data(store_path: str):
     """Read memory store data and return as JSON."""
 
@@ -177,11 +230,7 @@ def read_store_data(store_path: str):
                             "namespace": namespace_str,
                             "path": semantic_path,
                             "value": value_data,
-                            "content": (
-                                value_data.get("content")
-                                if isinstance(value_data, dict)
-                                else str(value_data)
-                            ),
+                            "content": _extract_content(value_data),
                         }
                         memories.append(memory_entry)
 
@@ -249,11 +298,7 @@ def read_store_data(store_path: str):
                             "namespace": namespace_part,
                             "path": semantic_path,
                             "value": value_data,
-                            "content": (
-                                value_data.get("content")
-                                if isinstance(value_data, dict)
-                                else str(value_data)
-                            ),
+                            "content": _extract_content(value_data),
                         }
                         memories.append(memory_entry)
 
