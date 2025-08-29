@@ -7148,19 +7148,38 @@ ${result.valid ?
             `;
 
             // Format timing breakdown
-            const timings = result.four_step_timings || {};
+            const timings = result.five_step_timings || {};
             const timingBars = Object.entries(timings).map(([step, time], index) => {
                 const stepNames = [
                     'Store Initialization',
                     'Classification & Path Generation',
                     'Memory Storage',
-                    'Timeline Processing'
+                    'Timeline Processing',
+                    'Location Processing'
                 ];
                 const percentage = time > 0 ? Math.max(10, Math.min(100, (time / Math.max(0.1, Object.values(timings).reduce((a, b) => Math.max(a, b), 0.1)) * 100))) : 0;
 
+                // Check if this step involves LLM (step 2 = classification)
+                const hasPrompt = index === 1 && result.classification_prompt;
+                const promptButton = hasPrompt ? `<button class="prompt-btn" data-prompt="${encodeURIComponent(result.classification_prompt)}" style="
+                    margin-left: 10px;
+                    padding: 4px 8px;
+                    font-size: 11px;
+                    background: var(--accent-secondary);
+                    color: white;
+                    border: none;
+                    border-radius: 3px;
+                    cursor: pointer;
+                    opacity: 0.8;
+                    transition: opacity 0.2s;
+                ">View Prompt</button>` : '';
+
                 return `
                     <div class="timing-step">
-                        <div class="step-name">${stepNames[index] || step}</div>
+                        <div class="step-name">
+                            ${stepNames[index] || step}
+                            ${promptButton}
+                        </div>
                         <div class="progress-bar-container">
                             <div class="progress-bar-fill" style="width: ${percentage}%"></div>
                         </div>
@@ -7342,6 +7361,16 @@ ${result.valid ?
                 });
             });
 
+            // Add prompt button functionality
+            const promptBtns = modal.querySelectorAll('.prompt-btn');
+            promptBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const encodedPrompt = btn.getAttribute('data-prompt');
+                    const prompt = decodeURIComponent(encodedPrompt);
+                    showPromptModal(prompt);
+                });
+            });
+
             // Add styles for timing breakdown
             const style = document.createElement('style');
             style.textContent = `
@@ -7384,6 +7413,123 @@ ${result.valid ?
                 }
             `;
             document.head.appendChild(style);
+
+            document.body.appendChild(modal);
+        }
+
+        function showPromptModal(prompt) {
+            // Create modal overlay
+            const modal = document.createElement('div');
+            modal.className = 'prompt-modal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.7);
+                z-index: 1001;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            `;
+
+            modal.innerHTML = `
+                <div class="modal-content" style="
+                    background: var(--bg-primary);
+                    color: var(--text-primary);
+                    padding: 30px;
+                    border-radius: 12px;
+                    max-width: 800px;
+                    width: 90%;
+                    max-height: 80vh;
+                    overflow-y: auto;
+                    box-shadow: 0 20px 60px var(--shadow);
+                    border: 1px solid var(--border-light);
+                ">
+                    <div class="modal-header" style="
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 20px;
+                        padding-bottom: 15px;
+                        border-bottom: 2px solid var(--border-light);
+                    ">
+                        <h2 style="margin: 0; color: var(--accent-primary); font-size: 24px;">
+                            🤖 LLM Prompt Inspection
+                        </h2>
+                        <button class="close-btn" style="
+                            background: none;
+                            border: none;
+                            font-size: 24px;
+                            cursor: pointer;
+                            color: var(--text-secondary);
+                            padding: 5px;
+                        ">&times;</button>
+                    </div>
+                    <div class="prompt-content">
+                        <div style="margin-bottom: 15px;">
+                            <button class="copy-prompt-btn" style="
+                                padding: 8px 16px;
+                                background: var(--success);
+                                color: white;
+                                border: none;
+                                border-radius: 3px;
+                                cursor: pointer;
+                                margin-right: 10px;
+                            ">Copy Prompt</button>
+                            <span style="color: var(--text-secondary); font-size: 14px;">
+                                This is the exact prompt sent to the LLM for classification
+                            </span>
+                        </div>
+                        <div class="prompt-box" style="
+                            background: var(--bg-secondary);
+                            color: var(--text-primary);
+                            border: 1px solid var(--border-light);
+                            border-radius: 8px;
+                            padding: 20px;
+                            max-height: 500px;
+                            overflow-y: auto;
+                            font-family: 'JetBrains Mono', Monaco, 'Courier New', monospace;
+                            white-space: pre-wrap;
+                            word-wrap: break-word;
+                            line-height: 1.4;
+                            font-size: 13px;
+                        ">${prompt}</div>
+                    </div>
+                </div>
+            `;
+
+            // Add event handlers
+            const closeBtn = modal.querySelector('.close-btn');
+            closeBtn.addEventListener('click', () => {
+                document.body.removeChild(modal);
+            });
+
+            // Close on backdrop click
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    document.body.removeChild(modal);
+                }
+            });
+
+            // Copy button functionality
+            const copyBtn = modal.querySelector('.copy-prompt-btn');
+            copyBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(prompt).then(() => {
+                    copyBtn.textContent = 'Copied!';
+                    copyBtn.style.background = 'var(--accent-primary)';
+                    setTimeout(() => {
+                        copyBtn.textContent = 'Copy Prompt';
+                        copyBtn.style.background = 'var(--success)';
+                    }, 2000);
+                }).catch(() => {
+                    copyBtn.textContent = 'Copy failed';
+                    setTimeout(() => {
+                        copyBtn.textContent = 'Copy Prompt';
+                    }, 2000);
+                });
+            });
 
             document.body.appendChild(modal);
         }

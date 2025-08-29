@@ -501,7 +501,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                         # Classify with metadata including session date for timeline extraction
                         result = loop.run_until_complete(
                             classifier.classify_input(
-                                content, metadata={"session_date": current_date}
+                                content,
+                                metadata={"session_date": current_date},
+                                return_prompt=True,
                             )
                         )
                         # Handle multi-label classification - use all paths if available
@@ -528,6 +530,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
                         # Extract location events if any were detected
                         location_events = result.location_events
+
+                        # Extract LLM prompt if available
+                        classification_prompt = result.llm_prompt
 
                     finally:
                         loop.close()
@@ -706,6 +711,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 "content": content,  # Include the stored content
                 "step_timings": step_timings,
                 "five_step_timings": five_step_timings,
+                "classification_prompt": classification_prompt
+                if "classification_prompt" in locals()
+                else None,
             }
 
             # Send response

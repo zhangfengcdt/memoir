@@ -61,6 +61,7 @@ class ClassificationResult:
     profile_updates: Optional[list[dict[str, str]]] = None  # Profile updates detected
     timeline_events: Optional[list[dict[str, str]]] = None  # Timeline events detected
     location_events: Optional[list[dict[str, str]]] = None  # Location events detected
+    llm_prompt: Optional[str] = None  # LLM prompt used (if return_prompt=True)
 
     @property
     def all_paths(self) -> list[str]:
@@ -187,6 +188,7 @@ class IntelligentClassifier:
         content: str,
         metadata: Optional[dict] = None,
         conversation_context: Optional[list[str]] = None,
+        return_prompt: bool = False,
     ) -> ClassificationResult:
         """
         Classify input using LLM to determine if it's memory-worthy and where to store it.
@@ -216,6 +218,10 @@ class IntelligentClassifier:
 
             # Add confidence level
             result.confidence_level = self._get_confidence_level(result.confidence)
+
+            # Add prompt if requested
+            if return_prompt:
+                result.llm_prompt = prompt
 
             return result
 
