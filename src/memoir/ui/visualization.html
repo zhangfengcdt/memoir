@@ -4464,10 +4464,12 @@ ${result.valid ?
             }
         }
 
-        async function connectToStore(path) {
+        async function connectToStore(path, silent = false) {
             console.log('Attempting to connect to:', path);
             updateStorePathDisplay(path, 'connecting');
-            showNotification(`Connecting to ${path}...`, 'info');
+            if (!silent) {
+                showNotification(`Connecting to ${path}...`, 'info');
+            }
 
             try {
                 // First try the API endpoint
@@ -4491,7 +4493,9 @@ ${result.valid ?
                         window.isNewEmptyStore = false;
 
                         updateStorePathDisplay(path, 'connected');
-                        showNotification(`Successfully connected to ${path}`, 'success');
+                        if (!silent) {
+                            showNotification(`Successfully connected to ${path}`, 'success');
+                        }
                         await updateUIWithRealData(data);
                         // Update branch display and git history for connected store
                         await updateBranchDisplay();
@@ -4512,7 +4516,9 @@ ${result.valid ?
                         connectedStorePath = path;
                         storeData = data;
                         updateStorePathDisplay(path, 'connected');
-                        showNotification(`Connected to ${path} (file mode)`, 'success');
+                        if (!silent) {
+                            showNotification(`Connected to ${path} (file mode)`, 'success');
+                        }
                         await updateUIWithRealData(data);
                         // Update branch display and git history for connected store
                         await updateBranchDisplay();
@@ -4524,12 +4530,16 @@ ${result.valid ?
 
                 // If both methods fail, show an error instead of falling back
                 updateStorePathDisplay(null, 'disconnected');
-                showNotification(`Failed to connect to ${path}. Path may not exist or store may be empty. Try:\n1. Check if path exists\n2. Run initialization script\n3. Use HTTP server (python serve_ui.py)`, 'error');
+                if (!silent) {
+                    showNotification(`Failed to connect to ${path}. Path may not exist or store may be empty. Try:\n1. Check if path exists\n2. Run initialization script\n3. Use HTTP server (python serve_ui.py)`, 'error');
+                }
                 return;
             } catch (error) {
                 console.error('Connection error:', error);
                 updateStorePathDisplay(null, 'disconnected');
-                showNotification(`Connection failed: ${error.message}`, 'error');
+                if (!silent) {
+                    showNotification(`Connection failed: ${error.message}`, 'error');
+                }
             }
         }
 
@@ -4796,8 +4806,8 @@ ${result.valid ?
 
             console.log('Refreshing store data for:', connectedStorePath);
 
-            // Reconnect to the store to get fresh data
-            await connectToStore(connectedStorePath);
+            // Reconnect to the store to get fresh data (silent mode to avoid duplicate notifications)
+            await connectToStore(connectedStorePath, true);
 
             // Update branch display and git history
             await updateBranchDisplay();
@@ -8763,9 +8773,8 @@ ${result.valid ?
                     refreshBtn.disabled = true;
 
                     try {
-                        showNotification('Refreshing store data...', 'info');
                         await refreshStore();
-                        showNotification('Store data refreshed successfully', 'success');
+                        showNotification('Store data refreshed', 'success');
                     } catch (error) {
                         console.error('Refresh error:', error);
                         showNotification(`Failed to refresh: ${error.message}`, 'error');
