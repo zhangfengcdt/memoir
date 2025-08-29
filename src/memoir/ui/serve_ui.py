@@ -504,11 +504,24 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                                 content, metadata={"session_date": current_date}
                             )
                         )
-                        key = result.path if result.path else "context.current.session"
+                        # Handle multi-label classification - use all paths if available
                         confidence = result.confidence
-                        reasoning = (
-                            f"Classified as {key} (confidence: {confidence:.2f})"
-                        )
+                        if result.paths and len(result.paths) > 1:
+                            # Multi-label classification - store under multiple paths
+                            keys = result.paths
+                            key = keys[0]  # Primary key for response
+                            reasoning = f"Multi-label classified as {keys} (confidence: {confidence:.2f})"
+                        else:
+                            # Single classification
+                            key = (
+                                result.path
+                                if result.path
+                                else "context.current.session"
+                            )
+                            keys = [key]
+                            reasoning = (
+                                f"Classified as {key} (confidence: {confidence:.2f})"
+                            )
 
                         # Extract timeline events if any were detected
                         timeline_events = result.timeline_events
@@ -556,8 +569,11 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 "timestamp": time.time(),
             }
 
-            # Store the memory using sync method
-            store.put(namespace_tuple, key, memory_item)
+            # Store the memory using sync method - under all classified paths
+            for storage_key in keys:
+                memory_item_copy = memory_item.copy()
+                memory_item_copy["key"] = storage_key
+                store.put(namespace_tuple, storage_key, memory_item_copy)
 
             # Get commit information after storage
             commit_hash = None
@@ -663,14 +679,24 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 ),
             }
 
+            # Generate message for multi-path storage
+            if len(keys) > 1:
+                message = f"Memory stored at {len(keys)} paths: {', '.join(keys)}"
+                all_full_keys = [":".join(namespace_tuple) + ":" + k for k in keys]
+            else:
+                message = f"Memory stored at {key}"
+                all_full_keys = [full_key]
+
             result = {
                 "success": True,
-                "key": key,
-                "full_key": full_key,
+                "key": key,  # Primary key
+                "keys": keys,  # All keys (for multi-label)
+                "full_key": full_key,  # Primary full key
+                "full_keys": all_full_keys,  # All full keys
                 "namespace": namespace,
                 "confidence": confidence,
                 "reasoning": reasoning,
-                "message": f"Memory stored at {key}",
+                "message": message,
                 "timeline_events": timeline_events if timeline_events else None,
                 "timeline_applied": timeline_applied,
                 "location_events": location_events if location_events else None,
