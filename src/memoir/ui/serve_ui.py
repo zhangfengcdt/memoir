@@ -2510,7 +2510,9 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
 
                 # First try the default namespace
                 results = loop.run_until_complete(
-                    search_engine.search(query, namespace="default", limit=10)
+                    search_engine.search(
+                        query, namespace="default", limit=10, return_prompts=True
+                    )
                 )
                 print(f"🔍 Search in default found {len(results)} results")
 
@@ -2550,7 +2552,10 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
                             print(f"🔍 Trying namespace: {base_namespace}")
                             ns_results = loop.run_until_complete(
                                 search_engine.search(
-                                    query, namespace=base_namespace, limit=10
+                                    query,
+                                    namespace=base_namespace,
+                                    limit=10,
+                                    return_prompts=True,
                                 )
                             )
                             print(
@@ -2577,13 +2582,18 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
                 # Format results (filter out timing-only dummy results)
                 formatted_results = []
                 step_timings = None
+                llm_prompts = None
 
                 for result in results:
-                    # Extract timing data from any result (including dummy ones)
+                    # Extract timing data and prompts from any result (including dummy ones)
                     if hasattr(result, "metadata") and result.metadata:
                         result_step_timings = result.metadata.get("step_timings")
                         if result_step_timings:
                             step_timings = result_step_timings
+
+                        result_llm_prompts = result.metadata.get("llm_prompts")
+                        if result_llm_prompts:
+                            llm_prompts = result_llm_prompts
 
                         # Skip dummy timing-only results from formatted output
                         if result.metadata.get("is_timing_only", False):
@@ -2641,6 +2651,7 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
                         "total_time_seconds": total_time,
                         "timing_breakdown": timing_info,
                         "four_step_timings": four_step_timings,
+                        "llm_prompts": llm_prompts,
                     },
                 }
 

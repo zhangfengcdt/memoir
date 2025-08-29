@@ -6435,14 +6435,41 @@ ${result.valid ?
                             // Calculate total for percentages
                             const totalStepTime = Object.values(timing).reduce((sum, val) => sum + val, 0);
 
-                            for (const [key, value] of Object.entries(timing)) {
+                            const stepKeys = ['step1_path_discovery', 'step2_path_selection', 'step3_content_refinement', 'step4_memory_retrieval'];
+                            stepKeys.forEach((key, index) => {
+                                const value = timing[key] || 0;
                                 const label = stepLabels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                                 const percentage = totalStepTime > 0 ?
                                     Math.round((value / totalStepTime) * 100) : 0;
 
+                                // Check if this step involves LLM (steps 2 and 3 = path selection and content refinement)
+                                const hasPrompt = (index === 1 || index === 2) && result.metadata.llm_prompts;
+                                let promptButton = '';
+                                if (hasPrompt) {
+                                    const promptKey = index === 1 ? 'path_selection' : 'content_refinement';
+                                    const prompt = result.metadata.llm_prompts[promptKey];
+                                    if (prompt) {
+                                        promptButton = `<button class="prompt-btn recall-prompt-btn" data-prompt="${encodeURIComponent(prompt)}" style="
+                                            margin-left: 10px;
+                                            padding: 4px 8px;
+                                            font-size: 11px;
+                                            background: var(--accent-secondary);
+                                            color: white;
+                                            border: none;
+                                            border-radius: 3px;
+                                            cursor: pointer;
+                                            opacity: 0.8;
+                                            transition: opacity 0.2s;
+                                        ">View Prompt</button>`;
+                                    }
+                                }
+
                                 recallContent += `
                                     <div class="timing-item">
-                                        <div class="timing-label">${label}</div>
+                                        <div class="timing-label">
+                                            ${label}
+                                            ${promptButton}
+                                        </div>
                                         <div class="timing-value">
                                             <span class="timing-duration">${value}s</span>
                                             <span class="timing-percentage">(${percentage}%)</span>
@@ -6452,7 +6479,7 @@ ${result.valid ?
                                         </div>
                                     </div>
                                 `;
-                            }
+                            });
 
                             recallContent += `
                                     </div>
@@ -6904,6 +6931,16 @@ ${result.valid ?
                     modal.onclick = (e) => {
                         if (e.target === modal) document.body.removeChild(modal);
                     };
+
+                    // Add prompt button functionality
+                    const recallPromptBtns = modal.querySelectorAll('.recall-prompt-btn');
+                    recallPromptBtns.forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            const encodedPrompt = btn.getAttribute('data-prompt');
+                            const prompt = decodeURIComponent(encodedPrompt);
+                            showPromptModal(prompt);
+                        });
+                    });
 
                     // Global functions for modal buttons
                     window.closeRecallModal = () => {
@@ -7428,7 +7465,7 @@ ${result.valid ?
                 width: 100%;
                 height: 100%;
                 background-color: rgba(0, 0, 0, 0.7);
-                z-index: 1001;
+                z-index: 10001;
                 display: flex;
                 justify-content: center;
                 align-items: center;

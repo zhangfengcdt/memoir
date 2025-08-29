@@ -7,7 +7,7 @@ the most relevant ones for a given query, then retrieves memories from those pat
 
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ class IntelligentSearchEngine:
         self.store = store
 
     async def search(
-        self, query: str, namespace: str, limit: int = 10
+        self, query: str, namespace: str, limit: int = 10, return_prompts: bool = False
     ) -> list[IntelligentSearchResult]:
         """
         Search for relevant memories using LLM path selection.
@@ -55,6 +55,7 @@ class IntelligentSearchEngine:
             query: Natural language search query
             namespace: User namespace to search in
             limit: Maximum number of results
+            return_prompts: Whether to capture and return LLM prompts
 
         Returns:
             List of IntelligentSearchResult objects
@@ -63,6 +64,7 @@ class IntelligentSearchEngine:
             import time
 
             step_timings = {}
+            llm_prompts = {} if return_prompts else None
             search_start = time.time()
             # Step 1: Path Discovery - Get all available paths from the store
             step1_start = time.time()
@@ -205,7 +207,9 @@ class IntelligentSearchEngine:
 
             # Step 2: Semantic Path Selection - Ask LLM to select relevant paths
             step2_start = time.time()
-            selected_paths = await self._select_relevant_paths(query, paths_info)
+            selected_paths = await self._select_relevant_paths(
+                query, paths_info, llm_prompts
+            )
 
             if not selected_paths:
                 logger.info(f"LLM didn't select any relevant paths for query: {query}")
@@ -231,7 +235,7 @@ class IntelligentSearchEngine:
             # Step 3: Content Refinement - use already-loaded data for LLM refinement
             step3_start = time.time()
             refined_paths = await self._refine_paths_with_content(
-                query, selected_paths, all_memories, namespace_tuple
+                query, selected_paths, all_memories, namespace_tuple, llm_prompts
             )
 
             if not refined_paths:
@@ -279,19 +283,24 @@ class IntelligentSearchEngine:
             step_timings["step4_memory_retrieval"] = round(time.time() - step4_start, 3)
             step_timings["total_search"] = round(time.time() - search_start, 3)
 
-            # Store timing info in the results for access by the API
+            # Store timing info and prompts in the results for access by the API
             for result in results:
                 if hasattr(result, "metadata"):
                     if not result.metadata:
                         result.metadata = {}
                     result.metadata["step_timings"] = step_timings
+                    if llm_prompts:
+                        result.metadata["llm_prompts"] = llm_prompts
 
             # If no results but we have timing data, create a dummy result to carry timing info
             if not results and step_timings:
+                metadata = {"step_timings": step_timings, "is_timing_only": True}
+                if llm_prompts:
+                    metadata["llm_prompts"] = llm_prompts
                 dummy_result = IntelligentSearchResult(
                     path="",
                     content="",
-                    metadata={"step_timings": step_timings, "is_timing_only": True},
+                    metadata=metadata,
                     relevance_score=0.0,
                     namespace="",
                 )
@@ -314,7 +323,9 @@ class IntelligentSearchEngine:
                 return [dummy_result]
             return []
 
-    async def _select_relevant_paths(self, query: str, paths_info: dict) -> list[str]:
+    async def _select_relevant_paths(
+        self, query: str, paths_info: dict, llm_prompts: Optional[dict] = None
+    ) -> list[str]:
         """
         Use LLM to select the most relevant paths for the query.
 
@@ -355,6 +366,10 @@ Instructions:
 Selected paths:"""
 
         try:
+            # Store the prompt if requested
+            if llm_prompts is not None:
+                llm_prompts["path_selection"] = prompt
+
             # Call the LLM
             messages = [{"role": "user", "content": prompt}]
             response = self.llm.invoke(messages)
@@ -388,6 +403,7 @@ Selected paths:"""
         selected_paths: list[str],
         all_memories: list,
         namespace_tuple: tuple,
+        llm_prompts: Optional[dict] = None,
     ) -> list[str]:
         """
         Second-stage LLM refinement: Load content for selected paths and let LLM make final selection.
@@ -453,6 +469,10 @@ Instructions:
 - If no content actually answers the query, return "NONE"
 
 Selected paths:"""
+
+            # Store the prompt if requested
+            if llm_prompts is not None:
+                llm_prompts["content_refinement"] = prompt
 
             # Call the LLM for content-based refinement
             messages = [{"role": "user", "content": prompt}]
