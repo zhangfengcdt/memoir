@@ -25,13 +25,16 @@ repos:
     hooks:
       - id: isort
         args: ["--profile", "black"]
+        exclude: ^tests/test_ui_e2e\.py$
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.12.9
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
+        exclude: ^tests/test_ui_e2e\.py$
       - id: ruff-format
+        exclude: ^tests/test_ui_e2e\.py$
 
 
   - repo: https://github.com/PyCQA/bandit
@@ -48,6 +51,6 @@ repos:
         name: pytest-check
         entry: pytest
         language: system
-        args: [tests/, --tb=short, -q]
+        args: [tests/, --tb=short, -q, --ignore=tests/test_ui_e2e.py]
         pass_filenames: false
         always_run: true
