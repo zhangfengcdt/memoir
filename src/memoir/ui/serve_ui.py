@@ -2331,9 +2331,9 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
 
                 # First try the default namespace
                 results = loop.run_until_complete(
-                    search_engine.search(query, namespace="memory:general", limit=10)
+                    search_engine.search(query, namespace="default", limit=10)
                 )
-                print(f"🔍 Search in memory:general found {len(results)} results")
+                print(f"🔍 Search in default found {len(results)} results")
 
                 timing_info["path_discovery_and_selection"] = round(
                     time.time() - search_start, 2
