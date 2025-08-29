@@ -484,6 +484,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
                 # Try to classify the content
                 timeline_events = None
+                location_events = None
                 try:
                     # Use async classification (we need to run it synchronously in this context)
                     import asyncio
@@ -511,6 +512,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
                         # Extract timeline events if any were detected
                         timeline_events = result.timeline_events
+
+                        # Extract location events if any were detected
+                        location_events = result.location_events
 
                     finally:
                         loop.close()
@@ -608,13 +612,44 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             step_timings["step4_timeline_processing"] = round(
                 time.time() - step4_start, 3
             )
+
+            # Step 5: Location Processing (if applicable)
+            step5_start = time.time()
+            location_applied = False
+            if location_events and isinstance(location_events, list):
+                try:
+                    # Initialize location memento
+                    from memoir.memento.location import LocationMemento
+
+                    location_memento = LocationMemento(store)
+
+                    # Apply location events asynchronously
+                    import asyncio
+
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        loop.run_until_complete(
+                            location_memento.apply_location_events(
+                                location_events, namespace=namespace
+                            )
+                        )
+                        location_applied = True
+                    finally:
+                        loop.close()
+                except Exception as e:
+                    print(f"Failed to apply location events: {e}")
+
+            step_timings["step5_location_processing"] = round(
+                time.time() - step5_start, 3
+            )
             step_timings["total_remember"] = round(time.time() - remember_start, 3)
 
             # Full key for display
             full_key = ":".join(namespace_tuple) + ":" + key
 
             # Extract individual step timings for frontend display
-            four_step_timings = {
+            five_step_timings = {
                 "step1_store_initialization": step_timings.get(
                     "step1_store_initialization", 0
                 ),
@@ -622,6 +657,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 "step3_memory_storage": step_timings.get("step3_memory_storage", 0),
                 "step4_timeline_processing": step_timings.get(
                     "step4_timeline_processing", 0
+                ),
+                "step5_location_processing": step_timings.get(
+                    "step5_location_processing", 0
                 ),
             }
 
@@ -635,11 +673,13 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 "message": f"Memory stored at {key}",
                 "timeline_events": timeline_events if timeline_events else None,
                 "timeline_applied": timeline_applied,
+                "location_events": location_events if location_events else None,
+                "location_applied": location_applied,
                 "commit_hash": commit_hash,
                 "commit_date": commit_date,
                 "content": content,  # Include the stored content
                 "step_timings": step_timings,
-                "four_step_timings": four_step_timings,
+                "five_step_timings": five_step_timings,
             }
 
             # Send response
