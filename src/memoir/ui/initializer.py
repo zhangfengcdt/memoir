@@ -34,12 +34,18 @@ async def main():
     parser.add_argument(
         "--data-file",
         type=str,
-        help="Path to LOCOMO JSON file containing conversations",
+        help="Path to data file containing conversations (JSON for LOCOMO or TXT for simple format)",
     )
     parser.add_argument(
         "--person",
         type=str,
-        help="Person name to create memories for (required when using --data-file)",
+        help="Person name to create memories for (required when using --data-file with JSON format)",
+    )
+    parser.add_argument(
+        "--format",
+        type=str,
+        choices=["json", "txt"],
+        help="Input data format: 'json' for LOCOMO format, 'txt' for simple text format. Auto-detected if not specified.",
     )
     parser.add_argument(
         "--session",
@@ -54,13 +60,27 @@ async def main():
     )
     args = parser.parse_args()
 
-    # Validate LOCOMO-specific arguments
-    if args.data_file:
-        if not args.person:
-            print("Error: --person is required when using --data-file")
+    # Auto-detect format if not specified
+    if args.data_file and not args.format:
+        if args.data_file.lower().endswith(".json"):
+            args.format = "json"
+        elif args.data_file.lower().endswith(".txt"):
+            args.format = "txt"
+        else:
+            print(
+                "Error: Could not auto-detect format. Please specify --format (json or txt)"
+            )
             sys.exit(1)
+
+    # Validate data file arguments
+    if args.data_file:
         if not os.path.exists(args.data_file):
             print(f"Error: Data file not found: {args.data_file}")
+            sys.exit(1)
+
+        # Person name is only required for JSON format
+        if args.format == "json" and not args.person:
+            print("Error: --person is required when using JSON format")
             sys.exit(1)
 
     # Use the store path from arguments
@@ -166,17 +186,21 @@ async def main():
     )
     print("   ✓ ProllyTreeMemoryStoreManager assembled")
 
-    # Choose data source: LOCOMO file or sample data
+    # Choose data source: data file or sample data
     if args.data_file:
-        print(f"\n=== Processing LOCOMO data from {args.data_file} ===")
-        await process_locomo_data(
-            memory_manager,
-            store,
-            args.data_file,
-            args.person,
-            args.session,
-            args.conversation,
-        )
+        if args.format == "json":
+            print(f"\n=== Processing LOCOMO data from {args.data_file} ===")
+            await process_locomo_data(
+                memory_manager,
+                store,
+                args.data_file,
+                args.person,
+                args.session,
+                args.conversation,
+            )
+        elif args.format == "txt":
+            print(f"\n=== Processing text data from {args.data_file} ===")
+            await process_txt_data(memory_manager, store, args.data_file, args.session)
     else:
         print("\n=== Adding sample memories to main branch ===")
         await create_sample_memories(memory_manager, store)
@@ -187,6 +211,155 @@ async def main():
 
     # Print summary
     await print_summary(store, store_path, args.data_file)
+
+
+async def process_txt_data(
+    memory_manager: ProllyTreeMemoryStoreManager,
+    store: ProllyTreeStore,
+    data_file: str,
+    session: Optional[str],
+):
+    """Process text data format and ingest into memory store."""
+    import re
+    from datetime import datetime
+
+    print(f"Loading text data from {data_file}")
+
+    # Read the text file
+    with open(data_file, encoding="utf-8") as f:
+        content = f.read()
+
+    # Parse session parameter
+    session_list = _parse_session_parameter(session)
+
+    # Split content by session separator (lines of dashes)
+    session_separator = re.compile(r"^-{5,}$", re.MULTILINE)
+    sessions = session_separator.split(content)
+
+    # Remove empty sessions
+    sessions = [s.strip() for s in sessions if s.strip()]
+
+    print(f"Found {len(sessions)} sessions in the text file")
+
+    # Filter sessions if specific sessions requested
+    if session_list:
+        if max(session_list) > len(sessions):
+            print(
+                f"Error: Session {max(session_list)} not found. File has {len(sessions)} sessions"
+            )
+            return
+        sessions = [sessions[i - 1] for i in session_list]  # Convert to 0-indexed
+        print(f"Processing sessions: {', '.join(map(str, session_list))}")
+    else:
+        print("Processing all sessions")
+
+    namespace = "default"  # Use default namespace for UI compatibility
+    memories_processed = 0
+    total_sessions = len(sessions)
+
+    for session_idx, session_content in enumerate(sessions, 1):
+        if session_list:
+            actual_session_num = session_list[session_idx - 1]
+        else:
+            actual_session_num = session_idx
+
+        print(
+            f"[{session_idx}/{total_sessions}] Processing session {actual_session_num}..."
+        )
+
+        # Parse session metadata
+        lines = session_content.strip().split("\n")
+        date_str = None
+        location = None
+        content_lines = []
+
+        for line in lines:
+            line = line.strip()
+            if line.startswith("#DATE:"):
+                date_str = line[6:].strip()
+            elif line.startswith("#LOC:"):
+                location = line[5:].strip()
+            elif line:  # Non-empty content line
+                content_lines.append(line)
+
+        # Parse date if provided
+        session_date = "unknown date"
+        timestamp = None
+        if date_str:
+            try:
+                # Try to parse common date formats
+                for fmt in [
+                    "%a %b %d %H:%M:%S %Z %Y",
+                    "%Y-%m-%d %H:%M:%S",
+                    "%m/%d/%Y %H:%M:%S",
+                ]:
+                    try:
+                        dt = datetime.strptime(date_str, fmt)
+                        timestamp = dt.timestamp()
+                        session_date = date_str
+                        break
+                    except ValueError:
+                        continue
+
+                # If parsing failed, use the raw string
+                if timestamp is None:
+                    session_date = date_str
+            except Exception:
+                session_date = date_str
+
+        if not content_lines:
+            print(f"  Warning: No content found in session {actual_session_num}")
+            continue
+
+        # Process each content line as a separate memory
+        session_memories = []
+        print(f"  Processing {len(content_lines)} memory entries...")
+
+        for line_idx, content_line in enumerate(content_lines, 1):
+            if len(content_lines) > 1:
+                print(
+                    f"  Processing entry {line_idx}/{len(content_lines)}...", end="\r"
+                )
+
+            metadata = {
+                "source": "txt_conversation",
+                "session": f"session_{actual_session_num}",
+                "session_date": session_date,
+                "line_number": line_idx,
+            }
+
+            if location:
+                metadata["location"] = location
+            if timestamp:
+                metadata["timestamp"] = timestamp
+
+            try:
+                await memory_manager.store_memory(
+                    content_line, namespace=namespace, metadata=metadata
+                )
+                session_memories.append(content_line)
+                memories_processed += 1
+            except Exception as e:
+                print(f"\n  Failed to process: {content_line[:50]}... Error: {e}")
+
+        # Clear the progress line
+        if len(content_lines) > 1:
+            print(" " * 50, end="\r")
+
+        # Commit after each session
+        if session_memories:
+            commit_msg = f"Added {len(session_memories)} memories from session {actual_session_num}"
+            if date_str:
+                commit_msg += f" ({session_date})"
+            if location:
+                commit_msg += f" at {location}"
+
+            commit_hash = store.commit(commit_msg)
+            print(
+                f"  ✓ Committed {len(session_memories)} memories for session {actual_session_num}: {commit_hash[:8] if commit_hash else 'No commit'}"
+            )
+
+    print(f"Total memories processed: {memories_processed}")
 
 
 def _parse_session_parameter(session: Optional[str]) -> Optional[list[int]]:
