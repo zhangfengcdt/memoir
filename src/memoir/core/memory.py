@@ -12,6 +12,7 @@ from typing import Any, Optional, Union
 from langmem.knowledge.extraction import MemoryStoreManager
 from pydantic import BaseModel, Field
 
+from memoir.memento.location import LocationMemento
 from memoir.memento.profile import ProfileMemento
 from memoir.memento.timeline import TimelineMemento
 from memoir.store.prolly_adapter import ProllyTreeStore
@@ -101,6 +102,9 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
 
         # Initialize timeline memento
         self.timeline_manager = TimelineMemento(self.prolly_store)
+
+        # Initialize location memento
+        self.location_manager = LocationMemento(self.prolly_store)
 
         # Use provided search engine
         self.search_engine = search_engine

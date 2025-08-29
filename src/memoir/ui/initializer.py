@@ -333,6 +333,7 @@ async def process_txt_data(
 
         # Process each content line as a separate memory
         session_memories = []
+        location_events = []
         print(f"  Processing {len(content_lines)} memory entries...")
 
         for line_idx, content_line in enumerate(content_lines, 1):
@@ -350,6 +351,10 @@ async def process_txt_data(
 
             if location:
                 metadata["location"] = location
+                # Collect location events for LocationMemento processing
+                location_events.append(
+                    {"location": location, "description": content_line}
+                )
             if timestamp:
                 metadata["timestamp"] = timestamp
 
@@ -361,6 +366,20 @@ async def process_txt_data(
                 memories_processed += 1
             except Exception as e:
                 print(f"\n  Failed to process: {content_line[:50]}... Error: {e}")
+
+        # Process location events if any
+        if location_events:
+            try:
+                await memory_manager.location_manager.apply_location_events(
+                    location_events,
+                    metadata={
+                        "session": f"session_{actual_session_num}",
+                        "session_date": session_date,
+                    },
+                    namespace=namespace,
+                )
+            except Exception as e:
+                print(f"\n  Failed to process location events: {e}")
 
         # Clear the progress line
         if len(content_lines) > 1:
