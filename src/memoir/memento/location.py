@@ -20,7 +20,10 @@ class LocationMemento:
         self.memory_store = memory_store
 
     async def apply_location_events(
-        self, location_events: list[dict[str, str]], metadata: Optional[dict] = None
+        self,
+        location_events: list[dict[str, str]],
+        metadata: Optional[dict] = None,
+        namespace: str = "default",
     ) -> None:
         """
         Apply location events to the memory store.
@@ -30,6 +33,7 @@ class LocationMemento:
         Args:
             location_events: List of location events with location and description
             metadata: Optional metadata to include with events
+            namespace: Namespace to store location events in (default: "default")
         """
         logger.debug(
             f"LocationManager.apply_location_events called with {len(location_events) if location_events else 0} events"
@@ -58,7 +62,7 @@ class LocationMemento:
 
             try:
                 await self._store_or_merge_location_event(
-                    location_path, description, metadata
+                    location_path, description, metadata, namespace
                 )
                 logger.debug(f"Applied location event: {location_path} - {description}")
             except Exception as e:
@@ -118,7 +122,11 @@ class LocationMemento:
         return normalized
 
     async def _store_or_merge_location_event(
-        self, location_path: str, description: str, metadata: Optional[dict] = None
+        self,
+        location_path: str,
+        description: str,
+        metadata: Optional[dict] = None,
+        namespace: str = "default",
     ) -> None:
         """
         Store location event or merge with existing location events.
@@ -127,8 +135,9 @@ class LocationMemento:
             location_path: Storage path for the location (e.g., "location.san_francisco")
             description: Event description
             metadata: Optional metadata
+            namespace: Namespace to store location data in (default: "default")
         """
-        namespace = "memory:general"
+        # namespace parameter is passed to function
 
         # Check if location already has events
         existing_items = await self.memory_store.asearch(namespace, location_path)
@@ -241,18 +250,21 @@ class LocationMemento:
         existing_events.append(new.strip())
         return " | ".join(existing_events)
 
-    async def get_location_summary(self, llm: Optional[Any] = None) -> str:
+    async def get_location_summary(
+        self, llm: Optional[Any] = None, namespace: str = "default"
+    ) -> str:
         """
         Generate a summary of all location events.
 
         Args:
             llm: Optional LLM for generating narrative summaries
+            namespace: Namespace to search for location data (default: "default")
 
         Returns:
             String summary of location events
         """
         try:
-            namespace = "memory:general"
+            # namespace parameter is passed to function
 
             # Search for all location events
             logger.debug(
@@ -386,18 +398,21 @@ Location Summary:"""
             logger.error(f"LLM location summary failed: {e}")
             return self._generate_structured_location_summary(location_items)
 
-    async def get_location_events_for_search(self, location_query: str) -> list[dict]:
+    async def get_location_events_for_search(
+        self, location_query: str, namespace: str = "default"
+    ) -> list[dict]:
         """
         Get location events relevant to a search query.
 
         Args:
             location_query: Search query for locations
+            namespace: Namespace to search for location data (default: "default")
 
         Returns:
             List of relevant location events
         """
         try:
-            namespace = "memory:general"
+            # namespace parameter is passed to function
 
             # Search for location events
             all_items = await self.memory_store.asearch(namespace, "location.")

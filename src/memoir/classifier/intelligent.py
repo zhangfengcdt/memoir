@@ -61,6 +61,7 @@ class ClassificationResult:
     profile_updates: Optional[list[dict[str, str]]] = None  # Profile updates detected
     timeline_events: Optional[list[dict[str, str]]] = None  # Timeline events detected
     location_events: Optional[list[dict[str, str]]] = None  # Location events detected
+    llm_prompt: Optional[str] = None  # LLM prompt used (if return_prompt=True)
 
     @property
     def all_paths(self) -> list[str]:
@@ -187,6 +188,7 @@ class IntelligentClassifier:
         content: str,
         metadata: Optional[dict] = None,
         conversation_context: Optional[list[str]] = None,
+        return_prompt: bool = False,
     ) -> ClassificationResult:
         """
         Classify input using LLM to determine if it's memory-worthy and where to store it.
@@ -216,6 +218,10 @@ class IntelligentClassifier:
 
             # Add confidence level
             result.confidence_level = self._get_confidence_level(result.confidence)
+
+            # Add prompt if requested
+            if return_prompt:
+                result.llm_prompt = prompt
 
             return result
 
@@ -463,7 +469,10 @@ class IntelligentClassifier:
                 "  * 'I work at the downtown office' → location: 'downtown office', description: 'workplace'",
                 "  * 'The conference was held at the convention center' → location: 'convention center', description: 'attended conference'",
                 "  * 'I love visiting the beach on weekends' → location: 'beach', description: 'recreational visits'",
-                "- KEY PHRASES to detect: 'in [City]', 'at [Place]', 'from [Location]', 'to [Location]'",
+                "  * 'I want to visit Canada next year' → location: 'Canada', description: 'planned travel destination'",
+                "  * 'Planning to go to Paris for vacation' → location: 'Paris', description: 'vacation destination'",
+                "  * 'Would love to travel to Japan someday' → location: 'Japan', description: 'desired travel destination'",
+                "- KEY PHRASES to detect: 'in [City]', 'at [Place]', 'from [Location]', 'to [Location]', 'want to visit [Place]', 'plan to go to [Place]', 'travel to [Place]'",
                 "- Extract both specific locations (Los Angeles, San Francisco, New York) and local places (offices, centers, venues)",
                 "- Normalize location names: 'NYC' → 'New York City', 'SF' → 'San Francisco', 'LA' → 'Los Angeles'",
                 "- If NO location events: return 'no_location_events'",

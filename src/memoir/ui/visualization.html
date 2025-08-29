@@ -1,9 +1,10 @@
 <!DOCTYPE html>
+<!-- Cache-buster: 2025-08-28-12-20 Implemented /diff command with modal popup -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Memoir Memory Visualizer</title>
+    <title>Memoir</title>
     <link rel="icon" type="image/png" href="static/memoir.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <!-- Syntax highlighting for code -->
@@ -3367,6 +3368,49 @@
             } else if (cmd === '/summarize') {
                 const summaryType = parts.length > 1 ? parts[1].toLowerCase() : 'all';
                 await summarizeMemoryStore(summaryType);
+            } else if (cmd === '/recall' || cmd === '/search') {
+                const query = parts.slice(1).join(' ');
+                if (!query) {
+                    showNotification('Usage: /recall <query>\nExample: /recall user preferences about colors', 'error');
+                } else {
+                    await recallMemories(query);
+                }
+            } else if (cmd === '/diff' || cmd === '/d') {
+                const arg1 = parts[1];
+                const arg2 = parts[2];
+
+                if (arg1 === 'mock') {
+                    // Mode 1: /diff mock - show mocked UI
+                    await showDiffModal(arg2, parts[3], true);  // true for mock mode
+                } else if (arg1 && arg2) {
+                    // Mode 3: /diff commit1 commit2 - show diff between two commits
+                    await showDiffModal(arg1, arg2, false);
+                } else {
+                    // Mode 2: /diff without parameters - show current vs last commit
+                    await showDiffModal(null, null, false);
+                }
+            } else if (cmd === '/debug-store') {
+                // Quick debug command to check store contents
+                if (!connectedStorePath) {
+                    showNotification('Not connected to any store', 'error');
+                    return;
+                }
+
+                console.log('🔍 Frontend store debug:');
+                console.log('Connected store path:', connectedStorePath);
+                console.log('window.isNewEmptyStore:', window.isNewEmptyStore);
+
+                // Make a direct API call to list all memories
+                try {
+                    const response = await fetch(`/api/store?path=${encodeURIComponent(connectedStorePath)}`);
+                    const result = await response.json();
+                    console.log('Store API response:', result);
+
+                    showNotification(`Debug: ${connectedStorePath} - Check console for details`, 'info');
+                } catch (error) {
+                    console.error('Store debug error:', error);
+                    showNotification('Store debug failed - check console', 'error');
+                }
 
             // Developer & Debugging Commands
             } else if (cmd === '/inspect') {
@@ -3375,13 +3419,6 @@
                     showNotification('Usage: /inspect <path>\nExample: /inspect profile.professional.skills', 'error');
                 } else {
                     await handleInspectCommand(path);
-                }
-            } else if (cmd === '/diff') {
-                if (parts.length < 4) {
-                    showNotification('Usage: /diff <path> <commit1> <commit2>\nExample: /diff profile.skills abc123 def456', 'error');
-                } else {
-                    const [, path, commit1, commit2] = parts;
-                    await handleDiffCommand(path, commit1, commit2);
                 }
             } else if (cmd === '/test-scenario') {
                 const scenarioName = parts.slice(1).join(' ');
@@ -3423,12 +3460,27 @@
             } else if (cmd === '/help') {
                 showHelpModal();
             } else {
-                // Check if it's a placeholder command
-                const placeholderCmd = availableCommands.find(c => c.cmd === cmd && c.placeholder);
-                if (placeholderCmd) {
-                    showNotification(`${placeholderCmd.cmd} - ${placeholderCmd.desc}`, 'info', 4000);
+                // Check if input starts with "/" (indicating it's an unknown command)
+                if (command.trim().startsWith('/')) {
+                    // Check if it's a placeholder command
+                    const placeholderCmd = availableCommands.find(c => c.cmd === cmd && c.placeholder);
+                    if (placeholderCmd) {
+                        showNotification(`${placeholderCmd.cmd} - ${placeholderCmd.desc}`, 'info', 4000);
+                    } else {
+                        showNotification(`Unknown command: ${cmd}`, 'error');
+                    }
                 } else {
-                    showNotification(`Unknown command: ${cmd}`, 'error');
+                    // Input doesn't start with "/" - treat it as a natural language query
+                    // Default to recall functionality
+                    console.log('🔍 Natural language query detected:', command);
+                    const query = command.trim();
+                    if (query) {
+                        console.log('🔍 Calling recallMemories with query:', query);
+                        console.log('🔍 Connected store path:', connectedStorePath);
+                        await recallMemories(query);
+                    } else {
+                        showNotification('Please enter a question or search query', 'error');
+                    }
                 }
             }
         }
@@ -4081,7 +4133,7 @@ config = {"configurable": {"store": langgraph_store}}`;
             showNotification(`Generating proof for: ${memoryPath}...`, 'info');
 
             try {
-                const response = await fetch(`/api/proof?path=${encodeURIComponent(connectedStorePath)}&key=${encodeURIComponent(memoryPath)}&namespace=alice_chen`);
+                const response = await fetch(`/api/proof?path=${encodeURIComponent(connectedStorePath)}&key=${encodeURIComponent(memoryPath)}&namespace=default`);
                 const result = await response.json();
 
                 if (result.success) {
@@ -4163,7 +4215,7 @@ or you can provide proof data manually for verification.
                 if (proofData.startsWith('{')) {
                     const parsed = JSON.parse(proofData);
                     if (parsed.proof && parsed.key) {
-                        verifyProof(parsed.proof, parsed.key, parsed.namespace || 'alice_chen');
+                        verifyProof(parsed.proof, parsed.key, parsed.namespace || 'default');
                         return;
                     }
                 }
@@ -4171,7 +4223,7 @@ or you can provide proof data manually for verification.
                 // Otherwise treat as space-separated: proof key [namespace]
                 const parts = proofData.split(' ');
                 if (parts.length >= 2) {
-                    const [proof, key, namespace = 'alice_chen'] = parts;
+                    const [proof, key, namespace = 'default'] = parts;
                     verifyProof(proof, key, namespace);
                 } else {
                     showNotification('Invalid format. Use: /verify <proof> <key> [namespace]', 'error');
@@ -4181,7 +4233,7 @@ or you can provide proof data manually for verification.
             }
         }
 
-        async function verifyProof(proofB64, memoryKey, namespace = 'alice_chen') {
+        async function verifyProof(proofB64, memoryKey, namespace = 'default') {
             if (!connectedStorePath) {
                 showNotification('Please connect to a store first with /connect <path>', 'error');
                 return;
@@ -4412,10 +4464,12 @@ ${result.valid ?
             }
         }
 
-        async function connectToStore(path) {
+        async function connectToStore(path, silent = false) {
             console.log('Attempting to connect to:', path);
             updateStorePathDisplay(path, 'connecting');
-            showNotification(`Connecting to ${path}...`, 'info');
+            if (!silent) {
+                showNotification(`Connecting to ${path}...`, 'info');
+            }
 
             try {
                 // First try the API endpoint
@@ -4439,7 +4493,9 @@ ${result.valid ?
                         window.isNewEmptyStore = false;
 
                         updateStorePathDisplay(path, 'connected');
-                        showNotification(`Successfully connected to ${path}`, 'success');
+                        if (!silent) {
+                            showNotification(`Successfully connected to ${path}`, 'success');
+                        }
                         await updateUIWithRealData(data);
                         // Update branch display and git history for connected store
                         await updateBranchDisplay();
@@ -4460,7 +4516,9 @@ ${result.valid ?
                         connectedStorePath = path;
                         storeData = data;
                         updateStorePathDisplay(path, 'connected');
-                        showNotification(`Connected to ${path} (file mode)`, 'success');
+                        if (!silent) {
+                            showNotification(`Connected to ${path} (file mode)`, 'success');
+                        }
                         await updateUIWithRealData(data);
                         // Update branch display and git history for connected store
                         await updateBranchDisplay();
@@ -4472,12 +4530,16 @@ ${result.valid ?
 
                 // If both methods fail, show an error instead of falling back
                 updateStorePathDisplay(null, 'disconnected');
-                showNotification(`Failed to connect to ${path}. Path may not exist or store may be empty. Try:\n1. Check if path exists\n2. Run initialization script\n3. Use HTTP server (python serve_ui.py)`, 'error');
+                if (!silent) {
+                    showNotification(`Failed to connect to ${path}. Path may not exist or store may be empty. Try:\n1. Check if path exists\n2. Run initialization script\n3. Use HTTP server (python serve_ui.py)`, 'error');
+                }
                 return;
             } catch (error) {
                 console.error('Connection error:', error);
                 updateStorePathDisplay(null, 'disconnected');
-                showNotification(`Connection failed: ${error.message}`, 'error');
+                if (!silent) {
+                    showNotification(`Connection failed: ${error.message}`, 'error');
+                }
             }
         }
 
@@ -4614,10 +4676,39 @@ ${result.valid ?
                 return;
             }
 
-            console.log('Remembering content:', content);
-            showNotification('Processing memory...', 'info');
+            // Show progress modal
+            const progressModal = showProgressModal('Storing Memory', 'Preparing to store memory...');
+            const startTime = Date.now();
+            progressModal.startTime = startTime;
 
             try {
+                // Start progress tracking with messages for the four steps
+                const progressMessages = [
+                    'Step 1/4: Initializing store...',
+                    'Step 2/4: Classifying content...',
+                    'Step 3/4: Storing memory...',
+                    'Step 4/4: Processing timeline...'
+                ];
+
+                let progressStep = 0;
+                const progressInterval = setInterval(() => {
+                    const elapsedMs = Date.now() - startTime;
+                    const elapsedSec = (elapsedMs / 1000).toFixed(1);
+
+                    // Cycle through progress steps
+                    const currentMessage = progressMessages[progressStep % progressMessages.length];
+                    const messageWithTime = `${currentMessage} (${elapsedSec}s)`;
+
+                    // Update progress bar (simulate progress)
+                    const percentage = Math.min(95, (progressStep + 1) * 20 + (elapsedMs / 100) % 20);
+                    updateProgressModal(progressModal, messageWithTime, percentage);
+
+                    // Move to next step periodically
+                    if (elapsedMs > (progressStep + 1) * 500) {
+                        progressStep++;
+                    }
+                }, 100);
+
                 const response = await fetch('/api/remember', {
                     method: 'POST',
                     headers: {
@@ -4626,7 +4717,7 @@ ${result.valid ?
                     body: JSON.stringify({
                         path: connectedStorePath,
                         content: content,
-                        namespace: 'alice_chen'
+                        namespace: 'default'
                     })
                 });
 
@@ -4636,20 +4727,30 @@ ${result.valid ?
 
                 const result = await response.json();
 
+                // Clear progress tracking and close modal
+                clearInterval(progressInterval);
+                closeProgressModal(progressModal);
+
                 if (result.success) {
+                    // Show results in modal popup
+                    showRememberResultsModal(result);
+
                     let message = `✓ Memory stored at: ${result.key}`;
                     if (result.confidence) {
                         message += ` (confidence: ${(result.confidence * 100).toFixed(0)}%)`;
                     }
                     showNotification(message, 'success');
 
-                    console.log('Memory stored successfully, refreshing view...');
                     // Refresh the view to show the new memory
                     await refreshStore();
                 } else {
                     showNotification(`Not stored: ${result.message}`, 'warning');
                 }
             } catch (error) {
+                // Clear progress tracking on error
+                if (progressInterval) clearInterval(progressInterval);
+                closeProgressModal(progressModal);
+
                 console.error('Remember error:', error);
                 showNotification(`Failed to store memory: ${error.message}`, 'error');
             }
@@ -4673,7 +4774,7 @@ ${result.valid ?
                     body: JSON.stringify({
                         path: connectedStorePath,
                         key: key,
-                        namespace: 'alice_chen'
+                        namespace: 'default'
                     })
                 });
 
@@ -4705,8 +4806,8 @@ ${result.valid ?
 
             console.log('Refreshing store data for:', connectedStorePath);
 
-            // Reconnect to the store to get fresh data
-            await connectToStore(connectedStorePath);
+            // Reconnect to the store to get fresh data (silent mode to avoid duplicate notifications)
+            await connectToStore(connectedStorePath, true);
 
             // Update branch display and git history
             await updateBranchDisplay();
@@ -4742,7 +4843,6 @@ ${result.valid ?
                 return;
             }
 
-            console.log('DEBUG: Fetching timeline from:', `/api/timeline?path=${encodeURIComponent(connectedStorePath)}`);
 
             try {
                 const response = await fetch(`/api/timeline?path=${encodeURIComponent(connectedStorePath)}`);
@@ -4751,10 +4851,8 @@ ${result.valid ?
                 console.log('DEBUG: Timeline API response:', result);
 
                 if (result.success) {
-                    console.log('DEBUG: Timeline data received:', result.timeline_data);
                     // Display timeline in a modal or notification
                     const timelineHtml = formatTimelineData(result.timeline_data, result.summary);
-                    console.log('DEBUG: Formatted timeline HTML:', timelineHtml);
                     showTimelineModal(timelineHtml);
                 } else {
                     showNotification('Failed to retrieve timeline data', 'error');
@@ -4819,36 +4917,45 @@ ${result.valid ?
                 return;
             }
 
-            // Parse arguments: YYYY-MM-DD description
-            const parts = args.trim().split(' ');
-            console.log('DEBUG: Parsed timeline args:', parts);
-            if (parts.length < 2) {
-                showNotification('Usage: /timeline YYYY-MM-DD description', 'error');
-                return;
-            }
+            // Check if input matches old format (YYYY-MM-DD at start) or use natural language
+            const datePattern = /^\d{4}-\d{2}-\d{2}\s/;
+            let requestBody = { path: connectedStorePath };
 
-            const dateInput = parts[0];
-            const description = parts.slice(1).join(' ');
+            if (datePattern.test(args.trim())) {
+                // Old format: YYYY-MM-DD description
+                const parts = args.trim().split(' ');
+                if (parts.length < 2) {
+                    showNotification('Usage: /timeline YYYY-MM-DD description', 'error');
+                    return;
+                }
 
-            // Convert YYYY-MM-DD to YYYYMMDD format
-            let dateStr;
-            if (dateInput.includes('-')) {
-                dateStr = dateInput.replace(/-/g, '');
+                const dateInput = parts[0];
+                const description = parts.slice(1).join(' ');
+
+                // Convert YYYY-MM-DD to YYYYMMDD format
+                let dateStr;
+                if (dateInput.includes('-')) {
+                    dateStr = dateInput.replace(/-/g, '');
+                } else {
+                    dateStr = dateInput;
+                }
+
+                // Validate date format
+                if (dateStr.length !== 8 || !/^\d{8}$/.test(dateStr)) {
+                    showNotification('Invalid date format. Use YYYY-MM-DD (e.g., 2025-01-07)', 'error');
+                    return;
+                }
+
+                requestBody.date = dateStr;
+                requestBody.description = description;
+                console.log('DEBUG: Using structured format:', requestBody);
             } else {
-                dateStr = dateInput;
+                // Natural language format: let the server parse it with LLM
+                requestBody.content = args.trim();
+                console.log('DEBUG: Using natural language format:', requestBody);
+                showNotification('Parsing timeline event with AI...', 'info');
             }
 
-            // Validate date format
-            if (dateStr.length !== 8 || !/^\d{8}$/.test(dateStr)) {
-                showNotification('Invalid date format. Use YYYY-MM-DD (e.g., 2025-01-07)', 'error');
-                return;
-            }
-
-            console.log('DEBUG: Sending timeline event to server:', {
-                path: connectedStorePath,
-                date: dateStr,
-                description: description
-            });
 
             try {
                 const response = await fetch('/api/timeline', {
@@ -4856,18 +4963,16 @@ ${result.valid ?
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        path: connectedStorePath,
-                        date: dateStr,
-                        description: description
-                    })
+                    body: JSON.stringify(requestBody)
                 });
 
                 const result = await response.json();
                 console.log('DEBUG: Server response:', result);
 
                 if (result.success) {
-                    showNotification(`✓ Timeline event added for ${dateInput}: ${description}`, 'success');
+                    const eventDate = result.date || requestBody.date || 'date';
+                    const eventDesc = result.description || requestBody.description || 'event';
+                    showNotification(`✓ Timeline event added for ${eventDate}: ${eventDesc}`, 'success');
                     // Refresh the timeline view to show the new event
                     await updateTimelineView();
                     // Also refresh the store to update other views
@@ -5101,8 +5206,6 @@ ${result.valid ?
         }
 
         function renderTimelineGrid(timelineData) {
-            console.log('renderTimelineGrid called with data:', timelineData);
-            console.log('Timeline data keys:', Object.keys(timelineData || {}));
 
             const gitTreeElement = document.getElementById('gitTree');
             if (!gitTreeElement) {
@@ -5129,7 +5232,6 @@ ${result.valid ?
             const timelineContainer = document.createElement('div');
             timelineContainer.className = 'timeline-grid-container';
 
-            console.log('Created timeline container with class:', timelineContainer.className);
 
             if (!timelineData || Object.keys(timelineData).length === 0) {
                 // Show empty state with high visibility
@@ -5141,7 +5243,6 @@ ${result.valid ?
                     </div>
                 `;
                 gitTreeElement.appendChild(timelineContainer);
-                console.log('Showing empty timeline state with high visibility styling');
                 return;
             }
 
@@ -5242,7 +5343,6 @@ ${result.valid ?
 
             // Mark this element as showing timeline to prevent overwrites
             gitTreeElement.setAttribute('data-showing', 'timeline');
-            console.log('Marked gitTree as showing timeline');
         }
 
         function groupEventsByMonth(timelineData) {
@@ -5335,7 +5435,6 @@ ${result.valid ?
                 console.log('gitTree element found:', gitTreeElement);
                 console.log('gitTree innerHTML preview:', gitTreeElement.innerHTML.substring(0, 200) + '...');
                 console.log('gitTree children count:', gitTreeElement.children.length);
-                console.log('Timeline container present:', !!gitTreeElement.querySelector('.timeline-grid-container'));
                 console.log('Commit nodes present:', gitTreeElement.querySelectorAll('.commit-node').length);
 
                 // Show classes on direct children
@@ -5366,18 +5465,14 @@ ${result.valid ?
 
                 // Force reload timeline data
                 const timelineResult = await loadTimelineData();
-                console.log('Forced timeline data load result:', timelineResult);
 
                 if (timelineResult.success) {
-                    console.log('Force rendering timeline with data:', timelineResult.timeline_data);
                     renderTimelineGrid(timelineResult.timeline_data);
 
                     // Double-check it was added
                     setTimeout(() => {
                         const timelineContainer = gitTreeElement.querySelector('.timeline-grid-container');
-                        console.log('Timeline container after force render:', !!timelineContainer);
                         if (timelineContainer) {
-                            console.log('Timeline container content preview:', timelineContainer.innerHTML.substring(0, 200));
                         }
                     }, 100);
 
@@ -5418,7 +5513,6 @@ ${result.valid ?
                     });
 
                     const timelineMonths = timelineContainer.querySelectorAll('.timeline-month');
-                    console.log(`Found ${timelineMonths.length} timeline months`);
 
                     timelineMonths.forEach((month, i) => {
                         const monthStyle = window.getComputedStyle(month);
@@ -5481,10 +5575,8 @@ ${result.valid ?
                 const response = await fetch(`/api/debug-timeline?path=${encodeURIComponent(connectedStorePath)}`);
                 const result = await response.json();
 
-                console.log('DEBUG: Debug timeline response:', result);
 
                 if (result.success) {
-                    console.log('DEBUG: Timeline memories:', result.timeline_memories);
                     console.log('DEBUG: All memories:', result.all_memories);
 
                     // Show detailed timeline memory structures
@@ -5755,32 +5847,28 @@ ${result.valid ?
                 return;
             }
 
-            // More flexible parsing - look for common location keywords
-            let location, description;
-            const lowerArgs = args.toLowerCase();
+            // Check if input looks like structured format (starts with a single word that could be a location)
+            // Otherwise use natural language processing
+            let requestBody = { path: connectedStorePath };
 
-            // Pattern 1: "want to go/visit <place>"
-            const wantToGoMatch = lowerArgs.match(/(?:want to go|want to visit|going to|visiting)\s+(.+)/);
-            if (wantToGoMatch) {
-                const place = wantToGoMatch[1].split(/\s+/)[0]; // Take first word after "want to go"
-                location = place;
-                description = args; // Use full description
-            }
-            // Pattern 2: "in <place>" or "at <place>"
-            else if (lowerArgs.match(/\b(?:in|at)\s+([a-zA-Z]+)/)) {
-                const match = lowerArgs.match(/\b(?:in|at)\s+([a-zA-Z]+)/);
-                location = match[1];
-                description = args;
-            }
-            // Pattern 3: Traditional "<place> <description>"
-            else {
-                const parts = args.trim().split(/\s+/);
-                if (parts.length < 2) {
-                    showNotification('Usage: /location <place> <description> or /location want to go <place>', 'error');
-                    return;
-                }
-                location = parts[0];
-                description = parts.slice(1).join(' ');
+            const parts = args.trim().split(/\s+/);
+
+            // Simple heuristic: if first word looks like a place name and there's more text, treat as structured
+            // Otherwise send the whole thing for natural language processing
+            const firstWord = parts[0];
+            const hasMultipleParts = parts.length >= 2;
+            const looksLikeStructured = hasMultipleParts && /^[A-Z][a-zA-Z]+$/.test(firstWord);
+
+            if (looksLikeStructured) {
+                // Structured format: <location> <description>
+                requestBody.location = parts[0];
+                requestBody.description = parts.slice(1).join(' ');
+                console.log('DEBUG: Using structured location format:', requestBody);
+            } else {
+                // Natural language format: let the server parse it with AI
+                requestBody.content = args.trim();
+                console.log('DEBUG: Using natural language location format:', requestBody);
+                showNotification('Parsing location event with AI...', 'info');
             }
 
             try {
@@ -5789,17 +5877,14 @@ ${result.valid ?
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        path: connectedStorePath,
-                        location: location,
-                        description: description
-                    }),
+                    body: JSON.stringify(requestBody),
                 });
 
                 const result = await response.json();
 
                 if (result.success) {
-                    showNotification(`Location event added: ${location}`, 'success');
+                    const locationName = result.location || requestBody.location || 'location';
+                    showNotification(`Location event added: ${locationName}`, 'success');
 
                     // Refresh places view if it's currently active
                     if (document.getElementById('placesView').style.display === 'block') {
@@ -6224,6 +6309,705 @@ ${result.valid ?
             }
         }
 
+        async function recallMemories(query) {
+            if (!connectedStorePath) {
+                showNotification('Please connect to a memory store first', 'error');
+                return;
+            }
+
+            // Check if we're in demo mode
+            if (connectedStorePath === null || window.isNewEmptyStore === true) {
+                showNotification('Recall is not available in demo mode. Please connect to a real memory store using /connect <path>', 'error', 5000);
+                return;
+            }
+
+            // Track timing
+            const startTime = Date.now();
+
+            // Show progress modal
+            const progressModal = showProgressModal('Recalling Memories', `Searching for: "${query}"`);
+            progressModal.startTime = startTime;
+
+            // Create AbortController for cancellation
+            const abortController = new AbortController();
+            progressModal.abortController = abortController;
+
+            try {
+                // Start with initial progress
+                updateProgressModalWithTime(progressModal, 'Initializing search...', 5);
+
+                // The actual search happens in the API call, so we simulate progress during the fetch
+                const fetchPromise = fetch(`/api/recall?path=${encodeURIComponent(connectedStorePath)}&query=${encodeURIComponent(query)}`, {
+                    signal: abortController.signal
+                });
+
+                // Start continuous progress updates with elapsed time
+                let progressStep = 0;
+                const progressMessages = [
+                    'Initializing search...',
+                    'Step 1/4: Discovering memory paths...',
+                    'Step 2/4: AI selecting relevant paths...',
+                    'Step 3/4: AI analyzing content...',
+                    'Step 4/4: Retrieving memories...'
+                ];
+
+                const progressInterval = setInterval(() => {
+                    if (!abortController.signal.aborted) {
+                        const elapsedMs = Date.now() - startTime;
+                        const elapsedSec = (elapsedMs / 1000).toFixed(1);
+
+                        // Determine step and progress based on elapsed time
+                        let step = 0;
+                        let percent = 5;
+
+                        if (elapsedSec < 0.5) {
+                            step = 0; percent = 5;
+                        } else if (elapsedSec < 1.0) {
+                            step = 1; percent = 15;
+                        } else if (elapsedSec < 2.0) {
+                            step = 2; percent = 35;
+                        } else if (elapsedSec < 3.0) {
+                            step = 3; percent = 65;
+                        } else {
+                            step = 4; percent = 85;
+                        }
+
+                        // Only update if step changed or every 100ms for time display
+                        if (step !== progressStep || elapsedMs % 100 < 50) {
+                            progressStep = step;
+                            const message = progressMessages[step] || progressMessages[4];
+                            updateProgressModalWithTime(progressModal, message, percent);
+                        }
+                    }
+                }, 100); // Update every 100ms
+
+                // Clear interval when request completes
+                const cleanupProgress = () => {
+                    if (progressInterval) {
+                        clearInterval(progressInterval);
+                    }
+                };
+
+                // Wait for the API response
+                const response = await fetchPromise;
+                cleanupProgress(); // Stop the progress updates
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                updateProgressModalWithTime(progressModal, 'Processing results...', 95);
+
+                const result = await response.json();
+
+                if (result.success) {
+                    // Create recall results display
+                    let recallContent = `<div class="recall-content">`;
+                    recallContent += `<h3>Memory Recall Results</h3>`;
+                    recallContent += `<div class="recall-query">Query: "${query}"</div>`;
+
+                    // Display search metadata
+                    if (result.metadata) {
+                        recallContent += `
+                            <div class="recall-metadata">
+                                <div class="metadata-grid">
+                                    <div class="metadata-item">
+                                        <span class="metadata-label">Results Found</span>
+                                        <span class="metadata-value">${result.metadata.results_count || 0}</span>
+                                    </div>
+                                    <div class="metadata-item">
+                                        <span class="metadata-label">Total Time</span>
+                                        <span class="metadata-value">${result.metadata.total_time_seconds || 0}s</span>
+                                    </div>
+                                    <div class="metadata-item full-width">
+                                        <span class="metadata-label">Store Path</span>
+                                        <span class="metadata-value">${result.metadata.store_path || connectedStorePath}</span>
+                                    </div>
+                                </div>
+                        `;
+
+                        // Display four-step timing breakdown if available
+                        if (result.metadata.four_step_timings) {
+                            recallContent += `
+                                <div class="timing-breakdown">
+                                    <div class="timing-header">⏱️ Recall Process Breakdown</div>
+                                    <div class="timing-grid">
+                            `;
+
+                            const timing = result.metadata.four_step_timings;
+                            const stepLabels = {
+                                'step1_path_discovery': 'Step 1: Path Discovery',
+                                'step2_path_selection': 'Step 2: Semantic Path Selection',
+                                'step3_content_refinement': 'Step 3: Content Refinement',
+                                'step4_memory_retrieval': 'Step 4: Memory Retrieval'
+                            };
+
+                            // Calculate total for percentages
+                            const totalStepTime = Object.values(timing).reduce((sum, val) => sum + val, 0);
+
+                            const stepKeys = ['step1_path_discovery', 'step2_path_selection', 'step3_content_refinement', 'step4_memory_retrieval'];
+                            stepKeys.forEach((key, index) => {
+                                const value = timing[key] || 0;
+                                const label = stepLabels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                                const percentage = totalStepTime > 0 ?
+                                    Math.round((value / totalStepTime) * 100) : 0;
+
+                                // Check if this step involves LLM (steps 2 and 3 = path selection and content refinement)
+                                const hasPrompt = (index === 1 || index === 2) && result.metadata.llm_prompts;
+                                let promptButton = '';
+                                if (hasPrompt) {
+                                    const promptKey = index === 1 ? 'path_selection' : 'content_refinement';
+                                    const prompt = result.metadata.llm_prompts[promptKey];
+                                    if (prompt) {
+                                        promptButton = `<button class="prompt-btn recall-prompt-btn" data-prompt="${encodeURIComponent(prompt)}" style="
+                                            margin-left: 10px;
+                                            padding: 4px 8px;
+                                            font-size: 11px;
+                                            background: var(--accent-secondary);
+                                            color: white;
+                                            border: none;
+                                            border-radius: 3px;
+                                            cursor: pointer;
+                                            opacity: 0.8;
+                                            transition: opacity 0.2s;
+                                        ">View Prompt</button>`;
+                                    }
+                                }
+
+                                recallContent += `
+                                    <div class="timing-item">
+                                        <div class="timing-label">
+                                            ${label}
+                                            ${promptButton}
+                                        </div>
+                                        <div class="timing-value">
+                                            <span class="timing-duration">${value}s</span>
+                                            <span class="timing-percentage">(${percentage}%)</span>
+                                        </div>
+                                        <div class="timing-bar">
+                                            <div class="timing-fill" style="width: ${percentage}%"></div>
+                                        </div>
+                                    </div>
+                                `;
+                            });
+
+                            recallContent += `
+                                    </div>
+                                </div>
+                            `;
+                        }
+
+                        recallContent += `</div>`;
+                    }
+
+                    // Display search results
+                    if (result.results && result.results.length > 0) {
+                        recallContent += `<div class="recall-results">`;
+                        result.results.forEach((item, index) => {
+                            const fullPath = `${item.namespace || 'default'}:${item.path}`;
+                            const itemId = `recall-item-${index}`;
+                            recallContent += `
+                                <div class="recall-item" id="${itemId}">
+                                    <div class="recall-item-header">
+                                        <div class="recall-path-section">
+                                            <div class="recall-path-main">
+                                                <span class="recall-path-label">Path:</span>
+                                                <span class="recall-path">${item.path}</span>
+                                                <button class="copy-btn" onclick="copyToClipboard('${item.path.replace(/'/g, "\\'")}', this)" title="Copy path">📋</button>
+                                            </div>
+                                            <div class="recall-path-full">
+                                                <span class="recall-path-label">Full Key:</span>
+                                                <span class="recall-fullpath">${fullPath}</span>
+                                                <button class="copy-btn" onclick="copyToClipboard('${fullPath.replace(/'/g, "\\'")}', this)" title="Copy full key">📋</button>
+                                            </div>
+                                            <div class="recall-namespace">
+                                                <span class="recall-path-label">Namespace:</span>
+                                                <span class="recall-namespace-value">${item.namespace || 'default'}</span>
+                                                <button class="copy-btn" onclick="copyToClipboard('${(item.namespace || 'default').replace(/'/g, "\\'")}', this)" title="Copy namespace">📋</button>
+                                            </div>
+                                        </div>
+                                        <span class="recall-score">${(item.relevance_score * 100).toFixed(0)}% match</span>
+                                    </div>
+                                    <div class="recall-item-content">
+                                        <div class="recall-content-header">
+                                            <span class="recall-content-label">Content:</span>
+                                            <button class="copy-btn" onclick="copyToClipboard(\`${escapeHtml(item.content).replace(/`/g, '\\`').replace(/\\/g, '\\\\')}\`, this)" title="Copy content">📋</button>
+                                        </div>
+                                        <div class="recall-content-text">${escapeHtml(item.content)}</div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                        recallContent += `</div>`;
+                    } else {
+                        console.log('❌ No results found - showing no results message');
+                        console.log('📊 result.results:', result.results);
+                        recallContent += `<div class="recall-no-results">No relevant memories found for your query.</div>`;
+                    }
+
+                    recallContent += `</div>`;
+
+                    // Complete progress and close modal
+                    updateProgressModalWithTime(progressModal, 'Recall completed!', 100);
+                    setTimeout(() => closeProgressModal(progressModal), 500);
+
+                    // Create and show results modal
+                    const modal = document.createElement('div');
+                    modal.className = 'recall-modal';
+                    modal.innerHTML = `
+                        <div class="recall-modal-content">
+                            <div class="recall-modal-header">
+                                <h2>🔍 Memory Recall</h2>
+                                <button class="recall-modal-close">&times;</button>
+                            </div>
+                            <div class="recall-modal-body">
+                                ${recallContent}
+                            </div>
+                            <div class="recall-modal-footer">
+                                <button class="recall-button secondary" onclick="closeRecallModal()">Close</button>
+                                <button class="recall-button primary" onclick="copyRecallToClipboard()">Copy Results</button>
+                            </div>
+                        </div>
+                    `;
+
+                    // Add CSS for recall modal (reuse summary modal styles)
+                    if (!document.getElementById('recall-modal-styles')) {
+                        const styles = document.createElement('style');
+                        styles.id = 'recall-modal-styles';
+                        styles.textContent = `
+                            .recall-modal {
+                                position: fixed;
+                                top: 0;
+                                left: 0;
+                                width: 100%;
+                                height: 100%;
+                                background: rgba(0, 0, 0, 0.8);
+                                backdrop-filter: blur(10px);
+                                z-index: 10000;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                animation: fadeIn 0.3s ease-out;
+                            }
+
+                            .recall-modal-content {
+                                background: var(--bg-primary);
+                                border: 1px solid var(--border-light);
+                                border-radius: 16px;
+                                max-width: 900px;
+                                width: 90%;
+                                max-height: 80vh;
+                                display: flex;
+                                flex-direction: column;
+                                animation: slideIn 0.3s ease-out;
+                                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+                            }
+
+                            .recall-modal-header {
+                                padding: 20px 30px;
+                                border-bottom: 1px solid var(--border-light);
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                background: var(--bg-glass);
+                                border-radius: 16px 16px 0 0;
+                            }
+
+                            .recall-modal-header h2 {
+                                margin: 0;
+                                color: var(--text-primary);
+                                font-size: 24px;
+                            }
+
+                            .recall-modal-close {
+                                background: none;
+                                border: none;
+                                color: var(--text-secondary);
+                                font-size: 28px;
+                                cursor: pointer;
+                                padding: 0;
+                                width: 32px;
+                                height: 32px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                border-radius: 6px;
+                                transition: all 0.2s ease;
+                            }
+
+                            .recall-modal-close:hover {
+                                background: rgba(255, 255, 255, 0.1);
+                                color: var(--text-primary);
+                            }
+
+                            .recall-modal-body {
+                                padding: 30px;
+                                overflow-y: auto;
+                                flex: 1;
+                            }
+
+                            .recall-content h3 {
+                                margin-top: 0;
+                                margin-bottom: 20px;
+                                color: var(--accent-primary);
+                            }
+
+                            .recall-query {
+                                padding: 15px;
+                                background: rgba(34, 211, 238, 0.1);
+                                border-radius: 8px;
+                                border: 1px solid rgba(34, 211, 238, 0.3);
+                                margin-bottom: 20px;
+                                font-size: 14px;
+                                color: var(--text-primary);
+                            }
+
+                            .recall-metadata {
+                                margin-bottom: 25px;
+                                padding: 15px;
+                                background: rgba(168, 85, 247, 0.1);
+                                border-radius: 12px;
+                                border: 1px solid rgba(168, 85, 247, 0.2);
+                            }
+
+                            .timing-breakdown {
+                                margin-top: 20px;
+                                padding: 15px;
+                                background: rgba(34, 211, 238, 0.1);
+                                border-radius: 12px;
+                                border: 1px solid rgba(34, 211, 238, 0.2);
+                            }
+
+                            .timing-header {
+                                font-size: 14px;
+                                font-weight: 600;
+                                color: var(--text-primary);
+                                margin-bottom: 12px;
+                                display: flex;
+                                align-items: center;
+                                gap: 6px;
+                            }
+
+                            .timing-grid {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 8px;
+                            }
+
+                            .timing-item {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 4px;
+                            }
+
+                            .timing-label {
+                                font-size: 12px;
+                                color: var(--text-secondary);
+                                font-weight: 500;
+                            }
+
+                            .timing-value {
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                            }
+
+                            .timing-duration {
+                                font-size: 13px;
+                                font-weight: 600;
+                                color: var(--text-primary);
+                                font-family: 'SF Mono', Monaco, monospace;
+                            }
+
+                            .timing-percentage {
+                                font-size: 11px;
+                                color: var(--text-secondary);
+                                font-family: 'SF Mono', Monaco, monospace;
+                            }
+
+                            .timing-bar {
+                                height: 4px;
+                                background: rgba(255, 255, 255, 0.1);
+                                border-radius: 2px;
+                                overflow: hidden;
+                                margin-top: 2px;
+                            }
+
+                            .timing-fill {
+                                height: 100%;
+                                background: linear-gradient(90deg, #22d3ee, #06b6d4);
+                                border-radius: 2px;
+                                transition: width 0.3s ease;
+                            }
+
+                            .recall-results {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 15px;
+                            }
+
+                            .recall-item {
+                                padding: 15px;
+                                background: var(--bg-glass);
+                                border-radius: 10px;
+                                border: 1px solid var(--border-light);
+                                transition: all 0.2s ease;
+                            }
+
+                            .recall-item:hover {
+                                border-color: var(--accent-primary);
+                                box-shadow: 0 4px 12px rgba(34, 211, 238, 0.1);
+                            }
+
+                            .recall-item-header {
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                margin-bottom: 10px;
+                            }
+
+                            .recall-path {
+                                font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+                                font-size: 13px;
+                                color: var(--accent-primary);
+                                font-weight: 600;
+                            }
+
+                            .recall-score {
+                                font-size: 12px;
+                                color: var(--text-secondary);
+                                background: rgba(34, 211, 238, 0.1);
+                                padding: 4px 8px;
+                                border-radius: 4px;
+                            }
+
+                            .recall-item-content {
+                                font-size: 14px;
+                                color: var(--text-primary);
+                                line-height: 1.6;
+                                margin-bottom: 10px;
+                            }
+
+                            .recall-item-metadata {
+                                font-size: 12px;
+                                color: var(--text-secondary);
+                                display: flex;
+                                gap: 8px;
+                            }
+
+                            .recall-meta-label {
+                                font-weight: 600;
+                            }
+
+                            .recall-no-results {
+                                padding: 40px;
+                                text-align: center;
+                                color: var(--text-secondary);
+                                font-size: 16px;
+                            }
+
+                            .recall-modal-footer {
+                                padding: 20px 30px;
+                                border-top: 1px solid var(--border-light);
+                                display: flex;
+                                gap: 15px;
+                                justify-content: flex-end;
+                                background: var(--bg-glass);
+                            }
+
+                            .recall-button {
+                                padding: 10px 20px;
+                                border: none;
+                                border-radius: 8px;
+                                font-size: 14px;
+                                cursor: pointer;
+                                transition: all 0.2s ease;
+                                font-weight: 500;
+                            }
+
+                            .recall-button.primary {
+                                background: var(--accent-primary);
+                                color: white;
+                            }
+
+                            .recall-button.primary:hover {
+                                background: var(--accent-secondary);
+                                transform: translateY(-1px);
+                            }
+
+                            .recall-button.secondary {
+                                background: var(--bg-glass);
+                                color: var(--text-primary);
+                                border: 1px solid var(--border-light);
+                            }
+
+                            .recall-button.secondary:hover {
+                                background: var(--bg-glass-light);
+                                transform: translateY(-1px);
+                            }
+
+                            /* Enhanced path and copy functionality styles */
+                            .recall-path-section {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 8px;
+                                flex: 1;
+                            }
+
+                            .recall-path-main, .recall-path-full, .recall-namespace {
+                                display: flex;
+                                align-items: center;
+                                gap: 8px;
+                            }
+
+                            .recall-path-label {
+                                font-size: 11px;
+                                font-weight: 600;
+                                color: var(--text-secondary);
+                                min-width: 70px;
+                                text-transform: uppercase;
+                                letter-spacing: 0.5px;
+                            }
+
+                            .recall-fullpath {
+                                font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+                                font-size: 12px;
+                                color: var(--accent-secondary);
+                                font-weight: 500;
+                            }
+
+                            .recall-namespace-value {
+                                font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+                                font-size: 12px;
+                                color: var(--text-primary);
+                                font-weight: 500;
+                            }
+
+                            .copy-btn {
+                                background: var(--bg-glass);
+                                border: 1px solid var(--border-light);
+                                border-radius: 4px;
+                                padding: 2px 6px;
+                                font-size: 12px;
+                                cursor: pointer;
+                                transition: all 0.2s ease;
+                                color: var(--text-secondary);
+                                opacity: 0.7;
+                            }
+
+                            .copy-btn:hover {
+                                background: var(--accent-primary);
+                                color: white;
+                                opacity: 1;
+                                transform: translateY(-1px);
+                            }
+
+                            .recall-content-header {
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                margin-bottom: 8px;
+                            }
+
+                            .recall-content-label {
+                                font-size: 11px;
+                                font-weight: 600;
+                                color: var(--text-secondary);
+                                text-transform: uppercase;
+                                letter-spacing: 0.5px;
+                            }
+
+                            .recall-content-text {
+                                font-size: 14px;
+                                color: var(--text-primary);
+                                line-height: 1.6;
+                                padding: 10px;
+                                background: rgba(0, 0, 0, 0.1);
+                                border-radius: 6px;
+                                border-left: 3px solid var(--accent-primary);
+                            }
+                        `;
+                        document.head.appendChild(styles);
+                    }
+
+                    // Store results for clipboard copying
+                    window.currentRecallResults = result;
+
+                    // Add modal to DOM
+                    document.body.appendChild(modal);
+
+                    // Add event listeners
+                    modal.querySelector('.recall-modal-close').onclick = () => document.body.removeChild(modal);
+                    modal.onclick = (e) => {
+                        if (e.target === modal) document.body.removeChild(modal);
+                    };
+
+                    // Add prompt button functionality
+                    const recallPromptBtns = modal.querySelectorAll('.recall-prompt-btn');
+                    recallPromptBtns.forEach(btn => {
+                        btn.addEventListener('click', () => {
+                            const encodedPrompt = btn.getAttribute('data-prompt');
+                            const prompt = decodeURIComponent(encodedPrompt);
+                            showPromptModal(prompt);
+                        });
+                    });
+
+                    // Global functions for modal buttons
+                    window.closeRecallModal = () => {
+                        const modal = document.querySelector('.recall-modal');
+                        if (modal) document.body.removeChild(modal);
+                    };
+
+                    window.copyRecallToClipboard = () => {
+                        if (window.currentRecallResults) {
+                            let textResults = `Memory Recall Results\n`;
+                            textResults += `Query: "${query}"\n\n`;
+
+                            if (window.currentRecallResults.metadata) {
+                                textResults += `Results Found: ${window.currentRecallResults.metadata.results_count || 0}\n`;
+                                textResults += `Search Time: ${window.currentRecallResults.metadata.search_time || 'N/A'}\n\n`;
+                            }
+
+                            if (window.currentRecallResults.results && window.currentRecallResults.results.length > 0) {
+                                window.currentRecallResults.results.forEach((item, index) => {
+                                    textResults += `--- Result ${index + 1} ---\n`;
+                                    textResults += `Path: ${item.path}\n`;
+                                    textResults += `Relevance: ${(item.relevance_score * 100).toFixed(0)}%\n`;
+                                    textResults += `Content: ${item.content}\n`;
+                                    if (item.namespace) {
+                                        textResults += `Namespace: ${item.namespace}\n`;
+                                    }
+                                    textResults += `\n`;
+                                });
+                            } else {
+                                textResults += 'No relevant memories found.\n';
+                            }
+
+                            navigator.clipboard.writeText(textResults).then(() => {
+                                showNotification('Recall results copied to clipboard', 'success');
+                            }).catch(err => {
+                                console.error('Failed to copy:', err);
+                                showNotification('Failed to copy results', 'error');
+                            });
+                        }
+                    };
+
+                } else {
+                    throw new Error(result.error || 'Unknown error occurred');
+                }
+            } catch (error) {
+                console.error('Recall error:', error);
+                cleanupProgress(); // Stop the progress updates
+                closeProgressModal(progressModal);
+
+                if (error.name === 'AbortError') {
+                    showNotification('Recall search cancelled', 'info');
+                } else {
+                    showNotification(`Error recalling memories: ${error.message}`, 'error', 5000);
+                }
+            }
+        }
+
         function showProgressModal(title, message) {
             // Create progress modal
             const modal = document.createElement('div');
@@ -6379,9 +7163,1099 @@ ${result.valid ?
             if (percentEl) percentEl.textContent = `${percentage}%`;
         }
 
+        function updateProgressModalWithTime(modal, message, percentage) {
+            const elapsedMs = Date.now() - (modal.startTime || Date.now());
+            const elapsedSec = (elapsedMs / 1000).toFixed(1);
+            const messageWithTime = `${message} (${elapsedSec}s)`;
+
+            updateProgressModal(modal, messageWithTime, percentage);
+        }
+
         function closeProgressModal(modal) {
             if (modal && modal.parentNode) {
                 document.body.removeChild(modal);
+            }
+        }
+
+        function showRememberResultsModal(result) {
+            // Create modal overlay
+            const modal = document.createElement('div');
+            modal.className = 'remember-results-modal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.7);
+                z-index: 1000;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            `;
+
+            // Format timing breakdown
+            const timings = result.five_step_timings || {};
+            const timingBars = Object.entries(timings).map(([step, time], index) => {
+                const stepNames = [
+                    'Store Initialization',
+                    'Classification & Path Generation',
+                    'Memory Storage',
+                    'Timeline Processing',
+                    'Location Processing'
+                ];
+                const percentage = time > 0 ? Math.max(10, Math.min(100, (time / Math.max(0.1, Object.values(timings).reduce((a, b) => Math.max(a, b), 0.1)) * 100))) : 0;
+
+                // Check if this step involves LLM (step 2 = classification)
+                const hasPrompt = index === 1 && result.classification_prompt;
+                const promptButton = hasPrompt ? `<button class="prompt-btn" data-prompt="${encodeURIComponent(result.classification_prompt)}" style="
+                    margin-left: 10px;
+                    padding: 4px 8px;
+                    font-size: 11px;
+                    background: var(--accent-secondary);
+                    color: white;
+                    border: none;
+                    border-radius: 3px;
+                    cursor: pointer;
+                    opacity: 0.8;
+                    transition: opacity 0.2s;
+                ">View Prompt</button>` : '';
+
+                return `
+                    <div class="timing-step">
+                        <div class="step-name">
+                            ${stepNames[index] || step}
+                            ${promptButton}
+                        </div>
+                        <div class="progress-bar-container">
+                            <div class="progress-bar-fill" style="width: ${percentage}%"></div>
+                        </div>
+                        <div class="step-time">${time.toFixed(3)}s</div>
+                    </div>
+                `;
+            }).join('');
+
+            // Format timeline events if present
+            let timelineSection = '';
+            if (result.timeline_events && result.timeline_events.length > 0) {
+                timelineSection = `
+                    <div class="timeline-events-section">
+                        <h4>🕒 Timeline Events Detected:</h4>
+                        <ul class="timeline-events-list">
+                            ${result.timeline_events.map(event => `
+                                <li>${event.description || event.event || JSON.stringify(event)}</li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                `;
+            }
+
+            modal.innerHTML = `
+                <div class="modal-content" style="
+                    background: var(--bg-primary);
+                    color: var(--text-primary);
+                    padding: 30px;
+                    border-radius: 12px;
+                    max-width: 800px;
+                    width: 90%;
+                    max-height: 80vh;
+                    overflow-y: auto;
+                    box-shadow: 0 20px 60px var(--shadow);
+                    border: 1px solid var(--border-light);
+                ">
+                    <div class="modal-header" style="
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 20px;
+                        padding-bottom: 15px;
+                        border-bottom: 2px solid var(--border-light);
+                    ">
+                        <h2 style="margin: 0; color: var(--success); font-size: 24px;">
+                            ✅ Memory Stored Successfully
+                        </h2>
+                        <button class="close-btn" style="
+                            background: none;
+                            border: none;
+                            font-size: 24px;
+                            cursor: pointer;
+                            color: var(--text-secondary);
+                            padding: 5px;
+                        ">&times;</button>
+                    </div>
+
+                    <div class="remember-results-content">
+                        <!-- Memory Details -->
+                        <div class="memory-details" style="margin-bottom: 25px;">
+                            <h3 style="color: var(--success); margin-bottom: 15px;">📝 Memory Details</h3>
+                            <div class="detail-row" style="margin-bottom: 10px;">
+                                <strong>Path:</strong> <code style="background: var(--bg-secondary); color: var(--text-primary); padding: 2px 6px; border-radius: 3px; border: 1px solid var(--border-light);">${result.key}</code>
+                                <button class="copy-btn" data-copy="${result.key}" style="margin-left: 10px; padding: 4px 8px; font-size: 12px; background: var(--accent-primary); color: white; border: none; border-radius: 3px; cursor: pointer;">Copy</button>
+                            </div>
+                            <div class="detail-row" style="margin-bottom: 10px;">
+                                <strong>Full Key:</strong> <code style="background: var(--bg-secondary); color: var(--text-primary); padding: 2px 6px; border-radius: 3px; border: 1px solid var(--border-light);">${result.full_key}</code>
+                                <button class="copy-btn" data-copy="${result.full_key}" style="margin-left: 10px; padding: 4px 8px; font-size: 12px; background: var(--accent-primary); color: white; border: none; border-radius: 3px; cursor: pointer;">Copy</button>
+                            </div>
+                            <div class="detail-row" style="margin-bottom: 10px;">
+                                <strong>Confidence:</strong> <span style="color: ${result.confidence > 0.8 ? 'var(--success)' : result.confidence > 0.5 ? 'var(--warning)' : 'var(--error)'};">${(result.confidence * 100).toFixed(0)}%</span>
+                            </div>
+                            <div class="detail-row" style="margin-bottom: 10px;">
+                                <strong>Namespace:</strong> ${result.namespace}
+                            </div>
+                            ${result.commit_hash ? `
+                                <div class="detail-row" style="margin-bottom: 10px;">
+                                    <strong>Commit:</strong> ${result.commit_hash}
+                                </div>
+                            ` : ''}
+                            ${result.commit_date ? `
+                                <div class="detail-row" style="margin-bottom: 10px;">
+                                    <strong>Date:</strong> ${new Date(result.commit_date).toLocaleString()}
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <!-- Stored Content -->
+                        <div class="stored-content" style="margin-bottom: 25px;">
+                            <h3 style="color: var(--success); margin-bottom: 15px;">💾 Stored Content</h3>
+                            <div class="content-box" style="
+                                background: var(--bg-secondary);
+                                color: var(--text-primary);
+                                border: 1px solid var(--border-light);
+                                border-radius: 8px;
+                                padding: 15px;
+                                max-height: 200px;
+                                overflow-y: auto;
+                                font-family: 'JetBrains Mono', monospace;
+                                white-space: pre-wrap;
+                                word-wrap: break-word;
+                            ">${result.content}</div>
+                            <button class="copy-btn" data-copy="${result.content}" style="margin-top: 10px; padding: 6px 12px; background: var(--success); color: white; border: none; border-radius: 3px; cursor: pointer;">Copy Content</button>
+                        </div>
+
+                        <!-- Classification Reasoning -->
+                        <div class="classification-reasoning" style="margin-bottom: 25px;">
+                            <h3 style="color: var(--success); margin-bottom: 15px;">🧠 Classification Reasoning</h3>
+                            <div style="
+                                background: var(--bg-glass);
+                                border-left: 4px solid var(--accent-primary);
+                                padding: 15px;
+                                border-radius: 0 8px 8px 0;
+                                font-style: italic;
+                                color: var(--text-primary);
+                                border: 1px solid var(--border-light);
+                                border-left: 4px solid var(--accent-primary);
+                            ">${result.reasoning}</div>
+                        </div>
+
+                        <!-- Performance Timing -->
+                        <div class="performance-timing" style="margin-bottom: 25px;">
+                            <h3 style="color: var(--success); margin-bottom: 15px;">⚡ Performance Breakdown</h3>
+                            <div class="timing-breakdown" style="
+                                background: var(--bg-secondary);
+                                border: 1px solid var(--border-light);
+                                border-radius: 8px;
+                                padding: 20px;
+                            ">
+                                ${timingBars}
+                                <div class="total-time" style="
+                                    margin-top: 15px;
+                                    padding-top: 15px;
+                                    border-top: 2px solid var(--border-light);
+                                    font-weight: bold;
+                                    color: var(--success);
+                                ">
+                                    Total Time: ${(result.step_timings.total_remember || 0).toFixed(3)}s
+                                </div>
+                            </div>
+                        </div>
+
+                        ${timelineSection}
+                    </div>
+                </div>
+            `;
+
+            // Add click handlers
+            const closeBtn = modal.querySelector('.close-btn');
+            closeBtn.addEventListener('click', () => {
+                document.body.removeChild(modal);
+            });
+
+            // Close on backdrop click
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    document.body.removeChild(modal);
+                }
+            });
+
+            // Add copy functionality
+            const copyBtns = modal.querySelectorAll('.copy-btn');
+            copyBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const textToCopy = btn.getAttribute('data-copy');
+                    navigator.clipboard.writeText(textToCopy).then(() => {
+                        btn.textContent = 'Copied!';
+                        btn.style.background = 'var(--success)';
+                        setTimeout(() => {
+                            btn.textContent = btn.getAttribute('data-copy') === result.content ? 'Copy Content' : 'Copy';
+                            btn.style.background = btn.getAttribute('data-copy') === result.content ? 'var(--success)' : 'var(--accent-primary)';
+                        }, 2000);
+                    }).catch(() => {
+                        btn.textContent = 'Copy failed';
+                        setTimeout(() => {
+                            btn.textContent = btn.getAttribute('data-copy') === result.content ? 'Copy Content' : 'Copy';
+                        }, 2000);
+                    });
+                });
+            });
+
+            // Add prompt button functionality
+            const promptBtns = modal.querySelectorAll('.prompt-btn');
+            promptBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const encodedPrompt = btn.getAttribute('data-prompt');
+                    const prompt = decodeURIComponent(encodedPrompt);
+                    showPromptModal(prompt);
+                });
+            });
+
+            // Add styles for timing breakdown
+            const style = document.createElement('style');
+            style.textContent = `
+                .timing-step {
+                    display: flex;
+                    align-items: center;
+                    margin-bottom: 10px;
+                    gap: 15px;
+                }
+                .step-name {
+                    min-width: 200px;
+                    font-weight: 500;
+                }
+                .progress-bar-container {
+                    flex: 1;
+                    background: var(--bg-tertiary);
+                    height: 20px;
+                    border-radius: 10px;
+                    overflow: hidden;
+                    border: 1px solid var(--border-light);
+                }
+                .progress-bar-fill {
+                    height: 100%;
+                    background: linear-gradient(45deg, var(--accent-primary), var(--accent-secondary));
+                    border-radius: 10px;
+                    transition: width 0.3s ease;
+                }
+                .step-time {
+                    min-width: 60px;
+                    text-align: right;
+                    font-weight: bold;
+                    color: var(--accent-primary);
+                }
+                .timeline-events-list {
+                    margin: 0;
+                    padding-left: 20px;
+                }
+                .timeline-events-list li {
+                    margin-bottom: 5px;
+                }
+            `;
+            document.head.appendChild(style);
+
+            document.body.appendChild(modal);
+        }
+
+        function showPromptModal(prompt) {
+            // Create modal overlay
+            const modal = document.createElement('div');
+            modal.className = 'prompt-modal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.7);
+                z-index: 10001;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+            `;
+
+            modal.innerHTML = `
+                <div class="modal-content" style="
+                    background: var(--bg-primary);
+                    color: var(--text-primary);
+                    padding: 30px;
+                    border-radius: 12px;
+                    max-width: 800px;
+                    width: 90%;
+                    max-height: 80vh;
+                    overflow-y: auto;
+                    box-shadow: 0 20px 60px var(--shadow);
+                    border: 1px solid var(--border-light);
+                ">
+                    <div class="modal-header" style="
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 20px;
+                        padding-bottom: 15px;
+                        border-bottom: 2px solid var(--border-light);
+                    ">
+                        <h2 style="margin: 0; color: var(--accent-primary); font-size: 24px;">
+                            🤖 LLM Prompt Inspection
+                        </h2>
+                        <button class="close-btn" style="
+                            background: none;
+                            border: none;
+                            font-size: 24px;
+                            cursor: pointer;
+                            color: var(--text-secondary);
+                            padding: 5px;
+                        ">&times;</button>
+                    </div>
+                    <div class="prompt-content">
+                        <div style="margin-bottom: 15px;">
+                            <button class="copy-prompt-btn" style="
+                                padding: 8px 16px;
+                                background: var(--success);
+                                color: white;
+                                border: none;
+                                border-radius: 3px;
+                                cursor: pointer;
+                                margin-right: 10px;
+                            ">Copy Prompt</button>
+                            <span style="color: var(--text-secondary); font-size: 14px;">
+                                This is the exact prompt sent to the LLM for classification
+                            </span>
+                        </div>
+                        <div class="prompt-box" style="
+                            background: var(--bg-secondary);
+                            color: var(--text-primary);
+                            border: 1px solid var(--border-light);
+                            border-radius: 8px;
+                            padding: 20px;
+                            max-height: 500px;
+                            overflow-y: auto;
+                            font-family: 'JetBrains Mono', Monaco, 'Courier New', monospace;
+                            white-space: pre-wrap;
+                            word-wrap: break-word;
+                            line-height: 1.4;
+                            font-size: 13px;
+                        ">${prompt}</div>
+                    </div>
+                </div>
+            `;
+
+            // Add event handlers
+            const closeBtn = modal.querySelector('.close-btn');
+            closeBtn.addEventListener('click', () => {
+                document.body.removeChild(modal);
+            });
+
+            // Close on backdrop click
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    document.body.removeChild(modal);
+                }
+            });
+
+            // Copy button functionality
+            const copyBtn = modal.querySelector('.copy-prompt-btn');
+            copyBtn.addEventListener('click', () => {
+                navigator.clipboard.writeText(prompt).then(() => {
+                    copyBtn.textContent = 'Copied!';
+                    copyBtn.style.background = 'var(--accent-primary)';
+                    setTimeout(() => {
+                        copyBtn.textContent = 'Copy Prompt';
+                        copyBtn.style.background = 'var(--success)';
+                    }, 2000);
+                }).catch(() => {
+                    copyBtn.textContent = 'Copy failed';
+                    setTimeout(() => {
+                        copyBtn.textContent = 'Copy Prompt';
+                    }, 2000);
+                });
+            });
+
+            document.body.appendChild(modal);
+        }
+
+        function showNodeDetailsPopup(nodeData, event) {
+            // Close any existing node popup
+            const existingPopup = document.querySelector('.node-details-popup');
+            if (existingPopup) {
+                document.body.removeChild(existingPopup);
+            }
+
+            // Find node data from current store
+            let nodeInfo = null;
+            let nodeContent = '';
+            let nodeNamespace = 'default';
+            let fullPath = nodeData.id;
+
+            // Try to find the node in the current data
+            if (window.realStoreData && window.realStoreData.memories) {
+                // Look through memories to find this path
+                for (const memory of window.realStoreData.memories) {
+                    if (memory.path === nodeData.id) {
+                        nodeInfo = memory;
+                        nodeContent = memory.content || '';
+                        nodeNamespace = memory.namespace || 'default';
+                        fullPath = `${nodeNamespace}:${memory.path}`;
+                        break;
+                    }
+                }
+            }
+
+            // If not found in memories, check if it's demo data
+            if (!nodeInfo && window.demoData && window.demoData.memories) {
+                for (const memory of window.demoData.memories) {
+                    if (memory.path === nodeData.id) {
+                        nodeInfo = memory;
+                        nodeContent = memory.content || '';
+                        nodeNamespace = memory.namespace || 'demo';
+                        fullPath = `${nodeNamespace}:${memory.path}`;
+                        break;
+                    }
+                }
+            }
+
+            // Create popup
+            const popup = document.createElement('div');
+            popup.className = 'node-details-popup';
+
+            popup.innerHTML = `
+                <div class="node-popup-content">
+                    <div class="node-popup-header">
+                        <h3>📍 Node Details</h3>
+                        <button class="node-popup-close">&times;</button>
+                    </div>
+                    <div class="node-popup-body">
+                        <div class="node-path-section">
+                            <div class="node-path-full">
+                                <span class="node-path-label">FULL KEY:</span>
+                                <span class="node-fullpath-value">${fullPath}</span>
+                                <button class="copy-btn" onclick="copyToClipboard('${fullPath.replace(/'/g, "\\'")}', this)" title="Copy full key">Copy</button>
+                            </div>
+                            <div class="node-namespace">
+                                <span class="node-path-label">NAMESPACE:</span>
+                                <span class="node-namespace-value">${nodeNamespace}</span>
+                                <button class="copy-btn" onclick="copyToClipboard('${nodeNamespace.replace(/'/g, "\\'")}', this)" title="Copy namespace">Copy</button>
+                            </div>
+                        </div>
+                        <div class="node-content-section">
+                            <div class="node-content-header">
+                                <span class="node-content-label">CONTENT:</span>
+                                ${nodeContent ? `<button class="copy-btn" onclick="copyToClipboard(\`${nodeContent.replace(/`/g, '\\`').replace(/\\/g, '\\\\')}\`, this)" title="Copy content">Copy</button>` : ''}
+                            </div>
+                            ${nodeContent ? `
+                                <div class="node-content-text">${escapeHtml(nodeContent)}</div>
+                            ` : `
+                                <div class="node-no-content">
+                                    <span class="no-content-text">No content stored for this path</span>
+                                </div>
+                            `}
+                        </div>
+                        <div class="node-meta-section">
+                            <div class="node-meta-item">
+                                <span class="node-meta-label">TYPE:</span>
+                                <span class="node-meta-value">${nodeData.group === 1 ? 'Root' : nodeData.group === 2 ? 'Branch' : 'Leaf'}</span>
+                            </div>
+                            <div class="node-meta-item">
+                                <span class="node-meta-label">CONNECTIONS:</span>
+                                <span class="node-meta-value">${nodeData.connections || 0}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            // Add styles for node popup
+            if (!document.getElementById('node-popup-styles')) {
+                const styles = document.createElement('style');
+                styles.id = 'node-popup-styles';
+                styles.textContent = `
+                    .node-details-popup {
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        bottom: 0;
+                        background: rgba(0, 0, 0, 0.8);
+                        backdrop-filter: blur(8px);
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        z-index: 10000;
+                        animation: fadeIn 0.2s ease;
+                    }
+
+                    .node-popup-content {
+                        background: var(--bg-primary);
+                        border-radius: 16px;
+                        border: 1px solid var(--border-light);
+                        max-width: 600px;
+                        width: 90%;
+                        max-height: 80vh;
+                        overflow-y: auto;
+                        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+                    }
+
+                    .node-popup-header {
+                        padding: 20px 25px;
+                        border-bottom: 1px solid var(--border-light);
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        background: var(--bg-glass);
+                    }
+
+                    .node-popup-header h3 {
+                        margin: 0;
+                        color: var(--accent-primary);
+                        font-size: 18px;
+                        font-weight: 600;
+                    }
+
+                    .node-popup-close {
+                        background: none;
+                        border: none;
+                        font-size: 24px;
+                        color: var(--text-secondary);
+                        cursor: pointer;
+                        padding: 0;
+                        width: 32px;
+                        height: 32px;
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        transition: all 0.2s ease;
+                    }
+
+                    .node-popup-close:hover {
+                        background: var(--bg-glass);
+                        color: var(--accent-primary);
+                    }
+
+                    .node-popup-body {
+                        padding: 25px;
+                    }
+
+                    .node-path-section, .node-content-section, .node-meta-section {
+                        margin-bottom: 20px;
+                    }
+
+                    .node-path-main, .node-path-full, .node-namespace, .node-meta-item {
+                        display: flex;
+                        align-items: center;
+                        gap: 12px;
+                        margin-bottom: 12px;
+                    }
+
+                    .node-path-label, .node-content-label, .node-meta-label {
+                        font-size: 11px;
+                        font-weight: 700;
+                        color: var(--text-secondary);
+                        min-width: 80px;
+                        text-transform: uppercase;
+                        letter-spacing: 1px;
+                    }
+
+                    .node-path-value, .node-fullpath-value {
+                        font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+                        font-size: 13px;
+                        color: var(--accent-primary);
+                        font-weight: 600;
+                        flex: 1;
+                    }
+
+                    .node-namespace-value, .node-meta-value {
+                        font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+                        font-size: 13px;
+                        color: var(--text-primary);
+                        font-weight: 500;
+                        flex: 1;
+                    }
+
+                    .node-content-header {
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 12px;
+                    }
+
+                    .node-content-text {
+                        font-size: 14px;
+                        color: var(--text-primary);
+                        line-height: 1.6;
+                        padding: 15px;
+                        background: rgba(0, 0, 0, 0.2);
+                        border-radius: 8px;
+                        border-left: 4px solid var(--accent-primary);
+                        font-family: system-ui, -apple-system, sans-serif;
+                    }
+
+                    .node-no-content {
+                        padding: 20px;
+                        text-align: center;
+                        background: rgba(0, 0, 0, 0.1);
+                        border-radius: 8px;
+                        border: 1px dashed var(--border-light);
+                    }
+
+                    .no-content-text {
+                        color: var(--text-secondary);
+                        font-style: italic;
+                    }
+
+                    .node-meta-section {
+                        padding-top: 15px;
+                        border-top: 1px solid var(--border-light);
+                    }
+
+                    /* Copy button styles for node popup */
+                    .copy-btn {
+                        background: #22d3ee;
+                        border: 1px solid #0891b2;
+                        border-radius: 6px;
+                        padding: 4px 8px;
+                        font-size: 11px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                        color: white;
+                        min-width: 45px;
+                        height: 26px;
+                        display: inline-flex;
+                        align-items: center;
+                        justify-content: center;
+                        text-transform: uppercase;
+                        letter-spacing: 0.5px;
+                    }
+
+                    .copy-btn:hover {
+                        background: #0891b2;
+                        transform: translateY(-1px);
+                        box-shadow: 0 4px 8px rgba(34, 211, 238, 0.4);
+                    }
+                `;
+                document.head.appendChild(styles);
+            }
+
+            // Position popup and add to DOM
+            document.body.appendChild(popup);
+
+            // Add event listeners
+            popup.querySelector('.node-popup-close').onclick = () => {
+                document.body.removeChild(popup);
+            };
+
+            // Close on background click
+            popup.onclick = (e) => {
+                if (e.target === popup) {
+                    document.body.removeChild(popup);
+                }
+            };
+
+            // Close on escape key
+            const escapeHandler = (e) => {
+                if (e.key === 'Escape') {
+                    if (document.body.contains(popup)) {
+                        document.body.removeChild(popup);
+                    }
+                    document.removeEventListener('keydown', escapeHandler);
+                }
+            };
+            document.addEventListener('keydown', escapeHandler);
+        }
+
+        async function showDiffModal(commit1, commit2, isMock = false) {
+            if (!connectedStorePath) {
+                showNotification('Please connect to a memory store first', 'error');
+                return;
+            }
+
+            // Show progress modal
+            const progressModal = showProgressModal('Generating Diff',
+                isMock ? 'Generating mock diff data...' : 'Analyzing memory store changes...');
+
+            try {
+                // Build API URL
+                let apiUrl = `/api/diff?path=${encodeURIComponent(connectedStorePath)}`;
+                if (commit1) apiUrl += `&commit1=${encodeURIComponent(commit1)}`;
+                if (commit2) apiUrl += `&commit2=${encodeURIComponent(commit2)}`;
+                if (isMock) apiUrl += `&mode=mock`;
+
+                updateProgressModal(progressModal,
+                    isMock ? 'Creating demonstration data...' : 'Comparing commits and analyzing changes...', 50);
+
+                const response = await fetch(apiUrl);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                updateProgressModal(progressModal, 'Formatting diff results...', 90);
+
+                // Complete progress and close modal
+                updateProgressModal(progressModal, 'Diff completed!', 100);
+                setTimeout(() => closeProgressModal(progressModal), 500);
+
+                if (result.success) {
+                    // Create diff results display
+                    let diffContent = `<div class="diff-content">`;
+                    diffContent += `<h3>Memory Store Diff</h3>`;
+
+                    // Only show mock notice if it's mock data
+                    if (result.is_mock) {
+                        diffContent += `<div class="diff-mock-notice">⚠️ <strong>Mock Data</strong> - This is simulated diff data for demonstration purposes</div>`;
+                    }
+
+                    // Use header from result or build one
+                    if (result.header) {
+                        diffContent += `<div class="diff-header">${result.header}</div>`;
+                    } else if (commit1 && commit2) {
+                        diffContent += `<div class="diff-header">Comparing ${commit1} → ${commit2}</div>`;
+                    } else {
+                        diffContent += `<div class="diff-header">Recent changes</div>`;
+                    }
+
+                    // Display diff stats
+                    if (result.stats) {
+                        diffContent += `
+                            <div class="diff-stats">
+                                <div class="diff-stat added">+${result.stats.added || 0} additions</div>
+                                <div class="diff-stat modified">~${result.stats.modified || 0} modifications</div>
+                                <div class="diff-stat deleted">-${result.stats.deleted || 0} deletions</div>
+                            </div>
+                        `;
+                    }
+
+                    // Display diff results
+                    if (result.changes && result.changes.length > 0) {
+                        diffContent += `<div class="diff-results">`;
+                        result.changes.forEach((change, index) => {
+                            const changeType = change.type || 'modified';
+                            const changeIcon = changeType === 'added' ? '➕' :
+                                             changeType === 'deleted' ? '➖' : '📝';
+
+                            diffContent += `
+                                <div class="diff-item ${changeType}">
+                                    <div class="diff-item-header">
+                                        <span class="diff-icon">${changeIcon}</span>
+                                        <span class="diff-path">${change.path}</span>
+                                        <span class="diff-type">${changeType}</span>
+                                        <button class="copy-btn" onclick="copyToClipboard('${change.path.replace(/'/g, "\\'")}', this)" title="Copy path">Copy</button>
+                                    </div>
+                                    ${change.old_content || change.new_content ? `
+                                        <div class="diff-content-section">
+                                            ${change.old_content ? `
+                                                <div class="diff-old">
+                                                    <div class="diff-content-label">Before:</div>
+                                                    <div class="diff-content-text">${escapeHtml(change.old_content)}</div>
+                                                </div>
+                                            ` : ''}
+                                            ${change.new_content ? `
+                                                <div class="diff-new">
+                                                    <div class="diff-content-label">After:</div>
+                                                    <div class="diff-content-text">${escapeHtml(change.new_content)}</div>
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `;
+                        });
+                        diffContent += `</div>`;
+                    } else {
+                        diffContent += `<div class="diff-no-results">No changes found</div>`;
+                    }
+
+                    diffContent += `</div>`;
+
+                    // Create and show results modal
+                    const modal = document.createElement('div');
+                    modal.className = 'diff-modal';
+                    modal.innerHTML = `
+                        <div class="diff-modal-content">
+                            <div class="diff-modal-header">
+                                <h2>🔍 Memory Store Diff</h2>
+                                <button class="diff-modal-close">&times;</button>
+                            </div>
+                            <div class="diff-modal-body">
+                                ${diffContent}
+                            </div>
+                            <div class="diff-modal-footer">
+                                <button class="diff-button secondary" onclick="document.body.removeChild(this.closest('.diff-modal'))">Close</button>
+                            </div>
+                        </div>
+                    `;
+
+                    // Add CSS for diff modal (reuse similar styles to recall modal)
+                    if (!document.getElementById('diff-modal-styles')) {
+                        const styles = document.createElement('style');
+                        styles.id = 'diff-modal-styles';
+                        styles.textContent = `
+                            .diff-modal {
+                                position: fixed;
+                                top: 0;
+                                left: 0;
+                                right: 0;
+                                bottom: 0;
+                                background: rgba(0, 0, 0, 0.8);
+                                backdrop-filter: blur(8px);
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                z-index: 10000;
+                                animation: fadeIn 0.3s ease;
+                            }
+
+                            .diff-modal-content {
+                                background: var(--bg-primary);
+                                border-radius: 16px;
+                                border: 1px solid var(--border-light);
+                                max-width: 900px;
+                                width: 95%;
+                                max-height: 85vh;
+                                display: flex;
+                                flex-direction: column;
+                                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+                            }
+
+                            .diff-modal-header {
+                                padding: 20px 30px;
+                                border-bottom: 1px solid var(--border-light);
+                                display: flex;
+                                justify-content: space-between;
+                                align-items: center;
+                                background: var(--bg-glass);
+                                border-radius: 16px 16px 0 0;
+                            }
+
+                            .diff-modal-header h2 {
+                                margin: 0;
+                                color: var(--accent-primary);
+                                font-size: 20px;
+                                font-weight: 600;
+                            }
+
+                            .diff-modal-close {
+                                background: none;
+                                border: none;
+                                font-size: 24px;
+                                color: var(--text-secondary);
+                                cursor: pointer;
+                                padding: 4px;
+                                border-radius: 4px;
+                                transition: all 0.2s ease;
+                            }
+
+                            .diff-modal-close:hover {
+                                background: var(--bg-glass);
+                                color: var(--accent-primary);
+                            }
+
+                            .diff-modal-body {
+                                padding: 30px;
+                                overflow-y: auto;
+                                flex: 1;
+                            }
+
+                            .diff-mock-notice {
+                                font-size: 14px;
+                                color: #f59e0b;
+                                background: rgba(251, 191, 36, 0.1);
+                                border: 1px solid rgba(251, 191, 36, 0.3);
+                                padding: 12px 15px;
+                                border-radius: 8px;
+                                margin-bottom: 20px;
+                                text-align: center;
+                                font-weight: 500;
+                            }
+
+                            .diff-header {
+                                font-size: 16px;
+                                color: var(--text-primary);
+                                margin-bottom: 20px;
+                                font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+                                background: rgba(99, 102, 241, 0.1);
+                                padding: 10px 15px;
+                                border-radius: 8px;
+                                border: 1px solid rgba(99, 102, 241, 0.3);
+                            }
+
+                            .diff-stats {
+                                display: flex;
+                                gap: 20px;
+                                margin-bottom: 25px;
+                                padding: 15px;
+                                background: var(--bg-glass);
+                                border-radius: 10px;
+                                border: 1px solid var(--border-light);
+                            }
+
+                            .diff-stat {
+                                font-size: 14px;
+                                font-weight: 600;
+                                padding: 8px 12px;
+                                border-radius: 6px;
+                                font-family: 'SF Mono', Monaco, monospace;
+                            }
+
+                            .diff-stat.added { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+                            .diff-stat.modified { background: rgba(251, 191, 36, 0.2); color: #fbbf24; }
+                            .diff-stat.deleted { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+
+                            .diff-results {
+                                display: flex;
+                                flex-direction: column;
+                                gap: 15px;
+                            }
+
+                            .diff-item {
+                                border-radius: 10px;
+                                border: 1px solid var(--border-light);
+                                background: var(--bg-glass);
+                                overflow: hidden;
+                            }
+
+                            .diff-item.added { border-left: 4px solid #22c55e; }
+                            .diff-item.modified { border-left: 4px solid #fbbf24; }
+                            .diff-item.deleted { border-left: 4px solid #ef4444; }
+
+                            .diff-item-header {
+                                padding: 15px 20px;
+                                display: flex;
+                                align-items: center;
+                                gap: 12px;
+                                background: rgba(0, 0, 0, 0.1);
+                            }
+
+                            .diff-icon {
+                                font-size: 16px;
+                            }
+
+                            .diff-path {
+                                font-family: 'SF Mono', Monaco, monospace;
+                                font-size: 13px;
+                                color: var(--accent-primary);
+                                font-weight: 600;
+                                flex: 1;
+                            }
+
+                            .diff-type {
+                                font-size: 12px;
+                                text-transform: uppercase;
+                                font-weight: 600;
+                                letter-spacing: 0.5px;
+                                padding: 4px 8px;
+                                border-radius: 4px;
+                                background: var(--bg-glass);
+                                color: var(--text-secondary);
+                            }
+
+                            .diff-content-section {
+                                padding: 20px;
+                                display: flex;
+                                flex-direction: column;
+                                gap: 15px;
+                            }
+
+                            .diff-old, .diff-new {
+                                border-radius: 8px;
+                                overflow: hidden;
+                            }
+
+                            .diff-content-label {
+                                font-size: 11px;
+                                font-weight: 600;
+                                color: var(--text-secondary);
+                                text-transform: uppercase;
+                                letter-spacing: 0.5px;
+                                margin-bottom: 8px;
+                            }
+
+                            .diff-content-text {
+                                font-size: 14px;
+                                line-height: 1.6;
+                                padding: 15px;
+                                border-radius: 6px;
+                                font-family: system-ui, -apple-system, sans-serif;
+                            }
+
+                            .diff-old .diff-content-text {
+                                background: rgba(239, 68, 68, 0.1);
+                                border: 1px solid rgba(239, 68, 68, 0.3);
+                                color: var(--text-primary);
+                            }
+
+                            .diff-new .diff-content-text {
+                                background: rgba(34, 197, 94, 0.1);
+                                border: 1px solid rgba(34, 197, 94, 0.3);
+                                color: var(--text-primary);
+                            }
+
+                            .diff-no-results {
+                                padding: 40px;
+                                text-align: center;
+                                color: var(--text-secondary);
+                                font-size: 16px;
+                            }
+
+                            .diff-modal-footer {
+                                padding: 20px 30px;
+                                border-top: 1px solid var(--border-light);
+                                display: flex;
+                                gap: 15px;
+                                justify-content: flex-end;
+                                background: var(--bg-glass);
+                            }
+
+                            .diff-button {
+                                padding: 10px 20px;
+                                border: none;
+                                border-radius: 8px;
+                                font-size: 14px;
+                                cursor: pointer;
+                                transition: all 0.2s ease;
+                                font-weight: 500;
+                            }
+
+                            .diff-button.secondary {
+                                background: var(--bg-glass);
+                                color: var(--text-primary);
+                                border: 1px solid var(--border-light);
+                            }
+
+                            .diff-button.secondary:hover {
+                                background: var(--bg-glass-light);
+                                transform: translateY(-1px);
+                            }
+                        `;
+                        document.head.appendChild(styles);
+                    }
+
+                    // Add modal to DOM
+                    document.body.appendChild(modal);
+
+                    // Add event listeners
+                    modal.querySelector('.diff-modal-close').onclick = () => document.body.removeChild(modal);
+                    modal.onclick = (e) => {
+                        if (e.target === modal) {
+                            document.body.removeChild(modal);
+                        }
+                    };
+                } else {
+                    throw new Error(result.error || 'Failed to generate diff');
+                }
+
+            } catch (error) {
+                closeProgressModal(progressModal);
+                console.error('Diff error:', error);
+                showNotification(`Failed to generate diff: ${error.message}`, 'error');
             }
         }
 
@@ -6899,9 +8773,8 @@ ${result.valid ?
                     refreshBtn.disabled = true;
 
                     try {
-                        showNotification('Refreshing store data...', 'info');
                         await refreshStore();
-                        showNotification('Store data refreshed successfully', 'success');
+                        showNotification('Store data refreshed', 'success');
                     } catch (error) {
                         console.error('Refresh error:', error);
                         showNotification(`Failed to refresh: ${error.message}`, 'error');
@@ -7427,6 +9300,18 @@ ${result.valid ?
             }
         }
 
+        function escapeHtml(text) {
+            if (typeof text !== 'string') {
+                text = String(text);
+            }
+            return text
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
         function formatTimeAgo(timestamp) {
             const now = Date.now();
             const diff = now - timestamp;
@@ -7469,6 +9354,18 @@ ${result.valid ?
         }
 
         function showMemoryDetails(path) {
+            // Create node data for the popup
+            const nodeData = {
+                id: path,
+                group: 3, // leaf node
+                connections: 0
+            };
+
+            // Only call our enhanced popup function - skip the old UI
+            showNodeDetailsPopup(nodeData, null);
+            return; // Exit early to prevent old popup from showing
+
+            // Old function disabled - only our new popup is shown
             const detailsPanel = document.getElementById('memoryDetails');
             const detailsPath = document.getElementById('detailsPath');
             const memoriesList = document.getElementById('memoriesList');
@@ -7477,9 +9374,6 @@ ${result.valid ?
             detailsPath.textContent = path;
             detailsPath.title = path; // Add tooltip to show full path on hover
 
-            // Debug logging
-            console.log('showMemoryDetails called with path:', path);
-            console.log('window.realStoreData:', window.realStoreData);
 
             // Filter memories that match this path
             const matchingMemories = [];
@@ -7926,6 +9820,9 @@ ${result.valid ?
 
             // Add click interactions for nodes
             node.on('click', function(event, d) {
+                // Show detailed node information popup
+                showNodeDetailsPopup(d, event);
+
                 // Highlight connected nodes
                 const connectedNodes = new Set([d.id]);
                 links.forEach(link => {
@@ -7953,10 +9850,7 @@ ${result.valid ?
                     text.style('opacity', 1);
                 }, 2000);
 
-                // Show memory details if it's a leaf node with memories
-                if (d.isLeaf && d.count > 0) {
-                    showMemoryDetails(d.id);
-                }
+                // Memory details are now shown in the popup above
             });
         }
 
@@ -7981,12 +9875,13 @@ ${result.valid ?
             { cmd: '/blame', args: '<key>', desc: 'Show Git-like blame history for memory key' },
             { cmd: '/help', args: '', desc: 'Show all available commands', aliases: '/h' },
             { cmd: '/summarize', args: '[type]', desc: 'Generate summary of memories (all, taxonomy, timeline, places)', aliases: '/sum' },
+            { cmd: '/recall', args: '<query>', desc: 'Search and recall relevant memories using AI', aliases: '/search' },
             { cmd: '/timeline', args: '[YYYY-MM-DD description]', desc: 'Show timeline or add timeline event', aliases: '/tl' },
             { cmd: '/location', args: '[place description]', desc: 'Show places or add location event', aliases: '/loc' },
 
             // Developer & Debugging Commands (Coming Soon)
             { cmd: '/inspect', args: '<path>', desc: 'Deep dive into a specific memory path with full history', placeholder: true },
-            { cmd: '/diff', args: '<path> <commit1> <commit2>', desc: 'Compare memory content between commits', placeholder: true },
+            { cmd: '/diff', args: '[commit1] [commit2]', desc: 'Compare memory store between commits or show recent changes', aliases: '/d' },
             { cmd: '/test-scenario', args: '<name>', desc: 'Run predefined test scenarios against memory store', placeholder: true },
             { cmd: '/mock-data', args: '', desc: 'Generate realistic test data for development', placeholder: true },
             { cmd: '/benchmark', args: '', desc: 'Performance benchmarks for search, retrieval, classification', placeholder: true },
@@ -8083,18 +9978,10 @@ ${result.valid ?
                         resetHistoryIndex(); // Reset history navigation
 
                         // Check if it's a command
-                        if (value.startsWith('/')) {
-                            console.log('Processing command:', value);
-                            hideCommandSuggestions();
-                            await handleCommand(value);
-                        } else {
-                            // Default action: query if it's a question, add if it's a statement
-                            if (value.includes('?') || value.toLowerCase().startsWith('what') ||
-                                value.toLowerCase().startsWith('how') || value.toLowerCase().startsWith('when') ||
-                                value.toLowerCase().startsWith('where') || value.toLowerCase().startsWith('why')) {
-                                handleQuery(value);
-                            }
-                        }
+                        // Always call handleCommand - it now handles both commands and natural language
+                        console.log('Processing input:', value);
+                        hideCommandSuggestions();
+                        await handleCommand(value);
                     }
                 } else if (e.key === 'Escape') {
                     hideCommandSuggestions();
@@ -8501,7 +10388,7 @@ ${result.valid ?
             showNotification(`Getting blame information for: ${memoryKey}...`, 'info');
 
             try {
-                const response = await fetch(`/api/blame?path=${encodeURIComponent(connectedStorePath)}&key=${encodeURIComponent(memoryKey)}&namespace=alice_chen`);
+                const response = await fetch(`/api/blame?path=${encodeURIComponent(connectedStorePath)}&key=${encodeURIComponent(memoryKey)}&namespace=default`);
                 const result = await response.json();
 
                 if (result.error) {
@@ -9407,16 +11294,13 @@ Message: ${commit.message}`;
                 demoBanner.style.display = 'none';
             }
 
-            console.log('Rendering GitHub-style timeline grid with real data for year:', selectedYear);
-
             // Set up year selector if not already done
             const currentYear = new Date().getFullYear();
             const targetYear = selectedYear || currentYear;
             const yearButton = document.getElementById('timelineYearButton');
             const yearPanel = document.getElementById('timelineYearPanel');
             const selectedYearSpan = document.getElementById('selectedYear');
-
-            if (yearsList && yearButton && yearPanel && selectedYearSpan && !yearsList.hasChildNodes()) {
+            if (yearsList && yearButton && yearPanel && selectedYearSpan) {
                 // Set current year in button
                 selectedYearSpan.textContent = targetYear;
 
@@ -9446,34 +11330,26 @@ Message: ${commit.message}`;
                         yearPanel.classList.remove('show');
                         yearButton.classList.remove('open');
                         // Regenerate timeline for selected year
-                        renderGitHubStyleTimelineGrid(parseInt(this.dataset.year));
+                        const selectedYear = parseInt(this.dataset.year);
+                        renderGitHubStyleTimelineGrid(selectedYear);
                     });
 
                     yearsList.appendChild(yearItem);
                 }
+            }
 
-                // Add button click listener to toggle panel
-                yearButton.addEventListener('click', function(e) {
+            // Simple solution: just set the onclick directly
+            if (yearButton && yearPanel) {
+                yearButton.onclick = function(e) {
                     e.stopPropagation();
                     yearPanel.classList.toggle('show');
                     yearButton.classList.toggle('open');
-                });
-
-                // Close panel when clicking outside
-                document.addEventListener('click', function(e) {
-                    if (!yearPanel.contains(e.target) && !yearButton.contains(e.target)) {
-                        yearPanel.classList.remove('show');
-                        yearButton.classList.remove('open');
-                    }
-                });
+                };
             }
-
-            console.log('Rendering GitHub-style timeline grid with real data');
 
             try {
                 // Load real timeline data
                 const timelineResult = await loadTimelineData();
-                console.log('Timeline data for GitHub-style grid:', timelineResult);
 
                 let realTimelineData = {};
                 if (timelineResult.success && timelineResult.timeline_data) {
@@ -9493,17 +11369,27 @@ Message: ${commit.message}`;
                     }
                 }
 
-                // Generate GitHub-style grid (65 weeks - about 15 months)
+                // Generate GitHub-style grid - expand range to include all timeline events
                 const weeks = 65;
                 const daysPerWeek = 7;
 
-                // Calculate start date based on selected year
+                // Calculate start date based on selected year, but expand to include all events
                 let startDate;
                 if (targetYear === currentYear) {
-                    // For current year, show last 53 weeks from today
+                    // For current year, show last 53 weeks from today but extend to include future events
                     const today = new Date();
                     startDate = new Date(today);
                     startDate.setDate(today.getDate() - (weeks * daysPerWeek));
+
+                    // Find the latest timeline event to ensure we include it
+                    const eventDates = Object.keys(realTimelineData).map(dateStr => new Date(dateStr));
+                    if (eventDates.length > 0) {
+                        const maxEventDate = new Date(Math.max(...eventDates));
+                        const endDate = new Date(today);
+                        endDate.setDate(today.getDate() + (weeks * daysPerWeek));
+
+                        // If the latest event is beyond our normal range, we still show it
+                    }
                 } else {
                     // For past years, show the full year (start from Jan 1 minus some weeks to align grid)
                     startDate = new Date(targetYear, 0, 1); // Jan 1 of target year
@@ -9516,16 +11402,53 @@ Message: ${commit.message}`;
                 let currentMonth = null;
                 let monthWeekCount = 0;
 
+                // Filter timeline data by selected year if not current year
+                let filteredTimelineData = realTimelineData;
+                if (targetYear !== currentYear) {
+                    filteredTimelineData = {};
+                    for (const [dateStr, event] of Object.entries(realTimelineData)) {
+                        const eventYear = new Date(dateStr).getFullYear();
+                        if (eventYear === targetYear) {
+                            filteredTimelineData[dateStr] = event;
+                        }
+                    }
+                }
+
                 // Create activity data mapping
                 const activityData = {};
-                for (let i = 0; i < weeks * daysPerWeek; i++) {
+
+                // Calculate date range being checked - extend to include all timeline events
+                let endDate = new Date(startDate);
+                endDate.setDate(startDate.getDate() + (weeks * daysPerWeek) - 1);
+
+                // Extend range to include all timeline events for the selected year
+                const eventDates = Object.keys(filteredTimelineData).map(dateStr => new Date(dateStr));
+                if (eventDates.length > 0) {
+                    const maxEventDate = new Date(Math.max(...eventDates));
+                    if (maxEventDate > endDate) {
+                        endDate = maxEventDate;
+                    }
+                }
+
+                // Calculate total days needed
+                const totalDays = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+
+                for (let i = 0; i < totalDays; i++) {
                     const currentDate = new Date(startDate);
                     currentDate.setDate(startDate.getDate() + i);
                     const dateStr = currentDate.toISOString().split('T')[0];
 
-                    // Check if we have real timeline data for this date
-                    if (realTimelineData[dateStr]) {
-                        activityData[dateStr] = realTimelineData[dateStr];
+                    // Check if we have timeline data for this date
+                    if (filteredTimelineData[dateStr]) {
+                        // filteredTimelineData already has the correct structure
+                        activityData[dateStr] = filteredTimelineData[dateStr];
+                    }
+                }
+
+                // Debug: show which timeline events are outside the range and add them anyway
+                for (const [date, event] of Object.entries(filteredTimelineData)) {
+                    if (!activityData[date]) {
+                        activityData[date] = event;
                     }
                 }
 
@@ -9557,18 +11480,24 @@ Message: ${commit.message}`;
                     activityMonths.appendChild(monthDiv);
                 });
 
+                // Calculate weeks needed for the extended range
+                const totalWeeks = Math.ceil(totalDays / 7);
+
                 // Generate grid
                 activityGrid.innerHTML = '';
                 activityGrid.style.display = 'grid';
-                activityGrid.style.gridTemplateColumns = `repeat(${weeks}, 1fr)`;
+                activityGrid.style.gridTemplateColumns = `repeat(${totalWeeks}, 1fr)`;
                 activityGrid.style.gridTemplateRows = 'repeat(7, 1fr)';
                 activityGrid.style.gap = '3px';
 
-                for (let week = 0; week < weeks; week++) {
+                for (let week = 0; week < totalWeeks; week++) {
                     for (let day = 0; day < daysPerWeek; day++) {
                         const currentDate = new Date(startDate);
                         currentDate.setDate(startDate.getDate() + (week * 7) + day);
                         const dateStr = currentDate.toISOString().split('T')[0];
+
+                        // Skip dates beyond our calculated end date
+                        if (currentDate > endDate) continue;
 
                         const dayElement = document.createElement('div');
                         dayElement.className = 'activity-day';
@@ -9624,7 +11553,6 @@ Message: ${commit.message}`;
                     }
                 }
 
-                console.log(`GitHub-style timeline grid rendered with ${totalEvents} events`);
 
             } catch (error) {
                 console.error('Error rendering GitHub-style timeline grid:', error);
@@ -9642,12 +11570,10 @@ Message: ${commit.message}`;
             const activityGrid = document.getElementById('activityGrid');
             if (!activityGrid) return;
 
-            console.log('Rendering real timeline data in Timeline view');
 
             try {
                 // Load timeline data
                 const timelineResult = await loadTimelineData();
-                console.log('Timeline data for view:', timelineResult);
 
                 if (timelineResult.success && timelineResult.timeline_data) {
                     // Clear the activity grid and add our timeline calendar
@@ -9779,7 +11705,6 @@ Message: ${commit.message}`;
                         `;
                     }
 
-                    console.log('Real timeline calendar added to Timeline view');
                 } else {
                     // Show error or empty state
                     activityGrid.innerHTML = `
@@ -9865,10 +11790,15 @@ Message: ${commit.message}`;
                         yearPanel.classList.remove('show');
                         yearButton.classList.remove('open');
                         // Regenerate timeline - check if we're connected to a store
-                        if (connectedStorePath) {
-                            renderGitHubStyleTimelineGrid(parseInt(this.dataset.year));
-                        } else {
-                            regenerateTimelineForYear(parseInt(this.dataset.year));
+                        const selectedYear = parseInt(this.dataset.year);
+                        try {
+                            if (connectedStorePath) {
+                                renderGitHubStyleTimelineGrid(selectedYear);
+                            } else {
+                                regenerateTimelineForYear(selectedYear);
+                            }
+                        } catch (error) {
+                            console.error('Error regenerating timeline for year', selectedYear, ':', error);
                         }
                     });
 
@@ -10568,7 +12498,7 @@ Message: ${commit.message}`;
         function generateHelpContent() {
             const coreCommands = availableCommands.filter(c => ['connect', 'new', 'remember', 'forget', 'refresh'].some(cmd => c.cmd.includes(cmd)));
             const gitCommands = availableCommands.filter(c => ['branch', 'checkout', 'merge', 'time-travel', 'commits', 'blame'].some(cmd => c.cmd.includes(cmd)));
-            const viewCommands = availableCommands.filter(c => ['timeline', 'location', 'summarize', 'proof', 'verify'].some(cmd => c.cmd.includes(cmd)));
+            const viewCommands = availableCommands.filter(c => ['timeline', 'location', 'summarize', 'recall', 'proof', 'verify'].some(cmd => c.cmd.includes(cmd)));
             const devCommands = availableCommands.filter(c => ['inspect', 'diff', 'test-scenario', 'mock-data', 'benchmark', 'export', 'compare-stores', 'trace', 'replay', 'template'].some(cmd => c.cmd.includes(cmd)));
 
             return `
@@ -10581,6 +12511,7 @@ Message: ${commit.message}`;
                     <h4>💡 Getting Started</h4>
                     <p>Memoir brings Git-like version control to AI memory systems. Connect to a memory store to start exploring your data with cryptographic integrity and full history tracking.</p>
                     <p><strong>Quick Start:</strong> Use <code>/connect /path/to/store</code> or <code>/new /tmp/my_store</code> to begin.</p>
+                    <p><strong>🔍 Smart Search:</strong> Just type natural questions without commands! Example: <code>user preferences about colors</code> will automatically search your memories.</p>
                 </div>
 
                 <div class="help-section">

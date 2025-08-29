@@ -221,7 +221,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
             ):
                 try:
                     await self.profile_manager.apply_profile_updates(
-                        classification.profile_updates, metadata
+                        classification.profile_updates, metadata, namespace
                     )
                     # logger.info(
                     #     f"Applied {len(classification.profile_updates)} profile updates"
@@ -236,7 +236,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
             ):
                 try:
                     await self.timeline_manager.apply_timeline_events(
-                        classification.timeline_events, metadata
+                        classification.timeline_events, metadata, namespace=namespace
                     )
                     # logger.info(
                     #     f"Applied {len(classification.timeline_events)} timeline events"

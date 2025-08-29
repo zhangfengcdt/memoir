@@ -138,44 +138,44 @@ async def main():
     # Initialize main branch with sample memories
     print("\n=== Adding memories to main branch ===")
 
-    # Define namespace for this user
-    namespace = "alice_chen"
+    # Use default namespace - let the system handle namespace assignment naturally
+    namespace = "default"
 
     # User profile memories
     await memory_manager.store_memory(
-        "User's name is Alice Chen",
+        "My name is John Smith",
         namespace=namespace,
         metadata={"type": "profile", "category": "personal"},
     )
 
     await memory_manager.store_memory(
-        "Alice is a senior software engineer at TechCorp",
+        "I am a senior software engineer at TechCorp",
         namespace=namespace,
         metadata={"type": "profile", "category": "professional"},
     )
 
     await memory_manager.store_memory(
-        "Alice specializes in Python, TypeScript, and distributed systems",
+        "I specialize in Python, TypeScript, and distributed systems",
         namespace=namespace,
         metadata={"type": "profile", "category": "skills"},
     )
 
     # Preferences
     await memory_manager.store_memory(
-        "Alice prefers dark mode in all applications",
+        "I prefer dark mode in all applications",
         namespace=namespace,
         metadata={"type": "preference", "category": "ui"},
     )
 
     await memory_manager.store_memory(
-        "Alice likes to receive technical explanations with code examples",
+        "I like to receive technical explanations with code examples",
         namespace=namespace,
         metadata={"type": "preference", "category": "communication"},
     )
 
     # Project memories
     await memory_manager.store_memory(
-        "Alice is working on a chatbot project using LangChain",
+        "I am working on a chatbot project using LangChain",
         namespace=namespace,
         metadata={"type": "project", "category": "current"},
     )
@@ -188,20 +188,20 @@ async def main():
 
     # Technical context
     await memory_manager.store_memory(
-        "Alice uses pytest for testing and prefers TDD approach",
+        "I use pytest for testing and prefers TDD approach",
         namespace=namespace,
         metadata={"type": "technical", "category": "methodology"},
     )
 
     await memory_manager.store_memory(
-        "Alice's team follows GitFlow branching strategy",
+        "My team follows GitFlow branching strategy",
         namespace=namespace,
         metadata={"type": "technical", "category": "workflow"},
     )
 
     # Personal interests
     await memory_manager.store_memory(
-        "Alice enjoys hiking and photography on weekends",
+        "I enjoy hiking and photography on weekends",
         namespace=namespace,
         metadata={"type": "personal", "category": "hobbies"},
     )
@@ -214,13 +214,13 @@ async def main():
 
     # Add more memories
     await memory_manager.store_memory(
-        "Alice mentioned she's learning Rust in her spare time",
+        "I am learning Rust in her spare time",
         namespace=namespace,
         metadata={"type": "learning", "category": "programming"},
     )
 
     await memory_manager.store_memory(
-        "Alice wants to build a personal knowledge management system",
+        "I want to build a personal knowledge management system",
         namespace=namespace,
         metadata={"type": "project", "category": "personal"},
     )
@@ -267,13 +267,13 @@ async def main():
     print("\n=== Creating feature/ui-preferences branch ===")
 
     await memory_manager.store_memory(
-        "Alice prefers Monaco editor for code editing",
+        "I prefer Monaco editor for code editing",
         namespace=namespace,
         metadata={"type": "preference", "category": "editor"},
     )
 
     await memory_manager.store_memory(
-        "Alice wants keyboard shortcuts similar to VSCode",
+        "I want keyboard shortcuts similar to VSCode",
         namespace=namespace,
         metadata={"type": "preference", "category": "shortcuts"},
     )
@@ -288,7 +288,7 @@ async def main():
 
     # Add one more commit to main
     await memory_manager.store_memory(
-        "Alice's team is migrating from JavaScript to TypeScript",
+        "My team is migrating from JavaScript to TypeScript",
         namespace=namespace,
         metadata={"type": "project", "category": "migration"},
     )
