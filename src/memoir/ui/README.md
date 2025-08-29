@@ -6,7 +6,7 @@ Interactive visualization tool for exploring Memoir memory stores with Git-like 
 
 1. **Initialize sample data:**
    ```bash
-   python src/memoir/ui/initialize_sample_store.py
+   python src/memoir/ui/initializer.py
    ```
    This creates a sample memory store at `/tmp/memoir_ui_store` with branches and commits.
 
@@ -81,7 +81,7 @@ Interactive visualization tool for exploring Memoir memory stores with Git-like 
 To create your own memory store with custom data:
 
 ```bash
-python src/memoir/ui/initialize_sample_store.py --store-path /path/to/your/store
+python src/memoir/ui/initializer.py --store-path /path/to/your/store
 ```
 
 Then connect to it in the UI:

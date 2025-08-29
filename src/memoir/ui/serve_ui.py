@@ -62,8 +62,8 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         elif parsed_path.path == "/api/diff":
             self.handle_diff_api(parsed_path)
         elif parsed_path.path == "/":
-            # Serve the visualization HTML
-            self.path = "/visualization.html"
+            # Serve the main UI HTML file
+            self.path = "/ui.html"
             super().do_GET()
         else:
             # Default file serving
@@ -113,7 +113,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         try:
             # Use the memory_store_reader to get complete data
             sys.path.append(str(Path(__file__).parent))
-            from memory_store_reader import read_store_data
+            from reader import read_store_data
 
             data_json = read_store_data(store_path)
             data = json.loads(data_json)
@@ -312,7 +312,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         try:
             # Use the memory_store_reader to get blame data
             sys.path.append(str(Path(__file__).parent))
-            from memory_store_reader import get_blame_info
+            from reader import get_blame_info
 
             data_json = get_blame_info(store_path, memory_key, namespace)
             data = json.loads(data_json)
