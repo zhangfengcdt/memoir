@@ -58,6 +58,11 @@ async def main():
         default=1,
         help="Conversation ID to load (1-indexed, default: 1)",
     )
+    parser.add_argument(
+        "--append",
+        action="store_true",
+        help="Append to existing memory store instead of creating a new one",
+    )
     args = parser.parse_args()
 
     # Auto-detect format if not specified
@@ -72,7 +77,16 @@ async def main():
             )
             sys.exit(1)
 
-    # Validate data file arguments
+    # Validate arguments
+    if args.append:
+        # In append mode, data file is required and store must exist
+        if not args.data_file:
+            print("Error: --data-file is required when using --append")
+            sys.exit(1)
+        if not os.path.exists(args.store_path):
+            print(f"Error: Store path does not exist for appending: {args.store_path}")
+            sys.exit(1)
+
     if args.data_file:
         if not os.path.exists(args.data_file):
             print(f"Error: Data file not found: {args.data_file}")
@@ -86,13 +100,17 @@ async def main():
     # Use the store path from arguments
     store_path = args.store_path
 
-    # Remove existing store if it exists
-    if os.path.exists(store_path):
-        import shutil
+    # Handle store creation vs append mode
+    if args.append:
+        print(f"Appending to existing memory store at: {store_path}")
+    else:
+        # Remove existing store if it exists
+        if os.path.exists(store_path):
+            import shutil
 
-        shutil.rmtree(store_path)
+            shutil.rmtree(store_path)
 
-    print(f"Initializing memory store at: {store_path}")
+        print(f"Initializing memory store at: {store_path}")
 
     # Check for OpenAI API key
     api_key = os.getenv("OPENAI_API_KEY")
@@ -202,11 +220,13 @@ async def main():
             print(f"\n=== Processing text data from {args.data_file} ===")
             await process_txt_data(memory_manager, store, args.data_file, args.session)
     else:
-        print("\n=== Adding sample memories to main branch ===")
-        await create_sample_memories(memory_manager, store)
+        # Only create sample data if not in append mode
+        if not args.append:
+            print("\n=== Adding sample memories to main branch ===")
+            await create_sample_memories(memory_manager, store)
 
-    # Skip sample data commits if processing LOCOMO data
-    if not args.data_file:
+    # Skip sample data commits if processing data file or in append mode
+    if not args.data_file and not args.append:
         await create_sample_branches_and_commits(memory_manager, store)
 
     # Print summary
@@ -767,38 +787,12 @@ async def print_summary(
         print(f"  - {branch}{current}")
 
     if data_file:
-        print(f"\nLOCOMO conversation data processed from: {data_file}")
+        print(f"\nData processed from: {data_file}")
     else:
         print("\nSample memories stored across multiple commits and branches.")
 
     print("\nYou can now connect the UI to this store using:")
     print(f"  /connect {store_path}")
-
-    # Also save a metadata file for the UI to read
-    metadata = {
-        "store_path": store_path,
-        "branches": branches,
-        "current_branch": store.tree.current_branch(),
-        "total_memories": len(
-            list(store.tree.list_keys()) if hasattr(store.tree, "list_keys") else []
-        ),
-        "data_source": "locomo" if data_file else "sample",
-    }
-
-    # Only add commit info for sample data (when not using LOCOMO data)
-    if not data_file:
-        metadata["commits"] = {
-            "main": [],  # Will be filled by sample data processing
-            "feature/chatbot-context": [],
-            "feature/ui-preferences": [],
-            "experimental/memory-optimization": [],
-        }
-
-    metadata_path = Path(store_path) / "ui_metadata.json"
-    with open(metadata_path, "w") as f:
-        json.dump(metadata, f, indent=2)
-
-    print(f"\nMetadata saved to: {metadata_path}")
 
 
 if __name__ == "__main__":
