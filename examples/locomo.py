@@ -1312,7 +1312,7 @@ async def main():
         console.print("  9. Conversation 9: Evan and Sam", style="white")
         console.print("  10. Conversation 10: Calvin and Dave", style="white")
         console.print(
-            "\nUsage: python examples/locomo_evaluation.py --person <person_name> --conversation <conversation_id>",
+            "\nUsage: python examples/locomo.py --person <person_name> --conversation <conversation_id>",
             style="bold white",
         )
         sys.exit(1)

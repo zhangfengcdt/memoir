@@ -5,19 +5,19 @@ Features three panels: conversations (top-left), memory decisions (bottom-left),
 
 Usage:
     # Run with demo scenarios (default settings)
-    python examples/intelligent_taxonomy.py
+    python examples/taxonomy.py
 
     # Run with conversation JSON file (specific session)
-    python examples/intelligent_taxonomy.py --json-file /path/to/conversation.json --person Caroline --session 1
+    python examples/taxonomy.py --json-file /path/to/conversation.json --person Caroline --session 1
 
     # Run with all sessions randomly mixed
-    python examples/intelligent_taxonomy.py --json-file /path/to/conversation.json --person Caroline
+    python examples/taxonomy.py --json-file /path/to/conversation.json --person Caroline
 
     # Control memory aggressiveness (conservative - only high-confidence memories)
-    python examples/intelligent_taxonomy.py --high-threshold 0.9 --medium-threshold 0.7 --low-threshold 0.5
+    python examples/taxonomy.py --high-threshold 0.9 --medium-threshold 0.7 --low-threshold 0.5
 
     # Aggressive mode (stores almost everything)
-    python examples/intelligent_taxonomy.py --high-threshold 0.6 --medium-threshold 0.3 --low-threshold 0.0
+    python examples/taxonomy.py --high-threshold 0.6 --medium-threshold 0.3 --low-threshold 0.0
 """
 
 import argparse
@@ -1170,16 +1170,16 @@ def main():
         epilog="""
 Examples:
   # Run with all sessions randomly mixed:
-  python examples/intelligent_taxonomy.py --json-file conversation.json --person Caroline
+  python examples/taxonomy.py --json-file conversation.json --person Caroline
 
   # Run with specific session:
-  python examples/intelligent_taxonomy.py --json-file conversation.json --person Caroline --session 1
+  python examples/taxonomy.py --json-file conversation.json --person Caroline --session 1
 
   # Conservative memory settings (only high-confidence memories):
-  python examples/intelligent_taxonomy.py --high-threshold 0.9 --medium-threshold 0.7 --low-threshold 0.5
+  python examples/taxonomy.py --high-threshold 0.9 --medium-threshold 0.7 --low-threshold 0.5
 
   # Aggressive memory settings (stores almost everything):
-  python examples/intelligent_taxonomy.py --high-threshold 0.6 --medium-threshold 0.3 --low-threshold 0.0
+  python examples/taxonomy.py --high-threshold 0.6 --medium-threshold 0.3 --low-threshold 0.0
         """,
     )
 

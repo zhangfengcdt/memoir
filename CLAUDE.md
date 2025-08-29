@@ -21,24 +21,24 @@ make test-cov                 # Run tests with coverage report
 pytest tests/test_classifier.py -v        # Run single test file
 pytest tests/ -k "test_function_name"     # Run specific test by name
 pytest tests/ --tb=short                  # Compact traceback format
-pytest tests/test_versioning_control.py   # Test version control features
+pytest tests/test_versioning.py   # Test version control features
 
 # Examples and benchmarks
 make examples                 # Run all example scripts
 make benchmark               # Run performance benchmarks
 python examples/basic_usage.py            # Basic memory system usage
-python examples/intelligent_taxonomy.py   # Test intelligent classification
-python examples/locomo_evaluation.py      # Evaluate with LOCOMO dataset
-python examples/langgraph_with_memoir.py  # LangGraph integration demo
+python examples/taxonomy.py   # Test intelligent classification
+python examples/locomo.py      # Evaluate with LOCOMO dataset
+python examples/langgraph.py  # LangGraph integration demo
 python examples/langmem_style_with_memoir.py # LangMem-pattern agent example
 python examples/context_branching.py      # Demonstrate context branching
 python examples/production_debugging.py   # Production debugging patterns
-python examples/reproducible_testing.py   # Reproducible test scenarios
+python examples/reproducible.py   # Reproducible test scenarios
 python examples/state_debugging.py        # State debugging techniques
-python examples/versioning_control.py     # Git-like version control demo
+python examples/versioning.py     # Git-like version control demo
 
 # Jupyter Notebooks
-jupyter notebook examples/notebooks/memoir_basic_usage.ipynb  # Interactive tutorial
+jupyter notebook examples/notebooks/basic_usage.ipynb  # Interactive tutorial
 
 # Full CI pipeline
 make ci                      # Run complete CI: lint, test, security, examples

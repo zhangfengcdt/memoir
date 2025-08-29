@@ -4,10 +4,9 @@ notebook>=6.0.0
 ipykernel>=6.0.0
 nest-asyncio>=1.5.0
 
-# Core memoir dependencies (install memoir package instead for production)
+# Core memoir dependencies
+prollytree>=0.3.1
 # memoir>=0.1.0
 
 # LLM providers (choose one or more)
 langchain-openai>=0.1.0
-# langchain-anthropic>=0.1.0
-# langchain-ollama>=0.1.0
