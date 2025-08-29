@@ -788,7 +788,7 @@
 
         // Command handling
         async function handleCommand(command) {
-            console.log('Handling command:', command);
+
             const parts = command.trim().split(' ');
             let cmd = parts[0].toLowerCase();
 
@@ -820,8 +820,8 @@
                 cmd = aliases[cmd];
             }
 
-            console.log('Command parts:', parts);
-            console.log('Resolved command:', cmd);
+
+
 
             if (cmd === '/connect') {
                 const path = parts.slice(1).join(' ');
@@ -977,15 +977,15 @@
                     return;
                 }
 
-                console.log('🔍 Frontend store debug:');
-                console.log('Connected store path:', connectedStorePath);
-                console.log('window.isNewEmptyStore:', window.isNewEmptyStore);
+
+
+
 
                 // Make a direct API call to list all memories
                 try {
                     const response = await fetch(`/api/store?path=${encodeURIComponent(connectedStorePath)}`);
                     const result = await response.json();
-                    console.log('Store API response:', result);
+
 
                     showNotification(`Debug: ${connectedStorePath} - Check console for details`, 'info');
                 } catch (error) {
@@ -1053,11 +1053,11 @@
                 } else {
                     // Input doesn't start with "/" - treat it as a natural language query
                     // Default to recall functionality
-                    console.log('🔍 Natural language query detected:', command);
+
                     const query = command.trim();
                     if (query) {
-                        console.log('🔍 Calling recallMemories with query:', query);
-                        console.log('🔍 Connected store path:', connectedStorePath);
+
+
                         await recallMemories(query);
                     } else {
                         showNotification('Please enter a question or search query', 'error');
@@ -1067,7 +1067,7 @@
         }
 
         function showDemoData() {
-            console.log('Showing original demo data');
+
             connectedStorePath = null; // Reset connection to show original state
             showNotification('Demo mode - showing original page state for exploration', 'info');
 
@@ -1600,7 +1600,7 @@
         }
 
         function showRepoInfo() {
-            console.log('Showing repo info');
+
 
             if (!connectedStorePath) {
                 showNotification('No repository connected. Use /connect <path> or /demo first.', 'error');
@@ -1660,7 +1660,7 @@ ${storeData.commits ? storeData.commits.slice(0, 5).map(c => `• ${c.hash}: ${c
         }
 
         function showIntegrationCode() {
-            console.log('Showing integration code');
+
 
             // Use the actual connected path or provide helpful default
             const storePath = connectedStorePath && connectedStorePath !== 'demo'
@@ -2046,7 +2046,7 @@ ${result.valid ?
         }
 
         async function connectToStore(path, silent = false) {
-            console.log('Attempting to connect to:', path);
+
             updateStorePathDisplay(path, 'connecting');
             if (!silent) {
                 showNotification(`Connecting to ${path}...`, 'info');
@@ -2060,13 +2060,13 @@ ${result.valid ?
                 // Try API endpoint (works when served via HTTP server)
                 try {
                     const apiUrl = `/api/store?path=${encodeURIComponent(path)}`;
-                    console.log('Fetching from API:', apiUrl);
+
                     response = await fetch(apiUrl);
-                    console.log('API Response status:', response.status, response.ok);
+
 
                     if (response.ok) {
                         data = await response.json();
-                        console.log('Data received from API:', data);
+
                         connectedStorePath = path;
                         storeData = data;
 
@@ -2086,7 +2086,7 @@ ${result.valid ?
                     }
                 } catch (e) {
                     console.error('API fetch error:', e);
-                    console.log('API not available, trying fallback...');
+
                 }
 
                 // Try to read the metadata file directly (for file:// protocol)
@@ -2106,7 +2106,7 @@ ${result.valid ?
                         return;
                     }
                 } catch (e) {
-                    console.log('File system access not available');
+
                 }
 
                 // If both methods fail, show an error instead of falling back
@@ -2125,7 +2125,7 @@ ${result.valid ?
         }
 
         function clearUIViews() {
-            console.log('Clearing UI views for new store');
+
 
             // Clear global data
             storeData = null;
@@ -2200,7 +2200,7 @@ ${result.valid ?
                 showNotification(`Corrected path to: ${path}`, 'info');
             }
 
-            console.log('Creating new store at:', path);
+
 
             // Clear UI immediately to show it's a new store
             clearUIViews();
@@ -2343,7 +2343,7 @@ ${result.valid ?
                 return;
             }
 
-            console.log('Forgetting memory:', key);
+
             showNotification(`Deleting memory: ${key}...`, 'info');
 
             try {
@@ -2385,7 +2385,7 @@ ${result.valid ?
                 return;
             }
 
-            console.log('Refreshing store data for:', connectedStorePath);
+
 
             // Reconnect to the store to get fresh data (silent mode to avoid duplicate notifications)
             await connectToStore(connectedStorePath, true);
@@ -2399,17 +2399,17 @@ ${result.valid ?
 
         async function refreshVisualizationData() {
             if (!connectedStorePath) {
-                console.log('No store connected, skipping visualization refresh');
+
                 return;
             }
 
-            console.log('Refreshing visualization data for all views...');
+
 
             try {
                 // Refresh the main store data (tree and graph views)
                 await refreshStore();
 
-                console.log('Visualization data refreshed successfully');
+
             } catch (error) {
                 console.error('Failed to refresh visualization data:', error);
                 showNotification('Failed to refresh data views', 'error');
@@ -2417,7 +2417,7 @@ ${result.valid ?
         }
 
         async function showTimeline() {
-            console.log('DEBUG: showTimeline called');
+
 
             if (!connectedStorePath) {
                 showNotification('Not connected to any store. Use /connect <path> first', 'error');
@@ -2429,7 +2429,7 @@ ${result.valid ?
                 const response = await fetch(`/api/timeline?path=${encodeURIComponent(connectedStorePath)}`);
                 const result = await response.json();
 
-                console.log('DEBUG: Timeline API response:', result);
+
 
                 if (result.success) {
                     // Display timeline in a modal or notification
@@ -2437,7 +2437,7 @@ ${result.valid ?
                     showTimelineModal(timelineHtml);
                 } else {
                     showNotification('Failed to retrieve timeline data', 'error');
-                    console.log('DEBUG: Timeline API failed:', result);
+
                 }
             } catch (error) {
                 console.error('Timeline error:', error);
@@ -2491,7 +2491,7 @@ ${result.valid ?
         }
 
         async function addTimelineEvent(args) {
-            console.log('DEBUG: addTimelineEvent called with args:', args);
+
 
             if (!connectedStorePath) {
                 showNotification('Not connected to any store. Use /connect <path> first', 'error');
@@ -2529,11 +2529,11 @@ ${result.valid ?
 
                 requestBody.date = dateStr;
                 requestBody.description = description;
-                console.log('DEBUG: Using structured format:', requestBody);
+
             } else {
                 // Natural language format: let the server parse it with LLM
                 requestBody.content = args.trim();
-                console.log('DEBUG: Using natural language format:', requestBody);
+
                 showNotification('Parsing timeline event with AI...', 'info');
             }
 
@@ -2548,7 +2548,7 @@ ${result.valid ?
                 });
 
                 const result = await response.json();
-                console.log('DEBUG: Server response:', result);
+
 
                 if (result.success) {
                     const eventDate = result.date || requestBody.date || 'date';
@@ -2657,23 +2657,23 @@ ${result.valid ?
                 return;
             }
 
-            console.log('DEBUG: Fetching places from:', `/api/location?path=${encodeURIComponent(connectedStorePath)}`);
+
 
             try {
                 const response = await fetch(`/api/location?path=${encodeURIComponent(connectedStorePath)}`);
                 const result = await response.json();
 
-                console.log('DEBUG: Places API response:', result);
+
 
                 if (result.success) {
-                    console.log('DEBUG: Places data received:', result.location_data);
+
                     // Display places in a modal popup
                     const placesHtml = formatPlacesData(result.location_data, result.summary);
-                    console.log('DEBUG: Formatted places HTML:', placesHtml);
+
                     showPlacesModal(placesHtml);
                 } else {
                     showNotification('Failed to retrieve places data', 'error');
-                    console.log('DEBUG: Places API failed:', result);
+
                 }
             } catch (error) {
                 console.error('Places error:', error);
@@ -2794,7 +2794,7 @@ ${result.valid ?
                 return;
             }
 
-            console.log('gitTree element found, updating header and clearing content');
+
 
             // Update panel header to show "Timeline" mode
             updateTimelinePanelHeader('Timeline');
@@ -2919,8 +2919,8 @@ ${result.valid ?
             }
 
             gitTreeElement.appendChild(timelineContainer);
-            console.log('Timeline container appended to gitTree element');
-            console.log('Final gitTree innerHTML length:', gitTreeElement.innerHTML.length);
+
+
 
             // Mark this element as showing timeline to prevent overwrites
             gitTreeElement.setAttribute('data-showing', 'timeline');
@@ -3012,20 +3012,20 @@ ${result.valid ?
         function inspectCurrentDOM() {
             const gitTreeElement = document.querySelector('.git-tree');
             if (gitTreeElement) {
-                console.log('=== DOM INSPECTION ===');
-                console.log('gitTree element found:', gitTreeElement);
-                console.log('gitTree innerHTML preview:', gitTreeElement.innerHTML.substring(0, 200) + '...');
-                console.log('gitTree children count:', gitTreeElement.children.length);
-                console.log('Commit nodes present:', gitTreeElement.querySelectorAll('.commit-node').length);
+
+
+
+
+
 
                 // Show classes on direct children
                 Array.from(gitTreeElement.children).forEach((child, i) => {
-                    console.log(`Child ${i}:`, child.tagName, child.className, child.id || '(no id)');
+
                 });
 
                 showNotification(`DOM Inspection complete - check console`, 'info');
             } else {
-                console.log('gitTree element not found!');
+
                 showNotification('gitTree element not found!', 'error');
             }
         }
@@ -3036,12 +3036,12 @@ ${result.valid ?
                 return;
             }
 
-            console.log('=== FORCING TIMELINE VIEW ===');
+
 
             // Force clear any existing content
             const gitTreeElement = document.querySelector('.git-tree');
             if (gitTreeElement) {
-                console.log('Clearing gitTree element completely');
+
                 gitTreeElement.innerHTML = '';
 
                 // Force reload timeline data
@@ -3067,7 +3067,7 @@ ${result.valid ?
         }
 
         function checkTimelineStyles() {
-            console.log('=== CSS STYLES CHECK ===');
+
 
             const gitTreeElement = document.querySelector('.git-tree');
             if (gitTreeElement) {
@@ -3104,7 +3104,7 @@ ${result.valid ?
                         });
 
                         const days = month.querySelectorAll('.timeline-day.has-event');
-                        console.log(`Month ${i} has ${days.length} event days`);
+
 
                         days.forEach((day, j) => {
                             const dayStyle = window.getComputedStyle(day);
@@ -3117,17 +3117,17 @@ ${result.valid ?
                         });
                     });
                 } else {
-                    console.log('Timeline container not found in DOM');
+
                 }
             } else {
-                console.log('gitTree element not found');
+
             }
 
             showNotification('CSS styles check complete - see console', 'info');
         }
 
         function restoreNormalLayout() {
-            console.log('Restoring normal layout');
+
 
             // Clear timeline and restore git history
             restoreOriginalGitHistory();
@@ -3158,7 +3158,7 @@ ${result.valid ?
 
 
                 if (result.success) {
-                    console.log('DEBUG: All memories:', result.all_memories);
+
 
                     // Show detailed timeline memory structures
                     if (result.timeline_memories && result.timeline_memories.length > 0) {
@@ -3167,7 +3167,7 @@ ${result.valid ?
                                 path: tm.path,
                                 data: tm.data
                             });
-                            console.log(`DEBUG: Timeline Memory ${index + 1} Data Structure:`, JSON.stringify(tm.data, null, 2));
+
                         });
                     }
 
@@ -3181,7 +3181,7 @@ ${result.valid ?
                     );
                 } else {
                     showNotification('Failed to retrieve store data for debugging', 'error');
-                    console.log('DEBUG: Store response:', result);
+
                 }
             } catch (error) {
                 console.error('Debug timeline error:', error);
@@ -3248,18 +3248,18 @@ ${result.valid ?
 
                 // Initialize map if not already done
                 if (!window.placesMapInitialized) {
-                    console.log('Map not initialized yet, initializing...');
+
                     // Small delay to ensure DOM is ready
                     setTimeout(async () => {
                         initializePlacesMap();
                         // Wait a bit more for map to be fully ready, then reload places data
                         setTimeout(async () => {
-                            console.log('Map should be ready now, reloading places data...');
+
                             await loadPlacesData();
                         }, 200);
                     }, 100);
                 } else if (window.placesMap) {
-                    console.log('Map already initialized, resizing...');
+
                     // Resize map when view is shown
                     setTimeout(() => {
                         window.placesMap.invalidateSize();
@@ -3444,11 +3444,11 @@ ${result.valid ?
                 // Structured format: <location> <description>
                 requestBody.location = parts[0];
                 requestBody.description = parts.slice(1).join(' ');
-                console.log('DEBUG: Using structured location format:', requestBody);
+
             } else {
                 // Natural language format: let the server parse it with AI
                 requestBody.content = args.trim();
-                console.log('DEBUG: Using natural language location format:', requestBody);
+
                 showNotification('Parsing location event with AI...', 'info');
             }
 
@@ -4121,8 +4121,8 @@ ${result.valid ?
                         });
                         recallContent += `</div>`;
                     } else {
-                        console.log('❌ No results found - showing no results message');
-                        console.log('📊 result.results:', result.results);
+
+
                         recallContent += `<div class="recall-no-results">No relevant memories found for your query.</div>`;
                     }
 
@@ -5916,7 +5916,7 @@ ${result.valid ?
                 // Initialize marker layer group
                 window.placesMarkers = L.layerGroup().addTo(window.placesMap);
 
-                console.log('Places map initialized successfully');
+
                 window.placesMapInitialized = true;
 
                 // Add event handlers for map control buttons
@@ -5959,14 +5959,14 @@ ${result.valid ?
         }
 
         async function updatePlacesMap(places) {
-            console.log('updatePlacesMap called with places:', places);
+
 
             if (!window.placesMap || !window.placesMarkers) {
-                console.log('Map not initialized, skipping marker update. Map:', !!window.placesMap, 'Markers:', !!window.placesMarkers);
+
                 return;
             }
 
-            console.log('Updating places map with data:', places);
+
 
             // Clear existing markers
             window.placesMarkers.clearLayers();
@@ -5993,7 +5993,7 @@ ${result.valid ?
                         window.placesMarkers.addLayer(marker);
                         bounds.push([coords.lat, coords.lon]);
 
-                        console.log(`Added marker for ${place.displayName} at ${coords.lat}, ${coords.lon}`);
+
                     }
                 } catch (error) {
                     console.warn(`Failed to geocode location: ${place.name}`, error);
@@ -6017,7 +6017,7 @@ ${result.valid ?
             const encodedLocation = encodeURIComponent(locationName);
             const url = `https://nominatim.openstreetmap.org/search?q=${encodedLocation}&format=json&limit=1&addressdetails=1`;
 
-            console.log(`Geocoding location: "${locationName}" -> URL: ${url}`);
+
 
             try {
                 const response = await fetch(url, {
@@ -6031,7 +6031,7 @@ ${result.valid ?
                 }
 
                 const data = await response.json();
-                console.log(`Geocoding response for "${locationName}":`, data);
+
 
                 if (data && data.length > 0) {
                     const result = data[0];
@@ -6040,7 +6040,7 @@ ${result.valid ?
                         lon: parseFloat(result.lon),
                         display_name: result.display_name
                     };
-                    console.log(`Successfully geocoded "${locationName}" to:`, coords);
+
                     return coords;
                 }
 
@@ -6053,14 +6053,14 @@ ${result.valid ?
         }
 
         async function updateUIWithRealData(data) {
-            console.log('Updating UI with real data:', data);
+
 
             // Update branches
             const branchSelector = document.querySelector('#branchSelector');
-            console.log('Branch selector element:', branchSelector);
+
 
             if (branchSelector && data.branches) {
-                console.log('Updating branches:', data.branches);
+
                 branchSelector.innerHTML = '';
                 data.branches.forEach(branch => {
                     const option = document.createElement('option');
@@ -6216,7 +6216,7 @@ ${result.valid ?
             const graphView = document.getElementById('graphView');
             const isGraphVisible = graphView && graphView.style.display !== 'none';
             if (isGraphVisible) {
-                console.log('Graph is visible, updating graph view');
+
                 renderGraph();
             }
 
@@ -6224,16 +6224,16 @@ ${result.valid ?
             await updateTimelineView();
 
             // Show success in console
-            console.log('Successfully updated UI with data:', data);
+
         }
 
         async function updateTimelineView() {
-            console.log('updateTimelineView called - refreshing Timeline view if active');
+
 
             // Only refresh if Timeline view is currently active
             const timelineView = document.getElementById('timelineView');
             if (timelineView && timelineView.style.display !== 'none') {
-                console.log('Timeline view is active, refreshing...');
+
 
                 // Re-initialize the timeline view to show updated data
                 if (connectedStorePath) {
@@ -6242,9 +6242,9 @@ ${result.valid ?
                     await initializeTimelineView();
                 }
 
-                console.log('Timeline view refreshed');
+
             } else {
-                console.log('Timeline view not active, skipping refresh');
+
             }
         }
 
@@ -6419,17 +6419,17 @@ ${result.valid ?
         });
 
         function updateTreeViewWithRealData(data) {
-            console.log('Updating tree view with real data:', data);
+
 
             const treeView = document.getElementById('treeView');
             if (!treeView) return;
 
             // If we have a tree structure, use it
             if (data.tree && Object.keys(data.tree).length > 0) {
-                console.log('Building tree from tree data:', data.tree);
+
                 treeView.innerHTML = buildTreeFromPaths(data.tree);
             } else if (data.memories && data.memories.length > 0) {
-                console.log('Building tree from memory data:', data.memories);
+
                 // Build tree from memory paths
                 const pathCount = {};
                 data.memories.forEach(memory => {
@@ -6445,7 +6445,7 @@ ${result.valid ?
                 treeView.innerHTML = buildTreeFromPaths(pathCount);
             } else {
                 // Show connection info and sample structure for demo
-                console.log('No memory data found, showing connection info');
+
                 treeView.innerHTML = `
                     <div class="tree-node">
                         <div class="node-content">
@@ -6959,21 +6959,21 @@ ${result.valid ?
             // Filter memories that match this path
             const matchingMemories = [];
             if (window.realStoreData && window.realStoreData.memories) {
-                console.log('Total memories available:', window.realStoreData.memories.length);
+
 
                 // Log first few memory paths for debugging
                 const memoryPaths = window.realStoreData.memories.map(m => m.path).slice(0, 10);
-                console.log('Sample memory paths:', memoryPaths);
+
 
                 for (const memory of window.realStoreData.memories) {
                     if (memory.path && memory.path.startsWith(path)) {
                         matchingMemories.push(memory);
-                        console.log('Matched memory:', memory.path, memory);
+
                     }
                 }
             }
 
-            console.log('Matching memories found:', matchingMemories.length);
+
 
             // Populate with real memory data
             if (matchingMemories.length > 0) {
@@ -7560,7 +7560,7 @@ ${result.valid ?
 
                         // Check if it's a command
                         // Always call handleCommand - it now handles both commands and natural language
-                        console.log('Processing input:', value);
+
                         hideCommandSuggestions();
                         await handleCommand(value);
                     }
@@ -7911,7 +7911,7 @@ ${result.valid ?
         }
 
         function handleQuery(query) {
-            console.log('Querying memory:', query);
+
 
             // Show visual feedback
             const input = document.getElementById('memoryInput');
@@ -8385,7 +8385,7 @@ No commit history found for this key.
             const gitTreeElement = document.querySelector('.git-tree');
             if (gitTreeElement) {
                 if (gitTreeElement.querySelector('.timeline-grid-container') || gitTreeElement.getAttribute('data-showing') === 'timeline') {
-                    console.log('Timeline view is active, skipping git history update');
+
                     return;
                 }
             }

@@ -711,9 +711,11 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 "content": content,  # Include the stored content
                 "step_timings": step_timings,
                 "five_step_timings": five_step_timings,
-                "classification_prompt": classification_prompt
-                if "classification_prompt" in locals()
-                else None,
+                "classification_prompt": (
+                    classification_prompt
+                    if "classification_prompt" in locals()
+                    else None
+                ),
             }
 
             # Send response
@@ -1286,14 +1288,10 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 # Process timeline memories into structured format
                 timeline_data = {}
                 for path, data in timeline_memories:
-                    print()
-
                     if "." in path:
                         date_str = path.split(".")[-1]
                         if len(date_str) == 8:  # YYYYMMDD format
                             content = self._extract_timeline_content(data, date_str)
-
-                            print()
 
                             if (
                                 content
@@ -1301,9 +1299,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                                 and not content.startswith("Timeline event on")
                             ):
                                 timeline_data[date_str] = content.strip()
-                                print()
                             else:
-                                print()
                                 # Let's add a more obvious fallback to see if this is being reached
                                 fallback_text = f"FALLBACK EVENT on {date_str[4:6]}/{date_str[6:8]}/{date_str[:4]}"
                                 timeline_data[date_str] = fallback_text
@@ -1339,7 +1335,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
                                 if fallback_content:
                                     timeline_data[date_str] = fallback_content.strip()
-                                    print()
                                 else:
                                     # Format the date for display
                                     try:
@@ -1352,7 +1347,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                                     timeline_data[date_str] = (
                                         f"Event on {formatted_date}"
                                     )
-                                    print()
 
             finally:
                 loop.close()
@@ -1398,7 +1392,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                     memory_item["content"], dict
                 ):
                     content_obj = memory_item["content"]
-                    print()
 
                     # Priority 1: raw_text (this contains the actual description)
                     content = content_obj.get("raw_text", "")
@@ -1411,18 +1404,15 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                         if isinstance(structured, dict):
                             content = structured.get("original_content", "")
                             if content and content.strip():
-                                print()
                                 return content.strip()
 
                             content = structured.get("timeline_content", "")
                             if content and content.strip():
-                                print()
                                 return content.strip()
 
             # OLD Strategy 1: Check if it's the old format with nested content
             if "content" in data and isinstance(data["content"], dict):
                 timeline_data_obj = data["content"]
-                print()
 
                 # Priority 1: original_content from structured_data
                 if "structured_data" in timeline_data_obj:
@@ -1430,12 +1420,10 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                     if isinstance(structured, dict):
                         content = structured.get("original_content", "")
                         if content:
-                            print()
                             return content
 
                         content = structured.get("timeline_content", "")
                         if content:
-                            print()
                             return content
 
                 # Priority 2: raw_text
@@ -1483,8 +1471,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
             # If content is provided, use the IntelligentClassifier to extract timeline events
             if content and not (date_str and description):
-                print()
-
                 # Initialize the IntelligentClassifier
                 try:
                     from langchain_openai import ChatOpenAI
@@ -1514,7 +1500,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                             event = classification.timeline_events[0]
                             date_str = event.get("date")
                             description = event.get("description")
-                            print()
                         else:
                             self.send_error(
                                 400,
@@ -1581,7 +1566,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 success = True
 
                 # Debug: Check what was stored
-                print()
 
             finally:
                 loop.close()
@@ -1647,13 +1631,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 # Process location memories into structured format
                 location_data = {}
                 for path, data in location_memories:
-                    print()
-
                     if "." in path:
                         location_key = path.split(".")[-1]
                         content = self._extract_location_content(data, location_key)
-
-                        print()
 
                         if content and content.strip():
                             # Convert location key back to display name
@@ -1662,9 +1642,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                                 "name": display_name,
                                 "content": content.strip(),
                             }
-                            print()
-                        else:
-                            print()
 
             finally:
                 loop.close()
@@ -1713,8 +1690,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
             # If content is provided, use the IntelligentClassifier to extract location events
             if content and not (location_name and description):
-                print()
-
                 # Initialize the IntelligentClassifier
                 try:
                     from langchain_openai import ChatOpenAI
@@ -1744,7 +1719,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                             event = classification.location_events[0]
                             location_name = event.get("location")
                             description = event.get("description")
-                            print()
                         else:
                             self.send_response(400)
                             self.send_header("Content-type", "application/json")
@@ -1843,7 +1817,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 success = True
 
                 # Debug: Check what was stored
-                print()
 
             finally:
                 loop.close()
@@ -1898,7 +1871,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                     memory_item["content"], dict
                 ):
                     content_obj = memory_item["content"]
-                    print()
 
                     # Priority 1: raw_text (this contains the actual description)
                     content = content_obj.get("raw_text", "")
@@ -1911,7 +1883,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                         if isinstance(structured, dict):
                             content = structured.get("location_content", "")
                             if content and content.strip():
-                                print()
                                 return content.strip()
 
             # Strategy 3: Direct fields

@@ -107,12 +107,12 @@ window.showViewContent = function(viewType) {
     document.querySelectorAll('.view-nav-btn').forEach(btn => {
         btn.classList.remove('active');
     });
-    
+
     const viewContent = document.getElementById(`${viewType}View`);
     if (viewContent) {
         viewContent.classList.add('active');
     }
-    
+
     const viewBtn = document.querySelector(`.view-nav-btn[data-view="${viewType}"]`);
     if (viewBtn) {
         viewBtn.classList.add('active');

@@ -3,19 +3,19 @@
 // Initialize the application when DOM is ready
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('Memoir UI Initialized');
-    
+
     // Initialize theme
     initializeTheme();
-    
+
     // Initialize event listeners
     initializeEventListeners();
-    
+
     // Initialize view
     setView('tree');
-    
+
     // Show initial demo data
     showDemoData();
-    
+
     // Initialize input handling
     initializeInputHandling();
 });
@@ -33,7 +33,7 @@ function initializeEventListeners() {
     if (themeToggle) {
         themeToggle.addEventListener('click', toggleTheme);
     }
-    
+
     // View buttons
     document.querySelectorAll('.view-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -41,7 +41,7 @@ function initializeEventListeners() {
             setView(view);
         });
     });
-    
+
     // View navigation buttons
     document.querySelectorAll('.view-nav-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -49,7 +49,7 @@ function initializeEventListeners() {
             showViewContent(viewType);
         });
     });
-    
+
     // Branch selector
     const branchSelector = document.getElementById('branchSelector');
     if (branchSelector) {
@@ -58,18 +58,18 @@ function initializeEventListeners() {
             switchBranch(selectedBranch);
         });
     }
-    
+
     // Branch buttons
     const addBranchBtn = document.getElementById('addBranchBtn');
     if (addBranchBtn) {
         addBranchBtn.addEventListener('click', createNewBranch);
     }
-    
+
     const removeBranchBtn = document.getElementById('removeBranchBtn');
     if (removeBranchBtn) {
         removeBranchBtn.addEventListener('click', deleteCurrentBranch);
     }
-    
+
     const refreshBtn = document.getElementById('refreshBtn');
     if (refreshBtn) {
         refreshBtn.addEventListener('click', refreshStore);
@@ -80,16 +80,16 @@ function initializeInputHandling() {
     const memoryInput = document.getElementById('memoryInput');
     const modelBtn = document.querySelector('.model-btn');
     const queryBtn = document.querySelector('.query-btn');
-    
+
     if (memoryInput) {
         memoryInput.addEventListener('keydown', handleInputKeyDown);
         memoryInput.addEventListener('keyup', handleInputKeyUp);
     }
-    
+
     if (modelBtn) {
         modelBtn.addEventListener('click', toggleModelDropdown);
     }
-    
+
     if (queryBtn) {
         queryBtn.addEventListener('click', () => {
             const input = memoryInput.value.trim();
@@ -98,7 +98,7 @@ function initializeInputHandling() {
             }
         });
     }
-    
+
     // Model selection
     document.querySelectorAll('.model-option').forEach(option => {
         option.addEventListener('click', (e) => {
@@ -110,18 +110,18 @@ function initializeInputHandling() {
 
 async function handleInputKeyDown(e) {
     const input = e.target;
-    
+
     // Handle Enter key
     if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         const value = input.value.trim();
-        
+
         if (!value) return;
-        
+
         // Add to history
         window.appConfig.commandHistory.push(value);
         window.appConfig.historyIndex = window.appConfig.commandHistory.length;
-        
+
         // Check if it's a command
         if (value.startsWith('/')) {
             await window.commandHandler.handleCommand(value);
@@ -132,7 +132,7 @@ async function handleInputKeyDown(e) {
             input.value = '';
         }
     }
-    
+
     // Handle Up arrow for history
     else if (e.key === 'ArrowUp') {
         e.preventDefault();
@@ -144,7 +144,7 @@ async function handleInputKeyDown(e) {
             input.value = window.appConfig.commandHistory[window.appConfig.historyIndex];
         }
     }
-    
+
     // Handle Down arrow for history
     else if (e.key === 'ArrowDown') {
         e.preventDefault();
@@ -161,7 +161,7 @@ async function handleInputKeyDown(e) {
 function handleInputKeyUp(e) {
     const input = e.target;
     const value = input.value;
-    
+
     // Show command suggestions
     if (value.startsWith('/')) {
         showCommandSuggestions(value);
