@@ -2112,7 +2112,7 @@ ${result.valid ?
                 // If both methods fail, show an error instead of falling back
                 updateStorePathDisplay(null, 'disconnected');
                 if (!silent) {
-                    showNotification(`Failed to connect to ${path}. Path may not exist or store may be empty. Try:\n1. Check if path exists\n2. Run initialization script\n3. Use HTTP server (python serve_ui.py)`, 'error');
+                    showNotification(`Failed to connect to ${path}. Path may not exist or store may be empty. Try:\n1. Check if path exists\n2. Run initialization script\n3. Use HTTP server (python server.py)`, 'error');
                 }
                 return;
             } catch (error) {
