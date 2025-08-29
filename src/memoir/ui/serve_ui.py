@@ -1200,13 +1200,13 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             try:
                 timeline_summary = loop.run_until_complete(
                     timeline_memento.get_timeline_summary(
-                        start_date=start_date, end_date=end_date
+                        start_date=start_date, end_date=end_date, namespace="default"
                     )
                 )
 
                 # Also get raw timeline data for structured display
                 timeline_memories = loop.run_until_complete(
-                    store.asearch("memory:general", "timeline.")
+                    store.asearch("default", "timeline.")
                 )
 
                 print(f"DEBUG: Found {len(timeline_memories)} timeline memories")
@@ -1437,17 +1437,61 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             store_path = data.get("path")
             date_str = data.get("date")  # YYYYMMDD format
             description = data.get("description")
+            content = data.get("content")  # Natural language input (alternative to date+description)
 
             if not store_path:
                 self.send_error(400, "Missing 'path' parameter")
                 return
 
+            # If content is provided, use the IntelligentClassifier to extract timeline events
+            if content and not (date_str and description):
+                print(f"DEBUG: Using IntelligentClassifier to extract timeline events from: {content}")
+                
+                # Initialize the IntelligentClassifier
+                try:
+                    from langchain_openai import ChatOpenAI
+                    from memoir.classifier.intelligent import IntelligentClassifier
+                    from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
+                    
+                    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+                    classifier = IntelligentClassifier(
+                        llm=llm,
+                        taxonomy_version=TaxonomyVersion.GENERAL,
+                    )
+                    
+                    # Classify the content to extract timeline events
+                    import asyncio
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    
+                    try:
+                        classification = loop.run_until_complete(
+                            classifier.classify_async(content)
+                        )
+                        
+                        if classification.timeline_events:
+                            # Use the first timeline event
+                            event = classification.timeline_events[0]
+                            date_str = event.get("date")
+                            description = event.get("description")
+                            print(f"DEBUG: Extracted timeline event - Date: {date_str}, Description: {description}")
+                        else:
+                            self.send_error(400, "No timeline event detected in content. Include a date and event description.")
+                            return
+                    finally:
+                        loop.close()
+                        
+                except Exception as e:
+                    print(f"DEBUG: Error using IntelligentClassifier: {e}")
+                    self.send_error(500, f"Error processing timeline content: {e}")
+                    return
+
             if not date_str:
-                self.send_error(400, "Missing 'date' parameter")
+                self.send_error(400, "Missing 'date' parameter or could not extract date from content")
                 return
 
             if not description:
-                self.send_error(400, "Missing 'description' parameter")
+                self.send_error(400, "Missing 'description' parameter or could not extract description from content")
                 return
 
             if not Path(store_path).exists():
@@ -1483,14 +1527,14 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             try:
                 print(f"DEBUG: Adding timeline event: {timeline_event}")
                 loop.run_until_complete(
-                    timeline_memento.apply_timeline_events([timeline_event])
+                    timeline_memento.apply_timeline_events([timeline_event], namespace="default")
                 )
                 success = True
                 print("DEBUG: Timeline event added successfully")
 
                 # Debug: Check what was stored
                 test_search = loop.run_until_complete(
-                    store.asearch("memory:general", f"timeline.{date_str}")
+                    store.asearch("default", f"timeline.{date_str}")
                 )
                 print(
                     f"DEBUG: Immediate search for timeline.{date_str} returned: {test_search}"
@@ -1554,7 +1598,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
                 # Also get raw location data for structured display
                 location_memories = loop.run_until_complete(
-                    store.asearch("memory:general", "location.")
+                    store.asearch("default", "location.")
                 )
 
                 print(f"DEBUG: Found {len(location_memories)} location memories")
@@ -1621,6 +1665,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             store_path = data.get("path")
             location_name = data.get("location")
             description = data.get("description")
+            content = data.get("content")  # Natural language input (alternative to location+description)
 
             if not store_path:
                 self.send_response(400)
@@ -1633,13 +1678,70 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 )
                 return
 
+            # If content is provided, use the IntelligentClassifier to extract location events
+            if content and not (location_name and description):
+                print(f"DEBUG: Using IntelligentClassifier to extract location events from: {content}")
+                
+                # Initialize the IntelligentClassifier
+                try:
+                    from langchain_openai import ChatOpenAI
+                    from memoir.classifier.intelligent import IntelligentClassifier
+                    from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
+                    
+                    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+                    classifier = IntelligentClassifier(
+                        llm=llm,
+                        taxonomy_version=TaxonomyVersion.GENERAL,
+                    )
+                    
+                    # Classify the content to extract location events
+                    import asyncio
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    
+                    try:
+                        classification = loop.run_until_complete(
+                            classifier.classify_async(content)
+                        )
+                        
+                        if classification.location_events:
+                            # Use the first location event
+                            event = classification.location_events[0]
+                            location_name = event.get("location")
+                            description = event.get("description")
+                            print(f"DEBUG: Extracted location event - Location: {location_name}, Description: {description}")
+                        else:
+                            self.send_response(400)
+                            self.send_header("Content-type", "application/json")
+                            self.end_headers()
+                            self.wfile.write(
+                                json.dumps(
+                                    {"success": False, "error": "No location event detected in content. Include a place and activity description."}
+                                ).encode()
+                            )
+                            return
+                    finally:
+                        loop.close()
+                        
+                except Exception as e:
+                    print(f"DEBUG: Error using IntelligentClassifier: {e}")
+                    self.send_response(500)
+                    self.send_header("Content-type", "application/json")
+                    self.end_headers()
+                    self.wfile.write(
+                        json.dumps(
+                            {"success": False, "error": f"Error processing location content: {e}"}
+                        ).encode()
+                    )
+                    return
+
             if not location_name:
                 self.send_response(400)
                 self.send_header("Content-type", "application/json")
                 self.end_headers()
                 self.wfile.write(
                     json.dumps(
-                        {"success": False, "error": "Missing 'location' parameter"}
+                        {"success": False, "error": "Missing 'location' parameter or could not extract location from content"}
                     ).encode()
                 )
                 return
@@ -1650,7 +1752,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(
                     json.dumps(
-                        {"success": False, "error": "Missing 'description' parameter"}
+                        {"success": False, "error": "Missing 'description' parameter or could not extract description from content"}
                     ).encode()
                 )
                 return
@@ -1701,7 +1803,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                     location_name
                 )
                 test_search = loop.run_until_complete(
-                    store.asearch("memory:general", f"location.{normalized_location}")
+                    store.asearch("default", f"location.{normalized_location}")
                 )
                 print(
                     f"DEBUG: Immediate search for location.{normalized_location} returned: {test_search}"
@@ -1836,12 +1938,12 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             try:
                 # Get all data with location prefix
                 location_memories = loop.run_until_complete(
-                    store.asearch("memory:general", "location.")
+                    store.asearch("default", "location.")
                 )
 
                 # Also get all data to see what else is stored
                 all_memories = loop.run_until_complete(
-                    store.asearch("memory:general", "")
+                    store.asearch("default", "")
                 )
 
             finally:
@@ -1908,12 +2010,12 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             try:
                 # Get all data with timeline prefix
                 timeline_memories = loop.run_until_complete(
-                    store.asearch("memory:general", "timeline.")
+                    store.asearch("default", "timeline.")
                 )
 
                 # Also get all data to see what else is stored
                 all_memories = loop.run_until_complete(
-                    store.asearch("memory:general", "")
+                    store.asearch("default", "")
                 )
 
             finally:
@@ -2093,7 +2195,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         """Summarize all taxonomy keys and their data."""
         try:
             # Get all memories from the store
-            all_memories = await store.asearch("memory:general", "")
+            all_memories = await store.asearch("default", "")
 
             if not all_memories:
                 return "No memories found in the store."
@@ -2140,7 +2242,7 @@ Provide a clear, informative summary in 2-3 paragraphs."""
         """Summarize timeline events in chronological order."""
         try:
             # Get timeline memories
-            timeline_memories = await store.asearch("memory:general", "timeline.")
+            timeline_memories = await store.asearch("default", "timeline.")
 
             if not timeline_memories:
                 return "No timeline events found in memory store."
@@ -2194,7 +2296,7 @@ Provide a narrative summary in 2-3 paragraphs that tells the story of what happe
         """Summarize location/place information."""
         try:
             # Get location memories
-            location_memories = await store.asearch("memory:general", "location.")
+            location_memories = await store.asearch("default", "location.")
 
             if not location_memories:
                 return "No location data found in memory store."

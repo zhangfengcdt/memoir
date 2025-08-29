@@ -4910,36 +4910,46 @@ ${result.valid ?
                 return;
             }
 
-            // Parse arguments: YYYY-MM-DD description
-            const parts = args.trim().split(' ');
-            console.log('DEBUG: Parsed timeline args:', parts);
-            if (parts.length < 2) {
-                showNotification('Usage: /timeline YYYY-MM-DD description', 'error');
-                return;
-            }
-
-            const dateInput = parts[0];
-            const description = parts.slice(1).join(' ');
-
-            // Convert YYYY-MM-DD to YYYYMMDD format
-            let dateStr;
-            if (dateInput.includes('-')) {
-                dateStr = dateInput.replace(/-/g, '');
+            // Check if input matches old format (YYYY-MM-DD at start) or use natural language
+            const datePattern = /^\d{4}-\d{2}-\d{2}\s/;
+            let requestBody = { path: connectedStorePath };
+            
+            if (datePattern.test(args.trim())) {
+                // Old format: YYYY-MM-DD description
+                const parts = args.trim().split(' ');
+                if (parts.length < 2) {
+                    showNotification('Usage: /timeline YYYY-MM-DD description', 'error');
+                    return;
+                }
+                
+                const dateInput = parts[0];
+                const description = parts.slice(1).join(' ');
+                
+                // Convert YYYY-MM-DD to YYYYMMDD format
+                let dateStr;
+                if (dateInput.includes('-')) {
+                    dateStr = dateInput.replace(/-/g, '');
+                } else {
+                    dateStr = dateInput;
+                }
+                
+                // Validate date format
+                if (dateStr.length !== 8 || !/^\d{8}$/.test(dateStr)) {
+                    showNotification('Invalid date format. Use YYYY-MM-DD (e.g., 2025-01-07)', 'error');
+                    return;
+                }
+                
+                requestBody.date = dateStr;
+                requestBody.description = description;
+                console.log('DEBUG: Using structured format:', requestBody);
             } else {
-                dateStr = dateInput;
+                // Natural language format: let the server parse it with LLM
+                requestBody.content = args.trim();
+                console.log('DEBUG: Using natural language format:', requestBody);
+                showNotification('Parsing timeline event with AI...', 'info');
             }
 
-            // Validate date format
-            if (dateStr.length !== 8 || !/^\d{8}$/.test(dateStr)) {
-                showNotification('Invalid date format. Use YYYY-MM-DD (e.g., 2025-01-07)', 'error');
-                return;
-            }
-
-            console.log('DEBUG: Sending timeline event to server:', {
-                path: connectedStorePath,
-                date: dateStr,
-                description: description
-            });
+            console.log('DEBUG: Sending timeline event to server:', requestBody);
 
             try {
                 const response = await fetch('/api/timeline', {
@@ -4947,18 +4957,16 @@ ${result.valid ?
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        path: connectedStorePath,
-                        date: dateStr,
-                        description: description
-                    })
+                    body: JSON.stringify(requestBody)
                 });
 
                 const result = await response.json();
                 console.log('DEBUG: Server response:', result);
 
                 if (result.success) {
-                    showNotification(`✓ Timeline event added for ${dateInput}: ${description}`, 'success');
+                    const eventDate = result.date || requestBody.date || 'date';
+                    const eventDesc = result.description || requestBody.description || 'event';
+                    showNotification(`✓ Timeline event added for ${eventDate}: ${eventDesc}`, 'success');
                     // Refresh the timeline view to show the new event
                     await updateTimelineView();
                     // Also refresh the store to update other views
@@ -5846,32 +5854,28 @@ ${result.valid ?
                 return;
             }
 
-            // More flexible parsing - look for common location keywords
-            let location, description;
-            const lowerArgs = args.toLowerCase();
-
-            // Pattern 1: "want to go/visit <place>"
-            const wantToGoMatch = lowerArgs.match(/(?:want to go|want to visit|going to|visiting)\s+(.+)/);
-            if (wantToGoMatch) {
-                const place = wantToGoMatch[1].split(/\s+/)[0]; // Take first word after "want to go"
-                location = place;
-                description = args; // Use full description
-            }
-            // Pattern 2: "in <place>" or "at <place>"
-            else if (lowerArgs.match(/\b(?:in|at)\s+([a-zA-Z]+)/)) {
-                const match = lowerArgs.match(/\b(?:in|at)\s+([a-zA-Z]+)/);
-                location = match[1];
-                description = args;
-            }
-            // Pattern 3: Traditional "<place> <description>"
-            else {
-                const parts = args.trim().split(/\s+/);
-                if (parts.length < 2) {
-                    showNotification('Usage: /location <place> <description> or /location want to go <place>', 'error');
-                    return;
-                }
-                location = parts[0];
-                description = parts.slice(1).join(' ');
+            // Check if input looks like structured format (starts with a single word that could be a location)
+            // Otherwise use natural language processing
+            let requestBody = { path: connectedStorePath };
+            
+            const parts = args.trim().split(/\s+/);
+            
+            // Simple heuristic: if first word looks like a place name and there's more text, treat as structured
+            // Otherwise send the whole thing for natural language processing
+            const firstWord = parts[0];
+            const hasMultipleParts = parts.length >= 2;
+            const looksLikeStructured = hasMultipleParts && /^[A-Z][a-zA-Z]+$/.test(firstWord);
+            
+            if (looksLikeStructured) {
+                // Structured format: <location> <description>
+                requestBody.location = parts[0];
+                requestBody.description = parts.slice(1).join(' ');
+                console.log('DEBUG: Using structured location format:', requestBody);
+            } else {
+                // Natural language format: let the server parse it with AI
+                requestBody.content = args.trim();
+                console.log('DEBUG: Using natural language location format:', requestBody);
+                showNotification('Parsing location event with AI...', 'info');
             }
 
             try {
@@ -5880,17 +5884,14 @@ ${result.valid ?
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        path: connectedStorePath,
-                        location: location,
-                        description: description
-                    }),
+                    body: JSON.stringify(requestBody),
                 });
 
                 const result = await response.json();
 
                 if (result.success) {
-                    showNotification(`Location event added: ${location}`, 'success');
+                    const locationName = result.location || requestBody.location || 'location';
+                    showNotification(`Location event added: ${locationName}`, 'success');
 
                     // Refresh places view if it's currently active
                     if (document.getElementById('placesView').style.display === 'block') {
@@ -11229,6 +11230,7 @@ Message: ${commit.message}`;
 
                 // Create activity data mapping
                 const activityData = {};
+                console.log('Creating activity data from realTimelineData:', realTimelineData);
                 for (let i = 0; i < weeks * daysPerWeek; i++) {
                     const currentDate = new Date(startDate);
                     currentDate.setDate(startDate.getDate() + i);
@@ -11236,9 +11238,12 @@ Message: ${commit.message}`;
 
                     // Check if we have real timeline data for this date
                     if (realTimelineData[dateStr]) {
+                        console.log(`Found timeline data for ${dateStr}:`, realTimelineData[dateStr]);
+                        // realTimelineData already has the correct structure
                         activityData[dateStr] = realTimelineData[dateStr];
                     }
                 }
+                console.log('Final activityData:', activityData);
 
                 // Generate month labels
                 for (let week = 0; week < weeks; week++) {
@@ -11287,7 +11292,12 @@ Message: ${commit.message}`;
                         dayElement.style.gridRow = day + 1;
 
                         const activity = activityData[dateStr];
+                        if (dateStr === '2025-08-30') {
+                            console.log(`Checking date ${dateStr} for activity:`, activity);
+                            console.log('Available activityData keys:', Object.keys(activityData));
+                        }
                         if (activity) {
+                            console.log(`Found activity for ${dateStr}:`, activity);
                             dayElement.classList.add(`level-${activity.level}`);
                             dayElement.title = `${formatDisplayDate(activity.originalKey)}: ${activity.content}`;
 
