@@ -29,6 +29,18 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         # Set the directory to serve from
         super().__init__(*args, directory=str(Path(__file__).parent), **kwargs)
 
+    def send_json_response(self, data, status_code=200):
+        """Send JSON response with proper error handling for broken pipes."""
+        try:
+            self.send_response(status_code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(data, indent=2).encode())
+        except (BrokenPipeError, ConnectionResetError):
+            # Client disconnected - this is normal, don't log as error
+            pass
+
     def do_GET(self):
         parsed_path = urlparse(self.path)
 
@@ -2170,17 +2182,16 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 }
 
                 # Send response
-                self.send_response(200)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Access-Control-Allow-Origin", "*")
-                self.end_headers()
-                self.wfile.write(json.dumps(result, indent=2).encode())
+                self.send_json_response(result)
 
             finally:
                 loop.close()
 
         except Exception as e:
-            self.send_error(500, f"Error generating summary: {e!s}")
+            import contextlib
+
+            with contextlib.suppress(BrokenPipeError, ConnectionResetError):
+                self.send_error(500, f"Error generating summary: {e!s}")
 
     async def _summarize_taxonomy_keys(self, store, llm):
         """Summarize all taxonomy keys and their data."""
