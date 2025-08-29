@@ -1,6 +1,10 @@
 # Core dependencies for memoir
 langmem>=0.0.29
-prollytree>=0.3.0
+prollytree>=0.3.1
 langgraph>=0.6.0
 pydantic>=2.0.0
 typing-extensions>=4.0.0
+
+# UI testing dependencies
+playwright>=1.55.0
+pytest-playwright>=0.7.0

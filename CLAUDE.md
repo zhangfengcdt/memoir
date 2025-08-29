@@ -57,8 +57,8 @@ docker-compose -f docker/docker-compose.dev.yml up # Start dev environment
 python scripts/check_status.py            # Check repository and system status
 
 # UI Visualization Server
-python -m src.memoir.ui.serve_ui          # Start interactive memory visualization UI (port 8080)
-python -m src.memoir.ui.initialize_sample_store  # Create sample memory store for UI testing
+python -m src.memoir.ui.server          # Start interactive memory visualization UI (port 8080)
+python -m src.memoir.ui.initializer  # Create sample memory store for UI testing
 ```
 
 ## Architecture Overview
@@ -108,14 +108,16 @@ This project brings Git-like version control to AI memory systems, replacing opa
 - **Utilities** (`langgraph/utils.py`): Helper functions for LangGraph workflows
 
 #### 7. **Interactive UI** (`src/memoir/ui/`)
-- **Web-based Visualization** (`visualization.html`): D3.js memory tree explorer
-- **Python code highlighting**: Syntax-highlighted code examples using highlight.js
+- **Main UI** (`ui.html`): Refactored web-based D3.js memory tree explorer
+- **HTTP Server** (`server.py`): Web server with API endpoints for memory operations
+- **External Styles** (`static/styles.css`): Modular CSS for better maintainability
+- **JavaScript Modules** (`static/js/`): Organized JS components (config, commands, utils, etc.)
 - **Git-like interface**: Branch switching, commit history, time-travel
 - **Command system**: `/connect`, `/code`, `/refresh`, `/proof`, `/verify` and more commands
 - **Real-time updates**: Connect to live memory stores and explore data
 - **Cryptographic proofs**: Generate and verify SHA-256 proofs for memory integrity
-- **Memory store reader** (`memory_store_reader.py`): API for reading store data
-- **Sample store initializer** (`initialize_sample_store.py`): Create demo data
+- **Memory store reader** (`reader.py`): API for reading store data
+- **Sample store initializer** (`initializer.py`): Create demo data
 
 ### Key Performance Metrics
 - **Search latency**: 0.1-1ms (vs 150-750ms traditional)
@@ -247,3 +249,30 @@ Built-in metrics tracking:
 metrics = memory_manager.get_performance_metrics()
 print(f"Avg search time: {metrics['avg_search_ms']}ms")
 ```
+
+### UI Refactoring (Recent)
+The UI has been refactored for better maintainability:
+
+#### File Structure:
+```
+src/memoir/ui/
+├── server.py                    # Main HTTP server (renamed from serve_ui.py)
+├── ui.html                      # Main UI file (refactored from visualization.html)
+├── reader.py                    # Memory store reader (renamed)
+├── initializer.py              # Sample store initializer (renamed)
+└── static/
+    ├── styles.css              # External CSS (extracted from HTML)
+    └── js/                     # Modular JavaScript
+        ├── app.js              # Main application logic
+        ├── commands.js         # Command handling
+        ├── config.js           # Configuration and state
+        ├── main.js            # Module orchestrator
+        ├── mock-data.js       # Demo data generation
+        └── utils.js           # Utility functions
+```
+
+#### Benefits:
+- **Maintainability**: CSS and JS separated into logical modules
+- **Performance**: External assets can be cached by browsers
+- **Development**: Easier to edit and debug specific functionality
+- **Organization**: Clear separation of concerns

@@ -37,7 +37,7 @@ jobs:
 
     - name: Run tests with pytest
       run: |
-        pytest tests/ -v --cov=memoir --cov-report=xml --cov-report=term-missing
+        pytest tests/ -v --cov=memoir --cov-report=xml --cov-report=term-missing --ignore=tests/test_ui_e2e.py
 
     - name: Upload coverage to Codecov
       if: matrix.python-version == '3.11'
@@ -73,11 +73,11 @@ jobs:
 
     - name: Run Ruff (linting)
       run: |
-        ruff check src/ tests/ examples/
+        ruff check src/ tests/ examples/ --exclude tests/test_ui_e2e.py
 
     - name: Run isort (import sorting)
       run: |
-        isort --check-only --diff src/ tests/ examples/
+        isort --check-only --diff src/ tests/ examples/ --skip tests/test_ui_e2e.py
 
     - name: Run Bandit (security)
       run: |

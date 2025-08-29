@@ -23,7 +23,7 @@ services:
     # Restart policy for development
     restart: "no"
     # Override command for development (with auto-reload if needed)
-    # command: python -m src.memoir.ui.serve_ui --reload
+    # command: python -m src.memoir.ui.server --reload
 
   # Remove the init service in development to avoid conflicts
   memoir-init:
