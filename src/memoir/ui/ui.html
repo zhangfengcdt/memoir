@@ -3552,7 +3552,7 @@ ${result.valid ?
                 if (summaryType === 'keys' && window.keyPattern) {
                     apiUrl += `&pattern=${encodeURIComponent(window.keyPattern)}`;
                 }
-                
+
                 const response = await fetch(apiUrl, {
                     signal: abortController.signal
                 });
@@ -3647,7 +3647,7 @@ ${result.valid ?
                         summaryContent += `<h4>🔑 Keys Summary</h4>`;
                         summaryContent += `<p>${summaries.keys.replace(/\n/g, '<br>')}</p>`;
                         summaryContent += `</div>`;
-                        
+
                         // Add matching keys list if available
                         if (result.matching_keys && result.matching_keys.length > 0) {
                             summaryContent += `<div class="summary-section">`;
@@ -3666,10 +3666,17 @@ ${result.valid ?
                     // Create and show a modal popup for the summary
                     const modal = document.createElement('div');
                     modal.className = 'summary-modal';
+
+                    // Generate dynamic title based on summary type
+                    let modalTitle = 'Memory Store Summary';
+                    if (summaryType === 'keys' && window.keyPattern) {
+                        modalTitle = `Keys Summary: ${window.keyPattern}`;
+                    }
+
                     modal.innerHTML = `
                         <div class="summary-modal-content">
                             <div class="summary-modal-header">
-                                <h2>Memory Store Summary</h2>
+                                <h2>${modalTitle}</h2>
                                 <button class="summary-modal-close">&times;</button>
                             </div>
                             <div class="summary-modal-body">

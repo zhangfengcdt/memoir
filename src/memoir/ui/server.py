@@ -2061,7 +2061,8 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         store_path = query_params.get("path", [None])[0]
         summary_type = query_params.get("type", ["all"])[
             0
-        ]  # all, taxonomy, timeline, places
+        ]  # all, taxonomy, timeline, places, keys
+        key_pattern = query_params.get("pattern", [None])[0]  # For keys type
 
         if not store_path:
             self.send_error(400, "Missing 'path' parameter")
@@ -2069,6 +2070,11 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
         if not Path(store_path).exists():
             self.send_error(404, f"Store path does not exist: {store_path}")
+            return
+
+        # Validate keys type requires pattern
+        if summary_type == "keys" and not key_pattern:
+            self.send_error(400, "Keys summary type requires 'pattern' parameter")
             return
 
         try:
@@ -2133,6 +2139,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
                 # Collect summaries based on type
                 summaries = {}
+                matching_keys = []  # Initialize for keys summary type
 
                 if summary_type in ["all", "taxonomy"]:
                     taxonomy_start = time.time()
@@ -2154,6 +2161,15 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                         self._summarize_places(store, llm)
                     )
                     timing_info["places"] = round(time.time() - places_start, 2)
+
+                if summary_type == "keys":
+                    keys_start = time.time()
+                    summary_result = loop.run_until_complete(
+                        self._summarize_keys_by_pattern(store, llm, key_pattern)
+                    )
+                    summaries["keys"] = summary_result["summary"]
+                    matching_keys = summary_result["matching_keys"]
+                    timing_info["keys"] = round(time.time() - keys_start, 2)
 
                 # Generate overall summary if requesting all
                 if summary_type == "all":
@@ -2180,6 +2196,11 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                         ),
                     },
                 }
+
+                # Add keys-specific data to result
+                if summary_type == "keys":
+                    result["matching_keys"] = matching_keys
+                    result["metadata"]["matching_keys_count"] = len(matching_keys)
 
                 # Send response
                 self.send_json_response(result)
@@ -2338,6 +2359,115 @@ Provide an informative summary in 2-3 paragraphs about the places and locations 
 
         except Exception as e:
             return f"Error summarizing locations: {e!s}"
+
+    async def _summarize_keys_by_pattern(self, store, llm, pattern):
+        """Summarize memories matching a specific key pattern."""
+        try:
+            import fnmatch
+
+            # Get all memories from default namespace
+            all_memories = []
+            try:
+                if hasattr(store.tree, "list_keys"):
+                    # Using list_keys to get all keys
+                    keys = store.tree.list_keys()
+                    all_keys = [key.decode("utf-8") for key in keys]
+
+                    for full_key in all_keys:
+                        # Parse the key to extract namespace and semantic path
+                        if ":" in full_key:
+                            parts = full_key.split(":")
+                            if (
+                                len(parts) >= 3
+                                and parts[0] == "memory"
+                                and parts[1] == "general"
+                            ):
+                                # Handle memory:general:path format
+                                namespace_part = "memory:general"
+                                semantic_path = ":".join(parts[2:])
+                            elif len(parts) == 2:
+                                # Handle default:path format
+                                namespace_part, semantic_path = parts
+                            else:
+                                namespace_part = ":".join(parts[:-1])
+                                semantic_path = parts[-1]
+                        else:
+                            namespace_part = ""
+                            semantic_path = full_key
+
+                        # Only include default namespace for now
+                        if namespace_part == "default":
+                            # Get the value for this key
+                            key_bytes = full_key.encode("utf-8")
+                            value_bytes = store.tree.get(key_bytes)
+                            if value_bytes:
+                                value_data = store._decode_value(value_bytes)
+                                all_memories.append((semantic_path, value_data))
+                else:
+                    # Fallback to search method
+                    namespace_tuple = ("default",)
+                    items = list(store.search(namespace_tuple))
+                    all_memories = [(path, data) for _, path, data in items]
+
+            except Exception as e:
+                print(f"Error reading from store: {e}")
+                return {
+                    "summary": f"Error accessing store data: {e!s}",
+                    "matching_keys": [],
+                }
+
+            # Filter keys by pattern (support wildcards)
+            matching_memories = []
+            matching_keys = []
+
+            for path, data in all_memories:
+                if fnmatch.fnmatch(path, pattern):
+                    matching_memories.append((path, data))
+                    matching_keys.append(path)
+
+            if not matching_memories:
+                return {
+                    "summary": f"No memories found matching pattern: {pattern}",
+                    "matching_keys": [],
+                }
+
+            # Extract content from matching memories for LLM analysis
+            content_for_analysis = []
+            for path, data in matching_memories:
+                # Extract readable content from the data
+                content = self._extract_memory_content(data)
+                if content and content.strip():
+                    content_for_analysis.append(f"Key: {path}\nContent: {content}")
+
+            if not content_for_analysis:
+                return {
+                    "summary": f"Found {len(matching_keys)} matching keys but no readable content",
+                    "matching_keys": matching_keys,
+                }
+
+            # Create LLM prompt for summarization
+            content_text = "\n\n".join(content_for_analysis)
+            prompt = f"""Analyze and summarize the following memory data that matches the pattern "{pattern}":
+
+{content_text}
+
+Please provide a comprehensive summary that includes:
+1. The main themes and topics present in these memories
+2. Key patterns or commonalities across the data
+3. Important information or insights from the content
+4. The overall scope and nature of the information
+
+Provide a clear, informative summary in 2-4 paragraphs."""
+
+            response = await llm.ainvoke([{"role": "user", "content": prompt}])
+
+            return {"summary": response.content.strip(), "matching_keys": matching_keys}
+
+        except Exception as e:
+            return {
+                "summary": f"Error summarizing keys by pattern: {e!s}",
+                "matching_keys": [],
+            }
 
     async def _generate_overall_summary(self, summaries, llm):
         """Generate an overall summary combining all aspects."""
