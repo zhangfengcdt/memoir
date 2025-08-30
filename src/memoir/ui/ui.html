@@ -947,8 +947,21 @@
             } else if (cmd === '/restore-layout') {
                 restoreNormalLayout();
             } else if (cmd === '/summarize') {
-                const summaryType = parts.length > 1 ? parts[1].toLowerCase() : 'all';
-                await summarizeMemoryStore(summaryType);
+                if (parts.length > 1 && parts[1].toLowerCase() === 'keys') {
+                    // Handle /summarize keys <pattern>
+                    const keyPattern = parts.length > 2 ? parts[2] : '';
+                    if (!keyPattern) {
+                        showNotification('Usage: /summarize keys <pattern> (e.g., /summarize keys profile.personal.*)', 'error');
+                        return;
+                    }
+                    // Store pattern globally for API to access
+                    window.keyPattern = keyPattern;
+                    await summarizeMemoryStore('keys');
+                } else {
+                    // Handle regular /summarize [type]
+                    const summaryType = parts.length > 1 ? parts[1].toLowerCase() : 'all';
+                    await summarizeMemoryStore(summaryType);
+                }
             } else if (cmd === '/recall' || cmd === '/search') {
                 let query, person;
                 const args = parts.slice(1).join(' ');
@@ -3517,7 +3530,7 @@ ${result.valid ?
             }
 
             // Validate summary type
-            const validTypes = ['all', 'taxonomy', 'timeline', 'places'];
+            const validTypes = ['all', 'taxonomy', 'timeline', 'places', 'keys'];
             if (!validTypes.includes(summaryType)) {
                 showNotification(`Invalid summary type: ${summaryType}. Use: ${validTypes.join(', ')}`, 'error');
                 return;
@@ -3534,7 +3547,13 @@ ${result.valid ?
                 // Update progress
                 updateProgressModal(progressModal, 'Sending request to server...', 20);
 
-                const response = await fetch(`/api/summarize?path=${encodeURIComponent(connectedStorePath)}&type=${encodeURIComponent(summaryType)}`, {
+                // Build API URL with pattern if needed for keys type
+                let apiUrl = `/api/summarize?path=${encodeURIComponent(connectedStorePath)}&type=${encodeURIComponent(summaryType)}`;
+                if (summaryType === 'keys' && window.keyPattern) {
+                    apiUrl += `&pattern=${encodeURIComponent(window.keyPattern)}`;
+                }
+                
+                const response = await fetch(apiUrl, {
                     signal: abortController.signal
                 });
 
@@ -3621,6 +3640,25 @@ ${result.valid ?
                         summaryContent += `<h4>📍 Places & Locations</h4>`;
                         summaryContent += `<p>${summaries.places.replace(/\n/g, '<br>')}</p>`;
                         summaryContent += `</div>`;
+                    }
+
+                    if (summaries.keys) {
+                        summaryContent += `<div class="summary-section">`;
+                        summaryContent += `<h4>🔑 Keys Summary</h4>`;
+                        summaryContent += `<p>${summaries.keys.replace(/\n/g, '<br>')}</p>`;
+                        summaryContent += `</div>`;
+                        
+                        // Add matching keys list if available
+                        if (result.matching_keys && result.matching_keys.length > 0) {
+                            summaryContent += `<div class="summary-section">`;
+                            summaryContent += `<h4>🗂️ Matching Keys (${result.matching_keys.length})</h4>`;
+                            summaryContent += `<div style="max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 0.9em; background: var(--bg-glass); padding: 12px; border-radius: 8px;">`;
+                            result.matching_keys.forEach(key => {
+                                summaryContent += `<div style="padding: 2px 0; border-bottom: 1px solid var(--border-light);">${key}</div>`;
+                            });
+                            summaryContent += `</div>`;
+                            summaryContent += `</div>`;
+                        }
                     }
 
                     summaryContent += `</div>`;
@@ -7482,7 +7520,7 @@ ${result.valid ?
             { cmd: '/branches', args: '', desc: 'List all branches' },
             { cmd: '/blame', args: '<key>', desc: 'Show Git-like blame history for memory key' },
             { cmd: '/help', args: '', desc: 'Show all available commands', aliases: '/h' },
-            { cmd: '/summarize', args: '[type]', desc: 'Generate summary of memories (all, taxonomy, timeline, places)', aliases: '/sum' },
+            { cmd: '/summarize', args: '[type]', desc: 'Generate summary of memories (all, taxonomy, timeline, places, keys <pattern>)', aliases: '/sum' },
             { cmd: '/recall', args: '<query>', desc: 'Search and recall relevant memories using AI', aliases: '/search' },
             { cmd: '/timeline', args: '[YYYY-MM-DD description]', desc: 'Show timeline or add timeline event', aliases: '/tl' },
             { cmd: '/location', args: '[place description]', desc: 'Show places or add location event', aliases: '/loc' },
