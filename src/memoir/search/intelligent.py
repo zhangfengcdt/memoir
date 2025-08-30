@@ -46,7 +46,12 @@ class IntelligentSearchEngine:
         self.store = store
 
     async def search(
-        self, query: str, namespace: str, limit: int = 10, return_prompts: bool = False
+        self,
+        query: str,
+        namespace: str,
+        limit: int = 10,
+        return_prompts: bool = False,
+        person_filter: Optional[str] = None,
     ) -> list[IntelligentSearchResult]:
         """
         Search for relevant memories using LLM path selection.
@@ -56,6 +61,7 @@ class IntelligentSearchEngine:
             namespace: User namespace to search in
             limit: Maximum number of results
             return_prompts: Whether to capture and return LLM prompts
+            person_filter: Optional person name to filter paths (e.g., "john")
 
         Returns:
             List of IntelligentSearchResult objects
@@ -88,6 +94,20 @@ class IntelligentSearchEngine:
                 logger.info(
                     f"Found {len(all_memories)} memories in namespace {namespace_tuple}"
                 )
+
+                # Apply person filtering BEFORE showing debug output
+                if person_filter:
+                    person_prefix = f"{person_filter.lower()}."
+                    filtered_memories = []
+                    for memory_item in all_memories:
+                        _, path, data = memory_item
+                        if path.lower().startswith(person_prefix):
+                            filtered_memories.append(memory_item)
+
+                    logger.info(
+                        f"Person filtering '{person_filter}': {len(all_memories)} -> {len(filtered_memories)} memories"
+                    )
+                    all_memories = filtered_memories
 
                 # Debug: show first few memory paths if any found
                 if all_memories:
@@ -144,6 +164,33 @@ class IntelligentSearchEngine:
                     path="",
                     content="",
                     metadata={"step_timings": step_timings, "is_timing_only": True},
+                    relevance_score=0.0,
+                    namespace="",
+                )
+                return [dummy_result]
+
+            # Check if person filtering resulted in no memories
+            if not all_memories and person_filter:
+                logger.info(
+                    f"No memories found for person '{person_filter}' in namespace {namespace}"
+                )
+                # Return timing-only result for early exit
+                step_timings["step1_path_discovery"] = round(
+                    time.time() - step1_start, 3
+                )
+                step_timings["step2_path_selection"] = 0.0
+                step_timings["step3_content_refinement"] = 0.0
+                step_timings["step4_memory_retrieval"] = 0.0
+                step_timings["total_search"] = round(time.time() - search_start, 3)
+
+                dummy_result = IntelligentSearchResult(
+                    path="",
+                    content="",
+                    metadata={
+                        "step_timings": step_timings,
+                        "is_timing_only": True,
+                        "person_filter": person_filter,
+                    },
                     relevance_score=0.0,
                     namespace="",
                 )

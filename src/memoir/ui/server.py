@@ -2377,6 +2377,7 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
         query_params = parse_qs(parsed_path.query)
         store_path = query_params.get("path", [None])[0]
         query = query_params.get("query", [None])[0]
+        person = query_params.get("person", [None])[0]  # New person parameter
 
         if not store_path:
             self.send_error(400, "Missing 'path' parameter")
@@ -2436,7 +2437,11 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
                 # First try the default namespace
                 results = loop.run_until_complete(
                     search_engine.search(
-                        query, namespace="default", limit=10, return_prompts=True
+                        query,
+                        namespace="default",
+                        limit=10,
+                        return_prompts=True,
+                        person_filter=person,
                     )
                 )
                 print(f"🔍 Search in default found {len(results)} results")
@@ -2481,6 +2486,7 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
                                     namespace=base_namespace,
                                     limit=10,
                                     return_prompts=True,
+                                    person_filter=person,
                                 )
                             )
                             print(

@@ -950,11 +950,22 @@
                 const summaryType = parts.length > 1 ? parts[1].toLowerCase() : 'all';
                 await summarizeMemoryStore(summaryType);
             } else if (cmd === '/recall' || cmd === '/search') {
-                const query = parts.slice(1).join(' ');
-                if (!query) {
-                    showNotification('Usage: /recall <query>\nExample: /recall user preferences about colors', 'error');
+                let query, person;
+                const args = parts.slice(1).join(' ');
+
+                // Check if person parameter is specified: /recall (person) query
+                const personMatch = args.match(/^\(([^)]+)\)\s*(.*)$/);
+                if (personMatch) {
+                    person = personMatch[1].trim();
+                    query = personMatch[2].trim();
                 } else {
-                    await recallMemories(query);
+                    query = args;
+                }
+
+                if (!query) {
+                    showNotification('Usage: /recall <query> or /recall (person) <query>\nExamples:\n/recall user preferences about colors\n/recall (john) career goals', 'error');
+                } else {
+                    await recallMemories(query, person);
                 }
             } else if (cmd === '/diff' || cmd === '/d') {
                 const arg1 = parts[1];
@@ -1054,11 +1065,20 @@
                     // Input doesn't start with "/" - treat it as a natural language query
                     // Default to recall functionality
 
-                    const query = command.trim();
+                    let query, person;
+                    const input = command.trim();
+
+                    // Check if person parameter is specified: (person) query
+                    const personMatch = input.match(/^\(([^)]+)\)\s*(.*)$/);
+                    if (personMatch) {
+                        person = personMatch[1].trim();
+                        query = personMatch[2].trim();
+                    } else {
+                        query = input;
+                    }
+
                     if (query) {
-
-
-                        await recallMemories(query);
+                        await recallMemories(query, person);
                     } else {
                         showNotification('Please enter a question or search query', 'error');
                     }
@@ -3890,7 +3910,7 @@ ${result.valid ?
             }
         }
 
-        async function recallMemories(query) {
+        async function recallMemories(query, person = null) {
             if (!connectedStorePath) {
                 showNotification('Please connect to a memory store first', 'error');
                 return;
@@ -3906,7 +3926,10 @@ ${result.valid ?
             const startTime = Date.now();
 
             // Show progress modal
-            const progressModal = showProgressModal('Recalling Memories', `Searching for: "${query}"`);
+            const searchDescription = person ?
+                `Searching for: "${query}" (filtered by ${person})` :
+                `Searching for: "${query}"`;
+            const progressModal = showProgressModal('Recalling Memories', searchDescription);
             progressModal.startTime = startTime;
 
             // Create AbortController for cancellation
@@ -3918,7 +3941,11 @@ ${result.valid ?
                 updateProgressModalWithTime(progressModal, 'Initializing search...', 5);
 
                 // The actual search happens in the API call, so we simulate progress during the fetch
-                const fetchPromise = fetch(`/api/recall?path=${encodeURIComponent(connectedStorePath)}&query=${encodeURIComponent(query)}`, {
+                let apiUrl = `/api/recall?path=${encodeURIComponent(connectedStorePath)}&query=${encodeURIComponent(query)}`;
+                if (person) {
+                    apiUrl += `&person=${encodeURIComponent(person)}`;
+                }
+                const fetchPromise = fetch(apiUrl, {
                     signal: abortController.signal
                 });
 
@@ -3985,7 +4012,7 @@ ${result.valid ?
                     // Create recall results display
                     let recallContent = `<div class="recall-content">`;
                     recallContent += `<h3>Memory Recall Results</h3>`;
-                    recallContent += `<div class="recall-query">Query: "${query}"</div>`;
+                    recallContent += `<div class="recall-query">Query: "${query}"${person ? ` (filtered by ${person})` : ''}</div>`;
 
                     // Display search metadata
                     if (result.metadata) {
