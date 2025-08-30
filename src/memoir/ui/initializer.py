@@ -431,13 +431,31 @@ class SpeakerPrefixMemoryManager:
                 )
                 return None
 
-            # Get the semantic key from classification
-            if hasattr(classification, "primary_path"):
-                semantic_key = classification.primary_path
-            elif hasattr(classification, "path"):
-                semantic_key = classification.path
+            # Get the semantic key(s) from classification
+            # Support multiple paths if available
+            semantic_keys = []
+            if hasattr(classification, "all_paths"):
+                semantic_keys = classification.all_paths
+            elif hasattr(classification, "paths") and classification.paths:
+                semantic_keys = classification.paths
+            elif hasattr(classification, "primary_path"):
+                semantic_keys = [classification.primary_path]
+            elif hasattr(classification, "path") and classification.path:
+                semantic_keys = [classification.path]
             else:
-                semantic_key = "context.current.session.topic.main"
+                semantic_keys = ["context.current.session.topic.main"]
+
+            # For now, use the primary (first) semantic key for backwards compatibility
+            # TODO: Future enhancement could store under multiple keys
+            semantic_key = (
+                semantic_keys[0]
+                if semantic_keys
+                else "context.current.session.topic.main"
+            )
+            if len(semantic_keys) > 1:
+                print(
+                    f"      → Multi-path classification: {semantic_keys} (using primary: {semantic_key})"
+                )
 
             # Add speaker prefix to the semantic key
             if semantic_key and not semantic_key.startswith(self.speaker):
@@ -486,16 +504,13 @@ class SpeakerPrefixMemoryManager:
 
         # Check if there's existing content at this path and merge if needed
         try:
-            # Search using namespace tuple format
+            # Get existing content using the get method
             ns_tuple = (namespace,) if isinstance(namespace, str) else namespace
-            search_results = list(
-                await self.memory_manager.prolly_store.search(ns_tuple, semantic_key)
+            existing_value = self.memory_manager.prolly_store.get(
+                ns_tuple, semantic_key
             )
 
-            if search_results:
-                # Extract existing content from the first result
-                _, _, existing_value = search_results[0]  # (namespace, key, value)
-
+            if existing_value:
                 # Handle the nested structure from memory manager
                 if isinstance(existing_value, dict):
                     # Check if it's the memory manager's wrapped format
