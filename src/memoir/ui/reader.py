@@ -62,7 +62,7 @@ def _extract_content(value_data):
                     contents.append(str(content))
         if contents:
             # Return all contents joined
-            return "\n---\n".join(contents) if len(contents) > 1 else contents[0]
+            return "\n+++\n".join(contents) if len(contents) > 1 else contents[0]
 
     # Fallback to string representation
     return str(value_data)

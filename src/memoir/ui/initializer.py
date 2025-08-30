@@ -11,7 +11,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 # Add parent directories to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -87,15 +87,12 @@ async def main():
             print(f"Error: Store path does not exist for appending: {args.store_path}")
             sys.exit(1)
 
-    if args.data_file:
-        if not os.path.exists(args.data_file):
-            print(f"Error: Data file not found: {args.data_file}")
-            sys.exit(1)
+    if args.data_file and not os.path.exists(args.data_file):
+        print(f"Error: Data file not found: {args.data_file}")
+        sys.exit(1)
 
-        # Person name is only required for JSON format
-        if args.format == "json" and not args.person:
-            print("Error: --person is required when using JSON format")
-            sys.exit(1)
+        # Person name is now optional for JSON format - if not provided, will process all speakers
+        # No validation needed here anymore
 
     # Use the store path from arguments
     store_path = args.store_path
@@ -401,6 +398,159 @@ async def process_txt_data(
     print(f"Total memories processed: {memories_processed}")
 
 
+class SpeakerPrefixMemoryManager:
+    """
+    Wrapper around ProllyTreeMemoryStoreManager that adds speaker prefixes to memory paths.
+    """
+
+    def __init__(self, memory_manager: ProllyTreeMemoryStoreManager, speaker: str):
+        self.memory_manager = memory_manager
+        self.speaker = speaker.lower().replace(" ", "_")
+
+    async def store_memory(
+        self,
+        content: Any,
+        namespace: str = "default",
+        metadata: Optional[dict] = None,
+        auto_classify: bool = True,
+    ) -> str:
+        """
+        Store a memory with speaker prefix added to the semantic key.
+        """
+        # First, let the intelligent classifier check if it's memory-worthy
+        # and get the classification path
+        if auto_classify and self.memory_manager.classifier:
+            classification = await self.memory_manager.classifier.classify_async(
+                str(content), metadata=metadata
+            )
+
+            # Check if memory is worth storing (intelligent classifier handles this)
+            if hasattr(classification, "is_memory") and not classification.is_memory:
+                print(
+                    f"  ⚠ Skipping non-memory-worthy content for {self.speaker}: {str(content)[:50]}..."
+                )
+                return None
+
+            # Get the semantic key from classification
+            if hasattr(classification, "primary_path"):
+                semantic_key = classification.primary_path
+            elif hasattr(classification, "path"):
+                semantic_key = classification.path
+            else:
+                semantic_key = "context.current.session.topic.main"
+
+            # Add speaker prefix to the semantic key
+            if semantic_key and not semantic_key.startswith(self.speaker):
+                semantic_key = f"{self.speaker}.{semantic_key}"
+                print(f"      → Prefixed key: {semantic_key}")
+        else:
+            # Use provided key or generate one with speaker prefix
+            semantic_key = metadata.get("key") if metadata else None
+            if not semantic_key:
+                semantic_key = f"{self.speaker}.context.current.session.topic.main"
+            elif not semantic_key.startswith(self.speaker):
+                semantic_key = f"{self.speaker}.{semantic_key}"
+
+        # Format content with metadata for better context
+        formatted_content = self._format_content_with_metadata(content, metadata)
+
+        # Check if there's existing content at this path and merge if needed
+        try:
+            # Search using namespace tuple format
+            ns_tuple = (namespace,) if isinstance(namespace, str) else namespace
+            search_results = list(
+                await self.memory_manager.prolly_store.search(ns_tuple, semantic_key)
+            )
+
+            if search_results:
+                # Extract existing content from the first result
+                _, _, existing_value = search_results[0]  # (namespace, key, value)
+
+                # Handle the nested structure from memory manager
+                if isinstance(existing_value, dict):
+                    # Check if it's the memory manager's wrapped format
+                    if "memories" in existing_value and isinstance(
+                        existing_value["memories"], list
+                    ):
+                        # Extract from the first memory in the list
+                        if existing_value["memories"]:
+                            first_memory = existing_value["memories"][0]
+                            if (
+                                isinstance(first_memory, dict)
+                                and "content" in first_memory
+                            ):
+                                content_obj = first_memory["content"]
+                                if (
+                                    isinstance(content_obj, dict)
+                                    and "raw_text" in content_obj
+                                ):
+                                    existing_content = content_obj["raw_text"]
+                                else:
+                                    existing_content = str(content_obj)
+                            else:
+                                existing_content = str(first_memory)
+                        else:
+                            existing_content = ""
+                    elif "raw_text" in existing_value:
+                        existing_content = existing_value["raw_text"]
+                    else:
+                        existing_content = str(existing_value)
+                elif isinstance(existing_value, str):
+                    existing_content = existing_value
+                else:
+                    existing_content = str(existing_value)
+
+                # Merge with new content
+                merged_content = f"{existing_content}\n\n{formatted_content}"
+
+                # Store merged content with structure
+                final_content = {
+                    "raw_text": merged_content,
+                    "speaker": self.speaker,
+                    "last_updated": metadata.get("session_date", "unknown"),
+                    "memory_type": "conversation_memory",
+                }
+            else:
+                # First content for this path
+                final_content = {
+                    "raw_text": formatted_content,
+                    "speaker": self.speaker,
+                    "last_updated": metadata.get("session_date", "unknown"),
+                    "memory_type": "conversation_memory",
+                }
+        except Exception as e:
+            # If search fails, just store the new content
+            print(f"      Note: Could not check for existing content: {e}")
+            final_content = {
+                "raw_text": formatted_content,
+                "speaker": self.speaker,
+                "last_updated": metadata.get("session_date", "unknown"),
+                "memory_type": "conversation_memory",
+            }
+
+        # Store using the base memory manager with the prefixed key
+        await self.memory_manager.prolly_store.store_memory_async(
+            namespace, final_content, semantic_key
+        )
+
+        return semantic_key
+
+    def _format_content_with_metadata(
+        self, content: str, metadata: Optional[dict]
+    ) -> str:
+        """Format content with date information."""
+        if not metadata:
+            return content
+
+        # Extract date metadata
+        date = metadata.get("session_date", "unknown_date")
+
+        # Format with just the date/time
+        formatted = f"[{date}]\n{content}"
+
+        return formatted
+
+
 def _parse_session_parameter(session: Optional[str]) -> Optional[list[int]]:
     """Parse session parameter to handle single values, ranges, and lists."""
     if not session:
@@ -486,7 +636,23 @@ async def process_locomo_data(
     memories_processed = 0
     total_sessions = len(session_keys)
 
-    print(f"Processing {total_sessions} session(s) for {person_name}...")
+    # Extract all speakers from the conversation data if no specific person provided
+    if not person_name:
+        all_speakers = set()
+        for session_key in session_keys:
+            session_data = conversation_data.get(session_key, [])
+            for exchange in session_data:
+                speaker = exchange.get("speaker")
+                if speaker and speaker.strip():
+                    all_speakers.add(speaker.strip())
+        speakers_to_process = sorted(all_speakers)
+        print(f"Found speakers: {', '.join(speakers_to_process)}")
+        print(
+            f"Processing {total_sessions} session(s) for all speakers: {', '.join(speakers_to_process)}..."
+        )
+    else:
+        speakers_to_process = [person_name]
+        print(f"Processing {total_sessions} session(s) for {person_name}...")
 
     for session_idx, session_key in enumerate(session_keys, 1):
         session_data = conversation_data.get(session_key, [])
@@ -501,12 +667,20 @@ async def process_locomo_data(
         )
 
         # Count total exchanges for this session to show progress
-        total_exchanges = sum(
-            1
-            for exchange in session_data
-            if exchange.get("speaker") == person_name
-            and exchange.get("text", "").strip()
-        )
+        if person_name:
+            total_exchanges = sum(
+                1
+                for exchange in session_data
+                if exchange.get("speaker") == person_name
+                and exchange.get("text", "").strip()
+            )
+        else:
+            total_exchanges = sum(
+                1
+                for exchange in session_data
+                if exchange.get("speaker") in speakers_to_process
+                and exchange.get("text", "").strip()
+            )
         current_exchange = 0
 
         for exchange in session_data:
@@ -516,13 +690,20 @@ async def process_locomo_data(
             if text.strip():
                 conversation_history.append(f"{speaker}: {text}")
 
-            if speaker == person_name and text.strip():
+            # Process exchange if speaker matches our criteria
+            should_process = (
+                speaker in speakers_to_process
+                if not person_name
+                else speaker == person_name
+            ) and text.strip()
+
+            if should_process:
                 current_exchange += 1
                 if (
                     total_exchanges > 1
                 ):  # Only show progress for sessions with multiple exchanges
                     print(
-                        f"  Processing exchange {current_exchange}/{total_exchanges}...",
+                        f"  Processing exchange {current_exchange}/{total_exchanges} ({speaker})...",
                         end="\r",
                     )
 
@@ -570,16 +751,26 @@ async def process_locomo_data(
                         end="\r",
                     )
 
-                # Store memory with proper namespace
+                # Create speaker-specific memory manager
+                speaker_memory_manager = SpeakerPrefixMemoryManager(
+                    memory_manager, metadata.get("speaker", "unknown")
+                )
+
+                # Store memory with proper namespace and speaker prefix
                 # Include conversation context in metadata for better classification
                 enhanced_metadata = {
                     **metadata,
                     "conversation_context": conversation_context,
                 }
-                await memory_manager.store_memory(
+
+                stored_key = await speaker_memory_manager.store_memory(
                     text, namespace=namespace, metadata=enhanced_metadata
                 )
-                memories_processed += 1
+
+                if (
+                    stored_key
+                ):  # Only count if actually stored (passed memory worth check)
+                    memories_processed += 1
             except Exception as e:
                 print(f"\n  Failed to process: {text[:50]}... Error: {e}")
 
