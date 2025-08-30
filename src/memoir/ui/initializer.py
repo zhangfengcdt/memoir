@@ -443,6 +443,36 @@ class SpeakerPrefixMemoryManager:
             if semantic_key and not semantic_key.startswith(self.speaker):
                 semantic_key = f"{self.speaker}.{semantic_key}"
                 print(f"      → Prefixed key: {semantic_key}")
+
+            # Process timeline events if present in classification
+            if (
+                hasattr(classification, "timeline_events")
+                and classification.timeline_events
+            ):
+                try:
+                    await self.memory_manager.timeline_manager.apply_timeline_events(
+                        classification.timeline_events, metadata, namespace=namespace
+                    )
+                    print(
+                        f"      → Applied {len(classification.timeline_events)} timeline events"
+                    )
+                except Exception as e:
+                    print(f"      ⚠ Failed to process timeline events: {e}")
+
+            # Process location events if present in classification
+            if (
+                hasattr(classification, "location_events")
+                and classification.location_events
+            ):
+                try:
+                    await self.memory_manager.location_manager.apply_location_events(
+                        classification.location_events, metadata, namespace=namespace
+                    )
+                    print(
+                        f"      → Applied {len(classification.location_events)} location events"
+                    )
+                except Exception as e:
+                    print(f"      ⚠ Failed to process location events: {e}")
         else:
             # Use provided key or generate one with speaker prefix
             semantic_key = metadata.get("key") if metadata else None
