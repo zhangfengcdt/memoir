@@ -3955,6 +3955,19 @@ ${result.valid ?
             }
         }
 
+        async function summarizeNodePath(fullPath) {
+            // Close the node details popup
+            const existingPopup = document.querySelector('.node-details-popup');
+            if (existingPopup) {
+                document.body.removeChild(existingPopup);
+            }
+
+            // Set the pattern and trigger keys summary
+            const pattern = fullPath + '*';  // Add wildcard to get all keys under this path
+            window.keyPattern = pattern;
+            await summarizeMemoryStore('keys');
+        }
+
         async function recallMemories(query, person = null) {
             if (!connectedStorePath) {
                 showNotification('Please connect to a memory store first', 'error');
@@ -5320,6 +5333,11 @@ ${result.valid ?
                                 <span class="node-meta-value">${nodeData.connections || 0}</span>
                             </div>
                         </div>
+                        <div class="node-actions-section">
+                            <button class="node-summarize-btn" onclick="summarizeNodePath('${fullPath.replace(/'/g, "\\'")}')">
+                                📋 Summarize Keys
+                            </button>
+                        </div>
                     </div>
                 </div>
             `;
@@ -5492,6 +5510,41 @@ ${result.valid ?
                         background: #0891b2;
                         transform: translateY(-1px);
                         box-shadow: 0 4px 8px rgba(34, 211, 238, 0.4);
+                    }
+
+                    /* Node actions section */
+                    .node-actions-section {
+                        margin-top: 20px;
+                        padding-top: 15px;
+                        border-top: 1px solid var(--border-light);
+                        display: flex;
+                        justify-content: center;
+                    }
+
+                    .node-summarize-btn {
+                        background: var(--accent-primary);
+                        color: white;
+                        border: none;
+                        border-radius: 8px;
+                        padding: 10px 20px;
+                        font-size: 14px;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.2s ease;
+                        display: flex;
+                        align-items: center;
+                        gap: 8px;
+                        text-transform: none;
+                    }
+
+                    .node-summarize-btn:hover {
+                        background: var(--accent-secondary);
+                        transform: translateY(-1px);
+                        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+                    }
+
+                    .node-summarize-btn:active {
+                        transform: translateY(0);
                     }
                 `;
                 document.head.appendChild(styles);
