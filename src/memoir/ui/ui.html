@@ -4227,6 +4227,14 @@ ${result.valid ?
                     updateProgressModalWithTime(progressModal, 'Recall completed!', 100);
                     setTimeout(() => closeProgressModal(progressModal), 500);
 
+                    // Store the recall data globally for the Answer button
+                    window.lastRecallData = {
+                        query: query,
+                        person: person,
+                        results: result.results || [],
+                        metadata: result.metadata || {}
+                    };
+
                     // Create and show results modal
                     const modal = document.createElement('div');
                     modal.className = 'recall-modal';
@@ -4242,6 +4250,9 @@ ${result.valid ?
                             <div class="recall-modal-footer">
                                 <button class="recall-button secondary" onclick="closeRecallModal()">Close</button>
                                 <button class="recall-button primary" onclick="copyRecallToClipboard()">Copy Results</button>
+                                <button class="recall-button primary" onclick="answerWithMemories()">
+                                    💡 Answer
+                                </button>
                             </div>
                         </div>
                     `;
@@ -4632,6 +4643,62 @@ ${result.valid ?
                     window.closeRecallModal = () => {
                         const modal = document.querySelector('.recall-modal');
                         if (modal) document.body.removeChild(modal);
+                    };
+
+                    window.answerWithMemories = async () => {
+                        if (!window.lastRecallData) {
+                            showNotification('No recall data available', 'error');
+                            return;
+                        }
+
+                        const { query, person, results } = window.lastRecallData;
+
+                        // Close the recall modal first
+                        closeRecallModal();
+
+                        // Show progress modal
+                        const progressModal = showProgressModal('Generating Answer', 'Using memories to answer your question...');
+
+                        try {
+                            // Prepare the memories text
+                            const memoriesText = results.map(item =>
+                                `Path: ${item.path}\nContent: ${item.content}`
+                            ).join('\n\n');
+
+                            // Call the API to get the answer
+                            const response = await fetch('/api/answer', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    path: connectedStorePath,
+                                    query: query,
+                                    memories: memoriesText,
+                                    person: person
+                                })
+                            });
+
+                            if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                            }
+
+                            const result = await response.json();
+
+                            // Close progress modal
+                            closeProgressModal(progressModal);
+
+                            if (result.success) {
+                                // Show answer modal with prompt and response
+                                showAnswerModal(query, result.prompt, result.answer, memoriesText);
+                            } else {
+                                showNotification(`Failed to generate answer: ${result.error}`, 'error');
+                            }
+                        } catch (error) {
+                            closeProgressModal(progressModal);
+                            console.error('Answer generation error:', error);
+                            showNotification(`Error generating answer: ${error.message}`, 'error');
+                        }
                     };
 
                     window.copyRecallToClipboard = () => {
@@ -5253,6 +5320,239 @@ ${result.valid ?
                     }, 2000);
                 });
             });
+
+            document.body.appendChild(modal);
+        }
+
+        function showAnswerModal(query, prompt, answer, memories) {
+            // Create modal overlay
+            const modal = document.createElement('div');
+            modal.className = 'answer-modal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.8);
+                backdrop-filter: blur(10px);
+                z-index: 10001;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                animation: fadeIn 0.3s ease-out;
+            `;
+
+            modal.innerHTML = `
+                <div class="modal-content" style="
+                    background: var(--bg-primary);
+                    color: var(--text-primary);
+                    padding: 30px;
+                    border-radius: 12px;
+                    max-width: 900px;
+                    width: 90%;
+                    max-height: 85vh;
+                    overflow-y: auto;
+                    box-shadow: 0 20px 60px var(--shadow);
+                    border: 1px solid var(--border-light);
+                ">
+                    <div class="modal-header" style="
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 20px;
+                        padding-bottom: 15px;
+                        border-bottom: 2px solid var(--border-light);
+                    ">
+                        <h2 style="margin: 0; color: var(--accent-primary); font-size: 24px;">
+                            💡 Memory-Based Answer
+                        </h2>
+                        <button class="close-btn" style="
+                            background: none;
+                            border: none;
+                            font-size: 24px;
+                            cursor: pointer;
+                            color: var(--text-secondary);
+                            padding: 5px;
+                        ">&times;</button>
+                    </div>
+
+                    <div class="answer-content">
+                        <!-- Original Question -->
+                        <div style="margin-bottom: 25px;">
+                            <h3 style="color: var(--accent-secondary); margin-bottom: 10px; font-size: 16px;">
+                                📝 Question:
+                            </h3>
+                            <div style="
+                                background: var(--bg-secondary);
+                                padding: 15px;
+                                border-radius: 8px;
+                                border-left: 3px solid var(--accent-secondary);
+                                font-size: 14px;
+                            ">${escapeHtml(query)}</div>
+                        </div>
+
+                        <!-- Answer -->
+                        <div style="margin-bottom: 25px;">
+                            <h3 style="color: var(--success); margin-bottom: 10px; font-size: 16px;">
+                                ✨ Answer:
+                            </h3>
+                            <div style="
+                                background: var(--bg-secondary);
+                                padding: 15px;
+                                border-radius: 8px;
+                                border-left: 3px solid var(--success);
+                                font-size: 14px;
+                                line-height: 1.6;
+                                white-space: pre-wrap;
+                            ">${escapeHtml(answer)}</div>
+                        </div>
+
+                        <!-- Collapsible Prompt Section -->
+                        <details style="margin-bottom: 25px;">
+                            <summary style="
+                                cursor: pointer;
+                                color: var(--accent-primary);
+                                font-size: 16px;
+                                font-weight: bold;
+                                padding: 10px;
+                                background: var(--bg-secondary);
+                                border-radius: 8px;
+                                user-select: none;
+                            ">
+                                🤖 View LLM Prompt
+                            </summary>
+                            <div style="
+                                margin-top: 10px;
+                                background: var(--bg-secondary);
+                                padding: 15px;
+                                border-radius: 8px;
+                                font-family: 'JetBrains Mono', Monaco, 'Courier New', monospace;
+                                font-size: 12px;
+                                white-space: pre-wrap;
+                                word-wrap: break-word;
+                                max-height: 300px;
+                                overflow-y: auto;
+                                border: 1px solid var(--border-light);
+                            ">${escapeHtml(prompt)}</div>
+                        </details>
+
+                        <!-- Collapsible Memories Section -->
+                        <details style="margin-bottom: 20px;">
+                            <summary style="
+                                cursor: pointer;
+                                color: var(--accent-primary);
+                                font-size: 16px;
+                                font-weight: bold;
+                                padding: 10px;
+                                background: var(--bg-secondary);
+                                border-radius: 8px;
+                                user-select: none;
+                            ">
+                                🧠 View Retrieved Memories
+                            </summary>
+                            <div style="
+                                margin-top: 10px;
+                                background: var(--bg-secondary);
+                                padding: 15px;
+                                border-radius: 8px;
+                                font-family: 'JetBrains Mono', Monaco, 'Courier New', monospace;
+                                font-size: 12px;
+                                white-space: pre-wrap;
+                                word-wrap: break-word;
+                                max-height: 300px;
+                                overflow-y: auto;
+                                border: 1px solid var(--border-light);
+                            ">${escapeHtml(memories)}</div>
+                        </details>
+                    </div>
+
+                    <div class="modal-footer" style="
+                        display: flex;
+                        justify-content: flex-end;
+                        gap: 10px;
+                        margin-top: 20px;
+                        padding-top: 15px;
+                        border-top: 1px solid var(--border-light);
+                    ">
+                        <button class="close-modal-btn" style="
+                            padding: 10px 20px;
+                            background: var(--bg-tertiary);
+                            color: var(--text-primary);
+                            border: 1px solid var(--border-light);
+                            border-radius: 6px;
+                            cursor: pointer;
+                            font-size: 14px;
+                            transition: all 0.2s;
+                        ">Close</button>
+                        <button class="copy-answer-btn" style="
+                            padding: 10px 20px;
+                            background: var(--accent-primary);
+                            color: white;
+                            border: none;
+                            border-radius: 6px;
+                            cursor: pointer;
+                            font-size: 14px;
+                            transition: all 0.2s;
+                        ">Copy Answer</button>
+                    </div>
+                </div>
+            `;
+
+            // Add event handlers
+            const closeBtn = modal.querySelector('.close-btn');
+            const closeModalBtn = modal.querySelector('.close-modal-btn');
+            const copyBtn = modal.querySelector('.copy-answer-btn');
+
+            const closeModal = () => {
+                modal.style.animation = 'fadeOut 0.3s ease-out';
+                setTimeout(() => document.body.removeChild(modal), 300);
+            };
+
+            closeBtn.addEventListener('click', closeModal);
+            closeModalBtn.addEventListener('click', closeModal);
+
+            // Close on backdrop click
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    closeModal();
+                }
+            });
+
+            // Copy button functionality
+            copyBtn.addEventListener('click', () => {
+                const fullText = `Question: ${query}\n\nAnswer: ${answer}`;
+                navigator.clipboard.writeText(fullText).then(() => {
+                    copyBtn.textContent = 'Copied!';
+                    copyBtn.style.background = 'var(--success)';
+                    setTimeout(() => {
+                        copyBtn.textContent = 'Copy Answer';
+                        copyBtn.style.background = 'var(--accent-primary)';
+                    }, 2000);
+                }).catch(() => {
+                    copyBtn.textContent = 'Copy failed';
+                    setTimeout(() => {
+                        copyBtn.textContent = 'Copy Answer';
+                    }, 2000);
+                });
+            });
+
+            // Add fadeIn animation
+            if (!document.getElementById('answer-modal-animation')) {
+                const style = document.createElement('style');
+                style.id = 'answer-modal-animation';
+                style.textContent = `
+                    @keyframes fadeIn {
+                        from { opacity: 0; }
+                        to { opacity: 1; }
+                    }
+                    @keyframes fadeOut {
+                        from { opacity: 1; }
+                        to { opacity: 0; }
+                    }
+                `;
+                document.head.appendChild(style);
+            }
 
             document.body.appendChild(modal);
         }

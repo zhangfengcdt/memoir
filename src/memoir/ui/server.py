@@ -103,6 +103,8 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_timeline_post_api()
         elif parsed_path.path == "/api/location":
             self.handle_location_post_api()
+        elif parsed_path.path == "/api/answer":
+            self.handle_answer_api()
         else:
             self.send_error(404, "Endpoint not found")
 
@@ -2783,6 +2785,110 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
                     return str(data[field])
 
         return str(data) if data else ""
+
+    def handle_answer_api(self):
+        """Handle API requests for generating answers based on recalled memories."""
+        try:
+            # Get request body
+            content_length = int(self.headers.get("Content-Length", 0))
+            if content_length > 0:
+                post_data = self.rfile.read(content_length)
+                request_data = json.loads(post_data.decode("utf-8"))
+            else:
+                request_data = {}
+
+            query = request_data.get("query")
+            memories = request_data.get("memories")
+            person = request_data.get("person")
+
+            if not query:
+                self.send_error(400, "Missing 'query' parameter")
+                return
+
+            if not memories:
+                self.send_error(400, "Missing 'memories' parameter")
+                return
+
+            # Initialize LLM
+            try:
+                from langchain_openai import ChatOpenAI
+
+                llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
+            except Exception as e:
+                error_response = {
+                    "success": False,
+                    "error": f"Error initializing LLM: {e!s}",
+                }
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps(error_response).encode())
+                return
+
+            # Create the prompt for answering
+            prompt = f"""Based on the following memories retrieved from the knowledge base, please answer the user's question.
+
+User's Question: {query}
+{f"Context: This question is related to {person}." if person else ""}
+
+Retrieved Memories:
+{memories}
+
+Instructions:
+1. Answer the question directly using only the information from the retrieved memories
+2. If the memories don't contain enough information to fully answer the question, acknowledge what you can answer and what you cannot
+3. Be concise but comprehensive
+4. If the memories contain conflicting information, mention this
+5. Do not make up information not present in the memories
+
+Answer:"""
+
+            # Generate the answer
+            try:
+                response = llm.invoke(prompt)
+                answer = response.content.strip()
+            except Exception as e:
+                error_response = {
+                    "success": False,
+                    "error": f"Error generating answer: {e!s}",
+                }
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(json.dumps(error_response).encode())
+                return
+
+            # Send successful response
+            response_data = {
+                "success": True,
+                "answer": answer,
+                "prompt": prompt,
+                "metadata": {
+                    "query": query,
+                    "person": person,
+                    "llm_model": "gpt-4o-mini",
+                    "memories_provided": bool(memories),
+                },
+            }
+
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(response_data).encode())
+
+        except Exception as e:
+            import traceback
+
+            traceback.print_exc()
+            error_response = {"success": False, "error": f"Server error: {e!s}"}
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(error_response).encode())
 
     def handle_diff_api(self, parsed_path):
         """Handle diff API requests."""
