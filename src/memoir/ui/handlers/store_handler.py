@@ -11,19 +11,16 @@ from .api_handler import BaseAPIHandler
 # Add parent directories to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from memoir.store.prolly_adapter import ProllyTreeStore
-
 
 class StoreHandler(BaseAPIHandler):
     """Handler for memory store operations."""
-    
+
     def handle_store_api(self, parsed_path):
         """Handle API requests for memory store data."""
-        import sys
         import json
+        import sys
         from pathlib import Path
-        from urllib.parse import parse_qs
-        
+
         query_params = parse_qs(parsed_path.query)
         store_path = query_params.get("path", [None])[0]
 
@@ -48,13 +45,12 @@ class StoreHandler(BaseAPIHandler):
 
         except Exception as e:
             self.send_error_response(str(e))
-    
+
     def handle_new_api(self):
         """Handle /new command to create a new git repository and initialize memory store."""
-        import json
         import subprocess
         from pathlib import Path
-        
+
         try:
             # Get POST data using base handler utility
             data = self.get_post_data()

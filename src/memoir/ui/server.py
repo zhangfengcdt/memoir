@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 # Import modular handlers
 from handlers.store_handler import StoreHandler
+from handlers.utils import UtilityHandler
 
 from memoir.classifier.intelligent import IntelligentClassifier
 from memoir.memento.location import LocationMemento
@@ -36,18 +37,8 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         """Initialize handlers if not already done."""
         if not hasattr(self, "store_handler") or self.store_handler is None:
             self.store_handler = StoreHandler(self)
-
-    def send_json_response(self, data, status_code=200):
-        """Send JSON response with proper error handling for broken pipes."""
-        try:
-            self.send_response(status_code)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(json.dumps(data, indent=2).encode())
-        except (BrokenPipeError, ConnectionResetError):
-            # Client disconnected - this is normal, don't log as error
-            pass
+        if not hasattr(self, "utility_handler") or self.utility_handler is None:
+            self.utility_handler = UtilityHandler(self)
 
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -2126,7 +2117,8 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             # Prepare data for LLM
             taxonomy_summary = "Memory Store Taxonomy Data:\n\n"
             for path, data in taxonomy_data.items():
-                content = self._extract_memory_content(data)
+                self._ensure_handlers_initialized()
+                content = self.utility_handler.extract_memory_content(data)
                 taxonomy_summary += (
                     f"• {path}: {content[:200]}{'...' if len(content) > 200 else ''}\n"
                 )
@@ -2377,7 +2369,8 @@ Provide an informative summary in 2-3 paragraphs about the places and locations 
             content_for_analysis = []
             for path, data in matching_memories:
                 # Extract readable content from the data
-                content = self._extract_memory_content(data)
+                self._ensure_handlers_initialized()
+                content = self.utility_handler.extract_memory_content(data)
                 if content and content.strip():
                     content_for_analysis.append(f"Key: {path}\nContent: {content}")
 
@@ -2680,52 +2673,6 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
             self.end_headers()
             self.wfile.write(json.dumps(response_data).encode())
 
-    def _extract_memory_content(self, data):
-        """Extract meaningful content from memory data structure."""
-        if isinstance(data, str):
-            return data
-
-        if isinstance(data, dict):
-            # Try different extraction strategies
-            if (
-                "memories" in data
-                and isinstance(data["memories"], list)
-                and len(data["memories"]) > 0
-            ):
-                memory_item = data["memories"][0]
-                if "content" in memory_item:
-                    content_obj = memory_item["content"]
-                    if isinstance(content_obj, dict):
-                        # Look for actual content
-                        for key in [
-                            "content",
-                            "raw_text",
-                            "original_content",
-                            "description",
-                        ]:
-                            if content_obj.get(key):
-                                return str(content_obj[key])
-                        # Look in structured_data
-                        if "structured_data" in content_obj:
-                            structured = content_obj["structured_data"]
-                            if isinstance(structured, dict):
-                                for key in [
-                                    "original_content",
-                                    "content",
-                                    "description",
-                                ]:
-                                    if structured.get(key):
-                                        return str(structured[key])
-                    elif isinstance(content_obj, str):
-                        return content_obj
-
-            # Direct field access
-            for field in ["content", "raw_text", "description", "summary"]:
-                if data.get(field):
-                    return str(data[field])
-
-        return str(data) if data else ""
-
     def handle_answer_api(self):
         """Handle API requests for generating answers based on recalled memories."""
         try:
@@ -2939,6 +2886,7 @@ Answer:"""
 
     def _generate_real_diff(self, store_path, commit1, commit2):
         """Generate real diff using VersionedKvStore's new diff functionality."""
+        self._ensure_handlers_initialized()
         try:
             # Initialize store
             store = ProllyTreeStore(
@@ -3032,7 +2980,9 @@ Answer:"""
                                 value_bytes = store.tree.get(key_bytes)
                                 if value_bytes:
                                     value_data = store._decode_value(value_bytes)
-                                    content = self._extract_diff_content(value_data)
+                                    content = self.utility_handler.extract_diff_content(
+                                        value_data
+                                    )
 
                                     # Remove namespace prefix for display
                                     path = key_str
@@ -3093,7 +3043,9 @@ Answer:"""
 
                     if operation_type == "Added":
                         # Extract readable content from new value
-                        new_content = self._extract_diff_content(operation.value)
+                        new_content = self.utility_handler.extract_diff_content(
+                            operation.value
+                        )
 
                         # Only include if there's meaningful content
                         if (
@@ -3114,7 +3066,9 @@ Answer:"""
                             )
                     elif operation_type == "Removed":
                         # Extract readable content from old value
-                        old_content = self._extract_diff_content(operation.value)
+                        old_content = self.utility_handler.extract_diff_content(
+                            operation.value
+                        )
 
                         # Only include if there's meaningful content
                         if (
@@ -3135,8 +3089,12 @@ Answer:"""
                             )
                     elif operation_type == "Modified":
                         # Extract readable content from both old and new values
-                        old_content = self._extract_diff_content(operation.old_value)
-                        new_content = self._extract_diff_content(operation.new_value)
+                        old_content = self.utility_handler.extract_diff_content(
+                            operation.old_value
+                        )
+                        new_content = self.utility_handler.extract_diff_content(
+                            operation.new_value
+                        )
 
                         # Only include if the content actually changed and is meaningful
                         if (
@@ -3211,36 +3169,6 @@ Answer:"""
                     "total_changes": 0,
                 },
             }
-
-    def _extract_diff_content(self, value_data):
-        """Extract human-readable content from diff value data."""
-        if not value_data:
-            return "No content"
-
-        try:
-            # Try to decode if it's bytes
-            if isinstance(value_data, bytes):
-                decoded_data = value_data.decode("utf-8")
-            else:
-                decoded_data = str(value_data)
-
-            # Try to parse as JSON to get structured data
-            try:
-                import json
-
-                data = json.loads(decoded_data)
-                # Use existing content extraction method
-                return self._extract_memory_content(data)
-            except (json.JSONDecodeError, TypeError):
-                # If not JSON, return as-is (truncated for display)
-                content = decoded_data.strip()
-                if len(content) > 200:
-                    return content[:200] + "..."
-                return content
-
-        except Exception as e:
-            print(f"Error extracting diff content: {e}")
-            return f"Error reading content: {e}"
 
     def _legacy_get_prollytree_diff_between_commits(self, store_path, commit1, commit2):
         """Get diff between two commits using ProllyTree's native diff."""
