@@ -3052,55 +3052,200 @@ Answer:"""
         }
 
     def _generate_real_diff(self, store_path, commit1, commit2):
-        """Generate real diff using ProllyTree's diff functionality."""
+        """Generate real diff using VersionedKvStore's new diff functionality."""
         try:
-            import subprocess
+            # Initialize store
+            store = ProllyTreeStore(
+                path=store_path,
+                enable_versioning=True,
+                auto_commit=False,
+                cache_size=10000,
+            )
 
-            if commit1 and commit2:
-                # Compare two specific commits using ProllyTree
-                changes = self._get_prollytree_diff_between_commits(
-                    store_path, commit1, commit2
+            # Check if store has versioning enabled and diff method available
+            if not hasattr(store.tree, "diff"):
+                print(
+                    "VersionedKvStore diff method not available, falling back to mock"
                 )
+                return self._generate_mock_diff(commit1, commit2, store_path)
+
+            # Determine which commits to compare
+            if commit1 and commit2:
+                # Compare two specific commits
+                from_ref = commit1
+                to_ref = commit2
                 header = f"Comparing {commit1[:8]} → {commit2[:8]}"
             else:
-                # Compare last two commits
-                print("🔍 Real showing last two commits")
-                # Get the last two commit hashes
-                result = subprocess.run(
-                    ["git", "log", "--format=%H", "-2"],
-                    cwd=store_path,
-                    capture_output=True,
-                    text=True,
-                )
-                if result.returncode == 0 and result.stdout.strip():
-                    commits = result.stdout.strip().split("\n")
-                    if len(commits) >= 2:
-                        # Compare the two most recent commits using ProllyTree
-                        latest_commit = commits[0]
-                        previous_commit = commits[1]
-                        changes = self._get_prollytree_diff_between_commits(
-                            store_path, previous_commit, latest_commit
-                        )
-                        header = f"Changes: {previous_commit[:8]} → {latest_commit[:8]}"
-                    elif len(commits) == 1:
-                        # Only one commit, show all data as added
-                        latest_commit = commits[0]
-                        changes = self._get_prollytree_initial_commit(
-                            store_path, latest_commit
-                        )
-                        header = f"Initial commit: {latest_commit[:8]}"
+                # For default case, we need to check what commits are available
+                import subprocess
+
+                # Get the list of commits
+                try:
+                    result = subprocess.run(
+                        ["git", "log", "--format=%H", "-2"],
+                        cwd=store_path,
+                        capture_output=True,
+                        text=True,
+                    )
+
+                    if result.returncode == 0 and result.stdout.strip():
+                        commits = result.stdout.strip().split("\n")
+                        if len(commits) >= 2:
+                            # Compare the two most recent commits
+                            from_ref = commits[1]  # Previous commit
+                            to_ref = commits[0]  # Latest commit
+                            header = f"Changes: {commits[1][:8]} → {commits[0][:8]}"
+                        elif len(commits) == 1:
+                            # Only one commit, show all data as added (initial commit)
+                            from_ref = None  # No previous commit
+                            to_ref = commits[0]
+                            header = f"Initial commit: {commits[0][:8]}"
+                        else:
+                            # No commits
+                            print("No commits found in repository")
+                            return {
+                                "success": True,
+                                "changes": [],
+                                "stats": {"added": 0, "modified": 0, "deleted": 0},
+                                "header": "No commits found",
+                                "is_mock": False,
+                                "metadata": {
+                                    "store_path": store_path,
+                                    "total_changes": 0,
+                                },
+                            }
                     else:
+                        # Git command failed or no output
+                        print("Git log command failed or returned no output")
+                        return self._generate_mock_diff(None, None, store_path)
+
+                except Exception as e:
+                    print(f"Error getting git commits: {e}")
+                    return self._generate_mock_diff(None, None, store_path)
+
+            print(f"🔍 Generating diff from {from_ref} to {to_ref}")
+
+            # Use the new diff method
+            if from_ref is None:
+                # For initial commit, we need to show all current data as additions
+                # This might require a different approach since there's no "from" state
+                print("Handling initial commit case - showing all data as additions")
+                # Try to get all current keys and treat them as additions
+                try:
+                    # Get current state keys
+                    if hasattr(store.tree, "list_keys"):
+                        keys = store.tree.list_keys()
                         changes = []
-                        header = "No commits found"
-                else:
-                    # No commits yet or git error
-                    changes = []
-                    header = "No commits found"
+                        for key_bytes in keys:
+                            try:
+                                key_str = (
+                                    key_bytes.decode("utf-8")
+                                    if isinstance(key_bytes, bytes)
+                                    else str(key_bytes)
+                                )
+                                value_bytes = store.tree.get(key_bytes)
+                                if value_bytes:
+                                    value_data = store._decode_value(value_bytes)
+                                    content = self._extract_diff_content(value_data)
+
+                                    # Remove namespace prefix for display
+                                    path = key_str
+                                    if ":" in key_str and key_str.count(":") >= 1:
+                                        parts = key_str.split(":", 1)
+                                        if len(parts) == 2:
+                                            path = parts[1]
+
+                                    changes.append(
+                                        {
+                                            "path": path,
+                                            "type": "added",
+                                            "new_content": content,
+                                        }
+                                    )
+                            except Exception as e:
+                                print(f"Error processing key {key_bytes}: {e}")
+
+                        kv_diffs = changes  # Use our manually created changes
+                    else:
+                        kv_diffs = []
+                except Exception as e:
+                    print(f"Error getting initial commit data: {e}")
+                    kv_diffs = []
+            else:
+                # Normal case: compare two commits
+                kv_diffs = store.tree.diff(from_ref, to_ref)
+
+            print(f"📊 Found {len(kv_diffs)} key differences")
+
+            # Convert KvDiff objects to our UI format
+            changes = []
+
+            if from_ref is None:
+                # For initial commit case, kv_diffs is already in our format
+                changes = kv_diffs
+            else:
+                # Normal case: process KvDiff objects
+                for kv_diff in kv_diffs:
+                    # Extract the semantic path from the key
+                    key_str = (
+                        kv_diff.key.decode("utf-8")
+                        if isinstance(kv_diff.key, bytes)
+                        else str(kv_diff.key)
+                    )
+
+                    # Remove namespace prefix if present (e.g., "default:" -> "")
+                    path = key_str
+                    if ":" in key_str and key_str.count(":") >= 1:
+                        parts = key_str.split(":", 1)
+                        if len(parts) == 2:
+                            path = parts[1]  # Use the semantic path part
+
+                    # Convert the diff to our change format
+                    # Access the operation object and its type
+                    operation = kv_diff.operation
+                    operation_type = operation.operation_type
+
+                    if operation_type == "Added":
+                        # Extract readable content from new value
+                        new_content = self._extract_diff_content(operation.value)
+                        changes.append(
+                            {
+                                "path": path,
+                                "type": "added",
+                                "new_content": new_content,
+                            }
+                        )
+                    elif operation_type == "Removed":
+                        # Extract readable content from old value
+                        old_content = self._extract_diff_content(operation.value)
+                        changes.append(
+                            {
+                                "path": path,
+                                "type": "deleted",
+                                "old_content": old_content,
+                            }
+                        )
+                    elif operation_type == "Modified":
+                        # Extract readable content from both old and new values
+                        old_content = self._extract_diff_content(operation.old_value)
+                        new_content = self._extract_diff_content(operation.new_value)
+                        changes.append(
+                            {
+                                "path": path,
+                                "type": "modified",
+                                "old_content": old_content,
+                                "new_content": new_content,
+                            }
+                        )
 
             # Calculate stats
             stats = {"added": 0, "modified": 0, "deleted": 0}
             for change in changes:
-                stats[change["type"]] += 1
+                change_type = change["type"]
+                if change_type in stats:
+                    stats[change_type] += 1
+
+            print(f"📈 Statistics: {stats}")
 
             return {
                 "success": True,
@@ -3112,12 +3257,18 @@ Answer:"""
                     "store_path": store_path,
                     "commit1": commit1,
                     "commit2": commit2,
+                    "from_ref": from_ref,
+                    "to_ref": to_ref,
                     "total_changes": len(changes),
                 },
             }
 
         except Exception as e:
             print(f"Error generating real diff: {e}")
+            import traceback
+
+            traceback.print_exc()
+
             # Fallback to showing no changes
             return {
                 "success": True,
@@ -3134,7 +3285,37 @@ Answer:"""
                 },
             }
 
-    def _get_prollytree_diff_between_commits(self, store_path, commit1, commit2):
+    def _extract_diff_content(self, value_data):
+        """Extract human-readable content from diff value data."""
+        if not value_data:
+            return "No content"
+
+        try:
+            # Try to decode if it's bytes
+            if isinstance(value_data, bytes):
+                decoded_data = value_data.decode("utf-8")
+            else:
+                decoded_data = str(value_data)
+
+            # Try to parse as JSON to get structured data
+            try:
+                import json
+
+                data = json.loads(decoded_data)
+                # Use existing content extraction method
+                return self._extract_memory_content(data)
+            except (json.JSONDecodeError, TypeError):
+                # If not JSON, return as-is (truncated for display)
+                content = decoded_data.strip()
+                if len(content) > 200:
+                    return content[:200] + "..."
+                return content
+
+        except Exception as e:
+            print(f"Error extracting diff content: {e}")
+            return f"Error reading content: {e}"
+
+    def _legacy_get_prollytree_diff_between_commits(self, store_path, commit1, commit2):
         """Get diff between two commits using ProllyTree's native diff."""
         try:
             import subprocess
