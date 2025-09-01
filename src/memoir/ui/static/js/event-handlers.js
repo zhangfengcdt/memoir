@@ -50,7 +50,7 @@ function initializeEventHandlers() {
         if (e.target.closest('.tree-node .node-content')) {
             const node = e.target.closest('.tree-node');
             const label = node.querySelector('.node-label');
-            const path = getFullPath(node);
+            const path = buildFullPath(node);
 
             if (label && label.classList.contains('has-memories')) {
                 showMemoryDetails(path, node);

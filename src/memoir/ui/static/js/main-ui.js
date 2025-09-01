@@ -6219,6 +6219,9 @@ ${result.valid ?
             return fullPath;
         }
 
+        // Export to global scope for use by other modules
+        window.buildFullPath = buildFullPath;
+
         function showMemoryDetails(path) {
             // Create node data for the popup
             const nodeData = {
