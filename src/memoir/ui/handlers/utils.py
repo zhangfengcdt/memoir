@@ -3,12 +3,13 @@ Utility handler for common helper functions and data processing utilities.
 """
 
 import json
+
 from .api_handler import BaseAPIHandler
 
 
 class UtilityHandler(BaseAPIHandler):
     """Handler for utility functions and common data processing operations."""
-    
+
     def extract_memory_content(self, data):
         """Extract meaningful content from memory data structure."""
         if isinstance(data, str):
@@ -54,7 +55,7 @@ class UtilityHandler(BaseAPIHandler):
                     return str(data[field])
 
         return str(data) if data else ""
-    
+
     def extract_diff_content(self, value_data):
         """Extract human-readable content from diff value data."""
         if not value_data:

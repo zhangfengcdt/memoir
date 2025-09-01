@@ -16,6 +16,8 @@ from urllib.parse import parse_qs, urlparse
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 
+from handlers.memory_handler import MemoryHandler
+
 # Import modular handlers
 from handlers.store_handler import StoreHandler
 from handlers.utils import UtilityHandler
@@ -39,6 +41,20 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             self.store_handler = StoreHandler(self)
         if not hasattr(self, "utility_handler") or self.utility_handler is None:
             self.utility_handler = UtilityHandler(self)
+        if not hasattr(self, "memory_handler") or self.memory_handler is None:
+            self.memory_handler = MemoryHandler(self)
+
+    def send_json_response(self, data, status_code=200):
+        """Send JSON response with proper error handling for broken pipes."""
+        try:
+            self.send_response(status_code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(json.dumps(data, indent=2).encode())
+        except (BrokenPipeError, ConnectionResetError):
+            # Client disconnected - this is normal, don't log as error
+            pass
 
     def do_GET(self):
         parsed_path = urlparse(self.path)
@@ -70,7 +86,8 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         elif parsed_path.path == "/api/summarize":
             self.handle_summarize_api(parsed_path)
         elif parsed_path.path == "/api/recall":
-            self.handle_recall_api(parsed_path)
+            self._ensure_handlers_initialized()
+            self.memory_handler.handle_recall_api(parsed_path)
         elif parsed_path.path == "/api/diff":
             self.handle_diff_api(parsed_path)
         elif parsed_path.path == "/api/statistics":
@@ -91,9 +108,11 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             self._ensure_handlers_initialized()
             self.store_handler.handle_new_api()
         elif parsed_path.path == "/api/remember":
-            self.handle_remember_api()
+            self._ensure_handlers_initialized()
+            self.memory_handler.handle_remember_api()
         elif parsed_path.path == "/api/forget":
-            self.handle_forget_api()
+            self._ensure_handlers_initialized()
+            self.memory_handler.handle_forget_api()
         elif parsed_path.path == "/api/checkout":
             self.handle_checkout_api()
         elif parsed_path.path == "/api/create-branch":
