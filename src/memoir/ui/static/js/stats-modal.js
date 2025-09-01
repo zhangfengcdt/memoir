@@ -10,11 +10,11 @@ class StoreStatsModal {
         this.statistics = null;
         this.charts = {};
         this.isLoading = false;
-        
+
         this.initModal();
         this.bindEvents();
     }
-    
+
     initModal() {
         // Check if modal already exists
         const existing = document.getElementById('storeStatsModal');
@@ -22,17 +22,17 @@ class StoreStatsModal {
             this.modal = existing;
             return;
         }
-        
+
         // Create modal HTML structure
         this.modal = this.createModalHTML();
         document.body.appendChild(this.modal);
     }
-    
+
     createModalHTML() {
         const modal = document.createElement('div');
         modal.id = 'storeStatsModal';
         modal.className = 'stats-modal';
-        
+
         modal.innerHTML = `
             <div class="stats-modal-content">
                 <div class="stats-header">
@@ -40,7 +40,7 @@ class StoreStatsModal {
                     <div class="stats-path" id="statsStorePath"></div>
                     <button class="stats-close" id="statsCloseBtn">&times;</button>
                 </div>
-                
+
                 <div class="stats-tabs">
                     <button class="stats-tab active" data-tab="overview">Overview</button>
                     <button class="stats-tab" data-tab="structure">Tree Structure</button>
@@ -49,11 +49,11 @@ class StoreStatsModal {
                     <button class="stats-tab" data-tab="taxonomy">Classification</button>
                     <button class="stats-tab" data-tab="content">Content Analysis</button>
                 </div>
-                
+
                 <div class="stats-content" id="statsContent">
                     <!-- Tab content dynamically loaded -->
                 </div>
-                
+
                 <div class="stats-footer">
                     <div class="stats-refresh">
                         <button id="refreshStatsBtn">🔄 Refresh</button>
@@ -65,10 +65,10 @@ class StoreStatsModal {
                 </div>
             </div>
         `;
-        
+
         return modal;
     }
-    
+
     bindEvents() {
         // Close button
         document.addEventListener('click', (e) => {
@@ -76,28 +76,28 @@ class StoreStatsModal {
                 this.hide();
             }
         });
-        
+
         // Tab switching
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('stats-tab')) {
                 this.switchTab(e.target.dataset.tab);
             }
         });
-        
+
         // Refresh button
         document.addEventListener('click', (e) => {
             if (e.target.id === 'refreshStatsBtn') {
                 this.refresh();
             }
         });
-        
+
         // Export button
         document.addEventListener('click', (e) => {
             if (e.target.id === 'exportStatsBtn') {
                 this.exportStatistics();
             }
         });
-        
+
         // ESC key to close
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape' && this.modal.classList.contains('show')) {
@@ -105,40 +105,40 @@ class StoreStatsModal {
             }
         });
     }
-    
+
     async show(storePath) {
         if (!storePath) {
             console.error('No store path provided');
             return;
         }
-        
+
         // Update store path display
         const pathElement = document.getElementById('statsStorePath');
         if (pathElement) {
             pathElement.textContent = `🔗 ${storePath}`;
         }
-        
+
         // Show modal
         this.modal.classList.add('show');
-        
+
         // Load statistics
         await this.loadStatistics(storePath);
     }
-    
+
     hide() {
         this.modal.classList.remove('show');
     }
-    
+
     async loadStatistics(storePath) {
         if (this.isLoading) return;
-        
+
         this.isLoading = true;
         this.showLoading();
-        
+
         try {
             const response = await fetch(`/api/statistics?path=${encodeURIComponent(storePath)}`);
             const data = await response.json();
-            
+
             if (data.success) {
                 this.statistics = data.statistics;
                 this.updateLastUpdated();
@@ -153,7 +153,7 @@ class StoreStatsModal {
             this.isLoading = false;
         }
     }
-    
+
     async refresh() {
         const pathElement = document.getElementById('statsStorePath');
         if (pathElement) {
@@ -161,7 +161,7 @@ class StoreStatsModal {
             await this.loadStatistics(path);
         }
     }
-    
+
     showLoading() {
         const content = document.getElementById('statsContent');
         if (content) {
@@ -173,7 +173,7 @@ class StoreStatsModal {
             `;
         }
     }
-    
+
     showError(message) {
         const content = document.getElementById('statsContent');
         if (content) {
@@ -184,20 +184,20 @@ class StoreStatsModal {
             `;
         }
     }
-    
+
     switchTab(tab) {
         // Update active tab
         document.querySelectorAll('.stats-tab').forEach(t => {
             t.classList.toggle('active', t.dataset.tab === tab);
         });
-        
+
         this.currentTab = tab;
         this.renderContent();
     }
-    
+
     renderContent() {
         if (!this.statistics) return;
-        
+
         switch (this.currentTab) {
             case 'overview':
                 this.renderOverview();
@@ -219,11 +219,11 @@ class StoreStatsModal {
                 break;
         }
     }
-    
+
     renderOverview() {
         const content = document.getElementById('statsContent');
         const stats = this.statistics;
-        
+
         content.innerHTML = `
             <div class="stats-overview">
                 <div class="stats-grid">
@@ -234,7 +234,7 @@ class StoreStatsModal {
                     ${this.createStatCard('⚡', `${stats.performance?.timing_averages?.avg_search_ms?.toFixed(1) || '0.0'}ms`, 'Avg Search', `${Math.round((stats.performance?.memory_usage?.cache_hit_ratio || 0) * 100)}% cache hit`)}
                     ${this.createStatCard('💾', `${(stats.storage?.store_size_mb || 0).toFixed(1)}MB`, 'Store Size', `${stats.storage?.average_key_length || 0} avg key length`)}
                 </div>
-                
+
                 <div class="stats-summary">
                     <h3>Quick Summary</h3>
                     <div class="summary-items">
@@ -259,11 +259,11 @@ class StoreStatsModal {
             </div>
         `;
     }
-    
+
     renderTreeStructure() {
         const content = document.getElementById('statsContent');
         const stats = this.statistics.tree_structure || {};
-        
+
         content.innerHTML = `
             <div class="stats-tree-structure">
                 <div class="tree-metrics">
@@ -273,7 +273,7 @@ class StoreStatsModal {
                             ${this.renderLevelBars(stats.nodes_per_level || {})}
                         </div>
                     </div>
-                    
+
                     <div class="tree-analysis">
                         <h3>Tree Analysis</h3>
                         <div class="analysis-item">
@@ -290,7 +290,7 @@ class StoreStatsModal {
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="category-distribution">
                     <h3>Category Distribution</h3>
                     <div class="category-bars">
@@ -300,11 +300,11 @@ class StoreStatsModal {
             </div>
         `;
     }
-    
+
     renderVersioning() {
         const content = document.getElementById('statsContent');
         const stats = this.statistics.versioning || {};
-        
+
         content.innerHTML = `
             <div class="stats-versioning">
                 <div class="branch-info">
@@ -314,18 +314,18 @@ class StoreStatsModal {
                         <span class="branch-name">${stats.current_branch || 'unknown'}</span>
                         <span class="commit-hash">(${stats.current_commit || 'unknown'})</span>
                     </div>
-                    
+
                     <div class="uncommitted-changes">
                         <span class="changes-count">${stats.uncommitted_changes || 0}</span>
                         <span class="changes-label">uncommitted changes</span>
                     </div>
-                    
+
                     <div class="last-commit">
                         <div class="commit-date">Last commit: ${stats.last_commit_date || 'Unknown'}</div>
                         <div class="commit-message">"${stats.last_commit_message || 'No message'}"</div>
                     </div>
                 </div>
-                
+
                 <div class="branch-list">
                     <h3>All Branches (${stats.total_branches || 0})</h3>
                     <div class="branch-items">
@@ -336,7 +336,7 @@ class StoreStatsModal {
                         `).join('')}
                     </div>
                 </div>
-                
+
                 <div class="commit-stats">
                     <h3>Commit Statistics</h3>
                     <div class="commit-info">
@@ -353,11 +353,11 @@ class StoreStatsModal {
             </div>
         `;
     }
-    
+
     renderPerformance() {
         const content = document.getElementById('statsContent');
         const stats = this.statistics.performance || {};
-        
+
         content.innerHTML = `
             <div class="stats-performance">
                 <div class="performance-grid">
@@ -382,7 +382,7 @@ class StoreStatsModal {
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="perf-section">
                         <h3>Average Timing</h3>
                         <div class="perf-items">
@@ -404,7 +404,7 @@ class StoreStatsModal {
                             </div>
                         </div>
                     </div>
-                    
+
                     <div class="perf-section">
                         <h3>Memory Usage</h3>
                         <div class="perf-items">
@@ -426,11 +426,11 @@ class StoreStatsModal {
             </div>
         `;
     }
-    
+
     renderTaxonomy() {
         const content = document.getElementById('statsContent');
         const stats = this.statistics.taxonomy || {};
-        
+
         content.innerHTML = `
             <div class="stats-taxonomy">
                 <div class="taxonomy-overview">
@@ -450,14 +450,14 @@ class StoreStatsModal {
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="category-breakdown">
                     <h3>Paths by Category</h3>
                     <div class="category-list">
                         ${this.renderCategoryList(stats.paths_by_category || {})}
                     </div>
                 </div>
-                
+
                 <div class="confidence-thresholds">
                     <h3>Confidence Thresholds</h3>
                     <div class="threshold-items">
@@ -478,11 +478,11 @@ class StoreStatsModal {
             </div>
         `;
     }
-    
+
     renderContentAnalysis() {
         const content = document.getElementById('statsContent');
         const stats = this.statistics.content || {};
-        
+
         content.innerHTML = `
             <div class="stats-content-analysis">
                 <div class="content-overview">
@@ -502,7 +502,7 @@ class StoreStatsModal {
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="memory-types">
                     <h3>Memory Types</h3>
                     <div class="type-list">
@@ -512,7 +512,7 @@ class StoreStatsModal {
             </div>
         `;
     }
-    
+
     // Helper methods
     createStatCard(icon, value, label, trend) {
         return `
@@ -524,7 +524,7 @@ class StoreStatsModal {
             </div>
         `;
     }
-    
+
     renderLevelBars(levels) {
         const maxCount = Math.max(...Object.values(levels), 1);
         return Object.entries(levels).map(([level, count]) => `
@@ -537,7 +537,7 @@ class StoreStatsModal {
             </div>
         `).join('');
     }
-    
+
     renderCategoryBars(categories) {
         const maxCount = Math.max(...Object.values(categories), 1);
         return Object.entries(categories).sort((a, b) => b[1] - a[1]).map(([category, count]) => `
@@ -550,7 +550,7 @@ class StoreStatsModal {
             </div>
         `).join('');
     }
-    
+
     renderCategoryList(categories) {
         return Object.entries(categories).sort((a, b) => b[1] - a[1]).map(([category, count]) => `
             <div class="category-item">
@@ -559,7 +559,7 @@ class StoreStatsModal {
             </div>
         `).join('');
     }
-    
+
     renderMemoryTypes(types) {
         return Object.entries(types).sort((a, b) => b[1] - a[1]).map(([type, count]) => `
             <div class="memory-type-item">
@@ -568,14 +568,14 @@ class StoreStatsModal {
             </div>
         `).join('');
     }
-    
+
     truncatePath(path, maxLength = 50) {
         if (path.length <= maxLength) return path;
         const start = path.substring(0, 20);
         const end = path.substring(path.length - 27);
         return `${start}...${end}`;
     }
-    
+
     updateLastUpdated() {
         const element = document.getElementById('statsLastUpdated');
         if (element) {
@@ -583,21 +583,21 @@ class StoreStatsModal {
             element.textContent = `Updated: ${now.toLocaleTimeString()}`;
         }
     }
-    
+
     async exportStatistics() {
         if (!this.statistics) {
             console.error('No statistics to export');
             return;
         }
-        
+
         const dataStr = JSON.stringify(this.statistics, null, 2);
         const dataBlob = new Blob([dataStr], {type: 'application/json'});
-        
+
         const link = document.createElement('a');
         link.href = URL.createObjectURL(dataBlob);
         link.download = `memoir-stats-${new Date().toISOString().split('T')[0]}.json`;
         link.click();
-        
+
         // Clean up
         URL.revokeObjectURL(link.href);
     }
