@@ -16,6 +16,9 @@ from urllib.parse import parse_qs, urlparse
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 
+# Import modular handlers
+from handlers.store_handler import StoreHandler
+
 from memoir.classifier.intelligent import IntelligentClassifier
 from memoir.memento.location import LocationMemento
 from memoir.memento.timeline import TimelineMemento
@@ -28,6 +31,11 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         # Set the directory to serve from
         super().__init__(*args, directory=str(Path(__file__).parent), **kwargs)
+
+    def _ensure_handlers_initialized(self):
+        """Initialize handlers if not already done."""
+        if not hasattr(self, "store_handler") or self.store_handler is None:
+            self.store_handler = StoreHandler(self)
 
     def send_json_response(self, data, status_code=200):
         """Send JSON response with proper error handling for broken pipes."""
@@ -46,7 +54,8 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
         # Handle API endpoints
         if parsed_path.path == "/api/store":
-            self.handle_store_api(parsed_path)
+            self._ensure_handlers_initialized()
+            self.store_handler.handle_store_api(parsed_path)
         elif parsed_path.path == "/api/proof":
             self.handle_proof_api(parsed_path)
         elif parsed_path.path == "/api/verify":
@@ -88,7 +97,8 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
         # Handle API endpoints
         if parsed_path.path == "/api/new":
-            self.handle_new_api()
+            self._ensure_handlers_initialized()
+            self.store_handler.handle_new_api()
         elif parsed_path.path == "/api/remember":
             self.handle_remember_api()
         elif parsed_path.path == "/api/forget":
@@ -109,40 +119,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_answer_api()
         else:
             self.send_error(404, "Endpoint not found")
-
-    def handle_store_api(self, parsed_path):
-        """Handle API requests for memory store data."""
-        import sys
-        from pathlib import Path
-
-        query_params = parse_qs(parsed_path.query)
-        store_path = query_params.get("path", [None])[0]
-
-        if not store_path:
-            self.send_error(400, "Missing 'path' parameter")
-            return
-
-        if not Path(store_path).exists():
-            self.send_error(404, f"Store path does not exist: {store_path}")
-            return
-
-        try:
-            # Use the memory_store_reader to get complete data
-            sys.path.append(str(Path(__file__).parent))
-            from reader import read_store_data
-
-            data_json = read_store_data(store_path)
-            data = json.loads(data_json)
-
-            # Send response
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(json.dumps(data, indent=2).encode())
-
-        except Exception as e:
-            self.send_error(500, str(e))
 
     def handle_proof_api(self, parsed_path):
         """Handle API requests for generating cryptographic proofs."""
@@ -342,98 +318,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
         except Exception as e:
             self.send_error(500, f"Error getting blame info: {e!s}")
-
-    def handle_new_api(self):
-        """Handle /new command to create a new git repository and initialize memory store."""
-        try:
-            # Read POST data
-            content_length = int(self.headers["Content-Length"])
-            post_data = self.rfile.read(content_length)
-            data = json.loads(post_data.decode("utf-8"))
-
-            store_path = data.get("path")
-            if not store_path:
-                self.send_error(400, "Missing 'path' parameter")
-                return
-
-            # Validate and normalize the path
-            path = Path(store_path).expanduser().resolve()
-
-            # Check if path is writable by trying to create parent directories
-            try:
-                path.mkdir(parents=True, exist_ok=True)
-            except PermissionError:
-                self.send_error(
-                    400, f"Permission denied: Cannot create directory at {path}"
-                )
-                return
-            except OSError as e:
-                self.send_error(400, f"Invalid path: {e}")
-                return
-
-            # Verify we can write to this directory
-            try:
-                test_file = path / ".write_test"
-                test_file.touch()
-                test_file.unlink()
-            except (PermissionError, OSError) as e:
-                self.send_error(400, f"Directory not writable: {path} - {e}")
-                return
-
-            # Initialize git repository
-            git_path = path / ".git"
-            if not git_path.exists():
-                subprocess.run(
-                    ["git", "init"], cwd=path, check=True, capture_output=True
-                )
-
-            # Create data directory
-            data_path = path / "data"
-            data_path.mkdir(exist_ok=True)
-
-            # Skip VersionedKvStore initialization for now - ProllyTreeStore will handle it
-            # The store will be properly initialized when first used
-
-            # Create initial commit
-            subprocess.run(
-                ["git", "add", "."], cwd=path, check=True, capture_output=True
-            )
-
-            # Check if there are any changes to commit
-            status_result = subprocess.run(
-                ["git", "status", "--porcelain"],
-                cwd=path,
-                capture_output=True,
-                text=True,
-            )
-
-            if status_result.stdout.strip():
-                subprocess.run(
-                    ["git", "commit", "-m", "Initial commit"],
-                    cwd=path,
-                    check=True,
-                    capture_output=True,
-                )
-                commit_message = "Initial commit created"
-            else:
-                commit_message = "Repository already initialized"
-
-            result = {
-                "success": True,
-                "path": str(path),
-                "message": f"Memory store initialized at {path}",
-                "commit": commit_message,
-            }
-
-            # Send response
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(json.dumps(result, indent=2).encode())
-
-        except Exception as e:
-            self.send_error(500, f"Error creating memory store: {e!s}")
 
     def handle_remember_api(self):
         """Handle /remember command to classify and store content."""
