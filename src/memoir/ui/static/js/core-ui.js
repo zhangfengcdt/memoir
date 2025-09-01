@@ -333,34 +333,6 @@
             }
         }
 
-        function showDemoData() {
-
-            connectedStorePath = null; // Reset connection to show original state
-            showNotification('Demo mode - showing original page state for exploration', 'info');
-
-            // Clear existing data
-            storeData = null;
-            window.realStoreData = null; // Clear real data so graph falls back to mock data
-            window.isNewEmptyStore = false; // Ensure we show demo data, not empty state
-
-            // Update store path display to show demo mode
-            updateStorePathDisplay(null, 'disconnected');
-
-            // Restore tree view with fold functionality
-            restoreOriginalTreeView();
-
-            // Refresh graph view with demo data
-            renderGraph();
-
-            // Update branches dropdown to original state
-            updateBranchesDropdown(['main', 'feature/context-memory', 'feature/ui-improvements', 'experimental/ml-optimization'], 'main');
-
-            // Restore original git history
-            restoreOriginalGitHistory();
-
-            // Update graph view to original state
-            updateGraphView();
-        }
 
         function restoreOriginalGitHistory() {
             const gitHistory = document.querySelector('.git-tree');
@@ -650,15 +622,6 @@
             });
         }
 
-        function restoreOriginalTreeView() {
-            const treeView = document.getElementById('treeView');
-            if (!treeView) return;
-
-            // Use the dynamic tree builder with demo data instead of static HTML
-            const demoTree = generateMockTree(1.0);
-            treeView.innerHTML = buildTreeFromPaths(demoTree);
-            return;
-        }
 
         function showRepoInfo() {
 
@@ -2267,35 +2230,6 @@ ${result.valid ?
             showNotification('Switched to Places view', 'success');
         }
 
-        async function initializePlacesDemoMode() {
-            // Demo places data
-            const demoPlacesData = {
-                "san_francisco": "Lived here for 3 years working at a tech startup. Loved the foggy mornings and vibrant food scene. Favorite spots included Golden Gate Park and Mission District.",
-                "paris": "Spent a wonderful week exploring museums and cafes. Visited the Louvre, walked along the Seine, and enjoyed croissants every morning.",
-                "tokyo": "Amazing business trip - experienced incredible sushi, visited temples in Shibuya, and was impressed by the efficiency of the train system.",
-                "new_york": "Attended a conference in Manhattan. Broadway show was fantastic, Central Park was peaceful, and the energy of the city was infectious.",
-                "london": "Rainy but charming visit. Tower Bridge at sunset was breathtaking, and afternoon tea at Harrods was delightful."
-            };
-
-            await updatePlacesDisplay(demoPlacesData, true); // true = demo mode
-
-            // Initialize map if not already done
-            if (!window.placesMapInitialized) {
-                // Small delay to ensure DOM is ready
-                setTimeout(async () => {
-                    initializePlacesMap();
-                    // Wait a bit more for map to be fully ready, then reload demo data
-                    setTimeout(async () => {
-                        await updatePlacesDisplay(demoPlacesData, true); // true = demo mode
-                    }, 200);
-                }, 100);
-            } else if (window.placesMap) {
-                // Resize map when view is shown
-                setTimeout(() => {
-                    window.placesMap.invalidateSize();
-                }, 100);
-            }
-        }
 
         async function initializePlacesView() {
             if (!connectedStorePath) {
