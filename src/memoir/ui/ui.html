@@ -3973,8 +3973,8 @@ ${result.valid ?
             }
 
             // Set the pattern and trigger keys summary
-            const pattern = fullPath + '*';  // Add wildcard to get all keys under this path
-            window.keyPattern = pattern;
+            // Use exact key to get the single key's content, or add proper wildcard for children
+            window.keyPattern = fullPath;  // Use exact key (the backend will handle it)
             await summarizeMemoryStore('keys');
         }
 

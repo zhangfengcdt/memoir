@@ -2367,65 +2367,119 @@ Provide an informative summary in 2-3 paragraphs about the places and locations 
         try:
             import fnmatch
 
-            # Get all memories from default namespace
-            all_memories = []
-            try:
-                if hasattr(store.tree, "list_keys"):
-                    # Using list_keys to get all keys
-                    keys = store.tree.list_keys()
-                    all_keys = [key.decode("utf-8") for key in keys]
+            # First, check if this is an exact key (with or without namespace)
+            # If pattern has namespace prefix, try to get it directly
+            exact_key_data = None
+            has_wildcards = any(wildcard in pattern for wildcard in ["*", "?", "["])
 
-                    for full_key in all_keys:
-                        # Parse the key to extract namespace and semantic path
-                        if ":" in full_key:
-                            parts = full_key.split(":")
-                            if (
-                                len(parts) >= 3
-                                and parts[0] == "memory"
-                                and parts[1] == "general"
-                            ):
-                                # Handle memory:general:path format
-                                namespace_part = "memory:general"
-                                semantic_path = ":".join(parts[2:])
-                            elif len(parts) == 2:
-                                # Handle default:path format
-                                namespace_part, semantic_path = parts
+            if not has_wildcards:
+                # This looks like an exact key (no wildcards)
+                # Try with pattern as-is (could include namespace)
+                try:
+                    key_bytes = pattern.encode("utf-8")
+                    value_bytes = store.tree.get(key_bytes)
+                    if value_bytes:
+                        exact_key_data = store._decode_value(value_bytes)
+                        # Extract the path part for display
+                        path_part = (
+                            pattern.split(":", 1)[1] if ":" in pattern else pattern
+                        )
+                        matching_memories = [(path_part, exact_key_data)]
+                        matching_keys = [path_part]
+                        print(f"Found exact key: {pattern}")
+                except Exception as e:
+                    print(f"Exact key lookup failed for {pattern}: {e}")
+                    pass  # Fall through to pattern matching
+
+            # If not found as exact key, proceed with pattern matching or find children
+            if exact_key_data is None:
+                # For pattern without wildcards, treat it as prefix to find all children
+                search_pattern = pattern
+                is_prefix_search = not has_wildcards
+
+                if ":" in pattern and is_prefix_search:
+                    # Remove namespace prefix for semantic path matching
+                    search_pattern = pattern.split(":", 1)[1]
+
+                print(
+                    f"Searching for pattern: {search_pattern}, is_prefix: {is_prefix_search}"
+                )
+
+                # Get all memories from default namespace
+                all_memories = []
+                try:
+                    if hasattr(store.tree, "list_keys"):
+                        # Using list_keys to get all keys
+                        keys = store.tree.list_keys()
+                        all_keys = [key.decode("utf-8") for key in keys]
+
+                        for full_key in all_keys:
+                            # Parse the key to extract namespace and semantic path
+                            if ":" in full_key:
+                                parts = full_key.split(":")
+                                if (
+                                    len(parts) >= 3
+                                    and parts[0] == "memory"
+                                    and parts[1] == "general"
+                                ):
+                                    # Handle memory:general:path format
+                                    namespace_part = "memory:general"
+                                    semantic_path = ":".join(parts[2:])
+                                elif len(parts) == 2:
+                                    # Handle default:path format
+                                    namespace_part, semantic_path = parts
+                                else:
+                                    namespace_part = ":".join(parts[:-1])
+                                    semantic_path = parts[-1]
                             else:
-                                namespace_part = ":".join(parts[:-1])
-                                semantic_path = parts[-1]
-                        else:
-                            namespace_part = ""
-                            semantic_path = full_key
+                                namespace_part = ""
+                                semantic_path = full_key
 
-                        # Only include default namespace for now
-                        if namespace_part == "default":
-                            # Get the value for this key
-                            key_bytes = full_key.encode("utf-8")
-                            value_bytes = store.tree.get(key_bytes)
-                            if value_bytes:
-                                value_data = store._decode_value(value_bytes)
-                                all_memories.append((semantic_path, value_data))
-                else:
-                    # Fallback to search method
-                    namespace_tuple = ("default",)
-                    items = list(store.search(namespace_tuple))
-                    all_memories = [(path, data) for _, path, data in items]
+                            # Only include default namespace for now
+                            if namespace_part == "default":
+                                # Get the value for this key
+                                key_bytes = full_key.encode("utf-8")
+                                value_bytes = store.tree.get(key_bytes)
+                                if value_bytes:
+                                    value_data = store._decode_value(value_bytes)
+                                    all_memories.append((semantic_path, value_data))
+                    else:
+                        # Fallback to search method
+                        namespace_tuple = ("default",)
+                        items = list(store.search(namespace_tuple))
+                        all_memories = [(path, data) for _, path, data in items]
 
-            except Exception as e:
-                print(f"Error reading from store: {e}")
-                return {
-                    "summary": f"Error accessing store data: {e!s}",
-                    "matching_keys": [],
-                }
+                except Exception as e:
+                    print(f"Error reading from store: {e}")
+                    return {
+                        "summary": f"Error accessing store data: {e!s}",
+                        "matching_keys": [],
+                    }
 
-            # Filter keys by pattern (support wildcards)
-            matching_memories = []
-            matching_keys = []
+                # Filter keys by pattern (support wildcards and prefix matching)
+                matching_memories = []
+                matching_keys = []
 
-            for path, data in all_memories:
-                if fnmatch.fnmatch(path, pattern):
-                    matching_memories.append((path, data))
-                    matching_keys.append(path)
+                print(f"Found {len(all_memories)} total memories in default namespace")
+
+                for path, data in all_memories:
+                    # Match against the search pattern (without namespace)
+                    if is_prefix_search:
+                        # For exact keys without wildcards, match exact or children
+                        if path == search_pattern or path.startswith(
+                            search_pattern + "."
+                        ):
+                            matching_memories.append((path, data))
+                            matching_keys.append(path)
+                            print(f"Matched (prefix): {path}")
+                    else:
+                        # Use wildcard pattern matching
+                        if fnmatch.fnmatch(path, search_pattern):
+                            matching_memories.append((path, data))
+                            matching_keys.append(path)
+                            print(f"Matched (pattern): {path}")
+
+                print(f"Total matches: {len(matching_keys)}")
 
             if not matching_memories:
                 return {
