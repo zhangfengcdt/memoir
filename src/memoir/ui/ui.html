@@ -707,10 +707,16 @@
         </div>
     </div>
 
+    <!-- Load Statistics Modal Module -->
+    <script src="static/js/stats-modal.js"></script>
+
     <script>
         // Store connection state
         let connectedStorePath = null;
         let storeData = null;
+
+        // Initialize statistics modal
+        let storeStatsModal = null;
 
         // Command history
         let commandHistory = [];
@@ -1434,212 +1440,6 @@
             const demoTree = generateMockTree(1.0);
             treeView.innerHTML = buildTreeFromPaths(demoTree);
             return;
-
-            // OLD STATIC HTML - keeping for reference:
-            treeView.innerHTML = `
-                <div class="tree-node">
-                    <div class="node-content">
-                        <span class="node-icon">📁</span>
-                        <span class="node-label">profile</span>
-                    </div>
-                    <div class="node-children">
-                        <div class="tree-node">
-                            <div class="node-content">
-                                <span class="node-icon">📁</span>
-                                <span class="node-label">personal</span>
-                            </div>
-                            <div class="node-children">
-                                <div class="tree-node">
-                                    <div class="node-content">
-                                        <span class="node-icon">📄</span>
-                                        <span class="node-label has-memories">identity</span>
-                                        <span class="memory-count">8</span>
-                                    </div>
-                                </div>
-                                <div class="tree-node">
-                                    <div class="node-content">
-                                        <span class="node-icon">📄</span>
-                                        <span class="node-label has-memories">location</span>
-                                        <span class="memory-count">6</span>
-                                    </div>
-                                </div>
-                                <div class="tree-node">
-                                    <div class="node-content">
-                                        <span class="node-icon">📄</span>
-                                        <span class="node-label has-memories">relationships</span>
-                                        <span class="memory-count">5</span>
-                                    </div>
-                                </div>
-                                <div class="tree-node">
-                                    <div class="node-content">
-                                        <span class="node-icon">📄</span>
-                                        <span class="node-label has-memories">health</span>
-                                        <span class="memory-count">4</span>
-                                    </div>
-                                </div>
-                                <div class="tree-node">
-                                    <div class="node-content">
-                                        <span class="node-icon">📄</span>
-                                        <span class="node-label has-memories">goals</span>
-                                        <span class="memory-count">3</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="tree-node">
-                            <div class="node-content">
-                                <span class="node-icon">📁</span>
-                                <span class="node-label">professional</span>
-                            </div>
-                            <div class="node-children">
-                                <div class="tree-node">
-                                    <div class="node-content">
-                                        <span class="node-icon">📄</span>
-                                        <span class="node-label has-memories">skills</span>
-                                        <span class="memory-count">12</span>
-                                    </div>
-                                </div>
-                                <div class="tree-node">
-                                    <div class="node-content">
-                                        <span class="node-icon">📄</span>
-                                        <span class="node-label has-memories">experience</span>
-                                        <span class="memory-count">9</span>
-                                    </div>
-                                </div>
-                                <div class="tree-node">
-                                    <div class="node-content">
-                                        <span class="node-icon">📄</span>
-                                        <span class="node-label has-memories">companies</span>
-                                        <span class="memory-count">4</span>
-                                    </div>
-                                </div>
-                                <div class="tree-node">
-                                    <div class="node-content">
-                                        <span class="node-icon">📄</span>
-                                        <span class="node-label has-memories">education</span>
-                                        <span class="memory-count">3</span>
-                                    </div>
-                                </div>
-                                <div class="tree-node">
-                                    <div class="node-content">
-                                        <span class="node-icon">📄</span>
-                                        <span class="node-label has-memories">achievements</span>
-                                        <span class="memory-count">6</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="tree-node">
-                            <div class="node-content">
-                                <span class="node-icon">📁</span>
-                                <span class="node-label">preferences</span>
-                            </div>
-                            <div class="node-children">
-                                <div class="tree-node">
-                                    <div class="node-content">
-                                        <span class="node-icon">📄</span>
-                                        <span class="node-label has-memories">interface</span>
-                                        <span class="memory-count">5</span>
-                                    </div>
-                                </div>
-                                <div class="tree-node">
-                                    <div class="node-content">
-                                        <span class="node-icon">📄</span>
-                                        <span class="node-label has-memories">notifications</span>
-                                        <span class="memory-count">3</span>
-                                    </div>
-                                </div>
-                                <div class="tree-node">
-                                    <div class="node-content">
-                                        <span class="node-icon">📄</span>
-                                        <span class="node-label has-memories">privacy</span>
-                                        <span class="memory-count">4</span>
-                                    </div>
-                                </div>
-                                <div class="tree-node">
-                                    <div class="node-content">
-                                        <span class="node-icon">📄</span>
-                                        <span class="node-label has-memories">workflow</span>
-                                        <span class="memory-count">2</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="tree-node">
-                            <div class="node-content">
-                                <span class="node-icon">📁</span>
-                                <span class="node-label">interests</span>
-                            </div>
-                            <div class="node-children">
-                                <div class="tree-node">
-                                    <div class="node-content">
-                                        <span class="node-icon">📄</span>
-                                        <span class="node-label has-memories">music</span>
-                                        <span class="memory-count">4</span>
-                                    </div>
-                                </div>
-                                <div class="tree-node">
-                                    <div class="node-content">
-                                        <span class="node-icon">📄</span>
-                                        <span class="node-label has-memories">books</span>
-                                        <span class="memory-count">7</span>
-                                    </div>
-                                </div>
-                                <div class="tree-node">
-                                    <div class="node-content">
-                                        <span class="node-icon">📄</span>
-                                        <span class="node-label has-memories">movies</span>
-                                        <span class="memory-count">3</span>
-                                    </div>
-                                </div>
-                                <div class="tree-node">
-                                    <div class="node-content">
-                                        <span class="node-icon">📄</span>
-                                        <span class="node-label has-memories">sports</span>
-                                        <span class="memory-count">2</span>
-                                    </div>
-                                </div>
-                                <div class="tree-node">
-                                    <div class="node-content">
-                                        <span class="node-icon">📄</span>
-                                        <span class="node-label has-memories">hobbies</span>
-                                        <span class="memory-count">5</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="tree-node">
-                            <div class="node-content">
-                                <span class="node-icon">📁</span>
-                                <span class="node-label">technology</span>
-                            </div>
-                            <div class="node-children">
-                                <div class="tree-node">
-                                    <div class="node-content">
-                                        <span class="node-icon">📄</span>
-                                        <span class="node-label has-memories">devices</span>
-                                        <span class="memory-count">3</span>
-                                    </div>
-                                </div>
-                                <div class="tree-node">
-                                    <div class="node-content">
-                                        <span class="node-icon">📄</span>
-                                        <span class="node-label has-memories">tools</span>
-                                        <span class="memory-count">8</span>
-                                    </div>
-                                </div>
-                                <div class="tree-node">
-                                    <div class="node-content">
-                                        <span class="node-icon">📄</span>
-                                        <span class="node-label has-memories">platforms</span>
-                                        <span class="memory-count">6</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            `;
         }
 
         function showRepoInfo() {
@@ -10188,6 +9988,27 @@ Message: ${commit.message}`;
             }
         }
 
+        // Initialize statistics modal functionality
+        function initializeStatsModal() {
+            // Create modal instance
+            storeStatsModal = new StoreStatsModal();
+
+            // Add click handler to connection status button
+            const connectionBtn = document.getElementById('connectionStatusBtn');
+            if (connectionBtn) {
+                connectionBtn.addEventListener('click', () => {
+                    if (connectedStorePath) {
+                        storeStatsModal.show(connectedStorePath);
+                    } else {
+                        showNotification('No memory store connected', 'warning');
+                    }
+                });
+
+                // Make the button look clickable when connected
+                connectionBtn.style.cursor = 'pointer';
+            }
+        }
+
         // Initialize the page
         function initializePage() {
             // Initialize demo mode tree with fold functionality
@@ -10204,6 +10025,9 @@ Message: ${commit.message}`;
 
             // Initialize view switching
             initializeViewSwitching();
+
+            // Initialize statistics modal
+            initializeStatsModal();
         }
 
         // Help Modal Function
