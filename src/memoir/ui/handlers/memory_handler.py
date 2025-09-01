@@ -2,9 +2,8 @@
 Memory handler for memory store operations.
 """
 
-import sys
-import time
 import json
+import sys
 from pathlib import Path
 from urllib.parse import parse_qs
 
@@ -14,14 +13,12 @@ from .api_handler import BaseAPIHandler
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from memoir.classifier.intelligent import IntelligentClassifier
-from memoir.memento.location import LocationMemento
 from memoir.memento.timeline import TimelineMemento
 from memoir.store.prolly_adapter import ProllyTreeStore
 
 
 class MemoryHandler(BaseAPIHandler):
     """Handler for memory operations."""
-
 
     def handle_remember_api(self):
         """Handle /remember command to classify and store content."""
@@ -629,4 +626,3 @@ class MemoryHandler(BaseAPIHandler):
             self.handler.send_header("Content-Type", "application/json")
             self.handler.end_headers()
             self.handler.wfile.write(json.dumps(response_data).encode())
-
