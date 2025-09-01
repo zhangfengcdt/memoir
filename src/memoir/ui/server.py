@@ -3,7 +3,6 @@
 Simple HTTP server to serve the Memoir UI and handle memory store data.
 """
 
-import base64
 import http.server
 import json
 import socketserver
@@ -17,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 
 from handlers.branch_handler import BranchHandler
+from handlers.crypto_handler import CryptoHandler
 from handlers.memory_handler import MemoryHandler
 
 # Import modular handlers
@@ -46,6 +46,8 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             self.memory_handler = MemoryHandler(self)
         if not hasattr(self, "branch_handler") or self.branch_handler is None:
             self.branch_handler = BranchHandler(self)
+        if not hasattr(self, "crypto_handler") or self.crypto_handler is None:
+            self.crypto_handler = CryptoHandler(self)
 
     def send_json_response(self, data, status_code=200):
         """Send JSON response with proper error handling for broken pipes."""
@@ -67,11 +69,14 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             self._ensure_handlers_initialized()
             self.store_handler.handle_store_api(parsed_path)
         elif parsed_path.path == "/api/proof":
-            self.handle_proof_api(parsed_path)
+            self._ensure_handlers_initialized()
+            self.crypto_handler.handle_proof_api(parsed_path)
         elif parsed_path.path == "/api/verify":
-            self.handle_verify_api(parsed_path)
+            self._ensure_handlers_initialized()
+            self.crypto_handler.handle_verify_api(parsed_path)
         elif parsed_path.path == "/api/blame":
-            self.handle_blame_api(parsed_path)
+            self._ensure_handlers_initialized()
+            self.crypto_handler.handle_blame_api(parsed_path)
         elif parsed_path.path == "/api/branches":
             self._ensure_handlers_initialized()
             self.branch_handler.handle_branches_api(parsed_path)
@@ -119,6 +124,8 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         elif parsed_path.path == "/api/forget":
             self._ensure_handlers_initialized()
             self.memory_handler.handle_forget_api()
+        elif parsed_path.path == "/api/answer":
+            self.handle_answer_api()
         elif parsed_path.path == "/api/checkout":
             self._ensure_handlers_initialized()
             self.branch_handler.handle_checkout_api()
@@ -135,209 +142,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_timeline_post_api()
         elif parsed_path.path == "/api/location":
             self.handle_location_post_api()
-        elif parsed_path.path == "/api/answer":
-            self.handle_answer_api()
-        else:
-            self.send_error(404, "Endpoint not found")
-
-    def handle_proof_api(self, parsed_path):
-        """Handle API requests for generating cryptographic proofs."""
-        query_params = parse_qs(parsed_path.query)
-        store_path = query_params.get("path", [None])[0]
-        memory_key = query_params.get("key", [None])[0]
-        namespace = query_params.get("namespace", [None])[0] or "default"
-
-        if not store_path:
-            self.send_error(400, "Missing 'path' parameter")
-            return
-
-        if not memory_key:
-            self.send_error(400, "Missing 'key' parameter")
-            return
-
-        if not Path(store_path).exists():
-            self.send_error(404, f"Store path does not exist: {store_path}")
-            return
-
-        try:
-            # Initialize store with versioning enabled
-            store = ProllyTreeStore(
-                path=store_path,
-                enable_versioning=True,
-                auto_commit=False,
-                cache_size=10000,
-            )
-
-            # Convert namespace to tuple format and create full key
-            namespace_tuple = (
-                tuple(namespace.split(":")) if ":" in namespace else (namespace,)
-            )
-            full_key = ":".join(namespace_tuple) + ":" + memory_key
-            key_bytes = full_key.encode("utf-8")
-
-            # Generate proof using the VersionedKvStore
-            if hasattr(store.tree, "generate_proof"):
-                proof_bytes = store.tree.generate_proof(key_bytes)
-
-                # Get the value for this key to include in response
-                value_bytes = store.tree.get(key_bytes)
-                value = store._decode_value(value_bytes) if value_bytes else None
-
-                # Encode proof as base64 for transmission
-                proof_b64 = base64.b64encode(proof_bytes).decode("utf-8")
-
-                result = {
-                    "success": True,
-                    "proof": proof_b64,
-                    "key": memory_key,
-                    "namespace": namespace,
-                    "full_key": full_key,
-                    "value": value,
-                    "proof_size": len(proof_bytes),
-                    "message": f"Generated {len(proof_bytes)}-byte proof for {memory_key}",
-                }
-            else:
-                result = {
-                    "success": False,
-                    "error": "Proof generation not available (versioning may be disabled)",
-                }
-
-            # Send response
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(json.dumps(result, indent=2).encode())
-
-        except Exception as e:
-            self.send_error(500, f"Error generating proof: {e!s}")
-
-    def handle_verify_api(self, parsed_path):
-        """Handle API requests for verifying cryptographic proofs."""
-        query_params = parse_qs(parsed_path.query)
-        store_path = query_params.get("path", [None])[0]
-        proof_b64 = query_params.get("proof", [None])[0]
-        memory_key = query_params.get("key", [None])[0]
-        namespace = query_params.get("namespace", [None])[0] or "default"
-        expected_value = query_params.get("value", [None])[0]
-
-        if not store_path:
-            self.send_error(400, "Missing 'path' parameter")
-            return
-
-        if not proof_b64:
-            self.send_error(400, "Missing 'proof' parameter")
-            return
-
-        if not memory_key:
-            self.send_error(400, "Missing 'key' parameter")
-            return
-
-        if not Path(store_path).exists():
-            self.send_error(404, f"Store path does not exist: {store_path}")
-            return
-
-        try:
-            # Initialize store with versioning enabled
-            store = ProllyTreeStore(
-                path=store_path,
-                enable_versioning=True,
-                auto_commit=False,
-                cache_size=10000,
-            )
-
-            # Decode proof from base64
-            proof_bytes = base64.b64decode(proof_b64)
-
-            # Convert namespace to tuple format and create full key
-            namespace_tuple = (
-                tuple(namespace.split(":")) if ":" in namespace else (namespace,)
-            )
-            full_key = ":".join(namespace_tuple) + ":" + memory_key
-            key_bytes = full_key.encode("utf-8")
-
-            # Verify proof using the VersionedKvStore
-            if hasattr(store.tree, "verify_proof"):
-                # Prepare expected value if provided
-                expected_bytes = None
-                if expected_value:
-                    expected_bytes = store._encode_value(expected_value)
-
-                # Verify the proof
-                is_valid = store.tree.verify_proof(
-                    proof_bytes, key_bytes, expected_bytes
-                )
-
-                # Get current value for reference
-                current_value_bytes = store.tree.get(key_bytes)
-                current_value = (
-                    store._decode_value(current_value_bytes)
-                    if current_value_bytes
-                    else None
-                )
-
-                result = {
-                    "success": True,
-                    "valid": is_valid,
-                    "key": memory_key,
-                    "namespace": namespace,
-                    "full_key": full_key,
-                    "current_value": current_value,
-                    "expected_value": expected_value,
-                    "message": "Proof is valid ✓" if is_valid else "Proof is invalid ✗",
-                }
-            else:
-                result = {
-                    "success": False,
-                    "error": "Proof verification not available (versioning may be disabled)",
-                }
-
-            # Send response
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(json.dumps(result, indent=2).encode())
-
-        except Exception as e:
-            self.send_error(500, f"Error verifying proof: {e!s}")
-
-    def handle_blame_api(self, parsed_path):
-        """Handle API requests for getting blame information for a memory key."""
-        query_params = parse_qs(parsed_path.query)
-        store_path = query_params.get("path", [None])[0]
-        memory_key = query_params.get("key", [None])[0]
-        namespace = query_params.get("namespace", [None])[0] or "default"
-
-        if not store_path:
-            self.send_error(400, "Missing 'path' parameter")
-            return
-
-        if not memory_key:
-            self.send_error(400, "Missing 'key' parameter")
-            return
-
-        if not Path(store_path).exists():
-            self.send_error(404, f"Store path does not exist: {store_path}")
-            return
-
-        try:
-            # Use the memory_store_reader to get blame data
-            sys.path.append(str(Path(__file__).parent))
-            from reader import get_blame_info
-
-            data_json = get_blame_info(store_path, memory_key, namespace)
-            data = json.loads(data_json)
-
-            # Send response
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(json.dumps(data, indent=2).encode())
-
-        except Exception as e:
-            self.send_error(500, f"Error getting blame info: {e!s}")
 
     def handle_remember_api(self):
         """Handle /remember command to classify and store content."""
