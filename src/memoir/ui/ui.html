@@ -8935,6 +8935,10 @@ No commit history found for this key.
                     <span class="menu-icon">🕐</span>
                     Time-travel to ${shortHash}
                 </div>
+                <div class="commit-menu-item" data-action="view-diff" data-commit="${commitHash}">
+                    <span class="menu-icon">🔍</span>
+                    View changes
+                </div>
                 <div class="commit-menu-item" data-action="copy-hash" data-commit="${commitHash}">
                     <span class="menu-icon">📋</span>
                     Copy commit hash
@@ -8965,6 +8969,9 @@ No commit history found for this key.
                     switch(action) {
                         case 'time-travel':
                             await timeTravel(commit);
+                            break;
+                        case 'view-diff':
+                            await showCommitDiff(commit);
                             break;
                         case 'copy-hash':
                             await copyToClipboard(commit);
@@ -9004,6 +9011,49 @@ No commit history found for this key.
                 textArea.select();
                 document.execCommand('copy');
                 document.body.removeChild(textArea);
+            }
+        }
+
+        async function showCommitDiff(commitHash) {
+            if (!connectedStorePath) {
+                showNotification('Please connect to a memory store first', 'error');
+                return;
+            }
+
+            try {
+                // Get commit list to find the previous commit
+                const response = await fetch(`/api/commits?path=${encodeURIComponent(connectedStorePath)}&limit=100`);
+                if (!response.ok) throw new Error('Failed to get commit list');
+
+                const data = await response.json();
+                const commits = data.commits;
+
+                // Find the current commit and its previous commit
+                const currentIndex = commits.findIndex(c => c.hash === commitHash);
+                if (currentIndex === -1) {
+                    showNotification('Commit not found', 'error');
+                    return;
+                }
+
+                const currentCommit = commits[currentIndex];
+                const shortHash = commitHash.slice(0, 8);
+
+                if (currentIndex === commits.length - 1) {
+                    // This is the first commit (oldest), show it as initial commit
+                    showNotification(`Showing initial commit diff for ${shortHash}`, 'info');
+                    await showDiffModal(null, commitHash, false);
+                } else {
+                    // Compare with previous commit
+                    const previousCommit = commits[currentIndex + 1];
+                    const prevShortHash = previousCommit.hash.slice(0, 8);
+
+                    showNotification(`Showing diff: ${prevShortHash} → ${shortHash}`, 'info');
+                    await showDiffModal(previousCommit.hash, commitHash, false);
+                }
+
+            } catch (error) {
+                console.error('Failed to show commit diff:', error);
+                showNotification(`Error showing diff: ${error.message}`, 'error');
             }
         }
 

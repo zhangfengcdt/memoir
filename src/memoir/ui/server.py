@@ -3208,35 +3208,76 @@ Answer:"""
                     if operation_type == "Added":
                         # Extract readable content from new value
                         new_content = self._extract_diff_content(operation.value)
-                        changes.append(
-                            {
-                                "path": path,
-                                "type": "added",
-                                "new_content": new_content,
-                            }
-                        )
+
+                        # Only include if there's meaningful content
+                        if (
+                            new_content
+                            and new_content.strip()
+                            and new_content != "No content"
+                        ):
+                            changes.append(
+                                {
+                                    "path": path,
+                                    "type": "added",
+                                    "new_content": new_content,
+                                }
+                            )
+                        else:
+                            print(
+                                f"🔍 Skipping empty/meaningless added content for key: {path}"
+                            )
                     elif operation_type == "Removed":
                         # Extract readable content from old value
                         old_content = self._extract_diff_content(operation.value)
-                        changes.append(
-                            {
-                                "path": path,
-                                "type": "deleted",
-                                "old_content": old_content,
-                            }
-                        )
+
+                        # Only include if there's meaningful content
+                        if (
+                            old_content
+                            and old_content.strip()
+                            and old_content != "No content"
+                        ):
+                            changes.append(
+                                {
+                                    "path": path,
+                                    "type": "deleted",
+                                    "old_content": old_content,
+                                }
+                            )
+                        else:
+                            print(
+                                f"🔍 Skipping empty/meaningless removed content for key: {path}"
+                            )
                     elif operation_type == "Modified":
                         # Extract readable content from both old and new values
                         old_content = self._extract_diff_content(operation.old_value)
                         new_content = self._extract_diff_content(operation.new_value)
-                        changes.append(
-                            {
-                                "path": path,
-                                "type": "modified",
-                                "old_content": old_content,
-                                "new_content": new_content,
-                            }
-                        )
+
+                        # Only include if the content actually changed and is meaningful
+                        if (
+                            old_content != new_content
+                            and old_content
+                            and new_content
+                            and old_content.strip()
+                            and new_content.strip()
+                        ):
+                            changes.append(
+                                {
+                                    "path": path,
+                                    "type": "modified",
+                                    "old_content": old_content,
+                                    "new_content": new_content,
+                                }
+                            )
+                        elif old_content == new_content:
+                            print(f"🔍 Skipping identical content for key: {path}")
+                            print(
+                                f"    Content: {old_content[:100]}{'...' if len(old_content) > 100 else ''}"
+                            )
+                        else:
+                            print(
+                                f"🔍 Skipping empty/meaningless modified content for key: {path}"
+                            )
+                            print(f"    Old: '{old_content}', New: '{new_content}'")
 
             # Calculate stats
             stats = {"added": 0, "modified": 0, "deleted": 0}
