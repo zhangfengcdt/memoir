@@ -109,7 +109,14 @@ This project brings Git-like version control to AI memory systems, replacing opa
 
 #### 7. **Interactive UI** (`src/memoir/ui/`)
 - **Main UI** (`ui.html`): Clean, modular web-based D3.js memory tree explorer (714 lines, 93% reduction from original)
-- **HTTP Server** (`server.py`): Web server with API endpoints for memory operations
+- **HTTP Server** (`server.py`): Modular web server with API endpoints (2,842 lines, 36% reduction from original 4,420 lines)
+- **Modular Python Backend Architecture** (`handlers/`): Clean separation of concerns with specialized handler modules:
+  - **Base Handler** (`api_handler.py`): Common utilities and delegation pattern for all handlers
+  - **Store Handler** (`store_handler.py`): Store operations (/api/store, /api/new) - 140 lines
+  - **Memory Handler** (`memory_handler.py`): Memory operations (/api/remember, /api/forget, /api/recall) - 607 lines
+  - **Branch Handler** (`branch_handler.py`): Git operations (/api/branches, /api/checkout, etc.) - 471 lines
+  - **Crypto Handler** (`crypto_handler.py`): Cryptographic operations (/api/proof, /api/verify, /api/blame) - 219 lines
+  - **Utility Handler** (`utils.py`): Data processing utilities and content extraction helpers - 289 lines
 - **External Styles** (`static/styles.css`): Modular CSS for better maintainability
 - **Modular JavaScript Architecture** (`static/js/`): Clean separation of concerns with focused modules:
   - **Core UI** (`core-ui.js`): Main UI functionality and business logic (9,440 lines)
@@ -258,13 +265,20 @@ print(f"Avg search time: {metrics['avg_search_ms']}ms")
 ```
 
 ### UI Refactoring (Recent)
-The UI has been refactored for better maintainability:
+The UI has been comprehensively refactored for better maintainability across both frontend and backend:
 
-#### File Structure:
+#### Full Stack Modular Architecture:
 ```
 src/memoir/ui/
-├── server.py                    # Main HTTP server (renamed from serve_ui.py)
-├── ui.html                      # Main UI file (714 lines, 93% reduction)
+├── server.py                    # Main HTTP server (2,842 lines, 36% reduction from 4,420)
+├── handlers/                    # Modular Python Backend Architecture
+│   ├── api_handler.py          # Base handler with common utilities
+│   ├── store_handler.py        # Store operations (/api/store, /api/new) - 140 lines
+│   ├── memory_handler.py       # Memory operations (/api/remember, /api/forget, /api/recall) - 607 lines
+│   ├── branch_handler.py       # Git operations (/api/branches, /api/checkout, etc.) - 471 lines
+│   ├── crypto_handler.py       # Cryptographic operations (/api/proof, /api/verify, /api/blame) - 219 lines
+│   └── utils.py                # Data processing utilities and helpers - 289 lines
+├── ui.html                      # Main UI file (714 lines, 93% reduction from 10,495)
 ├── reader.py                    # Memory store reader (renamed)
 ├── initializer.py              # Sample store initializer (renamed)
 └── static/
@@ -279,7 +293,15 @@ src/memoir/ui/
         └── stats-modal.js      # Statistics modal (existing)
 ```
 
-#### Benefits:
+#### Backend Architecture Benefits:
+- **Modular Handler Pattern**: Each handler specializes in specific API functionality
+- **Base Handler Design**: Common utilities and delegation pattern (`self.handler.*`)
+- **Lazy Initialization**: Handlers loaded only when needed via `_ensure_handlers_initialized()`
+- **Preserved Business Logic**: Core functionality maintained exactly, only infrastructure adapted
+- **Eliminated Duplication**: Removed 1,000+ lines of duplicate methods
+- **Clean Separation**: Store, memory, git, crypto, and utility operations isolated
+
+#### Frontend Architecture Benefits:
 - **Dramatic Size Reduction**: ui.html reduced from 10,495 → 714 lines (93% reduction)
 - **Modular Architecture**: Clean separation of concerns across focused JavaScript modules
 - **Maintainability**: Easy to locate, debug, and modify specific functionality
@@ -287,3 +309,9 @@ src/memoir/ui/
 - **Developer Experience**: Clear module boundaries and consistent naming conventions
 - **Testing**: Individual modules can be tested in isolation
 - **Scalability**: Easy to add new modules or extend existing functionality
+
+#### Overall Impact:
+- **Total Backend Reduction**: server.py from 4,420 → 2,842 lines (36% reduction)
+- **Enhanced Maintainability**: Both Python and JavaScript follow modular patterns
+- **Improved Debugging**: Issues isolated to specific handler/module boundaries
+- **Future-Proof**: Clean architecture supports easy extension and modification
