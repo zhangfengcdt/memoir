@@ -566,7 +566,10 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                     if "." in path:
                         date_str = path.split(".")[-1]
                         if len(date_str) == 8:  # YYYYMMDD format
-                            content = self._extract_timeline_content(data, date_str)
+                            self._ensure_handlers_initialized()
+                            content = self.utility_handler.extract_timeline_content(
+                                data, date_str
+                            )
 
                             if (
                                 content
@@ -643,87 +646,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
         except Exception as e:
             self.send_error(500, f"Error retrieving timeline: {e!s}")
-
-    def _extract_timeline_content(self, data, date_str):
-        """Extract timeline content from various data structure formats."""
-
-        if not data:
-            return ""
-
-        # Try different extraction strategies
-        content = ""
-
-        if isinstance(data, dict):
-            # NEW Strategy: Handle the memory store format with "memories" array
-            if (
-                "memories" in data
-                and isinstance(data["memories"], list)
-                and len(data["memories"]) > 0
-            ):
-                # Get the first (and usually only) memory from the array
-                memory_item = data["memories"][0]
-
-                if "content" in memory_item and isinstance(
-                    memory_item["content"], dict
-                ):
-                    content_obj = memory_item["content"]
-
-                    # Priority 1: raw_text (this contains the actual description)
-                    content = content_obj.get("raw_text", "")
-                    if content and content.strip():
-                        return content.strip()
-
-                    # Priority 2: structured_data -> original_content
-                    if "structured_data" in content_obj:
-                        structured = content_obj["structured_data"]
-                        if isinstance(structured, dict):
-                            content = structured.get("original_content", "")
-                            if content and content.strip():
-                                return content.strip()
-
-                            content = structured.get("timeline_content", "")
-                            if content and content.strip():
-                                return content.strip()
-
-            # OLD Strategy 1: Check if it's the old format with nested content
-            if "content" in data and isinstance(data["content"], dict):
-                timeline_data_obj = data["content"]
-
-                # Priority 1: original_content from structured_data
-                if "structured_data" in timeline_data_obj:
-                    structured = timeline_data_obj["structured_data"]
-                    if isinstance(structured, dict):
-                        content = structured.get("original_content", "")
-                        if content:
-                            return content
-
-                        content = structured.get("timeline_content", "")
-                        if content:
-                            return content
-
-                # Priority 2: raw_text
-                content = timeline_data_obj.get("raw_text", "")
-                if content:
-                    return content
-
-            # Strategy 3: Direct fields
-            for field in [
-                "raw_text",
-                "timeline_content",
-                "original_content",
-                "summary",
-                "description",
-            ]:
-                if data.get(field):
-                    content = str(data[field])
-                    return content
-
-        elif isinstance(data, str):
-            return data
-
-        # Last resort: convert to string and hope for the best
-        content = str(data) if data else ""
-        return content
 
     def handle_timeline_post_api(self):
         """Handle POST /api/timeline to add explicit timeline events."""
@@ -908,7 +830,10 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 for path, data in location_memories:
                     if "." in path:
                         location_key = path.split(".")[-1]
-                        content = self._extract_location_content(data, location_key)
+                        self._ensure_handlers_initialized()
+                        content = self.utility_handler.extract_location_content(
+                            data, location_key
+                        )
 
                         if content and content.strip():
                             # Convert location key back to display name
@@ -1122,61 +1047,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                     {"success": False, "error": f"Error adding location event: {e!s}"}
                 ).encode()
             )
-
-    def _extract_location_content(self, data, location_key):
-        """Extract location content from various data structure formats."""
-
-        if not data:
-            return ""
-
-        # Try different extraction strategies
-        content = ""
-
-        if isinstance(data, dict):
-            # NEW Strategy: Handle the memory store format with "memories" array
-            if (
-                "memories" in data
-                and isinstance(data["memories"], list)
-                and len(data["memories"]) > 0
-            ):
-                # Get the first (and usually only) memory from the array
-                memory_item = data["memories"][0]
-
-                if "content" in memory_item and isinstance(
-                    memory_item["content"], dict
-                ):
-                    content_obj = memory_item["content"]
-
-                    # Priority 1: raw_text (this contains the actual description)
-                    content = content_obj.get("raw_text", "")
-                    if content and content.strip():
-                        return content.strip()
-
-                    # Priority 2: structured_data -> location_content
-                    if "structured_data" in content_obj:
-                        structured = content_obj["structured_data"]
-                        if isinstance(structured, dict):
-                            content = structured.get("location_content", "")
-                            if content and content.strip():
-                                return content.strip()
-
-            # Strategy 3: Direct fields
-            for field in [
-                "raw_text",
-                "location_content",
-                "summary",
-                "description",
-            ]:
-                if data.get(field):
-                    content = str(data[field])
-                    return content
-
-        elif isinstance(data, str):
-            return data
-
-        # Last resort: convert to string and hope for the best
-        content = str(data) if data else ""
-        return content
 
     def handle_debug_location_api(self, parsed_path):
         """Handle GET /api/debug-location for debugging location data structures."""
@@ -2364,6 +2234,7 @@ Answer:"""
                                 value_bytes = store.tree.get(key_bytes)
                                 if value_bytes:
                                     value_data = store._decode_value(value_bytes)
+                                    self._ensure_handlers_initialized()
                                     content = self.utility_handler.extract_diff_content(
                                         value_data
                                     )
@@ -2427,6 +2298,7 @@ Answer:"""
 
                     if operation_type == "Added":
                         # Extract readable content from new value
+                        self._ensure_handlers_initialized()
                         new_content = self.utility_handler.extract_diff_content(
                             operation.value
                         )
@@ -2450,6 +2322,7 @@ Answer:"""
                             )
                     elif operation_type == "Removed":
                         # Extract readable content from old value
+                        self._ensure_handlers_initialized()
                         old_content = self.utility_handler.extract_diff_content(
                             operation.value
                         )
@@ -2473,9 +2346,11 @@ Answer:"""
                             )
                     elif operation_type == "Modified":
                         # Extract readable content from both old and new values
+                        self._ensure_handlers_initialized()
                         old_content = self.utility_handler.extract_diff_content(
                             operation.old_value
                         )
+                        self._ensure_handlers_initialized()
                         new_content = self.utility_handler.extract_diff_content(
                             operation.new_value
                         )
@@ -2653,11 +2528,15 @@ Answer:"""
                 # Process added keys
                 for key in added_keys:
                     try:
-                        content = self._parse_memory_content(data2[key])
+                        self._ensure_handlers_initialized()
+                        content = self.utility_handler.parse_memory_content(data2[key])
                         if content:  # Only add if there's actual content
+                            self._ensure_handlers_initialized()
                             changes.append(
                                 {
-                                    "path": self._format_key_as_path(key),
+                                    "path": self.utility_handler.format_key_as_path(
+                                        key
+                                    ),
                                     "type": "added",
                                     "new_content": content,
                                 }
@@ -2668,11 +2547,14 @@ Answer:"""
                 # Process removed keys
                 for key in removed_keys:
                     try:
-                        content = self._parse_memory_content(data1[key])
+                        self._ensure_handlers_initialized()
+                        content = self.utility_handler.parse_memory_content(data1[key])
                         if content:  # Only add if there's actual content
                             changes.append(
                                 {
-                                    "path": self._format_key_as_path(key),
+                                    "path": self.utility_handler.format_key_as_path(
+                                        key
+                                    ),
                                     "type": "deleted",
                                     "old_content": content,
                                 }
@@ -2684,14 +2566,22 @@ Answer:"""
                 for key in common_keys:
                     try:
                         if data1[key] != data2[key]:
-                            old_content = self._parse_memory_content(data1[key])
-                            new_content = self._parse_memory_content(data2[key])
+                            self._ensure_handlers_initialized()
+                            old_content = self.utility_handler.parse_memory_content(
+                                data1[key]
+                            )
+                            self._ensure_handlers_initialized()
+                            new_content = self.utility_handler.parse_memory_content(
+                                data2[key]
+                            )
                             if (
                                 old_content != new_content
                             ):  # Only add if content actually changed
                                 changes.append(
                                     {
-                                        "path": self._format_key_as_path(key),
+                                        "path": self.utility_handler.format_key_as_path(
+                                            key
+                                        ),
                                         "type": "modified",
                                         "old_content": old_content,
                                         "new_content": new_content,
@@ -2766,10 +2656,13 @@ Answer:"""
                         )
                         value = store.get(key)
                         if value:
-                            content = self._parse_prollytree_value(value)
+                            self._ensure_handlers_initialized()
+                            content = self.utility_handler.parse_prollytree_value(value)
                             changes.append(
                                 {
-                                    "path": self._format_key_as_path(key_str),
+                                    "path": self.utility_handler.format_key_as_path(
+                                        key_str
+                                    ),
                                     "type": "added",
                                     "new_content": content,
                                 }
@@ -2791,51 +2684,6 @@ Answer:"""
             print(f"Error getting ProllyTree initial commit: {e}")
             # Fallback to git-based diff
             return self._get_git_diff_from_empty(store_path, commit)
-
-    def _format_key_as_path(self, key):
-        """Format a ProllyTree key as a semantic path."""
-        # Remove namespace prefix and convert to dot notation
-        if ":" in key:
-            parts = key.split(":")
-            # Skip namespace parts and join the rest with dots
-            if len(parts) > 1:
-                return ".".join(parts[1:])
-        return key
-
-    def _parse_prollytree_value(self, value):
-        """Parse a value from ProllyTree store."""
-        try:
-            import json
-
-            # If it's bytes, decode it
-            if isinstance(value, bytes):
-                value = value.decode("utf-8")
-
-            # Try to parse as JSON
-            if isinstance(value, str):
-                try:
-                    data = json.loads(value)
-                    return self._parse_memory_content(json.dumps(data))
-                except json.JSONDecodeError:
-                    return str(value)[:200]
-
-            # If it's already a dict or other type
-            if isinstance(value, dict):
-                if "content" in value:
-                    return str(value["content"])
-                elif "memories" in value and isinstance(value["memories"], list):
-                    # Aggregated memory
-                    memories = value["memories"][:3]
-                    content_parts = []
-                    for memory in memories:
-                        if isinstance(memory, dict) and "content" in memory:
-                            content_parts.append(str(memory["content"])[:100])
-                    return " | ".join(content_parts) if content_parts else str(value)
-
-            return str(value)[:200] if value else ""
-
-        except Exception:
-            return str(value)[:200] if value else ""
 
     def _get_git_diff_between_commits(self, store_path, commit1, commit2):
         """Get diff between two specific commits."""
@@ -2973,7 +2821,8 @@ Answer:"""
                                 text=True,
                             )
                             if content_result.returncode == 0:
-                                new_content = self._parse_memory_content(
+                                self._ensure_handlers_initialized()
+                                new_content = self.utility_handler.parse_memory_content(
                                     content_result.stdout
                                 )
                         except Exception:
@@ -3013,7 +2862,10 @@ Answer:"""
                     text=True,
                 )
                 if result.returncode == 0:
-                    old_content = self._parse_memory_content(result.stdout)
+                    self._ensure_handlers_initialized()
+                    old_content = self.utility_handler.parse_memory_content(
+                        result.stdout
+                    )
 
             if change_type != "deleted":
                 # Get new content from commit2
@@ -3024,7 +2876,10 @@ Answer:"""
                     text=True,
                 )
                 if result.returncode == 0:
-                    new_content = self._parse_memory_content(result.stdout)
+                    self._ensure_handlers_initialized()
+                    new_content = self.utility_handler.parse_memory_content(
+                        result.stdout
+                    )
 
         except Exception as e:
             print(f"Error getting file content at commits: {e}")
@@ -3049,47 +2904,25 @@ Answer:"""
                     text=True,
                 )
                 if result.returncode == 0:
-                    old_content = self._parse_memory_content(result.stdout)
+                    self._ensure_handlers_initialized()
+                    old_content = self.utility_handler.parse_memory_content(
+                        result.stdout
+                    )
 
             if change_type != "deleted":
                 # Get current content from working directory
                 file_path = Path(store_path) / filename
                 if file_path.exists():
                     with open(file_path) as f:
-                        new_content = self._parse_memory_content(f.read())
+                        self._ensure_handlers_initialized()
+                        new_content = self.utility_handler.parse_memory_content(
+                            f.read()
+                        )
 
         except Exception as e:
             print(f"Error getting file content working vs commit: {e}")
 
         return old_content, new_content
-
-    def _parse_memory_content(self, raw_content):
-        """Parse memory content from JSON file."""
-        try:
-            import json
-
-            data = json.loads(raw_content)
-
-            # Extract meaningful content from the memory data
-            if isinstance(data, dict):
-                if "content" in data:
-                    return str(data["content"])
-                elif "memories" in data and isinstance(data["memories"], list):
-                    # Aggregated memory - show first few entries
-                    memories = data["memories"][:3]  # Show first 3
-                    content_parts = []
-                    for memory in memories:
-                        if isinstance(memory, dict) and "content" in memory:
-                            content_parts.append(str(memory["content"])[:100])
-                    return " | ".join(content_parts) if content_parts else str(data)
-                else:
-                    return str(data)
-            else:
-                return str(data)
-
-        except Exception:
-            # If not valid JSON or other error, return raw content truncated
-            return str(raw_content)[:200] if raw_content else ""
 
     def handle_statistics_api(self, parsed_path):
         """Handle statistics API requests."""
