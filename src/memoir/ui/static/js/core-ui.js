@@ -343,8 +343,6 @@
             // Update panel header to show "Git History" mode (unless in demo mode)
             if (!window.isDemoModeActive) {
                 updateTimelinePanelHeader('Git History');
-            } else {
-                console.log('🎭 core-ui restoreOriginalGitHistory: Skipping title update because demo mode is active');
             }
 
             // Restore the complete original git history HTML

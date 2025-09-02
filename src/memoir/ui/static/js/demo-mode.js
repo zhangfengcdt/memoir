@@ -29,7 +29,6 @@ function showDemoData() {
     // Reset title to just "Memoir" (not "Memoir - Git History")
     const memoirLogoText = document.querySelector('.memoir-logo-text');
     if (memoirLogoText) {
-        console.log('🎭 showDemoData: Setting title to "Memoir"');
         memoirLogoText.textContent = 'Memoir';
 
         // Monitor for changes to the title in demo mode
@@ -248,15 +247,11 @@ function setupTitleMonitoring() {
             mutations.forEach(function(mutation) {
                 if (mutation.type === 'characterData' || mutation.type === 'childList') {
                     const currentText = memoirLogoText.textContent;
-                    console.error('🚨 TITLE CHANGED! Current text:', currentText);
-                    console.trace('Stack trace of what changed the title:');
 
                     // Restore demo title if we're still in demo mode and it was changed
                     if (window.isDemoModeActive && currentText !== 'Memoir') {
-                        console.warn('🔧 Attempting to restore demo title...');
                         setTimeout(() => {
                             if (window.isDemoModeActive) {
-                                console.log('🎭 Forcing title back to "Memoir"');
                                 memoirLogoText.textContent = 'Memoir';
                             }
                         }, 10);
@@ -270,7 +265,6 @@ function setupTitleMonitoring() {
             childList: true,
             subtree: true
         });
-        console.log('🔍 Title monitoring activated');
         window.titleMonitoringActive = true;
     }
 }
