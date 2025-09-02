@@ -12,6 +12,10 @@ const demoPlacesData = {
 // Initialize demo mode - main demo command functionality
 function showDemoData() {
     connectedStorePath = null; // Reset connection to show original state
+
+    // Set demo mode flag to prevent disconnected state from overriding
+    window.isDemoModeActive = true;
+
     showNotification('Demo mode - showing original page state for exploration', 'info');
 
     // Clear existing data
@@ -22,8 +26,23 @@ function showDemoData() {
     // Update store path display to show demo mode
     updateStorePathDisplay(null, 'disconnected');
 
+    // Reset title to just "Memoir" (not "Memoir - Git History")
+    const memoirLogoText = document.querySelector('.memoir-logo-text');
+    if (memoirLogoText) {
+        console.log('🎭 showDemoData: Setting title to "Memoir"');
+        memoirLogoText.textContent = 'Memoir';
+
+        // Monitor for changes to the title in demo mode
+        if (!window.titleMonitoringActive) {
+            setupTitleMonitoring();
+        }
+    }
+
     // Restore tree view with fold functionality
     restoreOriginalTreeView();
+
+    // Restore git demo history
+    restoreOriginalGitHistory();
 
     // Refresh graph view with demo data
     renderGraph();
@@ -31,18 +50,30 @@ function showDemoData() {
     // Update branches dropdown to original state
     updateBranchesDropdown(['main', 'experiment', 'user-profile'], 'main');
 
-    // Update graph view to original state
-    updateGraphView();
+    // Save demo mode state after everything is set up
+    if (typeof saveConnectionState === 'function') {
+        saveConnectionState();
+    }
 }
 
 // Restore original tree view with demo data
 function restoreOriginalTreeView() {
+    console.log('restoreOriginalTreeView: called');
     const treeView = document.getElementById('treeView');
-    if (!treeView) return;
+    if (!treeView) {
+        console.warn('restoreOriginalTreeView: treeView element not found');
+        return;
+    }
 
     // Use the dynamic tree builder with demo data instead of static HTML
     const demoTree = generateMockTree(1.0);
     treeView.innerHTML = buildTreeFromPaths(demoTree);
+    console.log('restoreOriginalTreeView: demo tree restored');
+
+    // Add monitoring to detect when content gets overridden
+    if (!window.treeMonitoringActive) {
+        setupTreeViewMonitoring();
+    }
 }
 
 // Initialize places view demo mode
@@ -92,15 +123,169 @@ function initializeDemoTimelineData() {
     return demoActivityData;
 }
 
+// Restore original git history with demo data
+function restoreOriginalGitHistory() {
+    console.log('restoreOriginalGitHistory: called');
+    const gitHistory = document.querySelector('.git-tree');
+    if (!gitHistory) {
+        console.warn('restoreOriginalGitHistory: git-tree element not found');
+        return;
+    }
+
+    // Restore demo git history HTML
+    const originalGitHTML = `
+        <div class="commit-node active" data-commit="abc123">
+            <div class="git-lines"><div class="commit-dot main"></div></div>
+            <div class="commit-content">
+                <div class="commit-info">
+                    <span class="commit-message">Add user preferences and timeline entries</span>
+                    <span class="commit-meta">2 hours ago by <strong>Demo User</strong></span>
+                </div>
+            </div>
+        </div>
+        <div class="commit-node" data-commit="def456">
+            <div class="git-lines"><div class="commit-dot main"></div></div>
+            <div class="commit-content">
+                <div class="commit-info">
+                    <span class="commit-message">Organize professional information</span>
+                    <span class="commit-meta">1 day ago by <strong>Demo User</strong></span>
+                </div>
+            </div>
+        </div>
+        <div class="commit-node" data-commit="ghi789">
+            <div class="git-lines"><div class="commit-dot main"></div></div>
+            <div class="commit-content">
+                <div class="commit-info">
+                    <span class="commit-message">Initial memory structure</span>
+                    <span class="commit-meta">3 days ago by <strong>Demo User</strong></span>
+                </div>
+            </div>
+        </div>
+    `;
+
+    gitHistory.innerHTML = originalGitHTML;
+    console.log('restoreOriginalGitHistory: demo git history restored');
+
+    // Ensure title shows just "Memoir" in demo mode, not "Memoir - Git History"
+    const memoirLogoText = document.querySelector('.memoir-logo-text');
+    if (memoirLogoText && window.isDemoModeActive) {
+        memoirLogoText.textContent = 'Memoir';
+    }
+
+    // Add monitoring if not already set up
+    if (!window.gitMonitoringActive) {
+        setupGitHistoryMonitoring();
+        window.gitMonitoringActive = true;
+    }
+}
+
+// Monitor git history changes
+function setupGitHistoryMonitoring() {
+    const gitHistory = document.querySelector('.git-tree');
+
+    if (gitHistory) {
+        const gitObserver = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'childList') {
+                    console.error('🚨 GIT HISTORY CHANGED! Something overrode demo content!');
+                    console.error('Current innerHTML:', gitHistory.innerHTML.substring(0, 200) + '...');
+                    console.trace('Stack trace of what changed the git history:');
+
+                    // Try to restore demo content if we're still in demo mode
+                    if (window.isDemoModeActive) {
+                        console.warn('🔧 Attempting to restore demo git history...');
+                        setTimeout(() => {
+                            restoreOriginalGitHistory();
+                        }, 10);
+                    }
+                }
+            });
+        });
+
+        gitObserver.observe(gitHistory, { childList: true, subtree: true });
+        console.log('🔍 Git history monitoring activated');
+    }
+}
+
+// Monitor tree view changes to detect what's overriding demo content
+function setupTreeViewMonitoring() {
+    const treeView = document.getElementById('treeView');
+
+    if (treeView) {
+        // Create a MutationObserver to monitor innerHTML changes
+        const treeObserver = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'childList') {
+                    console.error('🚨 TREE VIEW CHANGED! Something overrode demo content!');
+                    console.error('Current innerHTML:', treeView.innerHTML.substring(0, 200) + '...');
+                    console.trace('Stack trace of what changed the tree view:');
+
+                    // Try to restore demo content if we're still in demo mode
+                    if (window.isDemoModeActive) {
+                        console.warn('🔧 Attempting to restore demo tree content...');
+                        setTimeout(() => {
+                            const demoTree = generateMockTree(1.0);
+                            treeView.innerHTML = buildTreeFromPaths(demoTree);
+                        }, 10);
+                    }
+                }
+            });
+        });
+
+        treeObserver.observe(treeView, { childList: true, subtree: true });
+        console.log('🔍 Tree view monitoring activated');
+        window.treeMonitoringActive = true;
+    }
+}
+
+// Monitor title changes to detect what's overriding demo mode title
+function setupTitleMonitoring() {
+    const memoirLogoText = document.querySelector('.memoir-logo-text');
+
+    if (memoirLogoText) {
+        // Create a MutationObserver to monitor text changes
+        const titleObserver = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'characterData' || mutation.type === 'childList') {
+                    const currentText = memoirLogoText.textContent;
+                    console.error('🚨 TITLE CHANGED! Current text:', currentText);
+                    console.trace('Stack trace of what changed the title:');
+
+                    // Restore demo title if we're still in demo mode and it was changed
+                    if (window.isDemoModeActive && currentText !== 'Memoir') {
+                        console.warn('🔧 Attempting to restore demo title...');
+                        setTimeout(() => {
+                            if (window.isDemoModeActive) {
+                                console.log('🎭 Forcing title back to "Memoir"');
+                                memoirLogoText.textContent = 'Memoir';
+                            }
+                        }, 10);
+                    }
+                }
+            });
+        });
+
+        titleObserver.observe(memoirLogoText, {
+            characterData: true,
+            childList: true,
+            subtree: true
+        });
+        console.log('🔍 Title monitoring activated');
+        window.titleMonitoringActive = true;
+    }
+}
+
 // Check if currently in demo mode
 function isDemoMode() {
-    return connectedStorePath === null || connectedStorePath === 'demo';
+    return window.isDemoModeActive || connectedStorePath === null || connectedStorePath === 'demo';
 }
 
 // Export to global scope for use by other modules
 window.showDemoData = showDemoData;
 window.restoreOriginalTreeView = restoreOriginalTreeView;
+window.restoreOriginalGitHistory = restoreOriginalGitHistory;
 window.initializePlacesDemoMode = initializePlacesDemoMode;
 window.initializeDemoTimelineData = initializeDemoTimelineData;
+window.setupTitleMonitoring = setupTitleMonitoring;
 window.isDemoMode = isDemoMode;
 window.demoPlacesData = demoPlacesData;

@@ -83,6 +83,8 @@
                 await refreshStore();
             } else if (cmd === '/demo') {
                 showDemoData();
+                // Save demo mode state
+                saveConnectionState();
             } else if (cmd === '/repo') {
                 showRepoInfo();
             } else if (cmd === '/code') {
@@ -338,8 +340,12 @@
             const gitHistory = document.querySelector('.git-tree');
             if (!gitHistory) return;
 
-            // Update panel header to show "Git History" mode
-            updateTimelinePanelHeader('Git History');
+            // Update panel header to show "Git History" mode (unless in demo mode)
+            if (!window.isDemoModeActive) {
+                updateTimelinePanelHeader('Git History');
+            } else {
+                console.log('🎭 core-ui restoreOriginalGitHistory: Skipping title update because demo mode is active');
+            }
 
             // Restore the complete original git history HTML
             const originalGitHTML = `
@@ -1070,6 +1076,18 @@ ${result.valid ?
         }
 
         async function connectToStore(path, silent = false) {
+            console.log('🔌 connectToStore: Starting connection process to path=' + path);
+            console.log('🔍 connectToStore: Initial state - isDemoModeActive=' + window.isDemoModeActive + ', connectedStorePath=' + connectedStorePath);
+
+            // Clear demo mode immediately when attempting to connect to a real store
+            if (window.isDemoModeActive) {
+                window.isDemoModeActive = false;
+                console.log('🚫 connectToStore: CLEARED demo mode flag, attempting connection to real store');
+            } else {
+                console.log('🔌 connectToStore: demo mode already off, attempting connection to real store');
+            }
+
+            console.log('🔍 connectToStore: After clearing - isDemoModeActive=' + window.isDemoModeActive + ', connectedStorePath=' + connectedStorePath);
 
             updateStorePathDisplay(path, 'connecting');
             if (!silent) {
@@ -1101,7 +1119,10 @@ ${result.valid ?
                         if (!silent) {
                             showNotification(`Successfully connected to ${path}`, 'success');
                         }
-                        await updateUIWithRealData(data);
+                        // Save connection state
+                        saveConnectionState();
+                        console.log('🔍 connectToStore: About to call updateUIWithRealData - isDemoModeActive=' + window.isDemoModeActive + ', connectedStorePath=' + connectedStorePath);
+                        await updateUIWithRealData(data, true);
                         // Update branch display and git history for connected store
                         await updateBranchDisplay();
                         return;
@@ -1124,7 +1145,10 @@ ${result.valid ?
                         if (!silent) {
                             showNotification(`Connected to ${path} (file mode)`, 'success');
                         }
-                        await updateUIWithRealData(data);
+                        // Save connection state
+                        saveConnectionState();
+                        console.log('🔍 connectToStore: About to call updateUIWithRealData - isDemoModeActive=' + window.isDemoModeActive + ', connectedStorePath=' + connectedStorePath);
+                        await updateUIWithRealData(data, true);
                         // Update branch display and git history for connected store
                         await updateBranchDisplay();
                         return;
@@ -1135,6 +1159,9 @@ ${result.valid ?
 
                 // If both methods fail, show an error instead of falling back
                 updateStorePathDisplay(null, 'disconnected');
+                connectedStorePath = null;
+                window.isDemoModeActive = false;
+                clearConnectionState();
                 if (!silent) {
                     showNotification(`Failed to connect to ${path}. Path may not exist or store may be empty. Try:\n1. Check if path exists\n2. Run initialization script\n3. Use HTTP server (python server.py)`, 'error');
                 }
@@ -1142,6 +1169,9 @@ ${result.valid ?
             } catch (error) {
                 console.error('Connection error:', error);
                 updateStorePathDisplay(null, 'disconnected');
+                connectedStorePath = null;
+                window.isDemoModeActive = false;
+                clearConnectionState();
                 if (!silent) {
                     showNotification(`Connection failed: ${error.message}`, 'error');
                 }
@@ -1252,6 +1282,9 @@ ${result.valid ?
                     // Update store path display
                     updateStorePathDisplay(path, 'connected');
 
+                    // Save connection state
+                    saveConnectionState();
+
                     // Update status to show we're connected to the new store
                     const statusEl = document.getElementById('connectionStatus');
                     if (statusEl) {
@@ -1260,6 +1293,8 @@ ${result.valid ?
                 } else {
                     const errorMsg = result.message || `HTTP error! status: ${response.status}`;
                     updateStorePathDisplay(null, 'disconnected');
+                    connectedStorePath = null;
+                    clearConnectionState();
                     showNotification(`Failed to create store: ${errorMsg}`, 'error');
 
                     // Suggest alternative paths
@@ -1271,6 +1306,8 @@ ${result.valid ?
             } catch (error) {
                 console.error('Create store error:', error);
                 updateStorePathDisplay(null, 'disconnected');
+                connectedStorePath = null;
+                clearConnectionState();
                 showNotification(`Failed to create store: ${error.message}`, 'error');
             }
         }
@@ -5439,8 +5476,14 @@ ${result.valid ?
             }
         }
 
-        async function updateUIWithRealData(data) {
-
+        async function updateUIWithRealData(data, forceUpdate = false) {
+            // Don't update UI if we're in demo mode (unless forced)
+            if (window.isDemoModeActive && !forceUpdate) {
+                console.log('🚫 updateUIWithRealData: skipping because demo mode is active (isDemoModeActive=' + window.isDemoModeActive + ', forceUpdate=' + forceUpdate + ')');
+                console.log('🔍 updateUIWithRealData: connectedStorePath=' + connectedStorePath);
+                return;
+            }
+            console.log('📊 updateUIWithRealData: updating UI with real store data (isDemoModeActive=' + window.isDemoModeActive + ', forceUpdate=' + forceUpdate + ')');
 
             // Update branches
             const branchSelector = document.querySelector('#branchSelector');
@@ -6996,6 +7039,47 @@ ${result.valid ?
             }
         }
 
+        // Storage functions for connection state
+        function saveConnectionState() {
+            try {
+                // Use the actual demo mode flag, not the computed function
+                const actualDemoMode = window.isDemoModeActive || false;
+                const state = {
+                    connectedStorePath: connectedStorePath,
+                    isDemoMode: actualDemoMode,
+                    timestamp: Date.now()
+                };
+                console.log('💾 saveConnectionState: Saving state - connectedStorePath=' + connectedStorePath + ', isDemoMode=' + actualDemoMode);
+                localStorage.setItem('memoirConnectionState', JSON.stringify(state));
+            } catch (e) {
+                console.warn('Failed to save connection state:', e);
+            }
+        }
+
+        function loadConnectionState() {
+            try {
+                const saved = localStorage.getItem('memoirConnectionState');
+                if (saved) {
+                    const state = JSON.parse(saved);
+                    // Only restore if saved within last 24 hours
+                    if (Date.now() - state.timestamp < 24 * 60 * 60 * 1000) {
+                        return state;
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to load connection state:', e);
+            }
+            return null;
+        }
+
+        function clearConnectionState() {
+            try {
+                localStorage.removeItem('memoirConnectionState');
+            } catch (e) {
+                console.warn('Failed to clear connection state:', e);
+            }
+        }
+
         function createCommandSuggestionsElement() {
             const input = document.getElementById('memoryInput');
             const inputContainer = input.parentElement;
@@ -7602,6 +7686,13 @@ No commit history found for this key.
 
         async function updateGitHistory() {
             if (!connectedStorePath) return;
+
+            // Don't update git history if we're in demo mode
+            if (window.isDemoModeActive) {
+                console.log('updateGitHistory: skipping because demo mode is active');
+                return;
+            }
+            console.log('📜 updateGitHistory: updating git history with real data');
 
             // Don't update git history if we're showing timeline view
             const gitTreeElement = document.querySelector('.git-tree');
@@ -8959,8 +9050,61 @@ Message: ${commit.message}`;
 
         // Initialize the page
         function initializePage() {
-            // Initialize demo mode tree with fold functionality
-            restoreOriginalTreeView();
+            // Load previous connection state
+            const savedState = loadConnectionState();
+            console.log('🔧 initializePage: savedState =', savedState);
+
+            if (savedState && savedState.connectedStorePath && !savedState.isDemoMode) {
+                // Restore previous connection
+                connectedStorePath = savedState.connectedStorePath;
+                // Try to reconnect to the store
+                reconnectToStore(savedState.connectedStorePath);
+            } else if (savedState && savedState.isDemoMode) {
+                // Restore demo mode
+                console.log('🎭 Restoring demo mode from saved state');
+                connectedStorePath = null;
+                window.isDemoModeActive = true; // Set demo mode flag
+                updateStorePathDisplay(null, 'disconnected');
+
+                // Restore demo data
+                window.realStoreData = null; // Clear real data so graph falls back to mock data
+                window.isNewEmptyStore = false; // Ensure we show demo data, not empty state
+
+                console.log('🕒 Scheduling demo restoration in 100ms...');
+                // Use a small delay to ensure DOM is ready
+                setTimeout(() => {
+                    console.log('🎯 Starting demo restoration sequence');
+
+                    if (typeof restoreOriginalTreeView === 'function') {
+                        console.log('📊 Restoring tree view...');
+                        restoreOriginalTreeView(); // Show demo tree data
+                    } else {
+                        console.warn('restoreOriginalTreeView function not available');
+                    }
+
+                    if (typeof restoreOriginalGitHistory === 'function') {
+                        console.log('📜 Restoring git history...');
+                        restoreOriginalGitHistory(); // Show demo git history
+                    } else {
+                        console.warn('restoreOriginalGitHistory function not available');
+                    }
+
+                    console.log('🎨 Rendering graph...');
+                    renderGraph(); // Show demo graph data
+
+                    console.log('🌿 Updating branches dropdown...');
+                    // Update branches dropdown to original demo state
+                    updateBranchesDropdown(['main', 'experiment', 'user-profile'], 'main');
+
+                    console.log('✅ Demo restoration sequence complete');
+                }, 100);
+            } else {
+                // No previous connection - show disconnected state
+                connectedStorePath = null;
+                window.isDemoModeActive = false; // Make sure demo mode is off
+                updateStorePathDisplay(null, 'disconnected');
+                showDisconnectedState();
+            }
 
             // Initialize the memory input functionality
             initializeMemoryInput();
@@ -8976,6 +9120,98 @@ Message: ${commit.message}`;
 
             // Initialize statistics modal
             initializeStatsModal();
+        }
+
+        // Show disconnected state without demo data
+        function showDisconnectedState() {
+            console.log('showDisconnectedState: called, isDemoModeActive =', window.isDemoModeActive);
+            console.trace('showDisconnectedState: call stack');
+
+            // Check if demo mode is active in localStorage as a backup
+            let isDemoActive = window.isDemoModeActive;
+            if (!isDemoActive) {
+                try {
+                    const savedState = JSON.parse(localStorage.getItem('memoirConnectionState') || '{}');
+                    isDemoActive = savedState.isDemoMode;
+                    console.log('showDisconnectedState: checking localStorage, isDemoMode =', isDemoActive);
+                } catch (e) {
+                    // Ignore errors
+                }
+            }
+
+            // Don't override if we're in demo mode
+            if (isDemoActive) {
+                console.log('showDisconnectedState: 🛡️ BLOCKED - demo mode is active, not showing disconnected state');
+                return;
+            }
+            console.log('showDisconnectedState: showing disconnected state');
+
+            const treeView = document.getElementById('treeView');
+            if (treeView) {
+                treeView.innerHTML = '<div class="tree-empty-state">No memory store connected. Use <code>/connect &lt;path&gt;</code> to connect or <code>/demo</code> to explore.</div>';
+            }
+
+            // Clear graph view
+            const graphContainer = document.getElementById('graphContainer');
+            if (graphContainer) {
+                graphContainer.innerHTML = '<div class="graph-empty-state">Connect to a memory store to see the graph visualization.</div>';
+            }
+
+            // Clear git history view
+            const gitTreeElement = document.querySelector('.git-tree');
+            if (gitTreeElement) {
+                gitTreeElement.innerHTML = '<div class="git-empty-state">Connect to a memory store to see git history.</div>';
+            }
+
+            // Update branches dropdown to show disconnected state
+            updateBranchesDropdown([], null);
+        }
+
+        // Reconnect to store on page load
+        async function reconnectToStore(storePath) {
+            try {
+                const response = await fetch('/api/store?path=' + encodeURIComponent(storePath));
+                if (response.ok) {
+                    const data = await response.json();
+                    await handleStoreConnection(data, storePath);
+                    showNotification(`Reconnected to ${storePath}`, 'success');
+                } else {
+                    // Store no longer accessible, clear state
+                    clearConnectionState();
+                    showDisconnectedState();
+                    showNotification(`Could not reconnect to ${storePath}`, 'warning');
+                }
+            } catch (error) {
+                clearConnectionState();
+                showDisconnectedState();
+                showNotification(`Failed to reconnect to ${storePath}`, 'error');
+            }
+        }
+
+        // Handle successful store connection
+        async function handleStoreConnection(data, storePath) {
+            console.log('🔌 handleStoreConnection: finalizing connection to real store');
+            console.log('🔍 handleStoreConnection: Initial state - isDemoModeActive=' + window.isDemoModeActive + ', connectedStorePath=' + connectedStorePath);
+
+            connectedStorePath = storePath;
+            storeData = data;
+
+            // Clear flags
+            window.isNewEmptyStore = false;
+            window.realStoreData = data;
+
+            // Update UI
+            updateStorePathDisplay(storePath, 'connected');
+
+            console.log('🔍 handleStoreConnection: About to call updateUIWithRealData - isDemoModeActive=' + window.isDemoModeActive + ', connectedStorePath=' + connectedStorePath);
+            // Update UI with the real data
+            await updateUIWithRealData(data, true);
+
+            // Update branch display and git history for connected store
+            await updateBranchDisplay();
+
+            // Save connection state
+            saveConnectionState();
         }
 
         // Help Modal Function
@@ -9436,5 +9672,13 @@ Message: ${commit.message}`;
             }
         }
 
-        // Run initialization when page loads
-        initializePage();
+        // Run initialization when DOM is fully loaded
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                // Use a small delay to ensure all other DOMContentLoaded handlers run first
+                setTimeout(initializePage, 150);
+            });
+        } else {
+            // DOM already loaded
+            setTimeout(initializePage, 150);
+        }
