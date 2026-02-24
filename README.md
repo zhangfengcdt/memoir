@@ -86,6 +86,12 @@ pip install memoir
 ```bash
 git clone https://github.com/yourusername/memoir.git
 cd memoir
+
+# Create and activate virtual environment (recommended)
+python -m venv venv
+source venv/bin/activate      # On Windows: venv\Scripts\activate
+
+# Install with development dependencies
 pip install -e ".[dev]"
 ```
 

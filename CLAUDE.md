@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Core Development Workflow
 ```bash
+# Create and activate virtual environment (recommended)
+python -m venv venv
+source venv/bin/activate      # On Windows: venv\Scripts\activate
+
 # Setup development environment
 make setup                    # Install deps + pre-commit hooks
 make install-dev              # Install with all dev dependencies
