@@ -611,7 +611,7 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
             for existing_path in all_paths:
                 existing_parts = existing_path.split(".")
                 if len(existing_parts) >= 3:
-                    existing_domain, existing_area, existing_sub = existing_parts[:3]
+                    _existing_domain, existing_area, existing_sub = existing_parts[:3]
 
                     # Find areas with similar naming patterns or content overlap
                     area_words = set(area.replace("_", " ").split())
