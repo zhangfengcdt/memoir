@@ -15,6 +15,9 @@ from urllib.parse import parse_qs, urlparse
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 
+from memoir.memento.location import LocationMemento
+from memoir.memento.timeline import TimelineMemento
+from memoir.store.prolly_adapter import ProllyTreeStore
 from memoir.ui.handlers.branch_handler import BranchHandler
 from memoir.ui.handlers.crypto_handler import CryptoHandler
 from memoir.ui.handlers.memory_handler import MemoryHandler
@@ -22,10 +25,6 @@ from memoir.ui.handlers.memory_handler import MemoryHandler
 # Import modular handlers
 from memoir.ui.handlers.store_handler import StoreHandler
 from memoir.ui.handlers.utils import UtilityHandler
-
-from memoir.memento.location import LocationMemento
-from memoir.memento.timeline import TimelineMemento
-from memoir.store.prolly_adapter import ProllyTreeStore
 
 PORT = 8080
 
