@@ -20,10 +20,10 @@ Usage:
 import hashlib
 import json
 import logging
-import os
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -118,9 +118,9 @@ class RealDatasetLoader:
     def _get_cache_path(self, dataset_name: str, num_samples: int) -> Path:
         """Get cache file path for a dataset slice."""
         # Create a unique hash for this dataset configuration
-        config_hash = hashlib.md5(
-            f"{dataset_name}:{num_samples}".encode()
-        ).hexdigest()[:8]
+        config_hash = hashlib.md5(f"{dataset_name}:{num_samples}".encode()).hexdigest()[
+            :8
+        ]
         safe_name = dataset_name.replace("/", "_")
         return self.cache_dir / f"{safe_name}_{num_samples}_{config_hash}.jsonl"
 
@@ -239,7 +239,9 @@ class RealDatasetLoader:
                     continue
 
                 conv = RealConversation(
-                    conversation_id=item.get("conversation_id", f"lmsys_{len(conversations)}"),
+                    conversation_id=item.get(
+                        "conversation_id", f"lmsys_{len(conversations)}"
+                    ),
                     messages=messages,
                     model=item.get("model", ""),
                     language=item.get("language", "en"),
@@ -347,7 +349,9 @@ class RealDatasetLoader:
                     continue
 
                 conv = RealConversation(
-                    conversation_id=item.get("conversation_hash", f"wc_{len(conversations)}"),
+                    conversation_id=item.get(
+                        "conversation_hash", f"wc_{len(conversations)}"
+                    ),
                     messages=messages,
                     model=item.get("model", ""),
                     language=item.get("language", "en"),
@@ -391,7 +395,9 @@ class RealDatasetLoader:
         Returns:
             List of RealConversation objects with reasoning models
         """
-        cache_path = self._get_cache_path(f"{self.WILDCHAT_4_8M}_reasoning", num_samples)
+        cache_path = self._get_cache_path(
+            f"{self.WILDCHAT_4_8M}_reasoning", num_samples
+        )
 
         if use_cache and cache_path.exists():
             return self._load_from_cache(cache_path)
@@ -404,7 +410,9 @@ class RealDatasetLoader:
         try:
             from datasets import load_dataset
 
-            logger.info(f"Loading {num_samples} reasoning samples from WildChat-4.8M...")
+            logger.info(
+                f"Loading {num_samples} reasoning samples from WildChat-4.8M..."
+            )
 
             # Load dataset (streaming)
             dataset = load_dataset(
@@ -438,7 +446,9 @@ class RealDatasetLoader:
                     continue
 
                 conv = RealConversation(
-                    conversation_id=item.get("conversation_hash", f"wc_r_{len(conversations)}"),
+                    conversation_id=item.get(
+                        "conversation_hash", f"wc_r_{len(conversations)}"
+                    ),
                     messages=messages,
                     model=model,
                     language=item.get("language", "en"),
@@ -461,9 +471,7 @@ class RealDatasetLoader:
             logger.warning(f"Failed to load WildChat reasoning: {e}")
             raise DatasetNotAvailableError(f"Could not load reasoning data: {e}")
 
-    def analyze_patterns(
-        self, conversations: list[RealConversation]
-    ) -> dict[str, Any]:
+    def analyze_patterns(self, conversations: list[RealConversation]) -> dict[str, Any]:
         """
         Analyze conversations for proxy-relevant patterns.
 
@@ -523,7 +531,9 @@ class RealDatasetLoader:
             "long_conversations": long_conversations,
             "short_responses": short_responses,
             "repetitive_prefixes": repetitive_prefixes,
-            "cache_potential": repetitive_prefixes / len(conversations) if conversations else 0,
+            "cache_potential": (
+                repetitive_prefixes / len(conversations) if conversations else 0
+            ),
         }
 
     def load_everyday_conversations(
@@ -605,7 +615,9 @@ class RealDatasetLoader:
 
         except Exception as e:
             logger.warning(f"Failed to load Everyday Conversations: {e}")
-            raise DatasetNotAvailableError(f"Could not load Everyday Conversations: {e}")
+            raise DatasetNotAvailableError(
+                f"Could not load Everyday Conversations: {e}"
+            )
 
     def load_openassistant(
         self,
@@ -627,7 +639,9 @@ class RealDatasetLoader:
         Returns:
             List of RealConversation objects
         """
-        cache_path = self._get_cache_path(f"{self.OPENASSISTANT}_{language}", num_samples)
+        cache_path = self._get_cache_path(
+            f"{self.OPENASSISTANT}_{language}", num_samples
+        )
 
         if use_cache and cache_path.exists():
             return self._load_from_cache(cache_path)
@@ -667,7 +681,7 @@ class RealDatasetLoader:
                     root_messages.append(item)
 
             # Build conversations from root messages
-            for root in root_messages[:num_samples * 2]:  # Get more roots to filter
+            for root in root_messages[: num_samples * 2]:  # Get more roots to filter
                 thread = [root]
                 current_id = root.get("message_id")
 
@@ -696,7 +710,9 @@ class RealDatasetLoader:
 
                 if len(messages) >= 2:
                     conv = RealConversation(
-                        conversation_id=root.get("message_id", f"oasst_{len(conversations)}"),
+                        conversation_id=root.get(
+                            "message_id", f"oasst_{len(conversations)}"
+                        ),
                         messages=messages,
                         model="human",
                         language=language,
@@ -830,24 +846,30 @@ def convert_to_session_format(
     has_system = any(m.role == "system" for m in conversation.messages)
     if not has_system:
         # Create a minimal system prompt
-        messages.append({
-            "type": "message",
-            "timestamp": "",
-            "message": {
-                "role": "system",
-                "content": [{"type": "text", "text": f"[MODEL: {conversation.model}]"}],
-            },
-        })
+        messages.append(
+            {
+                "type": "message",
+                "timestamp": "",
+                "message": {
+                    "role": "system",
+                    "content": [
+                        {"type": "text", "text": f"[MODEL: {conversation.model}]"}
+                    ],
+                },
+            }
+        )
 
     for msg in conversation.messages:
-        messages.append({
-            "type": "message",
-            "timestamp": "",
-            "message": {
-                "role": msg.role,
-                "content": [{"type": "text", "text": msg.content}],
-            },
-        })
+        messages.append(
+            {
+                "type": "message",
+                "timestamp": "",
+                "message": {
+                    "role": msg.role,
+                    "content": [{"type": "text", "text": msg.content}],
+                },
+            }
+        )
 
     return {
         "session": {

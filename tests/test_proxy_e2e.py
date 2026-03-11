@@ -19,7 +19,7 @@ import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 
@@ -142,11 +142,13 @@ class TokenComparisonResult:
             f"  Baseline tokens: {self.baseline.baseline_tokens:,}",
         ]
         if self.optimized:
-            lines.extend([
-                f"  Optimized tokens: {self.optimized.optimized_tokens:,}",
-                f"  Tokens saved: {self.baseline.baseline_tokens - self.optimized.optimized_tokens:,}",
-                f"  Savings: {(1 - self.optimized.optimized_tokens / max(1, self.baseline.baseline_tokens)):.1%}",
-            ])
+            lines.extend(
+                [
+                    f"  Optimized tokens: {self.optimized.optimized_tokens:,}",
+                    f"  Tokens saved: {self.baseline.baseline_tokens - self.optimized.optimized_tokens:,}",
+                    f"  Savings: {(1 - self.optimized.optimized_tokens / max(1, self.baseline.baseline_tokens)):.1%}",
+                ]
+            )
         return "\n".join(lines)
 
 
@@ -159,10 +161,10 @@ class TokenAnalyzer:
     """
 
     # Approximate chars per token (conservative estimate)
-    CHARS_PER_TOKEN = 4
+    CHARS_PER_TOKEN: ClassVar[int] = 4
 
     # Jitter patterns to strip for stable prefix calculation
-    JITTER_PATTERNS = [
+    JITTER_PATTERNS: ClassVar[list[str]] = [
         r"Timestamp:\s*[\d\-T:\.Z]+",
         r"Request-ID:\s*[\w\-]+",
         r"X-Request-ID:\s*[\w\-]+",
@@ -382,12 +384,14 @@ class TokenAnalyzer:
             optimized = self._calculate_shared_cache(sessions)
             for session in sessions:
                 baseline = self.calculate_baseline_tokens(session)
-                results.append(TokenComparisonResult(
-                    category=session.metadata.get("test_category", "unknown"),
-                    session_id=session.session_id,
-                    baseline=baseline,
-                    optimized=None,  # Individual results not available in shared mode
-                ))
+                results.append(
+                    TokenComparisonResult(
+                        category=session.metadata.get("test_category", "unknown"),
+                        session_id=session.session_id,
+                        baseline=baseline,
+                        optimized=None,  # Individual results not available in shared mode
+                    )
+                )
                 total_baseline += baseline.baseline_tokens
                 total_requests += baseline.num_requests
 
@@ -473,9 +477,7 @@ class TokenAnalyzer:
             num_requests=num_requests,
         )
 
-    def generate_report(
-        self, sessions: list[Session], category: str = ""
-    ) -> str:
+    def generate_report(self, sessions: list[Session], category: str = "") -> str:
         """Generate a human-readable comparison report."""
         aggregate, results = self.compare_sessions(sessions)
 
@@ -643,7 +645,7 @@ class TestTokenComparison:
         if not heartbeat_sessions:
             pytest.skip("No heartbeat sessions available")
 
-        aggregate, results = token_analyzer.compare_sessions(heartbeat_sessions)
+        aggregate, _results = token_analyzer.compare_sessions(heartbeat_sessions)
 
         # Print report for visibility
         print("\n" + token_analyzer.generate_report(heartbeat_sessions, "Heartbeat"))
@@ -669,7 +671,7 @@ class TestTokenComparison:
         if not jitter_sessions:
             pytest.skip("No jitter sessions available")
 
-        aggregate, results = token_analyzer.compare_sessions(jitter_sessions)
+        aggregate, _results = token_analyzer.compare_sessions(jitter_sessions)
 
         print("\n" + token_analyzer.generate_report(jitter_sessions, "Jitter"))
 
@@ -677,7 +679,9 @@ class TestTokenComparison:
 
         # Jitter sessions should show savings after normalization
         # The stable [SOUL] and [TOOLS] sections should be cached
-        assert aggregate.savings_ratio >= 0, "Jitter normalization should not increase tokens"
+        assert (
+            aggregate.savings_ratio >= 0
+        ), "Jitter normalization should not increase tokens"
 
     def test_capability_bloat_token_savings(
         self, capability_sessions: list[Session], token_analyzer: TokenAnalyzer
@@ -691,16 +695,21 @@ class TestTokenComparison:
         if not capability_sessions:
             pytest.skip("No capability sessions available")
 
-        aggregate, results = token_analyzer.compare_sessions(capability_sessions)
+        aggregate, _results = token_analyzer.compare_sessions(capability_sessions)
 
-        print("\n" + token_analyzer.generate_report(capability_sessions, "Capability Bloat"))
+        print(
+            "\n"
+            + token_analyzer.generate_report(capability_sessions, "Capability Bloat")
+        )
 
         assert aggregate.baseline_tokens > 0, "Should have baseline tokens"
 
         # Design goal: 40% token reduction
         # Capability bloat sessions should show significant savings
         if aggregate.savings_ratio < 0.30:
-            print(f"WARNING: Savings ratio {aggregate.savings_ratio:.1%} below 30% target")
+            print(
+                f"WARNING: Savings ratio {aggregate.savings_ratio:.1%} below 30% target"
+            )
 
     def test_intent_token_comparison(
         self, intent_sessions: list[Session], token_analyzer: TokenAnalyzer
@@ -741,11 +750,11 @@ class TestTokenComparison:
 
         # Separate by pattern
         fleet_sessions = [
-            s for s in multi_agent_sessions
-            if s.metadata.get("pattern") == "fleet_sync"
+            s for s in multi_agent_sessions if s.metadata.get("pattern") == "fleet_sync"
         ]
         swarm_sessions = [
-            s for s in multi_agent_sessions
+            s
+            for s in multi_agent_sessions
             if s.metadata.get("pattern") == "swarm_swapping"
         ]
 
@@ -761,9 +770,9 @@ class TestTokenComparison:
             print(f"  Cache Hit Rate: {aggregate.cache_hit_rate:.1%}")
 
             # Fleet sync should have very high cache hit rate (identical prompts)
-            assert aggregate.cache_hit_rate > 0.40, (
-                f"Fleet sync should cache well, got {aggregate.cache_hit_rate:.1%}"
-            )
+            assert (
+                aggregate.cache_hit_rate > 0.40
+            ), f"Fleet sync should cache well, got {aggregate.cache_hit_rate:.1%}"
 
         if swarm_sessions:
             aggregate, _ = token_analyzer.compare_sessions(swarm_sessions)
@@ -787,7 +796,7 @@ class TestTokenComparison:
         if not all_session_list:
             pytest.skip("No sessions available")
 
-        aggregate, results = token_analyzer.compare_sessions(all_session_list)
+        aggregate, _results = token_analyzer.compare_sessions(all_session_list)
 
         print("\n" + "=" * 60)
         print("AGGREGATE TOKEN COMPARISON - ALL CATEGORIES")
@@ -821,15 +830,15 @@ class TestTokenComparison:
 
             # Baseline should have positive tokens if there are messages
             if session.user_messages:
-                assert baseline.baseline_tokens > 0, (
-                    f"Session {session.session_id} should have baseline tokens"
-                )
-                assert baseline.num_requests > 0, (
-                    f"Session {session.session_id} should have requests"
-                )
-                assert baseline.num_requests == len(session.user_messages), (
-                    "Each user message should be a request"
-                )
+                assert (
+                    baseline.baseline_tokens > 0
+                ), f"Session {session.session_id} should have baseline tokens"
+                assert (
+                    baseline.num_requests > 0
+                ), f"Session {session.session_id} should have requests"
+                assert baseline.num_requests == len(
+                    session.user_messages
+                ), "Each user message should be a request"
 
     def test_optimized_vs_baseline_comparison(
         self, capability_sessions: list[Session], token_analyzer: TokenAnalyzer
@@ -843,7 +852,9 @@ class TestTokenComparison:
             result = token_analyzer.compare(session)
 
             if result.optimized:
-                assert result.optimized.optimized_tokens <= result.baseline.baseline_tokens, (
+                assert (
+                    result.optimized.optimized_tokens <= result.baseline.baseline_tokens
+                ), (
                     f"Session {session.session_id}: optimized ({result.optimized.optimized_tokens}) "
                     f"should not exceed baseline ({result.baseline.baseline_tokens})"
                 )
@@ -886,9 +897,9 @@ class TestHeartbeatOptimization:
                 # All system prompts should be identical (stable prefix)
                 first_prompt = system_prompts[0]
                 for prompt in system_prompts[1:]:
-                    assert prompt == first_prompt, (
-                        "Heartbeat system prompts should be identical for cache reuse"
-                    )
+                    assert (
+                        prompt == first_prompt
+                    ), "Heartbeat system prompts should be identical for cache reuse"
 
     def test_heartbeat_minimal_response(self, heartbeat_sessions: list[Session]):
         """
@@ -900,9 +911,9 @@ class TestHeartbeatOptimization:
                 if msg.usage:
                     output_tokens = msg.usage.get("output_tokens", 0)
                     # Heartbeat responses should be very short
-                    assert output_tokens < 50, (
-                        f"Heartbeat response too long: {output_tokens} tokens"
-                    )
+                    assert (
+                        output_tokens < 50
+                    ), f"Heartbeat response too long: {output_tokens} tokens"
 
     def test_heartbeat_cache_savings_potential(self, heartbeat_sessions: list[Session]):
         """
@@ -926,9 +937,9 @@ class TestHeartbeatOptimization:
                 num_requests = len(system_messages)
                 potential_savings = (num_requests - 1) * prefix_tokens
 
-                assert potential_savings > 0, (
-                    "Heartbeat sessions should have caching potential"
-                )
+                assert (
+                    potential_savings > 0
+                ), "Heartbeat sessions should have caching potential"
 
 
 # =============================================================================
@@ -1002,9 +1013,9 @@ class TestJitterElimination:
             # All SOUL sections should be identical despite jitter
             if len(soul_sections) >= 2:
                 for section in soul_sections[1:]:
-                    assert section == soul_sections[0], (
-                        "SOUL sections should be stable despite jitter"
-                    )
+                    assert (
+                        section == soul_sections[0]
+                    ), "SOUL sections should be stable despite jitter"
 
 
 # =============================================================================
@@ -1049,18 +1060,18 @@ class TestCapabilityBloatReduction:
             # Check for duplication
             if len(tools_sections) >= 2:
                 # All tools sections should be identical (bloat pattern)
-                assert all(t == tools_sections[0] for t in tools_sections), (
-                    "Tool schemas should be identical across requests (bloat pattern)"
-                )
+                assert all(
+                    t == tools_sections[0] for t in tools_sections
+                ), "Tool schemas should be identical across requests (bloat pattern)"
 
                 # Calculate wasted tokens
                 tools_chars = len(tools_sections[0])
                 tools_tokens = tools_chars // 4  # Approximate
                 wasted_tokens = (len(tools_sections) - 1) * tools_tokens
 
-                assert wasted_tokens > 0, (
-                    "Capability bloat should show token waste potential"
-                )
+                assert (
+                    wasted_tokens > 0
+                ), "Capability bloat should show token waste potential"
 
     def test_simple_task_with_full_tools(self, capability_sessions: list[Session]):
         """
@@ -1068,7 +1079,7 @@ class TestCapabilityBloatReduction:
         Example: "What is 2 + 2?" with 12 tool definitions.
         """
         for session in capability_sessions:
-            for i, msg in enumerate(session.user_messages):
+            for _i, msg in enumerate(session.user_messages):
                 if not msg.content:
                     continue
                 text = msg.content[0].get("text", "")
@@ -1087,9 +1098,9 @@ class TestCapabilityBloatReduction:
                         # Simple tasks shouldn't need many tools
                         if tool_count > 5:
                             # This is a bloat case - proxy should optimize
-                            assert True, (
-                                f"Simple task with {tool_count} tools - bloat detected"
-                            )
+                            assert (
+                                True
+                            ), f"Simple task with {tool_count} tools - bloat detected"
 
 
 # =============================================================================
@@ -1140,9 +1151,9 @@ class TestIntentClassification:
 
                 # Should contain high-reasoning keywords
                 has_reasoning_keyword = any(k in text for k in high_reasoning_keywords)
-                assert has_reasoning_keyword, (
-                    f"High-reasoning task should contain complexity indicators: {text}"
-                )
+                assert (
+                    has_reasoning_keyword
+                ), f"High-reasoning task should contain complexity indicators: {text}"
 
     def test_status_check_intent_detection(self, intent_sessions: list[Session]):
         """
@@ -1168,9 +1179,9 @@ class TestIntentClassification:
                 text = msg.content[0].get("text", "").lower()
 
                 has_status_keyword = any(k in text for k in status_keywords)
-                assert has_status_keyword, (
-                    f"Status check should contain status indicators: {text}"
-                )
+                assert (
+                    has_status_keyword
+                ), f"Status check should contain status indicators: {text}"
 
     def test_simple_extraction_intent_detection(self, intent_sessions: list[Session]):
         """
@@ -1197,9 +1208,9 @@ class TestIntentClassification:
                 text = msg.content[0].get("text", "").lower()
 
                 has_extraction_keyword = any(k in text for k in extraction_keywords)
-                assert has_extraction_keyword, (
-                    f"Extraction task should contain extraction indicators: {text}"
-                )
+                assert (
+                    has_extraction_keyword
+                ), f"Extraction task should contain extraction indicators: {text}"
 
     def test_model_tier_mapping(self, intent_sessions: list[Session]):
         """
@@ -1216,9 +1227,7 @@ class TestIntentClassification:
                 continue
 
             # Verify tier is valid
-            assert expected_tier in tier_models, (
-                f"Unknown model tier: {expected_tier}"
-            )
+            assert expected_tier in tier_models, f"Unknown model tier: {expected_tier}"
 
 
 # =============================================================================
@@ -1246,8 +1255,7 @@ class TestMultiAgentBranching:
         This enables cache sharing across the fleet.
         """
         fleet_sessions = [
-            s for s in multi_agent_sessions
-            if s.metadata.get("pattern") == "fleet_sync"
+            s for s in multi_agent_sessions if s.metadata.get("pattern") == "fleet_sync"
         ]
 
         if len(fleet_sessions) < 2:
@@ -1263,9 +1271,9 @@ class TestMultiAgentBranching:
         # All fleet members should have identical prompts
         if len(fleet_prompts) >= 2:
             for prompt in fleet_prompts[1:]:
-                assert prompt == fleet_prompts[0], (
-                    "Fleet sync agents must have identical system prompts"
-                )
+                assert (
+                    prompt == fleet_prompts[0]
+                ), "Fleet sync agents must have identical system prompts"
 
     def test_fleet_sync_different_tasks(self, multi_agent_sessions: list[Session]):
         """
@@ -1273,8 +1281,7 @@ class TestMultiAgentBranching:
         Cache is shared but work is distributed.
         """
         fleet_sessions = [
-            s for s in multi_agent_sessions
-            if s.metadata.get("pattern") == "fleet_sync"
+            s for s in multi_agent_sessions if s.metadata.get("pattern") == "fleet_sync"
         ]
 
         if len(fleet_sessions) < 2:
@@ -1289,16 +1296,15 @@ class TestMultiAgentBranching:
 
         # Tasks should be different (work distribution)
         if len(queries) >= 2:
-            assert len(set(queries)) > 1, (
-                "Fleet members should process different tasks"
-            )
+            assert len(set(queries)) > 1, "Fleet members should process different tasks"
 
     def test_swarm_parent_child_inheritance(self, multi_agent_sessions: list[Session]):
         """
         Test that swarm children inherit parent context.
         """
         swarm_sessions = [
-            s for s in multi_agent_sessions
+            s
+            for s in multi_agent_sessions
             if s.metadata.get("pattern") == "swarm_swapping"
         ]
 
@@ -1319,16 +1325,17 @@ class TestMultiAgentBranching:
                     or "[SOUL:DEVELOPER_SPECIALIZATION]" in prompt
                     or "parent" in prompt.lower()
                 )
-                assert has_inheritance, (
-                    "Swarm child should have inherited context markers"
-                )
+                assert (
+                    has_inheritance
+                ), "Swarm child should have inherited context markers"
 
     def test_swarm_specialization(self, multi_agent_sessions: list[Session]):
         """
         Test that swarm children have specialized instructions.
         """
         child_sessions = [
-            s for s in multi_agent_sessions
+            s
+            for s in multi_agent_sessions
             if "child" in s.session_id and s.metadata.get("pattern") == "swarm_swapping"
         ]
 
@@ -1344,9 +1351,9 @@ class TestMultiAgentBranching:
                     "specialized",
                 ]
                 has_specialization = any(m in prompt for m in specialization_markers)
-                assert has_specialization, (
-                    "Swarm child should have specialization instructions"
-                )
+                assert (
+                    has_specialization
+                ), "Swarm child should have specialization instructions"
 
 
 # =============================================================================
@@ -1419,6 +1426,7 @@ class TestRealDatasets:
         """Provide a RealDatasetLoader instance."""
         try:
             from tests.fixtures.proxy.real_datasets import RealDatasetLoader
+
             return RealDatasetLoader()
         except ImportError:
             pytest.skip("Real dataset loader not available")
@@ -1459,20 +1467,24 @@ class TestRealDatasets:
             messages = []
             for msg_data in data["messages"]:
                 msg_info = msg_data.get("message", {})
-                messages.append(Message(
-                    role=msg_info.get("role", ""),
-                    content=msg_info.get("content", []),
-                    timestamp=msg_data.get("timestamp", ""),
-                ))
+                messages.append(
+                    Message(
+                        role=msg_info.get("role", ""),
+                        content=msg_info.get("content", []),
+                        timestamp=msg_data.get("timestamp", ""),
+                    )
+                )
 
             session_info = data["session"]
-            sessions.append(Session(
-                session_id=session_info["session_id"],
-                agent_id=session_info["agent_id"],
-                created_at=session_info["created_at"],
-                messages=messages,
-                metadata=session_info["metadata"],
-            ))
+            sessions.append(
+                Session(
+                    session_id=session_info["session_id"],
+                    agent_id=session_info["agent_id"],
+                    created_at=session_info["created_at"],
+                    messages=messages,
+                    metadata=session_info["metadata"],
+                )
+            )
 
         return sessions
 
@@ -1494,7 +1506,7 @@ class TestRealDatasets:
             pytest.skip("No LMSYS conversations loaded")
 
         sessions = self._convert_to_sessions(lmsys_conversations)
-        aggregate, results = token_analyzer.compare_sessions(sessions)
+        aggregate, _results = token_analyzer.compare_sessions(sessions)
 
         print("\n" + "=" * 60)
         print("LMSYS-Chat-1M REAL DATA ANALYSIS")
@@ -1524,7 +1536,7 @@ class TestRealDatasets:
             pytest.skip("No WildChat conversations loaded")
 
         sessions = self._convert_to_sessions(wildchat_conversations)
-        aggregate, results = token_analyzer.compare_sessions(sessions)
+        aggregate, _results = token_analyzer.compare_sessions(sessions)
 
         print("\n" + "=" * 60)
         print("WildChat-1M REAL DATA ANALYSIS")
@@ -1624,9 +1636,7 @@ class TestRealDatasets:
         """
         try:
             # Load conversations from different models
-            gpt4_convs = real_loader.load_wildchat(
-                num_samples=30, model_filter="gpt-4"
-            )
+            gpt4_convs = real_loader.load_wildchat(num_samples=30, model_filter="gpt-4")
             gpt35_convs = real_loader.load_wildchat(
                 num_samples=30, model_filter="gpt-3.5"
             )
@@ -1666,7 +1676,7 @@ class TestRealDatasets:
             pytest.skip("No conversations loaded")
 
         sessions = self._convert_to_sessions(conversations)
-        aggregate, results = token_analyzer.compare_sessions(sessions)
+        aggregate, _results = token_analyzer.compare_sessions(sessions)
 
         print("\n" + "=" * 60)
         print(f"REAL DATA ANALYSIS: {dataset_name.upper()}")
@@ -1696,7 +1706,7 @@ FRAMEWORKS_DIR = FIXTURES_DIR / "frameworks"
 class FrameworkFixtureLoader:
     """Loader for framework-specific JSONL fixtures."""
 
-    FRAMEWORK_JITTER_PATTERNS = {
+    FRAMEWORK_JITTER_PATTERNS: ClassVar[dict[str, list[str]]] = {
         "crewai": [
             r'"context":\s*"[^"]*"',  # Context from previous agents
         ],
@@ -1707,8 +1717,8 @@ class FrameworkFixtureLoader:
         ],
         "metagpt": [
             r'"message_id":\s*"[^"]+"',  # Message IDs
-            r'Previous state:.*\n',  # State transitions
-            r'\[Previous .* content\]',  # Previous role outputs
+            r"Previous state:.*\n",  # State transitions
+            r"\[Previous .* content\]",  # Previous role outputs
         ],
         "langgraph": [
             r'"checkpoint_id":\s*"ckpt_[0-9]+"',  # Checkpoint IDs
@@ -1819,7 +1829,7 @@ class TestFrameworkAnalysis:
         session = framework_loader.load_framework_session("autogen", "coding_assistant")
 
         baseline = token_analyzer.calculate_baseline_tokens(session)
-        _, results = token_analyzer.compare_sessions([session])
+        _, _results = token_analyzer.compare_sessions([session])
 
         print("\n" + "=" * 60)
         print("AUTOGEN CODING ASSISTANT ANALYSIS")
@@ -1835,6 +1845,7 @@ class TestFrameworkAnalysis:
             content = token_analyzer.extract_content_text(msg)
             for pattern in jitter_patterns:
                 import re
+
                 jitter_count += len(re.findall(pattern, content))
         print(f"Jitter instances found: {jitter_count}")
         print("=" * 60)
@@ -1927,25 +1938,31 @@ class TestFrameworkAnalysis:
                 _, comparison = token_analyzer.compare_sessions([session])
                 stats = comparison[0].baseline if comparison else baseline
 
-                results.append({
-                    "framework": framework,
-                    "fixture": fixture,
-                    "messages": len(session.messages),
-                    "baseline_tokens": baseline.baseline_tokens,
-                    "cache_hit_rate": stats.cache_hit_rate,
-                    "savings_ratio": stats.savings_ratio,
-                })
+                results.append(
+                    {
+                        "framework": framework,
+                        "fixture": fixture,
+                        "messages": len(session.messages),
+                        "baseline_tokens": baseline.baseline_tokens,
+                        "cache_hit_rate": stats.cache_hit_rate,
+                        "savings_ratio": stats.savings_ratio,
+                    }
+                )
             except FileNotFoundError:
-                results.append({
-                    "framework": framework,
-                    "fixture": fixture,
-                    "error": "Fixture not found",
-                })
+                results.append(
+                    {
+                        "framework": framework,
+                        "fixture": fixture,
+                        "error": "Fixture not found",
+                    }
+                )
 
         print("\n" + "=" * 70)
         print("FRAMEWORK COMPARISON SUMMARY")
         print("=" * 70)
-        print(f"{'Framework':<12} {'Fixture':<20} {'Messages':>8} {'Tokens':>10} {'Cache %':>8}")
+        print(
+            f"{'Framework':<12} {'Fixture':<20} {'Messages':>8} {'Tokens':>10} {'Cache %':>8}"
+        )
         print("-" * 70)
         for r in results:
             if "error" in r:
