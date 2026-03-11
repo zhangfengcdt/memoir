@@ -14,6 +14,9 @@ from .core.memory import ProllyTreeMemoryStoreManager
 # Integration components
 from .integration.langgraph import LangGraphMemoryStore, MemoryConfig
 from .memento import LocationMemento, ProfileMemento, TimelineMemento
+
+# Proxy components
+from .proxy import LLMProxy, ProxyConfig
 from .search.semantic import (
     SearchResult,
     SemanticSearchEngine,
@@ -23,6 +26,7 @@ from .taxonomy.semantic import SemanticTaxonomy, TaxonomyCategory, get_taxonomy
 
 __all__ = [
     "ClassificationResult",
+    "LLMProxy",
     "LangGraphMemoryStore",
     "LocationMemento",
     "MemoryConfig",
@@ -30,6 +34,7 @@ __all__ = [
     "ProfileMemento",
     "ProllyTreeMemoryStoreManager",
     "ProllyTreeStore",
+    "ProxyConfig",
     "SearchResult",
     "SemanticClassifier",
     "SemanticSearchEngine",
