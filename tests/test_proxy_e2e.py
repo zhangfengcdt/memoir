@@ -1391,3 +1391,296 @@ class TestProxyIntegration:
         """Test proxy shares cache across fleet members."""
         # TODO: Implement with actual proxy
         pass
+
+
+# =============================================================================
+# Real Dataset Tests
+# =============================================================================
+
+
+class TestRealDatasets:
+    """
+    Tests using real conversation datasets from Hugging Face.
+
+    These tests validate proxy behavior against actual agent conversations
+    rather than synthetic fixtures, ensuring we address real-world patterns.
+
+    Datasets used:
+    - LMSYS-Chat-1M: 1M conversations from Chatbot Arena (25 LLMs)
+    - WildChat-1M: 1M real ChatGPT conversations
+    - WildChat-4.8M: Extended with o1 reasoning models
+
+    Run with: pytest tests/test_proxy_e2e.py -v -k "real_dataset"
+    Note: Requires 'datasets' library: pip install datasets
+    """
+
+    @pytest.fixture
+    def real_loader(self):
+        """Provide a RealDatasetLoader instance."""
+        try:
+            from tests.fixtures.proxy.real_datasets import RealDatasetLoader
+            return RealDatasetLoader()
+        except ImportError:
+            pytest.skip("Real dataset loader not available")
+
+    @pytest.fixture
+    def lmsys_conversations(self, real_loader):
+        """Load sample LMSYS conversations."""
+        try:
+            return real_loader.load_lmsys(num_samples=50, min_turns=2)
+        except Exception as e:
+            pytest.skip(f"Could not load LMSYS dataset: {e}")
+
+    @pytest.fixture
+    def wildchat_conversations(self, real_loader):
+        """Load sample WildChat conversations."""
+        try:
+            return real_loader.load_wildchat(num_samples=50, min_turns=2)
+        except Exception as e:
+            pytest.skip(f"Could not load WildChat dataset: {e}")
+
+    @pytest.fixture
+    def any_real_conversations(self, real_loader):
+        """Load conversations from any available dataset (fallback for CI)."""
+        try:
+            name, convs = real_loader.load_any_available(num_samples=50)
+            return name, convs
+        except Exception as e:
+            pytest.skip(f"Could not load any dataset: {e}")
+
+    def _convert_to_sessions(self, conversations) -> list[Session]:
+        """Convert RealConversation objects to Session objects for analysis."""
+        from tests.fixtures.proxy.real_datasets import convert_to_session_format
+
+        sessions = []
+        for conv in conversations:
+            data = convert_to_session_format(conv)
+
+            messages = []
+            for msg_data in data["messages"]:
+                msg_info = msg_data.get("message", {})
+                messages.append(Message(
+                    role=msg_info.get("role", ""),
+                    content=msg_info.get("content", []),
+                    timestamp=msg_data.get("timestamp", ""),
+                ))
+
+            session_info = data["session"]
+            sessions.append(Session(
+                session_id=session_info["session_id"],
+                agent_id=session_info["agent_id"],
+                created_at=session_info["created_at"],
+                messages=messages,
+                metadata=session_info["metadata"],
+            ))
+
+        return sessions
+
+    def test_real_dataset_loader_available(self, real_loader):
+        """Verify the real dataset loader is properly initialized."""
+        assert real_loader is not None
+        assert real_loader.cache_dir.exists()
+
+    @pytest.mark.slow
+    def test_lmsys_token_analysis(
+        self, lmsys_conversations, token_analyzer: TokenAnalyzer
+    ):
+        """
+        Analyze token patterns in real LMSYS conversations.
+
+        This test reveals actual caching potential in real-world data.
+        """
+        if not lmsys_conversations:
+            pytest.skip("No LMSYS conversations loaded")
+
+        sessions = self._convert_to_sessions(lmsys_conversations)
+        aggregate, results = token_analyzer.compare_sessions(sessions)
+
+        print("\n" + "=" * 60)
+        print("LMSYS-Chat-1M REAL DATA ANALYSIS")
+        print("=" * 60)
+        print(f"Conversations analyzed: {len(sessions)}")
+        print(f"Total requests: {aggregate.num_requests}")
+        print(f"Baseline tokens: {aggregate.baseline_tokens:,}")
+        print(f"Optimized tokens: {aggregate.optimized_tokens:,}")
+        print(f"Tokens saved: {aggregate.tokens_saved:,}")
+        print(f"Savings ratio: {aggregate.savings_ratio:.1%}")
+        print(f"Cache hit rate: {aggregate.cache_hit_rate:.1%}")
+        print("=" * 60)
+
+        # Real data should have some caching potential
+        assert aggregate.baseline_tokens > 0, "Should have tokens to analyze"
+
+    @pytest.mark.slow
+    def test_wildchat_token_analysis(
+        self, wildchat_conversations, token_analyzer: TokenAnalyzer
+    ):
+        """
+        Analyze token patterns in real WildChat conversations.
+
+        WildChat has more diverse, real-user conversations.
+        """
+        if not wildchat_conversations:
+            pytest.skip("No WildChat conversations loaded")
+
+        sessions = self._convert_to_sessions(wildchat_conversations)
+        aggregate, results = token_analyzer.compare_sessions(sessions)
+
+        print("\n" + "=" * 60)
+        print("WildChat-1M REAL DATA ANALYSIS")
+        print("=" * 60)
+        print(f"Conversations analyzed: {len(sessions)}")
+        print(f"Total requests: {aggregate.num_requests}")
+        print(f"Baseline tokens: {aggregate.baseline_tokens:,}")
+        print(f"Optimized tokens: {aggregate.optimized_tokens:,}")
+        print(f"Tokens saved: {aggregate.tokens_saved:,}")
+        print(f"Savings ratio: {aggregate.savings_ratio:.1%}")
+        print(f"Cache hit rate: {aggregate.cache_hit_rate:.1%}")
+        print("=" * 60)
+
+        assert aggregate.baseline_tokens > 0, "Should have tokens to analyze"
+
+    @pytest.mark.slow
+    def test_real_pattern_detection(self, real_loader, lmsys_conversations):
+        """
+        Detect proxy-relevant patterns in real data.
+
+        Looks for:
+        - Repetitive prefixes (heartbeat potential)
+        - Multi-turn depth
+        - Short responses (status-check pattern)
+        """
+        if not lmsys_conversations:
+            pytest.skip("No conversations to analyze")
+
+        patterns = real_loader.analyze_patterns(lmsys_conversations)
+
+        print("\n" + "=" * 60)
+        print("REAL DATA PATTERN ANALYSIS")
+        print("=" * 60)
+        print(f"Total conversations: {patterns['total_conversations']}")
+        print(f"Total tokens: {patterns['total_tokens']:,}")
+        print(f"Avg tokens/conversation: {patterns['avg_tokens_per_conv']:,}")
+        print(f"Avg turns: {patterns['avg_turns']:.1f}")
+        print(f"Max turns: {patterns['max_turns']}")
+        print(f"Long conversations (>5 turns): {patterns['long_conversations']}")
+        print(f"Short responses (<50 chars): {patterns['short_responses']}")
+        print(f"Repetitive prefixes: {patterns['repetitive_prefixes']}")
+        print(f"Cache potential: {patterns['cache_potential']:.1%}")
+        print(f"Models seen: {patterns['models'][:5]}...")
+        print("=" * 60)
+
+        # Verify we detected some patterns
+        assert patterns["total_conversations"] > 0
+
+    @pytest.mark.slow
+    def test_compare_real_vs_synthetic(
+        self,
+        lmsys_conversations,
+        heartbeat_sessions: list[Session],
+        token_analyzer: TokenAnalyzer,
+    ):
+        """
+        Compare caching potential: real data vs synthetic fixtures.
+
+        This validates whether our synthetic fixtures represent
+        realistic caching opportunities.
+        """
+        if not lmsys_conversations:
+            pytest.skip("No real conversations to compare")
+
+        # Analyze real data
+        real_sessions = self._convert_to_sessions(lmsys_conversations)
+        real_aggregate, _ = token_analyzer.compare_sessions(real_sessions)
+
+        # Analyze synthetic heartbeat (best-case for caching)
+        synthetic_aggregate, _ = token_analyzer.compare_sessions(heartbeat_sessions)
+
+        print("\n" + "=" * 60)
+        print("REAL VS SYNTHETIC COMPARISON")
+        print("=" * 60)
+        print("\nSYNTHETIC (Heartbeat fixtures):")
+        print(f"  Savings ratio: {synthetic_aggregate.savings_ratio:.1%}")
+        print(f"  Cache hit rate: {synthetic_aggregate.cache_hit_rate:.1%}")
+        print("\nREAL (LMSYS-Chat-1M):")
+        print(f"  Savings ratio: {real_aggregate.savings_ratio:.1%}")
+        print(f"  Cache hit rate: {real_aggregate.cache_hit_rate:.1%}")
+        print("\nDIFFERENCE:")
+        diff = synthetic_aggregate.savings_ratio - real_aggregate.savings_ratio
+        print(f"  Synthetic vs Real gap: {diff:.1%}")
+        if diff > 0.3:
+            print("  ⚠️  WARNING: Synthetic may be overly optimistic")
+        else:
+            print("  ✓ Synthetic fixtures are reasonably representative")
+        print("=" * 60)
+
+    @pytest.mark.slow
+    def test_multi_model_comparison(self, real_loader):
+        """
+        Compare caching potential across different models.
+
+        Different models may have different prompt structures
+        affecting cache efficiency.
+        """
+        try:
+            # Load conversations from different models
+            gpt4_convs = real_loader.load_wildchat(
+                num_samples=30, model_filter="gpt-4"
+            )
+            gpt35_convs = real_loader.load_wildchat(
+                num_samples=30, model_filter="gpt-3.5"
+            )
+        except Exception as e:
+            pytest.skip(f"Could not load model-specific data: {e}")
+
+        print("\n" + "=" * 60)
+        print("MULTI-MODEL ANALYSIS")
+        print("=" * 60)
+
+        for name, convs in [("GPT-4", gpt4_convs), ("GPT-3.5", gpt35_convs)]:
+            if not convs:
+                print(f"{name}: No data")
+                continue
+
+            patterns = real_loader.analyze_patterns(convs)
+            print(f"\n{name}:")
+            print(f"  Conversations: {patterns['total_conversations']}")
+            print(f"  Avg tokens: {patterns['avg_tokens_per_conv']:,}")
+            print(f"  Avg turns: {patterns['avg_turns']:.1f}")
+            print(f"  Cache potential: {patterns['cache_potential']:.1%}")
+
+        print("=" * 60)
+
+    def test_any_available_dataset(
+        self, any_real_conversations, token_analyzer: TokenAnalyzer
+    ):
+        """
+        Test with any available dataset (CI-friendly fallback).
+
+        Uses load_any_available() which tries public datasets first,
+        making this test work without HuggingFace authentication.
+        """
+        dataset_name, conversations = any_real_conversations
+
+        if not conversations:
+            pytest.skip("No conversations loaded")
+
+        sessions = self._convert_to_sessions(conversations)
+        aggregate, results = token_analyzer.compare_sessions(sessions)
+
+        print("\n" + "=" * 60)
+        print(f"REAL DATA ANALYSIS: {dataset_name.upper()}")
+        print("=" * 60)
+        print(f"Conversations analyzed: {len(sessions)}")
+        print(f"Total requests: {aggregate.num_requests}")
+        print(f"Baseline tokens: {aggregate.baseline_tokens:,}")
+        print(f"Optimized tokens: {aggregate.optimized_tokens:,}")
+        print(f"Tokens saved: {aggregate.tokens_saved:,}")
+        print(f"Savings ratio: {aggregate.savings_ratio:.1%}")
+        print(f"Cache hit rate: {aggregate.cache_hit_rate:.1%}")
+        print("=" * 60)
+
+        # Real data should have some tokens
+        assert aggregate.baseline_tokens > 0, "Should have tokens to analyze"
+        # We expect some caching potential even in real data
+        assert aggregate.num_requests > 0, "Should have requests"

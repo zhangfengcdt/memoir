@@ -47,6 +47,7 @@ dev = [
     "safety>=2.0.0",
     "playwright>=1.55.0",
     "pytest-playwright>=0.7.0",
+    "datasets>=2.14.0",  # For loading real conversation datasets (LMSYS, WildChat)
 ]
 
 docs = [
