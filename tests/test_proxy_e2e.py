@@ -1684,3 +1684,280 @@ class TestRealDatasets:
         assert aggregate.baseline_tokens > 0, "Should have tokens to analyze"
         # We expect some caching potential even in real data
         assert aggregate.num_requests > 0, "Should have requests"
+
+
+# =============================================================================
+# Framework-Specific Tests
+# =============================================================================
+
+FRAMEWORKS_DIR = FIXTURES_DIR / "frameworks"
+
+
+class FrameworkFixtureLoader:
+    """Loader for framework-specific JSONL fixtures."""
+
+    FRAMEWORK_JITTER_PATTERNS = {
+        "crewai": [
+            r'"context":\s*"[^"]*"',  # Context from previous agents
+        ],
+        "autogen": [
+            r'"message_id":\s*"msg_[a-z0-9]+"',  # Message UUIDs
+            r'"id":\s*"call_[a-z0-9_]+"',  # Tool call IDs
+            r'"created_at":\s*"[^"]+"',  # Timestamps
+        ],
+        "metagpt": [
+            r'"message_id":\s*"[^"]+"',  # Message IDs
+            r'Previous state:.*\n',  # State transitions
+            r'\[Previous .* content\]',  # Previous role outputs
+        ],
+        "langgraph": [
+            r'"checkpoint_id":\s*"ckpt_[0-9]+"',  # Checkpoint IDs
+            r'"thread_id":\s*"thread_[a-z0-9]+"',  # Thread IDs
+            r'"message_id":\s*"msg_[a-z0-9_]+"',  # Message IDs
+            r'"id":\s*"call_[a-z0-9_]+"',  # Tool call IDs
+            r'"parent_checkpoint":\s*"ckpt_[0-9]+"',  # Parent refs
+        ],
+    }
+
+    def load_framework_session(self, framework: str, fixture_name: str) -> Session:
+        """Load a session from a framework fixture file."""
+        filepath = FRAMEWORKS_DIR / framework / f"{fixture_name}.jsonl"
+        if not filepath.exists():
+            raise FileNotFoundError(f"Fixture not found: {filepath}")
+
+        messages = []
+        session_meta = {}
+
+        with open(filepath) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                data = json.loads(line)
+
+                if data.get("type") == "session":
+                    session_meta = data
+                elif data.get("type") == "message":
+                    msg_data = data.get("message", {})
+                    messages.append(
+                        Message(
+                            role=msg_data.get("role", "unknown"),
+                            content=msg_data.get("content", []),
+                            timestamp=data.get("timestamp", ""),
+                            usage=data.get("usage"),
+                            metadata={
+                                "agent": data.get("agent"),
+                                "node": data.get("node"),
+                            },
+                        )
+                    )
+                elif data.get("type") == "checkpoint":
+                    # Checkpoints are metadata, not messages
+                    pass
+
+        return Session(
+            session_id=session_meta.get("session_id", fixture_name),
+            agent_id=session_meta.get("framework", framework),
+            created_at=session_meta.get("created_at", ""),
+            messages=messages,
+            metadata=session_meta.get("metadata", {}),
+        )
+
+    def get_jitter_patterns(self, framework: str) -> list[str]:
+        """Get framework-specific jitter patterns."""
+        return self.FRAMEWORK_JITTER_PATTERNS.get(framework, [])
+
+
+class TestFrameworkAnalysis:
+    """Tests analyzing KV cache potential across different agent frameworks."""
+
+    @pytest.fixture
+    def framework_loader(self):
+        return FrameworkFixtureLoader()
+
+    @pytest.fixture
+    def token_analyzer(self):
+        return TokenAnalyzer()
+
+    def test_crewai_content_crew(
+        self, framework_loader: FrameworkFixtureLoader, token_analyzer: TokenAnalyzer
+    ):
+        """
+        Test CrewAI content creation crew pattern.
+
+        CrewAI passes context between agents, creating repeated content
+        that could be deduplicated.
+        """
+        session = framework_loader.load_framework_session("crewai", "content_crew")
+
+        # Calculate baseline and optimized tokens
+        baseline = token_analyzer.calculate_baseline_tokens(session)
+        _, results = token_analyzer.compare_sessions([session])
+        optimized = results[0].baseline if results else baseline
+
+        print("\n" + "=" * 60)
+        print("CREWAI CONTENT CREW ANALYSIS")
+        print("=" * 60)
+        print(f"Agents: {session.metadata.get('agents', [])}")
+        print(f"Total messages: {len(session.messages)}")
+        print(f"Baseline tokens: {baseline.baseline_tokens:,}")
+        print(f"Cache hit rate: {optimized.cache_hit_rate:.1%}")
+        print("=" * 60)
+
+        # CrewAI has role definitions that should be cacheable
+        assert baseline.baseline_tokens > 0, "Should have tokens"
+        assert baseline.num_requests >= 3, "Should have 3 agent requests"
+
+    def test_autogen_coding_assistant(
+        self, framework_loader: FrameworkFixtureLoader, token_analyzer: TokenAnalyzer
+    ):
+        """
+        Test AutoGen coding assistant pattern.
+
+        AutoGen has message IDs and timestamps that break caching.
+        """
+        session = framework_loader.load_framework_session("autogen", "coding_assistant")
+
+        baseline = token_analyzer.calculate_baseline_tokens(session)
+        _, results = token_analyzer.compare_sessions([session])
+
+        print("\n" + "=" * 60)
+        print("AUTOGEN CODING ASSISTANT ANALYSIS")
+        print("=" * 60)
+        print(f"Pattern: {session.metadata.get('pattern', 'unknown')}")
+        print(f"Total messages: {len(session.messages)}")
+        print(f"Baseline tokens: {baseline.baseline_tokens:,}")
+
+        # Check for jitter patterns
+        jitter_patterns = framework_loader.get_jitter_patterns("autogen")
+        jitter_count = 0
+        for msg in session.messages:
+            content = token_analyzer.extract_content_text(msg)
+            for pattern in jitter_patterns:
+                import re
+                jitter_count += len(re.findall(pattern, content))
+        print(f"Jitter instances found: {jitter_count}")
+        print("=" * 60)
+
+        assert baseline.baseline_tokens > 0, "Should have tokens"
+
+    def test_metagpt_software_team(
+        self, framework_loader: FrameworkFixtureLoader, token_analyzer: TokenAnalyzer
+    ):
+        """
+        Test MetaGPT software development team pattern.
+
+        MetaGPT passes PRD, design docs, and code between roles,
+        creating large repeated context.
+        """
+        session = framework_loader.load_framework_session("metagpt", "software_team")
+
+        baseline = token_analyzer.calculate_baseline_tokens(session)
+
+        print("\n" + "=" * 60)
+        print("METAGPT SOFTWARE TEAM ANALYSIS")
+        print("=" * 60)
+        print(f"Roles: {session.metadata.get('roles', [])}")
+        print(f"Total messages: {len(session.messages)}")
+        print(f"Baseline tokens: {baseline.baseline_tokens:,}")
+
+        # Count role-specific messages
+        roles_seen = set()
+        for msg in session.messages:
+            if msg.metadata and msg.metadata.get("agent"):
+                roles_seen.add(msg.metadata["agent"])
+        print(f"Roles active: {roles_seen}")
+        print("=" * 60)
+
+        assert baseline.baseline_tokens > 0, "Should have tokens"
+        assert len(roles_seen) >= 3, "Should have multiple roles"
+
+    def test_langgraph_react_agent(
+        self, framework_loader: FrameworkFixtureLoader, token_analyzer: TokenAnalyzer
+    ):
+        """
+        Test LangGraph ReAct agent pattern.
+
+        LangGraph has checkpoint IDs and thread IDs that cause jitter.
+        """
+        session = framework_loader.load_framework_session("langgraph", "react_agent")
+
+        baseline = token_analyzer.calculate_baseline_tokens(session)
+
+        print("\n" + "=" * 60)
+        print("LANGGRAPH REACT AGENT ANALYSIS")
+        print("=" * 60)
+        print(f"Graph type: {session.metadata.get('graph_type', 'unknown')}")
+        print(f"Checkpointing: {session.metadata.get('checkpoint_enabled', False)}")
+        print(f"Total messages: {len(session.messages)}")
+        print(f"Baseline tokens: {baseline.baseline_tokens:,}")
+
+        # LangGraph should have tool definitions that are stable
+        system_content = ""
+        for msg in session.messages:
+            if msg.role == "system":
+                system_content = token_analyzer.extract_content_text(msg)
+                break
+
+        tool_count = system_content.count("description:")
+        print(f"Tools defined: {tool_count}")
+        print("=" * 60)
+
+        assert baseline.baseline_tokens > 0, "Should have tokens"
+        assert tool_count >= 2, "Should have tool definitions"
+
+    def test_framework_comparison(
+        self, framework_loader: FrameworkFixtureLoader, token_analyzer: TokenAnalyzer
+    ):
+        """
+        Compare caching potential across all frameworks.
+        """
+        frameworks = [
+            ("crewai", "content_crew"),
+            ("autogen", "coding_assistant"),
+            ("metagpt", "software_team"),
+            ("langgraph", "react_agent"),
+        ]
+
+        results = []
+        for framework, fixture in frameworks:
+            try:
+                session = framework_loader.load_framework_session(framework, fixture)
+                baseline = token_analyzer.calculate_baseline_tokens(session)
+                _, comparison = token_analyzer.compare_sessions([session])
+                stats = comparison[0].baseline if comparison else baseline
+
+                results.append({
+                    "framework": framework,
+                    "fixture": fixture,
+                    "messages": len(session.messages),
+                    "baseline_tokens": baseline.baseline_tokens,
+                    "cache_hit_rate": stats.cache_hit_rate,
+                    "savings_ratio": stats.savings_ratio,
+                })
+            except FileNotFoundError:
+                results.append({
+                    "framework": framework,
+                    "fixture": fixture,
+                    "error": "Fixture not found",
+                })
+
+        print("\n" + "=" * 70)
+        print("FRAMEWORK COMPARISON SUMMARY")
+        print("=" * 70)
+        print(f"{'Framework':<12} {'Fixture':<20} {'Messages':>8} {'Tokens':>10} {'Cache %':>8}")
+        print("-" * 70)
+        for r in results:
+            if "error" in r:
+                print(f"{r['framework']:<12} {r['fixture']:<20} {'ERROR':>8}")
+            else:
+                print(
+                    f"{r['framework']:<12} {r['fixture']:<20} "
+                    f"{r['messages']:>8} {r['baseline_tokens']:>10,} "
+                    f"{r['cache_hit_rate']:>7.1%}"
+                )
+        print("=" * 70)
+
+        # At least some frameworks should be testable
+        successful = [r for r in results if "error" not in r]
+        assert len(successful) >= 2, "Should test at least 2 frameworks"

@@ -181,13 +181,110 @@ The vector search engine links incoming requests to their structural ancestry in
 
 ### 6.1 Intent-Based Model Arbitrage
 
-The proxy analyzes request intent signatures to route to cost-appropriate models:
+The proxy analyzes request intent signatures to route to cost-appropriate models. The classification system uses a **15-dimension weighted scoring algorithm** that runs entirely locally without LLM calls, based on the production-tested approach from [claw-llm-router](https://github.com/donnfelker/claw-llm-router).
 
-| Intent Category | Example | Recommended Model |
-|-----------------|---------|-------------------|
-| High-Reasoning | "Implement this feature" | Claude Sonnet / GPT-4 |
-| Heartbeat/Status | "Check for new messages" | Gemini Flash / GPT-4o-mini |
-| Simple Extraction | "Parse this JSON" | Haiku / Flash |
+#### Model Tiers
+
+| Tier | Score Range | Use Cases | Default Models |
+|------|-------------|-----------|----------------|
+| **SIMPLE** | ≤ 0.0 | Greetings, simple Q&A, acknowledgments | Gemini Flash, GPT-4o-mini |
+| **MEDIUM** | 0.0 - 0.3 | General tasks, summarization, explanations | Claude Haiku, GPT-4o |
+| **COMPLEX** | 0.3 - 0.5 | Multi-step reasoning, code review, analysis | Claude Sonnet, GPT-4 |
+| **REASONING** | ≥ 0.5 | Novel algorithms, architecture design, research | Claude Opus, o1-preview |
+
+#### 15-Dimension Weighted Classifier
+
+The classifier analyzes each request across 15 dimensions with calibrated weights:
+
+| Dimension | Weight | Description |
+|-----------|--------|-------------|
+| `reasoningMarkers` | 0.17 | Keywords: "analyze", "explain why", "reasoning", "logic", "proof", "derive" |
+| `codePresence` | 0.14 | Contains code blocks, function definitions, or programming syntax |
+| `simpleIndicators` | 0.11 | Keywords: "hi", "hello", "thanks", "yes", "no", "ok" (negative weight) |
+| `questionComplexity` | 0.10 | Multi-part questions, "how and why", comparative analysis |
+| `contextLength` | 0.09 | Token count thresholds: >50k = +0.3, >100k = +0.5 |
+| `technicalTerms` | 0.08 | Domain-specific vocabulary density |
+| `mathPresence` | 0.07 | Mathematical notation, equations, numerical analysis |
+| `structuredOutput` | 0.06 | Requests for JSON, tables, formatted data |
+| `creativeWriting` | 0.05 | Story, poetry, creative content generation |
+| `multiStepTask` | 0.04 | Sequential instructions: "first...then...finally" |
+| `ambiguity` | 0.03 | Vague requests requiring clarification |
+| `domainExpertise` | 0.03 | Specialized knowledge requirements |
+| `timeConstraint` | 0.01 | Urgency indicators (minimal impact) |
+| `languageComplexity` | 0.01 | Sentence structure and vocabulary level |
+| `emotionalContent` | 0.01 | Sentiment and emotional context |
+
+#### Keyword Detection
+
+```
+REASONING_KEYWORDS = [
+  "analyze", "explain why", "reasoning", "logic", "proof", "derive",
+  "theorem", "hypothesis", "conclude", "deduce", "infer", "evaluate",
+  "compare and contrast", "trade-offs", "implications", "consequences"
+]
+
+CODE_KEYWORDS = [
+  "implement", "function", "class", "algorithm", "debug", "refactor",
+  "optimize", "test", "deploy", "architecture", "design pattern"
+]
+
+SIMPLE_KEYWORDS = [
+  "hi", "hello", "thanks", "thank you", "yes", "no", "ok", "okay",
+  "sure", "great", "bye", "goodbye", "please", "help"
+]
+
+MATH_KEYWORDS = [
+  "calculate", "compute", "solve", "equation", "formula", "integral",
+  "derivative", "probability", "statistics", "proof"
+]
+```
+
+#### Scoring Algorithm
+
+```python
+def classify_intent(request: str, context_tokens: int) -> Tier:
+    score = 0.0
+
+    # Apply weighted dimension scores
+    for dimension, weight in DIMENSION_WEIGHTS.items():
+        dimension_score = analyze_dimension(request, dimension)
+        score += dimension_score * weight
+
+    # Override rules
+    if count_keywords(request, REASONING_KEYWORDS) >= 2:
+        return Tier.REASONING
+    if context_tokens > 100_000:
+        return max(Tier.COMPLEX, score_to_tier(score))
+
+    # Map score to tier
+    if score <= 0.0:
+        return Tier.SIMPLE
+    elif score <= 0.3:
+        return Tier.MEDIUM
+    elif score <= 0.5:
+        return Tier.COMPLEX
+    else:
+        return Tier.REASONING
+```
+
+#### Fallback Chain
+
+When a model is unavailable or rate-limited, requests cascade through the fallback chain:
+
+```
+SIMPLE → MEDIUM → COMPLEX → REASONING
+```
+
+This ensures requests are always handled, potentially by a more capable (but more expensive) model.
+
+#### Intent Routing Examples
+
+| Request | Score | Tier | Rationale |
+|---------|-------|------|-----------|
+| "Check for new messages" | -0.2 | SIMPLE | Heartbeat/status pattern |
+| "Summarize this document" | 0.15 | MEDIUM | Standard task, no deep reasoning |
+| "Review this PR for security issues" | 0.4 | COMPLEX | Code + analysis required |
+| "Design a distributed consensus algorithm" | 0.7 | REASONING | Novel architecture + proof required |
 
 ### 6.2 Predictive Cache Warming
 
@@ -272,3 +369,4 @@ The proxy supports rollback to a previous "clean commit" hash in the ProllyTree 
 - [Memoir ProllyTree Dependency and Architecture](https://github.com/zhangfengcdt/prollytree)
 - [Anthropic Prompt Caching Documentation](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching)
 - [Google Gemini Context Caching](https://ai.google.dev/gemini-api/docs/caching)
+- [claw-llm-router Intent Classifier](https://github.com/donnfelker/claw-llm-router) - Reference implementation for 15-dimension weighted intent classification
