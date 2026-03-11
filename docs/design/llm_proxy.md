@@ -34,6 +34,7 @@ We categorize token waste into three patterns, using OpenClaw as a representativ
 | **Heartbeat Leak** | Periodic status checks resend 15k+ tokens for minimal updates. This pattern manifests as "Recursive Planning Loops" across most agent frameworks. | High redundancy per session |
 | **Jitter Problem** | Dynamic headers (e.g., timestamps, request IDs) injected at prompt start invalidate KV caches globally due to byte-level prefix changes. | Cache invalidation |
 | **Capability Bloat** | Full tool schemas (JSON/XML) transmitted on every request regardless of whether they are needed for the current task. | Unnecessary token overhead |
+| **History Growth** | Conversation history accumulates with each turn, breaking prefix stability even when system prompts are cached. Each new message changes the prefix, invalidating the entire cache. | Compounding cache misses |
 
 ---
 
@@ -175,6 +176,134 @@ The vector search engine links incoming requests to their structural ancestry in
 - **Cache Control**: Marked as `cache_control: ephemeral`
 - **Impact**: Only portion requiring provider recomputation
 
+### 5.4 Conversation History Management
+
+Conversation history presents a unique challenge: even with perfect prefix caching, **growing history breaks the cache** because each new message changes the byte sequence.
+
+```
+Turn 1: [System][Doc][User1]                    ← Cache miss (new prefix)
+Turn 2: [System][Doc][User1][Asst1][User2]      ← Cache miss (prefix changed!)
+Turn 3: [System][Doc][...history...][User3]     ← Cache miss (prefix changed!)
+```
+
+#### History Handling Strategies
+
+| Strategy | Mechanism | Trade-offs |
+|----------|-----------|------------|
+| **Sliding Window** | Keep only last N turns in context | Loses long-term context; simple to implement |
+| **Summarization** | Compress old turns into summary block | Maintains context semantics; adds LLM call overhead |
+| **Hierarchical Caching** | Cache system+tools separately from history | Partial cache hits; complex implementation |
+| **History Hashing** | Content-address history blocks, reuse if identical | Works for repeated patterns; limited applicability |
+
+#### Recommended Approach: Hierarchical Caching
+
+Structure requests to maximize partial cache hits:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ TIER 1: System + Tools (cached)                   3,000 tok │
+│ ─────────────────── cache_control: ephemeral ─────────────  │
+│ TIER 2: Document Context (cached per-session)    12,000 tok │
+│ ─────────────────── cache_control: ephemeral ─────────────  │
+│ TIER 3: Conversation History (dynamic)            2,000 tok │
+│ TIER 3: Current Message (dynamic)                   100 tok │
+└─────────────────────────────────────────────────────────────┘
+
+Result: 15,000 tokens cached (88%), 2,100 tokens recomputed (12%)
+```
+
+Even though history changes break the full prefix match, providers like Claude allow **multiple cache breakpoints**, enabling partial cache utilization.
+
+### 5.5 Provider-Specific Caching Requirements
+
+Each LLM provider implements caching differently. The proxy must adapt its optimization strategy accordingly.
+
+#### Claude (Anthropic)
+
+- **Mechanism**: Explicit `cache_control` markup required
+- **Header**: Requires `anthropic-beta: prompt-caching-2024-07-31`
+- **Minimum**: 1,024 tokens for caching eligibility (Sonnet), 2,048 for Haiku
+- **TTL**: 5 minutes (extended on cache hit)
+- **Cost**: Cache writes cost 25% more; cache reads cost 90% less
+- **Multiple breakpoints**: Supports up to 4 cache breakpoints per request
+
+```python
+# Claude cache control example
+messages = [{
+    "role": "system",
+    "content": [{
+        "type": "text",
+        "text": SYSTEM_PROMPT,
+        "cache_control": {"type": "ephemeral"}
+    }]
+}]
+```
+
+#### OpenAI
+
+- **Mechanism**: Implicit (automatic for prefixes >1,024 tokens)
+- **No markup required**: Caching happens automatically
+- **Supported models**: GPT-4o, GPT-4o-mini, o1-preview, o1-mini
+- **TTL**: 5-10 minutes typical
+- **Cost**: 50% discount on cached tokens
+- **Limitation**: No explicit control; must rely on prefix stability
+
+#### Gemini (Google)
+
+- **Mechanism**: Implicit by default; explicit context caching available
+- **Explicit caching**: Create cached content via separate API, reference by name
+- **TTL**: Configurable (1 minute to 1 hour)
+- **Cost**: Reduced input costs for cached content
+- **Minimum**: 32,768 tokens for explicit caching
+
+#### Provider Adapter Requirements
+
+| Provider | Explicit Markup | Min Tokens | TTL | Multi-Breakpoint |
+|----------|-----------------|------------|-----|------------------|
+| Claude | Required | 1,024-2,048 | 5 min | Yes (up to 4) |
+| OpenAI | Not needed | ~1,024 | 5-10 min | No |
+| Gemini | Optional | 32,768 | Configurable | N/A |
+
+### 5.6 Cache Economics and Decision Heuristics
+
+Caching is not always beneficial. Anthropic charges a **25% premium for cache writes**, meaning sessions with low reuse rates may pay more than uncached requests.
+
+#### When to Cache
+
+| Scenario | Cache? | Rationale |
+|----------|--------|-----------|
+| Multi-turn conversation (5+ turns) | ✅ Yes | Amortizes write cost across reads |
+| Document analysis (10+ questions) | ✅ Yes | High reuse of document context |
+| One-shot request | ❌ No | No reuse; pays write premium for nothing |
+| Short prompt (<1,024 tokens) | ❌ No | Below minimum threshold |
+| Rapidly changing context | ❌ No | Cache invalidated before reuse |
+
+#### Cache Decision Algorithm
+
+```python
+def should_request_caching(
+    prompt_tokens: int,
+    expected_turns: int,
+    ttl_seconds: int = 300
+) -> bool:
+    MIN_TOKENS = 1024
+    WRITE_PREMIUM = 0.25  # 25% extra for cache write
+    READ_DISCOUNT = 0.90  # 90% savings on cache read
+
+    if prompt_tokens < MIN_TOKENS:
+        return False
+
+    # Break-even: 1 write + N reads vs (N+1) uncached
+    # 1.25 + N * 0.10 < (N + 1) * 1.0
+    # 1.25 + 0.10N < N + 1
+    # 0.25 < 0.90N
+    # N > 0.28
+
+    # Need at least 1 cache read to break even
+    # But account for TTL - will turns happen within window?
+    return expected_turns >= 2
+```
+
 ---
 
 ## 6. Advanced Features
@@ -304,6 +433,42 @@ The proxy supports rollback to a previous "clean commit" hash in the ProllyTree 
 | **Cost per Heartbeat** | <$0.01 | Aggregate billing for status-check requests |
 | **Token Compression** | 40% reduction | Compare pre/post optimization token counts |
 | **Vector Lookup Latency** | <10ms (p99) | Instrumented timing via local HNSW index |
+| **Cache Write/Read Ratio** | <1:3 | Ensure reads exceed writes for positive ROI |
+| **Jitter Detection Rate** | >95% | Percentage of jitter patterns successfully normalized |
+
+### 7.1 Cache Monitoring Requirements
+
+Effective cache optimization requires continuous monitoring of provider-reported metrics:
+
+#### Claude Metrics
+
+```python
+# Extract from response metadata
+response.usage = {
+    "input_tokens": 15000,
+    "cache_creation_input_tokens": 14000,  # Tokens written to cache (costly)
+    "cache_read_input_tokens": 0,           # Tokens read from cache (cheap)
+}
+```
+
+**Key Indicators:**
+
+| Metric | Healthy | Warning | Action |
+|--------|---------|---------|--------|
+| `cache_read / cache_creation` | >3:1 | 1:1 - 3:1 | <1:1 = disable caching |
+| `cache_read_input_tokens` | >0 | 0 for multiple requests | Check prefix stability |
+| Consecutive cache misses | 0-1 | 2-3 | >3 = jitter detection failure |
+
+#### Jitter Detection Dashboard
+
+Monitor for patterns indicating cache-breaking jitter:
+
+```
+[ALERT] Session xyz-123: 5 consecutive cache misses
+        Suspected jitter: timestamp in system prompt position 0-50
+        Pattern: "2025-03-10T..." varies each request
+        Recommendation: Move timestamp to Tier 3 (dynamic suffix)
+```
 
 ---
 
@@ -315,6 +480,9 @@ The proxy supports rollback to a previous "clean commit" hash in the ProllyTree 
 | Semantic drift from normalization | Low | High | Validate output equivalence via automated testing |
 | Vector search latency at scale | Medium | Medium | Horizontal scaling with distributed HNSW indices |
 | Complex agent prompts resist segmentation | Medium | Medium | Expand heuristic library; add LLM-assisted fallback |
+| Cache write costs exceed savings | Medium | Medium | Implement cache decision heuristics; monitor write/read ratios |
+| Conversation history breaks cache | High | High | Use hierarchical caching with multiple breakpoints; consider summarization |
+| Provider TTL expiration | Medium | Low | Implement predictive cache warming; track TTL windows |
 
 ---
 
@@ -370,3 +538,20 @@ The proxy supports rollback to a previous "clean commit" hash in the ProllyTree 
 - [Anthropic Prompt Caching Documentation](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching)
 - [Google Gemini Context Caching](https://ai.google.dev/gemini-api/docs/caching)
 - [claw-llm-router Intent Classifier](https://github.com/donnfelker/claw-llm-router) - Reference implementation for 15-dimension weighted intent classification
+- [LangChain Prompt Caching in Production](https://www.lubulabs.com/ai-blog/langchain-prompt-caching-production) - Real-world caching patterns and provider comparison
+- [LangSmith Prompt Versioning](https://www.lubulabs.com/ai-blog/langsmith-prompt-versioning-production) - Prompt management patterns (complementary to caching)
+
+---
+
+## Appendix C: Framework Analysis Summary
+
+Analysis of KV cache optimization potential across major agent frameworks (see `docs/design/framework_analysis.md` for details):
+
+| Framework | Typical Tokens | Current Cacheable | With Memoir | Primary Jitter Source |
+|-----------|---------------|-------------------|-------------|----------------------|
+| **CrewAI** | 1,500-3,000 | 25-35% | 60-80% | Context passing between agents |
+| **AutoGen** | 1,400-2,700 | 4-7% | 15-32% | Message UUIDs, timestamps |
+| **MetaGPT** | 2,500-8,000 | ~20% | 40-60% | PRD/code injection, history |
+| **LangGraph** | 550-4,000 | 20-40% | 60-90% | Checkpoint IDs, tool_call_ids |
+
+Test fixtures for each framework are available in `tests/fixtures/proxy/frameworks/`.
