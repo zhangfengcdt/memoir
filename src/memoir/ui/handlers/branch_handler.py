@@ -1,17 +1,14 @@
 """
 Branch handler for git operations and version control.
+
+Delegates to BranchService for business logic.
 """
 
 import json
-import subprocess
-import sys
 from pathlib import Path
 from urllib.parse import parse_qs
 
 from .api_handler import BaseAPIHandler
-
-# Add parent directories to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 
 class BranchHandler(BaseAPIHandler):
@@ -19,6 +16,8 @@ class BranchHandler(BaseAPIHandler):
 
     def handle_branches_api(self, parsed_path):
         """Get list of branches in the store."""
+        from memoir.services.branch_service import BranchService
+
         query_params = parse_qs(parsed_path.query)
         store_path = query_params.get("path", [None])[0]
 
@@ -31,29 +30,13 @@ class BranchHandler(BaseAPIHandler):
             return
 
         try:
-            # Use git to get branch list
-            result = subprocess.run(
-                ["git", "branch", "--format=%(refname:short)"],
-                cwd=store_path,
-                capture_output=True,
-                text=True,
-            )
-
-            branches = result.stdout.strip().split("\n") if result.stdout else []
-
-            # Get current branch
-            current_result = subprocess.run(
-                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                cwd=store_path,
-                capture_output=True,
-                text=True,
-            )
-            current_branch = current_result.stdout.strip()
+            service = BranchService(store_path)
+            info = service.list_branches()
 
             data = {
                 "success": True,
-                "branches": branches,
-                "current": current_branch,
+                "branches": info.branches,
+                "current": info.current,
             }
 
             self.handler.send_response(200)
@@ -67,6 +50,8 @@ class BranchHandler(BaseAPIHandler):
 
     def handle_commits_api(self, parsed_path):
         """Get commit history for the store."""
+        from memoir.services.branch_service import BranchService
+
         query_params = parse_qs(parsed_path.query)
         store_path = query_params.get("path", [None])[0]
         branch = query_params.get("branch", ["HEAD"])[0]
@@ -81,40 +66,12 @@ class BranchHandler(BaseAPIHandler):
             return
 
         try:
-            # Get commit history using git log
-            result = subprocess.run(
-                [
-                    "git",
-                    "log",
-                    branch,
-                    f"-{limit}",
-                    "--pretty=format:%H|%h|%s|%an|%ae|%at",
-                ],
-                cwd=store_path,
-                capture_output=True,
-                text=True,
-            )
-
-            commits = []
-            if result.stdout:
-                for line in result.stdout.strip().split("\n"):
-                    if line:
-                        parts = line.split("|")
-                        if len(parts) >= 6:
-                            commits.append(
-                                {
-                                    "hash": parts[0],
-                                    "short_hash": parts[1],
-                                    "message": parts[2],
-                                    "author": parts[3],
-                                    "email": parts[4],
-                                    "timestamp": int(parts[5]),
-                                }
-                            )
+            service = BranchService(store_path)
+            commits = service.get_commits(branch, limit=limit)
 
             data = {
                 "success": True,
-                "commits": commits,
+                "commits": [c.to_dict() for c in commits],
                 "branch": branch,
             }
 
@@ -129,6 +86,8 @@ class BranchHandler(BaseAPIHandler):
 
     def handle_current_branch_api(self, parsed_path):
         """Get the current branch of the store."""
+        from memoir.services.branch_service import BranchService
+
         query_params = parse_qs(parsed_path.query)
         store_path = query_params.get("path", [None])[0]
 
@@ -141,28 +100,13 @@ class BranchHandler(BaseAPIHandler):
             return
 
         try:
-            # Get current branch
-            result = subprocess.run(
-                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                cwd=store_path,
-                capture_output=True,
-                text=True,
-            )
-            current_branch = result.stdout.strip()
-
-            # Get current commit
-            commit_result = subprocess.run(
-                ["git", "rev-parse", "HEAD"],
-                cwd=store_path,
-                capture_output=True,
-                text=True,
-            )
-            current_commit = commit_result.stdout.strip()
+            service = BranchService(store_path)
+            branch, commit = service.get_current_branch()
 
             data = {
                 "success": True,
-                "branch": current_branch,
-                "commit": current_commit[:8] if current_commit else None,
+                "branch": branch,
+                "commit": commit,
             }
 
             self.handler.send_response(200)
@@ -176,17 +120,16 @@ class BranchHandler(BaseAPIHandler):
 
     def handle_checkout_api(self):
         """Checkout a specific commit or branch."""
+        from memoir.services.branch_service import BranchService
+
         try:
-            # Read POST data
             content_length = int(self.handler.headers["Content-Length"])
             post_data = self.handler.rfile.read(content_length)
             data = json.loads(post_data.decode("utf-8"))
 
             store_path = data.get("path")
-            target = data.get("target")  # Can be commit hash or branch name
-            create_branch = data.get(
-                "create_branch"
-            )  # Optional: create new branch from commit
+            target = data.get("target")
+            create_branch = data.get("create_branch")
 
             if not store_path:
                 self.handler.send_error(400, "Missing 'path' parameter")
@@ -200,40 +143,30 @@ class BranchHandler(BaseAPIHandler):
                 self.handler.send_error(404, f"Store path does not exist: {store_path}")
                 return
 
-            # Note: ProllyTreeStore initialization not needed for git checkout operations
+            service = BranchService(store_path)
 
             if create_branch:
                 # Create and checkout new branch from target
-                subprocess.run(
-                    ["git", "checkout", "-b", create_branch, target],
-                    cwd=store_path,
-                    check=True,
-                    capture_output=True,
-                )
+                create_result = service.create_branch(create_branch, from_ref=target)
+                if not create_result.success:
+                    self.handler.send_error(
+                        500, create_result.error or "Failed to create branch"
+                    )
+                    return
+                checkout_result = service.checkout(create_branch)
                 message = f"Created and switched to new branch '{create_branch}' from {target[:8]}"
             else:
-                # Just checkout the target
-                subprocess.run(
-                    ["git", "checkout", target],
-                    cwd=store_path,
-                    check=True,
-                    capture_output=True,
-                )
+                checkout_result = service.checkout(target)
                 message = f"Switched to {target}"
 
-            # Get updated branch info
-            current_result = subprocess.run(
-                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                cwd=store_path,
-                capture_output=True,
-                text=True,
-            )
-            current_branch = current_result.stdout.strip()
+            if not checkout_result.success:
+                self.handler.send_error(500, checkout_result.error or "Checkout failed")
+                return
 
             result = {
                 "success": True,
                 "message": message,
-                "current_branch": current_branch,
+                "current_branch": checkout_result.branch,
                 "target": target,
             }
 
@@ -243,23 +176,21 @@ class BranchHandler(BaseAPIHandler):
             self.handler.end_headers()
             self.handler.wfile.write(json.dumps(result, indent=2).encode())
 
-        except subprocess.CalledProcessError as e:
-            error_msg = e.stderr.decode("utf-8") if e.stderr else str(e)
-            self.handler.send_error(500, f"Git checkout failed: {error_msg}")
         except Exception as e:
             self.handler.send_error(500, f"Error during checkout: {e!s}")
 
     def handle_create_branch_api(self):
         """Create a new branch."""
+        from memoir.services.branch_service import BranchService
+
         try:
-            # Read POST data
             content_length = int(self.handler.headers["Content-Length"])
             post_data = self.handler.rfile.read(content_length)
             data = json.loads(post_data.decode("utf-8"))
 
             store_path = data.get("path")
             branch_name = data.get("branch")
-            from_ref = data.get("from", "HEAD")  # Create from specific ref
+            from_ref = data.get("from", "HEAD")
 
             if not store_path:
                 self.handler.send_error(400, "Missing 'path' parameter")
@@ -273,36 +204,34 @@ class BranchHandler(BaseAPIHandler):
                 self.handler.send_error(404, f"Store path does not exist: {store_path}")
                 return
 
-            # Create branch
-            subprocess.run(
-                ["git", "branch", branch_name, from_ref],
-                cwd=store_path,
-                check=True,
-                capture_output=True,
-            )
+            service = BranchService(store_path)
+            create_result = service.create_branch(branch_name, from_ref=from_ref)
 
-            result = {
-                "success": True,
-                "message": f"Created branch '{branch_name}' from {from_ref}",
-                "branch": branch_name,
-            }
+            if create_result.success:
+                result = {
+                    "success": True,
+                    "message": f"Created branch '{branch_name}' from {from_ref}",
+                    "branch": branch_name,
+                }
 
-            self.handler.send_response(200)
-            self.handler.send_header("Content-Type", "application/json")
-            self.handler.send_header("Access-Control-Allow-Origin", "*")
-            self.handler.end_headers()
-            self.handler.wfile.write(json.dumps(result, indent=2).encode())
+                self.handler.send_response(200)
+                self.handler.send_header("Content-Type", "application/json")
+                self.handler.send_header("Access-Control-Allow-Origin", "*")
+                self.handler.end_headers()
+                self.handler.wfile.write(json.dumps(result, indent=2).encode())
+            else:
+                self.handler.send_error(
+                    500, create_result.error or "Failed to create branch"
+                )
 
-        except subprocess.CalledProcessError as e:
-            error_msg = e.stderr.decode("utf-8") if e.stderr else str(e)
-            self.handler.send_error(500, f"Failed to create branch: {error_msg}")
         except Exception as e:
             self.handler.send_error(500, f"Error creating branch: {e!s}")
 
     def handle_merge_branch_api(self):
         """Merge a branch into current branch."""
+        from memoir.services.branch_service import BranchService
+
         try:
-            # Read POST data
             content_length = int(self.handler.headers["Content-Length"])
             post_data = self.handler.rfile.read(content_length)
             data = json.loads(post_data.decode("utf-8"))
@@ -322,76 +251,38 @@ class BranchHandler(BaseAPIHandler):
                 self.handler.send_error(404, f"Store path does not exist: {store_path}")
                 return
 
-            # Get current branch
-            current_result = subprocess.run(
-                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                cwd=store_path,
-                capture_output=True,
-                text=True,
-            )
-            current_branch = current_result.stdout.strip()
+            service = BranchService(store_path)
+            merge_result = service.merge(source_branch)
 
-            # Perform merge
-            merge_result = subprocess.run(
-                [
-                    "git",
-                    "merge",
-                    source_branch,
-                    "--no-ff",
-                    "-m",
-                    f"Merge branch '{source_branch}' into {current_branch}",
-                ],
-                cwd=store_path,
-                capture_output=True,
-                text=True,
-            )
+            if merge_result.success:
+                result = {
+                    "success": True,
+                    "message": merge_result.message,
+                    "target_branch": merge_result.target_branch,
+                    "source_branch": merge_result.source_branch,
+                }
 
-            if merge_result.returncode != 0:
-                # Check for conflicts
-                if (
-                    "conflict" in merge_result.stdout.lower()
-                    or "conflict" in merge_result.stderr.lower()
-                ):
-                    # Abort the merge
-                    subprocess.run(
-                        ["git", "merge", "--abort"],
-                        cwd=store_path,
-                        capture_output=True,
-                    )
+                self.handler.send_response(200)
+                self.handler.send_header("Content-Type", "application/json")
+                self.handler.send_header("Access-Control-Allow-Origin", "*")
+                self.handler.end_headers()
+                self.handler.wfile.write(json.dumps(result, indent=2).encode())
+            else:
+                if merge_result.conflicts:
                     self.handler.send_error(
                         409, "Merge conflict detected. Please resolve manually."
                     )
-                    return
                 else:
-                    raise subprocess.CalledProcessError(
-                        merge_result.returncode,
-                        "git merge",
-                        stderr=merge_result.stderr.encode(),
-                    )
+                    self.handler.send_error(500, merge_result.error or "Merge failed")
 
-            result = {
-                "success": True,
-                "message": f"Successfully merged '{source_branch}' into '{current_branch}'",
-                "target_branch": current_branch,
-                "source_branch": source_branch,
-            }
-
-            self.handler.send_response(200)
-            self.handler.send_header("Content-Type", "application/json")
-            self.handler.send_header("Access-Control-Allow-Origin", "*")
-            self.handler.end_headers()
-            self.handler.wfile.write(json.dumps(result, indent=2).encode())
-
-        except subprocess.CalledProcessError as e:
-            error_msg = e.stderr.decode("utf-8") if e.stderr else str(e)
-            self.handler.send_error(500, f"Merge failed: {error_msg}")
         except Exception as e:
             self.handler.send_error(500, f"Error during merge: {e!s}")
 
     def handle_delete_branch_api(self):
         """Delete a branch."""
+        from memoir.services.branch_service import BranchService
+
         try:
-            # Read POST data
             content_length = int(self.handler.headers["Content-Length"])
             post_data = self.handler.rfile.read(content_length)
             data = json.loads(post_data.decode("utf-8"))
@@ -412,52 +303,32 @@ class BranchHandler(BaseAPIHandler):
                 self.handler.send_error(404, f"Store path does not exist: {store_path}")
                 return
 
-            # Check if trying to delete current branch
-            current_result = subprocess.run(
-                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                cwd=store_path,
-                capture_output=True,
-                text=True,
-            )
-            current_branch = current_result.stdout.strip()
+            service = BranchService(store_path)
+            delete_result = service.delete_branch(branch_name, force=force)
 
-            if current_branch == branch_name:
-                self.handler.send_error(
-                    400,
-                    f"Cannot delete current branch '{branch_name}'. Switch to another branch first.",
-                )
-                return
+            if delete_result.success:
+                result = {
+                    "success": True,
+                    "message": f"Deleted branch '{branch_name}'",
+                    "branch": branch_name,
+                }
 
-            # Delete the branch
-            delete_flag = "-D" if force else "-d"
-            subprocess.run(
-                ["git", "branch", delete_flag, branch_name],
-                cwd=store_path,
-                check=True,
-                capture_output=True,
-            )
-
-            result = {
-                "success": True,
-                "message": f"Deleted branch '{branch_name}'",
-                "branch": branch_name,
-            }
-
-            self.handler.send_response(200)
-            self.handler.send_header("Content-Type", "application/json")
-            self.handler.send_header("Access-Control-Allow-Origin", "*")
-            self.handler.end_headers()
-            self.handler.wfile.write(json.dumps(result, indent=2).encode())
-
-        except subprocess.CalledProcessError as e:
-            error_msg = e.stderr.decode("utf-8") if e.stderr else str(e)
-            if "not fully merged" in error_msg:
-                self.handler.send_error(
-                    400,
-                    f"Branch '{branch_name}' is not fully merged. Use force=true to delete anyway.",
-                )
+                self.handler.send_response(200)
+                self.handler.send_header("Content-Type", "application/json")
+                self.handler.send_header("Access-Control-Allow-Origin", "*")
+                self.handler.end_headers()
+                self.handler.wfile.write(json.dumps(result, indent=2).encode())
             else:
-                self.handler.send_error(500, f"Failed to delete branch: {error_msg}")
+                if "not fully merged" in (delete_result.error or ""):
+                    self.handler.send_error(
+                        400,
+                        f"Branch '{branch_name}' is not fully merged. Use force=true to delete anyway.",
+                    )
+                else:
+                    self.handler.send_error(
+                        500, delete_result.error or "Failed to delete branch"
+                    )
+
         except Exception as e:
             self.handler.send_error(500, f"Error deleting branch: {e!s}")
 

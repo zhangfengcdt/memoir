@@ -35,6 +35,7 @@ dependencies = [
 
 [project.scripts]
 memoir = "memoir.cli.main:main"
+memoir-mcp = "memoir.mcp.server:main"
 
 [project.optional-dependencies]
 dev = [
