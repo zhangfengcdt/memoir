@@ -14,14 +14,19 @@
 
 Memoir brings Git-like version control to AI memory systems. Just as Git revolutionized software development by making code history transparent and reliable, Memoir transforms AI memory from unversioned, mutable storage into a versioned, auditable, and cryptographically secure system.
 
-## Features
+## Why Memoir
 
-- **Version Control**: Complete memory history with branching, merging, and rollback
-- **Cryptographic Integrity**: SHA-256 hashing ensures memory state authenticity
-- **Semantic Organization**: Hierarchical paths like `profile.skills.python` instead of UUIDs
-- **Intelligent Classification**: LLM-powered automatic memory categorization
-- **Time-travel Queries**: View AI memory as it existed at any point in time
-- **Multiple Interfaces**: CLI, interactive TUI, Web UI, Python SDK, and MCP server
+Long-running AI agents like Claude Code, OpenClaw, and LangGraph-based systems need persistent memory. Current approaches rely on flat files (Memory.md, CLAUDE.md), rolling logs, or ad-hoc storage - fine for simple cases, but inadequate for production multi-agent systems where memory conflicts, state corruption, and debugging complexity become real problems.
+
+Memoir brings engineering rigor to agent memory:
+
+- **Version Control for Agent Memory**: Branch experimental strategies, rollback bad states, merge successful approaches - the same workflow that made collaborative software development reliable
+- **Semantic Paths over Flat Files**: Replace unstructured Memory.md files with hierarchical paths like `user.preferences.coding_style` that agents can query precisely
+- **Automatic Organization**: LLM-powered classification so agents store memories without manual path management
+- **Debuggable History**: Time-travel queries let you understand why an agent behaved a certain way by viewing its memory at any point
+- **Agent-Native Interfaces**: CLI and SDK for agent integration, TUI and Web UI for human inspection, MCP server for any MCP-compatible client
+- **KV-Cache Friendly**: Structured, consistent memory format enables KV-cache aware prompting to reduce inference costs and latency
+- **Multi-Agent Coordination**: Shared memory with cryptographic integrity enables multiple agents to collaborate on the same knowledge base safely
 
 ## Installation
 
@@ -161,14 +166,14 @@ results = client.recall_sync("preferences")
 
 ### MCP Server
 
-For integration with Claude Desktop and other MCP-compatible tools:
+For integration with MCP-compatible clients:
 
 ```bash
 export MEMOIR_STORE=/path/to/store
 memoir-mcp
 ```
 
-Configure in Claude Desktop's MCP settings to enable memoir tools.
+Add to your MCP client configuration to enable memoir tools.
 
 ## Development
 
