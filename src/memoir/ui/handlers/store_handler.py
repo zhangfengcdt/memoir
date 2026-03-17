@@ -1,15 +1,13 @@
 """
 Store handler for memory store operations.
+
+Delegates to StoreService for business logic.
 """
 
-import sys
 from pathlib import Path
 from urllib.parse import parse_qs
 
 from .api_handler import BaseAPIHandler
-
-# Add parent directories to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 
 class StoreHandler(BaseAPIHandler):
@@ -17,9 +15,7 @@ class StoreHandler(BaseAPIHandler):
 
     def handle_store_api(self, parsed_path):
         """Handle API requests for memory store data."""
-        import json
-        import sys
-        from pathlib import Path
+        from memoir.services.store_service import StoreService
 
         query_params = parse_qs(parsed_path.query)
         store_path = query_params.get("path", [None])[0]
@@ -33,26 +29,17 @@ class StoreHandler(BaseAPIHandler):
             return
 
         try:
-            # Use the memory_store_reader to get complete data
-            sys.path.append(str(Path(__file__).parent.parent))
-            from reader import read_store_data
-
-            data_json = read_store_data(store_path)
-            data = json.loads(data_json)
-
-            # Send response using base handler utility
+            service = StoreService(store_path)
+            data = service.read_store()
             self.send_json_response(data)
-
         except Exception as e:
             self.send_error_response(str(e))
 
     def handle_new_api(self):
         """Handle /new command to create a new git repository and initialize memory store."""
-        import subprocess
-        from pathlib import Path
+        from memoir.services.store_service import StoreService
 
         try:
-            # Get POST data using base handler utility
             data = self.get_post_data()
 
             store_path = data.get("path")
@@ -60,77 +47,19 @@ class StoreHandler(BaseAPIHandler):
                 self.send_error_response("Missing 'path' parameter", 400)
                 return
 
-            # Validate and normalize the path
-            path = Path(store_path).expanduser().resolve()
+            service = StoreService()
+            result = service.create_store(store_path)
 
-            # Check if path is writable by trying to create parent directories
-            try:
-                path.mkdir(parents=True, exist_ok=True)
-            except PermissionError:
-                self.send_error_response(
-                    f"Permission denied: Cannot create directory at {path}", 400
+            if result.success:
+                self.send_json_response(
+                    {
+                        "success": True,
+                        "path": result.path,
+                        "message": result.message,
+                    }
                 )
-                return
-            except OSError as e:
-                self.send_error_response(f"Invalid path: {e}", 400)
-                return
-
-            # Verify we can write to this directory
-            try:
-                test_file = path / ".write_test"
-                test_file.touch()
-                test_file.unlink()
-            except (PermissionError, OSError) as e:
-                self.send_error_response(f"Directory not writable: {path} - {e}", 400)
-                return
-
-            # Initialize git repository
-            git_path = path / ".git"
-            if not git_path.exists():
-                subprocess.run(
-                    ["git", "init"], cwd=path, check=True, capture_output=True
-                )
-
-            # Create data directory
-            data_path = path / "data"
-            data_path.mkdir(exist_ok=True)
-
-            # Skip VersionedKvStore initialization for now - ProllyTreeStore will handle it
-            # The store will be properly initialized when first used
-
-            # Create initial commit
-            subprocess.run(
-                ["git", "add", "."], cwd=path, check=True, capture_output=True
-            )
-
-            # Check if there are any changes to commit
-            status_result = subprocess.run(
-                ["git", "status", "--porcelain"],
-                cwd=path,
-                capture_output=True,
-                text=True,
-            )
-
-            if status_result.stdout.strip():
-                subprocess.run(
-                    ["git", "commit", "-m", "Initial commit"],
-                    cwd=path,
-                    check=True,
-                    capture_output=True,
-                )
-                commit_message = "Initial commit created"
             else:
-                commit_message = "Repository already initialized"
-
-            result = {
-                "success": True,
-                "path": str(path),
-                "message": f"Memory store initialized at {path}",
-                "commit": commit_message,
-            }
-
-            # Send response using base handler utility
-            self.send_json_response(result)
+                self.send_error_response(result.error or "Failed to create store", 400)
 
         except Exception as e:
             self.send_error_response(f"Error creating memory store: {e!s}")

@@ -30,7 +30,12 @@ dependencies = [
     "langgraph>=0.6.0",
     "pydantic>=2.0.0",
     "typing-extensions>=4.0.0",
+    "click>=8.0.0",
 ]
+
+[project.scripts]
+memoir = "memoir.cli.main:main"
+memoir-mcp = "memoir.mcp.server:main"
 
 [project.optional-dependencies]
 dev = [
@@ -55,6 +60,16 @@ docs = [
     "sphinx-autodoc-typehints>=1.24.0",
     "sphinx-autobuild>=2021.3.14",
     "myst-parser>=2.0.0",
+]
+
+tui = [
+    "textual>=3.0.0",
+    "rich>=13.0.0",
+]
+
+all = [
+    "textual>=3.0.0",
+    "rich>=13.0.0",
 ]
 
 [project.urls]

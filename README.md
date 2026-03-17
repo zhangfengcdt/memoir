@@ -9,284 +9,198 @@
 </div>
 
 [![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://python.org)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 [![Status](https://img.shields.io/badge/Status-Alpha-orange.svg)]()
 
-## Overview
+Memoir brings Git-like version control to AI memory systems. Just as Git revolutionized software development by making code history transparent and reliable, Memoir transforms AI memory from unversioned, mutable storage into a versioned, auditable, and cryptographically secure system.
 
-Memoir brings Git-like version control to AI memory systems. Just as Git revolutionized software development by making code history transparent and reliable, Memoir transforms AI memory from a "black box" into a versioned, auditable, and cryptographically secure system.
+## Why Memoir
 
-**The Problem**: Current AI systems have no memory version history, lack integrity checks, and provide no audit trails for critical decisions.
+Long-running AI agents like Claude Code, OpenClaw, and LangGraph-based systems need persistent memory. Current approaches rely on flat files (Memory.md, CLAUDE.md), rolling logs, or ad-hoc storage - fine for simple cases, but inadequate for production multi-agent systems where memory conflicts, state corruption, and debugging complexity become real problems.
 
-**The Solution**: Memoir provides cryptographically hashed memory states, complete version history, and the ability to branch, merge, and rollback AI memory - making AI systems as reliable and transparent as modern software development.
+Memoir brings engineering rigor to agent memory:
 
-## Key Features
+- **Version Control for Agent Memory**: Branch experimental strategies, rollback bad states, merge successful approaches - the same workflow that made collaborative software development reliable
+- **Semantic Paths over Flat Files**: Replace unstructured Memory.md files with hierarchical paths like `user.preferences.coding_style` that agents can query precisely
+- **Automatic Organization**: LLM-powered classification so agents store memories without manual path management
+- **Debuggable History**: Time-travel queries let you understand why an agent behaved a certain way by viewing its memory at any point
+- **Agent-Native Interfaces**: CLI and SDK for agent integration, TUI and Web UI for human inspection, MCP server for any MCP-compatible client
+- **KV-Cache Friendly**: Structured, consistent memory format enables KV-cache aware prompting to reduce inference costs and latency
+- **Multi-Agent Coordination**: Shared memory with cryptographic integrity enables multiple agents to collaborate on the same knowledge base safely
 
-### Git-like Version Control
-- **Complete memory history**: Every change is tracked and versioned
-- **Cryptographic integrity**: SHA-256 hashing ensures memory state authenticity
-- **Time-travel queries**: View AI memory as it existed at any point in time
-- **Branching & merging**: Experiment safely with different AI strategies
-- **Audit trails**: Full transparency for regulatory compliance and debugging
+## Installation
 
-### Semantic Memory Organization
-- **Hierarchical paths**: `profile.professional.skills.technical.programming.python`
-- **Intelligent classification**: LLM-powered automatic memory categorization
-- **Deterministic keys**: Replace random UUIDs with meaningful semantic paths
-- **~800 predefined categories**: Comprehensive taxonomy for real-world use cases
-
-### Git for AI Memory: The Paradigm Shift
-
-Just as Git transformed software development from fragile, unversioned code to reliable, collaborative development, Memoir transforms AI memory from opaque, unreliable storage to transparent, versioned, and auditable systems.
-
-| Git Concept | Memoir Equivalent | Benefit |
-|-------------|-------------------|---------|
-| `git commit` | Memory state snapshot | Immutable history of AI decisions |
-| `git branch` | Memory state branching | Safe AI experimentation |
-| `git merge` | Memory state merging | Combine successful AI strategies |
-| `git log` | Memory history | Full audit trail for compliance |
-| `git diff` | Memory state comparison | See exactly what changed in AI memory |
-| `SHA-1 hash` | SHA-256 memory hash | Cryptographic integrity verification |
-
-### Core Components
-
-1. **ProllyTreeStore**: Git-like versioned storage with cryptographic integrity
-2. **IntelligentClassifier**: LLM-powered classification with dynamic taxonomy expansion
-3. **IntelligentSearchEngine**: Multi-strategy search with relevance scoring
-4. **ProllyTreeMemoryStoreManager**: Complete audit trails and branching capabilities
-5. **TaxonomyPresets**: Hierarchical organization of ~800 meaningful memory paths
-
-## Quick Start
-
-### Installation
-
-#### Option 1: Docker (Recommended for Testing)
+### From Source
 
 ```bash
-# Quick start with startup script
 git clone https://github.com/yourusername/memoir.git
 cd memoir
-./docker.sh start
-
-# Or run directly from docker/ folder
-cd docker
-./start-docker.sh start
-
-# Open browser to http://localhost:8080
+python -m venv venv
+source venv/bin/activate
+pip install -e ".[dev]"
 ```
 
-#### Option 2: Python Package
+### From PyPI
 
 ```bash
 pip install memoir
 ```
 
-#### Option 3: From Source
+## Usage
+
+Memoir provides multiple interfaces for different use cases.
+
+### Command Line Interface (CLI)
+
+Direct commands for scripting and automation:
 
 ```bash
-git clone https://github.com/yourusername/memoir.git
-cd memoir
+# Create a new memory store
+memoir new /path/to/store
 
-# Create and activate virtual environment (recommended)
-python -m venv venv
-source venv/bin/activate      # On Windows: venv\Scripts\activate
+# Connect and check status
+memoir status -s /path/to/store
 
-# Install with development dependencies
-pip install -e ".[dev]"
+# Store a memory
+memoir remember "I prefer dark mode" -s /path/to/store
+
+# Search memories
+memoir recall "preferences" -s /path/to/store
+
+# Branch operations
+memoir branch                     # List branches
+memoir branch experiment          # Create branch
+memoir checkout experiment        # Switch branch
+memoir commits                    # View history
 ```
 
-> 📋 **See [docker/README.md](./docker/README.md) for comprehensive Docker setup and usage guide**
->
-> **Quick Docker Test**: After starting with `./docker.sh start`, open http://localhost:8080 and try `/demo` to explore the interface with demo data.
+Set `MEMOIR_STORE` environment variable to avoid passing `-s` each time:
 
-### Basic Usage with Version Control
+```bash
+export MEMOIR_STORE=/path/to/store
+memoir status
+memoir remember "User prefers Python over JavaScript"
+memoir recall "programming"
+```
+
+Use `--json` flag for machine-readable output:
+
+```bash
+memoir status --json
+memoir recall "preferences" --json
+```
+
+### Interactive TUI
+
+A scrolling command-line interface for interactive sessions:
+
+```bash
+memoir tui
+memoir tui -c /path/to/store
+```
+
+Commands within the TUI:
+
+```
+/connect <path>   Connect to a memory store
+/new <path>       Create a new memory store
+/status           Show store status
+/remember <text>  Store a memory
+/recall <query>   Search memories
+/forget <key>     Delete a memory
+/branch [name]    List or create branches
+/checkout <ref>   Switch branch or commit
+/commits          Show commit history
+/help             Show available commands
+/quit             Exit
+```
+
+Aliases: `/con`, `/rem`, `/del`, `/br`, `/co`, `/log`, `/h`
+
+### Web UI
+
+Browser-based interface with visualization:
+
+```bash
+python -m memoir.ui.server
+```
+
+Open http://localhost:8080 in your browser. Use `/demo` command to explore with sample data.
+
+### Python SDK
+
+For integration into Python applications:
 
 ```python
-import asyncio
-from langchain_openai import ChatOpenAI
-from memoir import ProllyTreeMemoryStoreManager
-from memoir.classifier.intelligent import IntelligentClassifier
-from memoir.search.intelligent import IntelligentSearchEngine
-from memoir.store.prolly_adapter import ProllyTreeStore
-from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
+from memoir.sdk import MemoryClient
 
 async def main():
-    # Initialize LLM
-    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, max_tokens=500)
+    client = MemoryClient("/path/to/store")
 
-    # Create components with dependency injection
-    store = ProllyTreeStore(
-        path="./memory_store",
-        enable_versioning=True
-    )
+    # Store memory
+    result = await client.remember("User prefers dark mode")
+    print(f"Stored at: {result.key}")
 
-    classifier = IntelligentClassifier(
-        llm=llm,
-        taxonomy_version=TaxonomyVersion.GENERAL,
-        confidence_thresholds={
-            "high": 0.8,
-            "medium": 0.5,
-            "low": 0.0
-        }
-    )
+    # Search memories
+    results = await client.recall("preferences", limit=10)
+    for mem in results.memories:
+        print(f"{mem['path']}: {mem['content']}")
 
-    search_engine = IntelligentSearchEngine(llm=llm, store=store)
-
-    # Initialize memory manager with Git-like versioning
-    memory = ProllyTreeMemoryStoreManager(
-        prolly_store=store,
-        classifier=classifier,
-        search_engine=search_engine,
-        enable_versioning=True  # Git-like version control enabled
-    )
-
-    user_id = "user123"
-
-    # Store memories with automatic classification and versioning
-    semantic_key = await memory.store_memory(
-        content="I have 5 years of Python experience",
-        namespace=user_id,
-        auto_classify=True
-    )
-    # → Creates cryptographically verifiable memory commit
-    # → Automatically classified to: profile.professional.skills.technical.programming
-
-    # Store experimental memory on branch
-    branch_id = await memory.branch_memories(user_id, "experiment")
-
-    await memory.store_memory(
-        content="I'm learning Rust programming",
-        namespace=user_id,
-        auto_classify=True
-    )
-
-    # Search memories semantically
-    results = await memory.search_memories(
-        query="What programming skills do I have?",
-        namespace=user_id,
-        limit=5
-    )
-
-    # Time-travel: View memory versions
-    memory_versions = await memory.get_memory_versions(
-        semantic_key="profile.professional.skills",
-        namespace=user_id
-    )
-
-    print(f"Found {len(results)} current results")
-    for result in results:
-        print(f"Memory: {result.content}")
-        print(f"Path: {result.id}")
+    # Branch operations
+    client.branch.create("experiment")
+    client.branch.checkout("experiment")
+    branches = client.branch.list()
 
 if __name__ == "__main__":
+    import asyncio
     asyncio.run(main())
 ```
 
-### Advanced Version Control Operations
+Synchronous API is also available:
 
 ```python
-# Branch and merge operations (like Git)
-feature_branch_id = await memory.branch_memories(user_id, "feature_branch")
-
-# Store memories on feature branch
-await memory.store_memory(
-    content="New feature memory",
-    namespace=user_id,
-    auto_classify=True
-)
-
-# Merge back to main branch
-merge_result = await memory.merge_memories(
-    namespace=user_id,
-    source_branch="feature_branch",
-    target_branch="main",
-    strategy="union"
-)
-
-# Search with filters
-results = await memory.search_memories(
-    query="programming skills",
-    namespace=user_id,
-    limit=10,
-    filter={"confidence": {"$gte": 0.7}}
-)
-
-# Get performance metrics
-metrics = memory.get_performance_metrics()
-print(f"Average search time: {metrics.get('avg_search_time_ms', 0):.1f}ms")
+client = MemoryClient("/path/to/store")
+result = client.remember_sync("User prefers dark mode")
+results = client.recall_sync("preferences")
 ```
 
-### Alternative LLM Providers
+### MCP Server
 
-```python
-# OpenAI
-from langchain_openai import ChatOpenAI
-llm = ChatOpenAI(model="gpt-4", temperature=0)
+For integration with MCP-compatible clients:
 
-# Anthropic Claude
-from langchain_anthropic import ChatAnthropic
-llm = ChatAnthropic(model="claude-3-sonnet-20240229", temperature=0)
-
-# Then use with any classifier
-classifier = IntelligentClassifier(
-    llm=llm,
-    taxonomy_version=TaxonomyVersion.GENERAL
-)
+```bash
+export MEMOIR_STORE=/path/to/store
+memoir-mcp
 ```
 
-### Key API Methods with Version Control
-```python
-# Store memories with automatic classification and versioning
-semantic_key = await memory.store_memory(
-    content="Your memory content here",
-    namespace="user_id",
-    auto_classify=True,
-    metadata={"source": "conversation"}
-)
+Add to your MCP client configuration to enable memoir tools.
 
-# Search memories semantically
-results = await memory.search_memories(
-    query="Your search query",
-    namespace="user_id",
-    limit=10
-)
+## Development
 
-# Version control operations
-branch_id = await memory.branch_memories("user_id", "experiment")
-merge_result = await memory.merge_memories(
-    namespace="user_id",
-    source_branch="experiment",
-    target_branch="main"
-)
+```bash
+# Setup
+make setup
 
-# Time-travel: View memory versions
-versions = await memory.get_memory_versions(
-    semantic_key="profile.professional.skills",
-    namespace="user_id"
-)
+# Run tests
+make test
 
-# Compare memory states
-comparison = await memory.compare_memory_states(
-    namespace="user_id",
-    timestamp_1=1234567890,
-    timestamp_2=1234567900
-)
+# Lint and format
+make lint
+make format
+
+# Run all checks
+make ci
 ```
 
-## Contributing
+## Architecture
 
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+| Component | Description |
+|-----------|-------------|
+| ProllyTreeStore | Git-like versioned storage with cryptographic integrity |
+| IntelligentClassifier | LLM-powered classification with dynamic taxonomy |
+| IntelligentSearchEngine | Multi-strategy search with relevance scoring |
+| Services Layer | Shared business logic for all interfaces |
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) file.
-
----
-
-<div align="center">
-
-**🔄 Bring Git-like reliability to your AI memory systems!** 🔄
-
-*Make AI memory as transparent and trustworthy as your code*
-
-</div>
+Apache License 2.0 - see [LICENSE](LICENSE) file.
