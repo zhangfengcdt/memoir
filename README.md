@@ -90,6 +90,44 @@ memoir status --json
 memoir recall "preferences" --json
 ```
 
+### Agent Integration
+
+Memoir is designed for AI agent integration. Use `--machine-readable` (or `--json-schema`) to get the full CLI schema as JSON:
+
+```bash
+memoir --machine-readable
+```
+
+This outputs structured JSON with all commands, arguments, options, and exit codes - enabling agents to programmatically understand the CLI without parsing help text:
+
+```json
+{
+  "name": "memoir",
+  "version": "0.1.0",
+  "exit_codes": {"0": "success", "1": "error", "2": "not_found", "3": "no_store", "5": "git_failed"},
+  "env_vars": {"MEMOIR_STORE": "Default store path", "MEMOIR_JSON": "Always output JSON"},
+  "commands": {
+    "memory": [{"name": "remember", "arguments": [...], "options": [...]}],
+    "branch": [{"name": "checkout", "options": [{"flags": ["--create-if-missing"]}]}]
+  }
+}
+```
+
+Recommended agent setup:
+
+```bash
+# Set environment for JSON output
+export MEMOIR_STORE=/path/to/store
+export MEMOIR_JSON=1
+
+# Quick workflow
+memoir remember "learned fact"       # Returns JSON with key, confidence
+memoir recall "query" --limit 5      # Returns JSON with memories array
+memoir checkout context-branch --create-if-missing  # Auto-create context branches
+```
+
+Exit codes enable reliable error handling: `0` success, `1` error, `2` not found, `3` no store configured, `5` git operation failed.
+
 ### Interactive TUI
 
 A scrolling command-line interface for interactive sessions:
