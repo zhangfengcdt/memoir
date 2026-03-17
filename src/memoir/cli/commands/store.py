@@ -25,12 +25,19 @@ from memoir.cli.main import (
 def new(ctx: MemoirContext, path: str, connect: bool):
     """Create a new memory store.
 
-    Creates a git-initialized memory store at PATH.
+    INPUT: Path where the store should be created (will create directory).
+    OUTPUT: Confirmation with store path.
+
+    Creates a git-initialized memory store at PATH. By default, also
+    sets it as the default store (use --no-connect to skip).
 
     \b
     Examples:
-      memoir new /tmp/memories
-      memoir new ~/ai-memories --no-connect
+      memoir new /tmp/my-agent-memory
+      memoir new ~/memories --no-connect
+
+    \b
+    JSON output includes: path, success
     """
     from memoir.services.store_service import StoreService
 
@@ -55,12 +62,19 @@ def new(ctx: MemoirContext, path: str, connect: bool):
 def connect(ctx: MemoirContext, path: str):
     """Connect to an existing memory store.
 
-    Sets PATH as the default store for subsequent commands.
+    INPUT: Path to an existing memoir store (must have .git directory).
+    OUTPUT: Store status info (branch, memory count).
+
+    Sets PATH as the default store for subsequent commands. This is
+    saved to ~/.config/memoir/config.json. Alternative: set MEMOIR_STORE env var.
 
     \b
     Examples:
       memoir connect /tmp/memories
       memoir connect ~/ai-memories
+
+    \b
+    JSON output includes: path, branch, memory_count, namespaces
     """
     from pathlib import Path
 
@@ -97,12 +111,18 @@ def connect(ctx: MemoirContext, path: str):
 def status(ctx: MemoirContext):
     """Show status of the connected memory store.
 
-    Displays branch, memory count, and other store information.
+    INPUT: None (uses connected store).
+    OUTPUT: Store info including path, branch, memory count, namespaces.
+
+    Use this to verify connection and check store health before operations.
 
     \b
     Examples:
       memoir status
-      memoir --json status
+      memoir status --json
+
+    \b
+    JSON output includes: path, initialized, branch, commit_count, memory_count, namespaces
     """
     if not ctx.store_path:
         ctx.error(

@@ -9,7 +9,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 import click
 
@@ -20,6 +20,142 @@ EXIT_NOT_FOUND = 2
 EXIT_NO_STORE = 3
 EXIT_CLASSIFICATION_FAILED = 4
 EXIT_GIT_FAILED = 5
+
+
+def get_command_schema(cmd: click.Command, name: str) -> dict[str, Any]:
+    """Extract schema from a Click command for machine-readable output."""
+    schema: dict[str, Any] = {
+        "name": name,
+        "description": cmd.help.split("\n")[0] if cmd.help else None,
+    }
+
+    # Extract full help if available (for detailed docs)
+    if cmd.help:
+        # Parse INPUT/OUTPUT sections if present
+        help_text = cmd.help
+        if "INPUT:" in help_text:
+            input_start = help_text.find("INPUT:")
+            input_end = help_text.find("OUTPUT:", input_start)
+            if input_end == -1:
+                input_end = help_text.find("\n\n", input_start)
+            if input_end == -1:
+                input_end = len(help_text)
+            schema["input"] = help_text[input_start + 6 : input_end].strip()
+
+        if "OUTPUT:" in help_text:
+            output_start = help_text.find("OUTPUT:")
+            output_end = help_text.find("\n\n", output_start)
+            if output_end == -1:
+                output_end = len(help_text)
+            schema["output"] = help_text[output_start + 7 : output_end].strip()
+
+    # Extract arguments
+    arguments = []
+    for param in cmd.params:
+        if isinstance(param, click.Argument):
+            arguments.append(
+                {
+                    "name": param.name,
+                    "required": param.required,
+                    "type": (
+                        param.type.name if hasattr(param.type, "name") else "string"
+                    ),
+                }
+            )
+    if arguments:
+        schema["arguments"] = arguments
+
+    # Extract options
+    options = []
+    for param in cmd.params:
+        if isinstance(param, click.Option):
+            opt: dict[str, Any] = {
+                "name": param.name,
+                "flags": list(param.opts),
+                "required": param.required,
+                "is_flag": param.is_flag,
+            }
+            if param.help:
+                opt["description"] = param.help
+            # Only include default if it's a simple JSON-serializable type
+            if (
+                param.default is not None
+                and not param.is_flag
+                and isinstance(param.default, (str, int, float, bool, list, dict))
+            ):
+                opt["default"] = param.default
+            if param.envvar:
+                opt["env_var"] = param.envvar
+            options.append(opt)
+    if options:
+        schema["options"] = options
+
+    return schema
+
+
+def get_cli_schema(group: click.Group) -> dict[str, Any]:
+    """Extract full CLI schema for machine-readable output."""
+    schema: dict[str, Any] = {
+        "name": "memoir",
+        "description": "Git for AI Memory - versioned, semantic memory system for AI agents",
+        "version": None,
+        "exit_codes": {
+            "0": "success",
+            "1": "error",
+            "2": "not_found",
+            "3": "no_store",
+            "4": "classification_failed",
+            "5": "git_failed",
+        },
+        "env_vars": {
+            "MEMOIR_STORE": "Default store path",
+            "MEMOIR_JSON": "Always output JSON (set to 1)",
+            "MEMOIR_QUIET": "Suppress non-essential output (set to 1)",
+        },
+        "global_options": [],
+        "commands": {},
+    }
+
+    # Try to get version
+    try:
+        from importlib.metadata import version
+
+        schema["version"] = version("memoir")
+    except Exception:
+        pass
+
+    # Extract global options
+    for param in group.params:
+        if isinstance(param, click.Option):
+            opt: dict[str, Any] = {
+                "name": param.name,
+                "flags": list(param.opts),
+                "is_flag": param.is_flag,
+            }
+            if param.help:
+                opt["description"] = param.help
+            if param.envvar:
+                opt["env_var"] = param.envvar
+            schema["global_options"].append(opt)
+
+    # Extract commands by group
+    command_groups = {
+        "store": ["new", "connect", "status", "refresh"],
+        "memory": ["remember", "recall", "forget"],
+        "branch": ["branch", "checkout", "merge", "commits", "time-travel", "diff"],
+        "crypto": ["proof", "verify", "blame"],
+        "analysis": ["summarize", "timeline", "location"],
+        "utility": ["warmup", "code", "ui", "tui"],
+    }
+
+    for group_name, cmd_names in command_groups.items():
+        schema["commands"][group_name] = []
+        for cmd_name in cmd_names:
+            if cmd_name in group.commands:
+                cmd = group.commands[cmd_name]
+                schema["commands"][group_name].append(get_command_schema(cmd, cmd_name))
+
+    return schema
 
 
 def get_config_dir() -> Path:
@@ -109,6 +245,16 @@ class MemoirContext:
 pass_context = click.make_pass_decorator(MemoirContext, ensure=True)
 
 
+def print_machine_readable(ctx: click.Context, _param: click.Parameter, value: bool):
+    """Callback to print machine-readable CLI schema and exit."""
+    if not value or ctx.resilient_parsing:
+        return
+    # Import here to avoid circular import - cli is defined below
+    schema = get_cli_schema(ctx.command)  # type: ignore
+    click.echo(json.dumps(schema, indent=2))
+    ctx.exit()
+
+
 @click.group()
 @click.option(
     "-s",
@@ -136,6 +282,15 @@ pass_context = click.make_pass_decorator(MemoirContext, ensure=True)
     is_flag=True,
     help="Enable verbose output",
 )
+@click.option(
+    "--machine-readable",
+    "--json-schema",
+    is_flag=True,
+    is_eager=True,
+    expose_value=False,
+    callback=print_machine_readable,
+    help="Output CLI schema as JSON (for agents to parse commands)",
+)
 @click.version_option(package_name="memoir")
 @pass_context
 def cli(
@@ -147,20 +302,37 @@ def cli(
 ):
     """Memoir - Git for AI Memory.
 
-    Manage AI memories with semantic organization and version control.
+    A versioned, semantic memory system for AI agents. Memories are stored
+    with automatic classification into hierarchical paths (e.g., user.preferences.theme)
+    and full Git-like version control (branches, commits, time-travel).
 
     \b
-    Examples:
-      memoir new /tmp/memories          # Create new store
-      memoir connect /tmp/memories      # Set default store
-      memoir remember "User likes tea"  # Store a memory
-      memoir recall "preferences"       # Search memories
+    QUICK START FOR AGENTS:
+      1. memoir new /path/to/store      # Create store (once)
+      2. memoir connect /path/to/store  # Set as default
+      3. memoir remember "content"      # Store memories
+      4. memoir recall "query"          # Search memories
 
     \b
-    Environment Variables:
-      MEMOIR_STORE  Default store path
+    COMMAND GROUPS:
+      Store:    new, connect, status, refresh
+      Memory:   remember, recall, forget
+      Branch:   branch, checkout, merge, commits, time-travel, diff
+      Crypto:   proof, verify, blame
+      Analysis: summarize, timeline, location
+
+    \b
+    AGENT TIPS:
+      - Use --json flag for machine-readable output
+      - Set MEMOIR_STORE env var to avoid -s flag on every command
+      - Use 'checkout --create-if-missing' for auto-creating context branches
+      - Exit codes: 0=success, 1=error, 2=not found, 3=no store, 5=git error
+
+    \b
+    ENVIRONMENT VARIABLES:
+      MEMOIR_STORE  Default store path (recommended for agents)
       MEMOIR_JSON   Always output JSON (set to 1)
-      MEMOIR_QUIET  Suppress output (set to 1)
+      MEMOIR_QUIET  Suppress non-essential output (set to 1)
     """
     ctx.store_path = store or load_default_store()
     ctx.json_output = json_output
