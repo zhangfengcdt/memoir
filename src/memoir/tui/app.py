@@ -42,6 +42,75 @@ ALIASES = {
     "/search": "/recall",
 }
 
+# Color themes
+THEMES = {
+    "default": {
+        "name": "Default",
+        "prompt_path": "\033[36m",  # Cyan
+        "prompt_branch": "\033[33m",  # Yellow
+        "reset": "\033[0m",
+        "success": "green",
+        "error": "red",
+        "info": "blue",
+        "warning": "yellow",
+        "dim": "dim",
+        "bold": "bold",
+        "highlight": "cyan",
+    },
+    "ocean": {
+        "name": "Ocean",
+        "prompt_path": "\033[34m",  # Blue
+        "prompt_branch": "\033[36m",  # Cyan
+        "reset": "\033[0m",
+        "success": "bright_cyan",
+        "error": "bright_red",
+        "info": "blue",
+        "warning": "bright_yellow",
+        "dim": "dim",
+        "bold": "bold",
+        "highlight": "bright_blue",
+    },
+    "forest": {
+        "name": "Forest",
+        "prompt_path": "\033[32m",  # Green
+        "prompt_branch": "\033[33m",  # Yellow
+        "reset": "\033[0m",
+        "success": "bright_green",
+        "error": "red",
+        "info": "green",
+        "warning": "yellow",
+        "dim": "dim",
+        "bold": "bold",
+        "highlight": "bright_green",
+    },
+    "mono": {
+        "name": "Mono",
+        "prompt_path": "\033[37m",  # White
+        "prompt_branch": "\033[90m",  # Gray
+        "reset": "\033[0m",
+        "success": "white",
+        "error": "bright_white",
+        "info": "white",
+        "warning": "bright_white",
+        "dim": "dim",
+        "bold": "bold",
+        "highlight": "white",
+    },
+    "sunset": {
+        "name": "Sunset",
+        "prompt_path": "\033[35m",  # Magenta
+        "prompt_branch": "\033[31m",  # Red
+        "reset": "\033[0m",
+        "success": "bright_magenta",
+        "error": "bright_red",
+        "info": "magenta",
+        "warning": "bright_yellow",
+        "dim": "dim",
+        "bold": "bold",
+        "highlight": "bright_magenta",
+    },
+}
+
 
 class MemoirCLI:
     """Memoir CLI - scrolling terminal interface."""
@@ -53,6 +122,8 @@ class MemoirCLI:
         self._store_service = None
         self.console = Console() if RICH_AVAILABLE else None
         self.running = True
+        self.theme_name = "default"
+        self.theme = THEMES["default"]
 
     def print(self, text: str = "", style: str | None = None, end: str = "\n"):
         """Print text, with optional Rich styling."""
@@ -63,21 +134,26 @@ class MemoirCLI:
 
     def print_error(self, text: str):
         """Print error message."""
-        self.print(f"✗ {text}", style="red")
+        self.print(f"✗ {text}", style=self.theme["error"])
 
     def print_success(self, text: str):
         """Print success message."""
-        self.print(f"✓ {text}", style="green")
+        self.print(f"✓ {text}", style=self.theme["success"])
 
     def print_dim(self, text: str):
         """Print dimmed text."""
-        self.print(text, style="dim")
+        self.print(text, style=self.theme["dim"])
+
+    def print_highlight(self, text: str):
+        """Print highlighted text."""
+        self.print(text, style=self.theme["highlight"])
 
     def _get_prompt(self) -> str:
         """Get the prompt string."""
         if self.store_path:
             branch = self._get_current_branch()
-            return f"\033[36m{Path(self.store_path).name}\033[0m \033[33m({branch})\033[0m > "
+            t = self.theme
+            return f"{t['prompt_path']}{Path(self.store_path).name}{t['reset']} {t['prompt_branch']}({branch}){t['reset']} > "
         return "> "
 
     def _get_current_branch(self) -> str:
@@ -206,6 +282,8 @@ class MemoirCLI:
                 )
             elif cmd == "/template":
                 self._placeholder_command("template", "Generate prompt templates")
+            elif cmd == "/theme":
+                self._cmd_theme(args)
             elif cmd == "/quit" or cmd == "/exit":
                 self.running = False
                 self.print("Bye!")
@@ -218,7 +296,7 @@ class MemoirCLI:
     def _show_help(self) -> None:
         """Show help message."""
         self.print()
-        self.print("Memory Commands:", style="bold")
+        self.print("Memory Commands:", style=self.theme["bold"])
         self.print("  /connect <path>    Connect to a memory store")
         self.print("  /new <path>        Create a new memory store")
         self.print("  /status            Show store status")
@@ -226,7 +304,7 @@ class MemoirCLI:
         self.print("  /recall <query>    Search memories")
         self.print("  /forget <key>      Delete a memory")
         self.print()
-        self.print("Branch Commands:", style="bold")
+        self.print("Branch Commands:", style=self.theme["bold"])
         self.print("  /branch [name]     List or create branches")
         self.print("  /checkout <ref>    Switch branch/commit")
         self.print("  /merge <branch>    Merge branch into current")
@@ -234,17 +312,20 @@ class MemoirCLI:
         self.print("  /time-travel <ref> Travel to commit and create branch")
         self.print("  /diff [c1] [c2]    Compare commits")
         self.print()
-        self.print("Crypto Commands:", style="bold")
+        self.print("Crypto Commands:", style=self.theme["bold"])
         self.print("  /proof <path>      Generate cryptographic proof")
         self.print("  /verify <proof>    Verify a proof")
         self.print("  /blame <key>       Show blame history for key")
         self.print()
-        self.print("Analysis Commands:", style="bold")
+        self.print("Analysis Commands:", style=self.theme["bold"])
         self.print("  /summarize [type]  Summarize memories (all/taxonomy/timeline)")
         self.print("  /timeline [event]  Show or add timeline events")
         self.print("  /location [event]  Show or add location events")
         self.print()
-        self.print("Other:", style="bold")
+        self.print("Settings:", style=self.theme["bold"])
+        self.print(
+            "  /theme [name]      Change color theme (default/ocean/forest/mono/sunset)"
+        )
         self.print("  /help              Show this help")
         self.print("  /quit              Exit")
         self.print()
@@ -315,7 +396,7 @@ class MemoirCLI:
         info = service.get_status()
 
         self.print()
-        self.print("Store Status", style="bold")
+        self.print("Store Status", style=self.theme["bold"])
         self.print(f"  Path: {info.path}")
         self.print(f"  Branch: {info.branch or 'N/A'}")
         self.print(f"  Commits: {info.commit_count or 0}")
@@ -362,11 +443,11 @@ class MemoirCLI:
         result = await service.recall(query, limit=10)
 
         if not result.memories:
-            self.print("No memories found", style="yellow")
+            self.print("No memories found", style=self.theme["warning"])
             return
 
         self.print()
-        self.print(f"Found {len(result.memories)} memories:", style="bold")
+        self.print(f"Found {len(result.memories)} memories:", style=self.theme["bold"])
         for i, mem in enumerate(result.memories, 1):
             path = mem.get("path", mem.get("key", "unknown"))
             content = mem.get("content", mem.get("value", ""))
@@ -375,7 +456,7 @@ class MemoirCLI:
             if len(str(content)) > 60:
                 content = str(content)[:60] + "..."
 
-            self.print(f"  [{i}] {path}", style="green")
+            self.print(f"  [{i}] {path}", style=self.theme["highlight"])
             self.print(f"      {content} ({score:.2f})")
 
         self.print_dim(f"\nSearch took {result.timing_ms:.1f}ms")
@@ -418,10 +499,10 @@ class MemoirCLI:
             # List branches
             info = service.list_branches()
             self.print()
-            self.print("Branches:", style="bold")
+            self.print("Branches:", style=self.theme["bold"])
             for branch in info.branches:
                 if branch == info.current:
-                    self.print(f"  * {branch}", style="green")
+                    self.print(f"  * {branch}", style=self.theme["highlight"])
                 else:
                     self.print(f"    {branch}")
             self.print()
@@ -747,9 +828,36 @@ class MemoirCLI:
         except Exception as e:
             self.print_error(str(e))
 
+    def _cmd_theme(self, theme_name: str) -> None:
+        """Change color theme."""
+        if not theme_name:
+            # Show available themes
+            self.print()
+            self.print("Available themes:", style=self.theme["bold"])
+            for name, theme in THEMES.items():
+                if name == self.theme_name:
+                    self.print(
+                        f"  * {name} ({theme['name']})", style=self.theme["success"]
+                    )
+                else:
+                    self.print(f"    {name} ({theme['name']})")
+            self.print()
+            self.print_dim("Usage: /theme <name>")
+            return
+
+        theme_name = theme_name.lower().strip()
+        if theme_name not in THEMES:
+            self.print_error(f"Unknown theme: {theme_name}")
+            self.print_dim(f"Available: {', '.join(THEMES.keys())}")
+            return
+
+        self.theme_name = theme_name
+        self.theme = THEMES[theme_name]
+        self.print_success(f"Theme changed to: {self.theme['name']}")
+
     def _placeholder_command(self, name: str, description: str) -> None:
         """Show placeholder message for unimplemented commands."""
-        self.print(f"/{name} - {description}", style="yellow")
+        self.print(f"/{name} - {description}", style=self.theme["warning"])
         self.print_dim("Coming soon...")
 
     def _get_crypto_service(self):

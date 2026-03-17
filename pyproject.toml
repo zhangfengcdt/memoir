@@ -80,7 +80,7 @@ Issues = "https://github.com/yourusername/memoir/issues"
 
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = "-ra -q --tb=short"
+addopts = "-ra -q --tb=short -W ignore::DeprecationWarning"
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]

@@ -42,10 +42,10 @@ clean:
 	find . -type f -name "*.pyc" -delete
 
 test:
-	pytest tests/ -v
+	pytest tests/ -v -W "ignore::DeprecationWarning"
 
 test-cov:
-	pytest tests/ -v --cov=memoir --cov-report=html --cov-report=term-missing
+	pytest tests/ -v -W "ignore::DeprecationWarning" --cov=memoir --cov-report=html --cov-report=term-missing
 
 lint:
 	ruff check src/ tests/ examples/
