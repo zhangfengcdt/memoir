@@ -34,6 +34,12 @@ ALIASES = {
     "/log": "/commits",
     "/h": "/help",
     "/?": "/help",
+    "/tt": "/time-travel",
+    "/tl": "/timeline",
+    "/loc": "/location",
+    "/d": "/diff",
+    "/sum": "/summarize",
+    "/search": "/recall",
 }
 
 
@@ -153,6 +159,53 @@ class MemoirCLI:
                 await self._cmd_checkout(args)
             elif cmd == "/commits":
                 await self._cmd_commits(args)
+            elif cmd == "/merge":
+                await self._cmd_merge(args)
+            elif cmd == "/proof":
+                await self._cmd_proof(args)
+            elif cmd == "/verify":
+                await self._cmd_verify(args)
+            elif cmd == "/blame":
+                await self._cmd_blame(args)
+            elif cmd == "/time-travel":
+                await self._cmd_time_travel(args)
+            elif cmd == "/diff":
+                await self._cmd_diff(args)
+            elif cmd == "/summarize":
+                await self._cmd_summarize(args)
+            elif cmd == "/timeline":
+                await self._cmd_timeline(args)
+            elif cmd == "/location":
+                await self._cmd_location(args)
+            # Placeholder commands
+            elif cmd == "/import":
+                self._placeholder_command(
+                    "import", "Import conversations from JSON or TXT files"
+                )
+            elif cmd == "/eval":
+                self._placeholder_command(
+                    "eval", "Evaluate recall hit rate and answer quality"
+                )
+            elif cmd == "/organize":
+                self._placeholder_command(
+                    "organize", "Reorganize and optimize memory taxonomy"
+                )
+            elif cmd == "/inspect":
+                self._placeholder_command(
+                    "inspect", "Deep dive into a specific memory path"
+                )
+            elif cmd == "/benchmark":
+                self._placeholder_command("benchmark", "Run performance benchmarks")
+            elif cmd == "/export":
+                self._placeholder_command("export", "Export memories to JSON/CSV")
+            elif cmd == "/compare-stores":
+                self._placeholder_command("compare-stores", "Compare two memory stores")
+            elif cmd == "/replay":
+                self._placeholder_command(
+                    "replay", "Replay agent interactions with memory"
+                )
+            elif cmd == "/template":
+                self._placeholder_command("template", "Generate prompt templates")
             elif cmd == "/quit" or cmd == "/exit":
                 self.running = False
                 self.print("Bye!")
@@ -165,19 +218,39 @@ class MemoirCLI:
     def _show_help(self) -> None:
         """Show help message."""
         self.print()
-        self.print("Commands:", style="bold")
-        self.print("  /connect <path>  Connect to a memory store")
-        self.print("  /new <path>      Create a new memory store")
-        self.print("  /status          Show store status")
-        self.print("  /remember <text> Store a memory")
-        self.print("  /recall <query>  Search memories")
-        self.print("  /forget <key>    Delete a memory")
-        self.print("  /branch [name]   List or create branches")
-        self.print("  /checkout <ref>  Switch branch/commit")
-        self.print("  /commits         Show commit history")
-        self.print("  /quit            Exit")
+        self.print("Memory Commands:", style="bold")
+        self.print("  /connect <path>    Connect to a memory store")
+        self.print("  /new <path>        Create a new memory store")
+        self.print("  /status            Show store status")
+        self.print("  /remember <text>   Store a memory")
+        self.print("  /recall <query>    Search memories")
+        self.print("  /forget <key>      Delete a memory")
         self.print()
-        self.print_dim("Aliases: /con, /rem, /del, /br, /co, /log, /h")
+        self.print("Branch Commands:", style="bold")
+        self.print("  /branch [name]     List or create branches")
+        self.print("  /checkout <ref>    Switch branch/commit")
+        self.print("  /merge <branch>    Merge branch into current")
+        self.print("  /commits [n]       Show commit history")
+        self.print("  /time-travel <ref> Travel to commit and create branch")
+        self.print("  /diff [c1] [c2]    Compare commits")
+        self.print()
+        self.print("Crypto Commands:", style="bold")
+        self.print("  /proof <path>      Generate cryptographic proof")
+        self.print("  /verify <proof>    Verify a proof")
+        self.print("  /blame <key>       Show blame history for key")
+        self.print()
+        self.print("Analysis Commands:", style="bold")
+        self.print("  /summarize [type]  Summarize memories (all/taxonomy/timeline)")
+        self.print("  /timeline [event]  Show or add timeline events")
+        self.print("  /location [event]  Show or add location events")
+        self.print()
+        self.print("Other:", style="bold")
+        self.print("  /help              Show this help")
+        self.print("  /quit              Exit")
+        self.print()
+        self.print_dim(
+            "Aliases: /con, /rem, /del, /br, /co, /log, /tt, /tl, /loc, /d, /sum"
+        )
         self.print()
 
     async def _cmd_connect(self, path_str: str) -> None:
@@ -395,6 +468,297 @@ class MemoirCLI:
             self.print(f"  {commit.short_hash}", style="yellow", end="")
             self.print(f" {commit.message}")
         self.print()
+
+    async def _cmd_merge(self, source: str) -> None:
+        """Merge a branch into current."""
+        if not self.store_path:
+            self.print_error("No store connected")
+            return
+
+        if not source:
+            self.print_error("Usage: /merge <source-branch>")
+            return
+
+        service = self._get_branch_service()
+        result = service.merge(source)
+
+        if result.success:
+            self.print_success(f"Merged {source} into current branch")
+        else:
+            self.print_error(f"Failed: {result.error}")
+            if result.conflicts:
+                self.print("Conflicts:", style="yellow")
+                for conflict in result.conflicts:
+                    self.print(f"  {conflict}")
+
+    async def _cmd_proof(self, path: str) -> None:
+        """Generate cryptographic proof."""
+        if not self.store_path:
+            self.print_error("No store connected")
+            return
+
+        if not path:
+            self.print_error("Usage: /proof <memory-path>")
+            return
+
+        try:
+            service = self._get_crypto_service()
+            result = service.generate_proof(path)
+
+            if result.success:
+                self.print_success(f"Proof generated for: {path}")
+                self.print(f"  Proof: {result.proof_b64[:50]}...")
+                self.print(f"  Key: {result.key}")
+                self.print(f"  Namespace: {result.namespace}")
+            else:
+                self.print_error(f"Failed: {result.error}")
+        except Exception as e:
+            self.print_error(str(e))
+
+    async def _cmd_verify(self, args: str) -> None:
+        """Verify a cryptographic proof."""
+        if not self.store_path:
+            self.print_error("No store connected")
+            return
+
+        if not args:
+            self.print_error("Usage: /verify <proof> <key> [namespace]")
+            return
+
+        parts = args.split()
+        if len(parts) < 2:
+            self.print_error("Usage: /verify <proof> <key> [namespace]")
+            return
+
+        proof = parts[0]
+        key = parts[1]
+        namespace = parts[2] if len(parts) > 2 else "default"
+
+        try:
+            service = self._get_crypto_service()
+            result = service.verify_proof(proof, key, namespace)
+
+            if result.valid:
+                self.print_success("Proof is VALID")
+                self.print(f"  Key: {key}")
+                self.print(f"  Namespace: {namespace}")
+            else:
+                self.print_error("Proof is INVALID")
+                if result.reason:
+                    self.print(f"  Reason: {result.reason}")
+        except Exception as e:
+            self.print_error(str(e))
+
+    async def _cmd_blame(self, key: str) -> None:
+        """Show blame history for a key."""
+        if not self.store_path:
+            self.print_error("No store connected")
+            return
+
+        if not key:
+            self.print_error("Usage: /blame <key>")
+            return
+
+        try:
+            service = self._get_crypto_service()
+            blame_info = service.get_blame(key)
+
+            if not blame_info:
+                self.print("No history found for key", style="yellow")
+                return
+
+            self.print()
+            self.print(f"Blame for: {key}", style="bold")
+            for entry in blame_info:
+                self.print(
+                    f"  {entry.get('commit', 'N/A')[:8]}", style="yellow", end=""
+                )
+                self.print(f" {entry.get('author', 'Unknown')}", end="")
+                self.print(f" - {entry.get('message', 'No message')}")
+            self.print()
+        except Exception as e:
+            self.print_error(str(e))
+
+    async def _cmd_time_travel(self, target: str) -> None:
+        """Time travel to a commit and create a branch."""
+        if not self.store_path:
+            self.print_error("No store connected")
+            return
+
+        if not target:
+            self.print_error("Usage: /time-travel <commit-hash>")
+            return
+
+        try:
+            service = self._get_branch_service()
+            # Create a branch at the target commit
+            branch_name = f"time-travel-{target[:8]}"
+            result = service.checkout(target, create=True)
+
+            if result.success:
+                self.print_success(f"Time traveled to {target[:8]}")
+                self.print(f"  Created branch: {branch_name}")
+            else:
+                self.print_error(f"Failed: {result.error}")
+        except Exception as e:
+            self.print_error(str(e))
+
+    async def _cmd_diff(self, args: str) -> None:
+        """Show diff between commits."""
+        if not self.store_path:
+            self.print_error("No store connected")
+            return
+
+        try:
+            service = self._get_branch_service()
+            parts = args.split() if args else []
+
+            if len(parts) == 0:
+                # Diff current vs last commit
+                diff = service.get_diff("HEAD~1", "HEAD")
+            elif len(parts) == 1:
+                # Diff specified commit vs HEAD
+                diff = service.get_diff(parts[0], "HEAD")
+            else:
+                # Diff between two commits
+                diff = service.get_diff(parts[0], parts[1])
+
+            if not diff:
+                self.print("No differences found", style="yellow")
+                return
+
+            self.print()
+            self.print("Diff:", style="bold")
+            for line in diff.split("\n")[:50]:  # Limit output
+                if line.startswith("+"):
+                    self.print(f"  {line}", style="green")
+                elif line.startswith("-"):
+                    self.print(f"  {line}", style="red")
+                else:
+                    self.print(f"  {line}")
+            self.print()
+        except Exception as e:
+            self.print_error(str(e))
+
+    async def _cmd_summarize(self, args: str) -> None:
+        """Summarize memories."""
+        if not self.store_path:
+            self.print_error("No store connected")
+            return
+
+        summary_type = args.lower() if args else "all"
+
+        try:
+            service = self._get_store_service()
+            data = service.read_store()
+
+            self.print()
+            self.print(f"Memory Summary ({summary_type}):", style="bold")
+
+            namespaces = data.get("namespaces", {})
+            total_memories = sum(len(keys) for keys in namespaces.values())
+
+            self.print(f"  Total namespaces: {len(namespaces)}")
+            self.print(f"  Total memories: {total_memories}")
+
+            if summary_type in ("all", "taxonomy"):
+                self.print()
+                self.print("  By namespace:", style="bold")
+                for ns, keys in namespaces.items():
+                    self.print(f"    {ns}: {len(keys)} memories")
+
+            self.print()
+        except Exception as e:
+            self.print_error(str(e))
+
+    async def _cmd_timeline(self, args: str) -> None:
+        """Show or add timeline events."""
+        if not self.store_path:
+            self.print_error("No store connected")
+            return
+
+        try:
+            service = self._get_store_service()
+            data = service.read_store()
+
+            if args:
+                # Add timeline event
+                self.print_dim("Adding timeline event...")
+                # Parse: YYYY-MM-DD description
+                parts = args.split(maxsplit=1)
+                if len(parts) < 2:
+                    self.print_error("Usage: /timeline YYYY-MM-DD <description>")
+                    return
+                date, description = parts
+                memory_service = self._get_memory_service()
+                result = await memory_service.remember(
+                    f"Timeline event on {date}: {description}", "timeline"
+                )
+                if result.success:
+                    self.print_success(f"Added timeline event: {date}")
+                else:
+                    self.print_error(f"Failed: {result.error}")
+            else:
+                # Show timeline
+                timeline = data.get("namespaces", {}).get("timeline", [])
+                if not timeline:
+                    self.print("No timeline events found", style="yellow")
+                    return
+
+                self.print()
+                self.print("Timeline:", style="bold")
+                for event in timeline[:20]:
+                    self.print(f"  {event}")
+                self.print()
+        except Exception as e:
+            self.print_error(str(e))
+
+    async def _cmd_location(self, args: str) -> None:
+        """Show or add location events."""
+        if not self.store_path:
+            self.print_error("No store connected")
+            return
+
+        try:
+            service = self._get_store_service()
+            data = service.read_store()
+
+            if args:
+                # Add location event
+                self.print_dim("Adding location event...")
+                memory_service = self._get_memory_service()
+                result = await memory_service.remember(f"Location: {args}", "location")
+                if result.success:
+                    self.print_success(f"Added location: {args}")
+                else:
+                    self.print_error(f"Failed: {result.error}")
+            else:
+                # Show locations
+                locations = data.get("namespaces", {}).get("location", [])
+                if not locations:
+                    self.print("No location events found", style="yellow")
+                    return
+
+                self.print()
+                self.print("Locations:", style="bold")
+                for loc in locations[:20]:
+                    self.print(f"  {loc}")
+                self.print()
+        except Exception as e:
+            self.print_error(str(e))
+
+    def _placeholder_command(self, name: str, description: str) -> None:
+        """Show placeholder message for unimplemented commands."""
+        self.print(f"/{name} - {description}", style="yellow")
+        self.print_dim("Coming soon...")
+
+    def _get_crypto_service(self):
+        """Lazy load crypto service."""
+        if not hasattr(self, "_crypto_service") or self._crypto_service is None:
+            from memoir.services.crypto_service import CryptoService
+
+            self._crypto_service = CryptoService(self.store_path)
+        return self._crypto_service
 
     def _get_memory_service(self):
         """Lazy load memory service."""

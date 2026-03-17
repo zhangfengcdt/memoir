@@ -257,3 +257,124 @@ def commits(ctx: MemoirContext, limit: int, branch_name: str, oneline: bool):
 
     except Exception as e:
         ctx.error(f"Failed to get commits: {e}", EXIT_GIT_FAILED)
+
+
+@click.command("time-travel")
+@click.argument("target")
+@click.option("-b", "--branch", "branch_name", help="Name for the new branch")
+@pass_context
+def time_travel(ctx: MemoirContext, target: str, branch_name: str):
+    """Travel to a commit and create a branch.
+
+    Creates a new branch at the specified commit, allowing you
+    to explore or modify historical memory states.
+
+    \b
+    Examples:
+      memoir time-travel abc123f
+      memoir time-travel abc123f -b my-investigation
+    """
+    if not ctx.store_path:
+        ctx.error(
+            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
+        )
+
+    from memoir.services.branch_service import BranchService
+
+    service = BranchService(ctx.store_path)
+
+    try:
+        # Create branch name if not provided
+        if not branch_name:
+            branch_name = f"time-travel-{target[:8]}"
+
+        # Create branch at target commit
+        result = service.create_branch(branch_name, from_ref=target)
+
+        if result.success:
+            # Checkout the new branch
+            checkout_result = service.checkout(branch_name)
+            if checkout_result.success:
+                if ctx.json_output:
+                    ctx.output(
+                        {
+                            "success": True,
+                            "branch": branch_name,
+                            "target": target,
+                        }
+                    )
+                else:
+                    ctx.success(f"Time traveled to {target[:8]}")
+                    click.echo(f"  Created and switched to branch: {branch_name}")
+            else:
+                ctx.error(
+                    f"Created branch but checkout failed: {checkout_result.error}",
+                    EXIT_GIT_FAILED,
+                )
+        else:
+            ctx.error(
+                result.error or f"Failed to create branch at {target}", EXIT_GIT_FAILED
+            )
+
+    except Exception as e:
+        ctx.error(f"Time travel failed: {e}", EXIT_GIT_FAILED)
+
+
+@click.command()
+@click.argument("commit1", required=False)
+@click.argument("commit2", required=False)
+@click.option("--stat", is_flag=True, help="Show statistics only")
+@pass_context
+def diff(ctx: MemoirContext, commit1: str, commit2: str, stat: bool):
+    """Compare memory store between commits.
+
+    Without arguments, shows diff between HEAD and last commit.
+    With one argument, shows diff between that commit and HEAD.
+    With two arguments, shows diff between the two commits.
+
+    \b
+    Examples:
+      memoir diff                    # HEAD vs HEAD~1
+      memoir diff abc123f            # abc123f vs HEAD
+      memoir diff abc123f def456a    # abc123f vs def456a
+      memoir diff --stat             # Statistics only
+    """
+    if not ctx.store_path:
+        ctx.error(
+            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
+        )
+
+    from memoir.services.branch_service import BranchService
+
+    service = BranchService(ctx.store_path)
+
+    try:
+        # Determine commits to diff
+        if not commit1:
+            c1, c2 = "HEAD~1", "HEAD"
+        elif not commit2:
+            c1, c2 = commit1, "HEAD"
+        else:
+            c1, c2 = commit1, commit2
+
+        diff_output = service.get_diff(c1, c2, stat_only=stat)
+
+        if ctx.json_output:
+            ctx.output({"diff": diff_output, "from": c1, "to": c2})
+        else:
+            if not diff_output:
+                click.echo("No differences found.")
+            else:
+                # Colorize diff output
+                for line in diff_output.split("\n"):
+                    if line.startswith("+") and not line.startswith("+++"):
+                        click.echo(click.style(line, fg="green"))
+                    elif line.startswith("-") and not line.startswith("---"):
+                        click.echo(click.style(line, fg="red"))
+                    elif line.startswith("@@"):
+                        click.echo(click.style(line, fg="cyan"))
+                    else:
+                        click.echo(line)
+
+    except Exception as e:
+        ctx.error(f"Diff failed: {e}", EXIT_GIT_FAILED)

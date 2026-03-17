@@ -169,7 +169,7 @@ def cli(
 
 
 # Import and register command groups
-from memoir.cli.commands import branch, crypto, memory, store  # noqa: E402
+from memoir.cli.commands import analysis, branch, crypto, memory, store  # noqa: E402
 
 # Store commands
 cli.add_command(store.new)
@@ -187,11 +187,18 @@ cli.add_command(branch.branch)
 cli.add_command(branch.checkout)
 cli.add_command(branch.merge)
 cli.add_command(branch.commits)
+cli.add_command(branch.time_travel)
+cli.add_command(branch.diff)
 
 # Crypto commands
 cli.add_command(crypto.proof)
 cli.add_command(crypto.verify)
 cli.add_command(crypto.blame)
+
+# Analysis commands
+cli.add_command(analysis.summarize)
+cli.add_command(analysis.timeline)
+cli.add_command(analysis.location)
 
 
 # Utility commands
