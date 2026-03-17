@@ -11,8 +11,6 @@ import tempfile
 import time
 from pathlib import Path
 
-import pytest
-
 from memoir.store.prolly_adapter import ProllyTreeStore
 
 
