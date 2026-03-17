@@ -319,3 +319,89 @@ src/memoir/ui/
 - **Enhanced Maintainability**: Both Python and JavaScript follow modular patterns
 - **Improved Debugging**: Issues isolated to specific handler/module boundaries
 - **Future-Proof**: Clean architecture supports easy extension and modification
+
+### Services Layer (`src/memoir/services/`)
+Extracted business logic from HTTP handlers into reusable services:
+- **StoreService** (`store_service.py`): Store creation, reading, status
+- **MemoryService** (`memory_service.py`): Remember, recall, forget operations
+- **BranchService** (`branch_service.py`): Git branch operations
+- **CryptoService** (`crypto_service.py`): Proof generation, verification, blame
+
+**Important API Notes:**
+```python
+# StoreService.create_store() requires path argument
+store_service = StoreService()
+result = store_service.create_store("/path/to/store")  # NOT create_store()
+
+# BranchService.checkout() uses create_if_missing, not create
+branch_service.checkout("branch-name", create_if_missing=True)  # NOT create=True
+```
+
+### CLI Tool (`src/memoir/cli/`)
+Click-based CLI optimized for AI agents:
+- Entry point: `memoir` command (via pyproject.toml scripts)
+- Commands: `new`, `connect`, `status`, `remember`, `recall`, `forget`, `branch`, `checkout`, `merge`, `commits`, `proof`, `verify`, `blame`
+- Supports `--json` flag for machine-readable output
+- Environment variables: `MEMOIR_STORE`, `MEMOIR_JSON`
+
+### TUI Interface (`src/memoir/tui/`)
+Textual-based terminal UI:
+- Entry point: `memoir tui` or `memoir-tui`
+- Commands: `/connect`, `/remember`, `/recall`, `/branch`, `/checkout`, `/theme`
+- 5 color themes: default, ocean, forest, mono, sunset
+
+### Test Structure
+```
+tests/
+├── test_cli.py                    # 53 CLI command tests
+├── test_services/                 # Service unit tests
+│   ├── test_store_service.py
+│   ├── test_branch_service.py
+│   ├── test_crypto_service.py
+│   └── test_memory_service.py
+├── test_integration/              # Integration tests
+│   ├── test_memory_workflow.py
+│   ├── test_branch_workflow.py
+│   └── test_crypto_workflow.py
+├── test_versioning.py             # Git-like versioning tests
+├── test_classifier.py             # Classification tests
+└── test_taxonomy.py               # Taxonomy tests
+```
+
+### CI/CD Configuration Notes
+
+**GitHub Actions (`.github/workflows/ci.yml`):**
+- Requires git user configuration for versioning tests
+- Added step: `git config --global user.email/name`
+
+**Makefile:**
+- `type-check`: Non-blocking (237 pre-existing type errors)
+- `security`: Uses `-c pyproject.toml` for bandit config
+- `safety check`: Made non-blocking with `|| true`
+
+**pyproject.toml - Bandit Skips:**
+```toml
+skips = ["B101", "B110", "B404", "B601", "B603", "B607", "B608"]
+```
+- B101: assert_used (needed for tests)
+- B110: try_except_pass (intentional error suppression)
+- B404: import_subprocess (required for git operations)
+- B603/B607: subprocess calls (safe with hardcoded commands)
+- B608: hardcoded_sql (false positive on commit messages)
+
+**Known Technical Debt:**
+- 237 mypy type errors (pre-existing, non-blocking in CI)
+- Type annotations needed in CLI commands, services, SDK
+- Some service methods have `Optional[str]` vs `str` mismatches
+
+### Development Workflow
+```bash
+# Always use venv
+source venv/bin/activate
+
+# Before committing
+make format && make lint && make test
+
+# Full CI check
+make ci
+```
