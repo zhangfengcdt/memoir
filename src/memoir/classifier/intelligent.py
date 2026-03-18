@@ -244,88 +244,47 @@ class IntelligentClassifier:
         metadata: Optional[dict],
         conversation_context: Optional[list[str]] = None,
     ) -> str:
-        """Build prompt for LLM classification."""
+        """
+        Build prompt for LLM classification.
+
+        PROMPT STRUCTURE (optimized for prompt caching):
+        1. STATIC SECTION (cached): Taxonomy + all guidelines
+        2. DYNAMIC SECTION (not cached): User content + context
+
+        The static section is marked with [STATIC_SECTION_START] and [STATIC_SECTION_END]
+        to help with prompt caching detection.
+        """
         # Get first-level categories for context
         first_level = [p for p in paths if "." not in p and p != "other"]
 
-        # Inform LLM about user's configured thresholds for better decisions
-        threshold_guidance = []
-        if self.thresholds["low"] > 0.0:
-            threshold_guidance.append(
-                f"   - IMPORTANT: User requires minimum {self.thresholds['low']:.1f} confidence to store ANY memory"
-            )
-        if self.thresholds["low"] >= 0.5:
-            threshold_guidance.append(
-                f"   - BE SELECTIVE: Only store memories you're at least {self.thresholds['low']:.1f} confident about"
-            )
-        if self.thresholds["low"] >= 0.7:
-            threshold_guidance.append(
-                "   - VERY CONSERVATIVE: User wants only high-quality, well-classified memories"
-            )
+        # Get session date for timeline calculations (needed in static section)
+        session_date = metadata.get("session_date", "unknown") if metadata else "unknown"
 
+        # =================================================================
+        # STATIC SECTION START - This part is cached across requests
+        # =================================================================
         prompt_parts = [
-            "You are a memory classification system. Analyze the following input and determine:",
+            "[STATIC_SECTION_START]",
+            "",
+            "You are a memory classification system. You will analyze user content and determine:",
             "1. Is this information worth storing as a memory?",
+            "2. If yes, which taxonomy path best fits this content?",
+            "3. What is your confidence in this classification (0.0 to 1.0)?",
+            "",
+            "Memory storage guidelines:",
             "   - Skip transient information (greetings, current time, weather forecasts)",
             "   - Skip very general conversations without specific personal details",
             "   - Store personal preferences, facts, skills, relationships, goals, experiences",
+            "",
+            "Confidence scoring guidelines:",
+            "   - 0.9-1.0: Perfect fit, exact match to taxonomy path and clear content",
+            "   - 0.7-0.8: Good fit, clearly belongs in this category",
+            "   - 0.5-0.6: Moderate fit, somewhat belongs but could fit elsewhere",
+            "   - 0.3-0.4: Poor fit, content is vague or path is not ideal",
+            "   - 0.0-0.2: Very poor fit, should probably not be stored",
+            "",
+            "Available top-level categories:",
         ]
-
-        if threshold_guidance:
-            prompt_parts.extend(threshold_guidance)
-
-        prompt_parts.extend(
-            [
-                "",
-                "2. If yes, which taxonomy path best fits this content?",
-                "3. What is your confidence in this classification (0.0 to 1.0)?",
-                f"   - User's minimum threshold: {self.thresholds['low']:.1f} (below this = not stored)",
-                f"   - Medium confidence threshold: {self.thresholds['medium']:.1f}",
-                f"   - High confidence threshold: {self.thresholds['high']:.1f}",
-                "   - Only suggest storage if you meet the user's minimum threshold",
-                "",
-                "Confidence scoring guidelines:",
-                "   - 0.9-1.0: Perfect fit, exact match to taxonomy path and clear content",
-                "   - 0.7-0.8: Good fit, clearly belongs in this category",
-                "   - 0.5-0.6: Moderate fit, somewhat belongs but could fit elsewhere",
-                "   - 0.3-0.4: Poor fit, content is vague or path is not ideal",
-                "   - 0.0-0.2: Very poor fit, should probably not be stored",
-                "",
-                f"Content to analyze (from [SELF]): {content}",
-            ]
-        )
-
-        # Always clarify that content is from [SELF] perspective
-        prompt_parts.extend(
-            [
-                "",
-                "IMPORTANT: The content above is from [SELF] - classify based on their personal perspective/experience.",
-            ]
-        )
-
-        if conversation_context:
-            prompt_parts.extend(
-                [
-                    "",
-                    "Previous conversation context (ONLY for understanding, DO NOT classify based on this):",
-                    "Speaker Attribution Guide:",
-                    "  [SELF] = The person whose memory you're classifying speaking",
-                    "  [OTHER] = Someone else speaking to them",
-                    "",
-                ]
-            )
-            for i, prev_exchange in enumerate(conversation_context, 1):
-                prompt_parts.append(f"  {i}. {prev_exchange}")
-
-        if metadata:
-            prompt_parts.append(f"Metadata: {json.dumps(metadata)}")
-
-        prompt_parts.extend(
-            [
-                "",
-                "Available top-level categories:",
-            ]
-        )
 
         for category in sorted(first_level):
             prompt_parts.append(f"  - {category}")
@@ -416,7 +375,7 @@ class IntelligentClassifier:
                 "",
                 "",
                 "TIMELINE EVENT DETECTION:",
-                f"- Current session date: {metadata.get('session_date', 'unknown') if metadata else 'unknown'} (use this for calculating relative dates)",
+                "- Use the session date provided in the dynamic section below for calculating relative dates",
                 "- ALWAYS check if the content describes a PAST or PRESENT EVENT with temporal information",
                 "- Timeline events are specific occurrences that happened at a particular time",
                 "- Examples of timeline events with ACTUAL date calculation:",
@@ -462,7 +421,7 @@ class IntelligentClassifier:
                 "- If NO location events: return 'no_location_events'",
                 "- If location events exist: list them with location name and description",
                 "",
-                "Respond in JSON format:",
+                "JSON RESPONSE FORMAT:",
                 "{",
                 '  "is_memory": true/false,',
                 '  "paths": ["primary.path.here", "secondary.path.here"] or ["single.path"] or null,',
@@ -472,6 +431,85 @@ class IntelligentClassifier:
                 '  "timeline_events": "no_timeline_events" or [{"date": "YYYYMMDD", "description": "event description"}],',
                 '  "location_events": "no_location_events" or [{"location": "location name", "description": "activity/event description"}]',
                 "}",
+                "",
+                "[STATIC_SECTION_END]",
+            ]
+        )
+
+        # =================================================================
+        # DYNAMIC SECTION - This part changes with each request
+        # =================================================================
+        prompt_parts.extend(
+            [
+                "",
+                "[DYNAMIC_SECTION_START]",
+                "",
+            ]
+        )
+
+        # Add threshold guidance (semi-dynamic based on user config)
+        threshold_guidance = []
+        if self.thresholds["low"] > 0.0:
+            threshold_guidance.append(
+                f"- IMPORTANT: User requires minimum {self.thresholds['low']:.1f} confidence to store ANY memory"
+            )
+        if self.thresholds["low"] >= 0.5:
+            threshold_guidance.append(
+                f"- BE SELECTIVE: Only store memories you're at least {self.thresholds['low']:.1f} confident about"
+            )
+        if self.thresholds["low"] >= 0.7:
+            threshold_guidance.append(
+                "- VERY CONSERVATIVE: User wants only high-quality, well-classified memories"
+            )
+
+        if threshold_guidance:
+            prompt_parts.append("User's confidence thresholds for this session:")
+            prompt_parts.extend(threshold_guidance)
+            prompt_parts.append("")
+
+        prompt_parts.extend(
+            [
+                f"User's minimum threshold: {self.thresholds['low']:.1f} (below this = not stored)",
+                f"Medium confidence threshold: {self.thresholds['medium']:.1f}",
+                f"High confidence threshold: {self.thresholds['high']:.1f}",
+                "",
+                f"Current session date: {session_date} (use for calculating relative dates)",
+                "",
+            ]
+        )
+
+        # Add conversation context if provided
+        if conversation_context:
+            prompt_parts.extend(
+                [
+                    "Previous conversation context (ONLY for understanding, DO NOT classify based on this):",
+                    "Speaker Attribution Guide:",
+                    "  [SELF] = The person whose memory you're classifying speaking",
+                    "  [OTHER] = Someone else speaking to them",
+                    "",
+                ]
+            )
+            for i, prev_exchange in enumerate(conversation_context, 1):
+                prompt_parts.append(f"  {i}. {prev_exchange}")
+            prompt_parts.append("")
+
+        # Add metadata if provided
+        if metadata:
+            # Filter out session_date as it's already shown above
+            display_metadata = {k: v for k, v in metadata.items() if k != "session_date"}
+            if display_metadata:
+                prompt_parts.append(f"Additional metadata: {json.dumps(display_metadata)}")
+                prompt_parts.append("")
+
+        # Add the actual content to analyze (THE KEY DYNAMIC PART)
+        prompt_parts.extend(
+            [
+                "CONTENT TO ANALYZE:",
+                f"(from [SELF]): {content}",
+                "",
+                "IMPORTANT: The content above is from [SELF] - classify based on their personal perspective/experience.",
+                "",
+                "Now analyze the content and provide your JSON response:",
             ]
         )
 
