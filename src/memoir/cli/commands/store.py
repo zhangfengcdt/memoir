@@ -21,8 +21,28 @@ from memoir.cli.main import (
 @click.option(
     "--connect/--no-connect", default=True, help="Set as default store after creation"
 )
+@click.option(
+    "--taxonomy-builtin",
+    is_flag=True,
+    default=False,
+    help="Initialize with builtin taxonomy (classification examples, descriptions, presets)",
+)
+@click.option(
+    "-t",
+    "--taxonomy",
+    "taxonomy_paths",
+    multiple=True,
+    type=click.Path(exists=True),
+    help="External taxonomy markdown file(s) to load",
+)
 @pass_context
-def new(ctx: MemoirContext, path: str, connect: bool):
+def new(
+    ctx: MemoirContext,
+    path: str,
+    connect: bool,
+    taxonomy_builtin: bool,
+    taxonomy_paths: tuple,
+):
     """Create a new memory store.
 
     INPUT: Path where the store should be created (will create directory).
@@ -31,29 +51,60 @@ def new(ctx: MemoirContext, path: str, connect: bool):
     Creates a git-initialized memory store at PATH. By default, also
     sets it as the default store (use --no-connect to skip).
 
+    Optionally initialize with taxonomy data for classification:
+      --taxonomy-builtin loads the builtin taxonomy (~215 examples)
+      -t/--taxonomy loads external markdown taxonomy files
+
     \b
     Examples:
       memoir new /tmp/my-agent-memory
       memoir new ~/memories --no-connect
+      memoir new ~/memories --taxonomy-builtin
+      memoir new ~/memories --taxonomy-builtin -t custom.md
 
     \b
-    JSON output includes: path, success
+    JSON output includes: path, success, taxonomy_loaded
     """
     from memoir.services.store_service import StoreService
 
     service = StoreService()
     result = service.create_store(path)
 
-    if result.success:
-        if connect:
-            save_default_store(result.path)
-            ctx.success(
-                f"Created and connected to {result.path}", {"path": result.path}
-            )
-        else:
-            ctx.success(f"Created store at {result.path}", {"path": result.path})
-    else:
+    if not result.success:
         ctx.error(result.error or "Failed to create store", EXIT_GIT_FAILED)
+        return
+
+    taxonomy_result = None
+
+    # Initialize taxonomy if requested
+    if taxonomy_builtin or taxonomy_paths:
+        from memoir.taxonomy.loader import TaxonomyLoader
+
+        try:
+            # Re-open the store for taxonomy loading
+            from memoir.store.prolly_adapter import ProllyTreeStore
+
+            store = ProllyTreeStore(result.path)
+            loader = TaxonomyLoader(store)
+            taxonomy_result = loader.init_store(
+                include_builtin=taxonomy_builtin,
+                external_paths=list(taxonomy_paths),
+            )
+            ctx.info(f"Loaded taxonomy: {taxonomy_result}")
+        except Exception as e:
+            ctx.warn(f"Failed to initialize taxonomy: {e}")
+
+    if connect:
+        save_default_store(result.path)
+
+    output_data = {"path": result.path}
+    if taxonomy_result:
+        output_data["taxonomy_loaded"] = taxonomy_result
+
+    if connect:
+        ctx.success(f"Created and connected to {result.path}", output_data)
+    else:
+        ctx.success(f"Created store at {result.path}", output_data)
 
 
 @click.command()

@@ -7,13 +7,14 @@ the most relevant ones for a given query, then retrieves memories from those pat
 Features:
 - Single-stage LLM path selection for low latency
 - Prompt caching support via static/dynamic section markers
-- Uses TaxonomyPresets for consistent classification examples
+- Uses TaxonomyLoader (store) or TaxonomyPresets for classification examples
 """
 
 import logging
 from dataclasses import dataclass
-from typing import Any, ClassVar, Optional
+from typing import Any, Optional
 
+from memoir.taxonomy.loader import TaxonomyLoader
 from memoir.taxonomy.taxonomy import TaxonomyPresets
 
 logger = logging.getLogger(__name__)
@@ -42,30 +43,86 @@ class IntelligentSearchEngine:
     Prompt caching is supported via static/dynamic section markers.
     """
 
-    # Cache the built static prompt
-    _static_prompt_cache: ClassVar[Optional[str]] = None
-
-    @classmethod
-    def _build_static_prompt(cls) -> str:
+    def __init__(
+        self,
+        llm: Any,
+        store: Any,
+        taxonomy_loader: Optional[TaxonomyLoader] = None,
+    ):
         """
-        Build the static prompt from TaxonomyPresets.
+        Initialize the intelligent search engine.
+
+        Args:
+            llm: Language model for path selection
+            store: Memory store (ProllyTreeStore)
+            taxonomy_loader: Optional TaxonomyLoader for loading taxonomy from store.
+                             When provided, taxonomy data is loaded from the store's taxonomy namespace.
+                             When None, falls back to hardcoded TaxonomyPresets.
+        """
+        self.llm = llm
+        self.store = store
+        self._taxonomy_loader = taxonomy_loader
+        self._static_prompt_cache: Optional[str] = None
+
+    def _get_classification_examples(
+        self, limit: int = 100
+    ) -> list[tuple[str, str, str]]:
+        """Get classification examples from store or fallback to hardcoded.
+
+        Args:
+            limit: Maximum number of examples to return.
+
+        Returns:
+            List of (input_text, path, reasoning) tuples.
+        """
+        if self._taxonomy_loader:
+            try:
+                examples = self._taxonomy_loader.get_examples_from_store(limit=limit)
+                if examples:
+                    return examples
+            except Exception as e:
+                logger.warning(f"Failed to load examples from store: {e}")
+
+        # Fallback to hardcoded examples
+        return TaxonomyPresets.CLASSIFICATION_EXAMPLES[:limit]
+
+    def _get_category_descriptions(self) -> dict[str, str]:
+        """Get category descriptions from store or fallback to hardcoded.
+
+        Returns:
+            Dict mapping category to description.
+        """
+        if self._taxonomy_loader:
+            try:
+                descriptions = self._taxonomy_loader.get_descriptions_from_store()
+                if descriptions:
+                    return descriptions
+            except Exception as e:
+                logger.warning(f"Failed to load descriptions from store: {e}")
+
+        # Fallback to hardcoded descriptions
+        return TaxonomyPresets.CATEGORY_DESCRIPTIONS
+
+    def _build_static_prompt(self) -> str:
+        """
+        Build the static prompt from store or TaxonomyPresets.
 
         Uses CLASSIFICATION_EXAMPLES and CATEGORY_DESCRIPTIONS for consistency
         with the IntelligentClassifier.
         """
-        if cls._static_prompt_cache is not None:
-            return cls._static_prompt_cache
+        if self._static_prompt_cache is not None:
+            return self._static_prompt_cache
 
-        # Build category descriptions section
+        # Build category descriptions section (from store or fallback)
         category_lines = []
-        for cat, desc in TaxonomyPresets.CATEGORY_DESCRIPTIONS.items():
+        for cat, desc in self._get_category_descriptions().items():
             category_lines.append(f"- {cat}: {desc}")
         categories_text = "\n".join(category_lines)
 
-        # Build classification examples section (sample ~50 for prompt size)
+        # Build classification examples section (sample ~100 for prompt size)
         # Group by category for better organization
         examples_by_category: dict[str, list[str]] = {}
-        for input_text, path, _reason in TaxonomyPresets.CLASSIFICATION_EXAMPLES[:100]:
+        for input_text, path, _reason in self._get_classification_examples(100):
             category = path.split(".")[0]
             if category not in examples_by_category:
                 examples_by_category[category] = []
@@ -96,19 +153,8 @@ SEARCH INSTRUCTIONS:
 
 [DYNAMIC_SECTION_START]"""
 
-        cls._static_prompt_cache = prompt
+        self._static_prompt_cache = prompt
         return prompt
-
-    def __init__(self, llm: Any, store: Any):
-        """
-        Initialize the intelligent search engine.
-
-        Args:
-            llm: Language model for path selection
-            store: Memory store (ProllyTreeStore)
-        """
-        self.llm = llm
-        self.store = store
 
     async def search(
         self,

@@ -145,6 +145,7 @@ def get_cli_schema(group: click.Group) -> dict[str, Any]:
         "branch": ["branch", "checkout", "merge", "commits", "time-travel", "diff"],
         "crypto": ["proof", "verify", "blame"],
         "analysis": ["summarize", "timeline", "location"],
+        "taxonomy": ["taxonomy"],
         "utility": ["warmup", "code", "ui", "tui"],
     }
 
@@ -341,13 +342,23 @@ def cli(
 
 
 # Import and register command groups
-from memoir.cli.commands import analysis, branch, crypto, memory, store  # noqa: E402
+from memoir.cli.commands import (  # noqa: E402
+    analysis,
+    branch,
+    crypto,
+    memory,
+    store,
+    taxonomy,
+)
 
 # Store commands
 cli.add_command(store.new)
 cli.add_command(store.connect)
 cli.add_command(store.status)
 cli.add_command(store.refresh)
+
+# Taxonomy commands
+cli.add_command(taxonomy.taxonomy)
 
 # Memory commands
 cli.add_command(memory.remember)

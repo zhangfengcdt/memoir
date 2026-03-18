@@ -13,6 +13,7 @@ from memoir.taxonomy.iterative import (
     LLMExpansionStrategy,
     LLMIterativeTaxonomy,
 )
+from memoir.taxonomy.loader import TaxonomyLoader
 from memoir.taxonomy.taxonomy import TaxonomyPresets, TaxonomyVersion
 
 logger = logging.getLogger(__name__)
@@ -107,6 +108,7 @@ class IntelligentClassifier:
         location_manager: Optional[Any] = None,
         suppress_path_warnings: bool = True,
         enable_metadata_extraction: bool = False,
+        taxonomy_loader: Optional[TaxonomyLoader] = None,
     ):
         """
         Initialize the intelligent classifier.
@@ -121,6 +123,9 @@ class IntelligentClassifier:
             profile_manager: Optional profile manager for handling profile updates
             suppress_path_warnings: Whether to suppress warnings for invalid LLM-suggested paths
             enable_metadata_extraction: Enable profile/timeline/location extraction (slower but richer)
+            taxonomy_loader: Optional TaxonomyLoader for loading taxonomy from store.
+                             When provided, taxonomy data is loaded from the store's taxonomy namespace.
+                             When None, falls back to hardcoded TaxonomyPresets.
         """
         self.llm = llm
         self.memory_store = memory_store
@@ -130,10 +135,10 @@ class IntelligentClassifier:
         self.taxonomy_version = taxonomy_version
         self.suppress_path_warnings = suppress_path_warnings
         self.enable_metadata_extraction = enable_metadata_extraction
+        self._taxonomy_loader = taxonomy_loader
 
-        # Initialize with simplified taxonomy to reduce LLM prompt size
-        simplified_presets = TaxonomyPresets()
-        preset_paths = simplified_presets.PRESETS[TaxonomyVersion.SIMPLIFIED]
+        # Initialize taxonomy - prefer store-based loading if taxonomy_loader provided
+        preset_paths = self._load_taxonomy_paths()
 
         # Create a simple taxonomy object that provides get_all_paths() method
         class PresetTaxonomy:
@@ -185,6 +190,72 @@ class IntelligentClassifier:
             return ClassificationConfidence.MEDIUM
         else:
             return ClassificationConfidence.LOW
+
+    def _load_taxonomy_paths(self) -> dict[str, list[str]]:
+        """Load taxonomy paths from store or fall back to hardcoded presets.
+
+        When taxonomy_loader is provided and has data in the store,
+        loads paths from there. Otherwise falls back to TaxonomyPresets.
+
+        Returns:
+            Dict mapping category to list of paths.
+        """
+        # Try to load from store if taxonomy_loader is available
+        if self._taxonomy_loader:
+            try:
+                store_paths = self._taxonomy_loader.get_preset_paths_from_store()
+                if store_paths:
+                    logger.info(
+                        f"Loaded taxonomy paths from store: {len(store_paths)} categories"
+                    )
+                    return store_paths
+            except Exception as e:
+                logger.warning(
+                    f"Failed to load taxonomy from store, using fallback: {e}"
+                )
+
+        # Fallback to hardcoded TaxonomyPresets
+        simplified_presets = TaxonomyPresets()
+        return simplified_presets.PRESETS[TaxonomyVersion.SIMPLIFIED]
+
+    def _get_classification_examples(
+        self, limit: int = 8
+    ) -> list[tuple[str, str, str]]:
+        """Get classification examples from store or fallback to hardcoded.
+
+        Args:
+            limit: Maximum number of examples to return.
+
+        Returns:
+            List of (input_text, path, reasoning) tuples.
+        """
+        if self._taxonomy_loader:
+            try:
+                examples = self._taxonomy_loader.get_examples_from_store(limit=limit)
+                if examples:
+                    return examples
+            except Exception as e:
+                logger.warning(f"Failed to load examples from store: {e}")
+
+        # Fallback to hardcoded examples
+        return TaxonomyPresets.CLASSIFICATION_EXAMPLES[:limit]
+
+    def _get_category_descriptions(self) -> dict[str, str]:
+        """Get category descriptions from store or fallback to hardcoded.
+
+        Returns:
+            Dict mapping category to description.
+        """
+        if self._taxonomy_loader:
+            try:
+                descriptions = self._taxonomy_loader.get_descriptions_from_store()
+                if descriptions:
+                    return descriptions
+            except Exception as e:
+                logger.warning(f"Failed to load descriptions from store: {e}")
+
+        # Fallback to hardcoded descriptions
+        return TaxonomyPresets.CATEGORY_DESCRIPTIONS
 
     async def classify_input(
         self,
@@ -319,11 +390,9 @@ class IntelligentClassifier:
             for path in sorted(all_non_other_paths):
                 prompt_parts.append(f"  {path}")
 
-        # Build classification examples from presets
+        # Build classification examples (from store or fallback to presets)
         examples_lines = []
-        for input_text, path, _reason in TaxonomyPresets.CLASSIFICATION_EXAMPLES[
-            :8
-        ]:  # Use first 8 examples
+        for input_text, path, _reason in self._get_classification_examples(8):
             examples_lines.append(f"  * '{input_text}' → {path}")
 
         prompt_parts.extend(
@@ -556,18 +625,17 @@ class IntelligentClassifier:
 
         ~600 tokens vs ~4500 tokens for full prompt = faster inference.
         """
-        from memoir.taxonomy.taxonomy import TaxonomyPresets
-
-        # Build examples section
+        # Build examples section (from store or fallback to presets)
+        # Use all examples for fast classification (no limit)
         examples_lines = []
-        for input_text, path, _reason in TaxonomyPresets.CLASSIFICATION_EXAMPLES:
+        for input_text, path, _reason in self._get_classification_examples(limit=500):
             examples_lines.append(f'  "{input_text}" → {path}')
 
         examples_str = "\n".join(examples_lines)
 
-        # Build categories section
+        # Build categories section (from store or fallback to presets)
         categories_lines = []
-        for cat, desc in TaxonomyPresets.CATEGORY_DESCRIPTIONS.items():
+        for cat, desc in self._get_category_descriptions().items():
             categories_lines.append(f"  {cat}: {desc}")
 
         categories_str = "\n".join(categories_lines)
