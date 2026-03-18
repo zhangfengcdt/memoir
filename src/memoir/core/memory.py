@@ -1,5 +1,4 @@
 """
-Enhanced MemoryStoreManager integrating LangMem with ProllyTree.
 Provides high-performance semantic memory with versioning capabilities.
 """
 
