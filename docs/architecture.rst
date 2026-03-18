@@ -85,16 +85,11 @@ Handles semantic classification of memories into hierarchical paths:
 
 Provides intelligent memory retrieval capabilities:
 
-- **SemanticSearchEngine**: Fast keyword-based search
 - **IntelligentSearchEngine**: LLM-powered path selection
 - **Multi-strategy**: Breadth-first, depth-first, best-match
 - **Relevance Scoring**: Combined semantic and structural scoring
 
 .. code-block:: python
-
-   # Fast keyword search
-   from memoir.search.semantic import SemanticSearchEngine
-   search_engine = SemanticSearchEngine(store=store)
 
    # Intelligent LLM-powered search
    from memoir.search.intelligent import IntelligentSearchEngine

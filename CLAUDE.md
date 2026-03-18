@@ -80,7 +80,6 @@ This project brings Git-like version control to AI memory systems, replacing opa
 
 #### 4. **Search Engine** (`src/memoir/search/`)
 - **IntelligentSearchEngine** (`intelligent.py`): LLM-powered path selection
-- **SemanticSearchEngine** (`semantic.py`): Pattern-based semantic search
 - **Relevance scoring**: Combined semantic and structural scoring
 - **Prefix queries**: O(log n) complexity vs O(n) vector search
 

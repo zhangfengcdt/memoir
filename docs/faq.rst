@@ -522,14 +522,9 @@ Integration & Compatibility
        task="text-generation",
    )
 
-   # Use semantic (non-LLM) search for fully offline operation
-   from memoir.search.semantic import SemanticSearchEngine
-   search_engine = SemanticSearchEngine(store=store)  # No LLM required
-
 **Offline Benefits:**
-- **No API costs** for classification or search
+- **No API costs** for classification
 - **Data privacy** - all processing happens locally
-- **Faster pattern matching** when using semantic search
 - **No network dependency** for memory operations
 
 Troubleshooting & Common Issues
@@ -589,13 +584,9 @@ Troubleshooting & Common Issues
 
 .. code-block:: python
 
-   # Fast semantic search (no LLM)
-   from memoir.search.semantic import SemanticSearchEngine
-   fast_search = SemanticSearchEngine(store=store)
-
-   # Use intelligent search only when needed
+   # Use intelligent search for memory retrieval
    from memoir.search.intelligent import IntelligentSearchEngine
-   smart_search = IntelligentSearchEngine(llm=llm, store=store)
+   search_engine = IntelligentSearchEngine(llm=llm, store=store)
 
 **4. Monitor Performance:**
 

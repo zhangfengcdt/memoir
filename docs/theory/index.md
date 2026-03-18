@@ -25,9 +25,8 @@ Detailed analysis of the two classifier approaches (SemanticClassifier and Intel
 - **IntelligentClassifier**: Advanced multi-stage classification with memory-worthiness detection and event extraction
 
 ### Search Theory
-In-depth exploration of the search engines (SemanticSearchEngine and IntelligentSearchEngine), covering keyword matching, LLM-powered path selection, and performance optimizations.
+In-depth exploration of the IntelligentSearchEngine, covering LLM-powered path selection and performance optimizations.
 
-- **SemanticSearchEngine**: Fast keyword-based search with relevance scoring (16-75ms)
 - **IntelligentSearchEngine**: LLM-powered semantic understanding and path selection (215-570ms)
 
 ### Memento Theory
@@ -49,7 +48,7 @@ Comprehensive examination of the memento pattern implementation for ProfileMemen
 | Component | Fast Implementation | Intelligent Implementation |
 |-----------|-------------------|---------------------------|
 | **Classifier** | 1-5ms (cached) | 200-1000ms (LLM) |
-| **Search** | 16-75ms (keyword) | 215-570ms (LLM) |
+| **Search** | N/A | 215-570ms (LLM) |
 | **Storage** | 20-30ms | 20-30ms |
 
 ## Architecture Benefits

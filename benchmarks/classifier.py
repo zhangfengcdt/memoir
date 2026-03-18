@@ -37,7 +37,6 @@ Options:
     --base-url URL      Custom base URL for OpenAI-compatible endpoints
     --classifier TYPE   Classifier type: 'intelligent' (default) or 'semantic'
     --num-cases N       Number of test cases to run (default: all)
-    --iterations N      Number of iterations per test (default: 5)
     --verbose           Show detailed output for each operation
     --skip-remember     Skip remember benchmarks
     --skip-recall       Skip recall benchmarks
@@ -247,250 +246,262 @@ def create_benchmark_report(
     )
 
 
-# Test data for benchmarking
-REMEMBER_TEST_DATA = [
-    # Personal identity
-    "My name is Sarah Johnson and I'm 32 years old.",
-    "I was born on March 15, 1992 in Boston, Massachusetts.",
-    "I identify as she/her and I'm originally from the East Coast.",
-    # Professional information
-    "I work as a senior software engineer at TechCorp in San Francisco.",
-    "I have 8 years of experience in machine learning and data science.",
-    "I graduated from Stanford University with a Computer Science degree in 2014.",
-    "My current salary is $185,000 and I've been at this company for 3 years.",
-    # Preferences
-    "I prefer dark mode in all my development environments and applications.",
-    "My favorite IDE is VS Code with the Monokai Pro theme.",
-    "I always use Python 3.11 for my projects because of the performance improvements.",
-    "I drink coffee every morning, specifically a double espresso with oat milk.",
-    # Skills and expertise
-    "My primary programming language is Python, but I also use JavaScript for frontend work.",
-    "I'm highly proficient in PyTorch and TensorFlow for deep learning projects.",
-    "I have experience with Kubernetes and Docker for container orchestration.",
-    # Relationships and social
-    "My best friend is Emily who I've known since college.",
-    "I have a dog named Max who is a golden retriever.",
-    "My manager's name is David Chen and he's been very supportive.",
-    # Goals and aspirations
-    "I want to become a principal engineer within the next 2 years.",
-    "I'm planning to start my own AI startup focused on healthcare.",
-    "I hope to learn Rust this year for systems programming.",
-    # Daily routines
-    "I wake up at 6:30 AM every day and go for a morning run.",
-    "I typically work from 9 AM to 6 PM with a lunch break around noon.",
-    "Every Friday evening I attend a book club meeting.",
-    # Opinions and beliefs
-    "I strongly believe in open source software and contribute regularly.",
-    "I think remote work is more productive than being in the office.",
-    "I value work-life balance and never work on weekends.",
-    # Health and lifestyle
-    "I'm vegetarian and have been for the past 5 years.",
-    "I exercise 4 times a week, mainly running and weightlifting.",
-    "I meditate for 15 minutes every morning to start my day.",
-]
+def load_test_data() -> tuple[list[str], list[str]]:
+    """Load test data from JSON files."""
+    import json
+    from pathlib import Path
 
-RECALL_TEST_QUERIES = [
-    # Direct attribute queries
-    "What is the user's name?",
-    "How old is the user?",
-    "Where does the user work?",
-    "What is the user's job title?",
-    # Preference queries
-    "What IDE does the user prefer?",
-    "Does the user like dark mode or light mode?",
-    "What programming language does the user use most?",
-    "What does the user drink in the morning?",
-    # Skill queries
-    "What machine learning frameworks does the user know?",
-    "How many years of experience does the user have?",
-    "What education does the user have?",
-    # Relationship queries
-    "Does the user have any pets?",
-    "Who is the user's best friend?",
-    "Who is the user's manager?",
-    # Goal queries
-    "What are the user's career goals?",
-    "What does the user want to learn?",
-    # Lifestyle queries
-    "What is the user's morning routine?",
-    "Does the user exercise?",
-    "Is the user vegetarian?",
-    # Complex/inference queries
-    "What technology stack does the user work with?",
-    "Describe the user's work habits.",
-    "What are the user's values?",
-]
+    data_dir = Path(__file__).parent / "data"
+
+    with open(data_dir / "remember_test_data.json") as f:
+        remember_data = json.load(f)
+
+    with open(data_dir / "recall_test_queries.json") as f:
+        recall_queries = json.load(f)
+
+    return remember_data, recall_queries
+
+
+REMEMBER_TEST_DATA, RECALL_TEST_QUERIES = load_test_data()
 
 
 async def benchmark_remember(
-    memory_manager,  # noqa: ARG001
-    classifier,
+    memory_manager,
+    classifier,  # noqa: ARG001
     test_data: list[str],
-    iterations: int,
+    namespace: str,
     verbose: bool = False,
 ) -> BenchmarkReport:
-    """Benchmark the remember (classification) operation."""
-    print(
-        f"\nBenchmarking REMEMBER operation ({len(test_data)} items x {iterations} iterations)..."
-    )
+    """Benchmark the remember (store_memory) operation.
+
+    This uses memory_manager.store_memory() which includes classification,
+    so memories are stored and available for recall benchmark.
+    """
+    print(f"\nBenchmarking REMEMBER operation ({len(test_data)} items)...")
 
     timings = []
 
-    for iteration in range(iterations):
-        if verbose:
-            print(f"\n  Iteration {iteration + 1}/{iterations}")
+    for _i, memory_text in enumerate(test_data):
+        start_time = time.perf_counter()
+        error = None
+        result_path = None
+        details = {}
 
-        for _i, memory_text in enumerate(test_data):
-            start_time = time.perf_counter()
-            error = None
-            result_path = None
-            details = {}
-
-            try:
-                # Use the classifier directly to measure classification time
-                # Handle different classifier interfaces
-                if hasattr(classifier, "classify_input"):
-                    # IntelligentClassifier
-                    classification = await classifier.classify_input(
-                        content=memory_text,
-                        metadata={"source": "benchmark", "iteration": iteration},
-                    )
-                    result_path = classification.path
-                    details = {
-                        "confidence": classification.confidence,
-                        "is_memory": classification.is_memory,
-                        "paths": classification.all_paths,
-                    }
-                    success = classification.is_memory and result_path is not None
-                else:
-                    # SemanticClassifier
-                    classification = await classifier.classify_async(
-                        memory_content=memory_text,
-                        context={"source": "benchmark", "iteration": iteration},
-                    )
-                    result_path = classification.primary_path
-                    details = {
-                        "confidence": classification.confidence,
-                        "is_memory": True,  # SemanticClassifier always classifies
-                        "paths": classification.alternative_paths,
-                    }
-                    success = result_path is not None
-
-            except Exception as e:
-                error = str(e)
-                success = False
-
-            end_time = time.perf_counter()
-            duration_ms = (end_time - start_time) * 1000
-
-            timing = TimingResult(
-                operation="remember",
-                input_text=(
-                    memory_text[:50] + "..." if len(memory_text) > 50 else memory_text
-                ),
-                duration_ms=duration_ms,
-                success=success,
-                result_path=result_path,
-                error=error,
-                details=details,
+        try:
+            # Use store_memory which classifies AND stores in one operation
+            result_path = await memory_manager.store_memory(
+                content=memory_text,
+                namespace=namespace,
+                metadata={"source": "benchmark"},
+                auto_classify=True,
             )
-            timings.append(timing)
+            success = result_path is not None
+            details = {
+                "confidence": 0.95,  # store_memory doesn't return confidence
+                "is_memory": True,
+            }
 
-            if verbose:
-                status = "OK" if success else "FAIL"
-                path_info = f" -> {result_path}" if result_path else ""
-                conf_info = (
-                    f" ({details.get('confidence', 0):.0%})"
-                    if details.get("confidence")
-                    else ""
-                )
-                print(
-                    f"    [{status}] {duration_ms:>8.2f}ms - {timing.input_text}{path_info}{conf_info}"
-                )
+        except Exception as e:
+            error = str(e)
+            success = False
 
-    return create_benchmark_report("remember (classification)", timings)
+        end_time = time.perf_counter()
+        duration_ms = (end_time - start_time) * 1000
+
+        timing = TimingResult(
+            operation="remember",
+            input_text=(
+                memory_text[:50] + "..." if len(memory_text) > 50 else memory_text
+            ),
+            duration_ms=duration_ms,
+            success=success,
+            result_path=result_path,
+            error=error,
+            details=details,
+        )
+        timings.append(timing)
+
+        if verbose:
+            status = "OK" if success else "FAIL"
+            path_info = f" -> {result_path}" if result_path else ""
+            conf_info = (
+                f" ({details.get('confidence', 0):.0%})"
+                if details.get("confidence")
+                else ""
+            )
+            print(
+                f"    [{status}] {duration_ms:>8.2f}ms - {timing.input_text}{path_info}{conf_info}"
+            )
+
+    return create_benchmark_report("remember (store)", timings)
+
+
+async def evaluate_recall_quality(llm, query: str, memories: list[str]) -> dict:
+    """
+    Use LLM to evaluate if recalled memories answer the query.
+
+    Returns:
+        dict with 'answers_query' (bool), 'confidence' (float 0-1), and 'answer' (str)
+    """
+    if not memories:
+        return {
+            "answers_query": False,
+            "confidence": 1.0,
+            "answer": "No memories found",
+        }
+
+    memories_text = "\n".join(f"- {m[:200]}" for m in memories[:5])
+
+    prompt = f"""Given these memories, answer the question. If you cannot answer, say "Cannot answer".
+
+Question: "{query}"
+
+Memories:
+{memories_text}
+
+Respond in this exact format:
+ANSWER: <direct answer or "Cannot answer">
+CONFIDENCE: <0.0 to 1.0>"""
+
+    try:
+        if hasattr(llm, "ainvoke"):
+            response = await llm.ainvoke(prompt)
+        else:
+            response = llm.invoke(prompt)
+
+        response_text = response.content.strip()
+
+        # Parse response
+        answer = ""
+        confidence = 0.0
+
+        for line in response_text.split("\n"):
+            line = line.strip()
+            if line.startswith("ANSWER:"):
+                answer = line.split(":", 1)[1].strip() if ":" in line else ""
+            elif line.startswith("CONFIDENCE:"):
+                try:
+                    confidence = float(line.split(":")[1].strip())
+                except (ValueError, IndexError):
+                    confidence = 0.5
+
+        answers_query = answer.lower() != "cannot answer" and len(answer) > 0
+
+        return {"answers_query": answers_query, "confidence": confidence, "answer": answer}
+
+    except Exception as e:
+        return {
+            "answers_query": False,
+            "confidence": 0.0,
+            "answer": f"Error: {e}",
+        }
 
 
 async def benchmark_recall(
     memory_manager,  # noqa: ARG001
     search_engine,
+    llm,
     test_queries: list[str],
     namespace: str,
-    iterations: int,
     verbose: bool = False,
+    limit: int = 5,
 ) -> BenchmarkReport:
-    """Benchmark the recall (retrieval) operation."""
-    print(
-        f"\nBenchmarking RECALL operation ({len(test_queries)} queries x {iterations} iterations)..."
-    )
+    """Benchmark the recall (retrieval) operation with LLM quality evaluation."""
+    print(f"\nBenchmarking RECALL operation ({len(test_queries)} queries)...")
 
     timings = []
 
-    for iteration in range(iterations):
-        if verbose:
-            print(f"\n  Iteration {iteration + 1}/{iterations}")
+    for query in test_queries:
+        start_time = time.perf_counter()
+        error = None
+        result_path = None
+        details = {}
+        memories_content = []
 
-        for query in test_queries:
-            start_time = time.perf_counter()
-            error = None
-            result_path = None
-            details = {}
+        try:
+            # Use the search engine directly
+            search_start = time.perf_counter()
+            results = await search_engine.search(
+                query=query,
+                namespace=namespace,
+                limit=limit,
+            )
+            search_time_ms = (time.perf_counter() - search_start) * 1000
 
-            try:
-                # Use the search engine directly
-                results = await search_engine.search(
-                    query=query,
-                    namespace=namespace,
-                    limit=5,
+            if results and not results[0].metadata.get("is_timing_only"):
+                result_path = results[0].path
+                memories_content = [r.content for r in results if r.content]
+
+                # Evaluate quality with LLM
+                eval_start = time.perf_counter()
+                eval_result = await evaluate_recall_quality(
+                    llm, query, memories_content
                 )
+                eval_time_ms = (time.perf_counter() - eval_start) * 1000
 
-                if results and not results[0].metadata.get("is_timing_only"):
-                    result_path = results[0].path
-                    details = {
-                        "num_results": len(results),
-                        "top_result_content": (
-                            results[0].content[:100] if results[0].content else None
-                        ),
-                        "step_timings": results[0].metadata.get("step_timings", {}),
-                    }
-                    success = True
-                else:
-                    details = {
-                        "num_results": 0,
-                        "step_timings": (
-                            results[0].metadata.get("step_timings", {})
-                            if results
-                            else {}
-                        ),
-                    }
-                    success = False
+                step_timings = results[0].metadata.get("step_timings", {})
+                step_timings["search_total"] = search_time_ms / 1000  # Convert to seconds
+                step_timings["eval_quality"] = eval_time_ms / 1000  # Convert to seconds
 
-            except Exception as e:
-                error = str(e)
+                details = {
+                    "num_results": len(results),
+                    "top_result_content": (
+                        results[0].content[:100] if results[0].content else None
+                    ),
+                    "step_timings": step_timings,
+                    "answers_query": eval_result["answers_query"],
+                    "eval_confidence": eval_result["confidence"],
+                    "eval_answer": eval_result["answer"],
+                }
+                # Success = found results AND they answer the query
+                success = eval_result["answers_query"]
+            else:
+                details = {
+                    "num_results": 0,
+                    "step_timings": (
+                        results[0].metadata.get("step_timings", {})
+                        if results
+                        else {}
+                    ),
+                    "answers_query": False,
+                    "eval_confidence": 1.0,
+                    "eval_answer": "Cannot answer",
+                }
                 success = False
 
-            end_time = time.perf_counter()
-            duration_ms = (end_time - start_time) * 1000
+        except Exception as e:
+            error = str(e)
+            success = False
 
-            timing = TimingResult(
-                operation="recall",
-                input_text=query[:50] + "..." if len(query) > 50 else query,
-                duration_ms=duration_ms,
-                success=success,
-                result_path=result_path,
-                error=error,
-                details=details,
+        end_time = time.perf_counter()
+        duration_ms = (end_time - start_time) * 1000
+
+        timing = TimingResult(
+            operation="recall",
+            input_text=query[:50] + "..." if len(query) > 50 else query,
+            duration_ms=duration_ms,
+            success=success,
+            result_path=result_path,
+            error=error,
+            details=details,
+        )
+        timings.append(timing)
+
+        if verbose:
+            status = "OK" if success else "MISS"
+            path_info = f" -> {result_path}" if result_path else ""
+            num_results = details.get("num_results", 0)
+            conf = details.get("eval_confidence", 0)
+            results_info = (
+                f" ({num_results} results, {conf:.0%} conf)" if num_results else ""
             )
-            timings.append(timing)
-
-            if verbose:
-                status = "OK" if success else "MISS"
-                path_info = f" -> {result_path}" if result_path else ""
-                num_results = details.get("num_results", 0)
-                results_info = f" ({num_results} results)" if num_results else ""
-                print(
-                    f"    [{status}] {duration_ms:>8.2f}ms - {timing.input_text}{path_info}{results_info}"
-                )
+            print(
+                f"    [{status}] {duration_ms:>8.2f}ms - {timing.input_text}{path_info}{results_info}"
+            )
+            # Show retrieved memories and LLM answer
+            if num_results > 0:
+                print(f"           Memories: {[m[:60] + '...' if len(m) > 60 else m for m in memories_content[:3]]}")
+                print(f"           Answer: {details.get('eval_answer', 'N/A')}")
 
     return create_benchmark_report("recall (retrieval)", timings)
 
@@ -499,12 +510,11 @@ async def run_benchmark(
     model: str = "gpt-4o-mini",
     base_url: Optional[str] = None,
     num_cases: Optional[int] = None,
-    iterations: int = 5,
     verbose: bool = False,
-    skip_remember: bool = False,
     skip_recall: bool = False,
     classifier_type: str = "intelligent",
     enable_metadata_extraction: bool = False,
+    recall_limit: int = 5,
 ):
     """Run the full benchmark suite."""
     from memoir import ProllyTreeMemoryStoreManager
@@ -587,38 +597,27 @@ async def run_benchmark(
         if num_cases:
             print(f"Limiting to {num_cases} test case(s)")
 
-        # Run remember benchmark
-        if not skip_remember:
-            remember_report = await benchmark_remember(
-                memory_manager=memory_manager,
-                classifier=classifier,
-                test_data=remember_data,
-                iterations=iterations,
-                verbose=verbose,
-            )
-            reports.append(remember_report)
-            print(remember_report)
-
-        # Store memories for recall benchmark (only if we're running recall)
-        if not skip_recall:
-            print("\nStoring memories for recall benchmark...")
-            for memory_text in remember_data:
-                await memory_manager.store_memory(
-                    content=memory_text,
-                    namespace=user_id,
-                    metadata={"source": "benchmark"},
-                    auto_classify=True,
-                )
+        # Run remember benchmark (this also stores memories for recall)
+        remember_report = await benchmark_remember(
+            memory_manager=memory_manager,
+            classifier=classifier,
+            test_data=remember_data,
+            namespace=user_id,
+            verbose=verbose,
+        )
+        reports.append(remember_report)
+        print(remember_report)
 
         # Run recall benchmark
         if not skip_recall:
             recall_report = await benchmark_recall(
                 memory_manager=memory_manager,
                 search_engine=search_engine,
+                llm=llm,
                 test_queries=recall_queries,
                 namespace=user_id,
-                iterations=iterations,
                 verbose=verbose,
+                limit=recall_limit,
             )
             reports.append(recall_report)
             print(recall_report)
@@ -629,7 +628,6 @@ async def run_benchmark(
         print("=" * 60)
         print(f"  Classifier:      {classifier_type}")
         print(f"  Model:           {model}")
-        print(f"  Iterations:      {iterations}")
 
         for report in reports:
             print(f"\n  {report.operation_type}:")
@@ -644,7 +642,7 @@ async def run_benchmark(
         # Detailed timing breakdown for recall (if available)
         if not skip_recall and recall_report.timings:
             print("\n  RECALL STEP BREAKDOWN (from step_timings):")
-            step_times = {"step1": [], "step2": [], "step3": [], "step4": []}
+            step_times = {"step1": [], "step2": [], "step3": [], "search": [], "eval": []}
 
             for timing in recall_report.timings:
                 if timing.success and "step_timings" in timing.details:
@@ -653,18 +651,19 @@ async def run_benchmark(
                         step_times["step1"].append(st["step1_path_discovery"] * 1000)
                     if st.get("step2_path_selection"):
                         step_times["step2"].append(st["step2_path_selection"] * 1000)
-                    if st.get("step3_content_refinement"):
-                        step_times["step3"].append(
-                            st["step3_content_refinement"] * 1000
-                        )
-                    if st.get("step4_memory_retrieval"):
-                        step_times["step4"].append(st["step4_memory_retrieval"] * 1000)
+                    if st.get("step3_memory_retrieval"):
+                        step_times["step3"].append(st["step3_memory_retrieval"] * 1000)
+                    if st.get("search_total"):
+                        step_times["search"].append(st["search_total"] * 1000)
+                    if st.get("eval_quality"):
+                        step_times["eval"].append(st["eval_quality"] * 1000)
 
             step_names = {
                 "step1": "Path Discovery",
                 "step2": "Path Selection (LLM)",
-                "step3": "Content Refinement (LLM)",
-                "step4": "Memory Retrieval",
+                "step3": "Memory Retrieval",
+                "search": "Search Total",
+                "eval": "Quality Eval (LLM)",
             }
 
             for step, times in step_times.items():
@@ -749,20 +748,9 @@ See https://docs.litellm.ai/docs/providers for full list.
         help="Number of test cases to run (default: all). Use small numbers like 1-3 for quick tests.",
     )
     parser.add_argument(
-        "--iterations",
-        type=int,
-        default=5,
-        help="Number of iterations per test (default: 5)",
-    )
-    parser.add_argument(
         "--verbose",
         action="store_true",
         help="Show detailed output for each operation",
-    )
-    parser.add_argument(
-        "--skip-remember",
-        action="store_true",
-        help="Skip remember benchmarks",
     )
     parser.add_argument(
         "--skip-recall",
@@ -781,6 +769,12 @@ See https://docs.litellm.ai/docs/providers for full list.
         action="store_true",
         help="Enable profile/timeline/location extraction (slower but richer output)",
     )
+    parser.add_argument(
+        "--recall-limit",
+        type=int,
+        default=5,
+        help="Number of memories to retrieve per recall query (default: 5)",
+    )
 
     args = parser.parse_args()
 
@@ -789,12 +783,11 @@ See https://docs.litellm.ai/docs/providers for full list.
             model=args.model,
             base_url=args.base_url,
             num_cases=args.num_cases,
-            iterations=args.iterations,
             verbose=args.verbose,
-            skip_remember=args.skip_remember,
             skip_recall=args.skip_recall,
             classifier_type=args.classifier,
             enable_metadata_extraction=args.metadata_extraction,
+            recall_limit=args.recall_limit,
         )
     )
 

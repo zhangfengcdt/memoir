@@ -2,12 +2,9 @@
 
 ## Executive Summary
 
-The Memoir project implements two complementary search approaches for retrieving memories from semantic taxonomy paths:
+The Memoir project implements an LLM-powered search engine for retrieving memories from semantic taxonomy paths:
 
-1. **SemanticSearchEngine**: A high-performance keyword-based search engine with pattern matching and relevance scoring
-2. **IntelligentSearchEngine**: An LLM-powered search engine that intelligently selects relevant memory paths before retrieval
-
-Both engines represent different tradeoffs between performance, accuracy, and computational cost, enabling flexible search strategies for different use cases.
+**IntelligentSearchEngine**: An LLM-powered search engine that intelligently selects relevant memory paths before retrieval.
 
 ## Core Problem Statement
 
@@ -34,116 +31,11 @@ The search system exploits the pre-classified semantic structure to:
 - **Reduce Search Space**: Focus only on relevant taxonomy branches
 - **Improve Interpretability**: Clear path-based result organization
 - **Enable Prefix Queries**: Efficient hierarchical exploration
-- **Support Multi-Strategy**: Combine keyword, semantic, and LLM approaches
+- **Leverage LLM Understanding**: True semantic query comprehension
 
 ## Architecture Overview
 
-### 1. SemanticSearchEngine
-
-#### Design Goals
-- **Low Latency**: Sub-100ms search without LLM dependencies
-- **Keyword Matching**: Fast pattern-based relevance scoring
-- **Self-Contained**: No external service dependencies
-- **Predictable Performance**: Deterministic scoring algorithm
-
-#### Algorithm Deep Dive
-
-##### Stage 1: Keyword Extraction (1-5ms)
-```python
-def _extract_keywords(query):
-    # Normalize: lowercase, remove punctuation
-    normalized = re.sub(r"[^\w\s]", " ", query.lower())
-
-    # Filter stop words (173 common English words)
-    keywords = {word for word in words
-                if len(word) > 2 and word not in stop_words}
-
-    return keywords
-```
-
-**Stop Word Strategy**:
-- Removes 173 most common English words
-- Filters words ≤ 2 characters
-- Preserves domain-specific terms
-- Case-insensitive processing
-
-##### Stage 2: Memory Retrieval (10-50ms)
-```python
-# Retrieve all memories from namespace (up to 1000)
-all_memories = store.search(namespace_tuple, limit=1000)
-```
-
-**Key Design Decision**:
-- Retrieves ALL memories upfront (bounded by 1000)
-- Trades memory for latency (single store query)
-- Enables in-memory scoring and ranking
-
-##### Stage 3: Relevance Scoring (5-20ms)
-```python
-def _calculate_relevance(keywords, path, data):
-    score = 0.0
-    max_possible = len(keywords) * 2
-
-    # Path matching (1.5x weight)
-    for keyword in keywords:
-        if keyword in path.lower():
-            score += 1.5
-
-    # Content matching (1.0x weight)
-    for keyword in keywords:
-        if keyword in content.lower():
-            score += 1.0
-
-    return min(score / max_possible, 1.0)
-```
-
-**Scoring Heuristics**:
-- **Path Match Weight**: 1.5x (paths are more semantic)
-- **Content Match Weight**: 1.0x
-- **Normalization**: Score / (keywords × 2) capped at 1.0
-- **Minimum Threshold**: Configurable (default 0.1)
-
-##### Stage 4: Result Extraction & Ranking
-```python
-# Handle both aggregated and single memories
-if "memories" in data:  # Aggregated format
-    for memory in memories:
-        results.append(SearchResult(...))
-else:  # Single memory
-    results.append(SearchResult(...))
-
-# Sort by relevance (highest first)
-results.sort(key=lambda x: x.relevance_score, reverse=True)
-```
-
-**Memory Format Handling**:
-- **Aggregated**: Multiple memories under one path
-- **Single**: One memory per path
-- **Metadata Preservation**: Source type, path info
-
-#### Performance Characteristics
-- **Keyword Extraction**: 1-5ms
-- **Store Query**: 10-50ms (depending on store size)
-- **Scoring**: 5-20ms for 1000 memories
-- **Total Latency**: 16-75ms typical
-- **Memory Usage**: O(memories_retrieved)
-- **Scalability**: Linear with namespace size up to 1000
-
-#### Strengths & Limitations
-
-**Strengths**:
-- Predictable, fast performance
-- No external dependencies
-- Transparent scoring algorithm
-- Works offline
-
-**Limitations**:
-- No semantic understanding (pure keyword matching)
-- Limited to exact/substring matches
-- No query expansion or synonyms
-- May miss conceptually related content
-
-### 2. IntelligentSearchEngine
+### IntelligentSearchEngine
 
 #### Design Goals
 - **Semantic Understanding**: LLM comprehends query intent
@@ -203,9 +95,30 @@ Instructions:
 - **Clear Format**: Line-separated paths for parsing
 - **Null Case**: Explicit "NONE" for no matches
 
-##### Stage 3: Memory Retrieval (5-20ms)
+##### Stage 3: Content Refinement (200-500ms)
 ```python
-for path in selected_paths[:limit]:
+# Second LLM call to verify selected paths based on actual content
+content_prompt = f"""You are refining memory search results based on actual content.
+
+Query: "{query}"
+
+Here are the candidate paths with their actual content:
+[path and content samples]
+
+Instructions:
+- Look at the actual CONTENT, not just the path names
+- Select only paths whose content directly answers or relates to the query
+- Return ONLY the path names, one per line
+"""
+```
+
+This two-stage refinement ensures:
+- **Path-based filtering**: First pass uses semantic path meaning
+- **Content-based verification**: Second pass confirms with actual data
+
+##### Stage 4: Memory Retrieval (5-20ms)
+```python
+for path in refined_paths[:limit]:
     path_memories = _get_memories_from_path(namespace, path, all_memories)
     results.extend(path_memories)
 
@@ -219,7 +132,7 @@ for path in selected_paths[:limit]:
 - **Memory Expansion**: Unpack aggregated memories
 - **Metadata Enrichment**: Add path and source info
 
-##### Stage 4: Fallback Handling
+##### Fallback Handling
 ```python
 except Exception as e:
     # Fallback: return first few paths
@@ -233,7 +146,8 @@ except Exception as e:
 
 #### Performance Characteristics
 - **Path Discovery**: 10-50ms
-- **LLM Invocation**: 200-500ms
+- **LLM Path Selection**: 200-500ms
+- **Content Refinement**: 200-500ms (optional)
 - **Memory Retrieval**: 5-20ms
 - **Total Latency**: 215-570ms typical
 - **Memory Usage**: O(all_paths + selected_memories)
@@ -246,6 +160,7 @@ except Exception as e:
 - Handles complex, abstract queries
 - Leverages memory organization
 - Provides reasoning transparency
+- Two-stage refinement improves accuracy
 
 **Limitations**:
 - Higher latency (LLM dependency)
@@ -253,57 +168,9 @@ except Exception as e:
 - Non-deterministic results
 - Requires online LLM access
 
-## Comparative Analysis
-
-### SemanticSearchEngine vs IntelligentSearchEngine
-
-| Aspect | SemanticSearchEngine | IntelligentSearchEngine |
-|--------|---------------------|------------------------|
-| **Latency** | 16-75ms | 215-570ms |
-| **Search Method** | Keyword matching | LLM path selection |
-| **Dependencies** | None | LLM required |
-| **Cost** | Free | LLM API costs |
-| **Determinism** | Fully deterministic | Non-deterministic |
-| **Query Understanding** | Literal keywords | Semantic intent |
-| **Scoring** | Mathematical formula | LLM judgment |
-| **Memory Access** | Scans all memories | Targeted paths only |
-| **Result Quality** | Good for exact matches | Better for concepts |
-| **Offline Capable** | Yes | No |
-| **Token Usage** | 0 | 500-1500 per query |
-
-### When to Use Which
-
-**Use SemanticSearchEngine when:**
-- Low latency is critical (<100ms requirement)
-- Queries contain specific keywords
-- Cost minimization is important
-- Offline operation is needed
-- Predictable behavior is required
-- High query volume expected
-
-**Use IntelligentSearchEngine when:**
-- Query intent is complex or abstract
-- Semantic understanding is crucial
-- Latency up to 500ms is acceptable
-- Higher accuracy is worth the cost
-- Queries are conversational
-- Path organization can be leveraged
-
 ## Advanced Search Patterns
 
-### 1. Hybrid Search Strategy
-Combine both engines for optimal results:
-```python
-# Fast keyword search first
-keyword_results = semantic_engine.search(query, limit=5)
-
-# If low confidence, use intelligent search
-if max(r.relevance_score for r in keyword_results) < 0.5:
-    intelligent_results = intelligent_engine.search(query, limit=5)
-    results = merge_results(keyword_results, intelligent_results)
-```
-
-### 2. Hierarchical Prefix Search
+### 1. Hierarchical Prefix Search
 Exploit path structure for exploration:
 ```python
 # Search all memories under a path prefix
@@ -311,7 +178,7 @@ prefix = "profile.professional"
 memories = store.search_prefix(namespace, prefix)
 ```
 
-### 3. Multi-Namespace Search
+### 2. Multi-Namespace Search
 Search across multiple user namespaces:
 ```python
 namespaces = ["user:alice", "user:bob", "shared:team"]
@@ -320,13 +187,24 @@ for ns in namespaces:
     results.extend(engine.search(query, ns, limit=3))
 ```
 
-### 4. Temporal Search
+### 3. Temporal Search
 Combine with version control for time-based queries:
 ```python
 # Search at specific commit/timestamp
 historical_results = engine.search(
     query, namespace,
     at_commit="abc123"  # Git-like time travel
+)
+```
+
+### 4. Person-Filtered Search
+Filter results by person context:
+```python
+# Search only memories related to a specific person
+results = await engine.search(
+    query="favorite food",
+    namespace="user123",
+    person_filter="john"
 )
 ```
 
@@ -369,7 +247,7 @@ async def streaming_search():
 
 ### Memory Format Handling
 
-Both engines handle two memory formats:
+The engine handles two memory formats:
 
 **Aggregated Memory Format**:
 ```json
@@ -394,10 +272,10 @@ Both engines handle two memory formats:
 
 ### Search Result Structure
 
-Both engines return standardized results:
+Results use a standardized structure:
 ```python
 @dataclass
-class SearchResult:
+class IntelligentSearchResult:
     path: str              # Semantic path
     content: str           # Memory content
     metadata: dict         # Additional metadata
@@ -424,13 +302,13 @@ namespace_tuple = tuple(namespace.split(":"))
 ### Planned Improvements
 
 1. **Embedding-Enhanced Search**:
-   - Combine keyword, path, and embedding similarity
+   - Combine path selection with embedding similarity
    - Use embeddings for query expansion
    - Cache embeddings for frequent queries
 
 2. **Learning from Feedback**:
    - Track click-through rates on results
-   - Adjust scoring weights based on usage
+   - Adjust path selection based on usage
    - Personalized relevance models
 
 3. **Query Understanding Pipeline**:
@@ -439,9 +317,9 @@ namespace_tuple = tuple(namespace.split(":"))
    - Query rewriting and expansion
 
 4. **Advanced Ranking**:
-   - BM25 scoring for keyword relevance
    - Temporal decay for recency
    - Personalized ranking models
+   - Confidence-weighted scoring
 
 5. **Federated Search**:
    - Search across multiple memory stores
@@ -457,19 +335,15 @@ namespace_tuple = tuple(namespace.split(":"))
 
 ### Information Retrieval Theory
 
-The search engines implement concepts from:
+The search engine implements concepts from:
 
-1. **Boolean Retrieval Model** (SemanticSearchEngine):
-   - Term presence/absence in documents
-   - AND/OR operations implicit in keyword matching
-
-2. **Vector Space Model** (Relevance Scoring):
-   - Documents and queries as vectors
-   - Cosine similarity approximated by overlap
-
-3. **Probabilistic Retrieval** (IntelligentSearchEngine):
+1. **Probabilistic Retrieval**:
    - LLM estimates P(relevant|path, query)
    - Bayesian inference through language understanding
+
+2. **Hierarchical Search**:
+   - Logarithmic complexity through path structure
+   - Semantic clustering of related memories
 
 ### Hierarchical Search Advantages
 
@@ -480,31 +354,13 @@ The semantic path structure enables:
 3. **Progressive Refinement**: Drill down through hierarchy
 4. **Faceted Search**: Filter by path prefixes
 
-### Trade-off Analysis
-
-The dual-engine approach represents different points in the trade-off space:
-
-```
-Speed ←→ Understanding
-  SemanticSearchEngine: Fast, literal
-  IntelligentSearchEngine: Slower, semantic
-
-Cost ←→ Quality
-  SemanticSearchEngine: Free, good enough
-  IntelligentSearchEngine: Paid, higher quality
-
-Determinism ←→ Flexibility
-  SemanticSearchEngine: Predictable
-  IntelligentSearchEngine: Adaptive
-```
-
 ## Conclusion
 
-The Memoir search architecture demonstrates that effective memory retrieval doesn't require expensive vector similarity search. By leveraging semantic taxonomy paths and offering both keyword-based and LLM-powered search engines, the system provides:
+The Memoir search architecture demonstrates that effective memory retrieval doesn't require expensive vector similarity search. By leveraging semantic taxonomy paths and LLM-powered search, the system provides:
 
 1. **10-50x faster search** than traditional vector approaches
 2. **Transparent, interpretable** ranking mechanisms
-3. **Flexible trade-offs** between speed and understanding
+3. **True semantic understanding** of query intent
 4. **Hierarchical exploration** of memory spaces
 
 The key insight is that pre-classification into semantic paths transforms the search problem from finding needles in haystacks to navigating well-organized filing cabinets, fundamentally improving both performance and user experience.

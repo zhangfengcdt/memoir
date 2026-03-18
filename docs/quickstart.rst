@@ -189,26 +189,16 @@ Memoir provides Git-like version control for memories with fine-grained commit c
 
    store.auto_commit = True  # Re-enable for future critical operations
 
-Search Engines
---------------
+Search Engine
+-------------
 
-Memoir offers two search engine options:
-
-**Intelligent Search** (LLM-powered, default):
+Memoir uses an intelligent LLM-powered search engine:
 
 .. code-block:: python
 
    from memoir.search.intelligent import IntelligentSearchEngine
 
    search_engine = IntelligentSearchEngine(llm=llm, store=store)
-
-**Semantic Search** (keyword-based, faster):
-
-.. code-block:: python
-
-   from memoir.search.semantic import SemanticSearchEngine
-
-   search_engine = SemanticSearchEngine(store=store)
 
 Next Steps
 ----------

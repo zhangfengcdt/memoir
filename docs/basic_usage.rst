@@ -198,15 +198,11 @@ Component Configuration
        }
    )
 
-**Search Engine Options**
+**Search Engine**
 
 .. code-block:: python
 
-   # Fast keyword-based search (0.1-1ms)
-   from memoir.search.semantic import SemanticSearchEngine
-   search_engine = SemanticSearchEngine(store=store)
-
-   # Intelligent LLM-powered search (100-500ms)
+   # Intelligent LLM-powered search
    from memoir.search.intelligent import IntelligentSearchEngine
    search_engine = IntelligentSearchEngine(llm=llm, store=store)
 
@@ -328,19 +324,15 @@ Error Handling
 Performance Tips
 ----------------
 
-1. **Choose the Right Search Engine**:
-   - Use ``SemanticSearchEngine`` for fast, simple queries
-   - Use ``IntelligentSearchEngine`` for complex, contextual queries
-
-2. **Tune Confidence Thresholds**:
+1. **Tune Confidence Thresholds**:
    - Lower thresholds = more memories stored
    - Higher thresholds = higher quality, fewer memories
 
-3. **Batch Operations**:
+2. **Batch Operations**:
    - Store multiple memories in sequence for better performance
    - Use transactions for atomic operations
 
-4. **Cache Configuration**:
+3. **Cache Configuration**:
    - Increase cache size for frequently accessed memories
    - Monitor memory usage vs. performance trade-offs
 
