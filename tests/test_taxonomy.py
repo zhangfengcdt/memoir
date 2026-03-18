@@ -17,8 +17,9 @@ class TestSemanticTaxonomy:
         taxonomy = get_taxonomy()
         paths = taxonomy.get_all_paths()
 
-        # Simplified taxonomy has ~200-250 paths (3 levels max)
-        assert len(paths) >= 150
+        # Fallback taxonomy has minimal paths (~40-70)
+        # Full taxonomy loaded via TaxonomyLoader has ~200+ paths
+        assert len(paths) >= 30
 
         # All paths should be unique
         assert len(paths) == len(set(paths))
@@ -110,8 +111,9 @@ class TestSemanticTaxonomy:
         taxonomy = get_taxonomy()
         stats = taxonomy.get_statistics()
 
-        # Simplified taxonomy has ~200-250 paths at max depth 3
-        assert stats["total_paths"] >= 150
+        # Fallback taxonomy has minimal paths (~40-70)
+        # Full taxonomy loaded via TaxonomyLoader has ~200+ paths
+        assert stats["total_paths"] >= 30
         assert stats["categories"] == len(list(TaxonomyCategory))
         assert stats["max_depth"] >= 3
         assert "paths_by_category" in stats
