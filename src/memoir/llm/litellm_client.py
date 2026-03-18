@@ -203,22 +203,44 @@ class LiteLLMWrapper:
             {"role": "user", "content": dynamic_content.strip()},
         ]
 
-    def _update_cache_stats(self, usage: dict):
-        """Update cache statistics from response usage."""
+    def _update_cache_stats(self, usage):
+        """Update cache statistics from response usage.
+
+        LiteLLM returns cache stats in prompt_tokens_details:
+        - cache_creation_tokens: tokens written to cache
+        - cached_tokens: tokens read from cache
+        """
         self.cache_stats["total_requests"] += 1
 
         cache_creation = 0
         cache_read = 0
 
+        # Try direct attributes first (Anthropic native format)
         if hasattr(usage, "cache_creation_input_tokens"):
             cache_creation = usage.cache_creation_input_tokens or 0
-        elif isinstance(usage, dict):
-            cache_creation = usage.get("cache_creation_input_tokens", 0)
-
         if hasattr(usage, "cache_read_input_tokens"):
             cache_read = usage.cache_read_input_tokens or 0
-        elif isinstance(usage, dict):
+
+        # Try LiteLLM's prompt_tokens_details format
+        if cache_creation == 0 and cache_read == 0:
+            prompt_details = getattr(usage, "prompt_tokens_details", None)
+            if prompt_details:
+                cache_creation = (
+                    getattr(prompt_details, "cache_creation_tokens", 0) or 0
+                )
+                cache_read = getattr(prompt_details, "cached_tokens", 0) or 0
+
+        # Try dict format
+        if cache_creation == 0 and cache_read == 0 and isinstance(usage, dict):
+            cache_creation = usage.get("cache_creation_input_tokens", 0)
             cache_read = usage.get("cache_read_input_tokens", 0)
+            # Also check nested prompt_tokens_details
+            prompt_details = usage.get("prompt_tokens_details", {})
+            if isinstance(prompt_details, dict):
+                cache_creation = cache_creation or prompt_details.get(
+                    "cache_creation_tokens", 0
+                )
+                cache_read = cache_read or prompt_details.get("cached_tokens", 0)
 
         self.cache_stats["cache_creation_input_tokens"] += cache_creation
         self.cache_stats["cache_read_input_tokens"] += cache_read

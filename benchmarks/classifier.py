@@ -504,6 +504,7 @@ async def run_benchmark(
     skip_remember: bool = False,
     skip_recall: bool = False,
     classifier_type: str = "intelligent",
+    enable_metadata_extraction: bool = False,
 ):
     """Run the full benchmark suite."""
     from memoir import ProllyTreeMemoryStoreManager
@@ -551,8 +552,12 @@ async def run_benchmark(
                 },
                 min_items_for_expansion=3,
                 suppress_path_warnings=True,
+                enable_metadata_extraction=enable_metadata_extraction,
             )
-            print("  Using IntelligentClassifier (LLM-powered)")
+            extraction_mode = (
+                "with metadata" if enable_metadata_extraction else "fast mode"
+            )
+            print(f"  Using IntelligentClassifier ({extraction_mode})")
 
         # Create search engine
         search_engine = IntelligentSearchEngine(
@@ -771,6 +776,11 @@ See https://docs.litellm.ai/docs/providers for full list.
         default="intelligent",
         help="Classifier type to benchmark: 'intelligent' (default) or 'semantic'",
     )
+    parser.add_argument(
+        "--metadata-extraction",
+        action="store_true",
+        help="Enable profile/timeline/location extraction (slower but richer output)",
+    )
 
     args = parser.parse_args()
 
@@ -784,6 +794,7 @@ See https://docs.litellm.ai/docs/providers for full list.
             skip_remember=args.skip_remember,
             skip_recall=args.skip_recall,
             classifier_type=args.classifier,
+            enable_metadata_extraction=args.metadata_extraction,
         )
     )
 
