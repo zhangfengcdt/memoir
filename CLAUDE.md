@@ -57,15 +57,17 @@ This project brings Git-like version control to AI memory systems, replacing opa
 
 **Key Paradigm Shift**:
 - **Traditional**: `uuid-1234` → expensive vector search → no history
-- **Memoir**: `profile.professional.skills.python` → O(log n) lookup → full Git-like versioning
+- **Memoir**: `profile.professional.skills` → O(log n) lookup → full Git-like versioning
 
 ### Component Architecture
 
 #### 1. **Taxonomy System** (`src/memoir/taxonomy/`)
-- **SemanticTaxonomy** (`semantic.py`): Fixed ~800-path hierarchy
+- **SemanticTaxonomy** (`semantic.py`): Fixed ~200-path hierarchy (3 levels max)
 - **LLMIterativeTaxonomy** (`iterative.py`): Dynamic LLM-driven expansion
-- **TaxonomyPresets** (`taxonomy_presets.py`): Version management for taxonomy configurations
-- **DataSources** (`data_sources.py`): Integration with LOCOMO conversation dataset
+- **TaxonomyPresets** (`taxonomy.py`): Hardcoded taxonomy paths and classification examples
+- **TaxonomyLoader** (`loader.py`): High-level API for loading taxonomy into store
+- **TaxonomyRegistry** (`registry.py`): File registry for builtin and external taxonomy files
+- **MarkdownTaxonomyDataSource** (`markdown_source.py`): Parser for markdown taxonomy files
 
 #### 2. **Classification System** (`src/memoir/classifier/`)
 - **IntelligentClassifier** (`intelligent.py`): Multi-stage classification with LLM
@@ -137,9 +139,10 @@ The system requires an LLM for intelligent features. Supported providers:
 
 ### Taxonomy Configuration
 Multiple taxonomy strategies available:
-- **Fixed taxonomy**: Use `SemanticTaxonomy` for stable, predefined paths
+- **Fixed taxonomy**: Use `SemanticTaxonomy` for stable, predefined paths (~200 paths, 3 levels)
 - **Dynamic expansion**: Use `LLMIterativeTaxonomy` for automatic growth
-- **Custom presets**: Load from `TaxonomyPresets` for domain-specific taxonomies
+- **Store-based loading**: Use `TaxonomyLoader` to load taxonomy from markdown files into the store
+- **Custom taxonomies**: Create markdown files in `src/memoir/taxonomy/data/` or load external files
 
 ### Version Control Features
 Git-like operations for AI memory:

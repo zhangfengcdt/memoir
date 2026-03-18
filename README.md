@@ -230,6 +230,34 @@ make format
 make ci
 ```
 
+## Benchmarks
+
+Benchmark the classifier and search performance with different LLM providers:
+
+```bash
+# Using OpenAI (default)
+export OPENAI_API_KEY=your-key
+python benchmarks/classifier.py
+
+# Using Anthropic Claude
+export ANTHROPIC_API_KEY=your-key
+python benchmarks/classifier.py --model claude-haiku-4-5
+
+# Using Google Gemini
+export GEMINI_API_KEY=your-key
+python benchmarks/classifier.py --model gemini/gemini-1.5-flash
+
+# Using Ollama (local, free)
+python benchmarks/classifier.py --model ollama/llama3.2
+
+# Run specific tests
+python benchmarks/classifier.py --skip-recall        # Only remember benchmarks
+python benchmarks/classifier.py --num-cases 10      # Limit test cases
+python benchmarks/classifier.py --verbose           # Detailed output
+```
+
+See all options with `python benchmarks/classifier.py --help` or `make benchmark`.
+
 ## Architecture
 
 | Component | Description |
