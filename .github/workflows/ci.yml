@@ -41,6 +41,8 @@ jobs:
         git config --global user.name "Test User"
 
     - name: Run tests with pytest
+      env:
+        PYTHONWARNINGS: ignore
       run: |
         pytest tests/ -v --cov=memoir --cov-report=xml --cov-report=term-missing --ignore=tests/test_ui_e2e.py
 
