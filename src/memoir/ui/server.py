@@ -302,12 +302,11 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             if content and not (date_str and description):
                 # Initialize the IntelligentClassifier
                 try:
-                    from langchain_openai import ChatOpenAI
-
                     from memoir.classifier.intelligent import IntelligentClassifier
+                    from memoir.llm import get_llm
                     from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
 
-                    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+                    llm = get_llm(model="gpt-4o-mini", temperature=0)
                     classifier = IntelligentClassifier(
                         llm=llm,
                         taxonomy_version=TaxonomyVersion.GENERAL,
@@ -524,12 +523,11 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             if content and not (location_name and description):
                 # Initialize the IntelligentClassifier
                 try:
-                    from langchain_openai import ChatOpenAI
-
                     from memoir.classifier.intelligent import IntelligentClassifier
+                    from memoir.llm import get_llm
                     from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
 
-                    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+                    llm = get_llm(model="gpt-4o-mini", temperature=0)
                     classifier = IntelligentClassifier(
                         llm=llm,
                         taxonomy_version=TaxonomyVersion.GENERAL,
@@ -884,9 +882,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
             # Initialize LLM for summarization
             try:
-                from langchain_openai import ChatOpenAI
+                from memoir.llm import get_llm
 
-                llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+                llm = get_llm(model="gpt-4o-mini", temperature=0)
             except Exception as e:
                 self.send_error(500, f"Error initializing LLM: {e!s}")
                 return
@@ -1348,9 +1346,9 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
 
             # Initialize LLM
             try:
-                from langchain_openai import ChatOpenAI
+                from memoir.llm import get_llm
 
-                llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
+                llm = get_llm(model="gpt-4o-mini", temperature=0.7)
             except Exception as e:
                 error_response = {
                     "success": False,

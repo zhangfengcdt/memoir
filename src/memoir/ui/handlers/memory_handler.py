@@ -65,12 +65,11 @@ class MemoryHandler(BaseAPIHandler):
             step2_start = time.time()
             try:
                 # Initialize the intelligent classifier
-                from langchain_openai import ChatOpenAI
-
+                from memoir.llm import get_llm
                 from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
 
                 # Initialize LLM for classification
-                llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+                llm = get_llm(model="gpt-4o-mini", temperature=0)
 
                 classifier = IntelligentClassifier(
                     llm=llm,
@@ -421,9 +420,9 @@ class MemoryHandler(BaseAPIHandler):
 
             # Initialize LLM for intelligent search
             try:
-                from langchain_openai import ChatOpenAI
+                from memoir.llm import get_llm
 
-                llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+                llm = get_llm(model="gpt-4o-mini", temperature=0)
             except Exception as e:
                 self.handler.send_error(500, f"Error initializing LLM: {e!s}")
                 return

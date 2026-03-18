@@ -106,7 +106,11 @@ class SemanticClassifier:
         return DEFAULT_FALLBACK_PATH
 
     def _get_taxonomy_structure_info(self) -> str:
-        """Generate taxonomy structure information for the prompt."""
+        """Generate taxonomy structure information for the prompt.
+
+        Includes ALL paths (excluding 'other' paths) to ensure the static section
+        meets the minimum token requirement for prompt caching (2048 tokens for Haiku).
+        """
         try:
             # All taxonomies should implement TaxonomyInterface
             all_paths = self.taxonomy.get_all_paths()
@@ -114,11 +118,12 @@ class SemanticClassifier:
             if not all_paths:
                 return "The taxonomy structure is available but paths could not be enumerated."
 
+            # Filter out 'other' paths for cleaner output (they're implied)
+            non_other_paths = [p for p in all_paths if not p.endswith(".other")]
+
             # Group paths by top-level category for better organization
-            categories = {}
-            for path in all_paths[
-                :MAX_PROMPT_PATHS
-            ]:  # Limit to prevent prompt overflow
+            categories: dict[str, list[str]] = {}
+            for path in non_other_paths:
                 parts = path.split(".")
                 if parts:
                     category = parts[0]
@@ -126,27 +131,22 @@ class SemanticClassifier:
                         categories[category] = []
                     categories[category].append(path)
 
-            # Generate structured description
-            structure_lines = ["Available taxonomy categories and example paths:"]
-            for category, paths in sorted(categories.items()):
-                structure_lines.append(f"\n• {category}:")
-                # Show a few example paths from each category
-                example_paths = sorted(paths)[
-                    :MAX_EXAMPLE_PATHS_PER_CATEGORY
-                ]  # Show limited examples
-                for path in example_paths:
-                    structure_lines.append(f"  - {path}")
-                if len(paths) > MAX_EXAMPLE_PATHS_PER_CATEGORY:
-                    structure_lines.append(
-                        f"  - ... and {len(paths) - MAX_EXAMPLE_PATHS_PER_CATEGORY} more {category} paths"
-                    )
+            # Generate structured description with ALL paths for prompt caching
+            structure_lines = [
+                f"Complete taxonomy hierarchy ({len(non_other_paths)} available paths):",
+                "",
+            ]
 
-            structure_lines.append(f"\nTotal paths available: {len(all_paths)}")
+            for category, paths in sorted(categories.items()):
+                structure_lines.append(f"## {category.upper()}")
+                for path in sorted(paths):
+                    structure_lines.append(f"  - {path}")
+                structure_lines.append("")
 
             # Add info about 'other' categories if this is an AdvancedTaxonomy
             if isinstance(self.taxonomy, AdvancedTaxonomyInterface):
                 structure_lines.append(
-                    "\nThis taxonomy includes 'other' categories at various levels for unclassified content."
+                    "NOTE: Each category also has 'other' subcategories for unclassified content."
                 )
                 structure_lines.append(
                     "Use 'other' categories when content doesn't fit existing specific paths."
@@ -168,19 +168,20 @@ class SemanticClassifier:
             return False
 
     def _setup_classification_prompt(self):
-        """Setup the classification prompt template."""
-        # Dynamic template that works with different taxonomy types
-        self.classification_template = """You are a semantic memory classifier. Your task is to classify the given memory content into the most appropriate path(s) from the provided taxonomy.
+        """Setup the classification prompt template.
 
-MEMORY CONTENT:
-{memory_content}
-
-{context_info}
+        The prompt is structured with STATIC content FIRST (for prompt caching)
+        and DYNAMIC content LAST. This allows LLM providers like Anthropic to
+        cache the static prefix and reduce costs by up to 90%.
+        """
+        # Static content first, dynamic content last for optimal prompt caching
+        self.classification_template = """[STATIC_SECTION_START]
+You are a semantic memory classifier. Your task is to classify the given memory content into the most appropriate path(s) from the provided taxonomy.
 
 AVAILABLE TAXONOMY STRUCTURE:
 {taxonomy_structure}
 
-{classification_hints}
+{examples}
 
 CLASSIFICATION GUIDELINES:
 1. Match content to the MOST SPECIFIC appropriate path from the available taxonomy
@@ -192,8 +193,6 @@ CLASSIFICATION GUIDELINES:
    - Low confidence (0.0-0.4): Content is unclear or doesn't fit well
 5. When unsure, use the most specific relevant category available in the taxonomy
 6. Use 'other' categories when content doesn't fit existing specific paths - this helps the system learn and expand
-
-{examples}
 
 IMPORTANT:
 - Only use paths that exist in the provided taxonomy
@@ -212,7 +211,17 @@ Think step by step:
 2. If uncertain, what's the closest parent category?
 3. Should this go to a specific path or an 'other' category?
 
-CRITICAL: Return ONLY the JSON object, no explanations, no markdown formatting."""
+CRITICAL: Return ONLY the JSON object, no explanations, no markdown formatting.
+[STATIC_SECTION_END]
+
+[DYNAMIC_SECTION_START]
+{context_info}
+
+{classification_hints}
+
+MEMORY CONTENT TO CLASSIFY:
+{memory_content}
+[DYNAMIC_SECTION_END]"""
 
     def _get_classification_examples(self) -> str:
         """Get few-shot examples for classification."""

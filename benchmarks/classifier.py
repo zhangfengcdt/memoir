@@ -35,6 +35,7 @@ Usage:
 Options:
     --model MODEL       LiteLLM model identifier (default: gpt-4o-mini)
     --base-url URL      Custom base URL for OpenAI-compatible endpoints
+    --classifier TYPE   Classifier type: 'intelligent' (default) or 'semantic'
     --num-cases N       Number of test cases to run (default: all)
     --iterations N      Number of iterations per test (default: 5)
     --verbose           Show detailed output for each operation
@@ -50,7 +51,9 @@ import sys
 import tempfile
 import time
 from dataclasses import dataclass, field
-from typing import Any, ClassVar, Optional
+from typing import Optional
+
+from memoir.llm import LiteLLMWrapper
 
 
 @dataclass
@@ -104,275 +107,6 @@ class BenchmarkReport:
             f"{'='*60}",
         ]
         return "\n".join(lines)
-
-
-class LiteLLMResponse:
-    """Response object that mimics LangChain's response format."""
-
-    def __init__(self, content: str, usage: Optional[dict] = None):
-        self.content = content
-        self.usage = usage or {}
-
-
-class LiteLLMWrapper:
-    """
-    Wrapper around LiteLLM that provides a LangChain-compatible interface.
-
-    This allows using LiteLLM with code that expects .invoke() and .ainvoke() methods.
-    Supports 100+ LLM providers including OpenAI, Anthropic, Google, Ollama, vLLM, etc.
-
-    Features:
-    - Prompt caching for Anthropic models (reduces cost by up to 90% on cached tokens)
-    - Automatic detection of cacheable content based on prompt structure
-    """
-
-    # Models that support prompt caching (with or without anthropic/ prefix)
-    CACHE_SUPPORTED_MODELS: ClassVar[list[str]] = [
-        # Current models (2025)
-        "claude-opus-4",
-        "claude-sonnet-4",
-        "claude-haiku-4",
-        # Legacy models
-        "claude-3-5-sonnet",
-        "claude-3-5-haiku",
-        "claude-3-opus",
-        "claude-3-haiku",
-        "claude-3-sonnet",
-        "anthropic/claude",  # Catch-all for anthropic/ prefixed models
-    ]
-
-    # Minimum tokens for caching (Anthropic requirements)
-    # claude-3-5-sonnet/opus: 1024 tokens, claude-3-haiku: 2048 tokens
-    MIN_CACHE_TOKENS = 1024
-
-    def __init__(
-        self,
-        model: str = "gpt-4o-mini",
-        temperature: float = 0,
-        max_tokens: int = 500,
-        base_url: Optional[str] = None,
-        api_key: Optional[str] = None,
-        enable_prompt_cache: bool = True,
-    ):
-        self.model = model
-        self.temperature = temperature
-        self.max_tokens = max_tokens
-        self.base_url = base_url
-        self.api_key = api_key
-        self.enable_prompt_cache = enable_prompt_cache
-        self._debug_cache = True  # Enable cache debugging output
-
-        # Cache statistics
-        self.cache_stats = {
-            "cache_creation_input_tokens": 0,
-            "cache_read_input_tokens": 0,
-            "total_requests": 0,
-            "cached_requests": 0,
-        }
-
-        # Import litellm here to fail fast if not installed
-        try:
-            import litellm
-
-            self._litellm = litellm
-            # Suppress litellm's verbose logging
-            litellm.suppress_debug_info = True
-        except ImportError:
-            raise ImportError(
-                "litellm package is required. Install with: pip install litellm"
-            )
-
-    def _supports_prompt_cache(self) -> bool:
-        """Check if the current model supports prompt caching."""
-        if not self.enable_prompt_cache:
-            return False
-        model_lower = self.model.lower()
-        return any(
-            supported in model_lower for supported in self.CACHE_SUPPORTED_MODELS
-        )
-
-    def _build_kwargs(self) -> dict:
-        """Build kwargs for litellm calls."""
-        kwargs = {
-            "model": self.model,
-            "temperature": self.temperature,
-            "max_tokens": self.max_tokens,
-        }
-        if self.base_url:
-            kwargs["base_url"] = self.base_url
-            kwargs["api_base"] = self.base_url  # Some providers use api_base
-        if self.api_key:
-            kwargs["api_key"] = self.api_key
-        return kwargs
-
-    def _extract_cacheable_content(self, prompt: str) -> tuple[str, str]:
-        """
-        Extract the cacheable (static) and dynamic parts of a classification prompt.
-
-        The IntelligentClassifier structures prompts as:
-        1. [STATIC_SECTION_START] ... taxonomy + guidelines ... [STATIC_SECTION_END]
-        2. [DYNAMIC_SECTION_START] ... user content + context ...
-
-        Returns:
-            Tuple of (static_content, dynamic_content) or (None, None) if no markers found
-        """
-        static_end_marker = "[STATIC_SECTION_END]"
-
-        if static_end_marker in prompt:
-            static_end_pos = prompt.find(static_end_marker) + len(static_end_marker)
-            static_part = prompt[:static_end_pos]
-            dynamic_part = prompt[static_end_pos:]
-
-            if self._debug_cache:
-                print(
-                    f"  [Cache Debug] Static: {len(static_part)} chars (~{len(static_part)//4} tokens)"
-                )
-                print(
-                    f"  [Cache Debug] Dynamic: {len(dynamic_part)} chars (~{len(dynamic_part)//4} tokens)"
-                )
-            return static_part, dynamic_part
-
-        # No markers found - return None to indicate no caching
-        if self._debug_cache:
-            print("  [Cache Debug] No markers found, caching disabled for this prompt")
-        return None, None
-
-    def _format_cached_messages(self, prompt: str) -> list[dict]:
-        """
-        Format messages with Anthropic prompt caching structure.
-
-        Splits prompt at [STATIC_SECTION_END] marker and adds cache_control
-        to the static part (taxonomy + guidelines).
-        """
-        static_content, dynamic_content = self._extract_cacheable_content(prompt)
-
-        # No markers found - send as regular message without caching
-        if static_content is None:
-            return [{"role": "user", "content": prompt}]
-
-        # Check minimum token requirement
-        estimated_static_tokens = len(static_content) // 4
-        min_tokens = 2048 if "haiku" in self.model.lower() else 1024
-
-        if estimated_static_tokens < min_tokens:
-            if self._debug_cache:
-                print(
-                    f"  [Cache Debug] Static too short: ~{estimated_static_tokens} tokens < {min_tokens} required"
-                )
-            return [{"role": "user", "content": prompt}]
-
-        if self._debug_cache:
-            print(f"  [Cache Debug] Caching ~{estimated_static_tokens} static tokens")
-
-        # Format with cache_control for Anthropic
-        return [
-            {
-                "role": "system",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": static_content,
-                        "cache_control": {"type": "ephemeral"},
-                    }
-                ],
-            },
-            {"role": "user", "content": dynamic_content.strip()},
-        ]
-
-    def _update_cache_stats(self, usage: dict):
-        """Update cache statistics from response usage."""
-        self.cache_stats["total_requests"] += 1
-
-        cache_creation = 0
-        cache_read = 0
-
-        if hasattr(usage, "cache_creation_input_tokens"):
-            cache_creation = usage.cache_creation_input_tokens or 0
-        elif isinstance(usage, dict):
-            cache_creation = usage.get("cache_creation_input_tokens", 0)
-
-        if hasattr(usage, "cache_read_input_tokens"):
-            cache_read = usage.cache_read_input_tokens or 0
-        elif isinstance(usage, dict):
-            cache_read = usage.get("cache_read_input_tokens", 0)
-
-        self.cache_stats["cache_creation_input_tokens"] += cache_creation
-        self.cache_stats["cache_read_input_tokens"] += cache_read
-
-        if cache_read > 0:
-            self.cache_stats["cached_requests"] += 1
-
-        if self._debug_cache:
-            if cache_creation > 0:
-                print(
-                    f"  [Cache Debug] Cache CREATED: {cache_creation} tokens written to cache"
-                )
-            if cache_read > 0:
-                print(f"  [Cache Debug] Cache HIT: {cache_read} tokens read from cache")
-            if cache_creation == 0 and cache_read == 0:
-                print(
-                    "  [Cache Debug] Cache MISS: No cache activity (prompt may be too short)"
-                )
-
-    def get_cache_stats(self) -> dict:
-        """Get prompt caching statistics."""
-        stats = self.cache_stats.copy()
-        if stats["total_requests"] > 0:
-            stats["cache_hit_rate"] = stats["cached_requests"] / stats["total_requests"]
-        else:
-            stats["cache_hit_rate"] = 0.0
-
-        # Estimate savings (cached tokens cost 90% less)
-        if stats["cache_read_input_tokens"] > 0:
-            # Savings = cache_read_tokens * 0.9 * cost_per_token
-            stats["estimated_token_savings"] = int(
-                stats["cache_read_input_tokens"] * 0.9
-            )
-        else:
-            stats["estimated_token_savings"] = 0
-
-        return stats
-
-    def invoke(self, prompt: Any) -> LiteLLMResponse:
-        """Synchronous invoke method compatible with LangChain interface."""
-        import asyncio
-
-        return asyncio.run(self.ainvoke(prompt))
-
-    async def ainvoke(self, prompt: Any) -> LiteLLMResponse:
-        """Async invoke method compatible with LangChain interface."""
-        # Handle different prompt formats
-        if isinstance(prompt, str):
-            if self._supports_prompt_cache():
-                # Use cached message format for Anthropic models
-                messages = self._format_cached_messages(prompt)
-            else:
-                messages = [{"role": "user", "content": prompt}]
-        elif isinstance(prompt, list):
-            # Assume it's already a list of message dicts
-            messages = prompt
-        else:
-            # Try to convert to string
-            prompt_str = str(prompt)
-            if self._supports_prompt_cache():
-                messages = self._format_cached_messages(prompt_str)
-            else:
-                messages = [{"role": "user", "content": prompt_str}]
-
-        kwargs = self._build_kwargs()
-        kwargs["messages"] = messages
-
-        response = await self._litellm.acompletion(**kwargs)
-
-        # Extract content and usage from response
-        content = response.choices[0].message.content
-        usage = getattr(response, "usage", {})
-
-        # Update cache statistics
-        if self._supports_prompt_cache():
-            self._update_cache_stats(usage)
-
-        return LiteLLMResponse(content=content, usage=usage)
 
 
 def get_llm(
@@ -445,6 +179,7 @@ def get_llm(
             max_tokens=500,
             base_url=base_url,
             enable_prompt_cache=enable_prompt_cache,
+            debug_cache=True,  # Enable cache debugging for benchmarks
         )
         print(f"Using model: {model}")
         if base_url:
@@ -588,7 +323,7 @@ RECALL_TEST_QUERIES = [
 
 
 async def benchmark_remember(
-    _memory_manager,
+    memory_manager,  # noqa: ARG001
     classifier,
     test_data: list[str],
     iterations: int,
@@ -613,18 +348,33 @@ async def benchmark_remember(
 
             try:
                 # Use the classifier directly to measure classification time
-                classification = await classifier.classify_input(
-                    content=memory_text,
-                    metadata={"source": "benchmark", "iteration": iteration},
-                )
-
-                result_path = classification.path
-                details = {
-                    "confidence": classification.confidence,
-                    "is_memory": classification.is_memory,
-                    "paths": classification.all_paths,
-                }
-                success = classification.is_memory and result_path is not None
+                # Handle different classifier interfaces
+                if hasattr(classifier, "classify_input"):
+                    # IntelligentClassifier
+                    classification = await classifier.classify_input(
+                        content=memory_text,
+                        metadata={"source": "benchmark", "iteration": iteration},
+                    )
+                    result_path = classification.path
+                    details = {
+                        "confidence": classification.confidence,
+                        "is_memory": classification.is_memory,
+                        "paths": classification.all_paths,
+                    }
+                    success = classification.is_memory and result_path is not None
+                else:
+                    # SemanticClassifier
+                    classification = await classifier.classify_async(
+                        memory_content=memory_text,
+                        context={"source": "benchmark", "iteration": iteration},
+                    )
+                    result_path = classification.primary_path
+                    details = {
+                        "confidence": classification.confidence,
+                        "is_memory": True,  # SemanticClassifier always classifies
+                        "paths": classification.alternative_paths,
+                    }
+                    success = result_path is not None
 
             except Exception as e:
                 error = str(e)
@@ -648,13 +398,21 @@ async def benchmark_remember(
 
             if verbose:
                 status = "OK" if success else "FAIL"
-                print(f"    [{status}] {duration_ms:>8.2f}ms - {timing.input_text}")
+                path_info = f" -> {result_path}" if result_path else ""
+                conf_info = (
+                    f" ({details.get('confidence', 0):.0%})"
+                    if details.get("confidence")
+                    else ""
+                )
+                print(
+                    f"    [{status}] {duration_ms:>8.2f}ms - {timing.input_text}{path_info}{conf_info}"
+                )
 
     return create_benchmark_report("remember (classification)", timings)
 
 
 async def benchmark_recall(
-    _memory_manager,
+    memory_manager,  # noqa: ARG001
     search_engine,
     test_queries: list[str],
     namespace: str,
@@ -727,7 +485,12 @@ async def benchmark_recall(
 
             if verbose:
                 status = "OK" if success else "MISS"
-                print(f"    [{status}] {duration_ms:>8.2f}ms - {timing.input_text}")
+                path_info = f" -> {result_path}" if result_path else ""
+                num_results = details.get("num_results", 0)
+                results_info = f" ({num_results} results)" if num_results else ""
+                print(
+                    f"    [{status}] {duration_ms:>8.2f}ms - {timing.input_text}{path_info}{results_info}"
+                )
 
     return create_benchmark_report("recall (retrieval)", timings)
 
@@ -740,16 +503,19 @@ async def run_benchmark(
     verbose: bool = False,
     skip_remember: bool = False,
     skip_recall: bool = False,
+    classifier_type: str = "intelligent",
 ):
     """Run the full benchmark suite."""
     from memoir import ProllyTreeMemoryStoreManager
     from memoir.classifier.intelligent import IntelligentClassifier
+    from memoir.classifier.semantic import SemanticClassifier
     from memoir.search.intelligent import IntelligentSearchEngine
     from memoir.store.prolly_adapter import ProllyTreeStore
     from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
 
+    classifier_name = classifier_type.upper()
     print("=" * 60)
-    print("  MEMOIR INTELLIGENT CLASSIFIER BENCHMARK")
+    print(f"  MEMOIR {classifier_name} CLASSIFIER BENCHMARK")
     print("  (Powered by LiteLLM - supports 100+ LLM providers)")
     print("=" * 60)
 
@@ -768,18 +534,25 @@ async def run_benchmark(
             cache_size=10000,
         )
 
-        # Create classifier
-        classifier = IntelligentClassifier(
-            llm=llm,
-            taxonomy_version=TaxonomyVersion.GENERAL,
-            confidence_thresholds={
-                "high": 0.8,
-                "medium": 0.5,
-                "low": 0.0,
-            },
-            min_items_for_expansion=3,
-            suppress_path_warnings=True,
-        )
+        # Create classifier based on type
+        if classifier_type == "semantic":
+            classifier = SemanticClassifier(
+                llm=llm,
+            )
+            print("  Using SemanticClassifier (pattern-based + LLM fallback)")
+        else:
+            classifier = IntelligentClassifier(
+                llm=llm,
+                taxonomy_version=TaxonomyVersion.GENERAL,
+                confidence_thresholds={
+                    "high": 0.8,
+                    "medium": 0.5,
+                    "low": 0.0,
+                },
+                min_items_for_expansion=3,
+                suppress_path_warnings=True,
+            )
+            print("  Using IntelligentClassifier (LLM-powered)")
 
         # Create search engine
         search_engine = IntelligentSearchEngine(
@@ -849,6 +622,7 @@ async def run_benchmark(
         print("\n" + "=" * 60)
         print("  BENCHMARK SUMMARY")
         print("=" * 60)
+        print(f"  Classifier:      {classifier_type}")
         print(f"  Model:           {model}")
         print(f"  Iterations:      {iterations}")
 
@@ -990,6 +764,13 @@ See https://docs.litellm.ai/docs/providers for full list.
         action="store_true",
         help="Skip recall benchmarks",
     )
+    parser.add_argument(
+        "--classifier",
+        type=str,
+        choices=["intelligent", "semantic"],
+        default="intelligent",
+        help="Classifier type to benchmark: 'intelligent' (default) or 'semantic'",
+    )
 
     args = parser.parse_args()
 
@@ -1002,6 +783,7 @@ See https://docs.litellm.ai/docs/providers for full list.
             verbose=args.verbose,
             skip_remember=args.skip_remember,
             skip_recall=args.skip_recall,
+            classifier_type=args.classifier,
         )
     )
 

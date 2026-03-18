@@ -43,9 +43,9 @@ class MemoryService(BaseService):
     def _get_llm(self):
         """Lazily initialize and return the LLM."""
         if self._llm is None:
-            from langchain_openai import ChatOpenAI
+            from memoir.llm import get_llm
 
-            self._llm = ChatOpenAI(model=self.llm_model, temperature=0)
+            self._llm = get_llm(model=self.llm_model, temperature=0)
         return self._llm
 
     def _get_classifier(self):
