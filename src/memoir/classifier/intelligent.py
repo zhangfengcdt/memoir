@@ -13,7 +13,7 @@ from memoir.taxonomy.iterative import (
     LLMExpansionStrategy,
     LLMIterativeTaxonomy,
 )
-from memoir.taxonomy.taxonomy_presets import TaxonomyPresets, TaxonomyVersion
+from memoir.taxonomy.taxonomy import TaxonomyPresets, TaxonomyVersion
 
 logger = logging.getLogger(__name__)
 
@@ -556,7 +556,7 @@ class IntelligentClassifier:
 
         ~600 tokens vs ~4500 tokens for full prompt = faster inference.
         """
-        from memoir.taxonomy.taxonomy_presets import TaxonomyPresets
+        from memoir.taxonomy.taxonomy import TaxonomyPresets
 
         # Build examples section
         examples_lines = []

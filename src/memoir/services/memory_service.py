@@ -52,7 +52,7 @@ class MemoryService(BaseService):
         """Lazily initialize and return the classifier."""
         if self._classifier is None:
             from memoir.classifier.intelligent import IntelligentClassifier
-            from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
+            from memoir.taxonomy.taxonomy import TaxonomyVersion
 
             self._classifier = IntelligentClassifier(
                 llm=self._get_llm(),

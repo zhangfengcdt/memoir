@@ -512,7 +512,7 @@ async def run_benchmark(
     from memoir.classifier.semantic import SemanticClassifier
     from memoir.search.intelligent import IntelligentSearchEngine
     from memoir.store.prolly_adapter import ProllyTreeStore
-    from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
+    from memoir.taxonomy.taxonomy import TaxonomyVersion
 
     classifier_name = classifier_type.upper()
     print("=" * 60)

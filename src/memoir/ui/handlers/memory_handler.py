@@ -66,7 +66,7 @@ class MemoryHandler(BaseAPIHandler):
             try:
                 # Initialize the intelligent classifier
                 from memoir.llm import get_llm
-                from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
+                from memoir.taxonomy.taxonomy import TaxonomyVersion
 
                 # Initialize LLM for classification
                 llm = get_llm(model="gpt-4o-mini", temperature=0)

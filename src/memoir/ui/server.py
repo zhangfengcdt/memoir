@@ -304,7 +304,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 try:
                     from memoir.classifier.intelligent import IntelligentClassifier
                     from memoir.llm import get_llm
-                    from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
+                    from memoir.taxonomy.taxonomy import TaxonomyVersion
 
                     llm = get_llm(model="gpt-4o-mini", temperature=0)
                     classifier = IntelligentClassifier(
@@ -525,7 +525,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 try:
                     from memoir.classifier.intelligent import IntelligentClassifier
                     from memoir.llm import get_llm
-                    from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
+                    from memoir.taxonomy.taxonomy import TaxonomyVersion
 
                     llm = get_llm(model="gpt-4o-mini", temperature=0)
                     classifier = IntelligentClassifier(

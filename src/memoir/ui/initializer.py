@@ -20,7 +20,7 @@ from memoir import ProllyTreeMemoryStoreManager
 from memoir.classifier.intelligent import IntelligentClassifier
 from memoir.search.intelligent import IntelligentSearchEngine
 from memoir.store.prolly_adapter import ProllyTreeStore
-from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
+from memoir.taxonomy.taxonomy import TaxonomyVersion
 
 
 async def main():
