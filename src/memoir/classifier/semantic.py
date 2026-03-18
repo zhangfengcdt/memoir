@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 MAX_PROMPT_PATHS = 100  # Maximum paths to include in classification prompt
 MAX_EXAMPLE_PATHS_PER_CATEGORY = 5  # Max example paths shown per category
 DEFAULT_CACHE_SIZE = 10000  # Default classification cache size
-DEFAULT_FALLBACK_PATH = "context.current.session.topic.main"  # Default fallback path
+DEFAULT_FALLBACK_PATH = "context.project.stack"  # Default fallback path
 
 
 class ClassificationResult(BaseModel):

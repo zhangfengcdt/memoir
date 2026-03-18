@@ -1,16 +1,17 @@
 """
 Comprehensive semantic taxonomy for AI memory classification.
-Defines ~800 hierarchical paths for deterministic memory organization.
+Defines hierarchical paths for deterministic memory organization.
 """
 
+import logging
 import threading
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 
 from memoir.classifier.base import BaseTaxonomy
 
-from .data_sources import TaxonomyDataSourceManager, TaxonomyLoadError
+logger = logging.getLogger(__name__)
 
 
 class TaxonomyCategory(Enum):
@@ -40,64 +41,74 @@ class TaxonomyNode:
 
 class SemanticTaxonomy(BaseTaxonomy):
     """
-    Fixed semantic taxonomy with approximately 800 predefined paths.
+    Fixed semantic taxonomy with predefined paths.
     Provides hierarchical organization for AI memory classification.
     Implements TaxonomyInterface for standardized access.
     """
 
-    def __init__(self, data_source_manager: Optional[TaxonomyDataSourceManager] = None):
+    def __init__(self, taxonomy_loader: Optional[Any] = None):
         """
         Initialize semantic taxonomy with flexible data loading.
 
         Args:
-            data_source_manager: Optional data source manager for loading taxonomy.
-                                If None, uses default data sources (JSON file, then hardcoded fallback).
+            taxonomy_loader: Optional TaxonomyLoader for loading taxonomy from store.
+                            If None, uses TaxonomyPresets as fallback.
         """
-        self.data_source_manager = data_source_manager or TaxonomyDataSourceManager()
-        self._taxonomy = self._load_taxonomy_data()
-        self._all_paths = self._generate_all_paths()
+        self._taxonomy_loader = taxonomy_loader
+        self._all_paths = self._load_all_paths()
         self._path_index = self._build_path_index()
 
-    def _load_taxonomy_data(self) -> dict:
+    def _load_all_paths(self) -> set[str]:
         """
-        Load taxonomy data using the data source manager.
+        Load all paths from TaxonomyLoader or fallback to TaxonomyPresets.
 
         Returns:
-            Dictionary containing the taxonomy structure
-
-        Raises:
-            RuntimeError: If taxonomy data cannot be loaded from any source
+            Set of all valid taxonomy paths.
         """
-        try:
-            return self.data_source_manager.load_taxonomy_data()
-        except TaxonomyLoadError as e:
-            raise RuntimeError(f"Failed to load taxonomy data: {e}")
-
-    def get_data_source_info(self) -> dict:
-        """
-        Get information about the data sources used to load taxonomy.
-
-        Returns:
-            Dictionary with data source status and metadata
-        """
-        return self.data_source_manager.get_source_status()
-
-    def _generate_all_paths(self) -> set[str]:
-        """Generate all valid paths from the taxonomy."""
         paths = set()
 
-        def traverse(obj, prefix=""):
-            if isinstance(obj, dict):
-                for key, value in obj.items():
-                    new_prefix = f"{prefix}.{key}" if prefix else key
-                    paths.add(new_prefix)
-                    traverse(value, new_prefix)
-            elif isinstance(obj, list):
-                for item in obj:
-                    new_path = f"{prefix}.{item}" if prefix else item
-                    paths.add(new_path)
+        # Try to load from TaxonomyLoader (store-based)
+        if self._taxonomy_loader:
+            try:
+                preset_paths = self._taxonomy_loader.get_preset_paths_from_store()
+                if preset_paths:
+                    for category, category_paths in preset_paths.items():
+                        # Add the category itself
+                        paths.add(category)
+                        for path in category_paths:
+                            full_path = f"{category}.{path}"
+                            paths.add(full_path)
+                            # Also add intermediate paths
+                            parts = full_path.split(".")
+                            for i in range(1, len(parts)):
+                                paths.add(".".join(parts[:i]))
+                    logger.debug(
+                        f"[SemanticTaxonomy] Loaded {len(paths)} paths from store"
+                    )
+                    return paths
+            except Exception as e:
+                logger.warning(
+                    f"[SemanticTaxonomy] Failed to load from store, using fallback: {e}"
+                )
 
-        traverse(self._taxonomy)
+        # Fallback to TaxonomyPresets
+        from .taxonomy import TaxonomyPresets, TaxonomyVersion
+
+        preset_paths = TaxonomyPresets.PRESETS[TaxonomyVersion.SIMPLIFIED]
+        for category, category_paths in preset_paths.items():
+            # Add the category itself
+            paths.add(category)
+            for path in category_paths:
+                full_path = f"{category}.{path}"
+                paths.add(full_path)
+                # Also add intermediate paths
+                parts = full_path.split(".")
+                for i in range(1, len(parts)):
+                    paths.add(".".join(parts[:i]))
+
+        logger.debug(
+            f"[SemanticTaxonomy] Loaded {len(paths)} paths from TaxonomyPresets"
+        )
         return paths
 
     def _build_path_index(self) -> dict[str, list[str]]:

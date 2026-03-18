@@ -40,9 +40,9 @@ class MockLLM:
 
         # Default response for testing
         return MockLLMResponse("""{
-            "primary_path": "context.current.session.topic.main",
+            "primary_path": "context.project.stack",
             "confidence": 0.5,
-            "alternative_paths": ["context.current.session"],
+            "alternative_paths": ["context.project"],
             "reasoning": "Default test classification"
         }""")
 
@@ -55,33 +55,33 @@ class TestSemanticClassifier:
         """Create mock LLM with test responses."""
         responses = {
             "I work at Google as a software engineer": """{
-                "primary_path": "profile.professional.current.role",
+                "primary_path": "profile.professional.occupation",
                 "confidence": 0.85,
-                "alternative_paths": ["profile.professional.current"],
+                "alternative_paths": ["profile.professional"],
                 "reasoning": "Professional work information"
             }""",
             "I prefer dark mode in my IDE": """{
-                "primary_path": "preferences.personal.lifestyle.daily",
+                "primary_path": "preferences.tools.editors",
                 "confidence": 0.80,
-                "alternative_paths": ["preferences.personal"],
-                "reasoning": "Personal preferences"
+                "alternative_paths": ["preferences.tools"],
+                "reasoning": "Editor preferences"
             }""",
             "Python programming experience": """{
-                "primary_path": "profile.professional.skills.technical.programming",
+                "primary_path": "profile.professional.skills",
                 "confidence": 0.85,
-                "alternative_paths": ["profile.professional.skills"],
+                "alternative_paths": ["profile.professional"],
                 "reasoning": "Programming skills"
             }""",
             "My goal is to become a senior engineer": """{
-                "primary_path": "goals.long_term.career.progression",
+                "primary_path": "goals.career.advancement",
                 "confidence": 0.85,
-                "alternative_paths": ["goals.long_term"],
+                "alternative_paths": ["goals.career"],
                 "reasoning": "Career goals"
             }""",
             "My name is John Smith": """{
-                "primary_path": "profile.personal.identity.name",
+                "primary_path": "profile.personal.identity",
                 "confidence": 0.90,
-                "alternative_paths": ["profile.personal.identity"],
+                "alternative_paths": ["profile.personal"],
                 "reasoning": "Personal name information"
             }""",
         }
@@ -103,7 +103,7 @@ class TestSemanticClassifier:
         # Should return fallback classification when no LLM
         assert isinstance(result, ClassificationResult)
         # Fallback classification should have default values
-        assert result.primary_path == "context.current.session.topic.main"
+        assert result.primary_path == "context.project.stack"
         assert result.confidence == 0.5
 
     @pytest.mark.asyncio
@@ -112,7 +112,7 @@ class TestSemanticClassifier:
         result = await classifier.classify_async("My name is John Smith")
 
         assert isinstance(result, ClassificationResult)
-        assert "profile.personal.identity.name" in result.primary_path
+        assert "profile.personal.identity" in result.primary_path
         assert result.confidence > 0.5
         assert result.reasoning is not None
 
@@ -225,7 +225,7 @@ class TestSemanticClassifier:
 
         assert isinstance(result, ClassificationResult)
         # Should get fallback classification
-        assert result.primary_path == "context.current.session.topic.main"
+        assert result.primary_path == "context.project.stack"
         assert result.confidence == 0.5
 
     @pytest.mark.asyncio
@@ -285,32 +285,36 @@ class TestClassificationAccuracy:
 
     @pytest.fixture
     def mock_llm(self):
-        """Create mock LLM with realistic responses."""
+        """Create mock LLM with realistic responses.
+
+        Note: Use full input text as keys to avoid matching classification
+        examples in the prompt.
+        """
         return MockLLM(
             {
-                "bob": """{
-                "primary_path": "profile.personal.identity.name.first",
+                "My name is Bob": """{
+                "primary_path": "profile.personal.identity",
                 "confidence": 0.90,
-                "alternative_paths": ["profile.personal.identity.name"],
-                "reasoning": "First name identification"
+                "alternative_paths": ["profile.personal"],
+                "reasoning": "First name identity"
             }""",
-                "30 years old": """{
-                "primary_path": "profile.personal.demographics.age",
+                "I'm 30 years old": """{
+                "primary_path": "profile.personal.demographics",
                 "confidence": 0.85,
-                "alternative_paths": ["profile.personal.demographics"],
-                "reasoning": "Age information"
+                "alternative_paths": ["profile.personal"],
+                "reasoning": "Age demographics"
             }""",
-                "san francisco": """{
-                "primary_path": "profile.personal.location.current.city",
+                "I'm from San Francisco": """{
+                "primary_path": "profile.personal.location",
                 "confidence": 0.85,
-                "alternative_paths": ["profile.personal.location"],
+                "alternative_paths": ["profile.personal"],
                 "reasoning": "Current location"
             }""",
-                "startup": """{
-                "primary_path": "profile.professional.current.company.type",
+                "I work at a startup": """{
+                "primary_path": "profile.professional.occupation",
                 "confidence": 0.80,
-                "alternative_paths": ["profile.professional.current"],
-                "reasoning": "Company type information"
+                "alternative_paths": ["profile.professional"],
+                "reasoning": "Company work information"
             }""",
             }
         )
@@ -386,7 +390,7 @@ class TestErrorHandling:
 
         # Should get fallback classification, not raise error
         assert isinstance(result, ClassificationResult)
-        assert result.primary_path == "context.current.session.topic.main"
+        assert result.primary_path == "context.project.stack"
         assert result.confidence == 0.5
 
     @pytest.mark.asyncio
@@ -402,7 +406,7 @@ class TestErrorHandling:
         # Should not raise exception but return fallback
         result = await classifier.classify_async("test content")
         assert isinstance(result, ClassificationResult)
-        assert result.primary_path == "context.current.session.topic.main"
+        assert result.primary_path == "context.project.stack"
 
     @pytest.mark.asyncio
     async def test_malformed_json_response(self):
@@ -417,7 +421,7 @@ class TestErrorHandling:
         # Should not raise exception but return fallback
         result = await classifier.classify_async("test content")
         assert isinstance(result, ClassificationResult)
-        assert result.primary_path == "context.current.session.topic.main"
+        assert result.primary_path == "context.project.stack"
 
 
 class TestIntegrationWithTaxonomy:
