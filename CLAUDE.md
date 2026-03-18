@@ -27,25 +27,13 @@ pytest tests/ -k "test_function_name"     # Run specific test by name
 pytest tests/ --tb=short                  # Compact traceback format
 pytest tests/test_versioning.py   # Test version control features
 
-# Examples and benchmarks
-make examples                 # Run all example scripts
-make benchmark               # Run performance benchmarks
-python examples/basic_usage.py            # Basic memory system usage
-python examples/taxonomy.py   # Test intelligent classification
-python examples/locomo.py      # Evaluate with LOCOMO dataset
-python examples/langgraph.py  # LangGraph integration demo
-python examples/langmem_style_with_memoir.py # LangMem-pattern agent example
-python examples/context_branching.py      # Demonstrate context branching
-python examples/production_debugging.py   # Production debugging patterns
-python examples/reproducible.py   # Reproducible test scenarios
-python examples/state_debugging.py        # State debugging techniques
-python examples/versioning.py     # Git-like version control demo
-
-# Jupyter Notebooks
-jupyter notebook examples/notebooks/basic_usage.ipynb  # Interactive tutorial
+# Benchmarks
+python benchmarks/classifier.py --help  # View benchmark options
+python benchmarks/classifier.py --model gpt-4o-mini --iterations 1  # Quick test
+python benchmarks/classifier.py --model anthropic/claude-haiku-4-5 --num-cases 5  # Test with Claude
 
 # Full CI pipeline
-make ci                      # Run complete CI: lint, test, security, examples
+make ci                      # Run complete CI: lint, test, security, docs
 make perf                    # Run benchmarks + show performance summary
 
 # Docker Support
@@ -56,9 +44,6 @@ make perf                    # Run benchmarks + show performance summary
 ./docker.sh build            # Build Docker images
 docker-compose -f docker/docker-compose.yml up     # Start with docker-compose
 docker-compose -f docker/docker-compose.dev.yml up # Start dev environment
-
-# Utility scripts
-python scripts/check_status.py            # Check repository and system status
 
 # UI Visualization Server
 python -m src.memoir.ui.server          # Start interactive memory visualization UI (port 8080)
@@ -191,7 +176,7 @@ Before any commit or PR:
 1. Run `make format` to auto-format code
 2. Run `make lint` to check for issues
 3. Run `make test` to ensure no regressions
-4. Verify examples still work with `make examples`
+4. Run `make benchmark` to verify the benchmark works
 
 ### Common Pitfalls to Avoid
 - **Don't skip linting**: Always run `make lint` before commits
@@ -225,19 +210,11 @@ await store.put(namespace, key, value)
 - **Command palette**: Extended commands for debugging and exploration
 - **Code examples**: Interactive Python snippets with syntax highlighting
 
-### Advanced Examples
-New comprehensive examples demonstrating:
-- **Context branching**: Managing parallel conversation contexts
-- **Production debugging**: Real-world debugging patterns
-- **Reproducible testing**: Deterministic test scenarios
-- **State debugging**: Inspecting and manipulating memory states
-- **Version control**: Full Git-like workflow demonstrations
-
-### Documentation Improvements
-- **ReadTheDocs integration**: Full API documentation
-- **Jupyter notebooks**: Interactive tutorials
-- **FAQ section**: Common questions and troubleshooting
-- **Architecture diagrams**: Visual system overview
+### Benchmark Tool
+The `benchmarks/classifier.py` provides comprehensive performance testing:
+- **Multi-provider support**: OpenAI, Anthropic, Ollama, vLLM via LiteLLM
+- **Prompt caching**: Automatic Anthropic cache optimization for reduced costs
+- **Detailed metrics**: Classification and retrieval timing with percentiles
 
 ## Project-Specific Patterns
 

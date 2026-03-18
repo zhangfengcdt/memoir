@@ -10,24 +10,24 @@ Uses LiteLLM for multi-provider support (OpenAI, Anthropic, Google, Ollama, vLLM
 Usage:
     # OpenAI (default)
     export OPENAI_API_KEY=your-api-key-here
-    python examples/benchmark_classifier.py
+    python benchmarks/classifier.py
 
     # Anthropic Claude - Haiku 4.5 (fast, cheap, supports prompt caching)
     export ANTHROPIC_API_KEY=your-api-key-here
-    python examples/benchmark_classifier.py --model claude-haiku-4-5
+    python benchmarks/classifier.py --model claude-haiku-4-5
 
     # Anthropic Claude - Sonnet 4.6 (balanced)
-    python examples/benchmark_classifier.py --model claude-sonnet-4-6
+    python benchmarks/classifier.py --model claude-sonnet-4-6
 
     # Anthropic Claude 3 Haiku (legacy, cheapest - $0.25/$1.25 per MTok)
-    python examples/benchmark_classifier.py --model claude-3-haiku-20240307
+    python benchmarks/classifier.py --model claude-3-haiku-20240307
 
     # Google Gemini
     export GEMINI_API_KEY=your-api-key-here
-    python examples/benchmark_classifier.py --model gemini/gemini-1.5-flash
+    python benchmarks/classifier.py --model gemini/gemini-1.5-flash
 
     # Ollama (local, free)
-    python examples/benchmark_classifier.py --model ollama/llama3.2
+    python benchmarks/classifier.py --model ollama/llama3.2
 
     # vLLM or OpenAI-compatible endpoint
     python examples/benchmark_classifier.py --model openai/my-model --base-url http://localhost:8000/v1
@@ -50,12 +50,13 @@ import sys
 import tempfile
 import time
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, ClassVar, Optional
 
 
 @dataclass
 class TimingResult:
     """Stores timing information for a single operation."""
+
     operation: str
     input_text: str
     duration_ms: float
@@ -68,6 +69,7 @@ class TimingResult:
 @dataclass
 class BenchmarkReport:
     """Aggregated benchmark results."""
+
     operation_type: str
     total_operations: int
     successful_operations: int
@@ -90,8 +92,8 @@ class BenchmarkReport:
             f"  Successful:           {self.successful_operations}",
             f"  Failed:               {self.failed_operations}",
             f"  Success rate:         {self.successful_operations/self.total_operations*100:.1f}%",
-            f"",
-            f"  Latency Statistics (ms):",
+            "",
+            "  Latency Statistics (ms):",
             f"    Min:                {self.min_ms:.2f}",
             f"    Max:                {self.max_ms:.2f}",
             f"    Mean:               {self.mean_ms:.2f}",
@@ -125,7 +127,7 @@ class LiteLLMWrapper:
     """
 
     # Models that support prompt caching (with or without anthropic/ prefix)
-    CACHE_SUPPORTED_MODELS = [
+    CACHE_SUPPORTED_MODELS: ClassVar[list[str]] = [
         # Current models (2025)
         "claude-opus-4",
         "claude-sonnet-4",
@@ -171,6 +173,7 @@ class LiteLLMWrapper:
         # Import litellm here to fail fast if not installed
         try:
             import litellm
+
             self._litellm = litellm
             # Suppress litellm's verbose logging
             litellm.suppress_debug_info = True
@@ -184,7 +187,9 @@ class LiteLLMWrapper:
         if not self.enable_prompt_cache:
             return False
         model_lower = self.model.lower()
-        return any(supported in model_lower for supported in self.CACHE_SUPPORTED_MODELS)
+        return any(
+            supported in model_lower for supported in self.CACHE_SUPPORTED_MODELS
+        )
 
     def _build_kwargs(self) -> dict:
         """Build kwargs for litellm calls."""
@@ -219,13 +224,17 @@ class LiteLLMWrapper:
             dynamic_part = prompt[static_end_pos:]
 
             if self._debug_cache:
-                print(f"  [Cache Debug] Static: {len(static_part)} chars (~{len(static_part)//4} tokens)")
-                print(f"  [Cache Debug] Dynamic: {len(dynamic_part)} chars (~{len(dynamic_part)//4} tokens)")
+                print(
+                    f"  [Cache Debug] Static: {len(static_part)} chars (~{len(static_part)//4} tokens)"
+                )
+                print(
+                    f"  [Cache Debug] Dynamic: {len(dynamic_part)} chars (~{len(dynamic_part)//4} tokens)"
+                )
             return static_part, dynamic_part
 
         # No markers found - return None to indicate no caching
         if self._debug_cache:
-            print(f"  [Cache Debug] No markers found, caching disabled for this prompt")
+            print("  [Cache Debug] No markers found, caching disabled for this prompt")
         return None, None
 
     def _format_cached_messages(self, prompt: str) -> list[dict]:
@@ -247,7 +256,9 @@ class LiteLLMWrapper:
 
         if estimated_static_tokens < min_tokens:
             if self._debug_cache:
-                print(f"  [Cache Debug] Static too short: ~{estimated_static_tokens} tokens < {min_tokens} required")
+                print(
+                    f"  [Cache Debug] Static too short: ~{estimated_static_tokens} tokens < {min_tokens} required"
+                )
             return [{"role": "user", "content": prompt}]
 
         if self._debug_cache:
@@ -261,14 +272,11 @@ class LiteLLMWrapper:
                     {
                         "type": "text",
                         "text": static_content,
-                        "cache_control": {"type": "ephemeral"}
+                        "cache_control": {"type": "ephemeral"},
                     }
-                ]
+                ],
             },
-            {
-                "role": "user",
-                "content": dynamic_content.strip()
-            }
+            {"role": "user", "content": dynamic_content.strip()},
         ]
 
     def _update_cache_stats(self, usage: dict):
@@ -296,11 +304,15 @@ class LiteLLMWrapper:
 
         if self._debug_cache:
             if cache_creation > 0:
-                print(f"  [Cache Debug] Cache CREATED: {cache_creation} tokens written to cache")
+                print(
+                    f"  [Cache Debug] Cache CREATED: {cache_creation} tokens written to cache"
+                )
             if cache_read > 0:
                 print(f"  [Cache Debug] Cache HIT: {cache_read} tokens read from cache")
             if cache_creation == 0 and cache_read == 0:
-                print(f"  [Cache Debug] Cache MISS: No cache activity (prompt may be too short)")
+                print(
+                    "  [Cache Debug] Cache MISS: No cache activity (prompt may be too short)"
+                )
 
     def get_cache_stats(self) -> dict:
         """Get prompt caching statistics."""
@@ -313,7 +325,9 @@ class LiteLLMWrapper:
         # Estimate savings (cached tokens cost 90% less)
         if stats["cache_read_input_tokens"] > 0:
             # Savings = cache_read_tokens * 0.9 * cost_per_token
-            stats["estimated_token_savings"] = int(stats["cache_read_input_tokens"] * 0.9)
+            stats["estimated_token_savings"] = int(
+                stats["cache_read_input_tokens"] * 0.9
+            )
         else:
             stats["estimated_token_savings"] = 0
 
@@ -322,6 +336,7 @@ class LiteLLMWrapper:
     def invoke(self, prompt: Any) -> LiteLLMResponse:
         """Synchronous invoke method compatible with LangChain interface."""
         import asyncio
+
         return asyncio.run(self.ainvoke(prompt))
 
     async def ainvoke(self, prompt: Any) -> LiteLLMResponse:
@@ -392,12 +407,16 @@ def get_llm(
 
     if model_lower.startswith("anthropic/") or model_lower.startswith("claude"):
         if not os.getenv("ANTHROPIC_API_KEY"):
-            print("Error: ANTHROPIC_API_KEY environment variable is required for Claude models")
+            print(
+                "Error: ANTHROPIC_API_KEY environment variable is required for Claude models"
+            )
             print("Set your API key: export ANTHROPIC_API_KEY=your-api-key-here")
             sys.exit(1)
     elif model_lower.startswith("gemini"):
         if not os.getenv("GEMINI_API_KEY") and not os.getenv("GOOGLE_API_KEY"):
-            print("Error: GEMINI_API_KEY or GOOGLE_API_KEY environment variable is required for Gemini models")
+            print(
+                "Error: GEMINI_API_KEY or GOOGLE_API_KEY environment variable is required for Gemini models"
+            )
             print("Set your API key: export GEMINI_API_KEY=your-api-key-here")
             sys.exit(1)
     elif model_lower.startswith("ollama"):
@@ -409,7 +428,9 @@ def get_llm(
     else:
         # Default to OpenAI
         if not os.getenv("OPENAI_API_KEY"):
-            print("Error: OPENAI_API_KEY environment variable is required for OpenAI models")
+            print(
+                "Error: OPENAI_API_KEY environment variable is required for OpenAI models"
+            )
             print("Set your API key: export OPENAI_API_KEY=your-api-key-here")
             print("\nOr use a different provider:")
             print("  --model claude-3-5-sonnet-20241022  (requires ANTHROPIC_API_KEY)")
@@ -429,7 +450,7 @@ def get_llm(
         if base_url:
             print(f"Using base URL: {base_url}")
         if enable_prompt_cache and llm._supports_prompt_cache():
-            print(f"Prompt caching: ENABLED (up to 90% cost savings on repeated tokens)")
+            print("Prompt caching: ENABLED (up to 90% cost savings on repeated tokens)")
         return llm
     except ImportError as e:
         print(f"Error: {e}")
@@ -445,10 +466,16 @@ def calculate_percentile(data: list[float], percentile: float) -> float:
     k = (len(sorted_data) - 1) * (percentile / 100)
     f = int(k)
     c = f + 1 if f + 1 < len(sorted_data) else f
-    return sorted_data[f] + (k - f) * (sorted_data[c] - sorted_data[f]) if f != c else sorted_data[f]
+    return (
+        sorted_data[f] + (k - f) * (sorted_data[c] - sorted_data[f])
+        if f != c
+        else sorted_data[f]
+    )
 
 
-def create_benchmark_report(operation_type: str, timings: list[TimingResult]) -> BenchmarkReport:
+def create_benchmark_report(
+    operation_type: str, timings: list[TimingResult]
+) -> BenchmarkReport:
     """Create a benchmark report from timing results."""
     successful = [t for t in timings if t.success]
     durations = [t.duration_ms for t in successful]
@@ -491,44 +518,36 @@ REMEMBER_TEST_DATA = [
     "My name is Sarah Johnson and I'm 32 years old.",
     "I was born on March 15, 1992 in Boston, Massachusetts.",
     "I identify as she/her and I'm originally from the East Coast.",
-
     # Professional information
     "I work as a senior software engineer at TechCorp in San Francisco.",
     "I have 8 years of experience in machine learning and data science.",
     "I graduated from Stanford University with a Computer Science degree in 2014.",
     "My current salary is $185,000 and I've been at this company for 3 years.",
-
     # Preferences
     "I prefer dark mode in all my development environments and applications.",
     "My favorite IDE is VS Code with the Monokai Pro theme.",
     "I always use Python 3.11 for my projects because of the performance improvements.",
     "I drink coffee every morning, specifically a double espresso with oat milk.",
-
     # Skills and expertise
     "My primary programming language is Python, but I also use JavaScript for frontend work.",
     "I'm highly proficient in PyTorch and TensorFlow for deep learning projects.",
     "I have experience with Kubernetes and Docker for container orchestration.",
-
     # Relationships and social
     "My best friend is Emily who I've known since college.",
     "I have a dog named Max who is a golden retriever.",
     "My manager's name is David Chen and he's been very supportive.",
-
     # Goals and aspirations
     "I want to become a principal engineer within the next 2 years.",
     "I'm planning to start my own AI startup focused on healthcare.",
     "I hope to learn Rust this year for systems programming.",
-
     # Daily routines
     "I wake up at 6:30 AM every day and go for a morning run.",
     "I typically work from 9 AM to 6 PM with a lunch break around noon.",
     "Every Friday evening I attend a book club meeting.",
-
     # Opinions and beliefs
     "I strongly believe in open source software and contribute regularly.",
     "I think remote work is more productive than being in the office.",
     "I value work-life balance and never work on weekends.",
-
     # Health and lifestyle
     "I'm vegetarian and have been for the past 5 years.",
     "I exercise 4 times a week, mainly running and weightlifting.",
@@ -541,32 +560,26 @@ RECALL_TEST_QUERIES = [
     "How old is the user?",
     "Where does the user work?",
     "What is the user's job title?",
-
     # Preference queries
     "What IDE does the user prefer?",
     "Does the user like dark mode or light mode?",
     "What programming language does the user use most?",
     "What does the user drink in the morning?",
-
     # Skill queries
     "What machine learning frameworks does the user know?",
     "How many years of experience does the user have?",
     "What education does the user have?",
-
     # Relationship queries
     "Does the user have any pets?",
     "Who is the user's best friend?",
     "Who is the user's manager?",
-
     # Goal queries
     "What are the user's career goals?",
     "What does the user want to learn?",
-
     # Lifestyle queries
     "What is the user's morning routine?",
     "Does the user exercise?",
     "Is the user vegetarian?",
-
     # Complex/inference queries
     "What technology stack does the user work with?",
     "Describe the user's work habits.",
@@ -575,14 +588,16 @@ RECALL_TEST_QUERIES = [
 
 
 async def benchmark_remember(
-    memory_manager,
+    _memory_manager,
     classifier,
     test_data: list[str],
     iterations: int,
     verbose: bool = False,
 ) -> BenchmarkReport:
     """Benchmark the remember (classification) operation."""
-    print(f"\nBenchmarking REMEMBER operation ({len(test_data)} items x {iterations} iterations)...")
+    print(
+        f"\nBenchmarking REMEMBER operation ({len(test_data)} items x {iterations} iterations)..."
+    )
 
     timings = []
 
@@ -590,7 +605,7 @@ async def benchmark_remember(
         if verbose:
             print(f"\n  Iteration {iteration + 1}/{iterations}")
 
-        for i, memory_text in enumerate(test_data):
+        for _i, memory_text in enumerate(test_data):
             start_time = time.perf_counter()
             error = None
             result_path = None
@@ -620,7 +635,9 @@ async def benchmark_remember(
 
             timing = TimingResult(
                 operation="remember",
-                input_text=memory_text[:50] + "..." if len(memory_text) > 50 else memory_text,
+                input_text=(
+                    memory_text[:50] + "..." if len(memory_text) > 50 else memory_text
+                ),
                 duration_ms=duration_ms,
                 success=success,
                 result_path=result_path,
@@ -637,7 +654,7 @@ async def benchmark_remember(
 
 
 async def benchmark_recall(
-    memory_manager,
+    _memory_manager,
     search_engine,
     test_queries: list[str],
     namespace: str,
@@ -645,7 +662,9 @@ async def benchmark_recall(
     verbose: bool = False,
 ) -> BenchmarkReport:
     """Benchmark the recall (retrieval) operation."""
-    print(f"\nBenchmarking RECALL operation ({len(test_queries)} queries x {iterations} iterations)...")
+    print(
+        f"\nBenchmarking RECALL operation ({len(test_queries)} queries x {iterations} iterations)..."
+    )
 
     timings = []
 
@@ -671,14 +690,20 @@ async def benchmark_recall(
                     result_path = results[0].path
                     details = {
                         "num_results": len(results),
-                        "top_result_content": results[0].content[:100] if results[0].content else None,
+                        "top_result_content": (
+                            results[0].content[:100] if results[0].content else None
+                        ),
                         "step_timings": results[0].metadata.get("step_timings", {}),
                     }
                     success = True
                 else:
                     details = {
                         "num_results": 0,
-                        "step_timings": results[0].metadata.get("step_timings", {}) if results else {},
+                        "step_timings": (
+                            results[0].metadata.get("step_timings", {})
+                            if results
+                            else {}
+                        ),
                     }
                     success = False
 
@@ -774,8 +799,12 @@ async def run_benchmark(
         reports = []
 
         # Limit test data if num_cases is specified
-        remember_data = REMEMBER_TEST_DATA[:num_cases] if num_cases else REMEMBER_TEST_DATA
-        recall_queries = RECALL_TEST_QUERIES[:num_cases] if num_cases else RECALL_TEST_QUERIES
+        remember_data = (
+            REMEMBER_TEST_DATA[:num_cases] if num_cases else REMEMBER_TEST_DATA
+        )
+        recall_queries = (
+            RECALL_TEST_QUERIES[:num_cases] if num_cases else RECALL_TEST_QUERIES
+        )
 
         if num_cases:
             print(f"Limiting to {num_cases} test case(s)")
@@ -827,7 +856,9 @@ async def run_benchmark(
             print(f"\n  {report.operation_type}:")
             print(f"    Mean latency:  {report.mean_ms:.2f}ms")
             print(f"    P95 latency:   {report.p95_ms:.2f}ms")
-            print(f"    Success rate:  {report.successful_operations/report.total_operations*100:.1f}%")
+            print(
+                f"    Success rate:  {report.successful_operations/report.total_operations*100:.1f}%"
+            )
 
         print("\n" + "=" * 60)
 
@@ -844,7 +875,9 @@ async def run_benchmark(
                     if st.get("step2_path_selection"):
                         step_times["step2"].append(st["step2_path_selection"] * 1000)
                     if st.get("step3_content_refinement"):
-                        step_times["step3"].append(st["step3_content_refinement"] * 1000)
+                        step_times["step3"].append(
+                            st["step3_content_refinement"] * 1000
+                        )
                     if st.get("step4_memory_retrieval"):
                         step_times["step4"].append(st["step4_memory_retrieval"] * 1000)
 
@@ -863,17 +896,27 @@ async def run_benchmark(
             print("=" * 60)
 
         # Display prompt cache statistics (for Anthropic models)
-        if hasattr(llm, 'get_cache_stats') and llm._supports_prompt_cache():
+        if hasattr(llm, "get_cache_stats") and llm._supports_prompt_cache():
             cache_stats = llm.get_cache_stats()
             if cache_stats["total_requests"] > 0:
                 print("\n  PROMPT CACHE STATISTICS (Anthropic)")
                 print("=" * 60)
                 print(f"  Total requests:              {cache_stats['total_requests']}")
-                print(f"  Cached requests:             {cache_stats['cached_requests']}")
-                print(f"  Cache hit rate:              {cache_stats['cache_hit_rate']*100:.1f}%")
-                print(f"  Cache creation tokens:       {cache_stats['cache_creation_input_tokens']:,}")
-                print(f"  Cache read tokens:           {cache_stats['cache_read_input_tokens']:,}")
-                print(f"  Estimated token savings:     {cache_stats['estimated_token_savings']:,} tokens (90% discount)")
+                print(
+                    f"  Cached requests:             {cache_stats['cached_requests']}"
+                )
+                print(
+                    f"  Cache hit rate:              {cache_stats['cache_hit_rate']*100:.1f}%"
+                )
+                print(
+                    f"  Cache creation tokens:       {cache_stats['cache_creation_input_tokens']:,}"
+                )
+                print(
+                    f"  Cache read tokens:           {cache_stats['cache_read_input_tokens']:,}"
+                )
+                print(
+                    f"  Estimated token savings:     {cache_stats['estimated_token_savings']:,} tokens (90% discount)"
+                )
                 print("=" * 60)
 
 

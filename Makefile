@@ -1,4 +1,4 @@
-.PHONY: help install install-dev clean test test-cov lint format type-check security benchmark examples docs docs-live docs-clean pre-commit build publish
+.PHONY: help install install-dev clean test test-cov lint format type-check security benchmark docs docs-live docs-clean pre-commit build publish
 
 # Default target
 help:
@@ -12,8 +12,7 @@ help:
 	@echo "  format          Format code with black and isort"
 	@echo "  type-check      Run type checking with mypy"
 	@echo "  security        Run security checks"
-	@echo "  benchmark       Run performance benchmarks"
-	@echo "  examples        Run example scripts"
+	@echo "  benchmark       Run classifier benchmark"
 	@echo "  docs            Build HTML documentation"
 	@echo "  docs-live       Build docs with auto-reload for development"
 	@echo "  docs-clean      Clean documentation build directory"
@@ -48,14 +47,14 @@ test-cov:
 	pytest tests/ -v -W "ignore::DeprecationWarning" --cov=memoir --cov-report=html --cov-report=term-missing
 
 lint:
-	ruff check src/ tests/ examples/
-	black --check src/ tests/ examples/
-	isort --check-only src/ tests/ examples/
+	ruff check src/ tests/ benchmarks/
+	black --check src/ tests/ benchmarks/
+	isort --check-only src/ tests/ benchmarks/
 
 format:
-	black src/ tests/ examples/
-	isort src/ tests/ examples/
-	ruff check --fix src/ tests/ examples/
+	black src/ tests/ benchmarks/
+	isort src/ tests/ benchmarks/
+	ruff check --fix src/ tests/ benchmarks/
 
 type-check:
 	mypy src/memoir --ignore-missing-imports --follow-imports=skip || echo "⚠️  Type check completed with warnings (non-blocking)"
@@ -67,14 +66,7 @@ security:
 	safety check || true
 
 benchmark:
-	cd examples && python performance_benchmark.py
-
-examples:
-	@echo "Running basic usage example..."
-	cd examples && python basic_usage.py || echo "✓ Basic example completed"
-
-	@echo "Running LangGraph integration example..."
-	cd examples && python langgraph_integration.py || echo "✓ LangGraph example completed"
+	python benchmarks/classifier.py --help
 
 docs:
 	@echo "Building documentation..."
@@ -105,7 +97,7 @@ publish: build
 	twine upload dist/*
 
 # Run comprehensive CI checks locally
-ci: clean install-dev lint type-check security test-cov examples docs
+ci: clean install-dev lint type-check security test-cov docs
 	@echo ""
 	@echo "🎉 All CI checks passed locally!"
 	@echo ""
@@ -121,8 +113,7 @@ setup: clean install-dev pre-commit
 	@echo ""
 	@echo "Quick commands:"
 	@echo "  make test       - Run tests"
-	@echo "  make benchmark  - Run performance benchmarks"
-	@echo "  make examples   - Run example scripts"
+	@echo "  make benchmark  - Run classifier benchmark"
 	@echo "  make ci         - Run full CI pipeline"
 
 # Performance testing

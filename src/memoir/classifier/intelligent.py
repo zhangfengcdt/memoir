@@ -258,7 +258,9 @@ class IntelligentClassifier:
         first_level = [p for p in paths if "." not in p and p != "other"]
 
         # Get session date for timeline calculations (needed in static section)
-        session_date = metadata.get("session_date", "unknown") if metadata else "unknown"
+        session_date = (
+            metadata.get("session_date", "unknown") if metadata else "unknown"
+        )
 
         # =================================================================
         # STATIC SECTION START - This part is cached across requests
@@ -496,9 +498,13 @@ class IntelligentClassifier:
         # Add metadata if provided
         if metadata:
             # Filter out session_date as it's already shown above
-            display_metadata = {k: v for k, v in metadata.items() if k != "session_date"}
+            display_metadata = {
+                k: v for k, v in metadata.items() if k != "session_date"
+            }
             if display_metadata:
-                prompt_parts.append(f"Additional metadata: {json.dumps(display_metadata)}")
+                prompt_parts.append(
+                    f"Additional metadata: {json.dumps(display_metadata)}"
+                )
                 prompt_parts.append("")
 
         # Add the actual content to analyze (THE KEY DYNAMIC PART)
