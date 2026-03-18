@@ -44,6 +44,7 @@ Options:
 
 import argparse
 import asyncio
+import logging
 import os
 import statistics
 import sys
@@ -528,6 +529,7 @@ async def run_benchmark(
     from memoir.classifier.semantic import SemanticClassifier
     from memoir.search.intelligent import IntelligentSearchEngine
     from memoir.store.prolly_adapter import ProllyTreeStore
+    from memoir.taxonomy.loader import TaxonomyLoader
     from memoir.taxonomy.taxonomy import TaxonomyVersion
 
     classifier_name = classifier_type.upper()
@@ -551,6 +553,19 @@ async def run_benchmark(
             cache_size=10000,
         )
 
+        # Initialize TaxonomyLoader - load from store (only init if not already present)
+        print("  Initializing taxonomy from store...")
+        taxonomy_loader = TaxonomyLoader(prolly_store)
+        if not taxonomy_loader.has_taxonomy_in_store():
+            result = taxonomy_loader.init_store(include_builtin=True)
+            print(
+                f"  Taxonomy initialized: {result['loaded']['examples']} examples, "
+                f"{result['loaded']['descriptions']} descriptions, "
+                f"{result['loaded']['preset']} presets"
+            )
+        else:
+            print("  Taxonomy already in store, skipping initialization")
+
         # Create classifier based on type
         if classifier_type == "semantic":
             classifier = SemanticClassifier(
@@ -569,6 +584,7 @@ async def run_benchmark(
                 min_items_for_expansion=3,
                 suppress_path_warnings=True,
                 enable_metadata_extraction=enable_metadata_extraction,
+                taxonomy_loader=taxonomy_loader,
             )
             extraction_mode = (
                 "with metadata" if enable_metadata_extraction else "fast mode"
@@ -579,6 +595,7 @@ async def run_benchmark(
         search_engine = IntelligentSearchEngine(
             llm=llm,
             store=prolly_store,
+            taxonomy_loader=taxonomy_loader,
         )
 
         # Create memory manager
@@ -789,6 +806,21 @@ See https://docs.litellm.ai/docs/providers for full list.
     )
 
     args = parser.parse_args()
+
+    # Configure logging based on verbosity
+    if args.verbose:
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(message)s",
+        )
+        # Enable memoir module logging at INFO level (use DEBUG for very verbose output)
+        logging.getLogger("memoir").setLevel(logging.INFO)
+        # Suppress noisy LiteLLM debug output
+        logging.getLogger("LiteLLM").setLevel(logging.WARNING)
+        logging.getLogger("litellm").setLevel(logging.WARNING)
+        logging.getLogger("httpx").setLevel(logging.WARNING)
+    else:
+        logging.basicConfig(level=logging.WARNING)
 
     asyncio.run(
         run_benchmark(

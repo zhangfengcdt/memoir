@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 from memoir.classifier.intelligent import IntelligentClassifier
 from memoir.memento.timeline import TimelineMemento
 from memoir.store.prolly_adapter import ProllyTreeStore
+from memoir.taxonomy.loader import TaxonomyLoader
 
 
 class MemoryHandler(BaseAPIHandler):
@@ -71,6 +72,11 @@ class MemoryHandler(BaseAPIHandler):
                 # Initialize LLM for classification
                 llm = get_llm(model="gpt-4o-mini", temperature=0)
 
+                # Initialize TaxonomyLoader to load taxonomy from store
+                taxonomy_loader = TaxonomyLoader(store)
+                if not taxonomy_loader.has_taxonomy_in_store():
+                    taxonomy_loader.init_store(include_builtin=True)
+
                 classifier = IntelligentClassifier(
                     llm=llm,
                     taxonomy_version=TaxonomyVersion.GENERAL,
@@ -80,6 +86,7 @@ class MemoryHandler(BaseAPIHandler):
                         "low": 0.0,  # CRITICAL: Low confidence threshold - anything below this gets REJECTED
                     },
                     min_items_for_expansion=2,  # Lower threshold for demo - higher values = less taxonomy expansion
+                    taxonomy_loader=taxonomy_loader,
                 )
 
                 # Try to classify the content
@@ -427,10 +434,17 @@ class MemoryHandler(BaseAPIHandler):
                 self.handler.send_error(500, f"Error initializing LLM: {e!s}")
                 return
 
-            # Initialize IntelligentSearchEngine
+            # Initialize IntelligentSearchEngine with TaxonomyLoader
             from memoir.search.intelligent import IntelligentSearchEngine
 
-            search_engine = IntelligentSearchEngine(llm=llm, store=store)
+            # Initialize TaxonomyLoader to load taxonomy from store
+            taxonomy_loader = TaxonomyLoader(store)
+            if not taxonomy_loader.has_taxonomy_in_store():
+                taxonomy_loader.init_store(include_builtin=True)
+
+            search_engine = IntelligentSearchEngine(
+                llm=llm, store=store, taxonomy_loader=taxonomy_loader
+            )
 
             import asyncio
             import time

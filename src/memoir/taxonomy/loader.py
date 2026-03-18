@@ -215,6 +215,9 @@ class TaxonomyLoader:
         # Get type index
         type_index = self._get_from_store("index:by-type", {})
         example_ids = type_index.get("examples", [])
+        logger.debug(
+            f"[TaxonomyLoader] Loading examples from store, found IDs: {example_ids}"
+        )
 
         # Filter by domain if specified
         if domain:
@@ -230,8 +233,12 @@ class TaxonomyLoader:
             for item in example_data:
                 examples.append((item["input"], item["path"], item["reasoning"]))
                 if limit and len(examples) >= limit:
+                    logger.debug(
+                        f"[TaxonomyLoader] Loaded {len(examples)} examples from store (limit reached)"
+                    )
                     return examples
 
+        logger.debug(f"[TaxonomyLoader] Loaded {len(examples)} examples from store")
         return examples[:limit] if limit else examples
 
     def get_descriptions_from_store(
@@ -268,6 +275,9 @@ class TaxonomyLoader:
             desc_data = self._get_from_store(key, {})
             descriptions.update(desc_data)
 
+        logger.debug(
+            f"[TaxonomyLoader] Loaded {len(descriptions)} category descriptions from store"
+        )
         return descriptions
 
     def get_preset_paths_from_store(
@@ -285,7 +295,11 @@ class TaxonomyLoader:
 
         if preset_id:
             key = f"preset:{preset_id}"
-            return self._get_from_store(key, {})
+            paths = self._get_from_store(key, {})
+            logger.debug(
+                f"[TaxonomyLoader] Loaded preset '{preset_id}' from store: {len(paths)} categories"
+            )
+            return paths
 
         # Get all presets
         type_index = self._get_from_store("index:by-type", {})

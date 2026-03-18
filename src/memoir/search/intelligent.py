@@ -79,11 +79,17 @@ class IntelligentSearchEngine:
             try:
                 examples = self._taxonomy_loader.get_examples_from_store(limit=limit)
                 if examples:
+                    logger.debug(
+                        f"[SearchEngine] Loaded {len(examples)} examples FROM STORE"
+                    )
                     return examples
             except Exception as e:
-                logger.warning(f"Failed to load examples from store: {e}")
+                logger.warning(
+                    f"[SearchEngine] Failed to load examples from store: {e}"
+                )
 
         # Fallback to hardcoded examples
+        logger.debug(f"[SearchEngine] Using FALLBACK examples (limit={limit})")
         return TaxonomyPresets.CLASSIFICATION_EXAMPLES[:limit]
 
     def _get_category_descriptions(self) -> dict[str, str]:
@@ -96,11 +102,17 @@ class IntelligentSearchEngine:
             try:
                 descriptions = self._taxonomy_loader.get_descriptions_from_store()
                 if descriptions:
+                    logger.debug(
+                        f"[SearchEngine] Loaded {len(descriptions)} descriptions FROM STORE"
+                    )
                     return descriptions
             except Exception as e:
-                logger.warning(f"Failed to load descriptions from store: {e}")
+                logger.warning(
+                    f"[SearchEngine] Failed to load descriptions from store: {e}"
+                )
 
         # Fallback to hardcoded descriptions
+        logger.debug("[SearchEngine] Using FALLBACK category descriptions")
         return TaxonomyPresets.CATEGORY_DESCRIPTIONS
 
     def _build_static_prompt(self) -> str:

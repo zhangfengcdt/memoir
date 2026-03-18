@@ -15,6 +15,7 @@ from memoir.integration.base import BaseIntegration
 from memoir.search.intelligent import IntelligentSearchEngine
 from memoir.store.prolly_adapter import ProllyTreeStore
 from memoir.taxonomy.iterative import LLMIterativeTaxonomy
+from memoir.taxonomy.loader import TaxonomyLoader
 from memoir.taxonomy.semantic import SemanticTaxonomy
 
 from .types import MemoryConfig, MemoryEntry
@@ -47,13 +48,33 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
         self.llm = llm
 
         # Initialize components
-        self._init_taxonomy()
         self._init_storage()
+        self._init_taxonomy_loader()
+        self._init_taxonomy()
         self._init_search()
 
         # Track namespaces and branches
         self._namespaces: dict[str, str] = {}  # namespace -> branch mapping
         self._current_namespace = config.namespace
+
+    def _init_storage(self) -> None:
+        """Initialize the storage layer."""
+        self.store = ProllyTreeStore(
+            path=self.memory_config.storage_path,
+            enable_versioning=self.memory_config.enable_versioning,
+        )
+
+        # Memory manager will be initialized after search engine
+        self.memory_manager = None
+
+    def _init_taxonomy_loader(self) -> None:
+        """Initialize the taxonomy loader and ensure taxonomy is in store."""
+        self.taxonomy_loader = TaxonomyLoader(self.store)
+
+        # Initialize taxonomy if not already present
+        if not self.taxonomy_loader.has_taxonomy_in_store():
+            logger.info("Initializing taxonomy in store...")
+            self.taxonomy_loader.init_store(include_builtin=True)
 
     def _init_taxonomy(self) -> None:
         """Initialize the taxonomy system based on configuration."""
@@ -70,6 +91,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
             self.classifier = IntelligentClassifier(
                 llm=self.llm,
                 memory_store=None,  # Will be set later if needed
+                taxonomy_loader=self.taxonomy_loader,
             )
             self.taxonomy = SemanticTaxonomy()  # Fallback for search
         else:
@@ -77,22 +99,13 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
             self.taxonomy = SemanticTaxonomy()
             self.classifier = None
 
-    def _init_storage(self) -> None:
-        """Initialize the storage layer."""
-        self.store = ProllyTreeStore(
-            path=self.memory_config.storage_path,
-            enable_versioning=self.memory_config.enable_versioning,
-        )
-
-        # Memory manager will be initialized after search engine
-        self.memory_manager = None
-
     def _init_search(self) -> None:
         """Initialize the search engine and complete memory manager setup."""
         if self.llm:
             self.search_engine = IntelligentSearchEngine(
                 llm=self.llm,
                 store=self.store,
+                taxonomy_loader=self.taxonomy_loader,
             )
         else:
             # Fallback to a simple search if no LLM

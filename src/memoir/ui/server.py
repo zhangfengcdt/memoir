@@ -298,18 +298,37 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 self.send_error(400, "Missing 'path' parameter")
                 return
 
+            if not Path(store_path).exists():
+                self.send_error(404, f"Store path does not exist: {store_path}")
+                return
+
             # If content is provided, use the IntelligentClassifier to extract timeline events
             if content and not (date_str and description):
                 # Initialize the IntelligentClassifier
                 try:
                     from memoir.classifier.intelligent import IntelligentClassifier
                     from memoir.llm import get_llm
+                    from memoir.taxonomy.loader import TaxonomyLoader
                     from memoir.taxonomy.taxonomy import TaxonomyVersion
+
+                    # Initialize store for taxonomy loading
+                    store = ProllyTreeStore(
+                        path=store_path,
+                        enable_versioning=True,
+                        auto_commit=True,
+                        cache_size=10000,
+                    )
+
+                    # Initialize TaxonomyLoader to load taxonomy from store
+                    taxonomy_loader = TaxonomyLoader(store)
+                    if not taxonomy_loader.has_taxonomy_in_store():
+                        taxonomy_loader.init_store(include_builtin=True)
 
                     llm = get_llm(model="gpt-4o-mini", temperature=0)
                     classifier = IntelligentClassifier(
                         llm=llm,
                         taxonomy_version=TaxonomyVersion.GENERAL,
+                        taxonomy_loader=taxonomy_loader,
                     )
 
                     # Classify the content to extract timeline events
@@ -355,10 +374,6 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 )
                 return
 
-            if not Path(store_path).exists():
-                self.send_error(404, f"Store path does not exist: {store_path}")
-                return
-
             # Validate date format
             if len(date_str) != 8 or not date_str.isdigit():
                 self.send_error(
@@ -366,13 +381,14 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 )
                 return
 
-            # Initialize store
-            store = ProllyTreeStore(
-                path=store_path,
-                enable_versioning=True,
-                auto_commit=True,
-                cache_size=10000,
-            )
+            # Initialize store (may already be initialized if content was processed)
+            if "store" not in locals():
+                store = ProllyTreeStore(
+                    path=store_path,
+                    enable_versioning=True,
+                    auto_commit=True,
+                    cache_size=10000,
+                )
 
             # Initialize timeline memento
             timeline_memento = TimelineMemento(store)
@@ -519,18 +535,47 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 )
                 return
 
+            if not Path(store_path).exists():
+                self.send_response(404)
+                self.send_header("Content-type", "application/json")
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps(
+                        {
+                            "success": False,
+                            "error": f"Store path does not exist: {store_path}",
+                        }
+                    ).encode()
+                )
+                return
+
             # If content is provided, use the IntelligentClassifier to extract location events
             if content and not (location_name and description):
                 # Initialize the IntelligentClassifier
                 try:
                     from memoir.classifier.intelligent import IntelligentClassifier
                     from memoir.llm import get_llm
+                    from memoir.taxonomy.loader import TaxonomyLoader
                     from memoir.taxonomy.taxonomy import TaxonomyVersion
+
+                    # Initialize store for taxonomy loading
+                    store = ProllyTreeStore(
+                        path=store_path,
+                        enable_versioning=True,
+                        auto_commit=True,
+                        cache_size=10000,
+                    )
+
+                    # Initialize TaxonomyLoader to load taxonomy from store
+                    taxonomy_loader = TaxonomyLoader(store)
+                    if not taxonomy_loader.has_taxonomy_in_store():
+                        taxonomy_loader.init_store(include_builtin=True)
 
                     llm = get_llm(model="gpt-4o-mini", temperature=0)
                     classifier = IntelligentClassifier(
                         llm=llm,
                         taxonomy_version=TaxonomyVersion.GENERAL,
+                        taxonomy_loader=taxonomy_loader,
                     )
 
                     # Classify the content to extract location events
@@ -607,27 +652,14 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 )
                 return
 
-            if not Path(store_path).exists():
-                self.send_response(404)
-                self.send_header("Content-type", "application/json")
-                self.end_headers()
-                self.wfile.write(
-                    json.dumps(
-                        {
-                            "success": False,
-                            "error": f"Store path does not exist: {store_path}",
-                        }
-                    ).encode()
+            # Initialize store (may already be initialized if content was processed)
+            if "store" not in locals():
+                store = ProllyTreeStore(
+                    path=store_path,
+                    enable_versioning=True,
+                    auto_commit=True,
+                    cache_size=10000,
                 )
-                return
-
-            # Initialize store
-            store = ProllyTreeStore(
-                path=store_path,
-                enable_versioning=True,
-                auto_commit=True,
-                cache_size=10000,
-            )
 
             # Initialize location memento
             location_memento = LocationMemento(store)

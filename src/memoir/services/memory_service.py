@@ -39,6 +39,7 @@ class MemoryService(BaseService):
         self._classifier = None
         self._search_engine = None
         self._llm = None
+        self._taxonomy_loader = None
 
     def _get_llm(self):
         """Lazily initialize and return the LLM."""
@@ -47,6 +48,21 @@ class MemoryService(BaseService):
 
             self._llm = get_llm(model=self.llm_model, temperature=0)
         return self._llm
+
+    def _get_taxonomy_loader(self):
+        """Lazily initialize and return the taxonomy loader."""
+        if self._taxonomy_loader is None:
+            from memoir.taxonomy.loader import TaxonomyLoader
+
+            store = self._get_store()
+            self._taxonomy_loader = TaxonomyLoader(store)
+
+            # Initialize taxonomy if not already present
+            if not self._taxonomy_loader.has_taxonomy_in_store():
+                logger.info("Initializing taxonomy in store...")
+                self._taxonomy_loader.init_store(include_builtin=True)
+
+        return self._taxonomy_loader
 
     def _get_classifier(self):
         """Lazily initialize and return the classifier."""
@@ -63,6 +79,7 @@ class MemoryService(BaseService):
                     "low": 0.0,
                 },
                 min_items_for_expansion=2,
+                taxonomy_loader=self._get_taxonomy_loader(),
             )
         return self._classifier
 
@@ -74,6 +91,7 @@ class MemoryService(BaseService):
             self._search_engine = IntelligentSearchEngine(
                 llm=self._get_llm(),
                 store=self._get_store(),
+                taxonomy_loader=self._get_taxonomy_loader(),
             )
         return self._search_engine
 

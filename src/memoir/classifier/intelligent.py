@@ -182,6 +182,10 @@ class IntelligentClassifier:
         # Track pending expansions
         self.pending_expansions = {}
 
+        # Cache for taxonomy data (loaded once from store)
+        self._examples_cache: Optional[list[tuple[str, str, str]]] = None
+        self._descriptions_cache: Optional[dict[str, str]] = None
+
     def _get_confidence_level(self, confidence: float) -> ClassificationConfidence:
         """Determine confidence level from score."""
         if confidence >= self.thresholds["high"]:
@@ -205,16 +209,21 @@ class IntelligentClassifier:
             try:
                 store_paths = self._taxonomy_loader.get_preset_paths_from_store()
                 if store_paths:
+                    total_paths = sum(len(p) for p in store_paths.values())
                     logger.info(
-                        f"Loaded taxonomy paths from store: {len(store_paths)} categories"
+                        f"[Classifier] Loaded taxonomy paths FROM STORE: "
+                        f"{len(store_paths)} categories, {total_paths} total paths"
                     )
                     return store_paths
             except Exception as e:
                 logger.warning(
-                    f"Failed to load taxonomy from store, using fallback: {e}"
+                    f"[Classifier] Failed to load taxonomy from store, using fallback: {e}"
                 )
+        else:
+            logger.debug("[Classifier] No taxonomy_loader provided, using fallback")
 
         # Fallback to hardcoded TaxonomyPresets
+        logger.info("[Classifier] Using FALLBACK hardcoded TaxonomyPresets")
         simplified_presets = TaxonomyPresets()
         return simplified_presets.PRESETS[TaxonomyVersion.SIMPLIFIED]
 
@@ -223,39 +232,66 @@ class IntelligentClassifier:
     ) -> list[tuple[str, str, str]]:
         """Get classification examples from store or fallback to hardcoded.
 
+        Results are cached after first load for performance.
+
         Args:
             limit: Maximum number of examples to return.
 
         Returns:
             List of (input_text, path, reasoning) tuples.
         """
+        # Use cache if available
+        if self._examples_cache is not None:
+            return self._examples_cache[:limit]
+
         if self._taxonomy_loader:
             try:
-                examples = self._taxonomy_loader.get_examples_from_store(limit=limit)
+                # Load all examples and cache them
+                examples = self._taxonomy_loader.get_examples_from_store()
                 if examples:
-                    return examples
+                    logger.info(
+                        f"[Classifier] Loaded {len(examples)} examples FROM STORE"
+                    )
+                    self._examples_cache = examples
+                    return examples[:limit]
             except Exception as e:
-                logger.warning(f"Failed to load examples from store: {e}")
+                logger.warning(f"[Classifier] Failed to load examples from store: {e}")
 
         # Fallback to hardcoded examples
-        return TaxonomyPresets.CLASSIFICATION_EXAMPLES[:limit]
+        logger.info("[Classifier] Using FALLBACK examples")
+        self._examples_cache = TaxonomyPresets.CLASSIFICATION_EXAMPLES
+        return self._examples_cache[:limit]
 
     def _get_category_descriptions(self) -> dict[str, str]:
         """Get category descriptions from store or fallback to hardcoded.
 
+        Results are cached after first load for performance.
+
         Returns:
             Dict mapping category to description.
         """
+        # Use cache if available
+        if self._descriptions_cache is not None:
+            return self._descriptions_cache
+
         if self._taxonomy_loader:
             try:
                 descriptions = self._taxonomy_loader.get_descriptions_from_store()
                 if descriptions:
+                    logger.info(
+                        f"[Classifier] Loaded {len(descriptions)} descriptions FROM STORE"
+                    )
+                    self._descriptions_cache = descriptions
                     return descriptions
             except Exception as e:
-                logger.warning(f"Failed to load descriptions from store: {e}")
+                logger.warning(
+                    f"[Classifier] Failed to load descriptions from store: {e}"
+                )
 
         # Fallback to hardcoded descriptions
-        return TaxonomyPresets.CATEGORY_DESCRIPTIONS
+        logger.info("[Classifier] Using FALLBACK category descriptions")
+        self._descriptions_cache = TaxonomyPresets.CATEGORY_DESCRIPTIONS
+        return self._descriptions_cache
 
     async def classify_input(
         self,
@@ -746,7 +782,7 @@ CONTENT: {content}
                 try:
                     data = json.loads(json_str)
                     # Debug logging to see what we're getting
-                    logger.info(f"Parsed LLM response: {data}")
+                    logger.debug(f"Parsed LLM response: {data}")
                 except json.JSONDecodeError as json_error:
                     # Log the malformed JSON for debugging
                     logger.error(f"Malformed JSON from LLM: {json_str}")
@@ -755,7 +791,7 @@ CONTENT: {content}
                     json_str = self._fix_common_json_issues(json_str)
                     try:
                         data = json.loads(json_str)
-                        logger.info(f"Successfully parsed after JSON repair: {data}")
+                        logger.debug(f"Successfully parsed after JSON repair: {data}")
                     except json.JSONDecodeError:
                         logger.error("JSON repair failed, using fallback")
                         raise  # Re-raise to trigger fallback handling
@@ -805,14 +841,14 @@ CONTENT: {content}
                         top_level_category in existing_top_level
                         and len(path_parts) == 3
                     ):
-                        logger.info(f"Accepting well-formed 3-level path: {path}")
+                        logger.debug(f"Accepting well-formed 3-level path: {path}")
                         validated_paths.append(path)
                     elif (
                         top_level_category in existing_top_level and len(path_parts) > 3
                     ):
                         # Truncate to 3 levels
                         truncated_path = ".".join(path_parts[:3])
-                        logger.info(f"Truncating {path} to 3 levels: {truncated_path}")
+                        logger.debug(f"Truncating {path} to 3 levels: {truncated_path}")
                         validated_paths.append(truncated_path)
                     # Check if this is a new top-level category
                     elif (
@@ -820,7 +856,7 @@ CONTENT: {content}
                         and len(path_parts) >= 2
                     ):
                         # This appears to be a new top-level category suggestion
-                        logger.info(f"LLM suggested new top-level category: {path}")
+                        logger.debug(f"LLM suggested new top-level category: {path}")
                         validated_paths.append(path)  # Accept new category paths
                     else:
                         # Try to find existing path or fallback
@@ -835,7 +871,7 @@ CONTENT: {content}
                         for i in range(len(path_parts), 0, -1):
                             partial_path = ".".join(path_parts[:i])
                             if partial_path in all_paths:
-                                logger.info(f"Using valid parent path: {partial_path}")
+                                logger.debug(f"Using valid parent path: {partial_path}")
                                 validated_paths.append(partial_path)
                                 found_valid = True
                                 break
@@ -874,7 +910,7 @@ CONTENT: {content}
                                 fallback_path = domain_defaults.get(
                                     domain, valid_domain_paths[0]
                                 )
-                                logger.info(
+                                logger.debug(
                                     f"Single-level '{domain}' converted to specific path: {fallback_path}"
                                 )
                                 validated_paths.append(fallback_path)
@@ -888,7 +924,7 @@ CONTENT: {content}
                 top_level_categories = [path.split(".")[0] for path in validated_paths]
                 if len(set(top_level_categories)) == 1:
                     # All paths are from the same top-level category, keep only the first (most relevant)
-                    logger.info(
+                    logger.debug(
                         f"Multiple paths from same top-level category {top_level_categories[0]}, keeping only primary path: {validated_paths[0]}"
                     )
                     validated_paths = [validated_paths[0]]
@@ -903,7 +939,7 @@ CONTENT: {content}
                             filtered_paths.append(path)
                             if len(filtered_paths) == 2:
                                 break
-                    logger.info(
+                    logger.debug(
                         f"More than 2 top-level categories, keeping first 2: {filtered_paths}"
                     )
                     validated_paths = filtered_paths
@@ -931,7 +967,7 @@ CONTENT: {content}
                 and isinstance(profile_data, list)
             ):
                 profile_updates = profile_data
-                logger.info(f"Detected profile updates: {profile_updates}")
+                logger.debug(f"Detected profile updates: {profile_updates}")
 
             # Parse timeline events
             timeline_events = None
@@ -942,7 +978,7 @@ CONTENT: {content}
                     timeline_events = [timeline_data]
                 elif isinstance(timeline_data, list):
                     timeline_events = timeline_data
-                logger.info(f"Detected timeline events: {timeline_events}")
+                logger.debug(f"Detected timeline events: {timeline_events}")
 
             # Parse location events
             location_events = None
@@ -953,7 +989,7 @@ CONTENT: {content}
                     location_events = [location_data]
                 elif isinstance(location_data, list):
                     location_events = location_data
-                logger.info(f"Detected location events: {location_events}")
+                logger.debug(f"Detected location events: {location_events}")
 
             return ClassificationResult(
                 is_memory=is_memory,
@@ -1351,7 +1387,7 @@ Examples:
                 await self.profile_manager.apply_profile_updates(
                     classification.profile_updates, metadata
                 )
-                logger.info(
+                logger.debug(
                     f"Applied {len(classification.profile_updates)} profile updates"
                 )
             except Exception as e:
@@ -1363,7 +1399,7 @@ Examples:
                 await self.timeline_manager.apply_timeline_events(
                     classification.timeline_events, metadata
                 )
-                logger.info(
+                logger.debug(
                     f"Applied {len(classification.timeline_events)} timeline events"
                 )
             except Exception as e:
@@ -1371,13 +1407,13 @@ Examples:
 
         # Step 2.7: Apply location events if detected
         if classification.location_events:
-            logger.info(f"Detected location events: {classification.location_events}")
+            logger.debug(f"Detected location events: {classification.location_events}")
             if self.location_manager:
                 try:
                     await self.location_manager.apply_location_events(
                         classification.location_events, metadata
                     )
-                    logger.info(
+                    logger.debug(
                         f"Applied {len(classification.location_events)} location events"
                     )
                 except Exception as e:
@@ -1447,11 +1483,11 @@ Examples:
                         if merged_memory:
                             self.memory_store.put(namespace, storage_key, merged_memory)
                             stored_paths.append(storage_key)
-                            logger.info(
+                            logger.debug(
                                 f"Merged new content with existing memory at storage key {storage_key}"
                             )
                         else:
-                            logger.info(
+                            logger.debug(
                                 f"Conflict detected, skipping merge at storage key {storage_key}"
                             )
 

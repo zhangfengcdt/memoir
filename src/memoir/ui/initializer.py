@@ -20,6 +20,7 @@ from memoir import ProllyTreeMemoryStoreManager
 from memoir.classifier.intelligent import IntelligentClassifier
 from memoir.search.intelligent import IntelligentSearchEngine
 from memoir.store.prolly_adapter import ProllyTreeStore
+from memoir.taxonomy.loader import TaxonomyLoader
 from memoir.taxonomy.taxonomy import TaxonomyVersion
 
 
@@ -168,8 +169,15 @@ async def main():
     )
     print("   ✓ ProllyTreeStore created with Git-like versioning")
 
-    # 2. Create intelligent classifier
-    print("2. Creating intelligent classifier...")
+    # 2. Initialize TaxonomyLoader
+    print("2. Initializing taxonomy from store...")
+    taxonomy_loader = TaxonomyLoader(store)
+    if not taxonomy_loader.has_taxonomy_in_store():
+        taxonomy_loader.init_store(include_builtin=True)
+    print("   ✓ TaxonomyLoader initialized")
+
+    # 3. Create intelligent classifier
+    print("3. Creating intelligent classifier...")
     classifier = IntelligentClassifier(
         llm=llm,
         taxonomy_version=TaxonomyVersion.GENERAL,
@@ -179,19 +187,21 @@ async def main():
             "low": 0.0,  # Accept all for demo
         },
         min_items_for_expansion=2,
+        taxonomy_loader=taxonomy_loader,
     )
     print("   ✓ IntelligentClassifier configured")
 
-    # 3. Create search engine
-    print("3. Creating search engine...")
+    # 4. Create search engine
+    print("4. Creating search engine...")
     search_engine = IntelligentSearchEngine(
         llm=llm,
         store=store,
+        taxonomy_loader=taxonomy_loader,
     )
     print("   ✓ IntelligentSearchEngine ready")
 
-    # 4. Create memory manager
-    print("4. Creating memory manager...")
+    # 5. Create memory manager
+    print("5. Creating memory manager...")
     memory_manager = ProllyTreeMemoryStoreManager(
         prolly_store=store,
         classifier=classifier,
