@@ -387,7 +387,11 @@ CONFIDENCE: <0.0 to 1.0>"""
 
         answers_query = answer.lower() != "cannot answer" and len(answer) > 0
 
-        return {"answers_query": answers_query, "confidence": confidence, "answer": answer}
+        return {
+            "answers_query": answers_query,
+            "confidence": confidence,
+            "answer": answer,
+        }
 
     except Exception as e:
         return {
@@ -440,7 +444,9 @@ async def benchmark_recall(
                 eval_time_ms = (time.perf_counter() - eval_start) * 1000
 
                 step_timings = results[0].metadata.get("step_timings", {})
-                step_timings["search_total"] = search_time_ms / 1000  # Convert to seconds
+                step_timings["search_total"] = (
+                    search_time_ms / 1000
+                )  # Convert to seconds
                 step_timings["eval_quality"] = eval_time_ms / 1000  # Convert to seconds
 
                 details = {
@@ -459,9 +465,7 @@ async def benchmark_recall(
                 details = {
                     "num_results": 0,
                     "step_timings": (
-                        results[0].metadata.get("step_timings", {})
-                        if results
-                        else {}
+                        results[0].metadata.get("step_timings", {}) if results else {}
                     ),
                     "answers_query": False,
                     "eval_confidence": 1.0,
@@ -500,7 +504,9 @@ async def benchmark_recall(
             )
             # Show retrieved memories and LLM answer
             if num_results > 0:
-                print(f"           Memories: {[m[:60] + '...' if len(m) > 60 else m for m in memories_content[:3]]}")
+                print(
+                    f"           Memories: {[m[:60] + '...' if len(m) > 60 else m for m in memories_content[:3]]}"
+                )
                 print(f"           Answer: {details.get('eval_answer', 'N/A')}")
 
     return create_benchmark_report("recall (retrieval)", timings)
@@ -642,7 +648,13 @@ async def run_benchmark(
         # Detailed timing breakdown for recall (if available)
         if not skip_recall and recall_report.timings:
             print("\n  RECALL STEP BREAKDOWN (from step_timings):")
-            step_times = {"step1": [], "step2": [], "step3": [], "search": [], "eval": []}
+            step_times = {
+                "step1": [],
+                "step2": [],
+                "step3": [],
+                "search": [],
+                "eval": [],
+            }
 
             for timing in recall_report.timings:
                 if timing.success and "step_timings" in timing.details:

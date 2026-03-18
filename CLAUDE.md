@@ -29,8 +29,8 @@ pytest tests/test_versioning.py   # Test version control features
 
 # Benchmarks
 python benchmarks/classifier.py --help  # View benchmark options
-python benchmarks/classifier.py --model gpt-4o-mini --iterations 1  # Quick test
-python benchmarks/classifier.py --model anthropic/claude-haiku-4-5 --num-cases 5  # Test with Claude
+python benchmarks/classifier.py --model gpt-4o-mini --num-cases 3  # Quick test
+python benchmarks/classifier.py --model anthropic/claude-haiku-4-5 --num-cases 10 --verbose  # Test with Claude
 
 # Full CI pipeline
 make ci                      # Run complete CI: lint, test, security, docs
@@ -79,9 +79,9 @@ This project brings Git-like version control to AI memory systems, replacing opa
 - **Structural sharing**: Efficient storage with deduplication
 
 #### 4. **Search Engine** (`src/memoir/search/`)
-- **IntelligentSearchEngine** (`intelligent.py`): LLM-powered path selection
-- **Relevance scoring**: Combined semantic and structural scoring
-- **Prefix queries**: O(log n) complexity vs O(n) vector search
+- **IntelligentSearchEngine** (`intelligent.py`): Single-stage LLM-powered path selection
+- **Prompt caching**: Static taxonomy cached for efficiency
+- **Dynamic limit**: Configurable number of paths/results to retrieve
 
 #### 5. **Memory Manager** (`src/memoir/core/`)
 - **ProllyTreeMemoryStoreManager** (`memory.py`): Drop-in LangMem replacement
@@ -122,10 +122,10 @@ This project brings Git-like version control to AI memory systems, replacing opa
 - **Sample store initializer** (`initializer.py`): Create demo data
 
 ### Key Performance Metrics
-- **Search latency**: 0.1-1ms (vs 150-750ms traditional)
-- **Storage latency**: 20-30ms (vs 200-600ms traditional)
-- **Classification**: 1-5ms pattern matching (vs 2-5s LLM-only)
-- **Overall improvement**: 10-20x faster end-to-end
+- **Search latency**: 500-800ms (single LLM call for path selection)
+- **Storage latency**: 1000-2000ms (includes LLM classification)
+- **Classification**: Single LLM call with prompt caching support
+- **Prompt caching**: Up to 90% token savings on Anthropic models
 
 ## Important Implementation Details
 
@@ -213,7 +213,9 @@ await store.put(namespace, key, value)
 The `benchmarks/classifier.py` provides comprehensive performance testing:
 - **Multi-provider support**: OpenAI, Anthropic, Ollama, vLLM via LiteLLM
 - **Prompt caching**: Automatic Anthropic cache optimization for reduced costs
-- **Detailed metrics**: Classification and retrieval timing with percentiles
+- **Detailed metrics**: Classification and retrieval timing with step breakdown
+- **External test data**: 100+ memories and queries in `benchmarks/data/`
+- **LLM evaluation**: Recall quality verified by LLM (answers query or not)
 
 ## Project-Specific Patterns
 

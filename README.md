@@ -235,8 +235,8 @@ make ci
 | Component | Description |
 |-----------|-------------|
 | ProllyTreeStore | Git-like versioned storage with cryptographic integrity |
-| IntelligentClassifier | LLM-powered classification with dynamic taxonomy |
-| IntelligentSearchEngine | Multi-strategy search with relevance scoring |
+| IntelligentClassifier | LLM-powered classification with 3-level taxonomy paths |
+| IntelligentSearchEngine | Single-stage LLM search with prompt caching support |
 | Services Layer | Shared business logic for all interfaces |
 
 ## License

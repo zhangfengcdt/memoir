@@ -361,7 +361,11 @@ SEARCH INSTRUCTIONS:
             return []
 
     async def _select_relevant_paths(
-        self, query: str, paths_info: dict, limit: int = 5, llm_prompts: Optional[dict] = None
+        self,
+        query: str,
+        paths_info: dict,
+        limit: int = 5,
+        llm_prompts: Optional[dict] = None,
     ) -> list[str]:
         """
         Use LLM to select the most relevant paths for the query.

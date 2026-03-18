@@ -78,11 +78,11 @@ jobs:
 
     - name: Run Ruff (linting)
       run: |
-        ruff check src/ tests/ examples/ --exclude tests/test_ui_e2e.py
+        ruff check src/ tests/ benchmarks/ --exclude tests/test_ui_e2e.py
 
     - name: Run isort (import sorting)
       run: |
-        isort --check-only --diff src/ tests/ examples/ --skip tests/test_ui_e2e.py
+        isort --check-only --diff src/ tests/ benchmarks/ --skip tests/test_ui_e2e.py
 
     - name: Run Bandit (security)
       run: |
