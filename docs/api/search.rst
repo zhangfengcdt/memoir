@@ -17,10 +17,3 @@ memoir.search.intelligent module
    :undoc-members:
    :show-inheritance:
 
-memoir.search.semantic module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. automodule:: memoir.search.semantic
-   :members:
-   :undoc-members:
-   :show-inheritance:

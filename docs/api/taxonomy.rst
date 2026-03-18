@@ -25,10 +25,10 @@ memoir.taxonomy.iterative module
    :undoc-members:
    :show-inheritance:
 
-memoir.taxonomy.taxonomy_presets module
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+memoir.taxonomy.taxonomy module
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. automodule:: memoir.taxonomy.taxonomy_presets
+.. automodule:: memoir.taxonomy.taxonomy
    :members:
    :undoc-members:
    :show-inheritance:
