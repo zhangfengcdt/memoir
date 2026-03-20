@@ -307,8 +307,22 @@ class LiveSimulationTUI:
         )
 
         layout["left"].split_column(
-            Layout(name="events", ratio=2),
-            Layout(name="conversations", ratio=1),
+            Layout(name="events", ratio=1),
+            Layout(name="conversations", ratio=2),
+        )
+
+        # Split conversations into 4 sub-windows (2x2 grid)
+        layout["conversations"].split_column(
+            Layout(name="conv_top", ratio=1),
+            Layout(name="conv_bottom", ratio=1),
+        )
+        layout["conv_top"].split_row(
+            Layout(name="conv_web", ratio=1),
+            Layout(name="conv_slack", ratio=1),
+        )
+        layout["conv_bottom"].split_row(
+            Layout(name="conv_discord", ratio=1),
+            Layout(name="conv_telegram", ratio=1),
         )
 
         layout["right"].split_column(
@@ -330,7 +344,7 @@ class LiveSimulationTUI:
 
     def _render_events(self) -> Panel:
         """Render event log panel (starts from bottom, rolls up)."""
-        max_visible = 25
+        max_visible = 12
         table = Table(
             show_header=True,
             header_style="bold",
@@ -371,47 +385,46 @@ class LiveSimulationTUI:
             border_style="blue",
         )
 
-    def _render_conversations(self) -> Panel:
-        """Render active conversations panel (rolls up, current at bottom highlighted)."""
+    def _render_channel_conversation(self, target_channel: str) -> Panel:
+        """Render conversation panel for a specific channel."""
         content = []
+        title = f"[bold]{target_channel.upper()}[/bold]"
+        border_colors = {
+            "web": "green",
+            "slack": "magenta",
+            "discord": "blue",
+            "telegram": "cyan",
+        }
+        border_style = border_colors.get(target_channel, "white")
 
         with self._lock:
-            # Show all conversations, sorted by key for stability
-            # Key format: channel:session:user
-            for key in sorted(self.conversations.keys()):
-                messages = self.conversations[key]
-                # Parse channel:session:user from key
+            # Find conversation for this channel
+            for key in self.conversations:
                 parts = key.split(":")
                 if len(parts) >= 3:
-                    channel, session_id, user_id = parts[0], parts[1], parts[2]
+                    channel, _session_id, user_id = parts[0], parts[1], parts[2]
                 else:
-                    # Fallback for old format
-                    user_id = parts[0]
-                    session_id = parts[1] if len(parts) > 1 else "main"
-                    channel = "web"
+                    continue
 
-                # Show session header (channel:user_id:session_id)
-                content.append(
-                    Text(
-                        f"── {channel}:{user_id}:{session_id} ──",
-                        style="dim bold",
-                    )
-                )
+                if channel != target_channel:
+                    continue
 
-                # Filter out empty messages and get last 6 (to fit panel)
+                messages = self.conversations[key]
+                title = f"[bold]{channel}:{user_id}[/bold]"
+
+                # Filter out empty messages and get last 5 (to fit smaller panel)
                 non_empty = [m for m in messages if m.content and m.content.strip()]
-                recent_messages = non_empty[-6:]
+                recent_messages = non_empty[-5:]
                 num_messages = len(recent_messages)
 
                 for idx, msg in enumerate(recent_messages):
                     role_style = "green" if msg.role == "user" else "cyan"
-                    # Show channel:user_id for user, "Agent" for assistant
-                    role_prefix = (
-                        f"{channel}:{user_id}:" if msg.role == "user" else "Agent:"
-                    )
+                    # Short prefix for compact display
+                    role_prefix = f"{user_id}:" if msg.role == "user" else "Agent:"
+                    # Truncate for smaller panels
                     text = (
-                        msg.content[:200] + "..."
-                        if len(msg.content) > 200
+                        msg.content[:80] + "..."
+                        if len(msg.content) > 80
                         else msg.content
                     )
 
@@ -427,14 +440,15 @@ class LiveSimulationTUI:
                         content.append(
                             Text(f"  {role_prefix} {text}", style=role_style)
                         )
+                break  # Only show first matching conversation per channel
 
         if not content:
-            content = [Text("No active conversations", style="dim")]
+            content = [Text("Waiting...", style="dim")]
 
         return Panel(
             Align(Group(*content), vertical="bottom"),
-            title="[bold]Conversations[/bold]",
-            border_style="green",
+            title=title,
+            border_style=border_style,
         )
 
     def _read_real_store(self) -> dict[str, dict[str, Any]]:
@@ -474,13 +488,16 @@ class LiveSimulationTUI:
                             continue
 
                         # Parse namespace and path from key
-                        # Format: user_id:userid:semantic.path or agent:semantic.path
+                        # Format: channel:userid:semantic.path or agent:semantic.path
                         parts = full_key.split(":")
                         if len(parts) < 2:
                             continue
 
-                        # Handle user_id:userid:path format
-                        if parts[0] == "user_id" and len(parts) >= 3:
+                        # Handle channel:userid:path format (web, slack, discord, telegram)
+                        if (
+                            parts[0] in ("web", "slack", "discord", "telegram")
+                            and len(parts) >= 3
+                        ):
                             namespace = f"{parts[0]}:{parts[1]}"
                             path = parts[2]  # Just the semantic path
                         elif parts[0] in ("agent", "system"):
@@ -616,7 +633,11 @@ class LiveSimulationTUI:
         layout = self._make_layout()
         layout["header"].update(self._render_header())
         layout["events"].update(self._render_events())
-        layout["conversations"].update(self._render_conversations())
+        # Render 4 channel conversation panels
+        layout["conv_web"].update(self._render_channel_conversation("web"))
+        layout["conv_slack"].update(self._render_channel_conversation("slack"))
+        layout["conv_discord"].update(self._render_channel_conversation("discord"))
+        layout["conv_telegram"].update(self._render_channel_conversation("telegram"))
         layout["memories"].update(self._render_memories())
         layout["stats"].update(self._render_stats())
         layout["footer"].update(self._render_footer())

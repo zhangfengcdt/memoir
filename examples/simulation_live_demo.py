@@ -382,7 +382,7 @@ class MockAgentWithInstrumentation:
             tc = ToolCall(
                 id=f"call_{time.time()}",
                 name="memoir_remember",
-                arguments={"content": content, "namespace": f"user_id:{self.user_id}"},
+                arguments={"content": content, "namespace": f"{self.channel}:{self.user_id}"},
             )
             tool_calls.append(tc)
             result = self.skill_injector.execute_tool_call(tc.name, tc.arguments)
@@ -392,7 +392,7 @@ class MockAgentWithInstrumentation:
             tc = ToolCall(
                 id=f"call_{time.time()}",
                 name="memoir_recall",
-                arguments={"query": "user preferences", "namespace": f"user_id:{self.user_id}"},
+                arguments={"query": "user preferences", "namespace": f"{self.channel}:{self.user_id}"},
             )
             tool_calls.append(tc)
             result = self.skill_injector.execute_tool_call(tc.name, tc.arguments)

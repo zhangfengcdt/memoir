@@ -73,13 +73,13 @@ class RealLLMAgent:
 
 ## Tools:
 - memoir_help: Get CLI help (call with no args for general help, or specify command name)
-- memoir_remember: Store memories (with namespace: 'agent' or 'user_id:{user_id}')
-- memoir_recall: Search memories (with namespace: 'agent' or 'user_id:{user_id}')
+- memoir_remember: Store memories (with namespace: 'agent' or '{channel}:{user_id}')
+- memoir_recall: Search memories (with namespace: 'agent' or '{channel}:{user_id}')
 - memoir_checkout: Switch branches for context isolation
 - memoir_forget: Delete a memory
 
 ## Namespaces:
-- **user_id:{user_id}**: User preferences, facts, projects (default)
+- **{channel}:{user_id}**: User preferences, facts, projects (default)
 - **agent**: Your own learnings, skills, techniques, insights
 
 ## Rules:
@@ -89,10 +89,10 @@ class RealLLMAgent:
 - Use memoir_help(command="remember") to see detailed help for a command
 
 **Storing memories:**
-- User preferences/facts → namespace="user_id:{user_id}" (or omit for default)
+- User preferences/facts → namespace="{channel}:{user_id}" (or omit for default)
 - Your learnings/skills → namespace="agent"
 - Example: "I learned to use rg for fast search" → namespace="agent"
-- Example: "User prefers dark mode" → namespace="user_id:{user_id}"
+- Example: "User prefers dark mode" → namespace="{channel}:{user_id}"
 
 **Recalling memories:**
 - When asked about user → search user namespace
@@ -216,8 +216,9 @@ Be conversational and acknowledge when you store or find memories.
 
     def _build_messages(self, extra_context: Optional[str] = None) -> list[dict]:
         """Build message list for LLM."""
-        # Substitute user_id in system prompt
+        # Substitute user_id and channel in system prompt
         system_prompt = self.SYSTEM_PROMPT.replace("{user_id}", self.user_id)
+        system_prompt = system_prompt.replace("{channel}", self.channel)
         messages = [{"role": "system", "content": system_prompt}]
 
         # Add memory context from bootstrap hook
@@ -257,7 +258,7 @@ Be conversational and acknowledge when you store or find memories.
         if name == "memoir_remember":
             result = self.cli.remember(
                 content=args.get("content", ""),
-                namespace=args.get("namespace", f"user_id:{self.user_id}"),
+                namespace=args.get("namespace", f"{self.channel}:{self.user_id}"),
             )
             return (
                 {
@@ -275,7 +276,7 @@ Be conversational and acknowledge when you store or find memories.
         elif name == "memoir_recall":
             result = self.cli.recall(
                 query=args.get("query", ""),
-                namespace=args.get("namespace", f"user_id:{self.user_id}"),
+                namespace=args.get("namespace", f"{self.channel}:{self.user_id}"),
                 limit=args.get("limit", 5),
             )
             memories = []
@@ -299,7 +300,7 @@ Be conversational and acknowledge when you store or find memories.
         elif name == "memoir_forget":
             result = self.cli.forget(
                 key=args.get("path", ""),
-                namespace=args.get("namespace", f"user_id:{self.user_id}"),
+                namespace=args.get("namespace", f"{self.channel}:{self.user_id}"),
             )
             return (
                 {
@@ -418,7 +419,9 @@ Be conversational and acknowledge when you store or find memories.
                         operation=tool_call.name.replace("memoir_", ""),
                         details=command,
                         tool_name=tool_call.name,
-                        namespace=args.get("namespace", f"user_id:{self.user_id}"),
+                        namespace=args.get(
+                            "namespace", f"{self.channel}:{self.user_id}"
+                        ),
                         success=result.get("success", False),
                         duration_ms=tool_duration_ms,
                     )

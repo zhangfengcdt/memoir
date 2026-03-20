@@ -87,8 +87,8 @@ class Session:
 
     @property
     def user_namespace(self) -> str:
-        """Get user namespace for memoir (independent of channel)."""
-        return f"user_id:{self.user_id}"
+        """Get user namespace for memoir (channel:user_id format)."""
+        return f"{self.channel}:{self.user_id}"
 
     def add_user_message(self, content: str, **metadata) -> Message:
         """Add a user message to the session."""

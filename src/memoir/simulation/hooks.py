@@ -358,8 +358,7 @@ class HookSystem:
         cli_results = []
         sections = []
 
-        user_id = self._extract_user_id(session_key)
-        user_ns = f"user_id:{user_id}"
+        user_ns = self._get_user_namespace(session_key)
 
         # Tier 1: Cheap path-based lookups
         lookups = [
@@ -421,13 +420,13 @@ class HookSystem:
                 data={"triggered": False},
             )
 
-        user_id = self._extract_user_id(session_key)
+        user_ns = self._get_user_namespace(session_key)
 
         # Extract query from message (simplified - just use the message)
         query = self._extract_recall_query(message)
 
         # Semantic search (expensive - LLM call)
-        result = self.executor.recall(query, limit=5, namespace=f"user_id:{user_id}")
+        result = self.executor.recall(query, limit=5, namespace=user_ns)
 
         context = None
         if result.success and result.data:
@@ -546,11 +545,25 @@ class HookSystem:
 
     def _extract_user_id(self, session_key: str) -> str:
         """Extract user ID from session key."""
-        # Pattern: agent:<agentId>:user:<userId>:...
-        match = re.search(r":user:([^:]+)", session_key)
+        # Pattern: channel:<channel>:user_id:<userId>:session:<sessionId>
+        match = re.search(r":user_id:([^:]+)", session_key)
         if match:
             return match.group(1)
         return self.user_id
+
+    def _extract_channel(self, session_key: str) -> str:
+        """Extract channel from session key."""
+        # Pattern: channel:<channel>:user_id:<userId>:session:<sessionId>
+        match = re.search(r"^channel:([^:]+)", session_key)
+        if match:
+            return match.group(1)
+        return "web"
+
+    def _get_user_namespace(self, session_key: str) -> str:
+        """Get user namespace from session key (channel:user_id format)."""
+        channel = self._extract_channel(session_key)
+        user_id = self._extract_user_id(session_key)
+        return f"{channel}:{user_id}"
 
     def _detect_project(self) -> Optional[str]:
         """Detect project from current directory."""
