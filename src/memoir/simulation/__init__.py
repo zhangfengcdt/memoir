@@ -26,26 +26,38 @@ from memoir.simulation.live_tui import (
 from memoir.simulation.llm_agent import LLMAgent
 from memoir.simulation.runner import Scenario, SimulationRunner
 from memoir.simulation.session import Session, SessionManager
-from memoir.simulation.skill import SkillInjector
+from memoir.simulation.skill import (
+    COMMAND_REGISTRY,
+    CommandDefinition,
+    CommandVisibility,
+    SkillInjector,
+    get_llm_visible_commands,
+    get_slash_commands,
+)
 
 __all__ = [
+    "COMMAND_REGISTRY",
     "Agent",
     "AgentConfig",
     "CLIExecutor",
     "CLIResult",
+    "CommandDefinition",
+    "CommandVisibility",
     "EventSource",
     "HookEvent",
     "HookResult",
     "HookSystem",
     "InstrumentedHookSystem",
     "InstrumentedSkillInjector",
+    "LLMAgent",
     "LiveSimulationTUI",
     "MemoryEvent",
     "MockAgent",
-    "LLMAgent",
     "Scenario",
     "Session",
     "SessionManager",
     "SimulationRunner",
     "SkillInjector",
+    "get_llm_visible_commands",
+    "get_slash_commands",
 ]

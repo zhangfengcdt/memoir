@@ -3,10 +3,37 @@ Skill Injector - Inject memoir skill instructions into agent system prompts.
 
 This module provides the SKILL.md content that teaches the agent
 how to use memoir commands, following the OpenClaw skill pattern.
+
+Supports two modes of execution:
+1. LLM Tool Calls - LLM decides when to call memoir tools
+2. Slash Commands - User directly invokes commands via /memoir_*
 """
 
-from dataclasses import dataclass
-from typing import Optional
+import contextlib
+from dataclasses import dataclass, field
+from enum import Flag, auto
+from typing import Any, Callable, Optional
+
+
+class CommandVisibility(Flag):
+    """Controls where a command is visible/available."""
+
+    NONE = 0
+    LLM_TOOL = auto()  # Available as LLM function tool
+    SLASH_CMD = auto()  # Available as /slash_command for users
+    BOTH = LLM_TOOL | SLASH_CMD  # Available in both contexts
+
+
+@dataclass
+class CommandDefinition:
+    """Definition of a memoir command."""
+
+    name: str  # e.g., "remember", "incognito"
+    description: str
+    visibility: CommandVisibility = CommandVisibility.BOTH
+    parameters: dict = field(default_factory=dict)
+    cli_command: str = ""  # CLI command template, e.g., "memoir remember {content}"
+    handler: Optional[Callable] = None  # Custom handler if not CLI-based
 
 
 @dataclass
@@ -263,12 +290,110 @@ TOOL_DEFINITIONS = [
 ]
 
 
+# Command Registry - defines all available commands and their visibility
+# Commands with LLM_TOOL visibility are exposed as function tools to the LLM
+# Commands with SLASH_CMD visibility can be invoked by users via /memoir_*
+COMMAND_REGISTRY: dict[str, CommandDefinition] = {
+    # Core memory commands - available to both LLM and users
+    "remember": CommandDefinition(
+        name="remember",
+        description="Store a memory with intelligent classification",
+        visibility=CommandVisibility.BOTH,
+        cli_command="memoir remember {content} --namespace {namespace} --json",
+    ),
+    "recall": CommandDefinition(
+        name="recall",
+        description="Search memories using semantic query",
+        visibility=CommandVisibility.BOTH,
+        cli_command="memoir recall {query} --namespace {namespace} --limit {limit} --json",
+    ),
+    "forget": CommandDefinition(
+        name="forget",
+        description="Delete a memory by its path",
+        visibility=CommandVisibility.BOTH,
+        cli_command="memoir forget {path} --namespace {namespace} --json",
+    ),
+    "set": CommandDefinition(
+        name="set",
+        description="Store content at exact path (no LLM classification)",
+        visibility=CommandVisibility.BOTH,
+        cli_command="memoir set {key} {content} --namespace {namespace} --json",
+    ),
+    "get": CommandDefinition(
+        name="get",
+        description="Get content by exact path (fast lookup)",
+        visibility=CommandVisibility.BOTH,
+        cli_command="memoir get {key} --namespace {namespace} --json",
+    ),
+    "help": CommandDefinition(
+        name="help",
+        description="Get help for memoir commands",
+        visibility=CommandVisibility.BOTH,
+        cli_command="memoir {command} --help",
+    ),
+    # Session mode commands - SLASH_CMD only (user controls, not LLM)
+    "incognito": CommandDefinition(
+        name="incognito",
+        description="Start incognito mode - AI cannot see past or save anything new",
+        visibility=CommandVisibility.SLASH_CMD,
+        cli_command="memoir incognito --json",
+    ),
+    "off-record": CommandDefinition(
+        name="off-record",
+        description="Start off-record mode - AI can see past but won't save new",
+        visibility=CommandVisibility.SLASH_CMD,
+        cli_command="memoir off-record --json",
+    ),
+    "on-record": CommandDefinition(
+        name="on-record",
+        description="Exit incognito/off-record mode, return to normal",
+        visibility=CommandVisibility.SLASH_CMD,
+        cli_command="memoir on-record --json",
+    ),
+    # Analysis commands - SLASH_CMD only for now
+    "summarize": CommandDefinition(
+        name="summarize",
+        description="Summarize memories in the store",
+        visibility=CommandVisibility.SLASH_CMD,
+        cli_command="memoir summarize --namespace {namespace} --json",
+    ),
+    "commits": CommandDefinition(
+        name="commits",
+        description="Show commit history",
+        visibility=CommandVisibility.SLASH_CMD,
+        cli_command="memoir commits --limit {limit} --json",
+    ),
+}
+
+
+def get_llm_visible_commands() -> list[str]:
+    """Get list of command names visible to LLM as tools."""
+    return [
+        name
+        for name, cmd in COMMAND_REGISTRY.items()
+        if CommandVisibility.LLM_TOOL in cmd.visibility
+    ]
+
+
+def get_slash_commands() -> list[str]:
+    """Get list of command names available as slash commands."""
+    return [
+        name
+        for name, cmd in COMMAND_REGISTRY.items()
+        if CommandVisibility.SLASH_CMD in cmd.visibility
+    ]
+
+
 class SkillInjector:
     """
     Inject memoir skill instructions into agent system prompts.
 
     This class provides the skill documentation and tool definitions
     that teach an agent how to use memoir commands.
+
+    Supports two execution modes:
+    1. LLM Tool Calls - get_tool_definitions() returns tools for LLM
+    2. Slash Commands - execute_slash_command() for user /memoir_* commands
 
     Example:
         injector = SkillInjector(user_id="user123")
@@ -446,6 +571,200 @@ across sessions. Use memoir to store important information and recall it later.
             "error": result.error,
             "command": result.command,
         }
+
+    def get_slash_commands(self) -> list[dict[str, str]]:
+        """
+        Get list of available slash commands.
+
+        Returns:
+            List of dicts with 'name' and 'description' for each command
+        """
+        return [
+            {"name": f"/memoir_{name}", "description": cmd.description}
+            for name, cmd in COMMAND_REGISTRY.items()
+            if CommandVisibility.SLASH_CMD in cmd.visibility
+        ]
+
+    def parse_slash_command(
+        self, command_str: str
+    ) -> tuple[Optional[str], dict[str, Any]]:
+        """
+        Parse a slash command string into command name and arguments.
+
+        Args:
+            command_str: Command string like "/memoir_remember hello world --namespace agent"
+
+        Returns:
+            Tuple of (command_name, arguments_dict) or (None, {}) if invalid
+        """
+        if not command_str.startswith("/memoir_"):
+            return None, {}
+
+        # Remove /memoir_ prefix
+        rest = command_str[8:].strip()
+        if not rest:
+            return None, {}
+
+        # Split into parts
+        parts = rest.split()
+        cmd_name = parts[0]
+
+        # Check if command exists and is slash-enabled
+        if cmd_name not in COMMAND_REGISTRY:
+            return None, {}
+
+        cmd_def = COMMAND_REGISTRY[cmd_name]
+        if CommandVisibility.SLASH_CMD not in cmd_def.visibility:
+            return None, {}
+
+        # Parse arguments (simple key=value or positional)
+        args: dict[str, Any] = {}
+        positional = []
+        i = 1
+        while i < len(parts):
+            part = parts[i]
+            if part.startswith("--"):
+                # Named argument
+                key = part[2:]
+                if i + 1 < len(parts) and not parts[i + 1].startswith("--"):
+                    args[key] = parts[i + 1]
+                    i += 2
+                else:
+                    args[key] = True
+                    i += 1
+            else:
+                positional.append(part)
+                i += 1
+
+        # Map positional arguments based on command
+        if cmd_name == "remember" and positional:
+            args["content"] = " ".join(positional)
+        elif cmd_name == "recall" and positional:
+            args["query"] = " ".join(positional)
+        elif cmd_name == "forget" and positional:
+            args["path"] = positional[0]
+        elif cmd_name == "set" and len(positional) >= 2:
+            args["key"] = positional[0]
+            args["content"] = " ".join(positional[1:])
+        elif cmd_name == "get" and positional:
+            args["key"] = positional[0]
+        elif cmd_name == "summarize" and positional:
+            args["namespace"] = positional[0]
+        elif cmd_name == "commits" and positional:
+            with contextlib.suppress(ValueError):
+                args["limit"] = int(positional[0])
+
+        return cmd_name, args
+
+    def execute_slash_command(
+        self,
+        command_str: str,
+        default_namespace: str = "agent",
+    ) -> dict[str, Any]:
+        """
+        Execute a slash command from user input.
+
+        Args:
+            command_str: Full command string like "/memoir_remember user prefers dark mode"
+            default_namespace: Default namespace if not specified
+
+        Returns:
+            Execution result dict with success, data, error, command fields
+        """
+        cmd_name, args = self.parse_slash_command(command_str)
+
+        if cmd_name is None:
+            return {
+                "success": False,
+                "error": f"Invalid slash command: {command_str}",
+                "command": "",
+                "data": None,
+            }
+
+        # Set default namespace if not provided
+        if "namespace" not in args:
+            args["namespace"] = default_namespace
+
+        # Set default limit for recall/commits
+        if cmd_name == "recall" and "limit" not in args:
+            args["limit"] = 5
+        if cmd_name == "commits" and "limit" not in args:
+            args["limit"] = 10
+
+        # Execute via CLI executor
+        if not self.executor:
+            return {
+                "success": False,
+                "error": "No store path configured",
+                "command": "",
+                "data": None,
+            }
+
+        # Map to executor methods
+        try:
+            if cmd_name == "remember":
+                result = self.executor.remember(
+                    content=args.get("content", ""),
+                    namespace=args.get("namespace", default_namespace),
+                )
+            elif cmd_name == "recall":
+                result = self.executor.recall(
+                    query=args.get("query", ""),
+                    namespace=args.get("namespace", default_namespace),
+                    limit=args.get("limit", 5),
+                )
+            elif cmd_name == "forget":
+                result = self.executor.forget(
+                    key=args.get("path", ""),
+                    namespace=args.get("namespace", default_namespace),
+                )
+            elif cmd_name == "set":
+                result = self.executor.set(
+                    key=args.get("key", ""),
+                    content=args.get("content", ""),
+                    namespace=args.get("namespace", default_namespace),
+                )
+            elif cmd_name == "get":
+                result = self.executor.get(
+                    key=args.get("key", ""),
+                    namespace=args.get("namespace", default_namespace),
+                )
+            elif cmd_name == "summarize":
+                result = self.executor.summarize(
+                    namespace=args.get("namespace", default_namespace),
+                )
+            elif cmd_name == "commits":
+                result = self.executor.commits(
+                    limit=args.get("limit", 10),
+                )
+            elif cmd_name in ("incognito", "off-record", "on-record"):
+                # Mode commands - execute directly via CLI
+                result = self.executor.run_command(cmd_name)
+            else:
+                return {
+                    "success": False,
+                    "error": f"Unknown command: {cmd_name}",
+                    "command": "",
+                    "data": None,
+                }
+
+            return {
+                "success": result.success,
+                "data": result.data,
+                "error": result.error,
+                "command": result.command,
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "command": "",
+                "data": None,
+            }
+
+    def is_slash_command(self, text: str) -> bool:
+        """Check if text is a memoir slash command."""
+        return text.strip().startswith("/memoir_")
 
 
 def create_skill_file(output_path: str, user_id: str = "default") -> str:

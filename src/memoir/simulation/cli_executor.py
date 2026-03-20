@@ -388,6 +388,34 @@ class CLIExecutor:
         """
         return self._execute(["commits", "--limit", str(limit)])
 
+    def summarize(self, namespace: Optional[str] = None) -> CLIResult:
+        """
+        Summarize memories in the store.
+
+        Args:
+            namespace: Optional namespace to summarize
+
+        Returns:
+            CLIResult with summary
+        """
+        args = ["summarize"]
+        if namespace:
+            args.extend(["--namespace", namespace])
+        return self._execute(args)
+
+    def run_command(self, command: str, *args: str) -> CLIResult:
+        """
+        Run an arbitrary memoir command.
+
+        Args:
+            command: Command name (e.g., "incognito", "off-record")
+            *args: Additional arguments
+
+        Returns:
+            CLIResult
+        """
+        return self._execute([command, *args])
+
     # ==========================================================================
     # Crypto Commands
     # ==========================================================================

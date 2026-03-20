@@ -121,6 +121,7 @@ class LiveSimulationTUI:
         self,
         store_path: str,
         refresh_rate: float = 4.0,  # Updates per second
+        interactive: bool = False,  # Single conversation + input mode
     ):
         if not RICH_AVAILABLE:
             raise ImportError(
@@ -129,6 +130,7 @@ class LiveSimulationTUI:
 
         self.store_path = store_path
         self.refresh_rate = refresh_rate
+        self.interactive = interactive
         self.console = Console()
 
         # Event tracking
@@ -145,11 +147,13 @@ class LiveSimulationTUI:
         self.stats = {
             "hook_calls": 0,
             "llm_calls": 0,
+            "user_calls": 0,  # User slash commands
             "total_memories": 0,
             "sessions": set(),
             # Breakdown by operation type
             "hook_ops": {},  # e.g., {"recall": 3, "remember": 1}
             "llm_ops": {},  # e.g., {"remember": 2, "recall": 1}
+            "user_ops": {},  # e.g., {"slash-cmd": 5}
         }
 
         # Thread-safe event queue
@@ -161,6 +165,10 @@ class LiveSimulationTUI:
         self._last_store_read = 0
         self._store_read_interval = 1.0  # Read store every 1 second
         self._real_memories: dict[str, dict[str, Any]] = {}
+
+        # Interactive mode state
+        self._input_prompt = "› "  # noqa: RUF001 - intentional unicode prompt
+        self._last_input = ""
 
     def log_event(self, event: MemoryEvent) -> None:
         """
@@ -288,11 +296,23 @@ class LiveSimulationTUI:
                         self.stats["llm_calls"] += 1
                         op = event.operation
                         self.stats["llm_ops"][op] = self.stats["llm_ops"].get(op, 0) + 1
+                    elif event.source == EventSource.USER:
+                        self.stats["user_calls"] += 1
+                        op = event.operation
+                        self.stats["user_ops"][op] = (
+                            self.stats["user_ops"].get(op, 0) + 1
+                        )
             except queue.Empty:
                 break
 
     def _make_layout(self) -> Layout:
         """Create the main layout."""
+        if self.interactive:
+            return self._make_interactive_layout()
+        return self._make_multi_channel_layout()
+
+    def _make_multi_channel_layout(self) -> Layout:
+        """Create the 4-channel layout for automated demo."""
         layout = Layout()
 
         layout.split_column(
@@ -323,6 +343,33 @@ class LiveSimulationTUI:
         layout["conv_bottom"].split_row(
             Layout(name="conv_discord", ratio=1),
             Layout(name="conv_telegram", ratio=1),
+        )
+
+        layout["right"].split_column(
+            Layout(name="memories", ratio=2),
+            Layout(name="stats", ratio=1),
+        )
+
+        return layout
+
+    def _make_interactive_layout(self) -> Layout:
+        """Create the single-channel layout for interactive mode."""
+        layout = Layout()
+
+        layout.split_column(
+            Layout(name="header", size=3),
+            Layout(name="main", ratio=1),
+            Layout(name="input", size=3),
+        )
+
+        layout["main"].split_row(
+            Layout(name="left", ratio=3),
+            Layout(name="right", ratio=2),
+        )
+
+        layout["left"].split_column(
+            Layout(name="conversation", ratio=2),
+            Layout(name="events", ratio=1),
         )
 
         layout["right"].split_column(
@@ -449,6 +496,85 @@ class LiveSimulationTUI:
             Align(Group(*content), vertical="bottom"),
             title=title,
             border_style=border_style,
+        )
+
+    def _render_interactive_conversation(self) -> Panel:
+        """Render single conversation panel for interactive mode."""
+        content = []
+
+        with self._lock:
+            # Find the repl conversation (or any conversation in interactive mode)
+            for key in self.conversations:
+                parts = key.split(":")
+                if len(parts) >= 3:
+                    channel, _session_id, _user_id = parts[0], parts[1], parts[2]
+                else:
+                    continue
+
+                # In interactive mode, show repl channel or first available
+                if channel != "repl" and len(self.conversations) > 1:
+                    continue
+
+                messages = self.conversations[key]
+
+                # Show more messages in interactive mode (larger panel)
+                non_empty = [m for m in messages if m.content and m.content.strip()]
+                recent_messages = non_empty[-15:]  # Show last 15 messages
+
+                for idx, msg in enumerate(recent_messages):
+                    role_style = "green" if msg.role == "user" else "cyan"
+                    role_prefix = "You:" if msg.role == "user" else "AI: "
+
+                    # Wrap long messages
+                    text = msg.content
+                    if len(text) > 100:
+                        # Show full text but let Rich handle wrapping
+                        pass
+
+                    # Highlight the last (newest) message
+                    is_last = idx == len(recent_messages) - 1
+                    if is_last and msg.role == "assistant":
+                        content.append(
+                            Text(f"▶ {role_prefix}{text}", style=f"{role_style} bold")
+                        )
+                    else:
+                        prefix = "▶ " if is_last else "  "
+                        content.append(
+                            Text(f"{prefix}{role_prefix}{text}", style=role_style)
+                        )
+                break
+
+        if not content:
+            content = [
+                Text("Interactive Mode", style="bold cyan"),
+                Text(""),
+                Text("Type a message to chat with the AI", style="dim"),
+                Text("Type /command for direct memoir commands", style="dim"),
+                Text("Type /help for available commands", style="dim"),
+            ]
+
+        return Panel(
+            Align(Group(*content), vertical="bottom"),
+            title="[bold]Conversation[/bold]",
+            border_style="green",
+        )
+
+    def _render_input_box(self) -> Panel:
+        """Render input prompt box for interactive mode."""
+        prompt = Text()
+        prompt.append(self._input_prompt, style="bold green")
+        prompt.append("Just type and press Enter", style="dim")
+        prompt.append(" │ ", style="dim")
+        prompt.append("/help", style="cyan")
+        prompt.append(" for commands, ", style="dim")
+        prompt.append("/quit", style="cyan")
+        prompt.append(" to exit", style="dim")
+
+        return Panel(
+            prompt,
+            title="[bold]Input[/bold] [dim](typing is hidden, press Enter to send)[/dim]",
+            border_style="cyan",
+            height=3,
         )
 
     def _read_real_store(self) -> dict[str, dict[str, Any]]:
@@ -611,7 +737,7 @@ class LiveSimulationTUI:
                 ops_str = ", ".join(f"{k}: {v}" for k, v in sorted(hook_ops.items()))
                 content.append(Text(f"Hook Calls: {hook_total}", style="yellow bold"))
                 content.append(Text(f"  {ops_str}", style="yellow"))
-            else:
+            elif hook_total > 0:
                 content.append(Text(f"Hook Calls: {hook_total}", style="yellow bold"))
 
             # LLM calls breakdown
@@ -621,10 +747,23 @@ class LiveSimulationTUI:
                 ops_str = ", ".join(f"{k}: {v}" for k, v in sorted(llm_ops.items()))
                 content.append(Text(f"LLM Calls: {llm_total}", style="cyan bold"))
                 content.append(Text(f"  {ops_str}", style="cyan"))
-            else:
+            elif llm_total > 0:
                 content.append(Text(f"LLM Calls: {llm_total}", style="cyan bold"))
 
-            content.append(Text(f"Memories: {self.stats['total_memories']}"))
+            # User calls breakdown (for interactive mode)
+            user_total = self.stats["user_calls"]
+            user_ops = self.stats["user_ops"]
+            if user_ops:
+                ops_str = ", ".join(f"{k}: {v}" for k, v in sorted(user_ops.items()))
+                content.append(Text(f"User Calls: {user_total}", style="green bold"))
+                content.append(Text(f"  {ops_str}", style="green"))
+            elif user_total > 0:
+                content.append(Text(f"User Calls: {user_total}", style="green bold"))
+
+            # Memory count from real store
+            real_memories = self._read_real_store()
+            total_memories = sum(len(paths) for paths in real_memories.values())
+            content.append(Text(f"Memories: {total_memories}"))
             content.append(Text(f"Sessions: {len(self.stats['sessions'])}"))
 
         return Panel(
@@ -650,14 +789,22 @@ class LiveSimulationTUI:
         layout = self._make_layout()
         layout["header"].update(self._render_header())
         layout["events"].update(self._render_events())
-        # Render 4 channel conversation panels
-        layout["conv_web"].update(self._render_channel_conversation("web"))
-        layout["conv_slack"].update(self._render_channel_conversation("slack"))
-        layout["conv_discord"].update(self._render_channel_conversation("discord"))
-        layout["conv_telegram"].update(self._render_channel_conversation("telegram"))
         layout["memories"].update(self._render_memories())
         layout["stats"].update(self._render_stats())
-        layout["footer"].update(self._render_footer())
+
+        if self.interactive:
+            # Interactive mode: single conversation + input box
+            layout["conversation"].update(self._render_interactive_conversation())
+            layout["input"].update(self._render_input_box())
+        else:
+            # Multi-channel mode: 4 conversation panels + footer
+            layout["conv_web"].update(self._render_channel_conversation("web"))
+            layout["conv_slack"].update(self._render_channel_conversation("slack"))
+            layout["conv_discord"].update(self._render_channel_conversation("discord"))
+            layout["conv_telegram"].update(
+                self._render_channel_conversation("telegram")
+            )
+            layout["footer"].update(self._render_footer())
 
         return layout
 

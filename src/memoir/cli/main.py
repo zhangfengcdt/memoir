@@ -29,7 +29,6 @@ AGENT_READY_COMMANDS = {
     "forget",
     "set",
     "get",
-    "commits",
     "summarize",
     "incognito",
     "off-record",
