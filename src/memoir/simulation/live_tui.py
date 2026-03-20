@@ -346,7 +346,7 @@ class LiveSimulationTUI:
         )
 
         layout["right"].split_column(
-            Layout(name="memories", ratio=2),
+            Layout(name="memories", ratio=4),
             Layout(name="stats", ratio=1),
         )
 
@@ -373,7 +373,7 @@ class LiveSimulationTUI:
         )
 
         layout["right"].split_column(
-            Layout(name="memories", ratio=2),
+            Layout(name="memories", ratio=4),
             Layout(name="stats", ratio=1),
         )
 
@@ -729,7 +729,7 @@ class LiveSimulationTUI:
             tree.add("[dim]No memories stored yet[/dim]")
 
         return Panel(
-            tree, title="[bold]Memory Store[/bold]", border_style="magenta", height=18
+            tree, title="[bold]Memory Store[/bold]", border_style="magenta", height=40
         )
 
     def _render_stats(self) -> Panel:
@@ -774,7 +774,10 @@ class LiveSimulationTUI:
             content.append(Text(f"Sessions: {len(self.stats['sessions'])}"))
 
         return Panel(
-            Group(*content), title="[bold]Statistics[/bold]", border_style="yellow"
+            Group(*content),
+            title="[bold]Statistics[/bold]",
+            border_style="yellow",
+            height=10,
         )
 
     def _render_footer(self) -> Panel:

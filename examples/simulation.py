@@ -384,12 +384,12 @@ class LiveSimulationDemo:
                     Text("Start chatting! Type a message or /command", style="dim"),
                     title="[bold green]Conversation[/bold green]",
                     border_style="green",
-                    height=18,
+                    height=35,
                 )
 
             content = []
-            # Show last 14 messages
-            for role, msg, is_slash in conversation[-14:]:
+            # Show last 15 messages (each may be ~2 lines)
+            for role, msg, is_slash in conversation[-15:]:
                 if role == "user":
                     if is_slash:
                         content.append(Text(f"> {msg}", style="yellow"))
@@ -398,15 +398,15 @@ class LiveSimulationDemo:
                 elif role == "slash_result":
                     content.append(Text(f"  {msg}", style="dim yellow"))
                 else:
-                    # Truncate long AI responses for display
-                    display_msg = msg[:200] + "..." if len(msg) > 200 else msg
+                    # Truncate long AI responses to ~3 lines to ensure scrolling works
+                    display_msg = msg[:300] + "..." if len(msg) > 300 else msg
                     content.append(Text(f"  {display_msg}", style="cyan"))
 
             return Panel(
                 Align(Group(*content), vertical="bottom"),
                 title="[bold green]Conversation[/bold green]",
                 border_style="green",
-                height=18,
+                height=35,
             )
 
         def refresh_display():
