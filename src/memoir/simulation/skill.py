@@ -52,7 +52,7 @@ Memoir provides persistent, versioned memory across sessions with namespace isol
 |-----------|---------|
 | `system` | Shared environment, tools, policies |
 | `agent` | Your learnings, skills, lessons |
-| `user:{user_id}` | User preferences, projects |
+| `user_id:{user_id}` | User preferences, projects |
 
 ## Commands
 
@@ -65,7 +65,7 @@ When you learn something important:
 memoir remember "Learned to use rg instead of grep for speed" --namespace agent --json
 
 # About the user (preferences, context)
-memoir remember "User prefers functional programming style" --namespace user:{user_id} --json
+memoir remember "User prefers functional programming style" --namespace user_id:{user_id} --json
 
 # About the system
 memoir remember "MCP server github available on port 3000" --namespace system --json
@@ -80,7 +80,7 @@ When you need context:
 memoir recall "debugging techniques" --namespace agent --limit 5 --json
 
 # Direct path lookup (cheap - prefer this)
-memoir recall preferences.theme --namespace user:{user_id} --limit 1 --json
+memoir recall preferences.theme --namespace user_id:{user_id} --limit 1 --json
 ```
 
 ### Branch management
@@ -114,7 +114,7 @@ Before storing, ask: **Who benefits from this memory?**
 | What to Store | Namespace | Example |
 |--------------|-----------|---------|
 | Skill you learned | `agent` | "Use console.trace() for call stacks" |
-| User preference | `user:{user_id}` | "Prefers dark mode" |
+| User preference | `user_id:{user_id}` | "Prefers dark mode" |
 | System info | `system` | "Redis available on localhost:6379" |
 
 ## Best Practices
@@ -132,7 +132,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "memoir_remember",
-            "description": "Store a memory. Use namespace 'agent' for your own learnings/skills, or 'user:{user_id}' for user preferences/facts.",
+            "description": "Store a memory. Use namespace 'agent' for your own learnings/skills, or 'user_id:{user_id}' for user preferences/facts.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -142,7 +142,7 @@ TOOL_DEFINITIONS = [
                     },
                     "namespace": {
                         "type": "string",
-                        "description": "Namespace: 'agent' for your learnings, 'user:{user_id}' for user info. Default is user namespace.",
+                        "description": "Namespace: 'agent' for your learnings, 'user_id:{user_id}' for user info. Default is user namespace.",
                     },
                 },
                 "required": ["content"],
@@ -153,7 +153,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "memoir_recall",
-            "description": "Search stored memories. Use namespace 'agent' for your learnings, or 'user:{user_id}' for user info.",
+            "description": "Search stored memories. Use namespace 'agent' for your learnings, or 'user_id:{user_id}' for user info.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -163,7 +163,7 @@ TOOL_DEFINITIONS = [
                     },
                     "namespace": {
                         "type": "string",
-                        "description": "Namespace to search: 'agent' or 'user:{user_id}'. Default is user namespace.",
+                        "description": "Namespace to search: 'agent' or 'user_id:{user_id}'. Default is user namespace.",
                     },
                     "limit": {
                         "type": "integer",
@@ -323,7 +323,7 @@ across sessions. Use memoir to store important information and recall it later.
 
 - All memoir commands output JSON when you include --json flag
 - Memories are automatically classified into semantic paths
-- Use namespaces to organize: agent (your learnings), user:{self.user_id} (user prefs), system (shared)
+- Use namespaces to organize: agent (your learnings), user_id:{self.user_id} (user prefs), system (shared)
 - Branches provide isolation for projects and experiments
 """
 

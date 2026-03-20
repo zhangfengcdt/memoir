@@ -64,7 +64,7 @@ class LiveSimulationDemo:
         # Session manager for all users
         self.session_manager = SessionManager()
 
-    def create_mock_agent(self, user_id: str):
+    def create_mock_agent(self, user_id: str, channel: str = "web"):
         """Create a mock agent for testing without LLM."""
         from memoir.simulation.agent import AgentConfig
         from memoir.simulation.hooks import HookSystem
@@ -98,13 +98,14 @@ class LiveSimulationDemo:
         return MockAgentWithInstrumentation(
             config=config,
             user_id=user_id,
+            channel=channel,
             session_manager=self.session_manager,
             tui=self.tui,
             hooks=instrumented_hooks,
             skill_injector=instrumented_skill,
         )
 
-    def create_real_agent(self, user_id: str):
+    def create_real_agent(self, user_id: str, channel: str = "web"):
         """Create a real LLM agent."""
         from memoir.simulation.real_llm_agent import RealLLMAgent
 
@@ -112,6 +113,7 @@ class LiveSimulationDemo:
             store_path=self.store_path,
             model=self.model,
             user_id=user_id,
+            channel=channel,
             session_manager=self.session_manager,
             tui=self.tui,
             enable_hooks=True,  # Enable hooks for bootstrap/recall
@@ -121,14 +123,15 @@ class LiveSimulationDemo:
         self,
         user_id: str,
         messages: list[str],
+        channel: str = "web",
         delay: float = 3.0,
     ):
-        """Run a scenario for a single user."""
+        """Run a scenario for a single user on a specific channel."""
         # Create appropriate agent
         if self.use_mock:
-            agent = self.create_mock_agent(user_id)
+            agent = self.create_mock_agent(user_id, channel)
         else:
-            agent = self.create_real_agent(user_id)
+            agent = self.create_real_agent(user_id, channel)
 
         # Start session
         self.tui.log_event(
@@ -136,7 +139,7 @@ class LiveSimulationDemo:
                 timestamp=time.time(),
                 source=EventSource.SYSTEM,
                 operation="session-start",
-                details=f"User {user_id} starting session",
+                details=f"{channel}:{user_id} starting session",
             )
         )
 
@@ -152,6 +155,7 @@ class LiveSimulationDemo:
                     content=message,
                     user_id=user_id,
                     session_id=session.session_id,
+                    channel=channel,
                 )
 
             try:
@@ -165,6 +169,7 @@ class LiveSimulationDemo:
                         content=response.content,
                         user_id=user_id,
                         session_id=session.session_id,
+                        channel=channel,
                     )
 
                 # Log tool calls info
@@ -200,58 +205,71 @@ class LiveSimulationDemo:
                 timestamp=time.time(),
                 source=EventSource.SYSTEM,
                 operation="session-end",
-                details=f"User {user_id} session ended",
+                details=f"{channel}:{user_id} session ended",
             )
         )
 
     async def run_demo_scenarios(self):
-        """Run user scenario with 30 turns covering various memory types."""
-        # Extended conversation with user preferences and agent learnings
-        messages = [
-            # User preferences
+        """Run user scenarios across multiple channels.
+
+        Demonstrates OpenClaw's channel/session/user model:
+        - Same user can chat from different channels
+        - Memory is shared across channels (user:alice namespace)
+        - Session display shows channel:session:user format
+        """
+        # Web channel - initial setup
+        web_messages = [
             "Hi! Please remember that I prefer dark mode.",
             "Also remember that I use vim keybindings.",
             "I like to use Python for most of my projects.",
             "My timezone is Pacific Time (PST).",
-            "I prefer concise responses over verbose ones.",
-            # Project context
-            "I'm working on an API refactoring project, store that.",
-            "The project uses FastAPI and PostgreSQL.",
-            "We're migrating from REST to GraphQL.",
-            # Agent learnings - teach the agent some skills
-            "By the way, you should remember that 'rg' is faster than 'grep' for searching code. Store this as your own learning.",
-            "Another tip for you: use 'jq' for parsing JSON in the terminal. Remember this as an agent skill.",
-            "You learned that FastAPI's dependency injection is great for testing. Store in agent namespace.",
-            # Recall user info
-            "What do you remember about my preferences?",
-            # More user info
-            "I usually work from 9am to 6pm.",
-            "My favorite programming language is Rust, but I use Python more often.",
-            "I don't like excessive comments in code.",
-            # More agent learnings
-            "Remember as your skill: pytest fixtures are better than setUp/tearDown.",
-            "Store as agent learning: always use type hints in Python for better IDE support.",
-            "Your learning: pre-commit hooks save time on code review.",
-            # Recall agent skills
-            "What skills have you learned?",
-            # More user context
-            "I'm also learning Go for systems programming.",
-            "My git workflow uses feature branches and squash merges.",
-            "I prefer tabs over spaces, but follow project conventions.",
-            # Technical preferences
-            "I use Docker for all my development environments.",
-            "Kubernetes is my preferred orchestration platform.",
-            "I value test coverage above 80%.",
-            # More agent learnings
-            "Agent tip: use 'make' for project automation, store this.",
-            "Your learning: black + isort + ruff is a great Python linting combo.",
-            # Final recalls
-            "What do you know about my development setup?",
-            "What are all your agent learnings?",
-            "Summarize everything you remember about me.",
+            # Agent learnings
+            "By the way, remember as your skill: 'rg' is faster than 'grep'.",
+            "What do you know about my preferences?",
         ]
 
-        await self.run_user_scenario("alice", messages, delay=4.0)
+        # Slack channel - work context
+        slack_messages = [
+            "I'm working on an API refactoring project, store that.",
+            "The project uses FastAPI and PostgreSQL.",
+            "Store as your learning: FastAPI dependency injection is great for testing.",
+            "What do you remember about my project?",
+        ]
+
+        # Discord channel - casual chat
+        discord_messages = [
+            "I'm also learning Go for systems programming.",
+            "My favorite programming language is Rust, but I use Python more.",
+            "What preferences do you remember about me?",
+        ]
+
+        # Telegram channel - mobile quick notes
+        telegram_messages = [
+            "Remember: I use Docker for all dev environments.",
+            "Note: I value test coverage above 80%.",
+            "Your learning: black + isort + ruff is a great linting combo.",
+            "What agent skills have you learned?",
+        ]
+
+        # Final web session - recall everything
+        web_final_messages = [
+            "Summarize everything you remember about me.",
+            "What are all your agent learnings?",
+        ]
+
+        # Run scenarios sequentially across different channels
+        # Each channel has its own user ID format (like real platforms)
+        # Without manual linking, these would be separate users to the system
+        # Here we simulate a "linked" scenario where memories are shared
+        await self.run_user_scenario("51321", web_messages, channel="web", delay=3.5)
+        await asyncio.sleep(1.0)
+        await self.run_user_scenario("U04ABCD1234", slack_messages, channel="slack", delay=3.5)
+        await asyncio.sleep(1.0)
+        await self.run_user_scenario("987654321012", discord_messages, channel="discord", delay=3.5)
+        await asyncio.sleep(1.0)
+        await self.run_user_scenario("12345678", telegram_messages, channel="telegram", delay=3.5)
+        await asyncio.sleep(1.0)
+        await self.run_user_scenario("51321", web_final_messages, channel="web", delay=4.0)
 
     def run(self, duration: float = 60.0):
         """Run the live demo."""
@@ -298,6 +316,7 @@ class MockAgentWithInstrumentation:
         self,
         config,
         user_id: str,
+        channel: str,
         session_manager,
         tui,
         hooks,
@@ -305,6 +324,7 @@ class MockAgentWithInstrumentation:
     ):
         self.config = config
         self.user_id = user_id
+        self.channel = channel
         self.session_manager = session_manager
         self.tui = tui
         self.hooks = hooks
@@ -323,6 +343,7 @@ class MockAgentWithInstrumentation:
         """Start session with bootstrap hook."""
         self.session = self.session_manager.create_session(
             user_id=self.user_id,
+            channel=self.channel,
             agent_id="mock",
             session_id=session_id,
         )
@@ -365,7 +386,7 @@ class MockAgentWithInstrumentation:
             tc = ToolCall(
                 id=f"call_{time.time()}",
                 name="memoir_remember",
-                arguments={"content": content, "namespace": f"user:{self.user_id}"},
+                arguments={"content": content, "namespace": f"user_id:{self.user_id}"},
             )
             tool_calls.append(tc)
             result = self.skill_injector.execute_tool_call(tc.name, tc.arguments)
@@ -375,7 +396,7 @@ class MockAgentWithInstrumentation:
             tc = ToolCall(
                 id=f"call_{time.time()}",
                 name="memoir_recall",
-                arguments={"query": "user preferences", "namespace": f"user:{self.user_id}"},
+                arguments={"query": "user preferences", "namespace": f"user_id:{self.user_id}"},
             )
             tool_calls.append(tc)
             result = self.skill_injector.execute_tool_call(tc.name, tc.arguments)

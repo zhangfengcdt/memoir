@@ -1,10 +1,15 @@
 """
-Session Management - Manage user sessions with namespaces.
+Session Management - Manage user sessions with channels and namespaces.
 
-Implements the namespace and session patterns from OpenClaw spec:
-- Session keys follow pattern: agent:<agentId>:user:<userId>:session:<sessionId>
-- Each user has isolated namespace: user:{userId}
-- Sessions track conversation history and can be persisted
+Implements the OpenClaw session/channel/user model:
+- Channel: The messaging platform (telegram, whatsapp, discord, slack, web)
+- User: Unique identity on a platform (user ID, phone number)
+- Session: Conversation thread between user and agent
+  - "main": All DMs from user across channels share one session
+  - "per-channel": Fresh session per channel
+
+Session keys follow pattern: channel:<channel>:user:<userId>:session:<sessionId>
+Memory namespaces remain: user:{userId} and agent
 """
 
 import json
@@ -52,10 +57,16 @@ class Session:
 
     Tracks messages, manages namespace isolation, and provides
     the session key for hook integration.
+
+    OpenClaw model:
+    - Channel: messaging platform (telegram, whatsapp, discord, slack, web)
+    - User: unique identity on the platform
+    - Session: conversation thread (can be shared across channels or per-channel)
     """
 
     session_id: str
     user_id: str
+    channel: str = "web"  # telegram, whatsapp, discord, slack, web
     agent_id: str = "main"
     messages: list[Message] = field(default_factory=list)
     created_at: float = field(default_factory=time.time)
@@ -64,13 +75,20 @@ class Session:
 
     @property
     def session_key(self) -> str:
-        """Generate OpenClaw-style session key."""
-        return f"agent:{self.agent_id}:user:{self.user_id}:session:{self.session_id}"
+        """Generate OpenClaw-style session key: channel:user_id:session."""
+        return (
+            f"channel:{self.channel}:user_id:{self.user_id}:session:{self.session_id}"
+        )
+
+    @property
+    def display_key(self) -> str:
+        """Short display format: channel:user_id:session."""
+        return f"{self.channel}:{self.user_id}:{self.session_id}"
 
     @property
     def user_namespace(self) -> str:
-        """Get user namespace for memoir."""
-        return f"user:{self.user_id}"
+        """Get user namespace for memoir (independent of channel)."""
+        return f"user_id:{self.user_id}"
 
     def add_user_message(self, content: str, **metadata) -> Message:
         """Add a user message to the session."""
@@ -131,6 +149,7 @@ class Session:
         return {
             "session_id": self.session_id,
             "user_id": self.user_id,
+            "channel": self.channel,
             "agent_id": self.agent_id,
             "messages": [m.to_dict() for m in self.messages],
             "created_at": self.created_at,
@@ -144,6 +163,7 @@ class Session:
         session = cls(
             session_id=data["session_id"],
             user_id=data["user_id"],
+            channel=data.get("channel", "web"),
             agent_id=data.get("agent_id", "main"),
             created_at=data.get("created_at", time.time()),
             last_active=data.get("last_active", time.time()),
@@ -196,6 +216,7 @@ class SessionManager:
     def create_session(
         self,
         user_id: str,
+        channel: str = "web",
         agent_id: str = "main",
         session_id: Optional[str] = None,
         **metadata,
@@ -205,6 +226,7 @@ class SessionManager:
 
         Args:
             user_id: User identifier
+            channel: Messaging channel (telegram, whatsapp, discord, slack, web)
             agent_id: Agent identifier
             session_id: Optional session ID (auto-generated if not provided)
             **metadata: Additional metadata
@@ -217,6 +239,7 @@ class SessionManager:
         session = Session(
             session_id=session_id,
             user_id=user_id,
+            channel=channel,
             agent_id=agent_id,
             metadata=metadata,
         )
@@ -237,22 +260,27 @@ class SessionManager:
     def get_or_create_session(
         self,
         user_id: str,
+        channel: str = "web",
         agent_id: str = "main",
         session_id: Optional[str] = None,
     ) -> Session:
         """Get existing session or create new one."""
         if session_id:
-            key = f"agent:{agent_id}:user:{user_id}:session:{session_id}"
+            key = f"channel:{channel}:user_id:{user_id}:session:{session_id}"
             if key in self._sessions:
                 return self._sessions[key]
 
-        # Check for any existing session for this user/agent
+        # Check for any existing session for this user/agent/channel
         for _key, session in self._sessions.items():
-            if session.user_id == user_id and session.agent_id == agent_id:
+            if (
+                session.user_id == user_id
+                and session.agent_id == agent_id
+                and session.channel == channel
+            ):
                 return session
 
         # Create new session
-        return self.create_session(user_id, agent_id, session_id)
+        return self.create_session(user_id, channel, agent_id, session_id)
 
     def get_user_sessions(self, user_id: str) -> list[Session]:
         """Get all sessions for a user."""

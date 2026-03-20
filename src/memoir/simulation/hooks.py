@@ -359,7 +359,7 @@ class HookSystem:
         sections = []
 
         user_id = self._extract_user_id(session_key)
-        user_ns = f"user:{user_id}"
+        user_ns = f"user_id:{user_id}"
 
         # Tier 1: Cheap path-based lookups
         lookups = [
@@ -427,7 +427,7 @@ class HookSystem:
         query = self._extract_recall_query(message)
 
         # Semantic search (expensive - LLM call)
-        result = self.executor.recall(query, limit=5, namespace=f"user:{user_id}")
+        result = self.executor.recall(query, limit=5, namespace=f"user_id:{user_id}")
 
         context = None
         if result.success and result.data:

@@ -90,6 +90,7 @@ class ConversationMessage:
     content: str
     user_id: str
     session_id: str
+    channel: str = "web"  # telegram, whatsapp, discord, slack, web
 
 
 class LiveSimulationTUI:
@@ -221,13 +222,15 @@ class LiveSimulationTUI:
         content: str,
         user_id: str,
         session_id: str,
+        channel: str = "web",
     ) -> None:
         """Log a conversation message."""
         # Skip empty messages
         if not content or not content.strip():
             return
 
-        key = f"{user_id}:{session_id}"
+        # Key format: channel:session:user (OpenClaw style)
+        key = f"{channel}:{session_id}:{user_id}"
         with self._lock:
             if key not in self.conversations:
                 self.conversations[key] = []
@@ -238,6 +241,7 @@ class LiveSimulationTUI:
                     content=content,
                     user_id=user_id,
                     session_id=session_id,
+                    channel=channel,
                 )
             )
             # Keep last 20 messages per conversation
@@ -373,19 +377,38 @@ class LiveSimulationTUI:
 
         with self._lock:
             # Show all conversations, sorted by key for stability
+            # Key format: channel:session:user
             for key in sorted(self.conversations.keys()):
                 messages = self.conversations[key]
-                user_id = key.split(":")[0]
+                # Parse channel:session:user from key
+                parts = key.split(":")
+                if len(parts) >= 3:
+                    channel, session_id, user_id = parts[0], parts[1], parts[2]
+                else:
+                    # Fallback for old format
+                    user_id = parts[0]
+                    session_id = parts[1] if len(parts) > 1 else "main"
+                    channel = "web"
 
-                # Filter out empty messages and get last 8 (to fit panel)
+                # Show session header (channel:user_id:session_id)
+                content.append(
+                    Text(
+                        f"── {channel}:{user_id}:{session_id} ──",
+                        style="dim bold",
+                    )
+                )
+
+                # Filter out empty messages and get last 6 (to fit panel)
                 non_empty = [m for m in messages if m.content and m.content.strip()]
-                recent_messages = non_empty[-8:]
+                recent_messages = non_empty[-6:]
                 num_messages = len(recent_messages)
 
                 for idx, msg in enumerate(recent_messages):
                     role_style = "green" if msg.role == "user" else "cyan"
-                    # Use username for user, "Agent" for assistant
-                    role_prefix = f"{user_id}:" if msg.role == "user" else "Agent:"
+                    # Show channel:user_id for user, "Agent" for assistant
+                    role_prefix = (
+                        f"{channel}:{user_id}:" if msg.role == "user" else "Agent:"
+                    )
                     text = (
                         msg.content[:200] + "..."
                         if len(msg.content) > 200
@@ -451,13 +474,13 @@ class LiveSimulationTUI:
                             continue
 
                         # Parse namespace and path from key
-                        # Format: user:userid:semantic.path
+                        # Format: user_id:userid:semantic.path or agent:semantic.path
                         parts = full_key.split(":")
                         if len(parts) < 2:
                             continue
 
-                        # Handle user:userid:path format
-                        if parts[0] == "user" and len(parts) >= 3:
+                        # Handle user_id:userid:path format
+                        if parts[0] == "user_id" and len(parts) >= 3:
                             namespace = f"{parts[0]}:{parts[1]}"
                             path = parts[2]  # Just the semantic path
                         elif parts[0] in ("agent", "system"):

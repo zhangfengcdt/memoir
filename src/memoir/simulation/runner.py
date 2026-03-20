@@ -282,7 +282,7 @@ class SimulationRunner:
         for memory in user_scenario.initial_memories:
             self.cli.remember(
                 content=memory.get("content", ""),
-                namespace=memory.get("namespace", f"user:{user_scenario.user_id}"),
+                namespace=memory.get("namespace", f"user_id:{user_scenario.user_id}"),
             )
 
         # Run conversation steps

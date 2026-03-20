@@ -73,13 +73,13 @@ class RealLLMAgent:
 
 ## Tools:
 - memoir_help: Get CLI help (call with no args for general help, or specify command name)
-- memoir_remember: Store memories (with namespace: 'agent' or 'user:{user_id}')
-- memoir_recall: Search memories (with namespace: 'agent' or 'user:{user_id}')
+- memoir_remember: Store memories (with namespace: 'agent' or 'user_id:{user_id}')
+- memoir_recall: Search memories (with namespace: 'agent' or 'user_id:{user_id}')
 - memoir_checkout: Switch branches for context isolation
 - memoir_forget: Delete a memory
 
 ## Namespaces:
-- **user:{user_id}**: User preferences, facts, projects (default)
+- **user_id:{user_id}**: User preferences, facts, projects (default)
 - **agent**: Your own learnings, skills, techniques, insights
 
 ## Rules:
@@ -89,10 +89,10 @@ class RealLLMAgent:
 - Use memoir_help(command="remember") to see detailed help for a command
 
 **Storing memories:**
-- User preferences/facts → namespace="user:{user_id}" (or omit for default)
+- User preferences/facts → namespace="user_id:{user_id}" (or omit for default)
 - Your learnings/skills → namespace="agent"
 - Example: "I learned to use rg for fast search" → namespace="agent"
-- Example: "User prefers dark mode" → namespace="user:{user_id}"
+- Example: "User prefers dark mode" → namespace="user_id:{user_id}"
 
 **Recalling memories:**
 - When asked about user → search user namespace
@@ -107,6 +107,7 @@ Be conversational and acknowledge when you store or find memories.
         store_path: str,
         model: str = "claude-haiku-4-5",
         user_id: str = "default",
+        channel: str = "web",
         session_manager: Optional[SessionManager] = None,
         tui: Optional[LiveSimulationTUI] = None,
         enable_hooks: bool = True,
@@ -114,6 +115,7 @@ Be conversational and acknowledge when you store or find memories.
         self.store_path = store_path
         self.model = model
         self.user_id = user_id
+        self.channel = channel
         self.tui = tui
 
         # Session management
@@ -165,6 +167,7 @@ Be conversational and acknowledge when you store or find memories.
         """Start a new conversation session."""
         self.session = self.session_manager.create_session(
             user_id=self.user_id,
+            channel=self.channel,
             agent_id="real-llm",
             session_id=session_id,
         )
@@ -254,7 +257,7 @@ Be conversational and acknowledge when you store or find memories.
         if name == "memoir_remember":
             result = self.cli.remember(
                 content=args.get("content", ""),
-                namespace=args.get("namespace", f"user:{self.user_id}"),
+                namespace=args.get("namespace", f"user_id:{self.user_id}"),
             )
             return (
                 {
@@ -272,7 +275,7 @@ Be conversational and acknowledge when you store or find memories.
         elif name == "memoir_recall":
             result = self.cli.recall(
                 query=args.get("query", ""),
-                namespace=args.get("namespace", f"user:{self.user_id}"),
+                namespace=args.get("namespace", f"user_id:{self.user_id}"),
                 limit=args.get("limit", 5),
             )
             memories = []
@@ -296,7 +299,7 @@ Be conversational and acknowledge when you store or find memories.
         elif name == "memoir_forget":
             result = self.cli.forget(
                 key=args.get("path", ""),
-                namespace=args.get("namespace", f"user:{self.user_id}"),
+                namespace=args.get("namespace", f"user_id:{self.user_id}"),
             )
             return (
                 {
@@ -372,6 +375,7 @@ Be conversational and acknowledge when you store or find memories.
                 content=user_message,
                 user_id=self.user_id,
                 session_id=self.session.session_id,
+                channel=self.session.channel,
             )
 
         # Build messages and call LLM
@@ -414,7 +418,7 @@ Be conversational and acknowledge when you store or find memories.
                         operation=tool_call.name.replace("memoir_", ""),
                         details=command,
                         tool_name=tool_call.name,
-                        namespace=args.get("namespace", f"user:{self.user_id}"),
+                        namespace=args.get("namespace", f"user_id:{self.user_id}"),
                         success=result.get("success", False),
                         duration_ms=tool_duration_ms,
                     )
@@ -465,6 +469,7 @@ Be conversational and acknowledge when you store or find memories.
                 content=final_content,
                 user_id=self.user_id,
                 session_id=self.session.session_id,
+                channel=self.session.channel,
             )
 
         # Fire message:sent hook
