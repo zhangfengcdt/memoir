@@ -23,7 +23,7 @@ from memoir.simulation.live_tui import (
     LiveSimulationTUI,
     MemoryEvent,
 )
-from memoir.simulation.real_llm_agent import RealLLMAgent
+from memoir.simulation.llm_agent import LLMAgent
 from memoir.simulation.runner import Scenario, SimulationRunner
 from memoir.simulation.session import Session, SessionManager
 from memoir.simulation.skill import SkillInjector
@@ -42,7 +42,7 @@ __all__ = [
     "LiveSimulationTUI",
     "MemoryEvent",
     "MockAgent",
-    "RealLLMAgent",
+    "LLMAgent",
     "Scenario",
     "Session",
     "SessionManager",

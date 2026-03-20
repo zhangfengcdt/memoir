@@ -1,11 +1,11 @@
 """
-Real LLM Agent - Agent that uses actual LLM for tool calling decisions.
+LLM Agent - Agent that uses LLM for tool calling decisions.
 
 This agent:
-1. Sends messages to a real LLM (e.g., claude-haiku-4-5)
+1. Sends messages to an LLM (e.g., claude-haiku-4-5)
 2. LLM sees memoir tool definitions
 3. LLM decides when to call memoir tools
-4. Tool calls execute real memoir CLI commands
+4. Tool calls execute memoir CLI commands
 5. Results are fed back to LLM for final response
 """
 
@@ -51,12 +51,12 @@ class AgentResponse:
     duration_ms: float = 0.0
 
 
-class RealLLMAgent:
+class LLMAgent:
     """
-    Agent that uses real LLM for intelligent tool calling.
+    Agent that uses LLM for intelligent tool calling.
 
     Example:
-        agent = RealLLMAgent(
+        agent = LLMAgent(
             store_path="/path/to/store",
             model="claude-haiku-4-5",
             user_id="alice",
@@ -65,7 +65,7 @@ class RealLLMAgent:
 
         response = await agent.chat("Remember that I prefer dark mode")
         # LLM decides to call memoir_remember tool
-        # Tool executes real memoir CLI command
+        # Tool executes memoir CLI command
         # LLM provides final response
     """
 

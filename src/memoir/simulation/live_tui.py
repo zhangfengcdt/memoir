@@ -564,8 +564,12 @@ class LiveSimulationTUI:
         real_memories = self._read_real_store()
 
         if real_memories:
-            # Sort namespaces for stable display
-            for namespace in sorted(real_memories.keys()):
+            # Sort namespaces with "agent" always first, then alphabetically
+            def namespace_sort_key(ns: str) -> tuple[int, str]:
+                # agent first (0), everything else after (1)
+                return (0 if ns == "agent" else 1, ns)
+
+            for namespace in sorted(real_memories.keys(), key=namespace_sort_key):
                 paths = real_memories[namespace]
                 ns_tree = tree.add(f"[yellow]{namespace}[/yellow]")
                 # Sort paths for stable display
@@ -578,7 +582,13 @@ class LiveSimulationTUI:
         else:
             # Fall back to instrumented memories
             with self._lock:
-                for namespace, paths in self.memories.items():
+                # Sort namespaces with "agent" always first
+                sorted_namespaces = sorted(
+                    self.memories.keys(),
+                    key=lambda ns: (0 if ns == "agent" else 1, ns),
+                )
+                for namespace in sorted_namespaces:
+                    paths = self.memories[namespace]
                     ns_tree = tree.add(f"[yellow]{namespace}[/yellow]")
                     for path, content in list(paths.items())[-10:]:
                         content_str = str(content)[:60]
