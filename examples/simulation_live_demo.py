@@ -210,66 +210,62 @@ class LiveSimulationDemo:
         )
 
     async def run_demo_scenarios(self):
-        """Run user scenarios across multiple channels.
+        """Run 4 concurrent user sessions across different channels.
 
         Demonstrates OpenClaw's channel/session/user model:
-        - Same user can chat from different channels
-        - Memory is shared across channels (user:alice namespace)
-        - Session display shows channel:session:user format
+        - Different users on different channels chat simultaneously
+        - Each channel has its own user ID format (platform-specific)
+        - Without manual linking, each is a separate user with separate memory
+        - Session display shows channel:user_id:session format
         """
-        # Web channel - initial setup
+        # Web channel - developer preferences
         web_messages = [
             "Hi! Please remember that I prefer dark mode.",
             "Also remember that I use vim keybindings.",
             "I like to use Python for most of my projects.",
             "My timezone is Pacific Time (PST).",
-            # Agent learnings
-            "By the way, remember as your skill: 'rg' is faster than 'grep'.",
+            "Remember as your skill: 'rg' is faster than 'grep'.",
             "What do you know about my preferences?",
         ]
 
         # Slack channel - work context
         slack_messages = [
-            "I'm working on an API refactoring project, store that.",
+            "Hey, I'm working on an API refactoring project.",
             "The project uses FastAPI and PostgreSQL.",
-            "Store as your learning: FastAPI dependency injection is great for testing.",
+            "We're migrating from REST to GraphQL.",
+            "Store as your learning: FastAPI dependency injection is great.",
+            "I prefer TypeScript for frontend work.",
             "What do you remember about my project?",
         ]
 
-        # Discord channel - casual chat
+        # Discord channel - gaming/casual
         discord_messages = [
-            "I'm also learning Go for systems programming.",
-            "My favorite programming language is Rust, but I use Python more.",
-            "What preferences do you remember about me?",
+            "I'm learning Go for systems programming.",
+            "My favorite language is Rust, but I use Python more.",
+            "Remember: I stream on weekends.",
+            "Your learning: pytest fixtures beat setUp/tearDown.",
+            "I use Arch Linux btw.",
+            "What preferences do you remember?",
         ]
 
         # Telegram channel - mobile quick notes
         telegram_messages = [
-            "Remember: I use Docker for all dev environments.",
-            "Note: I value test coverage above 80%.",
-            "Your learning: black + isort + ruff is a great linting combo.",
-            "What agent skills have you learned?",
+            "Quick note: I use Docker for all dev environments.",
+            "Remember: I value test coverage above 80%.",
+            "Store: I prefer tabs over spaces.",
+            "Your learning: black + isort + ruff is great for Python.",
+            "My work hours are 9am-6pm.",
+            "What skills have you learned?",
         ]
 
-        # Final web session - recall everything
-        web_final_messages = [
-            "Summarize everything you remember about me.",
-            "What are all your agent learnings?",
-        ]
-
-        # Run scenarios sequentially across different channels
+        # Run all 4 channel sessions concurrently
         # Each channel has its own user ID format (like real platforms)
-        # Without manual linking, these would be separate users to the system
-        # Here we simulate a "linked" scenario where memories are shared
-        await self.run_user_scenario("51321", web_messages, channel="web", delay=3.5)
-        await asyncio.sleep(1.0)
-        await self.run_user_scenario("U04ABCD1234", slack_messages, channel="slack", delay=3.5)
-        await asyncio.sleep(1.0)
-        await self.run_user_scenario("987654321012", discord_messages, channel="discord", delay=3.5)
-        await asyncio.sleep(1.0)
-        await self.run_user_scenario("12345678", telegram_messages, channel="telegram", delay=3.5)
-        await asyncio.sleep(1.0)
-        await self.run_user_scenario("51321", web_final_messages, channel="web", delay=4.0)
+        await asyncio.gather(
+            self.run_user_scenario("51321", web_messages, channel="web", delay=4.0),
+            self.run_user_scenario("U04ABCD1234", slack_messages, channel="slack", delay=4.5),
+            self.run_user_scenario("987654321012", discord_messages, channel="discord", delay=5.0),
+            self.run_user_scenario("12345678", telegram_messages, channel="telegram", delay=5.5),
+        )
 
     def run(self, duration: float = 60.0):
         """Run the live demo."""
