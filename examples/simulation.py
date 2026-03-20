@@ -277,29 +277,94 @@ class LiveSimulationDemo:
                         If False, only slash commands are accepted.
         """
         import sys
+        import warnings
 
+        from rich.align import Align
         from rich.console import Console, Group
         from rich.panel import Panel
         from rich.table import Table
         from rich.text import Text
 
+        # Suppress asyncio warnings about pending tasks (from litellm logging)
+        warnings.filterwarnings("ignore", message=".*was destroyed but it is pending.*")
+        warnings.filterwarnings("ignore", message=".*coroutine.*was never awaited.*")
+        warnings.filterwarnings("ignore", category=RuntimeWarning)
+
+        # Suppress asyncio task destruction messages (printed directly to stderr)
+        import logging
+        logging.getLogger("asyncio").setLevel(logging.CRITICAL)
+
         console = Console()
 
+        # Create a single event loop for the session
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
         # User identity for namespace (channel:user_id pattern)
-        user_id = "interactive"
-        channel = "repl"
-        user_namespace = f"{channel}:{user_id}"
+        # Using web:51321 to match identity config: "kevin": {"channels": ["web:51321"]}
+        user_id = "51321"
+        channel = "web"
+        fallback_namespace = f"{channel}:{user_id}"
 
         skill = SkillInjector(user_id=user_id, store_path=self.store_path)
 
         # Conversation history for display (role, content, is_slash)
         conversation: list[tuple[str, str, bool]] = []
 
+        # Session namespace - will be resolved by LLM at start
+        session_namespace = fallback_namespace
+
         # Create LLM agent for chat (if enabled)
         agent = None
         if enable_chat:
             agent = self.create_agent(user_id=user_id, channel=channel)
             agent.start_session()
+
+            # Ask LLM to resolve identity at session start
+            console.print("[dim]Resolving identity...[/dim]")
+            try:
+                response = loop.run_until_complete(agent.chat(
+                    f"What is the memoir namespace for channel '{channel}' and user_id '{user_id}'? "
+                    "Check the identity config at agent:config.identities. "
+                    "Reply with ONLY the namespace name, nothing else."
+                ))
+                # Extract namespace from response
+                resolved = response.content.strip()
+
+                # Log LLM response
+                self.tui.log_event(MemoryEvent(
+                    timestamp=time.time(),
+                    source=EventSource.LLM,
+                    operation="resolve-ns",
+                    details=f"LLM response: '{resolved}'",
+                ))
+
+                if resolved and " " not in resolved and len(resolved) < 50:
+                    session_namespace = resolved
+                    console.print(f"[green]Identity resolved: {session_namespace}[/green]")
+                    self.tui.log_event(MemoryEvent(
+                        timestamp=time.time(),
+                        source=EventSource.SYSTEM,
+                        operation="namespace",
+                        details=f"Session namespace set to: {session_namespace}",
+                    ))
+                else:
+                    console.print(f"[yellow]Using fallback namespace: {fallback_namespace}[/yellow]")
+                    self.tui.log_event(MemoryEvent(
+                        timestamp=time.time(),
+                        source=EventSource.SYSTEM,
+                        operation="namespace",
+                        details=f"Using fallback: {fallback_namespace}",
+                    ))
+            except Exception as e:
+                console.print(f"[yellow]Identity resolution failed, using fallback: {e}[/yellow]")
+                self.tui.log_event(MemoryEvent(
+                    timestamp=time.time(),
+                    source=EventSource.SYSTEM,
+                    operation="ns-error",
+                    details=f"Resolution failed: {str(e)[:30]}",
+                    success=False,
+                ))
 
         def render_conversation():
             """Render the conversation panel."""
@@ -308,12 +373,12 @@ class LiveSimulationDemo:
                     Text("Start chatting! Type a message or /command", style="dim"),
                     title="[bold green]Conversation[/bold green]",
                     border_style="green",
-                    height=15,
+                    height=30,
                 )
 
             content = []
-            # Show last 12 messages
-            for role, msg, is_slash in conversation[-12:]:
+            # Show last 26 messages
+            for role, msg, is_slash in conversation[-26:]:
                 if role == "user":
                     if is_slash:
                         content.append(Text(f"> {msg}", style="yellow"))
@@ -327,10 +392,10 @@ class LiveSimulationDemo:
                     content.append(Text(f"  {display_msg}", style="cyan"))
 
             return Panel(
-                Group(*content),
+                Align(Group(*content), vertical="bottom"),
                 title="[bold green]Conversation[/bold green]",
                 border_style="green",
-                height=15,
+                height=30,
             )
 
         def refresh_display():
@@ -344,14 +409,20 @@ class LiveSimulationDemo:
 
             # Header
             console.print(Panel(
-                f"[bold cyan]Memoir Interactive[/bold cyan] │ Store: {Path(self.store_path).name} │ Namespace: {user_namespace}",
+                f"[bold cyan]Memoir Interactive[/bold cyan] │ Store: {Path(self.store_path).name} │ Namespace: {session_namespace}",
                 style="bold",
             ))
 
             # Use Table for side-by-side layout (doesn't fill screen like Layout)
             main_table = Table.grid(padding=0, expand=True)
-            main_table.add_column(ratio=3)
-            main_table.add_column(ratio=2)
+            main_table.add_column(ratio=3)  # Left column
+            main_table.add_column(ratio=2)  # Right column
+
+            # Left column: event log on top, conversation below
+            left_content = Group(
+                self.tui._render_events(),
+                render_conversation(),
+            )
 
             # Right column: memories on top, stats below
             right_content = Group(
@@ -360,7 +431,7 @@ class LiveSimulationDemo:
             )
 
             main_table.add_row(
-                render_conversation(),
+                left_content,
                 right_content,
             )
 
@@ -368,29 +439,161 @@ class LiveSimulationDemo:
 
             # Input hint and bordered input area right below panels
             mode_hint = "Chat or /command" if enable_chat else "/command only"
-            console.print(f"[dim]({mode_hint} │ /help │ /quit)[/dim]")
+            pending_hint = f" │ [yellow]{pending_count} pending[/yellow]" if pending_count > 0 else ""
+            console.print(f"[dim]({mode_hint} │ /help │ /quit{pending_hint})[/dim]")
             console.rule(style="dim")  # Top line of input box
+            # Print placeholder for input line and bottom line, then move cursor up
+            print("> ")  # Input line placeholder
+            console.rule(style="dim")  # Bottom line of input box
+            # Move cursor up 2 lines to the input line, after "> "
+            sys.stdout.write("\033[2A\033[3C")
+            sys.stdout.flush()
+
+        # Background task queue for truly async execution
+        import queue
+
+        result_queue: queue.Queue = queue.Queue()
+        pending_count = 0  # Track number of pending tasks
+
+        def run_slash_in_background(slash_cmd: str, namespace: str):
+            """Run slash command in background thread."""
+            nonlocal pending_count
+
+            def worker():
+                nonlocal pending_count
+                try:
+                    # Use synchronous version for thread safety
+                    result = skill.execute_slash_command(slash_cmd, default_namespace=namespace)
+                    result_queue.put(("slash", "success", result))
+                except Exception as e:
+                    result_queue.put(("slash", "error", str(e)))
+                finally:
+                    pending_count -= 1
+
+            pending_count += 1
+            thread = threading.Thread(target=worker, daemon=True)
+            thread.start()
+
+        def run_chat_in_background(message: str):
+            """Run LLM chat in background thread with its own event loop."""
+            nonlocal pending_count
+
+            def worker():
+                nonlocal pending_count
+                try:
+                    # Create a new event loop for this thread
+                    chat_loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(chat_loop)
+                    try:
+                        result = chat_loop.run_until_complete(agent.chat(message))
+                        result_queue.put(("chat", "success", result))
+                    finally:
+                        chat_loop.close()
+                except Exception as e:
+                    result_queue.put(("chat", "error", str(e)))
+                finally:
+                    pending_count -= 1
+
+            pending_count += 1
+            thread = threading.Thread(target=worker, daemon=True)
+            thread.start()
+
+        def replace_last_placeholder(role_match: str, placeholder: str, new_content: str):
+            """Replace the last placeholder message with actual content."""
+            for i in range(len(conversation) - 1, -1, -1):
+                role, content, is_slash = conversation[i]
+                if role == role_match and content == placeholder:
+                    conversation[i] = (role, new_content, is_slash)
+                    return True
+            return False
+
+        def process_results():
+            """Process any completed background tasks. Returns True if any processed."""
+            processed = False
+            while not result_queue.empty():
+                try:
+                    task_type, status, result = result_queue.get_nowait()
+                    processed = True
+
+                    if task_type == "slash":
+                        # Slash command result - replace placeholder
+                        if status == "success" and result.get("success"):
+                            result_text = f"✓ {result.get('command', 'Done')}"
+                            if result.get("data"):
+                                data = result["data"]
+                                if isinstance(data, dict):
+                                    if "memories" in data:
+                                        result_text = f"✓ Found {len(data['memories'])} memories"
+                                    elif "key" in data:
+                                        result_text = f"✓ Stored at: {data['key']}"
+                        else:
+                            error = result.get("error", "Failed") if status == "success" else result
+                            result_text = f"✗ {error}"
+                        replace_last_placeholder("slash_result", "[executing...]", result_text)
+
+                    elif task_type == "chat":
+                        # LLM chat result - replace placeholder
+                        if status == "success":
+                            replace_last_placeholder("assistant", "[thinking...]", result.content)
+                            if result.tool_calls:
+                                tool_info = ", ".join([tc.name for tc in result.tool_calls])
+                                conversation.append(("slash_result", f"→ Tools: {tool_info}", False))
+                        else:
+                            replace_last_placeholder("assistant", "[thinking...]", f"Error: {str(result)[:50]}")
+
+                except queue.Empty:
+                    break
+            return processed
+
+        # Input queue for non-blocking input
+        input_queue: queue.Queue = queue.Queue()
+        stop_event = threading.Event()
+
+        def input_thread_fn():
+            """Read input in a separate thread."""
+            while not stop_event.is_set():
+                try:
+                    line = input()
+                    input_queue.put(line)
+                except EOFError:
+                    input_queue.put(None)  # Signal EOF
+                    break
+                except Exception:
+                    break
+
+        input_thread = threading.Thread(target=input_thread_fn, daemon=True)
+        input_thread.start()
 
         # Initial display
         refresh_display()
 
-        # Interactive loop
+        # Interactive loop with polling
         try:
             while True:
                 try:
-                    # Show prompt and get input
-                    sys.stdout.write("> ")
-                    sys.stdout.flush()
-                    cmd = input().strip()
-                    console.rule(style="dim")  # Bottom line of input box
-                    if not cmd:
+                    # Check for completed background tasks
+                    if process_results():
                         refresh_display()
+
+                    # Check for user input (non-blocking)
+                    try:
+                        cmd = input_queue.get(timeout=0.1)  # Poll every 100ms
+                        if cmd is None:  # EOF
+                            break
+                        cmd = cmd.strip()
+                        if not cmd:
+                            refresh_display()
+                            continue
+                    except queue.Empty:
+                        # No input yet, continue polling
                         continue
 
                     # Handle special commands
                     if cmd in ("/quit", "/exit", "/q"):
                         break
                     elif cmd == "/help":
+                        # Show help below the input area
+                        refresh_display()
                         console.print()
                         console.print("[bold]Commands:[/bold]")
                         console.print("  [cyan]/remember <text>[/cyan]  - Store a memory")
@@ -400,21 +603,17 @@ class LiveSimulationDemo:
                         console.print("  [cyan]/off-record[/cyan]       - Start off-record mode")
                         console.print("  [cyan]/on-record[/cyan]        - Return to normal")
                         console.print("  [cyan]/commits[/cyan]          - Show history")
+                        console.print("  [cyan]/clear[/cyan]            - Clear conversation")
                         console.print("  [cyan]/quit[/cyan]             - Exit")
                         if enable_chat:
                             console.print()
                             console.print("[dim]Or just type a message to chat with the AI[/dim]")
-                        console.print()
-                        console.print("[dim]Press Enter to continue...[/dim]", end="")
-                        input()
-                        refresh_display()
                         continue
                     elif cmd == "/commands":
                         cmds = get_slash_commands()
-                        console.print(f"[dim]Available: /{', /'.join(cmds)}[/dim]")
-                        console.print("[dim]Press Enter to continue...[/dim]", end="")
-                        input()
                         refresh_display()
+                        console.print()
+                        console.print(f"[dim]Available: /{', /'.join(cmds)}[/dim]")
                         continue
                     elif cmd == "/clear":
                         conversation.clear()
@@ -440,51 +639,26 @@ class LiveSimulationDemo:
                         else:
                             slash_cmd = cmd
 
-                        result = skill.execute_slash_command(slash_cmd, default_namespace=user_namespace)
+                        # Log full command with namespace
+                        self.tui.log_event(MemoryEvent(
+                            timestamp=time.time(),
+                            source=EventSource.USER,
+                            operation="exec-slash",
+                            details=f"{slash_cmd} --namespace {session_namespace}",
+                        ))
 
-                        # Add result to conversation
-                        if result["success"]:
-                            result_text = f"✓ {result.get('command', 'Done')}"
-                            if result.get("data"):
-                                data = result["data"]
-                                if isinstance(data, dict):
-                                    if "memories" in data:
-                                        count = len(data["memories"])
-                                        result_text = f"✓ Found {count} memories"
-                                    elif "key" in data:
-                                        result_text = f"✓ Stored at: {data['key']}"
-                        else:
-                            result_text = f"✗ {result.get('error', 'Failed')}"
-
-                        conversation.append(("slash_result", result_text, True))
+                        # Execute in background (non-blocking)
+                        run_slash_in_background(slash_cmd, session_namespace)
+                        conversation.append(("slash_result", "[executing...]", True))
                         refresh_display()
 
                     elif enable_chat and agent:
                         # Add user message to conversation
                         conversation.append(("user", cmd, False))
-                        refresh_display()
 
-                        # Show thinking indicator
-                        console.print("[dim]Thinking...[/dim]")
-
-                        # Send to LLM (stats tracked by agent via TUI)
-                        try:
-                            loop = asyncio.new_event_loop()
-                            asyncio.set_event_loop(loop)
-                            try:
-                                response = loop.run_until_complete(agent.chat(cmd))
-                                # Add AI response to conversation
-                                conversation.append(("assistant", response.content, False))
-
-                                # Show tool calls if any
-                                if response.tool_calls:
-                                    tool_info = ", ".join([tc.name for tc in response.tool_calls])
-                                    conversation.append(("slash_result", f"→ Tools: {tool_info}", False))
-                            finally:
-                                loop.close()
-                        except Exception as e:
-                            conversation.append(("assistant", f"Error: {str(e)[:50]}", False))
-
+                        # Execute chat in background (non-blocking)
+                        run_chat_in_background(cmd)
+                        conversation.append(("assistant", "[thinking...]", False))
                         refresh_display()
                     else:
                         console.print("[yellow]Chat disabled. Use /commands for available slash commands.[/yellow]")
@@ -498,8 +672,35 @@ class LiveSimulationDemo:
         except KeyboardInterrupt:
             pass
         finally:
+            # Stop input thread
+            stop_event.set()
+
             if agent:
                 agent.end_session()
+
+            # Suppress stderr during cleanup to hide asyncio task warnings
+            import io
+            old_stderr = sys.stderr
+            sys.stderr = io.StringIO()
+
+            try:
+                # Clean up the event loop
+                try:
+                    # Cancel any pending tasks
+                    pending = asyncio.all_tasks(loop)
+                    for task in pending:
+                        task.cancel()
+                    # Allow cancelled tasks to complete
+                    if pending:
+                        loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
+                except Exception:
+                    pass
+                finally:
+                    loop.close()
+            finally:
+                # Restore stderr
+                sys.stderr = old_stderr
+
             console.print()
             console.print("[dim]Session ended.[/dim]")
 

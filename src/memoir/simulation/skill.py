@@ -766,6 +766,32 @@ across sessions. Use memoir to store important information and recall it later.
         """Check if text is a memoir slash command."""
         return text.strip().startswith("/memoir_")
 
+    async def execute_slash_command_async(
+        self,
+        command_str: str,
+        default_namespace: str = "agent",
+    ) -> dict[str, Any]:
+        """
+        Execute a slash command asynchronously.
+
+        Runs the synchronous execute_slash_command in a thread pool
+        to avoid blocking the event loop.
+
+        Args:
+            command_str: Full command string like "/memoir_remember user prefers dark mode"
+            default_namespace: Default namespace if not specified
+
+        Returns:
+            Execution result dict with success, data, error, command fields
+        """
+        import asyncio
+
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            None,  # Use default thread pool
+            lambda: self.execute_slash_command(command_str, default_namespace),
+        )
+
 
 def create_skill_file(output_path: str, user_id: str = "default") -> str:
     """

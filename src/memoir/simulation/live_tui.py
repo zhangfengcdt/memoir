@@ -391,7 +391,7 @@ class LiveSimulationTUI:
 
     def _render_events(self) -> Panel:
         """Render event log panel (starts from bottom, rolls up)."""
-        max_visible = 12
+        max_visible = 21
         table = Table(
             show_header=True,
             header_style="bold",
@@ -430,6 +430,7 @@ class LiveSimulationTUI:
             Align(table, vertical="bottom"),
             title="[bold]Event Log[/bold] [dim](HOOK=auto, LLM=agent)[/dim]",
             border_style="blue",
+            height=25,
         )
 
     def _render_channel_conversation(self, target_channel: str) -> Panel:
@@ -723,7 +724,9 @@ class LiveSimulationTUI:
         if not real_memories and not self.memories:
             tree.add("[dim]No memories stored yet[/dim]")
 
-        return Panel(tree, title="[bold]Memory Store[/bold]", border_style="magenta")
+        return Panel(
+            tree, title="[bold]Memory Store[/bold]", border_style="magenta", height=30
+        )
 
     def _render_stats(self) -> Panel:
         """Render statistics panel."""
