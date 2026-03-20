@@ -341,29 +341,15 @@ class HookSystem:
         """
         Ensure identity mappings exist in agent memory.
 
-        Checks if config.identities exists. If not and DEFAULT_IDENTITY_MAPPINGS
-        is set, stores it. Otherwise does nothing (expects external seeding).
+        Uses new format: config.identity.{channel}:{user_id} -> namespace
+        Expects external seeding (e.g., from simulation demo).
 
         Returns:
-            List of CLI results from storing mappings
+            List of CLI results from storing mappings (empty if externally seeded)
         """
-        cli_results = []
-
-        # Check if identities already exist
-        existing = self._load_identity_mappings_from_memory(use_defaults=False)
-        if existing:
-            return cli_results  # Already configured
-
-        # Only store defaults if they exist
-        if self.DEFAULT_IDENTITY_MAPPINGS:
-            result = self.executor.set(
-                key="config.identities",
-                content=json.dumps(self.DEFAULT_IDENTITY_MAPPINGS),
-                namespace="agent",
-            )
-            cli_results.append(result)
-
-        return cli_results
+        # New format expects external seeding via simulation.py or other setup
+        # No longer auto-seeds from DEFAULT_IDENTITY_MAPPINGS
+        return []
 
     def _load_identity_mappings_from_memory(
         self, use_defaults: bool = True
@@ -371,37 +357,21 @@ class HookSystem:
         """
         Load identity mappings dynamically from agent memory.
 
-        Reads config.identities from the agent namespace (single JSON config).
+        Note: This method is deprecated. Identity lookups now use direct key access
+        via _get_identity_for_channel() with format: config.identity.{channel}:{user_id}
+
+        This method is kept for backward compatibility with _format_identity_mappings().
 
         Args:
             use_defaults: If True, fall back to DEFAULT_IDENTITY_MAPPINGS on error
 
         Returns:
-            Identity mappings dict {person: {"channels": [...]}}
+            Identity mappings dict {person: {"channels": [...]}} or empty dict
         """
-        try:
-            # Read single identities config from agent namespace
-            result = self.executor.get(
-                key="config.identities",
-                namespace="agent",
-            )
-
-            if result.success and result.data:
-                content = result.data.get("content", "")
-                try:
-                    mappings = json.loads(content)
-                    if mappings:
-                        return mappings
-                except json.JSONDecodeError:
-                    logger.debug(f"Invalid JSON in config.identities: {content[:50]}")
-
-        except Exception as e:
-            logger.warning(f"Failed to load identity mappings from memory: {e}")
-
-        # Fall back to defaults if requested and nothing found
+        # New format uses individual keys, not a single JSON blob
+        # Return empty dict - callers should use _get_identity_for_channel() instead
         if use_defaults:
             return self.DEFAULT_IDENTITY_MAPPINGS
-
         return {}
 
     def _get_identity_for_channel(
@@ -409,40 +379,46 @@ class HookSystem:
     ) -> Optional[str]:
         """Get the person identity for a given channel and optional user_id.
 
-        Supports two mapping formats:
-        - "channels": ["web"] - matches any user on web channel
-        - "channels": ["web:51321"] - matches only user 51321 on web channel
+        Uses direct key lookup in the new format:
+        - config.identity.{channel}:{user_id} -> namespace (specific user)
+        - config.identity.{channel} -> namespace (channel-wide)
 
         Checks channel:user_id first (more specific), then channel-only.
         """
-        mappings = self._load_identity_mappings_from_memory()
-
         # First try exact channel:user_id match (more specific)
         if user_id:
-            channel_user = f"{channel}:{user_id}"
-            for person, mapping in mappings.items():
-                if channel_user in mapping.get("channels", []):
-                    return person
+            result = self.executor.get(
+                key=f"config.identity.{channel}:{user_id}",
+                namespace="agent",
+            )
+            if result.success and result.data and isinstance(result.data, dict):
+                content = result.data.get("content", "")
+                if content and isinstance(content, str):
+                    return content.strip()
 
         # Fall back to channel-only match
-        for person, mapping in mappings.items():
-            if channel in mapping.get("channels", []):
-                return person
+        result = self.executor.get(
+            key=f"config.identity.{channel}",
+            namespace="agent",
+        )
+        if result.success and result.data and isinstance(result.data, dict):
+            content = result.data.get("content", "")
+            if content and isinstance(content, str):
+                return content.strip()
 
         return None
 
     def _format_identity_mappings(self) -> str:
-        """Format identity mappings for LLM context injection."""
-        mappings = self._load_identity_mappings_from_memory()
-        if not mappings:
-            return (
-                "(No identity mappings configured. Use channel:user_id as namespace.)"
-            )
-        lines = []
-        for person, mapping in mappings.items():
-            channels = ", ".join(mapping.get("channels", []))
-            lines.append(f"- **{person}**: channels [{channels}]")
-        return "\n".join(lines)
+        """Format identity mappings for LLM context injection.
+
+        Note: With the new direct-lookup format, identity resolution is done
+        via CLI get, not LLM parsing. This method is kept for informational purposes.
+        """
+        return (
+            "Identity resolution uses direct lookup:\n"
+            "  memoir get config.identity.{channel}:{user_id} --namespace agent\n"
+            "Falls back to: config.identity.{channel} for channel-wide mappings."
+        )
 
     def _memoir_recall_hook(
         self,

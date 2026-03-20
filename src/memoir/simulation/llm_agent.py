@@ -73,6 +73,7 @@ class LLMAgent:
 
 ## Current Session:
 - Channel: {channel}
+- User Namespace: {user_namespace}
 
 ## Tools:
 - memoir_remember: Store memories (auto-categorizes content)
@@ -83,14 +84,10 @@ class LLMAgent:
 
 ## Namespaces:
 - **agent**: Your own learnings, skills, techniques
-- **<person_name>**: User memories (look up from Identity Mappings below)
+- **{user_namespace}**: This user's memories (ALWAYS use this for user data)
 
-## IMPORTANT - Read Identity Mappings:
-Check the [Previous Memories] section for Identity Mappings config.
-Find which person owns the current channel ({channel}).
-Use that person's name as the namespace for this user's memories.
-
-NEVER use channel:user_id format like "web:12345". ALWAYS use the person name.
+IMPORTANT: For this user's memories, ALWAYS use namespace "{user_namespace}".
+For your own learnings/skills, use namespace "agent".
 
 Be conversational and acknowledge when you store or find memories.
 """
@@ -123,6 +120,9 @@ Be conversational and acknowledge when you store or find memories.
             user_id=user_id,
             store_path=store_path,
         )
+
+        # Resolved namespace (set at session start)
+        self.resolved_namespace: Optional[str] = None
 
         # Hooks (optional)
         self.hooks: Optional[HookSystem] = None
@@ -158,11 +158,13 @@ Be conversational and acknowledge when you store or find memories.
 
     def _get_default_namespace(self) -> str:
         """
-        Fallback namespace if LLM doesn't specify one.
+        Get the resolved namespace for this user.
 
-        The LLM should always specify the correct namespace based on
-        the identity config in the prompt. This is just a fallback.
+        Returns the identity-resolved namespace (e.g., "kevin") if available,
+        otherwise falls back to channel:user_id format.
         """
+        if self.resolved_namespace:
+            return self.resolved_namespace
         return f"{self.channel}:{self.user_id}"
 
     def start_session(self, session_id: Optional[str] = None) -> Session:
@@ -174,11 +176,32 @@ Be conversational and acknowledge when you store or find memories.
             session_id=session_id,
         )
 
-        # Fire bootstrap hook
+        # Resolve namespace once at session start using fast CLI lookup
         if self.hooks:
+            # Access the underlying HookSystem (unwrap if instrumented)
+            hook_system = self.hooks
+            if hasattr(self.hooks, "_hooks"):
+                hook_system = self.hooks._hooks
+
+            # Resolve identity: channel:user_id -> namespace
+            resolved = hook_system._get_identity_for_channel(self.channel, self.user_id)
+            if resolved:
+                self.resolved_namespace = resolved
+                logger.info(
+                    f"Resolved namespace: {self.channel}:{self.user_id} -> {resolved}"
+                )
+            else:
+                self.resolved_namespace = f"{self.channel}:{self.user_id}"
+                logger.info(
+                    f"No identity mapping, using fallback: {self.resolved_namespace}"
+                )
+
+            # Fire bootstrap hook (for memory context injection)
             result = self.hooks.on_agent_bootstrap(self.session.session_key)
             if result.context_injection:
                 self.session.metadata["memory_context"] = result.context_injection
+        else:
+            self.resolved_namespace = f"{self.channel}:{self.user_id}"
 
         # Log to TUI
         if self.tui:
@@ -187,7 +210,7 @@ Be conversational and acknowledge when you store or find memories.
                     timestamp=time.time(),
                     source=EventSource.SYSTEM,
                     operation="session-start",
-                    details=f"User {self.user_id} started session",
+                    details=f"User {self.user_id} -> {self.resolved_namespace}",
                 )
             )
 
@@ -218,8 +241,11 @@ Be conversational and acknowledge when you store or find memories.
 
     def _build_messages(self, extra_context: Optional[str] = None) -> list[dict]:
         """Build message list for LLM."""
-        # Substitute channel in system prompt
-        system_prompt = self.SYSTEM_PROMPT.replace("{channel}", self.channel)
+        # Substitute channel and resolved namespace in system prompt
+        user_ns = self._get_default_namespace()
+        system_prompt = self.SYSTEM_PROMPT.replace("{channel}", self.channel).replace(
+            "{user_namespace}", user_ns
+        )
         messages = [{"role": "system", "content": system_prompt}]
 
         # Add memory context from bootstrap hook

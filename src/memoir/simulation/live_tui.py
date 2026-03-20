@@ -391,7 +391,7 @@ class LiveSimulationTUI:
 
     def _render_events(self) -> Panel:
         """Render event log panel (starts from bottom, rolls up)."""
-        max_visible = 21
+        max_visible = 11
         table = Table(
             show_header=True,
             header_style="bold",
@@ -430,7 +430,7 @@ class LiveSimulationTUI:
             Align(table, vertical="bottom"),
             title="[bold]Event Log[/bold] [dim](HOOK=auto, LLM=agent)[/dim]",
             border_style="blue",
-            height=25,
+            height=15,
         )
 
     def _render_channel_conversation(self, target_channel: str) -> Panel:
@@ -624,19 +624,23 @@ class LiveSimulationTUI:
                         # - channel:userid:path (web, slack, discord, telegram)
                         # - person:path (feng, kevin - identity-based)
                         # - agent:path, system:path
+                        # Note: path itself may contain colons (e.g., config.identity.web:51321)
                         if (
                             parts[0] in ("web", "slack", "discord", "telegram")
                             and len(parts) >= 3
                         ):
                             namespace = f"{parts[0]}:{parts[1]}"
-                            path = parts[2]  # Just the semantic path
+                            # Join remaining parts - path may contain colons
+                            path = ":".join(parts[2:])
                         elif parts[0] in ("agent", "system"):
                             namespace = parts[0]
-                            path = parts[1] if len(parts) > 1 else ""
+                            # Join remaining parts - path may contain colons
+                            path = ":".join(parts[1:]) if len(parts) > 1 else ""
                         elif len(parts) >= 2:
                             # Person-based namespace (feng, kevin, etc.)
                             namespace = parts[0]
-                            path = parts[1]
+                            # Join remaining parts - path may contain colons
+                            path = ":".join(parts[1:])
                         else:
                             # Skip other formats
                             continue
@@ -725,7 +729,7 @@ class LiveSimulationTUI:
             tree.add("[dim]No memories stored yet[/dim]")
 
         return Panel(
-            tree, title="[bold]Memory Store[/bold]", border_style="magenta", height=30
+            tree, title="[bold]Memory Store[/bold]", border_style="magenta", height=18
         )
 
     def _render_stats(self) -> Panel:

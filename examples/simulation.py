@@ -70,27 +70,33 @@ class LiveSimulationDemo:
     def _seed_demo_identities(self, cli: CLIExecutor):
         """Seed demo identity configurations into the store.
 
-        Stores all identity mappings in a single JSON config.
-        Hooks inject this into LLM prompt, and LLM figures out the correct namespace.
+        Stores identity mappings as direct key-value pairs for fast lookup.
+        Format: agent:config.identity.{channel}:{user_id} -> namespace
 
-        Tests both mapping formats:
-        - channel only: "discord" matches any user
-        - channel:user_id: "web:51321" matches specific user
+        This allows O(1) lookup without LLM:
+            memoir get config.identity.web:51321 --namespace agent
+            -> kevin
+
+        Supports both formats:
+        - Specific: config.identity.web:51321 -> kevin
+        - Channel-wide: config.identity.discord -> feng (any user on discord)
         """
-        identities = {
-            # Specific user mapping (channel:user_id)
-            "kevin": {"channels": ["web:51321"]},
-            "slackBot": {"channels": ["slack:U04ABCD1234"]},
-            "TeleBot": {"channels": ["telegram:12345678"]},
-            # Channel-only mapping (any user on discord)
-            "feng": {"channels": ["discord"]},
+        # Identity mappings: {channel}:{user_id} or {channel} -> namespace
+        identity_mappings = {
+            # Specific user mappings (channel:user_id)
+            "web:51321": "kevin",
+            "slack:U04ABCD1234": "slackBot",
+            "telegram:12345678": "TeleBot",
+            # Channel-wide mapping (any user on this channel)
+            "discord": "feng",
         }
 
-        cli.set(
-            key="config.identities",
-            content=json.dumps(identities),
-            namespace="agent",
-        )
+        for channel_key, namespace in identity_mappings.items():
+            cli.set(
+                key=f"config.identity.{channel_key}",
+                content=namespace,
+                namespace="agent",
+            )
 
     def create_agent(self, user_id: str, channel: str = "web"):
         """Create an LLM agent for the given user and channel."""
@@ -266,7 +272,12 @@ class LiveSimulationDemo:
         finally:
             self.tui.stop()
 
-    def run_interactive(self, enable_chat: bool = True):
+    def run_interactive(
+        self,
+        enable_chat: bool = True,
+        user_id: str = "51321",
+        channel: str = "web",
+    ):
         """Run in interactive mode - accept slash commands and chat with LLM.
 
         Uses a scrolling console approach (not full-screen) so input is visible.
@@ -275,6 +286,8 @@ class LiveSimulationDemo:
         Args:
             enable_chat: If True, non-slash text is sent to LLM for chat.
                         If False, only slash commands are accepted.
+            user_id: User ID for identity resolution (default: 51321 -> kevin)
+            channel: Channel for identity resolution (default: web)
         """
         import sys
         import warnings
@@ -301,70 +314,68 @@ class LiveSimulationDemo:
         asyncio.set_event_loop(loop)
 
         # User identity for namespace (channel:user_id pattern)
-        # Using web:51321 to match identity config: "kevin": {"channels": ["web:51321"]}
-        user_id = "51321"
-        channel = "web"
         fallback_namespace = f"{channel}:{user_id}"
 
+        # CLI executor for identity lookup
+        cli = CLIExecutor(self.store_path)
         skill = SkillInjector(user_id=user_id, store_path=self.store_path)
 
         # Conversation history for display (role, content, is_slash)
         conversation: list[tuple[str, str, bool]] = []
 
-        # Session namespace - will be resolved by LLM at start
+        # Resolve identity using CLI get (fast, no LLM needed)
         session_namespace = fallback_namespace
+        console.print("[dim]Resolving identity...[/dim]")
+
+        def get_content(result) -> str | None:
+            """Safely extract content from CLI result."""
+            if result.success and result.data and isinstance(result.data, dict):
+                content = result.data.get("content")
+                if content and isinstance(content, str):
+                    return content.strip()
+            return None
+
+        # Try specific mapping first: config.identity.{channel}:{user_id}
+        result = cli.get(key=f"config.identity.{channel}:{user_id}", namespace="agent")
+        content = get_content(result)
+        if content:
+            session_namespace = content
+            self.tui.log_event(MemoryEvent(
+                timestamp=time.time(),
+                source=EventSource.SYSTEM,
+                operation="resolve-ns",
+                details=f"Found: config.identity.{channel}:{user_id} -> {session_namespace}",
+            ))
+        else:
+            # Try channel-wide mapping: config.identity.{channel}
+            result = cli.get(key=f"config.identity.{channel}", namespace="agent")
+            content = get_content(result)
+            if content:
+                session_namespace = content
+                self.tui.log_event(MemoryEvent(
+                    timestamp=time.time(),
+                    source=EventSource.SYSTEM,
+                    operation="resolve-ns",
+                    details=f"Found: config.identity.{channel} -> {session_namespace}",
+                ))
+            else:
+                self.tui.log_event(MemoryEvent(
+                    timestamp=time.time(),
+                    source=EventSource.SYSTEM,
+                    operation="resolve-ns",
+                    details=f"No mapping found, using fallback: {fallback_namespace}",
+                ))
+
+        if session_namespace != fallback_namespace:
+            console.print(f"[green]Identity resolved: {session_namespace}[/green]")
+        else:
+            console.print(f"[yellow]Using fallback namespace: {fallback_namespace}[/yellow]")
 
         # Create LLM agent for chat (if enabled)
         agent = None
         if enable_chat:
             agent = self.create_agent(user_id=user_id, channel=channel)
             agent.start_session()
-
-            # Ask LLM to resolve identity at session start
-            console.print("[dim]Resolving identity...[/dim]")
-            try:
-                response = loop.run_until_complete(agent.chat(
-                    f"What is the memoir namespace for channel '{channel}' and user_id '{user_id}'? "
-                    "Check the identity config at agent:config.identities. "
-                    "Reply with ONLY the namespace name, nothing else."
-                ))
-                # Extract namespace from response
-                resolved = response.content.strip()
-
-                # Log LLM response
-                self.tui.log_event(MemoryEvent(
-                    timestamp=time.time(),
-                    source=EventSource.LLM,
-                    operation="resolve-ns",
-                    details=f"LLM response: '{resolved}'",
-                ))
-
-                if resolved and " " not in resolved and len(resolved) < 50:
-                    session_namespace = resolved
-                    console.print(f"[green]Identity resolved: {session_namespace}[/green]")
-                    self.tui.log_event(MemoryEvent(
-                        timestamp=time.time(),
-                        source=EventSource.SYSTEM,
-                        operation="namespace",
-                        details=f"Session namespace set to: {session_namespace}",
-                    ))
-                else:
-                    console.print(f"[yellow]Using fallback namespace: {fallback_namespace}[/yellow]")
-                    self.tui.log_event(MemoryEvent(
-                        timestamp=time.time(),
-                        source=EventSource.SYSTEM,
-                        operation="namespace",
-                        details=f"Using fallback: {fallback_namespace}",
-                    ))
-            except Exception as e:
-                console.print(f"[yellow]Identity resolution failed, using fallback: {e}[/yellow]")
-                self.tui.log_event(MemoryEvent(
-                    timestamp=time.time(),
-                    source=EventSource.SYSTEM,
-                    operation="ns-error",
-                    details=f"Resolution failed: {str(e)[:30]}",
-                    success=False,
-                ))
 
         def render_conversation():
             """Render the conversation panel."""
@@ -373,12 +384,12 @@ class LiveSimulationDemo:
                     Text("Start chatting! Type a message or /command", style="dim"),
                     title="[bold green]Conversation[/bold green]",
                     border_style="green",
-                    height=30,
+                    height=18,
                 )
 
             content = []
-            # Show last 26 messages
-            for role, msg, is_slash in conversation[-26:]:
+            # Show last 14 messages
+            for role, msg, is_slash in conversation[-14:]:
                 if role == "user":
                     if is_slash:
                         content.append(Text(f"> {msg}", style="yellow"))
@@ -395,7 +406,7 @@ class LiveSimulationDemo:
                 Align(Group(*content), vertical="bottom"),
                 title="[bold green]Conversation[/bold green]",
                 border_style="green",
-                height=30,
+                height=18,
             )
 
         def refresh_display():
@@ -762,6 +773,16 @@ Slash Commands:
         action="store_true",
         help="Disable LLM chat in interactive mode (slash commands only, no API key needed)",
     )
+    parser.add_argument(
+        "--user-id",
+        default="51321",
+        help="User ID for interactive mode (default: 51321, maps to kevin)",
+    )
+    parser.add_argument(
+        "--channel",
+        default="web",
+        help="Channel for interactive mode (default: web)",
+    )
 
     args = parser.parse_args()
 
@@ -798,6 +819,7 @@ Slash Commands:
     if args.interactive:
         chat_mode = "DISABLED" if args.no_chat else "ENABLED"
         print(f"\nMode: INTERACTIVE (chat: {chat_mode})")
+        print(f"Identity: {args.channel}:{args.user_id}")
     else:
         print("\nMode: AUTOMATED")
     print(f"Model: {args.model}")
@@ -824,7 +846,11 @@ Slash Commands:
 
     try:
         if args.interactive:
-            demo.run_interactive(enable_chat=not args.no_chat)
+            demo.run_interactive(
+                enable_chat=not args.no_chat,
+                user_id=args.user_id,
+                channel=args.channel,
+            )
         else:
             demo.run()
     except KeyboardInterrupt:
