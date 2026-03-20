@@ -20,9 +20,15 @@ logger = logging.getLogger(__name__)
 class LiteLLMResponse:
     """Response object that mimics LangChain's response format."""
 
-    def __init__(self, content: str, usage: Optional[dict] = None):
+    def __init__(
+        self,
+        content: str,
+        usage: Optional[dict] = None,
+        tool_calls: Optional[list] = None,
+    ):
         self.content = content
         self.usage = usage or {}
+        self.tool_calls = tool_calls or []
 
 
 class LiteLLMWrapper:
@@ -121,6 +127,8 @@ class LiteLLMWrapper:
             "model": self.model,
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
+            # Drop unsupported params for provider compatibility (e.g., Anthropic)
+            "drop_params": True,
         }
         if self.base_url:
             kwargs["base_url"] = self.base_url
@@ -318,6 +326,63 @@ class LiteLLMWrapper:
             self._update_cache_stats(usage)
 
         return LiteLLMResponse(content=content, usage=usage)
+
+    async def ainvoke_with_tools(
+        self,
+        messages: list[dict],
+        tools: Optional[list[dict]] = None,
+    ) -> LiteLLMResponse:
+        """
+        Async invoke with tool calling support.
+
+        Args:
+            messages: List of message dicts with role/content
+            tools: Optional list of tool definitions (OpenAI format)
+
+        Returns:
+            LiteLLMResponse with content and optional tool_calls
+        """
+        kwargs = self._build_kwargs()
+        kwargs["messages"] = messages
+
+        if tools:
+            kwargs["tools"] = tools
+            kwargs["tool_choice"] = "auto"
+
+        response = await self._litellm.acompletion(**kwargs)
+
+        # Extract content and tool calls
+        message = response.choices[0].message
+        content = message.content or ""
+        usage = getattr(response, "usage", {})
+
+        # Extract tool calls if present
+        tool_calls = []
+        if hasattr(message, "tool_calls") and message.tool_calls:
+            for tc in message.tool_calls:
+                tool_calls.append(
+                    {
+                        "id": tc.id,
+                        "name": tc.function.name,
+                        "arguments": tc.function.arguments,  # JSON string
+                    }
+                )
+
+        # Update cache statistics
+        if self._supports_prompt_cache():
+            self._update_cache_stats(usage)
+
+        return LiteLLMResponse(content=content, usage=usage, tool_calls=tool_calls)
+
+    def invoke_with_tools(
+        self,
+        messages: list[dict],
+        tools: Optional[list[dict]] = None,
+    ) -> LiteLLMResponse:
+        """Synchronous invoke with tools."""
+        import asyncio
+
+        return asyncio.run(self.ainvoke_with_tools(messages, tools))
 
 
 def get_llm(
