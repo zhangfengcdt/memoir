@@ -88,4 +88,4 @@ jobs:
 
     - name: Run Bandit (security)
       run: |
-        bandit -r src/ --skip B101,B110,B404,B601,B603,B607,B608
+        bandit -r src/ --skip B101,B108,B110,B112,B307,B404,B601,B603,B607,B608

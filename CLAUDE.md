@@ -362,10 +362,13 @@ tests/
 
 **pyproject.toml - Bandit Skips:**
 ```toml
-skips = ["B101", "B110", "B404", "B601", "B603", "B607", "B608"]
+skips = ["B101", "B108", "B110", "B112", "B307", "B404", "B601", "B603", "B607", "B608"]
 ```
 - B101: assert_used (needed for tests)
+- B108: hardcoded_tmp_directory (needed for simulation buffer directory)
 - B110: try_except_pass (intentional error suppression)
+- B112: try_except_continue (intentional error suppression in simulation)
+- B307: eval (used for assertion evaluation in simulation testing)
 - B404: import_subprocess (required for git operations)
 - B603/B607: subprocess calls (safe with hardcoded commands)
 - B608: hardcoded_sql (false positive on commit messages)

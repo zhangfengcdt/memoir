@@ -157,7 +157,7 @@ exclude = ["venv", ".venv", "build", "dist"]
 
 [tool.bandit]
 exclude_dirs = ["tests", "examples"]
-skips = ["B101", "B110", "B404", "B601", "B603", "B607", "B608"]
+skips = ["B101", "B108", "B110", "B112", "B307", "B404", "B601", "B603", "B607", "B608"]
 
 [tool.bandit.assert_used]
 skips = ["*_test.py", "test_*.py"]
