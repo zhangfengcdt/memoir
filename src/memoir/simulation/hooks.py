@@ -333,75 +333,76 @@ class HookSystem:
     # Default Hook Implementations
     # ==========================================================================
 
-    # Default identity mappings (used to seed agent memory on first bootstrap)
-    DEFAULT_IDENTITY_MAPPINGS: ClassVar[dict[str, dict[str, Any]]] = {
-        "feng": {
-            "channels": ["discord", "slack"],
-            "description": "Feng - uses Discord and Slack",
-        },
-        "kevin": {
-            "channels": ["telegram", "web"],
-            "description": "Kevin - uses Telegram and Web",
-        },
-    }
+    # Default identity mappings - empty by default, loaded dynamically from store
+    # Add identities via: memoir set "config.identity.<name>" '{"channels": ["channel1"], "description": "..."}' -n agent
+    DEFAULT_IDENTITY_MAPPINGS: ClassVar[dict[str, dict[str, Any]]] = {}
 
     def _ensure_identity_mappings_in_memory(self) -> list[CLIResult]:
         """
-        Ensure identity mappings are stored in agent memory.
+        Ensure identity mappings exist in agent memory.
 
-        Uses `memoir set` to store at exact paths (bypassing LLM classification).
-        This ensures identity configs are stored at predictable paths like:
-        - config.identity.feng
-        - config.identity.kevin
-        - config.identity.mapping_rule
+        Checks if config.identities exists. If not and DEFAULT_IDENTITY_MAPPINGS
+        is set, stores it. Otherwise does nothing (expects external seeding).
 
         Returns:
             List of CLI results from storing mappings
         """
         cli_results = []
 
-        # Store each identity mapping at an exact path using `set`
-        for person, mapping in self.DEFAULT_IDENTITY_MAPPINGS.items():
-            channels = ", ".join(mapping["channels"])
-            content = (
-                f"Identity mapping: User '{person}' uses channels: {channels}. "
-                f"When receiving messages from {channels}, store memories in "
-                f"namespace '{person}'."
-            )
-            # Store at exact path: config.identity.<person>
+        # Check if identities already exist
+        existing = self._load_identity_mappings_from_memory(use_defaults=False)
+        if existing:
+            return cli_results  # Already configured
+
+        # Only store defaults if they exist
+        if self.DEFAULT_IDENTITY_MAPPINGS:
             result = self.executor.set(
-                key=f"config.identity.{person}",
-                content=content,
+                key="config.identities",
+                content=json.dumps(self.DEFAULT_IDENTITY_MAPPINGS),
                 namespace="agent",
             )
             cli_results.append(result)
 
-        # Also store the mapping rule at an exact path
-        summary = (
-            "NAMESPACE RULE: Check which channel the message came from. "
-            "Discord/Slack → use namespace 'feng'. "
-            "Telegram/Web → use namespace 'kevin'. "
-            "Your own learnings → use namespace 'agent'."
-        )
-        result = self.executor.set(
-            key="config.identity.mapping_rule",
-            content=summary,
-            namespace="agent",
-        )
-        cli_results.append(result)
-
         return cli_results
 
-    def _load_identity_mappings_from_memory(self) -> dict[str, dict[str, Any]]:
+    def _load_identity_mappings_from_memory(
+        self, use_defaults: bool = True
+    ) -> dict[str, dict[str, Any]]:
         """
-        Load identity mappings from agent memory.
+        Load identity mappings dynamically from agent memory.
+
+        Reads config.identities from the agent namespace (single JSON config).
+
+        Args:
+            use_defaults: If True, fall back to DEFAULT_IDENTITY_MAPPINGS on error
 
         Returns:
-            Identity mappings dict (falls back to defaults if not found)
+            Identity mappings dict {person: {"channels": [...]}}
         """
-        # For now, return defaults - in future could parse from memory
-        # This allows the structure to be extended to read dynamic mappings
-        return self.DEFAULT_IDENTITY_MAPPINGS
+        try:
+            # Read single identities config from agent namespace
+            result = self.executor.get(
+                key="config.identities",
+                namespace="agent",
+            )
+
+            if result.success and result.data:
+                content = result.data.get("content", "")
+                try:
+                    mappings = json.loads(content)
+                    if mappings:
+                        return mappings
+                except json.JSONDecodeError:
+                    logger.debug(f"Invalid JSON in config.identities: {content[:50]}")
+
+        except Exception as e:
+            logger.warning(f"Failed to load identity mappings from memory: {e}")
+
+        # Fall back to defaults if requested and nothing found
+        if use_defaults:
+            return self.DEFAULT_IDENTITY_MAPPINGS
+
+        return {}
 
     def _get_identity_for_channel(self, channel: str) -> Optional[str]:
         """Get the person identity for a given channel."""
@@ -414,9 +415,13 @@ class HookSystem:
     def _format_identity_mappings(self) -> str:
         """Format identity mappings for LLM context injection."""
         mappings = self._load_identity_mappings_from_memory()
+        if not mappings:
+            return (
+                "(No identity mappings configured. Use channel:user_id as namespace.)"
+            )
         lines = []
         for person, mapping in mappings.items():
-            channels = ", ".join(mapping["channels"])
+            channels = ", ".join(mapping.get("channels", []))
             lines.append(f"- **{person}**: channels [{channels}]")
         return "\n".join(lines)
 

@@ -21,6 +21,7 @@ Usage:
 
 import argparse
 import asyncio
+import json
 import sys
 import tempfile
 import threading
@@ -58,11 +59,32 @@ class LiveSimulationDemo:
         if not result.success:
             print(f"Warning: Store creation: {result.error}")
 
+        # Seed demo identity configs into store
+        # (Hooks and agents read these dynamically from the store)
+        self._seed_demo_identities(cli)
+
         # Create TUI
         self.tui = LiveSimulationTUI(store_path)
 
         # Session manager for all users
         self.session_manager = SessionManager()
+
+    def _seed_demo_identities(self, cli: CLIExecutor):
+        """Seed demo identity configurations into the store.
+
+        Stores all identity mappings in a single JSON config.
+        Hooks inject this into LLM prompt, and LLM figures out the correct namespace.
+        """
+        identities = {
+            "feng": {"channels": ["discord", "slack"]},
+            "kevin": {"channels": ["telegram", "web"]},
+        }
+
+        cli.set(
+            key="config.identities",
+            content=json.dumps(identities),
+            namespace="agent",
+        )
 
     def create_mock_agent(self, user_id: str, channel: str = "web"):
         """Create a mock agent for testing without LLM."""
@@ -103,6 +125,7 @@ class LiveSimulationDemo:
             tui=self.tui,
             hooks=instrumented_hooks,
             skill_injector=instrumented_skill,
+            store_path=self.store_path,
         )
 
     def create_real_agent(self, user_id: str, channel: str = "web"):
@@ -317,6 +340,7 @@ class MockAgentWithInstrumentation:
         tui,
         hooks,
         skill_injector,
+        store_path: str,
     ):
         self.config = config
         self.user_id = user_id
@@ -325,7 +349,9 @@ class MockAgentWithInstrumentation:
         self.tui = tui
         self.hooks = hooks
         self.skill_injector = skill_injector
+        self.store_path = store_path
         self.session = None
+        self._identity = None  # Cached, loaded from store on first use
 
         self.responses = [
             "I'll remember that for you!",
@@ -334,6 +360,25 @@ class MockAgentWithInstrumentation:
             "I've noted your preference.",
         ]
         self._response_index = 0
+
+    def _get_default_namespace(self):
+        """Get namespace by reading identity config from store."""
+        if self._identity is None:
+            # Read from store
+            cli = CLIExecutor(self.store_path)
+            result = cli.get("config.identities", namespace="agent")
+            if result.success and result.data:
+                try:
+                    identities = json.loads(result.data.get("content", "{}"))
+                    for person, config in identities.items():
+                        if self.channel in config.get("channels", []):
+                            self._identity = person
+                            break
+                except json.JSONDecodeError:
+                    pass
+            if self._identity is None:
+                self._identity = f"{self.channel}:{self.user_id}"
+        return self._identity
 
     def start_session(self, session_id=None):
         """Start session with bootstrap hook."""
@@ -382,7 +427,7 @@ class MockAgentWithInstrumentation:
             tc = ToolCall(
                 id=f"call_{time.time()}",
                 name="memoir_remember",
-                arguments={"content": content, "namespace": f"{self.channel}:{self.user_id}"},
+                arguments={"content": content, "namespace": self._get_default_namespace()},
             )
             tool_calls.append(tc)
             result = self.skill_injector.execute_tool_call(tc.name, tc.arguments)
@@ -392,7 +437,7 @@ class MockAgentWithInstrumentation:
             tc = ToolCall(
                 id=f"call_{time.time()}",
                 name="memoir_recall",
-                arguments={"query": "user preferences", "namespace": f"{self.channel}:{self.user_id}"},
+                arguments={"query": "user preferences", "namespace": self._get_default_namespace()},
             )
             tool_calls.append(tc)
             result = self.skill_injector.execute_tool_call(tc.name, tc.arguments)

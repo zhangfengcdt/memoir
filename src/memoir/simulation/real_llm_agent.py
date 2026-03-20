@@ -71,40 +71,26 @@ class RealLLMAgent:
 
     SYSTEM_PROMPT = """You are a helpful AI assistant with persistent memory via the Memoir system.
 
-## Current Context:
+## Current Session:
 - Channel: {channel}
-- Platform User ID: {user_id}
 
 ## Tools:
-- memoir_help: Get CLI help (call with no args for general help, or specify command name)
-- memoir_remember: Store memories with LLM classification (auto-categorizes content)
-- memoir_recall: Search memories with LLM (semantic search)
-- memoir_set: Store at exact path WITHOUT LLM (fast, use when you know the path)
-- memoir_get: Get by exact path WITHOUT LLM (fast O(log n) lookup)
+- memoir_remember: Store memories (auto-categorizes content)
+- memoir_recall: Search memories (semantic search)
+- memoir_set: Store at exact path (fast, no classification)
+- memoir_get: Get by exact path (fast lookup)
 - memoir_forget: Delete a memory
 
 ## Namespaces:
-- **agent**: Your own learnings, skills, techniques, AND identity mappings
-- **<person_name>**: User-specific memories (e.g., "feng", "kevin")
+- **agent**: Your own learnings, skills, techniques
+- **<person_name>**: User memories (look up from Identity Mappings below)
 
-## IMPORTANT - Identity-Based Memory:
-At bootstrap, check the [Identity Mappings] section to determine WHO you're talking to.
-The mappings tell you which channels belong to which person.
+## IMPORTANT - Read Identity Mappings:
+Check the [Previous Memories] section for Identity Mappings config.
+Find which person owns the current channel ({channel}).
+Use that person's name as the namespace for this user's memories.
 
-**How to determine namespace for user memories:**
-1. Look at the current channel: {channel}
-2. Find which person owns this channel in [Identity Mappings]
-3. Use that person's name as the namespace (e.g., "feng" or "kevin")
-
-**Storing memories:**
-- Your learnings/skills → namespace="agent"
-- User preferences/facts → namespace="<person_name>" (based on identity mapping)
-- Example: If discord→feng, store "prefers dark mode" with namespace="feng"
-
-**Recalling memories:**
-- When asked about user → search the person's namespace (not channel-based)
-- When asked about your skills → search agent namespace
-- When asked "what do you remember" → search person's namespace + agent
+NEVER use channel:user_id format like "web:12345". ALWAYS use the person name.
 
 Be conversational and acknowledge when you store or find memories.
 """
@@ -170,6 +156,15 @@ Be conversational and acknowledge when you store or find memories.
             )
         return self._llm
 
+    def _get_default_namespace(self) -> str:
+        """
+        Fallback namespace if LLM doesn't specify one.
+
+        The LLM should always specify the correct namespace based on
+        the identity config in the prompt. This is just a fallback.
+        """
+        return f"{self.channel}:{self.user_id}"
+
     def start_session(self, session_id: Optional[str] = None) -> Session:
         """Start a new conversation session."""
         self.session = self.session_manager.create_session(
@@ -223,9 +218,8 @@ Be conversational and acknowledge when you store or find memories.
 
     def _build_messages(self, extra_context: Optional[str] = None) -> list[dict]:
         """Build message list for LLM."""
-        # Substitute user_id and channel in system prompt
-        system_prompt = self.SYSTEM_PROMPT.replace("{user_id}", self.user_id)
-        system_prompt = system_prompt.replace("{channel}", self.channel)
+        # Substitute channel in system prompt
+        system_prompt = self.SYSTEM_PROMPT.replace("{channel}", self.channel)
         messages = [{"role": "system", "content": system_prompt}]
 
         # Add memory context from bootstrap hook
@@ -262,10 +256,13 @@ Be conversational and acknowledge when you store or find memories.
         name = tool_call.name
         args = tool_call.arguments
 
+        # Get the default namespace (identity-based if available)
+        default_ns = self._get_default_namespace()
+
         if name == "memoir_remember":
             result = self.cli.remember(
                 content=args.get("content", ""),
-                namespace=args.get("namespace", f"{self.channel}:{self.user_id}"),
+                namespace=args.get("namespace", default_ns),
             )
             return (
                 {
@@ -283,7 +280,7 @@ Be conversational and acknowledge when you store or find memories.
         elif name == "memoir_recall":
             result = self.cli.recall(
                 query=args.get("query", ""),
-                namespace=args.get("namespace", f"{self.channel}:{self.user_id}"),
+                namespace=args.get("namespace", default_ns),
                 limit=args.get("limit", 5),
             )
             memories = []
@@ -307,7 +304,7 @@ Be conversational and acknowledge when you store or find memories.
         elif name == "memoir_forget":
             result = self.cli.forget(
                 key=args.get("path", ""),
-                namespace=args.get("namespace", f"{self.channel}:{self.user_id}"),
+                namespace=args.get("namespace", default_ns),
             )
             return (
                 {
@@ -325,7 +322,7 @@ Be conversational and acknowledge when you store or find memories.
             result = self.cli.set(
                 key=args.get("key", ""),
                 content=args.get("content", ""),
-                namespace=args.get("namespace", f"{self.channel}:{self.user_id}"),
+                namespace=args.get("namespace", default_ns),
             )
             return (
                 {
@@ -343,7 +340,7 @@ Be conversational and acknowledge when you store or find memories.
         elif name == "memoir_get":
             result = self.cli.get(
                 key=args.get("key", ""),
-                namespace=args.get("namespace", f"{self.channel}:{self.user_id}"),
+                namespace=args.get("namespace", default_ns),
             )
             content = None
             if result.success and result.data:
@@ -446,9 +443,7 @@ Be conversational and acknowledge when you store or find memories.
                         operation=tool_call.name.replace("memoir_", ""),
                         details=command,
                         tool_name=tool_call.name,
-                        namespace=args.get(
-                            "namespace", f"{self.channel}:{self.user_id}"
-                        ),
+                        namespace=args.get("namespace", self._get_default_namespace()),
                         success=result.get("success", False),
                         duration_ms=tool_duration_ms,
                     )
