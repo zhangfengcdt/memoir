@@ -404,12 +404,31 @@ class HookSystem:
 
         return {}
 
-    def _get_identity_for_channel(self, channel: str) -> Optional[str]:
-        """Get the person identity for a given channel."""
+    def _get_identity_for_channel(
+        self, channel: str, user_id: Optional[str] = None
+    ) -> Optional[str]:
+        """Get the person identity for a given channel and optional user_id.
+
+        Supports two mapping formats:
+        - "channels": ["web"] - matches any user on web channel
+        - "channels": ["web:51321"] - matches only user 51321 on web channel
+
+        Checks channel:user_id first (more specific), then channel-only.
+        """
         mappings = self._load_identity_mappings_from_memory()
+
+        # First try exact channel:user_id match (more specific)
+        if user_id:
+            channel_user = f"{channel}:{user_id}"
+            for person, mapping in mappings.items():
+                if channel_user in mapping.get("channels", []):
+                    return person
+
+        # Fall back to channel-only match
         for person, mapping in mappings.items():
-            if channel in mapping["channels"]:
+            if channel in mapping.get("channels", []):
                 return person
+
         return None
 
     def _format_identity_mappings(self) -> str:
@@ -452,16 +471,19 @@ class HookSystem:
         seed_results = self._ensure_identity_mappings_in_memory()
         cli_results.extend(seed_results)
 
-        # Get channel and determine person identity
+        # Get channel, user_id and determine person identity
         channel = self._extract_channel(session_key)
-        person = self._get_identity_for_channel(channel)
+        user_id = self._extract_user_id(session_key)
+        person = self._get_identity_for_channel(channel, user_id)
 
         # Always inject identity mappings first
         identity_section = (
             "### Identity Mappings\n"
             "Use these to determine which namespace to use for user memories:\n"
+            "Format: channel or channel:user_id -> person\n"
             f"{self._format_identity_mappings()}\n\n"
             f"**Current channel:** {channel}\n"
+            f"**Current user_id:** {user_id}\n"
             f"**Current person:** {person or 'unknown'}\n"
             f"**Use namespace:** {person or channel} for this user's memories"
         )

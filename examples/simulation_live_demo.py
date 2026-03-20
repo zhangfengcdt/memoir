@@ -74,10 +74,18 @@ class LiveSimulationDemo:
 
         Stores all identity mappings in a single JSON config.
         Hooks inject this into LLM prompt, and LLM figures out the correct namespace.
+
+        Tests both mapping formats:
+        - channel only: "discord" matches any user
+        - channel:user_id: "web:51321" matches specific user
         """
         identities = {
-            "feng": {"channels": ["discord", "slack"]},
-            "kevin": {"channels": ["telegram", "web"]},
+            # Specific user mapping (channel:user_id)
+            "kevin": {"channels": ["web:51321"]},
+            "slackBot": {"channels": ["slack:U04ABCD1234"]},
+            "TeleBot": {"channels": ["telegram:12345678"]},
+            # Channel-only mapping (any user on discord)
+            "feng": {"channels": ["discord"]},
         }
 
         cli.set(
@@ -362,7 +370,12 @@ class MockAgentWithInstrumentation:
         self._response_index = 0
 
     def _get_default_namespace(self):
-        """Get namespace by reading identity config from store."""
+        """Get namespace by reading identity config from store.
+
+        Supports two mapping formats:
+        - "channels": ["web"] - matches any user on web channel
+        - "channels": ["web:51321"] - matches only user 51321 on web channel
+        """
         if self._identity is None:
             # Read from store
             cli = CLIExecutor(self.store_path)
@@ -370,12 +383,23 @@ class MockAgentWithInstrumentation:
             if result.success and result.data:
                 try:
                     identities = json.loads(result.data.get("content", "{}"))
+                    channel_user = f"{self.channel}:{self.user_id}"
+
+                    # First try exact channel:user_id match (more specific)
                     for person, config in identities.items():
-                        if self.channel in config.get("channels", []):
+                        if channel_user in config.get("channels", []):
                             self._identity = person
                             break
+
+                    # Fall back to channel-only match
+                    if self._identity is None:
+                        for person, config in identities.items():
+                            if self.channel in config.get("channels", []):
+                                self._identity = person
+                                break
                 except json.JSONDecodeError:
                     pass
+
             if self._identity is None:
                 self._identity = f"{self.channel}:{self.user_id}"
         return self._identity
