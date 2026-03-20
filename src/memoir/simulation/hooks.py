@@ -20,7 +20,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Callable, ClassVar, Optional
 
 from memoir.simulation.cli_executor import CLIExecutor, CLIResult
 
@@ -333,6 +333,93 @@ class HookSystem:
     # Default Hook Implementations
     # ==========================================================================
 
+    # Default identity mappings (used to seed agent memory on first bootstrap)
+    DEFAULT_IDENTITY_MAPPINGS: ClassVar[dict[str, dict[str, Any]]] = {
+        "feng": {
+            "channels": ["discord", "slack"],
+            "description": "Feng - uses Discord and Slack",
+        },
+        "kevin": {
+            "channels": ["telegram", "web"],
+            "description": "Kevin - uses Telegram and Web",
+        },
+    }
+
+    def _ensure_identity_mappings_in_memory(self) -> list[CLIResult]:
+        """
+        Ensure identity mappings are stored in agent memory.
+
+        Uses `memoir set` to store at exact paths (bypassing LLM classification).
+        This ensures identity configs are stored at predictable paths like:
+        - config.identity.feng
+        - config.identity.kevin
+        - config.identity.mapping_rule
+
+        Returns:
+            List of CLI results from storing mappings
+        """
+        cli_results = []
+
+        # Store each identity mapping at an exact path using `set`
+        for person, mapping in self.DEFAULT_IDENTITY_MAPPINGS.items():
+            channels = ", ".join(mapping["channels"])
+            content = (
+                f"Identity mapping: User '{person}' uses channels: {channels}. "
+                f"When receiving messages from {channels}, store memories in "
+                f"namespace '{person}'."
+            )
+            # Store at exact path: config.identity.<person>
+            result = self.executor.set(
+                key=f"config.identity.{person}",
+                content=content,
+                namespace="agent",
+            )
+            cli_results.append(result)
+
+        # Also store the mapping rule at an exact path
+        summary = (
+            "NAMESPACE RULE: Check which channel the message came from. "
+            "Discord/Slack → use namespace 'feng'. "
+            "Telegram/Web → use namespace 'kevin'. "
+            "Your own learnings → use namespace 'agent'."
+        )
+        result = self.executor.set(
+            key="config.identity.mapping_rule",
+            content=summary,
+            namespace="agent",
+        )
+        cli_results.append(result)
+
+        return cli_results
+
+    def _load_identity_mappings_from_memory(self) -> dict[str, dict[str, Any]]:
+        """
+        Load identity mappings from agent memory.
+
+        Returns:
+            Identity mappings dict (falls back to defaults if not found)
+        """
+        # For now, return defaults - in future could parse from memory
+        # This allows the structure to be extended to read dynamic mappings
+        return self.DEFAULT_IDENTITY_MAPPINGS
+
+    def _get_identity_for_channel(self, channel: str) -> Optional[str]:
+        """Get the person identity for a given channel."""
+        mappings = self._load_identity_mappings_from_memory()
+        for person, mapping in mappings.items():
+            if channel in mapping["channels"]:
+                return person
+        return None
+
+    def _format_identity_mappings(self) -> str:
+        """Format identity mappings for LLM context injection."""
+        mappings = self._load_identity_mappings_from_memory()
+        lines = []
+        for person, mapping in mappings.items():
+            channels = ", ".join(mapping["channels"])
+            lines.append(f"- **{person}**: channels [{channels}]")
+        return "\n".join(lines)
+
     def _memoir_recall_hook(
         self,
         event: HookEvent,
@@ -342,11 +429,9 @@ class HookSystem:
         """
         memoir-recall hook: Inject memories at session bootstrap.
 
-        Performs cheap path-based lookups (no LLM) to inject:
-        - User preferences
-        - Current project context
-        - Agent skills
-        - System tools
+        1. Ensures identity mappings are stored in agent memory
+        2. Reads identity mappings to determine current person
+        3. Injects context with identity info and relevant memories
 
         Args:
             event: Hook event
@@ -358,20 +443,49 @@ class HookSystem:
         cli_results = []
         sections = []
 
-        user_ns = self._get_user_namespace(session_key)
+        # Ensure identity mappings are stored in agent memory
+        seed_results = self._ensure_identity_mappings_in_memory()
+        cli_results.extend(seed_results)
 
-        # Tier 1: Cheap path-based lookups
-        lookups = [
-            ("User Preferences", user_ns, "preferences"),
-            ("Current Project", user_ns, "projects.current"),
+        # Get channel and determine person identity
+        channel = self._extract_channel(session_key)
+        person = self._get_identity_for_channel(channel)
+
+        # Always inject identity mappings first
+        identity_section = (
+            "### Identity Mappings\n"
+            "Use these to determine which namespace to use for user memories:\n"
+            f"{self._format_identity_mappings()}\n\n"
+            f"**Current channel:** {channel}\n"
+            f"**Current person:** {person or 'unknown'}\n"
+            f"**Use namespace:** {person or channel} for this user's memories"
+        )
+        sections.append(identity_section)
+
+        # If we know the person, look up their memories
+        if person:
+            person_lookups = [
+                ("User Preferences", person, "preferences"),
+                ("Current Project", person, "projects.current"),
+            ]
+            for title, namespace, path in person_lookups:
+                result = self.executor.get(path, namespace=namespace)
+                cli_results.append(result)
+                if result.success and result.data:
+                    memories = result.data.get("memories", [])
+                    if memories:
+                        content = self._format_memories(memories)
+                        sections.append(f"### {title} ({person})\n{content}")
+
+        # Agent memories (identity mappings + skills)
+        agent_lookups = [
+            ("Agent Configuration", "agent", "identity"),
             ("Agent Skills", "agent", "skills"),
             ("System Tools", "system", "tools.available"),
         ]
-
-        for title, namespace, path in lookups:
+        for title, namespace, path in agent_lookups:
             result = self.executor.get(path, namespace=namespace)
             cli_results.append(result)
-
             if result.success and result.data:
                 memories = result.data.get("memories", [])
                 if memories:

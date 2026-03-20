@@ -121,6 +121,54 @@ class DeleteResult:
 
 
 @dataclass
+class SetResult:
+    """Result of a set (direct store at path) operation."""
+
+    success: bool
+    key: str  # The exact path used
+    namespace: str = "default"
+    commit_hash: Optional[str] = None
+    content: str = ""
+    error: Optional[str] = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "success": self.success,
+            "key": self.key,
+            "full_key": f"{self.namespace}:{self.key}",
+            "namespace": self.namespace,
+            "commit_hash": self.commit_hash,
+            "content": self.content,
+            "error": self.error,
+        }
+
+
+@dataclass
+class GetResult:
+    """Result of a get (direct path lookup) operation."""
+
+    success: bool
+    key: str
+    content: Optional[str] = None
+    namespace: str = "default"
+    metadata: dict[str, Any] = field(default_factory=dict)
+    error: Optional[str] = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "success": self.success,
+            "key": self.key,
+            "full_key": f"{self.namespace}:{self.key}",
+            "content": self.content,
+            "namespace": self.namespace,
+            "metadata": self.metadata,
+            "error": self.error,
+        }
+
+
+@dataclass
 class BranchInfo:
     """Information about branches in the repository."""
 

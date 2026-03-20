@@ -71,33 +71,40 @@ class RealLLMAgent:
 
     SYSTEM_PROMPT = """You are a helpful AI assistant with persistent memory via the Memoir system.
 
+## Current Context:
+- Channel: {channel}
+- Platform User ID: {user_id}
+
 ## Tools:
 - memoir_help: Get CLI help (call with no args for general help, or specify command name)
-- memoir_remember: Store memories (with namespace: 'agent' or '{channel}:{user_id}')
-- memoir_recall: Search memories (with namespace: 'agent' or '{channel}:{user_id}')
-- memoir_checkout: Switch branches for context isolation
+- memoir_remember: Store memories with LLM classification (auto-categorizes content)
+- memoir_recall: Search memories with LLM (semantic search)
+- memoir_set: Store at exact path WITHOUT LLM (fast, use when you know the path)
+- memoir_get: Get by exact path WITHOUT LLM (fast O(log n) lookup)
 - memoir_forget: Delete a memory
 
 ## Namespaces:
-- **{channel}:{user_id}**: User preferences, facts, projects (default)
-- **agent**: Your own learnings, skills, techniques, insights
+- **agent**: Your own learnings, skills, techniques, AND identity mappings
+- **<person_name>**: User-specific memories (e.g., "feng", "kevin")
 
-## Rules:
+## IMPORTANT - Identity-Based Memory:
+At bootstrap, check the [Identity Mappings] section to determine WHO you're talking to.
+The mappings tell you which channels belong to which person.
 
-**Discovering commands:**
-- Use memoir_help() to see all available commands
-- Use memoir_help(command="remember") to see detailed help for a command
+**How to determine namespace for user memories:**
+1. Look at the current channel: {channel}
+2. Find which person owns this channel in [Identity Mappings]
+3. Use that person's name as the namespace (e.g., "feng" or "kevin")
 
 **Storing memories:**
-- User preferences/facts → namespace="{channel}:{user_id}" (or omit for default)
 - Your learnings/skills → namespace="agent"
-- Example: "I learned to use rg for fast search" → namespace="agent"
-- Example: "User prefers dark mode" → namespace="{channel}:{user_id}"
+- User preferences/facts → namespace="<person_name>" (based on identity mapping)
+- Example: If discord→feng, store "prefers dark mode" with namespace="feng"
 
 **Recalling memories:**
-- When asked about user → search user namespace
+- When asked about user → search the person's namespace (not channel-based)
 - When asked about your skills → search agent namespace
-- When asked "what do you remember" → search both namespaces
+- When asked "what do you remember" → search person's namespace + agent
 
 Be conversational and acknowledge when you store or find memories.
 """
@@ -314,19 +321,39 @@ Be conversational and acknowledge when you store or find memories.
                 result.command,
             )
 
-        elif name == "memoir_checkout":
-            result = self.cli.checkout(
-                branch_name=args.get("branch", ""),
-                create_if_missing=args.get("create_if_missing", True),
+        elif name == "memoir_set":
+            result = self.cli.set(
+                key=args.get("key", ""),
+                content=args.get("content", ""),
+                namespace=args.get("namespace", f"{self.channel}:{self.user_id}"),
             )
             return (
                 {
                     "success": result.success,
+                    "key": result.data.get("key") if result.data else args.get("key"),
                     "message": (
-                        f"Switched to branch {args.get('branch')}"
+                        f"Stored at {args.get('key')}"
                         if result.success
                         else result.error
                     ),
+                },
+                result.command,
+            )
+
+        elif name == "memoir_get":
+            result = self.cli.get(
+                key=args.get("key", ""),
+                namespace=args.get("namespace", f"{self.channel}:{self.user_id}"),
+            )
+            content = None
+            if result.success and result.data:
+                content = result.data.get("content")
+            return (
+                {
+                    "success": result.success,
+                    "key": args.get("key"),
+                    "content": content,
+                    "found": content is not None,
                 },
                 result.command,
             )

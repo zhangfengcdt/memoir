@@ -493,7 +493,10 @@ class LiveSimulationTUI:
                         if len(parts) < 2:
                             continue
 
-                        # Handle channel:userid:path format (web, slack, discord, telegram)
+                        # Handle various namespace formats:
+                        # - channel:userid:path (web, slack, discord, telegram)
+                        # - person:path (feng, kevin - identity-based)
+                        # - agent:path, system:path
                         if (
                             parts[0] in ("web", "slack", "discord", "telegram")
                             and len(parts) >= 3
@@ -503,6 +506,10 @@ class LiveSimulationTUI:
                         elif parts[0] in ("agent", "system"):
                             namespace = parts[0]
                             path = parts[1] if len(parts) > 1 else ""
+                        elif len(parts) >= 2:
+                            # Person-based namespace (feng, kevin, etc.)
+                            namespace = parts[0]
+                            path = parts[1]
                         else:
                             # Skip other formats
                             continue

@@ -144,6 +144,106 @@ def recall(
         ctx.error(f"Failed to recall: {e}", EXIT_ERROR)
 
 
+@click.command("set")
+@click.argument("key")
+@click.argument("content")
+@click.option("-n", "--namespace", default="default", help="Memory namespace")
+@pass_context
+def set_memory(ctx: MemoirContext, key: str, content: str, namespace: str):
+    """Store content at exact path WITHOUT LLM classification.
+
+    INPUT: Key (semantic path) and content to store.
+    OUTPUT: Confirmation with path and commit hash.
+
+    This command bypasses the LLM classifier and stores content directly
+    at the specified path. Useful for configuration, bootstrap data, or
+    when the caller already knows the exact path.
+
+    \b
+    Examples:
+      memoir set "config.identity.feng" "channels: discord, slack"
+      memoir set "agent.skills.coding" "Python expert" -n agent
+      memoir set "user.preferences.theme" "dark mode" -n alice
+
+    \b
+    JSON output includes: success, key, namespace, commit_hash
+    """
+    if not ctx.store_path:
+        ctx.error(
+            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
+        )
+
+    from memoir.services.memory_service import MemoryService
+
+    service = MemoryService(ctx.store_path)
+
+    try:
+        result = asyncio.run(service.set(key, content, namespace))
+
+        if ctx.json_output:
+            ctx.output(result.to_dict())
+        else:
+            if result.success:
+                click.echo(click.style("✓ ", fg="green") + f"Stored at: {result.key}")
+                if result.commit_hash:
+                    click.echo(f"  Commit: {result.commit_hash[:8]}")
+            else:
+                ctx.error(result.error or "Failed to set memory", EXIT_ERROR)
+    except Exception as e:
+        ctx.error(f"Failed to set: {e}", EXIT_ERROR)
+
+
+@click.command("get")
+@click.argument("key")
+@click.option("-n", "--namespace", default="default", help="Memory namespace")
+@pass_context
+def get_memory(ctx: MemoirContext, key: str, namespace: str):
+    """Get content by exact path WITHOUT LLM search.
+
+    INPUT: The exact key/path of the memory to retrieve.
+    OUTPUT: Memory content and metadata.
+
+    This command bypasses semantic search and retrieves directly by path.
+    O(log n) lookup - very fast and no LLM calls.
+
+    \b
+    Examples:
+      memoir get "config.identity.feng"
+      memoir get "user.preferences.theme" -n alice
+      memoir get "agent.skills.coding" -n agent
+
+    \b
+    JSON output includes: success, key, content, namespace, metadata
+    """
+    if not ctx.store_path:
+        ctx.error(
+            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
+        )
+
+    from memoir.services.memory_service import MemoryService
+
+    service = MemoryService(ctx.store_path)
+
+    try:
+        result = asyncio.run(service.get(key, namespace))
+
+        if ctx.json_output:
+            ctx.output(result.to_dict())
+        else:
+            if result.success:
+                click.echo(click.style(f"[{result.key}]", fg="blue"))
+                click.echo(f"  {result.content}")
+                if ctx.verbose and result.metadata:
+                    click.echo(f"  Metadata: {result.metadata}")
+            else:
+                if result.error and "not found" in result.error.lower():
+                    ctx.error(f"Memory not found: {key}", EXIT_NOT_FOUND)
+                else:
+                    ctx.error(result.error or f"Failed to get: {key}", EXIT_ERROR)
+    except Exception as e:
+        ctx.error(f"Failed to get: {e}", EXIT_ERROR)
+
+
 @click.command()
 @click.argument("key")
 @click.option("-n", "--namespace", default="default", help="Memory namespace")

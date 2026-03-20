@@ -83,23 +83,21 @@ memoir recall "debugging techniques" --namespace agent --limit 5 --json
 memoir recall preferences.theme --namespace {channel}:{user_id} --limit 1 --json
 ```
 
-### Branch management
+### Direct path access (fast, no LLM)
 
-For project isolation or experiments:
+When you know the exact path, use set/get to bypass LLM classification:
 
 ```bash
-# Switch project context
-memoir checkout project/{name} --create-if-missing --json
+# Store at exact path (no classification)
+memoir set "config.identity.feng" "channels: discord, slack" --namespace agent --json
 
-# Experiment with new approach
-memoir checkout experiment/{name} --create-if-missing --json
-
-# List branches
-memoir branch --json
-
-# Merge successful experiment
-memoir merge experiment/{name} --json
+# Get by exact path (O(log n) lookup)
+memoir get "config.identity.feng" --namespace agent --json
 ```
+
+**When to use set/get vs remember/recall:**
+- Use `set`/`get` when you know the exact path (config, identity, known preferences)
+- Use `remember`/`recall` when content needs classification or semantic search
 
 ### View history
 
@@ -121,7 +119,7 @@ Before storing, ask: **Who benefits from this memory?**
 
 1. **Prefer path lookup over recall** - Direct path queries are free, semantic search costs tokens
 2. **Store atomically** - One fact per remember call
-3. **Use branches for projects** - Keeps context clean when switching
+3. **Use namespaces for isolation** - Different users/contexts get different namespaces
 4. **Let hooks handle routine storage** - Focus on explicit important learnings
 5. **Use --json flag** - Always include for machine-readable output
 """
@@ -178,28 +176,6 @@ TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
-            "name": "memoir_checkout",
-            "description": "Switch to a branch for project or experiment isolation.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "branch": {
-                        "type": "string",
-                        "description": "Branch name (e.g., 'project/webapp', 'experiment/new-approach').",
-                    },
-                    "create_if_missing": {
-                        "type": "boolean",
-                        "description": "Create the branch if it doesn't exist.",
-                        "default": True,
-                    },
-                },
-                "required": ["branch"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
             "name": "memoir_forget",
             "description": "Delete a memory by its path.",
             "parameters": {
@@ -216,6 +192,54 @@ TOOL_DEFINITIONS = [
                     },
                 },
                 "required": ["path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "memoir_set",
+            "description": "Store content at an exact path WITHOUT LLM classification. Use when you know the exact semantic path (e.g., 'config.identity.feng', 'preferences.theme'). Faster and cheaper than memoir_remember.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string",
+                        "description": "The exact semantic path to store at (e.g., 'config.identity.feng', 'preferences.theme').",
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "The content to store.",
+                    },
+                    "namespace": {
+                        "type": "string",
+                        "description": "Namespace: 'agent' for your data, or person name for user data.",
+                        "default": "agent",
+                    },
+                },
+                "required": ["key", "content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "memoir_get",
+            "description": "Get content by exact path WITHOUT LLM search. O(log n) lookup - very fast and no LLM calls. Use when you know the exact path.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string",
+                        "description": "The exact semantic path to retrieve (e.g., 'config.identity.feng', 'preferences.theme').",
+                    },
+                    "namespace": {
+                        "type": "string",
+                        "description": "Namespace to look in.",
+                        "default": "agent",
+                    },
+                },
+                "required": ["key"],
             },
         },
     },
@@ -388,14 +412,20 @@ across sessions. Use memoir to store important information and recall it later.
                 namespace=arguments.get("namespace", "agent"),
                 limit=arguments.get("limit", 5),
             )
-        elif tool_name == "memoir_checkout":
-            result = self.executor.checkout(
-                branch_name=arguments["branch"],
-                create_if_missing=arguments.get("create_if_missing", True),
-            )
         elif tool_name == "memoir_forget":
             result = self.executor.forget(
                 key=arguments["path"],
+                namespace=arguments.get("namespace", "agent"),
+            )
+        elif tool_name == "memoir_set":
+            result = self.executor.set(
+                key=arguments["key"],
+                content=arguments["content"],
+                namespace=arguments.get("namespace", "agent"),
+            )
+        elif tool_name == "memoir_get":
+            result = self.executor.get(
+                key=arguments["key"],
                 namespace=arguments.get("namespace", "agent"),
             )
         elif tool_name == "memoir_help":

@@ -281,26 +281,49 @@ class CLIExecutor:
             args.extend(["--namespace", namespace])
         return self._execute(args)
 
+    def set(
+        self,
+        key: str,
+        content: str,
+        namespace: Optional[str] = None,
+    ) -> CLIResult:
+        """
+        Store content at exact path WITHOUT LLM classification.
+
+        This bypasses the classifier and stores directly at the given key.
+        Useful for configuration, bootstrap data, or when caller knows the path.
+
+        Args:
+            key: Exact semantic path to store at
+            content: Content to store
+            namespace: Namespace for the memory
+
+        Returns:
+            CLIResult with storage status
+        """
+        args = ["set", key, content]
+        if namespace:
+            args.extend(["--namespace", namespace])
+        return self._execute(args)
+
     def get(
         self,
-        path: str,
+        key: str,
         namespace: Optional[str] = None,
     ) -> CLIResult:
         """
         Get a memory by exact path (cheap, no LLM).
 
-        Note: This uses recall with the path as query for now.
-        A dedicated 'get' command would be more efficient.
+        O(log n) lookup - very fast, no LLM calls.
 
         Args:
-            path: Exact memory path
+            key: Exact memory path
             namespace: Namespace
 
         Returns:
             CLIResult with memory content
         """
-        # Use recall with limit=1 for path lookup
-        args = ["recall", path, "--limit", "1"]
+        args = ["get", key]
         if namespace:
             args.extend(["--namespace", namespace])
         return self._execute(args)
@@ -418,6 +441,27 @@ class CLIExecutor:
             results.append(result)
         return results
 
+    def batch_set(
+        self,
+        items: list[tuple[str, str]],
+        namespace: Optional[str] = None,
+    ) -> list[CLIResult]:
+        """
+        Store multiple items at exact paths.
+
+        Args:
+            items: List of (key, content) tuples
+            namespace: Namespace for all memories
+
+        Returns:
+            List of CLIResults
+        """
+        results = []
+        for key, content in items:
+            result = self.set(key, content, namespace)
+            results.append(result)
+        return results
+
     def batch_recall(
         self,
         queries: list[str],
@@ -445,18 +489,24 @@ class CLIExecutor:
     # Help Commands
     # ==========================================================================
 
-    def help(self, command: Optional[str] = None) -> CLIResult:
+    def help(self, command: Optional[str] = None, agent_only: bool = True) -> CLIResult:
         """
         Get help for memoir CLI or a specific command.
 
         Args:
             command: Optional command name (e.g., "remember", "recall")
                     If None, returns general memoir help.
+            agent_only: If True, only show agent-ready commands (default True)
 
         Returns:
             CLIResult with help text in stdout
         """
-        args = [command, "--help"] if command else ["--help"]
+        if command:
+            args = [command, "--help"]
+        elif agent_only:
+            args = ["--agent-only", "--help"]
+        else:
+            args = ["--help"]
 
         # Don't use --json for help output
         cmd = ["memoir", *args]

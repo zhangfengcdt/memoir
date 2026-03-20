@@ -282,6 +282,157 @@ class MemoryService(BaseService):
         finally:
             loop.close()
 
+    async def set(
+        self,
+        key: str,
+        content: str,
+        namespace: str = "default",
+    ):
+        """
+        Store content at a specific path WITHOUT LLM classification.
+
+        This bypasses the classifier and stores directly at the given key.
+        Useful for configuration, bootstrap data, or when the caller
+        already knows the exact path to use.
+
+        Args:
+            key: The exact semantic path to store at (e.g., "config.identity.feng")
+            content: The content to store
+            namespace: Namespace for organization
+
+        Returns:
+            SetResult with storage confirmation
+        """
+        from memoir.services.models import SetResult
+
+        if not Path(self.store_path).exists():
+            raise StoreNotFoundError(self.store_path)
+
+        try:
+            store = self._get_store()
+            namespace_tuple = self.namespace_to_tuple(namespace)
+
+            memory_item = {
+                "content": content,
+                "key": key,
+                "namespace": namespace,
+                "timestamp": time.time(),
+                "direct_set": True,  # Flag indicating no classification
+            }
+
+            store.put(namespace_tuple, key, memory_item)
+
+            # Get commit info
+            commit_hash, _ = self._get_current_commit_info()
+
+            return SetResult(
+                success=True,
+                key=key,
+                namespace=namespace,
+                commit_hash=commit_hash,
+                content=content,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to set memory: {e}")
+            return SetResult(
+                success=False,
+                key=key,
+                namespace=namespace,
+                content=content,
+                error=str(e),
+            )
+
+    def set_sync(
+        self,
+        key: str,
+        content: str,
+        namespace: str = "default",
+    ):
+        """Synchronous wrapper for set()."""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(self.set(key, content, namespace))
+        finally:
+            loop.close()
+
+    async def get(
+        self,
+        key: str,
+        namespace: str = "default",
+    ):
+        """
+        Get content by exact path WITHOUT semantic search.
+
+        This bypasses the search engine and retrieves directly by key.
+        O(log n) lookup - very fast and no LLM calls.
+
+        Args:
+            key: The exact semantic path to retrieve
+            namespace: Namespace to look in
+
+        Returns:
+            GetResult with content if found
+        """
+        from memoir.services.models import GetResult
+
+        if not Path(self.store_path).exists():
+            raise StoreNotFoundError(self.store_path)
+
+        try:
+            store = self._get_store()
+            namespace_tuple = self.namespace_to_tuple(namespace)
+
+            result = store.get(namespace_tuple, key)
+
+            if result is None:
+                return GetResult(
+                    success=False,
+                    key=key,
+                    namespace=namespace,
+                    error=f"Key not found: {namespace}:{key}",
+                )
+
+            # Extract content from stored item
+            content = None
+            metadata = {}
+            if isinstance(result, dict):
+                content = result.get("content", str(result))
+                metadata = {k: v for k, v in result.items() if k != "content"}
+            else:
+                content = str(result)
+
+            return GetResult(
+                success=True,
+                key=key,
+                content=content,
+                namespace=namespace,
+                metadata=metadata,
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to get memory: {e}")
+            return GetResult(
+                success=False,
+                key=key,
+                namespace=namespace,
+                error=str(e),
+            )
+
+    def get_sync(
+        self,
+        key: str,
+        namespace: str = "default",
+    ):
+        """Synchronous wrapper for get()."""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(self.get(key, namespace))
+        finally:
+            loop.close()
+
     async def forget(
         self,
         key: str,

@@ -21,6 +21,41 @@ EXIT_NO_STORE = 3
 EXIT_CLASSIFICATION_FAILED = 4
 EXIT_GIT_FAILED = 5
 
+# Commands that are ready for agent use
+AGENT_READY_COMMANDS = {
+    "connect",
+    "status",
+    "remember",
+    "recall",
+    "forget",
+    "set",
+    "get",
+    "commits",
+}
+
+
+class AgentFilteredGroup(click.Group):
+    """Custom Group that can filter commands for agent-only help."""
+
+    def format_commands(self, ctx: click.Context, formatter: click.HelpFormatter):
+        """Override to filter commands when --agent-only is in argv."""
+        # Check sys.argv directly since --help is eager and processes before callbacks
+        agent_only = "--agent-only" in sys.argv
+
+        commands = []
+        for subcommand in self.list_commands(ctx):
+            cmd = self.get_command(ctx, subcommand)
+            if cmd is None:
+                continue
+            if agent_only and subcommand not in AGENT_READY_COMMANDS:
+                continue
+            help_text = cmd.get_short_help_str(limit=formatter.width)
+            commands.append((subcommand, help_text))
+
+        if commands:
+            with formatter.section("Commands"):
+                formatter.write_dl(commands)
+
 
 def get_command_schema(cmd: click.Command, name: str) -> dict[str, Any]:
     """Extract schema from a Click command for machine-readable output."""
@@ -141,7 +176,7 @@ def get_cli_schema(group: click.Group) -> dict[str, Any]:
     # Extract commands by group
     command_groups = {
         "store": ["new", "connect", "status", "refresh"],
-        "memory": ["remember", "recall", "forget"],
+        "memory": ["remember", "recall", "forget", "set", "get"],
         "branch": ["branch", "checkout", "merge", "commits", "time-travel", "diff"],
         "crypto": ["proof", "verify", "blame"],
         "analysis": ["summarize", "timeline", "location"],
@@ -256,7 +291,7 @@ def print_machine_readable(ctx: click.Context, _param: click.Parameter, value: b
     ctx.exit()
 
 
-@click.group()
+@click.group(cls=AgentFilteredGroup)
 @click.option(
     "-s",
     "--store",
@@ -291,6 +326,12 @@ def print_machine_readable(ctx: click.Context, _param: click.Parameter, value: b
     expose_value=False,
     callback=print_machine_readable,
     help="Output CLI schema as JSON (for agents to parse commands)",
+)
+@click.option(
+    "--agent-only",
+    is_flag=True,
+    expose_value=False,
+    help="Show only agent-ready commands in help output",
 )
 @click.version_option(package_name="memoir")
 @pass_context
@@ -364,6 +405,8 @@ cli.add_command(taxonomy.taxonomy)
 cli.add_command(memory.remember)
 cli.add_command(memory.recall)
 cli.add_command(memory.forget)
+cli.add_command(memory.set_memory)
+cli.add_command(memory.get_memory)
 
 # Branch commands
 cli.add_command(branch.branch)
