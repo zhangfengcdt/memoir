@@ -24,13 +24,16 @@ EXIT_GIT_FAILED = 5
 # Commands that are ready for agent use
 AGENT_READY_COMMANDS = {
     "connect",
-    "status",
     "remember",
     "recall",
     "forget",
     "set",
     "get",
     "commits",
+    "summarize",
+    "incognito",
+    "off-record",
+    "on-record",
 }
 
 
@@ -516,6 +519,47 @@ def tui(ctx: MemoirContext, store_path: Optional[str]):
             "TUI not available. Install with: pip install memoir[tui]",
             EXIT_ERROR,
         )
+
+
+# Session mode commands (placeholders for agent integration)
+@cli.command()
+@pass_context
+def incognito(ctx: MemoirContext):
+    """Start incognito mode - AI cannot see past or save anything new.
+
+    In this mode, every conversation is like a "first date" - no memory
+    context is loaded and no new memories are stored.
+
+    Use 'on-record' to exit incognito mode.
+    """
+    ctx.warn("Incognito mode not yet implemented")
+    ctx.info("In incognito mode: AI cannot see your past and cannot save anything new")
+
+
+@cli.command("off-record")
+@pass_context
+def off_record(ctx: MemoirContext):
+    """Start off-record mode - AI can see past but won't save anything new.
+
+    In this mode, memory context is loaded normally but new memories
+    are held in a buffer without being persisted.
+
+    Use 'on-record' to exit and choose to save or discard buffered memories.
+    """
+    ctx.warn("Off-record mode not yet implemented")
+    ctx.info("In off-record mode: AI can see your past, but won't save anything new")
+
+
+@cli.command("on-record")
+@pass_context
+def on_record(ctx: MemoirContext):
+    """Exit incognito or off-record mode and return to normal.
+
+    When exiting off-record mode, you'll be prompted to save or discard
+    any memories that were buffered during the session.
+    """
+    ctx.warn("On-record mode not yet implemented")
+    ctx.info("Returning to normal mode: AI can see and save memories")
 
 
 def main():
