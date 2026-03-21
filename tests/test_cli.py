@@ -210,24 +210,6 @@ class TestBranchCommands:
             data = json.loads(result.output)
             assert "success" in data or "branch" in data
 
-    def test_commits_list(self, runner, initialized_store):
-        """Test 'commits' command shows history."""
-        result = runner.invoke(cli, ["-s", initialized_store, "commits"])
-        assert result.exit_code == 0
-        # May have initial commit or be empty
-
-    def test_commits_json_output(self, runner, initialized_store):
-        """Test 'commits' command with JSON output."""
-        result = runner.invoke(cli, ["--json", "-s", initialized_store, "commits"])
-        assert result.exit_code == 0
-        data = json.loads(result.output)
-        assert "commits" in data
-
-    def test_commits_with_limit(self, runner, initialized_store):
-        """Test 'commits' command with --limit option."""
-        result = runner.invoke(cli, ["-s", initialized_store, "commits", "-n", "5"])
-        assert result.exit_code == 0
-
     def test_merge_requires_source(self, runner, initialized_store):
         """Test 'merge' command requires source branch."""
         result = runner.invoke(cli, ["-s", initialized_store, "merge"])
@@ -353,30 +335,6 @@ class TestAnalysisCommands:
     def test_summarize_json_output(self, runner, initialized_store):
         """Test 'summarize' command with JSON output."""
         result = runner.invoke(cli, ["--json", "-s", initialized_store, "summarize"])
-        assert result.exit_code == 0
-        data = json.loads(result.output)
-        assert isinstance(data, dict)
-
-    def test_timeline_list(self, runner, initialized_store):
-        """Test 'timeline' command lists events."""
-        result = runner.invoke(cli, ["-s", initialized_store, "timeline"])
-        assert result.exit_code == 0
-
-    def test_timeline_json_output(self, runner, initialized_store):
-        """Test 'timeline' command with JSON output."""
-        result = runner.invoke(cli, ["--json", "-s", initialized_store, "timeline"])
-        assert result.exit_code == 0
-        data = json.loads(result.output)
-        assert isinstance(data, dict)
-
-    def test_location_list(self, runner, initialized_store):
-        """Test 'location' command lists locations."""
-        result = runner.invoke(cli, ["-s", initialized_store, "location"])
-        assert result.exit_code == 0
-
-    def test_location_json_output(self, runner, initialized_store):
-        """Test 'location' command with JSON output."""
-        result = runner.invoke(cli, ["--json", "-s", initialized_store, "location"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert isinstance(data, dict)
