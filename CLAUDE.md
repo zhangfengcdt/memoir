@@ -50,6 +50,9 @@ python -m src.memoir.ui.server          # Start interactive memory visualization
 python -m src.memoir.ui.initializer  # Create sample memory store for UI testing
 ```
 
+### Important Notes
+Please do not auto commit or push code without running the above checks, especially `make lint` and `make test`. Always ensure code quality and functionality before pushing changes.
+
 ## Architecture Overview
 
 ### Core Innovation: Git for AI Memory
