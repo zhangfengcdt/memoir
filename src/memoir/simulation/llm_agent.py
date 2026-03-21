@@ -69,22 +69,97 @@ class LLMAgent:
         # LLM provides final response
     """
 
-    SYSTEM_PROMPT = """You are a helpful AI assistant with persistent memory via the Memoir system.
+    # Base system prompt - taxonomy will be injected dynamically
+    SYSTEM_PROMPT_TEMPLATE = """You are a helpful AI assistant with persistent memory via the Memoir system.
 
 ## Current Session:
 - Channel: {channel}
 - User Namespace: {user_namespace}
 
-## Tools:
-- memoir_remember: Store memories (auto-categorizes content)
-- memoir_recall: Search memories (semantic search)
-- memoir_set: Store at exact path (fast, no classification)
-- memoir_get: Get by exact path (fast lookup)
-- memoir_forget: Delete a memory
+## Memory Tools
+
+### For Storing:
+- **memoir_set(key, content)**: Store at exact path - use when you're confident about the path
+- **memoir_remember(content)**: Auto-classifies content - use when unsure or content is complex
+
+### For Retrieving:
+- **memoir_get(key)**: Get by exact path - fast O(log n) lookup
+- **memoir_recall(query)**: Semantic search - finds relevant memories by meaning
+
+**CRITICAL**: When looking up information, if `memoir_get` returns empty/not found,
+you MUST immediately call `memoir_recall` with a natural language query before responding.
+Never say "I don't have that information" after only trying `memoir_get`.
+
+### Other:
+- **memoir_forget(path)**: Delete a memory
+
+{taxonomy_section}
+
+## When to Retrieve Memories
+
+Proactively check memories to help users achieve the best outcomes.
+Use memories to inform your reasoning, verify facts, and personalize responses.
+
+### When to retrieve:
+- Before answering questions that might relate to stored knowledge
+- When reasoning about user preferences, context, or past discussions
+- To check if relevant information was previously stored
+- To personalize recommendations or suggestions
+- When deciding which tools, languages, or approaches to suggest
+
+### Retrieval strategy (MUST FOLLOW):
+
+**Example flow for "how old am I?":**
+1. Try `memoir_get("profile.personal.age")` → not found
+2. MUST then call `memoir_recall("user age")` → might find it under different path
+3. Only after BOTH return nothing, say "I don't have your age stored"
+
+**Rules:**
+- Always try `memoir_get` first (fast, exact path)
+- If `memoir_get` returns nothing → IMMEDIATELY call `memoir_recall`
+- Never respond "not found" until you've tried BOTH tools
+- Don't over-retrieve - only check when it genuinely helps
+
+## When to Store Memories
+
+The purpose of storing memories is to enable **easy recall via semantic paths**.
+Choose paths that others (or future you) would naturally look up.
+
+### Choosing between memoir_set and memoir_remember:
+
+Use **memoir_set** when:
+- Content clearly fits a single category (e.g., "I like Python" → preferences.language)
+- You're confident about the path from the taxonomy examples
+- Storing simple, atomic facts
+
+Use **memoir_remember** when:
+- Content is complex or multi-faceted (e.g., "I'm a senior engineer at Google working on ML")
+- Content could fit multiple categories
+- You're unsure which path is best - let the classifier decide
+- User says "remember this" without being specific
+
+### Store to USER namespace ({user_namespace}) when:
+- User shares personal info: name, location, job, preferences
+- User mentions their goals, projects, or interests
+- User states opinions, likes/dislikes, or habits
+- User's tool/technology preferences (e.g., "I prefer pytest", "I use vim")
+- User's coding style preferences (e.g., "I like functional programming")
+- Any fact ABOUT the user that they might want recalled later
+
+### Store to AGENT namespace (agent) when:
+- You (the AI) discover something NEW that you didn't know before
+- General facts about tools/systems that apply to everyone (not user preference)
+- Meta-learnings about how to be a better assistant
+- NOTE: If the USER says "I prefer X" or "I like X", that's USER preference, not agent learning!
+
+### DO NOT store:
+- Trivial or temporary information
+- Information already stored (check first with memoir_get if unsure)
+- Sensitive data (passwords, tokens, secrets)
 
 ## Namespaces:
-- **agent**: Your own learnings, skills, techniques
-- **{user_namespace}**: This user's memories (ALWAYS use this for user data)
+- **agent**: Your own learnings, skills, techniques (shared across all users)
+- **{user_namespace}**: This user's memories (private to this user)
 
 IMPORTANT: For this user's memories, ALWAYS use namespace "{user_namespace}".
 For your own learnings/skills, use namespace "agent".
@@ -143,6 +218,10 @@ Be conversational and acknowledge when you store or find memories.
         # LLM (lazy loaded)
         self._llm = None
 
+        # Taxonomy (loaded from store, cached)
+        self._taxonomy_section: Optional[str] = None
+        self._load_taxonomy_from_store()
+
     @property
     def llm(self):
         """Lazy-load LLM."""
@@ -155,6 +234,85 @@ Be conversational and acknowledge when you store or find memories.
                 max_tokens=1000,
             )
         return self._llm
+
+    def _load_taxonomy_from_store(self) -> None:
+        """Load taxonomy from the store and cache it for prompt injection.
+
+        Loads classification examples and category descriptions from the store,
+        formatting them for the LLM system prompt. This ensures the LLM uses
+        the same taxonomy as memoir's classifier.
+        """
+        try:
+            from memoir.store.prolly_adapter import ProllyTreeStore
+            from memoir.taxonomy.loader import TaxonomyLoader
+
+            store = ProllyTreeStore(self.store_path)
+            loader = TaxonomyLoader(store)
+
+            if not loader.has_taxonomy_in_store():
+                logger.warning("No taxonomy in store, using minimal guidance")
+                self._taxonomy_section = self._get_fallback_taxonomy_section()
+                return
+
+            # Load examples and descriptions from store
+            examples = loader.get_examples_from_store(limit=30)
+            descriptions = loader.get_descriptions_from_store()
+
+            # Format for prompt
+            lines = ["## Taxonomy Guide (from store)"]
+            lines.append("")
+            lines.append(
+                "Use these paths with `memoir_set` when you recognize the pattern:"
+            )
+            lines.append("")
+
+            # Add category descriptions
+            if descriptions:
+                lines.append("### Categories:")
+                for cat, desc in sorted(descriptions.items()):
+                    lines.append(f"- **{cat}**: {desc}")
+                lines.append("")
+
+            # Add examples grouped by category
+            if examples:
+                lines.append("### Examples (input → path):")
+                examples_by_cat: dict[str, list[tuple[str, str]]] = {}
+                for input_text, path, _reasoning in examples:
+                    cat = path.split(".")[0]
+                    if cat not in examples_by_cat:
+                        examples_by_cat[cat] = []
+                    if len(examples_by_cat[cat]) < 4:  # Max 4 per category
+                        examples_by_cat[cat].append((input_text, path))
+
+                for cat in sorted(examples_by_cat.keys()):
+                    for input_text, path in examples_by_cat[cat]:
+                        lines.append(f'- "{input_text}" → `{path}`')
+                lines.append("")
+
+            lines.append(
+                "**Decision**: If input matches a pattern above, use `memoir_set` with that path."
+            )
+            lines.append("Otherwise, use `memoir_remember` for auto-classification.")
+
+            self._taxonomy_section = "\n".join(lines)
+            logger.info(
+                f"Loaded taxonomy from store: {len(examples)} examples, {len(descriptions)} categories"
+            )
+
+        except Exception as e:
+            logger.warning(f"Failed to load taxonomy from store: {e}")
+            self._taxonomy_section = self._get_fallback_taxonomy_section()
+
+    def _get_fallback_taxonomy_section(self) -> str:
+        """Return minimal taxonomy guidance when store taxonomy is unavailable."""
+        return """## Decision Guide for Storing:
+1. **Know the path?** → Use `memoir_set` (fast, no LLM call)
+   - User says "I prefer dark mode" → `memoir_set("preferences.theme", "dark mode")`
+   - User says "My name is Kevin" → `memoir_set("profile.name", "Kevin")`
+   - User says "I use Python" → `memoir_set("preferences.language", "Python")`
+
+2. **Unsure about path?** → Use `memoir_remember` (auto-classification)
+   - Complex or ambiguous content that needs intelligent categorization"""
 
     def _get_default_namespace(self) -> str:
         """
@@ -241,10 +399,16 @@ Be conversational and acknowledge when you store or find memories.
 
     def _build_messages(self, extra_context: Optional[str] = None) -> list[dict]:
         """Build message list for LLM."""
-        # Substitute channel and resolved namespace in system prompt
+        # Substitute channel, namespace, and taxonomy in system prompt
         user_ns = self._get_default_namespace()
-        system_prompt = self.SYSTEM_PROMPT.replace("{channel}", self.channel).replace(
-            "{user_namespace}", user_ns
+        taxonomy_section = (
+            self._taxonomy_section or self._get_fallback_taxonomy_section()
+        )
+
+        system_prompt = (
+            self.SYSTEM_PROMPT_TEMPLATE.replace("{channel}", self.channel)
+            .replace("{user_namespace}", user_ns)
+            .replace("{taxonomy_section}", taxonomy_section)
         )
         messages = [{"role": "system", "content": system_prompt}]
 
@@ -433,15 +597,20 @@ Be conversational and acknowledge when you store or find memories.
         messages = self._build_messages(extra_context)
         tools = self._get_tool_definitions()
 
-        # First LLM call - may return tool calls
+        # LLM call loop - continue until no more tool calls (max 5 iterations)
         response = await self.llm.ainvoke_with_tools(messages, tools)
 
-        tool_calls = []
-        tool_results = []
+        all_tool_calls = []
+        all_tool_results = []
         thinking = response.content  # Initial response/thinking
+        max_iterations = 5
+        iteration = 0
 
-        # Process tool calls if any
-        if response.tool_calls:
+        while response.tool_calls and iteration < max_iterations:
+            iteration += 1
+            round_tool_calls = []
+            round_tool_results = []
+
             for tc_data in response.tool_calls:
                 # Parse arguments
                 try:
@@ -455,13 +624,15 @@ Be conversational and acknowledge when you store or find memories.
                     arguments=args,
                     raw_arguments=tc_data["arguments"],
                 )
-                tool_calls.append(tool_call)
+                round_tool_calls.append(tool_call)
+                all_tool_calls.append(tool_call)
 
                 # Execute tool (returns tuple of result dict and command)
                 tool_start = time.time()
                 result, command = self._execute_tool(tool_call)
                 tool_duration_ms = (time.time() - tool_start) * 1000
-                tool_results.append(result)
+                round_tool_results.append(result)
+                all_tool_results.append(result)
 
                 # Log to TUI with the actual memoir command
                 if self.tui:
@@ -478,7 +649,7 @@ Be conversational and acknowledge when you store or find memories.
             messages.append(
                 {
                     "role": "assistant",
-                    "content": thinking or None,
+                    "content": response.content or None,
                     "tool_calls": [
                         {
                             "id": tc.id,
@@ -488,12 +659,12 @@ Be conversational and acknowledge when you store or find memories.
                                 "arguments": tc.raw_arguments,
                             },
                         }
-                        for tc in tool_calls
+                        for tc in round_tool_calls
                     ],
                 }
             )
 
-            for tc, result in zip(tool_calls, tool_results):
+            for tc, result in zip(round_tool_calls, round_tool_results):
                 messages.append(
                     {
                         "role": "tool",
@@ -502,13 +673,14 @@ Be conversational and acknowledge when you store or find memories.
                     }
                 )
 
-            # Second LLM call - get final response
+            # Next LLM call - may return more tool calls or final response
             # Note: Must pass tools again because Anthropic requires tools param
             # when message history contains tool calls
-            final_response = await self.llm.ainvoke_with_tools(messages, tools)
-            final_content = final_response.content
-        else:
-            final_content = response.content
+            response = await self.llm.ainvoke_with_tools(messages, tools)
+
+        final_content = response.content
+        tool_calls = all_tool_calls
+        tool_results = all_tool_results
 
         # Add assistant message to session
         self.session.add_assistant_message(final_content)

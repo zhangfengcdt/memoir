@@ -180,18 +180,26 @@ class CLIExecutor:
     # Store Commands
     # ==========================================================================
 
-    def new(self, path: Optional[str] = None) -> CLIResult:
+    def new(
+        self,
+        path: Optional[str] = None,
+        taxonomy_builtin: bool = False,
+    ) -> CLIResult:
         """
         Create a new memoir store.
 
         Args:
             path: Store path (uses configured path if not specified)
+            taxonomy_builtin: Initialize with builtin taxonomy (examples, descriptions, presets)
 
         Returns:
             CLIResult with creation status
         """
         store = path or self.store_path
-        return self._execute(["new", store])
+        args = ["new", store]
+        if taxonomy_builtin:
+            args.append("--taxonomy-builtin")
+        return self._execute(args)
 
     def status(self) -> CLIResult:
         """

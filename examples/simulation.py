@@ -51,9 +51,9 @@ class LiveSimulationDemo:
         self.model = model
         self.interactive = interactive
 
-        # Initialize memoir store
+        # Initialize memoir store with builtin taxonomy
         cli = CLIExecutor(store_path)
-        result = cli.new(store_path)
+        result = cli.new(store_path, taxonomy_builtin=True)
         if not result.success:
             print(f"Warning: Store creation: {result.error}")
 
@@ -192,7 +192,7 @@ class LiveSimulationDemo:
             "Also remember that I use vim keybindings.",
             "I like to use Python for most of my projects.",
             "My timezone is Pacific Time (PST).",
-            "Remember as your skill: 'rg' is faster than 'grep'.",
+            "I always use rg instead of grep because it's faster.",
             "What do you know about my preferences?",
         ]
 
@@ -201,7 +201,7 @@ class LiveSimulationDemo:
             "Hey, I'm working on an API refactoring project.",
             "The project uses FastAPI and PostgreSQL.",
             "We're migrating from REST to GraphQL.",
-            "Store as your learning: FastAPI dependency injection is great.",
+            "I love FastAPI's dependency injection pattern.",
             "I prefer TypeScript for frontend work.",
             "What do you remember about my project?",
         ]
@@ -211,7 +211,7 @@ class LiveSimulationDemo:
             "I'm learning Go for systems programming.",
             "My favorite language is Rust, but I use Python more.",
             "Remember: I stream on weekends.",
-            "Your learning: pytest fixtures beat setUp/tearDown.",
+            "I prefer pytest fixtures over setUp/tearDown.",
             "I use Arch Linux btw.",
             "What preferences do you remember?",
         ]
@@ -220,19 +220,20 @@ class LiveSimulationDemo:
         telegram_messages = [
             "Quick note: I use Docker for all dev environments.",
             "Remember: I value test coverage above 80%.",
-            "Store: I prefer tabs over spaces.",
-            "Your learning: black + isort + ruff is great for Python.",
+            "I prefer tabs over spaces.",
+            "I use black + isort + ruff for Python formatting.",
             "My work hours are 9am-6pm.",
-            "What skills have you learned?",
+            "What do you remember about me?",
         ]
 
         # Run all 4 channel sessions concurrently
         # Each channel has its own user ID format (like real platforms)
+        # Delays increased to avoid API rate limits
         await asyncio.gather(
-            self.run_user_scenario("51321", web_messages, channel="web", delay=4.0),
-            self.run_user_scenario("U04ABCD1234", slack_messages, channel="slack", delay=4.5),
-            self.run_user_scenario("987654321012", discord_messages, channel="discord", delay=5.0),
-            self.run_user_scenario("12345678", telegram_messages, channel="telegram", delay=5.5),
+            self.run_user_scenario("51321", web_messages, channel="web", delay=8.0),
+            self.run_user_scenario("U04ABCD1234", slack_messages, channel="slack", delay=9.0),
+            self.run_user_scenario("987654321012", discord_messages, channel="discord", delay=10.0),
+            self.run_user_scenario("12345678", telegram_messages, channel="telegram", delay=11.0),
         )
 
     def run(self):
@@ -451,7 +452,7 @@ class LiveSimulationDemo:
             # Input hint and bordered input area right below panels
             mode_hint = "Chat or /command" if enable_chat else "/command only"
             pending_hint = f" │ [yellow]{pending_count} pending[/yellow]" if pending_count > 0 else ""
-            console.print(f"[dim]({mode_hint} │ /help │ /quit{pending_hint})[/dim]")
+            console.print(f"[dim]({mode_hint} │ /help │ /clear │ /quit{pending_hint})[/dim]")
             console.rule(style="dim")  # Top line of input box
             # Print placeholder for input line and bottom line, then move cursor up
             print("> ")  # Input line placeholder
@@ -614,7 +615,7 @@ class LiveSimulationDemo:
                         console.print("  [cyan]/off-record[/cyan]       - Start off-record mode")
                         console.print("  [cyan]/on-record[/cyan]        - Return to normal")
                         console.print("  [cyan]/commits[/cyan]          - Show history")
-                        console.print("  [cyan]/clear[/cyan]            - Clear conversation")
+                        console.print("  [cyan]/clear[/cyan]            - Clear conversation (test memory without short-term context)")
                         console.print("  [cyan]/quit[/cyan]             - Exit")
                         if enable_chat:
                             console.print()
@@ -628,6 +629,15 @@ class LiveSimulationDemo:
                         continue
                     elif cmd == "/clear":
                         conversation.clear()
+                        # Also clear LLM session messages (keeps system prompt)
+                        if agent and agent.session:
+                            agent.session.messages.clear()
+                            self.tui.log_event(MemoryEvent(
+                                timestamp=time.time(),
+                                source=EventSource.USER,
+                                operation="clear",
+                                details="Cleared conversation context (memory persists)",
+                            ))
                         refresh_display()
                         continue
 

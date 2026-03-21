@@ -83,48 +83,25 @@ Memoir provides persistent, versioned memory across sessions with namespace isol
 
 ## Commands
 
-### Store a memory
-
-When you learn something important:
+### Storage
 
 ```bash
-# About yourself (skills, lessons)
-memoir remember "Learned to use rg instead of grep for speed" --namespace agent --json
+# Auto-classify content (intelligent categorization)
+memoir remember "I'm a senior engineer at Google working on ML" --namespace kevin --json
 
-# About the user (preferences, context)
-memoir remember "User prefers functional programming style" --namespace {channel}:{user_id} --json
-
-# About the system
-memoir remember "MCP server github available on port 3000" --namespace system --json
+# Store at exact path (when you know the path)
+memoir set "preferences.theme" "dark mode" --namespace kevin --json
 ```
 
-### Recall memories
-
-When you need context:
+### Retrieval
 
 ```bash
-# Semantic search (expensive - use sparingly)
-memoir recall "debugging techniques" --namespace agent --limit 5 --json
+# Semantic search (find by meaning)
+memoir recall "what programming languages" --namespace kevin --limit 5 --json
 
-# Direct path lookup (cheap - prefer this)
-memoir recall preferences.theme --namespace {channel}:{user_id} --limit 1 --json
+# Get by exact path (fast lookup)
+memoir get "preferences.theme" --namespace kevin --json
 ```
-
-### Direct path access (fast, no LLM)
-
-When you know the exact path, use set/get to bypass LLM classification:
-
-```bash
-# Store at exact path (no classification)
-memoir set "config.identity.feng" "channels: discord, slack" --namespace agent --json
-
-# Get by exact path (O(log n) lookup)
-memoir get "config.identity.feng" --namespace agent --json
-```
-
-**When to use set/get vs remember/recall:**
-- Use `set`/`get` when you know the exact path (config, identity, known preferences)
-- Use `remember`/`recall` when content needs classification or semantic search
 
 ### View history
 
@@ -132,42 +109,46 @@ memoir get "config.identity.feng" --namespace agent --json
 memoir commits --limit 10 --json
 ```
 
-## Decision Guide
+## Choosing the Right Tool
 
-Before storing, ask: **Who benefits from this memory?**
+### For storing:
+| Content Type | Use | Why |
+|-------------|-----|-----|
+| Complex/multi-faceted | `memoir remember` | Auto-classification handles it |
+| Simple, clear category | `memoir set` | You know the path |
+| Unsure about path | `memoir remember` | Let the classifier decide |
 
-| What to Store | Namespace | Example |
-|--------------|-----------|---------|
-| Skill you learned | `agent` | "Use console.trace() for call stacks" |
-| User preference | `{channel}:{user_id}` | "Prefers dark mode" |
-| System info | `system` | "Redis available on localhost:6379" |
+### For retrieving:
+| Situation | Use | Why |
+|-----------|-----|-----|
+| Know exact path | `memoir get` | Fast O(log n) lookup |
+| Exploring/searching | `memoir recall` | Semantic search by meaning |
 
 ## Best Practices
 
-1. **Prefer path lookup over recall** - Direct path queries are free, semantic search costs tokens
-2. **Store atomically** - One fact per remember call
-3. **Use namespaces for isolation** - Different users/contexts get different namespaces
-4. **Let hooks handle routine storage** - Focus on explicit important learnings
-5. **Use --json flag** - Always include for machine-readable output
+1. **Store atomically** - One fact per call
+2. **Use namespaces for isolation** - Different users get different namespaces
+3. **Use --json flag** - Always include for machine-readable output
 """
 
 
 TOOL_DEFINITIONS = [
+    # Storage tools
     {
         "type": "function",
         "function": {
             "name": "memoir_remember",
-            "description": "Store a memory. Use namespace 'agent' for your own learnings/skills, or '{channel}:{user_id}' for user preferences/facts.",
+            "description": "Store a memory with intelligent auto-classification. The system categorizes content into the right semantic path. Good for complex content or when unsure about the path.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "content": {
                         "type": "string",
-                        "description": "The content to remember. Should be a clear, atomic fact or piece of information.",
+                        "description": "The content to remember. Can be simple facts or complex information.",
                     },
                     "namespace": {
                         "type": "string",
-                        "description": "Namespace: 'agent' for your learnings, '{channel}:{user_id}' for user info. Default is user namespace.",
+                        "description": "Namespace: 'agent' for your learnings, user namespace for user info.",
                     },
                 },
                 "required": ["content"],
@@ -177,8 +158,35 @@ TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
+            "name": "memoir_set",
+            "description": "Store content at an exact semantic path. Use when confident about the path (e.g., preferences.theme, profile.name). Faster than memoir_remember.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string",
+                        "description": "The semantic path (e.g., 'preferences.theme', 'profile.name').",
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "The content to store.",
+                    },
+                    "namespace": {
+                        "type": "string",
+                        "description": "Namespace: 'agent' for your data, or user namespace for user data.",
+                        "default": "agent",
+                    },
+                },
+                "required": ["key", "content"],
+            },
+        },
+    },
+    # Retrieval tools
+    {
+        "type": "function",
+        "function": {
             "name": "memoir_recall",
-            "description": "Search stored memories. Use namespace 'agent' for your learnings, or '{channel}:{user_id}' for user info.",
+            "description": "Semantic search across memories. Finds relevant memories by meaning. Good for broad queries or exploring what's stored.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -188,7 +196,7 @@ TOOL_DEFINITIONS = [
                     },
                     "namespace": {
                         "type": "string",
-                        "description": "Namespace to search: 'agent' or '{channel}:{user_id}'. Default is user namespace.",
+                        "description": "Namespace to search.",
                     },
                     "limit": {
                         "type": "integer",
@@ -197,6 +205,28 @@ TOOL_DEFINITIONS = [
                     },
                 },
                 "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "memoir_get",
+            "description": "Get content by exact path. Fast O(log n) lookup. Use when you know the exact path.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "key": {
+                        "type": "string",
+                        "description": "The semantic path to retrieve (e.g., 'preferences.theme').",
+                    },
+                    "namespace": {
+                        "type": "string",
+                        "description": "Namespace to look in.",
+                        "default": "agent",
+                    },
+                },
+                "required": ["key"],
             },
         },
     },
@@ -225,62 +255,14 @@ TOOL_DEFINITIONS = [
     {
         "type": "function",
         "function": {
-            "name": "memoir_set",
-            "description": "Store content at an exact path WITHOUT LLM classification. Use when you know the exact semantic path (e.g., 'config.identity.feng', 'preferences.theme'). Faster and cheaper than memoir_remember.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "key": {
-                        "type": "string",
-                        "description": "The exact semantic path to store at (e.g., 'config.identity.feng', 'preferences.theme').",
-                    },
-                    "content": {
-                        "type": "string",
-                        "description": "The content to store.",
-                    },
-                    "namespace": {
-                        "type": "string",
-                        "description": "Namespace: 'agent' for your data, or person name for user data.",
-                        "default": "agent",
-                    },
-                },
-                "required": ["key", "content"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "memoir_get",
-            "description": "Get content by exact path WITHOUT LLM search. O(log n) lookup - very fast and no LLM calls. Use when you know the exact path.",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "key": {
-                        "type": "string",
-                        "description": "The exact semantic path to retrieve (e.g., 'config.identity.feng', 'preferences.theme').",
-                    },
-                    "namespace": {
-                        "type": "string",
-                        "description": "Namespace to look in.",
-                        "default": "agent",
-                    },
-                },
-                "required": ["key"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
             "name": "memoir_help",
-            "description": "Get help for memoir CLI commands. Call with no arguments for general help, or specify a command name for detailed help.",
+            "description": "Get help for memoir CLI commands.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "command": {
                         "type": "string",
-                        "description": "Command name to get help for (e.g., 'remember', 'recall', 'branch'). Leave empty for general help.",
+                        "description": "Command name to get help for (e.g., 'remember', 'recall'). Leave empty for general help.",
                     },
                 },
                 "required": [],
