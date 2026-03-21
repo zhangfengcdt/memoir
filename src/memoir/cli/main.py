@@ -380,62 +380,6 @@ cli.add_command(crypto.blame)
 
 # Analysis commands
 cli.add_command(analysis.summarize)
-cli.add_command(analysis.timeline)
-cli.add_command(analysis.location)
-
-
-# Utility commands
-@cli.command()
-@pass_context
-def warmup(ctx: MemoirContext):
-    """Pre-load models for faster subsequent calls.
-
-    Use this in agent startup scripts to reduce latency
-    on the first remember/recall call.
-    """
-    if not ctx.store_path:
-        ctx.error(
-            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
-        )
-
-    from memoir.services.memory_service import MemoryService
-
-    service = MemoryService(ctx.store_path)
-    warmup_time = service.warmup()
-
-    ctx.success(f"Models loaded in {warmup_time:.2f}s", {"warmup_time": warmup_time})
-
-
-@cli.command()
-@pass_context
-def code(ctx: MemoirContext):
-    """Show Python integration code example."""
-    code_example = """
-# Memoir Python SDK Usage
-
-from memoir.sdk import MemoryClient
-
-async with MemoryClient("/path/to/store") as memory:
-    # Store a memory
-    result = await memory.remember("User prefers dark mode")
-    print(f"Stored at: {result.key}")
-
-    # Search memories
-    memories = await memory.recall("user preferences")
-    for m in memories:
-        print(f"  {m.path}: {m.content}")
-
-    # Delete a memory
-    await memory.forget("old.path")
-
-    # Branch operations
-    await memory.branch.create("experiment")
-    await memory.branch.checkout("experiment")
-"""
-    if ctx.json_output:
-        click.echo(json.dumps({"code": code_example.strip()}))
-    else:
-        click.echo(code_example)
 
 
 @cli.command()
