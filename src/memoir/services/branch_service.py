@@ -6,8 +6,11 @@ to be shared by CLI, TUI, SDK, and HTTP handlers.
 """
 
 import logging
+from enum import Enum
 from pathlib import Path
 from typing import Optional
+
+from prollytree import ConflictResolution
 
 from memoir.services.base import BaseService, GitOperationError, StoreNotFoundError
 from memoir.services.models import (
@@ -16,6 +19,23 @@ from memoir.services.models import (
     CommitInfo,
     MergeResult,
 )
+
+
+class MergeStrategy(str, Enum):
+    """Merge conflict resolution strategies."""
+
+    OURS = "ours"  # Keep current branch's version (TakeDestination)
+    THEIRS = "theirs"  # Take incoming branch's version (TakeSource)
+    SKIP = "skip"  # Skip conflicting keys (IgnoreAll)
+
+    def to_conflict_resolution(self) -> ConflictResolution:
+        """Convert to prollytree ConflictResolution."""
+        mapping = {
+            MergeStrategy.OURS: ConflictResolution.TakeDestination,
+            MergeStrategy.THEIRS: ConflictResolution.TakeSource,
+            MergeStrategy.SKIP: ConflictResolution.IgnoreAll,
+        }
+        return mapping[self]
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +50,7 @@ class BranchService(BaseService):
 
     def list_branches(self) -> BranchInfo:
         """
-        Get list of branches in the store.
+        Get list of branches in the store using VersionedKvStore.
 
         Returns:
             BranchInfo with list of branches and current branch
@@ -43,28 +63,18 @@ class BranchService(BaseService):
             raise StoreNotFoundError(self.store_path)
 
         try:
-            # Get branch list
-            result = self._run_git_command(
-                ["branch", "--format=%(refname:short)"],
-                check=False,
-            )
+            store = self._get_store()
 
-            branches = []
-            if result.returncode == 0 and result.stdout:
-                branches = [
-                    b.strip() for b in result.stdout.strip().split("\n") if b.strip()
-                ]
+            # Get branch list from VersionedKvStore
+            branches_raw = store.tree.list_branches()
+            branches = [
+                b.decode("utf-8") if isinstance(b, bytes) else b for b in branches_raw
+            ]
 
             # Get current branch
-            current_result = self._run_git_command(
-                ["rev-parse", "--abbrev-ref", "HEAD"],
-                check=False,
-            )
-            current_branch = (
-                current_result.stdout.strip()
-                if current_result.returncode == 0
-                else "main"
-            )
+            current_branch = store.tree.current_branch()
+            if isinstance(current_branch, bytes):
+                current_branch = current_branch.decode("utf-8")
 
             return BranchInfo(branches=branches, current=current_branch)
 
@@ -143,25 +153,21 @@ class BranchService(BaseService):
             raise StoreNotFoundError(self.store_path)
 
         try:
-            # Get current branch
-            branch_result = self._run_git_command(
-                ["rev-parse", "--abbrev-ref", "HEAD"],
-                check=False,
-            )
-            current_branch = (
-                branch_result.stdout.strip()
-                if branch_result.returncode == 0
-                else "HEAD"
-            )
+            store = self._get_store()
+
+            # Get current branch from VersionedKvStore
+            current_branch = store.tree.current_branch()
+            if isinstance(current_branch, bytes):
+                current_branch = current_branch.decode("utf-8")
 
             # Get current commit
-            commit_result = self._run_git_command(
-                ["rev-parse", "HEAD"],
-                check=False,
-            )
             current_commit = None
-            if commit_result.returncode == 0 and commit_result.stdout:
-                current_commit = commit_result.stdout.strip()[:8]
+            try:
+                commit_id = store.tree.current_commit()
+                if commit_id:
+                    current_commit = commit_id[:8] if len(commit_id) > 8 else commit_id
+            except Exception:
+                pass
 
             return current_branch, current_commit
 
@@ -177,6 +183,8 @@ class BranchService(BaseService):
     ) -> CheckoutResult:
         """
         Checkout a specific commit or branch.
+
+        Uses VersionedKvStore's native checkout to ensure data consistency.
 
         Args:
             target: Commit hash or branch name to checkout
@@ -194,55 +202,78 @@ class BranchService(BaseService):
             raise StoreNotFoundError(self.store_path)
 
         try:
+            store = self._get_store()
+
             if create_branch:
-                # Create and checkout new branch from target
-                result = self._run_git_command(
-                    ["checkout", "-b", create_branch, target],
-                    check=False,
-                )
-                if result.returncode != 0:
+                # Create new branch from target, then checkout
+                try:
+                    # First checkout target
+                    store.tree.checkout(target)
+                    # Then create branch
+                    store.tree.create_branch(create_branch)
+                    # Checkout the new branch
+                    store.tree.checkout(create_branch)
+                    message = f"Created and switched to new branch '{create_branch}' from {target[:8] if len(target) > 8 else target}"
+                except Exception as e:
                     return CheckoutResult(
                         success=False,
                         target=target,
                         current_branch="",
-                        error=result.stderr.strip(),
+                        error=str(e),
                     )
-                message = f"Created and switched to new branch '{create_branch}' from {target[:8]}"
             else:
-                # Try to checkout the target
-                result = self._run_git_command(
-                    ["checkout", target],
-                    check=False,
-                )
+                # Get list of branches to check if target exists
+                try:
+                    branches = store.tree.list_branches()
+                    branch_names = [
+                        b.decode("utf-8") if isinstance(b, bytes) else b
+                        for b in branches
+                    ]
+                except Exception:
+                    branch_names = []
 
-                if result.returncode != 0:
-                    # If create_if_missing, try creating the branch
-                    if create_if_missing:
-                        create_result = self._run_git_command(
-                            ["checkout", "-b", target],
-                            check=False,
-                        )
-                        if create_result.returncode == 0:
-                            message = f"Created and switched to new branch '{target}'"
-                        else:
-                            return CheckoutResult(
-                                success=False,
-                                target=target,
-                                current_branch="",
-                                error=create_result.stderr.strip(),
-                            )
-                    else:
+                target_exists = target in branch_names
+
+                if target_exists:
+                    # Checkout existing branch
+                    try:
+                        store.tree.checkout(target)
+                        message = f"Switched to {target}"
+                    except Exception as e:
                         return CheckoutResult(
                             success=False,
                             target=target,
                             current_branch="",
-                            error=result.stderr.strip(),
+                            error=str(e),
+                        )
+                elif create_if_missing:
+                    # Create and checkout new branch
+                    try:
+                        store.tree.create_branch(target)
+                        store.tree.checkout(target)
+                        message = f"Created and switched to new branch '{target}'"
+                    except Exception as e:
+                        return CheckoutResult(
+                            success=False,
+                            target=target,
+                            current_branch="",
+                            error=str(e),
                         )
                 else:
-                    message = f"Switched to {target}"
+                    return CheckoutResult(
+                        success=False,
+                        target=target,
+                        current_branch="",
+                        error=f"Branch or commit '{target}' not found",
+                    )
 
-            # Get updated branch info
-            current_branch, _ = self.get_current_branch()
+            # Get current branch from store
+            try:
+                current_branch = store.tree.current_branch()
+                if isinstance(current_branch, bytes):
+                    current_branch = current_branch.decode("utf-8")
+            except Exception:
+                current_branch = target
 
             return CheckoutResult(
                 success=True,
@@ -263,14 +294,14 @@ class BranchService(BaseService):
     def create_branch(
         self,
         branch_name: str,
-        from_ref: str = "HEAD",
+        from_ref: Optional[str] = None,
     ) -> CheckoutResult:
         """
-        Create a new branch.
+        Create a new branch using VersionedKvStore.
 
         Args:
             branch_name: Name for the new branch
-            from_ref: Reference to create branch from
+            from_ref: Reference to create branch from (currently creates from current state)
 
         Returns:
             CheckoutResult with success status
@@ -282,24 +313,45 @@ class BranchService(BaseService):
             raise StoreNotFoundError(self.store_path)
 
         try:
-            result = self._run_git_command(
-                ["branch", branch_name, from_ref],
-                check=False,
-            )
+            store = self._get_store()
 
-            if result.returncode != 0:
+            # If from_ref specified, checkout that first
+            if from_ref and from_ref != "HEAD":
+                try:
+                    store.tree.checkout(from_ref)
+                except Exception as e:
+                    return CheckoutResult(
+                        success=False,
+                        target=branch_name,
+                        current_branch="",
+                        error=f"Cannot checkout '{from_ref}': {e}",
+                    )
+
+            # Create the branch
+            try:
+                store.tree.create_branch(branch_name)
+            except Exception as e:
                 return CheckoutResult(
                     success=False,
                     target=branch_name,
                     current_branch="",
-                    error=result.stderr.strip(),
+                    error=str(e),
                 )
+
+            # Get current branch
+            try:
+                current_branch = store.tree.current_branch()
+                if isinstance(current_branch, bytes):
+                    current_branch = current_branch.decode("utf-8")
+            except Exception:
+                current_branch = "main"
 
             return CheckoutResult(
                 success=True,
                 target=branch_name,
-                current_branch=self.get_current_branch()[0],
-                message=f"Created branch '{branch_name}' from {from_ref}",
+                current_branch=current_branch,
+                message=f"Created branch '{branch_name}'"
+                + (f" from {from_ref}" if from_ref else ""),
             )
 
         except Exception as e:
@@ -380,12 +432,14 @@ class BranchService(BaseService):
     def merge(
         self,
         source_branch: str,
+        strategy: MergeStrategy = MergeStrategy.SKIP,
     ) -> MergeResult:
         """
-        Merge a branch into current branch.
+        Merge a branch into current branch using ProllyTree's native merge.
 
         Args:
             source_branch: Branch to merge into current
+            strategy: Conflict resolution strategy (ours, theirs, skip)
 
         Returns:
             MergeResult with success status and any conflicts
@@ -400,44 +454,64 @@ class BranchService(BaseService):
             # Get current branch
             current_branch, _ = self.get_current_branch()
 
-            # Perform merge
-            result = self._run_git_command(
-                [
-                    "merge",
-                    source_branch,
-                    "--no-ff",
-                    "-m",
-                    f"Merge branch '{source_branch}' into {current_branch}",
-                ],
-                check=False,
-            )
+            # Get the store's ProllyTree
+            store = self._get_store()
 
-            if result.returncode != 0:
-                # Check for conflicts
-                output = (result.stdout + result.stderr).lower()
-                if "conflict" in output:
-                    # Abort the merge
-                    self._run_git_command(["merge", "--abort"], check=False)
+            # First, try merge to detect conflicts
+            success, conflicts = store.tree.try_merge(source_branch)
+
+            if success:
+                # Merge was applied successfully (no conflicts)
+                return MergeResult(
+                    success=True,
+                    source_branch=source_branch,
+                    target_branch=current_branch,
+                    strategy=strategy.value,
+                    message=f"Successfully merged '{source_branch}' into '{current_branch}'",
+                )
+
+            # There are conflicts - apply the resolution strategy
+            if conflicts:
+                conflict_keys = [
+                    c.key.decode("utf-8") if isinstance(c.key, bytes) else str(c.key)
+                    for c in conflicts
+                ]
+                logger.info(
+                    f"Merge has {len(conflicts)} conflicts, "
+                    f"resolving with strategy: {strategy.value}"
+                )
+
+                # Apply merge with the specified conflict resolution
+                conflict_resolution = strategy.to_conflict_resolution()
+                try:
+                    commit_hash = store.tree.merge(source_branch, conflict_resolution)
+                    return MergeResult(
+                        success=True,
+                        source_branch=source_branch,
+                        target_branch=current_branch,
+                        strategy=strategy.value,
+                        conflicts=conflict_keys,
+                        commit_hash=commit_hash,
+                        message=f"Merged '{source_branch}' into '{current_branch}' "
+                        f"with {len(conflicts)} conflicts resolved using '{strategy.value}' strategy",
+                    )
+                except Exception as e:
                     return MergeResult(
                         success=False,
                         source_branch=source_branch,
                         target_branch=current_branch,
-                        conflicts=["Merge conflict detected"],
-                        error="Merge conflict detected. Please resolve manually.",
-                    )
-                else:
-                    return MergeResult(
-                        success=False,
-                        source_branch=source_branch,
-                        target_branch=current_branch,
-                        error=result.stderr.strip(),
+                        strategy=strategy.value,
+                        conflicts=conflict_keys,
+                        error=f"Merge failed: {e}",
                     )
 
+            # No conflicts but try_merge returned False - unexpected
             return MergeResult(
-                success=True,
+                success=False,
                 source_branch=source_branch,
                 target_branch=current_branch,
-                message=f"Successfully merged '{source_branch}' into '{current_branch}'",
+                strategy=strategy.value,
+                error="Merge failed for unknown reason",
             )
 
         except Exception as e:
@@ -446,6 +520,7 @@ class BranchService(BaseService):
                 success=False,
                 source_branch=source_branch,
                 target_branch="",
+                strategy=strategy.value if strategy else None,
                 error=str(e),
             )
 

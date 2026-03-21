@@ -187,6 +187,8 @@ class MergeResult:
     source_branch: str
     target_branch: str
     conflicts: list[str] = field(default_factory=list)
+    strategy: Optional[str] = None  # Conflict resolution strategy used
+    commit_hash: Optional[str] = None  # Merge commit hash
     message: str = ""
     error: Optional[str] = None
 
@@ -197,6 +199,8 @@ class MergeResult:
             "source_branch": self.source_branch,
             "target_branch": self.target_branch,
             "conflicts": self.conflicts,
+            "strategy": self.strategy,
+            "commit_hash": self.commit_hash,
             "message": self.message,
             "error": self.error,
         }

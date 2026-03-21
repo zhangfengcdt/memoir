@@ -186,13 +186,17 @@ class CryptoService(BaseService):
         self,
         key: str,
         namespace: str = "default",
+        limit: int = 10,
     ) -> list[BlameEntry]:
         """
         Get blame/history information for a memory key.
 
+        Uses VersionedKvStore's native commit history for accurate results.
+
         Args:
             key: The memory key to get blame for
             namespace: Namespace containing the memory
+            limit: Maximum number of entries to return
 
         Returns:
             List of BlameEntry objects showing change history
@@ -204,57 +208,43 @@ class CryptoService(BaseService):
             raise StoreNotFoundError(self.store_path)
 
         try:
-            # Use git log to find commits that touched this key
-            result = self._run_git_command(
-                [
-                    "log",
-                    "--all",
-                    "--pretty=format:%H|%an|%aI|%s",
-                    "-p",
-                    "--",
-                    ".",
-                ],
-                check=False,
-            )
+            store = self._get_store()
+
+            # Convert namespace to tuple format
+            namespace_tuple = self.namespace_to_tuple(namespace)
+
+            # Use get_key_history which calls VersionedKvStore.get_commits_for_key()
+            commits = store.get_key_history(namespace_tuple, key, limit=limit)
 
             entries = []
-            if result.returncode == 0 and result.stdout:
-                current_commit = None
-                current_author = None
-                current_date = None
-                current_message = None
+            for commit in commits:
+                # The commit dict should have: id, timestamp, message, author, committer
+                commit_id = commit.get("id", "")
+                if isinstance(commit_id, bytes):
+                    commit_id = commit_id.hex()
 
-                for line in result.stdout.split("\n"):
-                    if "|" in line and line.count("|") >= 3:
-                        # This is a commit header line
-                        parts = line.split("|")
-                        if len(parts) >= 4:
-                            current_commit = parts[0][:8]
-                            current_author = parts[1]
-                            current_date = parts[2]
-                            current_message = parts[3]
-                    elif key in line and current_commit:
-                        # This commit mentions our key
-                        entries.append(
-                            BlameEntry(
-                                commit=current_commit,
-                                author=current_author or "Unknown",
-                                date=current_date or "",
-                                message=current_message or "",
-                            )
-                        )
-                        # Reset to avoid duplicates
-                        current_commit = None
+                # Format timestamp if available
+                timestamp = commit.get("timestamp")
+                date_str = ""
+                if timestamp:
+                    from datetime import datetime
 
-            # Deduplicate entries
-            seen = set()
-            unique_entries = []
-            for entry in entries:
-                if entry.commit not in seen:
-                    seen.add(entry.commit)
-                    unique_entries.append(entry)
+                    try:
+                        dt = datetime.fromtimestamp(timestamp)
+                        date_str = dt.isoformat()
+                    except Exception:
+                        date_str = str(timestamp)
 
-            return unique_entries[:10]  # Limit to 10 entries
+                entries.append(
+                    BlameEntry(
+                        commit=commit_id[:8] if commit_id else "unknown",
+                        author=commit.get("author", "Unknown"),
+                        date=date_str,
+                        message=commit.get("message", ""),
+                    )
+                )
+
+            return entries
 
         except Exception as e:
             logger.error(f"Failed to get blame info: {e}")

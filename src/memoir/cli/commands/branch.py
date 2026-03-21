@@ -95,26 +95,17 @@ def branch(
 @click.option(
     "-b", "--create", "create_branch", is_flag=True, help="Create branch if missing"
 )
-@click.option(
-    "--create-if-missing",
-    is_flag=True,
-    help="Create branch if it doesn't exist (for agents)",
-)
 @pass_context
-def checkout(
-    ctx: MemoirContext, target: str, create_branch: bool, create_if_missing: bool
-):
+def checkout(ctx: MemoirContext, target: str, create_branch: bool):
     """Switch to a branch or commit.
 
     Target can be a branch name or commit hash.
-    Use --create-if-missing for agent workflows that need auto-creation.
 
     \b
     Examples:
       memoir checkout main
       memoir checkout -b new-feature
       memoir checkout abc123f
-      memoir checkout agent-context-123 --create-if-missing
     """
     if not ctx.store_path:
         ctx.error(
@@ -126,17 +117,13 @@ def checkout(
     service = BranchService(ctx.store_path)
 
     try:
-        # If create flag is set, create the branch
-        should_create = create_branch or create_if_missing
-
-        result = service.checkout(target, create=should_create)
+        result = service.checkout(target, create_if_missing=create_branch)
 
         if ctx.json_output:
             ctx.output(result.to_dict())
         else:
             if result.success:
-                action = "Created and switched to" if result.created else "Switched to"
-                ctx.success(f"{action}: {result.branch or result.commit}")
+                ctx.success(result.message or f"Switched to {target}")
             else:
                 if "not found" in (result.error or "").lower():
                     ctx.error(f"Branch/commit not found: {target}", EXIT_NOT_FOUND)
@@ -152,24 +139,37 @@ def checkout(
 @click.command()
 @click.argument("source")
 @click.option("--into", "into_branch", help="Target branch (default: current)")
+@click.option(
+    "-s",
+    "--strategy",
+    type=click.Choice(["ours", "theirs", "skip"]),
+    default="skip",
+    help="Conflict resolution: ours (keep current), theirs (take incoming), skip (ignore conflicts)",
+)
 @pass_context
-def merge(ctx: MemoirContext, source: str, into_branch: str):
+def merge(ctx: MemoirContext, source: str, into_branch: str, strategy: str):
     """Merge a branch into current or specified branch.
 
     Merges SOURCE branch into the current branch, or into
     the branch specified with --into.
 
+    Conflict resolution strategies:
+      - ours: Keep current branch's version for conflicts
+      - theirs: Take incoming branch's version for conflicts
+      - skip: Skip conflicting keys (default, safest)
+
     \b
     Examples:
-      memoir merge feature        # Merge feature into current
+      memoir merge feature              # Merge feature into current
       memoir merge experiment --into main
+      memoir merge feature -s theirs    # Take incoming changes on conflict
     """
     if not ctx.store_path:
         ctx.error(
             "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
         )
 
-    from memoir.services.branch_service import BranchService
+    from memoir.services.branch_service import BranchService, MergeStrategy
 
     service = BranchService(ctx.store_path)
 
@@ -182,18 +182,28 @@ def merge(ctx: MemoirContext, source: str, into_branch: str):
                     f"Failed to checkout target branch: {into_branch}", EXIT_GIT_FAILED
                 )
 
-        result = service.merge(source)
+        # Convert strategy string to enum
+        merge_strategy = MergeStrategy(strategy)
+        result = service.merge(source, strategy=merge_strategy)
 
         if ctx.json_output:
             ctx.output(result.to_dict())
         else:
             if result.success:
                 ctx.success(f"Merged {source} successfully")
+                if result.conflicts:
+                    click.echo(
+                        f"  Resolved {len(result.conflicts)} conflicts using '{strategy}' strategy"
+                    )
+                    for conflict in result.conflicts[:5]:
+                        click.echo(f"    - {conflict}")
+                    if len(result.conflicts) > 5:
+                        click.echo(f"    ... and {len(result.conflicts) - 5} more")
                 if result.commit_hash:
                     click.echo(f"  Merge commit: {result.commit_hash[:8]}")
             else:
                 if result.conflicts:
-                    ctx.warn(f"Merge has conflicts in {len(result.conflicts)} files:")
+                    ctx.warn(f"Merge has conflicts in {len(result.conflicts)} keys:")
                     for conflict in result.conflicts[:5]:
                         click.echo(f"    - {conflict}")
                     if len(result.conflicts) > 5:
