@@ -1,7 +1,7 @@
 """
 Branch commands for memoir CLI.
 
-Commands: branch, checkout, merge, commits
+Commands: branch, checkout, merge, time-travel, diff
 """
 
 import click
@@ -211,61 +211,6 @@ def merge(ctx: MemoirContext, source: str, into_branch: str, strategy: str):
 
     except Exception as e:
         ctx.error(f"Merge failed: {e}", EXIT_GIT_FAILED)
-
-
-@click.command()
-@click.option("-n", "--limit", default=20, help="Maximum commits to show")
-@click.option("--branch", "branch_name", help="Show commits for specific branch")
-@click.option("--oneline", is_flag=True, help="Compact single-line format")
-@pass_context
-def commits(ctx: MemoirContext, limit: int, branch_name: str, oneline: bool):
-    """Show commit history.
-
-    Displays recent commits for the current or specified branch.
-
-    \b
-    Examples:
-      memoir commits
-      memoir commits -n 5
-      memoir commits --branch main --oneline
-    """
-    if not ctx.store_path:
-        ctx.error(
-            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
-        )
-
-    from memoir.services.branch_service import BranchService
-
-    service = BranchService(ctx.store_path)
-
-    try:
-        ref = branch_name or "HEAD"
-        commits_list = service.get_commits(ref, limit=limit)
-
-        if ctx.json_output:
-            ctx.output({"commits": [c.to_dict() for c in commits_list]})
-        else:
-            if not commits_list:
-                click.echo("No commits found.")
-            else:
-                for commit in commits_list:
-                    if oneline:
-                        click.echo(
-                            click.style(commit.short_hash, fg="yellow")
-                            + f" {commit.message}"
-                        )
-                    else:
-                        click.echo(click.style(f"commit {commit.hash}", fg="yellow"))
-                        click.echo(f"Author: {commit.author} <{commit.email}>")
-                        # Format timestamp
-                        from datetime import datetime
-
-                        dt = datetime.fromtimestamp(commit.timestamp)
-                        click.echo(f"Date:   {dt.strftime('%Y-%m-%d %H:%M:%S')}")
-                        click.echo(f"\n    {commit.message}\n")
-
-    except Exception as e:
-        ctx.error(f"Failed to get commits: {e}", EXIT_GIT_FAILED)
 
 
 @click.command("time-travel")

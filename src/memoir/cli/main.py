@@ -142,11 +142,11 @@ def get_cli_schema(group: click.Group) -> dict[str, Any]:
     command_groups = {
         "store": ["new", "connect", "status", "refresh"],
         "memory": ["remember", "recall", "forget"],
-        "branch": ["branch", "checkout", "merge", "commits", "time-travel", "diff"],
+        "branch": ["branch", "checkout", "merge", "time-travel", "diff"],
         "crypto": ["proof", "verify", "blame"],
-        "analysis": ["summarize", "timeline", "location"],
+        "analysis": ["summarize"],
         "taxonomy": ["taxonomy"],
-        "utility": ["warmup", "code", "ui", "tui"],
+        "utility": ["ui", "tui"],
     }
 
     for group_name, cmd_names in command_groups.items():
@@ -318,9 +318,9 @@ def cli(
     COMMAND GROUPS:
       Store:    new, connect, status, refresh
       Memory:   remember, recall, forget
-      Branch:   branch, checkout, merge, commits, time-travel, diff
+      Branch:   branch, checkout, merge, time-travel, diff
       Crypto:   proof, verify, blame
-      Analysis: summarize, timeline, location
+      Analysis: summarize
 
     \b
     AGENT TIPS:
@@ -369,7 +369,6 @@ cli.add_command(memory.forget)
 cli.add_command(branch.branch)
 cli.add_command(branch.checkout)
 cli.add_command(branch.merge)
-cli.add_command(branch.commits)
 cli.add_command(branch.time_travel)
 cli.add_command(branch.diff)
 
