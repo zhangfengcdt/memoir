@@ -5,6 +5,7 @@ This service extracts the business logic from ui/handlers/branch_handler.py
 to be shared by CLI, TUI, SDK, and HTTP handlers.
 """
 
+import contextlib
 import logging
 from enum import Enum
 from pathlib import Path
@@ -36,6 +37,7 @@ class MergeStrategy(str, Enum):
             MergeStrategy.SKIP: ConflictResolution.IgnoreAll,
         }
         return mapping[self]
+
 
 logger = logging.getLogger(__name__)
 
@@ -345,10 +347,8 @@ class BranchService(BaseService):
             except Exception as e:
                 # Restore original branch on failure
                 if original_branch and from_ref:
-                    try:
+                    with contextlib.suppress(Exception):
                         store.tree.checkout(original_branch)
-                    except Exception:
-                        pass
                 return CheckoutResult(
                     success=False,
                     target=branch_name,
@@ -358,10 +358,8 @@ class BranchService(BaseService):
 
             # Restore original branch after creating new branch
             if original_branch and from_ref:
-                try:
+                with contextlib.suppress(Exception):
                     store.tree.checkout(original_branch)
-                except Exception:
-                    pass  # Best effort to restore
 
             # Get current branch
             try:
@@ -500,7 +498,7 @@ class BranchService(BaseService):
                         commit_hash=commit_hash,
                         message=f"Successfully merged '{source_branch}' into '{current_branch}'",
                     )
-                except Exception as e:
+                except Exception:
                     # Merge succeeded but couldn't get commit hash
                     return MergeResult(
                         success=True,

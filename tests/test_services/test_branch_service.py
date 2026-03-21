@@ -312,9 +312,7 @@ class TestBranchServiceMergeWithData:
         assert font is not None
         assert font.get("value") == "Arial"
 
-    def test_merge_branches_with_conflict_ours_strategy(
-        self, branch_service_with_data
-    ):
+    def test_merge_branches_with_conflict_ours_strategy(self, branch_service_with_data):
         """Test merging with conflict using 'ours' strategy."""
         service = branch_service_with_data
         store = service._get_store()

@@ -39,12 +39,14 @@ class MockLLM:
                 return MockLLMResponse(self.responses[key])
 
         # Default response for testing
-        return MockLLMResponse("""{
+        return MockLLMResponse(
+            """{
             "primary_path": "context.project.stack",
             "confidence": 0.5,
             "alternative_paths": ["context.project"],
             "reasoning": "Default test classification"
-        }""")
+        }"""
+        )
 
 
 class TestSemanticClassifier:
@@ -232,12 +234,14 @@ class TestSemanticClassifier:
     async def test_path_validation(self, classifier, mock_llm):
         """Test that invalid paths are corrected."""
         # Mock LLM returns invalid path
-        mock_llm.responses = {"test": """{
+        mock_llm.responses = {
+            "test": """{
                 "primary_path": "invalid.path.that.does.not.exist",
                 "confidence": 0.80,
                 "alternative_paths": [],
                 "reasoning": "Test invalid path"
-            }"""}
+            }"""
+        }
 
         result = await classifier.classify_async("test invalid path")
 

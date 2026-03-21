@@ -247,7 +247,8 @@ class TestBranchCommands:
         """Test 'merge' command with --strategy theirs."""
         runner.invoke(cli, ["-s", initialized_store, "branch", "test-theirs"])
         result = runner.invoke(
-            cli, ["-s", initialized_store, "merge", "test-theirs", "--strategy", "theirs"]
+            cli,
+            ["-s", initialized_store, "merge", "test-theirs", "--strategy", "theirs"],
         )
         assert result.exit_code in [0, 1, 5]
 
