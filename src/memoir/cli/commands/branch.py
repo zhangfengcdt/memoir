@@ -97,15 +97,14 @@ def branch(
 )
 @pass_context
 def checkout(ctx: MemoirContext, target: str, create_branch: bool):
-    """Switch to a branch or commit.
+    """Switch to a branch.
 
-    Target can be a branch name or commit hash.
+    TARGET should be a branch name.
 
     \b
     Examples:
       memoir checkout main
       memoir checkout -b new-feature
-      memoir checkout abc123f
     """
     if not ctx.store_path:
         ctx.error(

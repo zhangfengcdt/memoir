@@ -51,12 +51,11 @@ def summarize(ctx: MemoirContext, summary_type: str, namespace: str, key_pattern
             if namespace in all_namespaces:
                 namespaces = {namespace: all_namespaces[namespace]}
             else:
-                if ctx.json_output:
-                    ctx.output({"error": f"Namespace '{namespace}' not found"})
-                else:
-                    click.echo(f"Namespace '{namespace}' not found.")
-                    click.echo(f"Available namespaces: {', '.join(all_namespaces.keys())}")
-                return
+                available = ", ".join(all_namespaces.keys()) or "(none)"
+                ctx.error(
+                    f"Namespace '{namespace}' not found. Available: {available}",
+                    EXIT_ERROR,
+                )
         else:
             namespaces = all_namespaces
 

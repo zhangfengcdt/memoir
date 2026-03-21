@@ -270,6 +270,11 @@ class TestBranchServiceMergeWithData:
         # No conflicts since different keys
         assert len(result.conflicts) == 0 or result.conflicts == []
 
+        # Verify that the non-conflicting change from the feature branch
+        # is now present on main after the merge
+        merged_value = store.get(("default",), "preferences.font")
+        assert merged_value == {"value": "Arial"}
+
     def test_merge_branches_with_conflict_skip_strategy(self, branch_service_with_data):
         """Test merging with conflict using 'skip' strategy."""
         service = branch_service_with_data
@@ -279,21 +284,33 @@ class TestBranchServiceMergeWithData:
         service.create_branch("conflict-skip")
         service.checkout("conflict-skip")
 
-        # Modify same key on feature branch
+        # Modify same key on feature branch (will conflict with main)
         store.put(("default",), "preferences.theme", {"value": "dark"})
-        store.commit("Change theme to dark")
+        # Also add a different key on feature branch (no conflict)
+        store.put(("default",), "preferences.font", {"value": "Arial"})
+        store.commit("Change theme to dark and add font")
 
-        # Go back to main and modify same key
+        # Go back to main and modify same key to create a conflict
         service.checkout("main")
         store.put(("default",), "preferences.theme", {"value": "system"})
         store.commit("Change theme to system")
 
-        # Try to merge - should have conflict
+        # Try to merge - should have conflict on theme but still merge font
         result = service.merge("conflict-skip", strategy=MergeStrategy.SKIP)
 
         assert result is not None
         assert result.strategy == "skip"
-        # With skip strategy, conflicts are skipped
+        assert result.success is True
+
+        # Destination branch (main) should keep its value for the conflicting key
+        theme = store.get(("default",), "preferences.theme")
+        assert theme is not None
+        assert theme.get("value") == "system"
+
+        # Non-conflicting key from the source branch should be merged
+        font = store.get(("default",), "preferences.font")
+        assert font is not None
+        assert font.get("value") == "Arial"
 
     def test_merge_branches_with_conflict_ours_strategy(
         self, branch_service_with_data

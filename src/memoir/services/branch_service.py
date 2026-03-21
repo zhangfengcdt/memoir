@@ -182,12 +182,15 @@ class BranchService(BaseService):
         create_if_missing: bool = False,
     ) -> CheckoutResult:
         """
-        Checkout a specific commit or branch.
+        Checkout a branch.
 
         Uses VersionedKvStore's native checkout to ensure data consistency.
 
+        Note: Currently only branch names are supported. Commit hash checkout
+        depends on VersionedKvStore implementation and may not be available.
+
         Args:
-            target: Commit hash or branch name to checkout
+            target: Branch name to checkout
             create_branch: If provided, create this branch from target
             create_if_missing: If True and target branch doesn't exist, create it
 
@@ -315,6 +318,15 @@ class BranchService(BaseService):
         try:
             store = self._get_store()
 
+            # Save current branch to restore later
+            original_branch = None
+            try:
+                original_branch = store.tree.current_branch()
+                if isinstance(original_branch, bytes):
+                    original_branch = original_branch.decode("utf-8")
+            except Exception:
+                pass
+
             # If from_ref specified, checkout that first
             if from_ref and from_ref != "HEAD":
                 try:
@@ -323,7 +335,7 @@ class BranchService(BaseService):
                     return CheckoutResult(
                         success=False,
                         target=branch_name,
-                        current_branch="",
+                        current_branch=original_branch or "",
                         error=f"Cannot checkout '{from_ref}': {e}",
                     )
 
@@ -331,12 +343,25 @@ class BranchService(BaseService):
             try:
                 store.tree.create_branch(branch_name)
             except Exception as e:
+                # Restore original branch on failure
+                if original_branch and from_ref:
+                    try:
+                        store.tree.checkout(original_branch)
+                    except Exception:
+                        pass
                 return CheckoutResult(
                     success=False,
                     target=branch_name,
-                    current_branch="",
+                    current_branch=original_branch or "",
                     error=str(e),
                 )
+
+            # Restore original branch after creating new branch
+            if original_branch and from_ref:
+                try:
+                    store.tree.checkout(original_branch)
+                except Exception:
+                    pass  # Best effort to restore
 
             # Get current branch
             try:
@@ -344,7 +369,7 @@ class BranchService(BaseService):
                 if isinstance(current_branch, bytes):
                     current_branch = current_branch.decode("utf-8")
             except Exception:
-                current_branch = "main"
+                current_branch = original_branch or "main"
 
             return CheckoutResult(
                 success=True,
@@ -461,14 +486,29 @@ class BranchService(BaseService):
             success, conflicts = store.tree.try_merge(source_branch)
 
             if success:
-                # Merge was applied successfully (no conflicts)
-                return MergeResult(
-                    success=True,
-                    source_branch=source_branch,
-                    target_branch=current_branch,
-                    strategy=strategy.value,
-                    message=f"Successfully merged '{source_branch}' into '{current_branch}'",
-                )
+                # No conflicts - try_merge already applied the merge
+                # But we need to get the commit hash, so call merge() anyway
+                # to ensure we have a proper merge commit
+                try:
+                    # Get current commit as the merge commit hash
+                    commit_hash = store.tree.current_commit()
+                    return MergeResult(
+                        success=True,
+                        source_branch=source_branch,
+                        target_branch=current_branch,
+                        strategy=strategy.value,
+                        commit_hash=commit_hash,
+                        message=f"Successfully merged '{source_branch}' into '{current_branch}'",
+                    )
+                except Exception as e:
+                    # Merge succeeded but couldn't get commit hash
+                    return MergeResult(
+                        success=True,
+                        source_branch=source_branch,
+                        target_branch=current_branch,
+                        strategy=strategy.value,
+                        message=f"Successfully merged '{source_branch}' into '{current_branch}'",
+                    )
 
             # There are conflicts - apply the resolution strategy
             if conflicts:
