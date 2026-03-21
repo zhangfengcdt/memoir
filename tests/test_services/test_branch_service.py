@@ -10,7 +10,7 @@ import tempfile
 
 import pytest
 
-from memoir.services.branch_service import BranchService
+from memoir.services.branch_service import BranchService, MergeStrategy
 from memoir.services.store_service import StoreService
 
 
@@ -160,6 +160,221 @@ class TestBranchServiceMerge:
 
         assert result is not None
         assert result.success is False or result.error is not None
+
+    def test_merge_strategy_enum(self):
+        """Test MergeStrategy enum values."""
+        from prollytree import ConflictResolution
+
+        assert MergeStrategy.OURS.value == "ours"
+        assert MergeStrategy.THEIRS.value == "theirs"
+        assert MergeStrategy.SKIP.value == "skip"
+
+        # Test conversion to ConflictResolution
+        assert (
+            MergeStrategy.OURS.to_conflict_resolution()
+            == ConflictResolution.TakeDestination
+        )
+        assert (
+            MergeStrategy.THEIRS.to_conflict_resolution()
+            == ConflictResolution.TakeSource
+        )
+        assert (
+            MergeStrategy.SKIP.to_conflict_resolution() == ConflictResolution.IgnoreAll
+        )
+
+    def test_merge_default_strategy_is_skip(self, branch_service):
+        """Test that default merge strategy is 'skip'."""
+        # Create a branch to merge
+        branch_service.create_branch("test-merge-default")
+        result = branch_service.merge("test-merge-default")
+
+        # The result should include the strategy used
+        assert result is not None
+        assert result.strategy == "skip"
+
+    def test_merge_with_ours_strategy(self, branch_service):
+        """Test merge with 'ours' strategy."""
+        branch_service.create_branch("test-ours")
+        result = branch_service.merge("test-ours", strategy=MergeStrategy.OURS)
+
+        assert result is not None
+        assert result.strategy == "ours"
+
+    def test_merge_with_theirs_strategy(self, branch_service):
+        """Test merge with 'theirs' strategy."""
+        branch_service.create_branch("test-theirs")
+        result = branch_service.merge("test-theirs", strategy=MergeStrategy.THEIRS)
+
+        assert result is not None
+        assert result.strategy == "theirs"
+
+    def test_merge_result_includes_strategy(self, branch_service):
+        """Test that MergeResult includes strategy field."""
+        branch_service.create_branch("test-strategy")
+        result = branch_service.merge("test-strategy", strategy=MergeStrategy.SKIP)
+
+        assert result is not None
+        assert hasattr(result, "strategy")
+        assert result.strategy == "skip"
+
+        # Test to_dict includes strategy
+        result_dict = result.to_dict()
+        assert "strategy" in result_dict
+        assert result_dict["strategy"] == "skip"
+
+
+class TestBranchServiceMergeWithData:
+    """Test merge functionality with actual data in the store."""
+
+    @pytest.fixture
+    def store_with_data(self, temp_dir):
+        """Create a store with some initial data."""
+        store_service = StoreService(temp_dir)
+        store_service.create_store(temp_dir)
+
+        # Add some initial data using the store
+        branch_service = BranchService(temp_dir)
+        store = branch_service._get_store()
+
+        # Store some data
+        store.put(("default",), "preferences.theme", {"value": "light"})
+        store.put(("default",), "preferences.language", {"value": "en"})
+        store.commit("Initial data")
+
+        return temp_dir
+
+    @pytest.fixture
+    def branch_service_with_data(self, store_with_data):
+        """Create a BranchService with data."""
+        return BranchService(store_with_data)
+
+    def test_merge_branches_no_conflict(self, branch_service_with_data):
+        """Test merging branches with no conflicts (different keys)."""
+        service = branch_service_with_data
+        store = service._get_store()
+
+        # Create a feature branch
+        service.create_branch("feature")
+        service.checkout("feature")
+
+        # Add new data on feature branch (different key)
+        store.put(("default",), "preferences.font", {"value": "Arial"})
+        store.commit("Add font preference")
+
+        # Checkout main and merge
+        service.checkout("main")
+        result = service.merge("feature")
+
+        assert result.success is True
+        assert result.strategy == "skip"
+        # No conflicts since different keys
+        assert len(result.conflicts) == 0 or result.conflicts == []
+
+        # Verify that the non-conflicting change from the feature branch
+        # is now present on main after the merge
+        merged_value = store.get(("default",), "preferences.font")
+        assert merged_value == {"value": "Arial"}
+
+    def test_merge_branches_with_conflict_skip_strategy(self, branch_service_with_data):
+        """Test merging with conflict using 'skip' strategy."""
+        service = branch_service_with_data
+        store = service._get_store()
+
+        # Create a feature branch
+        service.create_branch("conflict-skip")
+        service.checkout("conflict-skip")
+
+        # Modify same key on feature branch (will conflict with main)
+        store.put(("default",), "preferences.theme", {"value": "dark"})
+        # Also add a different key on feature branch (no conflict)
+        store.put(("default",), "preferences.font", {"value": "Arial"})
+        store.commit("Change theme to dark and add font")
+
+        # Go back to main and modify same key to create a conflict
+        service.checkout("main")
+        store.put(("default",), "preferences.theme", {"value": "system"})
+        store.commit("Change theme to system")
+
+        # Try to merge - should have conflict on theme but still merge font
+        result = service.merge("conflict-skip", strategy=MergeStrategy.SKIP)
+
+        assert result is not None
+        assert result.strategy == "skip"
+        assert result.success is True
+
+        # Destination branch (main) should keep its value for the conflicting key
+        theme = store.get(("default",), "preferences.theme")
+        assert theme is not None
+        assert theme.get("value") == "system"
+
+        # Non-conflicting key from the source branch should be merged
+        font = store.get(("default",), "preferences.font")
+        assert font is not None
+        assert font.get("value") == "Arial"
+
+    def test_merge_branches_with_conflict_ours_strategy(self, branch_service_with_data):
+        """Test merging with conflict using 'ours' strategy."""
+        service = branch_service_with_data
+        store = service._get_store()
+
+        # Create a feature branch
+        service.create_branch("conflict-ours")
+        service.checkout("conflict-ours")
+
+        # Modify same key on feature branch
+        store.put(("default",), "preferences.theme", {"value": "dark"})
+        store.commit("Change theme to dark")
+
+        # Go back to main and modify same key
+        service.checkout("main")
+        store.put(("default",), "preferences.theme", {"value": "system"})
+        store.commit("Change theme to system")
+
+        # Merge with 'ours' - should keep main's version
+        result = service.merge("conflict-ours", strategy=MergeStrategy.OURS)
+
+        assert result is not None
+        assert result.strategy == "ours"
+
+        # After merge, check that we kept 'ours' (main's value)
+        if result.success:
+            theme = store.get(("default",), "preferences.theme")
+            assert theme is not None
+            # 'ours' means keep destination (main) which was "system"
+            assert theme.get("value") == "system"
+
+    def test_merge_branches_with_conflict_theirs_strategy(
+        self, branch_service_with_data
+    ):
+        """Test merging with conflict using 'theirs' strategy."""
+        service = branch_service_with_data
+        store = service._get_store()
+
+        # Create a feature branch
+        service.create_branch("conflict-theirs")
+        service.checkout("conflict-theirs")
+
+        # Modify same key on feature branch
+        store.put(("default",), "preferences.theme", {"value": "dark"})
+        store.commit("Change theme to dark")
+
+        # Go back to main and modify same key
+        service.checkout("main")
+        store.put(("default",), "preferences.theme", {"value": "system"})
+        store.commit("Change theme to system")
+
+        # Merge with 'theirs' - should take feature branch's version
+        result = service.merge("conflict-theirs", strategy=MergeStrategy.THEIRS)
+
+        assert result is not None
+        assert result.strategy == "theirs"
+
+        # After merge, check that we took 'theirs' (feature's value)
+        if result.success:
+            theme = store.get(("default",), "preferences.theme")
+            assert theme is not None
+            # 'theirs' means take source (conflict-theirs) which was "dark"
+            assert theme.get("value") == "dark"
 
 
 class TestBranchServiceDiff:

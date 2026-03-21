@@ -1,10 +1,8 @@
 """
 Analysis commands for memoir CLI.
 
-Commands: summarize, timeline, location
+Commands: summarize
 """
-
-import asyncio
 
 import click
 
@@ -18,9 +16,10 @@ from memoir.cli.main import (
 
 @click.command()
 @click.argument("summary_type", required=False, default="all")
+@click.option("-n", "--namespace", help="Summarize specific namespace only")
 @click.option("--keys", "key_pattern", help="Summarize keys matching pattern")
 @pass_context
-def summarize(ctx: MemoirContext, summary_type: str, key_pattern: str):
+def summarize(ctx: MemoirContext, summary_type: str, namespace: str, key_pattern: str):
     """Summarize memories in the store.
 
     Summary types: all, taxonomy, timeline, places
@@ -29,6 +28,7 @@ def summarize(ctx: MemoirContext, summary_type: str, key_pattern: str):
     Examples:
       memoir summarize                    # Full summary
       memoir summarize taxonomy           # Taxonomy breakdown
+      memoir summarize -n default         # Summarize 'default' namespace
       memoir summarize --keys profile.*   # Keys matching pattern
     """
     if not ctx.store_path:
@@ -42,12 +42,27 @@ def summarize(ctx: MemoirContext, summary_type: str, key_pattern: str):
 
     try:
         data = service.read_store()
-        namespaces = data.get("namespaces", {})
+        all_namespaces = data.get("namespaces", {})
+
+        # Filter by namespace if specified
+        if namespace:
+            if namespace in all_namespaces:
+                namespaces = {namespace: all_namespaces[namespace]}
+            else:
+                available = ", ".join(all_namespaces.keys()) or "(none)"
+                ctx.error(
+                    f"Namespace '{namespace}' not found. Available: {available}",
+                    EXIT_ERROR,
+                )
+        else:
+            namespaces = all_namespaces
+
         total_memories = sum(len(keys) for keys in namespaces.values())
 
         if ctx.json_output:
             result = {
                 "type": summary_type,
+                "namespace_filter": namespace,
                 "total_namespaces": len(namespaces),
                 "total_memories": total_memories,
                 "namespaces": {ns: len(keys) for ns, keys in namespaces.items()},
@@ -64,7 +79,10 @@ def summarize(ctx: MemoirContext, summary_type: str, key_pattern: str):
                 result["matching_keys"] = matching
             ctx.output(result)
         else:
-            click.echo(f"\nMemory Summary ({summary_type}):")
+            header = f"Memory Summary ({summary_type})"
+            if namespace:
+                header += f" - namespace: {namespace}"
+            click.echo(f"\n{header}:")
             click.echo(f"  Total namespaces: {len(namespaces)}")
             click.echo(f"  Total memories: {total_memories}")
 
@@ -88,158 +106,3 @@ def summarize(ctx: MemoirContext, summary_type: str, key_pattern: str):
 
     except Exception as e:
         ctx.error(f"Summarize failed: {e}", EXIT_ERROR)
-
-
-@click.command()
-@click.argument("event", required=False)
-@click.option("-d", "--date", help="Date for event (YYYY-MM-DD)")
-@click.option("-n", "--limit", default=20, help="Maximum events to show")
-@pass_context
-def timeline(ctx: MemoirContext, event: str, date: str, limit: int):
-    """Show or add timeline events.
-
-    Without arguments, shows recent timeline events.
-    With an event argument, adds a new timeline event.
-
-    \b
-    Examples:
-      memoir timeline                        # Show timeline
-      memoir timeline "Started new project"  # Add event
-      memoir timeline "Meeting" -d 2024-01-15
-    """
-    if not ctx.store_path:
-        ctx.error(
-            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
-        )
-
-    try:
-        if event:
-            # Add timeline event
-            from memoir.services.memory_service import MemoryService
-
-            service = MemoryService(ctx.store_path)
-
-            content = "Timeline event"
-            if date:
-                content += f" on {date}"
-            content += f": {event}"
-
-            result = asyncio.run(service.remember(content, "timeline"))
-
-            if ctx.json_output:
-                ctx.output(
-                    {
-                        "success": result.success,
-                        "key": result.key,
-                        "date": date,
-                        "event": event,
-                    }
-                )
-            else:
-                if result.success:
-                    ctx.success(f"Added timeline event: {event}")
-                    if date:
-                        click.echo(f"  Date: {date}")
-                else:
-                    ctx.error(f"Failed: {result.error}", EXIT_ERROR)
-        else:
-            # Show timeline
-            from memoir.services.store_service import StoreService
-
-            service = StoreService(ctx.store_path)
-            data = service.read_store()
-
-            timeline_ns = data.get("namespaces", {}).get("timeline", [])
-
-            if ctx.json_output:
-                ctx.output({"events": timeline_ns[:limit]})
-            else:
-                if not timeline_ns:
-                    click.echo("No timeline events found.")
-                else:
-                    click.echo("\nTimeline:")
-                    for evt in timeline_ns[:limit]:
-                        click.echo(f"  - {evt}")
-                    if len(timeline_ns) > limit:
-                        click.echo(f"  ... and {len(timeline_ns) - limit} more")
-                    click.echo()
-
-    except Exception as e:
-        ctx.error(f"Timeline operation failed: {e}", EXIT_ERROR)
-
-
-@click.command()
-@click.argument("place", required=False)
-@click.option("-d", "--description", help="Description for the location")
-@click.option("-n", "--limit", default=20, help="Maximum locations to show")
-@pass_context
-def location(ctx: MemoirContext, place: str, description: str, limit: int):
-    """Show or add location events.
-
-    Without arguments, shows recorded locations.
-    With a place argument, adds a new location event.
-
-    \b
-    Examples:
-      memoir location                           # Show locations
-      memoir location "San Francisco"           # Add location
-      memoir location "Office" -d "Main HQ"
-    """
-    if not ctx.store_path:
-        ctx.error(
-            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
-        )
-
-    try:
-        if place:
-            # Add location event
-            from memoir.services.memory_service import MemoryService
-
-            service = MemoryService(ctx.store_path)
-
-            content = f"Location: {place}"
-            if description:
-                content += f" - {description}"
-
-            result = asyncio.run(service.remember(content, "location"))
-
-            if ctx.json_output:
-                ctx.output(
-                    {
-                        "success": result.success,
-                        "key": result.key,
-                        "place": place,
-                        "description": description,
-                    }
-                )
-            else:
-                if result.success:
-                    ctx.success(f"Added location: {place}")
-                    if description:
-                        click.echo(f"  Description: {description}")
-                else:
-                    ctx.error(f"Failed: {result.error}", EXIT_ERROR)
-        else:
-            # Show locations
-            from memoir.services.store_service import StoreService
-
-            service = StoreService(ctx.store_path)
-            data = service.read_store()
-
-            location_ns = data.get("namespaces", {}).get("location", [])
-
-            if ctx.json_output:
-                ctx.output({"locations": location_ns[:limit]})
-            else:
-                if not location_ns:
-                    click.echo("No location events found.")
-                else:
-                    click.echo("\nLocations:")
-                    for loc in location_ns[:limit]:
-                        click.echo(f"  - {loc}")
-                    if len(location_ns) > limit:
-                        click.echo(f"  ... and {len(location_ns) - limit} more")
-                    click.echo()
-
-    except Exception as e:
-        ctx.error(f"Location operation failed: {e}", EXIT_ERROR)
