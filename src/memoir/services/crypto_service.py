@@ -7,6 +7,7 @@ to be shared by CLI, TUI, SDK, and HTTP handlers.
 
 import base64
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
@@ -227,8 +228,6 @@ class CryptoService(BaseService):
                 timestamp = commit.get("timestamp")
                 date_str = ""
                 if timestamp:
-                    from datetime import datetime
-
                     try:
                         dt = datetime.fromtimestamp(timestamp)
                         date_str = dt.isoformat()

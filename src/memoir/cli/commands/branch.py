@@ -139,7 +139,7 @@ def checkout(ctx: MemoirContext, target: str, create_branch: bool):
 @click.argument("source")
 @click.option("--into", "into_branch", help="Target branch (default: current)")
 @click.option(
-    "-s",
+    "-S",
     "--strategy",
     type=click.Choice(["ours", "theirs", "skip"]),
     default="skip",
@@ -161,7 +161,7 @@ def merge(ctx: MemoirContext, source: str, into_branch: str, strategy: str):
     Examples:
       memoir merge feature              # Merge feature into current
       memoir merge experiment --into main
-      memoir merge feature -s theirs    # Take incoming changes on conflict
+      memoir merge feature -S theirs    # Take incoming changes on conflict
     """
     if not ctx.store_path:
         ctx.error(

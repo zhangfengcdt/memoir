@@ -238,7 +238,7 @@ class TestBranchCommands:
         # Create a branch first
         runner.invoke(cli, ["-s", initialized_store, "branch", "test-ours"])
         result = runner.invoke(
-            cli, ["-s", initialized_store, "merge", "test-ours", "-s", "ours"]
+            cli, ["-s", initialized_store, "merge", "test-ours", "-S", "ours"]
         )
         # May fail but should accept the strategy
         assert result.exit_code in [0, 1, 5]
@@ -256,14 +256,14 @@ class TestBranchCommands:
         """Test 'merge' command with --strategy skip (default)."""
         runner.invoke(cli, ["-s", initialized_store, "branch", "test-skip"])
         result = runner.invoke(
-            cli, ["-s", initialized_store, "merge", "test-skip", "-s", "skip"]
+            cli, ["-s", initialized_store, "merge", "test-skip", "-S", "skip"]
         )
         assert result.exit_code in [0, 1, 5]
 
     def test_merge_invalid_strategy(self, runner, initialized_store):
         """Test 'merge' command with invalid strategy."""
         result = runner.invoke(
-            cli, ["-s", initialized_store, "merge", "some-branch", "-s", "invalid"]
+            cli, ["-s", initialized_store, "merge", "some-branch", "-S", "invalid"]
         )
         # Should fail with invalid choice
         assert result.exit_code != 0
@@ -274,7 +274,7 @@ class TestBranchCommands:
         runner.invoke(cli, ["-s", initialized_store, "branch", "test-json"])
         result = runner.invoke(
             cli,
-            ["--json", "-s", initialized_store, "merge", "test-json", "-s", "theirs"],
+            ["--json", "-s", initialized_store, "merge", "test-json", "-S", "theirs"],
         )
         # Parse JSON output if successful
         if result.exit_code == 0:

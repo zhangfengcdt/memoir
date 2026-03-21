@@ -277,7 +277,7 @@ def read_store_data(store_path: str):
                                 namespace_part = ":".join(parts[:-1])
                                 semantic_path = parts[-1]
                         else:
-                            namespace_part = ""
+                            namespace_part = "default"
                             semantic_path = full_key
 
                         # Include all namespaces (removed hardcoded filter)

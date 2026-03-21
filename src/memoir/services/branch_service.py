@@ -167,6 +167,9 @@ class BranchService(BaseService):
             try:
                 commit_id = store.tree.current_commit()
                 if commit_id:
+                    # Convert bytes to string if needed
+                    if isinstance(commit_id, bytes):
+                        commit_id = commit_id.hex()
                     current_commit = commit_id[:8] if len(commit_id) > 8 else commit_id
             except Exception:
                 pass
@@ -490,6 +493,9 @@ class BranchService(BaseService):
                 try:
                     # Get current commit as the merge commit hash
                     commit_hash = store.tree.current_commit()
+                    # Convert bytes to string if needed
+                    if isinstance(commit_hash, bytes):
+                        commit_hash = commit_hash.hex()
                     return MergeResult(
                         success=True,
                         source_branch=source_branch,
@@ -523,6 +529,9 @@ class BranchService(BaseService):
                 conflict_resolution = strategy.to_conflict_resolution()
                 try:
                     commit_hash = store.tree.merge(source_branch, conflict_resolution)
+                    # Convert bytes to string if needed
+                    if isinstance(commit_hash, bytes):
+                        commit_hash = commit_hash.hex()
                     return MergeResult(
                         success=True,
                         source_branch=source_branch,
