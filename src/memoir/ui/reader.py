@@ -280,9 +280,7 @@ def read_store_data(store_path: str):
                             namespace_part = ""
                             semantic_path = full_key
 
-                        # Include default and memory:general namespaces for UI
-                        if namespace_part not in ["default", "memory:general"]:
-                            continue
+                        # Include all namespaces (removed hardcoded filter)
 
                         # Get the value for this key
                         key_bytes = full_key.encode("utf-8")
@@ -331,12 +329,22 @@ def read_store_data(store_path: str):
             # print("No memories found in store - returning empty result")
             pass
 
+        # Build namespaces dict by grouping memory keys by namespace
+        namespaces = {}
+        for mem in memories:
+            ns = mem.get("namespace", "default")
+            path = mem.get("path", mem.get("key", ""))
+            if ns not in namespaces:
+                namespaces[ns] = []
+            namespaces[ns].append(path)
+
         result = {
             "store_path": store_path,
             "branches": branches,
             "current_branch": current_branch,
             "commits": commits,
             "memories": memories,
+            "namespaces": namespaces,  # Add namespaces for summarize command
             "tree": tree_paths,  # Use the path counts we built above
             "total_memories": len(memories),
         }

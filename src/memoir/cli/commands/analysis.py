@@ -18,9 +18,10 @@ from memoir.cli.main import (
 
 @click.command()
 @click.argument("summary_type", required=False, default="all")
+@click.option("-n", "--namespace", help="Summarize specific namespace only")
 @click.option("--keys", "key_pattern", help="Summarize keys matching pattern")
 @pass_context
-def summarize(ctx: MemoirContext, summary_type: str, key_pattern: str):
+def summarize(ctx: MemoirContext, summary_type: str, namespace: str, key_pattern: str):
     """Summarize memories in the store.
 
     Summary types: all, taxonomy, timeline, places
@@ -29,6 +30,7 @@ def summarize(ctx: MemoirContext, summary_type: str, key_pattern: str):
     Examples:
       memoir summarize                    # Full summary
       memoir summarize taxonomy           # Taxonomy breakdown
+      memoir summarize -n default         # Summarize 'default' namespace
       memoir summarize --keys profile.*   # Keys matching pattern
     """
     if not ctx.store_path:
@@ -42,12 +44,28 @@ def summarize(ctx: MemoirContext, summary_type: str, key_pattern: str):
 
     try:
         data = service.read_store()
-        namespaces = data.get("namespaces", {})
+        all_namespaces = data.get("namespaces", {})
+
+        # Filter by namespace if specified
+        if namespace:
+            if namespace in all_namespaces:
+                namespaces = {namespace: all_namespaces[namespace]}
+            else:
+                if ctx.json_output:
+                    ctx.output({"error": f"Namespace '{namespace}' not found"})
+                else:
+                    click.echo(f"Namespace '{namespace}' not found.")
+                    click.echo(f"Available namespaces: {', '.join(all_namespaces.keys())}")
+                return
+        else:
+            namespaces = all_namespaces
+
         total_memories = sum(len(keys) for keys in namespaces.values())
 
         if ctx.json_output:
             result = {
                 "type": summary_type,
+                "namespace_filter": namespace,
                 "total_namespaces": len(namespaces),
                 "total_memories": total_memories,
                 "namespaces": {ns: len(keys) for ns, keys in namespaces.items()},
@@ -64,7 +82,10 @@ def summarize(ctx: MemoirContext, summary_type: str, key_pattern: str):
                 result["matching_keys"] = matching
             ctx.output(result)
         else:
-            click.echo(f"\nMemory Summary ({summary_type}):")
+            header = f"Memory Summary ({summary_type})"
+            if namespace:
+                header += f" - namespace: {namespace}"
+            click.echo(f"\n{header}:")
             click.echo(f"  Total namespaces: {len(namespaces)}")
             click.echo(f"  Total memories: {total_memories}")
 
