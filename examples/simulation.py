@@ -75,20 +75,20 @@ class LiveSimulationDemo:
 
         This allows O(1) lookup without LLM:
             memoir get config.identity.web:51321 --namespace agent
-            -> kevin
+            -> alex
 
         Supports both formats:
-        - Specific: config.identity.web:51321 -> kevin
-        - Channel-wide: config.identity.discord -> feng (any user on discord)
+        - Specific: config.identity.web:51321 -> alex
+        - Channel-wide: config.identity.discord -> sarah (any user on discord)
         """
         # Identity mappings: {channel}:{user_id} or {channel} -> namespace
         identity_mappings = {
             # Specific user mappings (channel:user_id)
-            "web:51321": "kevin",
-            "slack:U04ABCD1234": "slackBot",
-            "telegram:12345678": "TeleBot",
+            "web:51321": "alex",
+            "slack:U04ABCD1234": "slackbot",
+            "telegram:12345678": "assistant",
             # Channel-wide mapping (any user on this channel)
-            "discord": "feng",
+            "discord": "sarah",
         }
 
         for channel_key, namespace in identity_mappings.items():
@@ -287,7 +287,7 @@ class LiveSimulationDemo:
         Args:
             enable_chat: If True, non-slash text is sent to LLM for chat.
                         If False, only slash commands are accepted.
-            user_id: User ID for identity resolution (default: 51321 -> kevin)
+            user_id: User ID for identity resolution (default: 51321 -> alex)
             channel: Channel for identity resolution (default: web)
         """
         import sys
@@ -786,7 +786,7 @@ Slash Commands:
     parser.add_argument(
         "--user-id",
         default="51321",
-        help="User ID for interactive mode (default: 51321, maps to kevin)",
+        help="User ID for interactive mode (default: 51321, maps to alex)",
     )
     parser.add_argument(
         "--channel",
