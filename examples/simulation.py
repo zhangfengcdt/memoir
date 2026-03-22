@@ -61,6 +61,9 @@ class LiveSimulationDemo:
         # (Hooks and agents read these dynamically from the store)
         self._seed_demo_identities(cli)
 
+        # Seed agent's own knowledge (tools, skills, learned patterns)
+        self._seed_agent_knowledge(cli)
+
         # Create TUI (interactive mode for single conversation view)
         self.tui = LiveSimulationTUI(store_path, interactive=interactive)
 
@@ -95,6 +98,37 @@ class LiveSimulationDemo:
             cli.set(
                 key=f"config.identity.{channel_key}",
                 content=namespace,
+                namespace="agent",
+            )
+
+    def _seed_agent_knowledge(self, cli: CLIExecutor):
+        """Seed agent's own knowledge - tools, skills, and learned patterns.
+
+        This represents what the agent has learned about:
+        - Tools it can use effectively
+        - Patterns it has discovered
+        - Skills it has developed
+        """
+        agent_knowledge = {
+            # Tool integrations
+            "tools.calendar": "Google Calendar API - check availability, create events, send invites.",
+            "tools.email": "Gmail API - draft and send emails, format executive summaries.",
+            "tools.slack": "Slack API - post to channels, DM users, aggregate updates.",
+            "tools.search": "Perplexity API - web research, market analysis, competitor tracking.",
+            "tools.docs": "Google Docs API - create documents, share with team, export PDFs.",
+            # Skills and learned capabilities
+            "skills.board_prep": "Board meeting prep: financial summary, metrics dashboard, risk register. Start 5 days before.",
+            "skills.daily_standup": "Aggregate Slack channels by 9am. Include: blockers, wins, priorities.",
+            "skills.investor_updates": "Monthly format: ARR, runway, key hires, product milestones. Under 500 words.",
+            "skills.morning_brief": "Morning brief: calendar, overnight Slack, urgent emails, top 3 priorities.",
+            "skills.meeting_prep": "Pull attendee context, gather docs, prepare talking points.",
+            "skills.weekly_report": "Friday EOD: team updates, sprint velocity, customer feedback, week-ahead.",
+        }
+
+        for key, content in agent_knowledge.items():
+            cli.set(
+                key=key,
+                content=content,
                 namespace="agent",
             )
 
@@ -186,44 +220,45 @@ class LiveSimulationDemo:
         - Without manual linking, each is a separate user with separate memory
         - Session display shows channel:user_id:session format
         """
-        # Web channel - developer preferences
+        # Web channel - alex (Owner/CEO)
+        # Includes questions that require recalling agent tools/skills
         web_messages = [
-            "Hi! Please remember that I prefer dark mode.",
-            "Also remember that I use vim keybindings.",
-            "I like to use Python for most of my projects.",
-            "My timezone is Pacific Time (PST).",
-            "I always use rg instead of grep because it's faster.",
-            "What do you know about my preferences?",
+            "Remember that my top priority this quarter is the Series B fundraise.",
+            "I prefer morning meetings before 10am Pacific.",
+            "What calendar tools do you have?",  # Requires agent recall: tools.calendar
+            "Always brief me on key metrics before board meetings.",
+            "What skills do you have for board meeting prep?",  # Requires agent recall: skills.board_prep
+            "My communication style is direct - keep updates concise.",
         ]
 
-        # Slack channel - work context
+        # Slack channel - slackbot (Daily report aggregator)
         slack_messages = [
-            "Hey, I'm working on an API refactoring project.",
-            "The project uses FastAPI and PostgreSQL.",
-            "We're migrating from REST to GraphQL.",
-            "I love FastAPI's dependency injection pattern.",
-            "I prefer TypeScript for frontend work.",
-            "What do you remember about my project?",
+            "Daily report: Engineering completed 12 PRs, 3 critical bugs fixed.",
+            "Sales update: Q1 pipeline at $2.4M, 15% above target.",
+            "What skills do you have for daily standups?",  # Requires agent recall: skills.daily_standup
+            "Customer success: NPS score improved to 72, up from 68 last month.",
+            "HR update: 3 new hires starting Monday in engineering.",
+            "What do you know about formatting investor updates?",  # Requires agent recall: skills.investor_updates
         ]
 
-        # Discord channel - gaming/casual
+        # Discord channel - sarah (Developer)
         discord_messages = [
-            "I'm learning Go for systems programming.",
-            "My favorite language is Rust, but I use Python more.",
-            "Remember: I stream on weekends.",
-            "I prefer pytest fixtures over setUp/tearDown.",
-            "I use Arch Linux btw.",
-            "What preferences do you remember?",
+            "I prefer using Rust for performance-critical services.",
+            "Remember: I use neovim with LSP for all my coding.",
+            "What search tools do you have?",  # Requires agent recall: tools.search
+            "My dev environment runs on NixOS for reproducibility.",
+            "I always write integration tests before unit tests.",
+            "What skills do you have for morning briefs?",  # Requires agent recall: skills.morning_brief
         ]
 
-        # Telegram channel - mobile quick notes
+        # Telegram channel - assistant (Executive assistant to alex)
         telegram_messages = [
-            "Quick note: I use Docker for all dev environments.",
-            "Remember: I value test coverage above 80%.",
-            "I prefer tabs over spaces.",
-            "I use black + isort + ruff for Python formatting.",
-            "My work hours are 9am-6pm.",
-            "What do you remember about me?",
+            "Alex's board meeting is next Tuesday at 2pm.",
+            "What meeting prep skills do you have?",  # Requires agent recall: skills.meeting_prep
+            "Remember to prep the Q1 financial summary for Alex by Friday.",
+            "Alex prefers his coffee meetings at Blue Bottle on Market St.",
+            "What email tools do you have?",  # Requires agent recall: tools.email
+            "Block Alex's calendar for focused work every Thursday morning.",
         ]
 
         # Run all 4 channel sessions concurrently

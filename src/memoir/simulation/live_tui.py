@@ -460,9 +460,9 @@ class LiveSimulationTUI:
                 messages = self.conversations[key]
                 title = f"[bold]{channel}:{user_id}[/bold]"
 
-                # Filter out empty messages and get last 5 (to fit smaller panel)
+                # Filter out empty messages and get last 12 to fill panel
                 non_empty = [m for m in messages if m.content and m.content.strip()]
-                recent_messages = non_empty[-5:]
+                recent_messages = non_empty[-12:]
                 num_messages = len(recent_messages)
 
                 for idx, msg in enumerate(recent_messages):
@@ -700,18 +700,26 @@ class LiveSimulationTUI:
                 # agent first (0), everything else after (1)
                 return (0 if ns == "agent" else 1, ns)
 
+            max_keys_per_namespace = 6
             for namespace in sorted(real_memories.keys(), key=namespace_sort_key):
                 paths = real_memories[namespace]
-                ns_tree = tree.add(f"[yellow]{namespace}[/yellow]")
-                # Sort paths for stable display
-                for path in sorted(paths.keys()):
+                total_keys = len(paths)
+                ns_label = f"[yellow]{namespace}[/yellow] ({total_keys})"
+                ns_tree = tree.add(ns_label)
+                # Sort paths for stable display, limit to max_keys_per_namespace
+                sorted_paths = sorted(paths.keys())
+                for path in sorted_paths[:max_keys_per_namespace]:
                     content = paths[path]
                     content_str = str(content)[:60]
                     if len(str(content)) > 60:
                         content_str += "..."
                     ns_tree.add(f"[cyan]{path}[/cyan]: {content_str}")
+                # Show "..." if there are more keys
+                if total_keys > max_keys_per_namespace:
+                    ns_tree.add(f"[dim]... and {total_keys - max_keys_per_namespace} more[/dim]")
         else:
             # Fall back to instrumented memories
+            max_keys_per_namespace = 6
             with self._lock:
                 # Sort namespaces with "agent" always first
                 sorted_namespaces = sorted(
@@ -720,10 +728,16 @@ class LiveSimulationTUI:
                 )
                 for namespace in sorted_namespaces:
                     paths = self.memories[namespace]
-                    ns_tree = tree.add(f"[yellow]{namespace}[/yellow]")
-                    for path, content in list(paths.items())[-10:]:
+                    total_keys = len(paths)
+                    ns_label = f"[yellow]{namespace}[/yellow] ({total_keys})"
+                    ns_tree = tree.add(ns_label)
+                    sorted_paths = sorted(paths.keys())
+                    for path in sorted_paths[:max_keys_per_namespace]:
+                        content = paths[path]
                         content_str = str(content)[:60]
                         ns_tree.add(f"[cyan]{path}[/cyan]: {content_str}")
+                    if total_keys > max_keys_per_namespace:
+                        ns_tree.add(f"[dim]... and {total_keys - max_keys_per_namespace} more[/dim]")
 
         if not real_memories and not self.memories:
             tree.add("[dim]No memories stored yet[/dim]")
