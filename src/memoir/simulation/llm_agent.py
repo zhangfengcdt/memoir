@@ -90,8 +90,13 @@ class LLMAgent:
 you MUST immediately call `memoir_recall` with a natural language query before responding.
 Never say "I don't have that information" after only trying `memoir_get`.
 
-### Other:
-- **memoir_forget(path)**: Delete a memory
+### For Deleting:
+- **memoir_forget(path)**: Delete a memory when user explicitly asks to forget, remove, or delete something
+
+**When to use memoir_forget:**
+- User says "forget that", "delete that", "remove that memory"
+- User says information is wrong or outdated and should be removed
+- User explicitly cancels or revokes a previously stored preference/fact
 
 {taxonomy_section}
 
