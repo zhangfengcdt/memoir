@@ -27,15 +27,22 @@ If `memoir` is not found at session start, the plugin surfaces a hint in the sta
 
 ### 2. Install the plugin
 
-Link or copy `plugins/claude-code/` into your Claude Code plugins directory (`~/.claude/plugins/memoir/` by default), or reference it directly via your `settings.json`:
+**Via the marketplace (recommended)** — in Claude Code:
+
+```
+/plugin marketplace add zhangfengcdt/memoir
+/plugin install memoir@memoir
+```
+
+Claude Code subscribes to the marketplace manifest at the repo root (`.claude-plugin/marketplace.json`), installs the plugin from `plugins/claude-code/`, registers its four hooks, loads the `memory-recall` skill, and exposes the `/memoir-*` commands.
+
+**From a local checkout** — if you're developing or want to use an unreleased version:
 
 ```json
 {
   "plugins": ["/path/to/memoir/plugins/claude-code"]
 }
 ```
-
-Claude Code picks up `.claude-plugin/plugin.json`, registers the four hooks from `hooks/hooks.json`, loads the `memory-recall` skill, and exposes the `/memoir-*` commands.
 
 ### 3. (Optional) Add memoir as an MCP server
 

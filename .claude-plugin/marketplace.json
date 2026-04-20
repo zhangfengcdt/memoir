@@ -1,0 +1,37 @@
+{
+  "name": "memoir",
+  "owner": {
+    "name": "NextMind",
+    "email": "f.feng.zhang@gmail.com"
+  },
+  "metadata": {
+    "description": "Git-versioned, taxonomy-structured memory plugins for Claude Code — branch, merge, time-travel your AI's memory.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "memoir",
+      "description": "Git-versioned, taxonomy-structured memory for Claude Code — recall by path, branch to isolate, time-travel to audit.",
+      "version": "0.1.0",
+      "source": "./plugins/claude-code",
+      "category": "productivity",
+      "author": {
+        "name": "NextMind",
+        "email": "f.feng.zhang@gmail.com"
+      },
+      "homepage": "https://github.com/zhangfengcdt/memoir",
+      "repository": "https://github.com/zhangfengcdt/memoir",
+      "license": "MIT",
+      "keywords": [
+        "memory",
+        "git",
+        "versioning",
+        "taxonomy",
+        "branching",
+        "time-travel",
+        "provenance",
+        "prollytree"
+      ]
+    }
+  ]
+}
