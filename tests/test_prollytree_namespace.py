@@ -147,7 +147,7 @@ class TestNamespaceRegistry:
 
     def test_cannot_delete_default_namespace(self, store):
         # Rust layer explicitly refuses to delete the default namespace.
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="Cannot delete the default namespace"):
             store.delete_namespace("default")
 
 
@@ -227,7 +227,8 @@ class TestCommitsAcrossNamespaces:
         store.ns_insert("users", b"u", b"1")
         store.ns_insert("products", b"p", b"1")
         commit_id = store.commit("cross-ns commit")
-        assert isinstance(commit_id, str) and len(commit_id) > 0
+        assert isinstance(commit_id, str)
+        assert len(commit_id) > 0
         assert store.ns_get("users", b"u") == b"1"
         assert store.ns_get("products", b"p") == b"1"
 
