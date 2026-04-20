@@ -226,7 +226,7 @@ class LiveSimulationDemo:
             "Remember that my top priority this quarter is the Series B fundraise.",
             "I prefer morning meetings before 10am Pacific.",
             "What calendar tools do you have?",  # Requires agent recall: tools.calendar
-            "Actually, forget about the morning meetings preference - my schedule changed.",  # Triggers forget
+            "Always brief me on key metrics before board meetings.",
             "What skills do you have for board meeting prep?",  # Requires agent recall: skills.board_prep
             "My communication style is direct - keep updates concise.",
         ]
@@ -237,7 +237,7 @@ class LiveSimulationDemo:
             "Sales update: Q1 pipeline at $2.4M, 15% above target.",
             "What skills do you have for daily standups?",  # Requires agent recall: skills.daily_standup
             "Customer success: NPS score improved to 72, up from 68 last month.",
-            "Please delete the sales update - those numbers were wrong.",  # Triggers forget
+            "HR update: 3 new hires starting Monday in engineering.",
             "What do you know about formatting investor updates?",  # Requires agent recall: skills.investor_updates
         ]
 
@@ -247,7 +247,7 @@ class LiveSimulationDemo:
             "Remember: I use neovim with LSP for all my coding.",
             "What search tools do you have?",  # Requires agent recall: tools.search
             "My dev environment runs on NixOS for reproducibility.",
-            "Forget the Rust preference - I switched back to Go.",  # Triggers forget
+            "I always write integration tests before unit tests.",
             "What skills do you have for morning briefs?",  # Requires agent recall: skills.morning_brief
         ]
 
@@ -256,7 +256,7 @@ class LiveSimulationDemo:
             "Alex's board meeting is next Tuesday at 2pm.",
             "What meeting prep skills do you have?",  # Requires agent recall: skills.meeting_prep
             "Remember to prep the Q1 financial summary for Alex by Friday.",
-            "Cancel that - forget the Q1 financial summary task, it's been reassigned.",  # Triggers forget
+            "Alex prefers his coffee meetings at Blue Bottle on Market St.",
             "What email tools do you have?",  # Requires agent recall: tools.email
             "Block Alex's calendar for focused work every Thursday morning.",
         ]
