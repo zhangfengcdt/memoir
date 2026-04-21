@@ -47,7 +47,7 @@ Thank you for your interest in contributing to LangMem-ProllyTree! This document
 ## 🛠️ Development Setup
 
 ### Prerequisites
-- Python 3.9+
+- Python 3.10+
 - Git
 - Make (for convenience commands)
 

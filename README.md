@@ -8,7 +8,7 @@
   *Making AI memory as reliable and versioned as Git made code*
 </div>
 
-[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://python.org)
+[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://github.com/zhangfengcdt/memoir/blob/main/LICENSE)
 [![Status](https://img.shields.io/badge/Status-Alpha-orange.svg)]()
 
