@@ -141,7 +141,7 @@ def get_cli_schema(group: click.Group) -> dict[str, Any]:
     # Extract commands by group
     command_groups = {
         "store": ["new", "connect", "status", "refresh"],
-        "memory": ["remember", "recall", "forget"],
+        "memory": ["remember", "recall", "ls", "forget"],
         "branch": ["branch", "checkout", "merge", "time-travel", "diff"],
         "crypto": ["proof", "verify", "blame"],
         "analysis": ["summarize"],
@@ -362,6 +362,7 @@ cli.add_command(taxonomy.taxonomy)
 # Memory commands
 cli.add_command(memory.remember)
 cli.add_command(memory.recall)
+cli.add_command(memory.ls)
 cli.add_command(memory.forget)
 
 # Branch commands

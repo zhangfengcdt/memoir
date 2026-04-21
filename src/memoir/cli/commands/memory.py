@@ -159,6 +159,66 @@ def recall(
 
 
 @click.command()
+@click.option("-n", "--namespace", default="default", help="Memory namespace")
+@click.option("-l", "--limit", default=20, help="Maximum memories to list (default: 20)")
+@pass_context
+def ls(ctx: MemoirContext, namespace: str, limit: int):
+    """List the first N (key, value) memories in a namespace.
+
+    INPUT: Optional namespace (default: "default") and limit (default: 20).
+    OUTPUT: Keys and their stored content in sorted order. No LLM involved.
+
+    Use this for quick browsing without invoking the classifier or search
+    engine. For semantic search, see `memoir recall`.
+
+    \b
+    Examples:
+      memoir ls                         # first 20 entries in 'default'
+      memoir ls -n calendar             # first 20 in 'calendar'
+      memoir ls -n default -l 5         # first 5 in 'default'
+
+    \b
+    JSON output: memories[{path, content, namespace, metadata}], count, timing_ms
+    """
+    if not ctx.store_path:
+        ctx.error(
+            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
+        )
+
+    from memoir.services.memory_service import MemoryService
+
+    service = MemoryService(ctx.store_path)
+
+    try:
+        result = service.ls(namespace=namespace, limit=limit)
+
+        if ctx.json_output:
+            ctx.output(result.to_dict())
+        else:
+            if not result.memories:
+                click.echo(f"No memories in namespace '{namespace}'.")
+                return
+            total = result.metadata.get("total_in_namespace", len(result.memories))
+            shown = len(result.memories)
+            click.echo(
+                f"\n{shown} of {total} memor" + ("y" if total == 1 else "ies")
+                + f" in namespace '{namespace}':"
+            )
+            for i, memory in enumerate(result.memories, 1):
+                content = memory.content
+                if len(content) > 100:
+                    content = content[:100] + "..."
+                click.echo(click.style(f"[{i}] ", fg="blue") + memory.path)
+                click.echo(f"    {content}")
+            if shown < total:
+                click.echo(
+                    f"\n({total - shown} more — raise --limit to see them all.)"
+                )
+    except Exception as e:
+        ctx.error(f"Failed to list memories: {e}", EXIT_ERROR)
+
+
+@click.command()
 @click.argument("key")
 @click.option("-n", "--namespace", default="default", help="Memory namespace")
 @click.option("--force", is_flag=True, help="Skip confirmation (required for agents)")

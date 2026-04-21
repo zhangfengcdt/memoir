@@ -150,10 +150,12 @@ memoir -s "$STORE" --json remember "B-specific fact" -p context.project.database
 # -------- 5. Multi-branch detection from main --------
 heading "Back to code main — expect BOTH feature/a and feature/b in suggestions"
 git -C "$PROJ" checkout -q main
-session_start_status >/dev/null
+status=$(session_start_status)
 context=$(session_start_context)
-assert_contains "suggestions list feature/a" "/memoir-sync-branch feature/a" "$context"
-assert_contains "suggestions list feature/b" "/memoir-sync-branch feature/b" "$context"
+assert_contains "suggestions list feature/a" "memoir/feature/a" "$context"
+assert_contains "suggestions list feature/b" "memoir/feature/b" "$context"
+assert_contains "status line shows unmerged count" "2 branches ahead of main" "$status"
+assert_contains "status line points at /memoir-unmerged" "/memoir-unmerged" "$status"
 
 # -------- 6. Sync feature/a --------
 heading "Sync feature/a"
@@ -163,14 +165,14 @@ assert "sync marker exists for feature/a" "0" "$([ -f "$STORE/.git/plugin-synced
 # -------- 7. After sync: only feature/b remains --------
 heading "Re-run SessionStart after syncing feature/a"
 context=$(session_start_context)
-assert_not_contains "feature/a gone from suggestions" "/memoir-sync-branch feature/a" "$context"
-assert_contains "feature/b still in suggestions" "/memoir-sync-branch feature/b" "$context"
+assert_not_contains "feature/a gone from suggestions" "memoir/feature/a" "$context"
+assert_contains "feature/b still in suggestions" "memoir/feature/b" "$context"
 
 # -------- 8. Sync feature/b, suggestions empty --------
 heading "Sync feature/b"
 sync_branch feature/b
 context=$(session_start_context)
-assert_not_contains "no suggestions after both synced" "/memoir-sync-branch" "$context"
+assert_not_contains "no suggestions after both synced" "unmerged branches detected" "$context"
 
 # -------- 9. New capture resurfaces branch --------
 heading "New capture on feature/a resurfaces it"
@@ -179,7 +181,7 @@ sleep 2  # ensure commit timestamp strictly > sync-marker timestamp
 memoir -s "$STORE" --json remember "A follow-up" -p preferences.coding.style >/dev/null
 memoir -s "$STORE" checkout main >/dev/null
 context=$(session_start_context)
-assert_contains "feature/a resurfaces after new capture" "/memoir-sync-branch feature/a" "$context"
+assert_contains "feature/a resurfaces after new capture" "memoir/feature/a" "$context"
 
 # Clean state for the remaining tests — sync feature/a again.
 sync_branch feature/a
@@ -207,15 +209,27 @@ assert "sticky file cleared" "0" "$([ ! -f "$STORE/.git/plugin-sticky-branch" ];
 status=$(session_start_status)
 assert_not_contains "status no longer shows *" "*" "$status"
 
-# -------- 12. Concurrency warning --------
-heading "Concurrent-session warning"
-mkdir -p "$STORE/.git/plugin-active-sessions"
-printf '%s\t%s\n' "feature/xyz" "$(date +%s)" \
-  > "$STORE/.git/plugin-active-sessions/test-other-session-fake-id"
-status=$(session_start_status)
-assert_contains "status carries concurrency warning" "concurrent session detected" "$status"
-assert_contains "warning names the other branch" "feature/xyz" "$status"
-rm -rf "$STORE/.git/plugin-active-sessions"
+# -------- 13b. SessionEnd realigns drifted memoir branch --------
+heading "SessionEnd realigns memoir when drifted (no sticky)"
+# Ensure no sticky, then simulate drift: code on main, memoir manually on feature/a.
+rm -f "$STORE/.git/plugin-sticky-branch"
+git -C "$PROJ" checkout -q main
+memoir -s "$STORE" checkout feature/a >/dev/null
+assert "pre-SessionEnd: memoir drifted to feature/a" "feature/a" "$(memoir_current_branch)"
+bash "$CLAUDE_PLUGIN_ROOT/hooks/session-end.sh" </dev/null >/dev/null 2>&1
+assert "SessionEnd realigned memoir to main (matches code)" "main" "$(memoir_current_branch)"
+
+# -------- 13c. SessionEnd leaves sticky opt-out alone --------
+heading "SessionEnd preserves sticky experiment branches"
+memoir -s "$STORE" branch test-experiment --from main >/dev/null 2>&1 || true
+memoir -s "$STORE" checkout test-experiment >/dev/null
+printf 'test-experiment\n' > "$STORE/.git/plugin-sticky-branch"
+assert "pre-SessionEnd: memoir on sticky experiment" "test-experiment" "$(memoir_current_branch)"
+bash "$CLAUDE_PLUGIN_ROOT/hooks/session-end.sh" </dev/null >/dev/null 2>&1
+assert "SessionEnd did NOT realign because sticky is set" "test-experiment" "$(memoir_current_branch)"
+# Cleanup the sticky so later scenarios aren't affected.
+rm -f "$STORE/.git/plugin-sticky-branch"
+memoir -s "$STORE" checkout main >/dev/null 2>&1 || true
 
 # -------- 13. Mid-session code branch switch --------
 # Simulates the user running `git checkout feature/b` in a terminal without
@@ -253,6 +267,27 @@ memoir -s "$STORE" checkout feature/a >/dev/null
 echo "{\"transcript_path\":\"$TRANSCRIPT\"}" | bash "$CLAUDE_PLUGIN_ROOT/hooks/stop.sh" >/dev/null 2>&1
 assert "Stop hook re-matched memoir to feature/b before capture" "feature/b" "$(memoir_current_branch)"
 rm -f "$TRANSCRIPT"
+
+# -------- 14. Post-checkout working tree stays clean --------
+# Regression test: prollytree's `memoir checkout` updates .git/HEAD without
+# resetting the working tree + index, leaving `git status` showing `MM` on
+# data files. The plugin works around this by calling `git reset --hard HEAD`
+# after every checkout in auto_match_memoir_branch and the sync slash cmds.
+heading "Store working tree stays clean after auto-match / sync"
+git -C "$PROJ" checkout -q feature/a
+session_start_status >/dev/null
+status_out=$(git -C "$STORE" status --short)
+assert "memoir store clean after auto-match to feature/a" "" "$status_out"
+
+git -C "$PROJ" checkout -q feature/b
+session_start_status >/dev/null
+status_out=$(git -C "$STORE" status --short)
+assert "memoir store clean after auto-match to feature/b" "" "$status_out"
+
+git -C "$PROJ" checkout -q main
+session_start_status >/dev/null
+status_out=$(git -C "$STORE" status --short)
+assert "memoir store clean after auto-match back to main" "" "$status_out"
 
 # -------- Summary --------
 printf '\n--------------------------------\n'

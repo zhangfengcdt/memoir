@@ -10,7 +10,7 @@ import logging
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from memoir.services.base import BaseService, StoreNotFoundError
 from memoir.services.models import DeleteResult, Memory, RecallResult, RememberResult
@@ -369,6 +369,104 @@ class MemoryService(BaseService):
             return loop.run_until_complete(self.forget(key, namespace))
         finally:
             loop.close()
+
+    def ls(
+        self,
+        namespace: str = "default",
+        limit: int = 20,
+    ) -> RecallResult:
+        """
+        List the first `limit` (key, content) pairs in `namespace`.
+
+        Unlike `recall`, this is a pure enumeration — no LLM, no classification,
+        no scoring. Keys are returned in sorted order for stability across calls.
+        Values are extracted best-effort from memoir's nested storage format.
+
+        Args:
+            namespace: Namespace to list (default: "default").
+            limit: Maximum entries to return (default: 20).
+
+        Returns:
+            RecallResult with memories[] populated (relevance_score is always 1.0
+            for listings since there's no query to score against). Empty memories
+            list if the namespace has no keys.
+        """
+        if not Path(self.store_path).exists():
+            raise StoreNotFoundError(self.store_path)
+
+        started = time.time()
+        store = self._get_store()
+        namespace_tuple = self.namespace_to_tuple(namespace)
+        prefix = ":".join(namespace_tuple) + ":"
+
+        # Collect keys belonging to this namespace. store._keys is the canonical
+        # registry (populated at init from the underlying tree) and avoids a
+        # separate list_keys() round-trip through the Rust binding.
+        matching = sorted(
+            k[len(prefix):]
+            for k in getattr(store, "_keys", set())
+            if isinstance(k, str) and k.startswith(prefix)
+        )
+        memories: list[Memory] = []
+        for key in matching[:limit]:
+            value = store.get(namespace_tuple, key)
+            content = self._extract_content(value)
+            memories.append(
+                Memory(
+                    path=key,
+                    content=content,
+                    namespace=namespace,
+                    relevance_score=1.0,
+                    metadata={"raw": value} if isinstance(value, dict) else {},
+                )
+            )
+
+        return RecallResult(
+            success=True,
+            memories=memories,
+            query=f"ls:{namespace}",
+            timing_ms=round((time.time() - started) * 1000, 2),
+            metadata={
+                "store_path": self.store_path,
+                "namespace": namespace,
+                "limit": limit,
+                "total_in_namespace": len(matching),
+            },
+        )
+
+    @staticmethod
+    def _extract_content(value: Any) -> str:
+        """Best-effort extraction of human-readable content from memoir's
+        storage dicts. Mirrors the helper used by the UI reader."""
+        if value is None:
+            return ""
+        if isinstance(value, str):
+            return value
+        if isinstance(value, dict):
+            # Direct content field (most common for user memories).
+            c = value.get("content")
+            if isinstance(c, str):
+                return c
+            if isinstance(c, dict):
+                for fld in ("raw_text", "original_content", "summary"):
+                    v = c.get(fld)
+                    if isinstance(v, str) and v:
+                        return v
+            # Aggregated "memories" list — return first memory's content.
+            mems = value.get("memories")
+            if isinstance(mems, list) and mems:
+                inner = mems[0]
+                if isinstance(inner, dict):
+                    ic = inner.get("content")
+                    if isinstance(ic, str):
+                        return ic
+        # Fallback — JSON dump.
+        import json as _json
+
+        try:
+            return _json.dumps(value, default=str)
+        except Exception:
+            return str(value)
 
     async def recall(
         self,

@@ -1,33 +1,18 @@
 ---
-description: "Merge a specific memoir branch into main without switching to it. Used to promote captures from branches you're no longer working on."
+description: "[DISABLED pending upstream bugfix] Merge an arbitrary memoir branch into main. Use would lose data on main."
 argument-hint: "<branch-name>"
 allowed-tools: Bash
 ---
 
-Merge a specified memoir branch into main while staying on your current branch. Useful when the SessionStart detector surfaces unmerged branches — you can promote each without switching away from your current work.
+**⚠ Disabled** — same reason as `/memoir-sync`. `memoir merge` (the underlying prollytree primitive) is currently data-destructive: merging into a branch leaves that branch's tree empty with a `Root node not found in storage` warning. Tracked in `plugins/claude-code/TODO.md`.
+
+Until the prollytree fix lands, this command is a no-op that prints a reminder.
 
 !`bash -c '
-STORE="${MEMOIR_STORE:-$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/derive-store-path.sh")}"
-TARGET="$ARGUMENTS"
-if [ -z "$TARGET" ]; then
-  echo "Usage: /memoir-sync-branch <branch-name>"
-  exit 1
-fi
-if [ "$TARGET" = "main" ]; then
-  echo "Refusing to merge main into main — pick a feature branch."
-  exit 1
-fi
-CURRENT=$(memoir --json -s "$STORE" status | python3 -c "import json,sys; print(json.loads(sys.stdin.read() or \"{}\").get(\"branch\",\"\"))")
-# Checkout main, merge target, return to original branch, record sync marker.
-if memoir -s "$STORE" checkout main > /dev/null && \
-   memoir -s "$STORE" merge "$TARGET"; then
-  if [ -n "$CURRENT" ] && [ "$CURRENT" != "main" ]; then
-    memoir -s "$STORE" checkout "$CURRENT" > /dev/null
-  fi
-  mkdir -p "$(dirname "$STORE/.git/plugin-synced-branches/$TARGET")"
-  date +%s > "$STORE/.git/plugin-synced-branches/$TARGET"
-  echo "(synced memoir/$TARGET into main; back on ${CURRENT:-main})"
-fi
+echo "⚠ /memoir-sync-branch is disabled — memoir merge is currently data-destructive."
+echo "   Target branch would be: ${ARGUMENTS:-<none>}"
+echo "   See plugins/claude-code/TODO.md for tracking."
+echo "   Your feature branches still have all their captures; they'"'"'re just not promotable to main right now."
 ' ARGUMENTS="$ARGUMENTS"`
 
-Report the merge result. If the user has multiple unmerged branches (from the SessionStart detector), remind them they can repeat this command for each.
+Do not attempt to bypass by invoking `memoir merge` directly — the same bug applies. Wait for the prollytree fix.
