@@ -9,9 +9,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 exec < /dev/null
 source "$SCRIPT_DIR/common.sh"
 
-# If the CLI isn't installed, surface a clear install hint and stop — no fallbacks.
+# If neither `memoir` nor `uv`/`uvx` is available, surface an install hint.
+# With uv present, the plugin transparently shells out via `uvx --from memoir-ai memoir`.
 if [ -z "$MEMOIR_CMD" ]; then
-  status="[memoir] CLI not found on PATH — install with: pip install memoir-ai  (or pip install -e /path/to/memoir). Capture/recall disabled."
+  status="[memoir] CLI not found. Install one of: \`pip install memoir-ai\`, \`pipx install memoir-ai\`, \`uv tool install memoir-ai\`, or install \`uv\` for transparent uvx fallback. Capture/recall disabled."
   json_status=$(_json_encode_str "$status")
   echo "{\"systemMessage\": $json_status}"
   exit 0

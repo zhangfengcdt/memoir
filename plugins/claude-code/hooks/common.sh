@@ -3,9 +3,10 @@
 #
 # Conventions used throughout:
 #   - memoir's global flags (--json, -s) must be passed BEFORE the subcommand.
-#   - CLI resolution is PATH-only; if memoir is missing we surface a hint in
-#     the status line and disable capture/recall. No uvx or git-URL fallbacks —
-#     memoir is not on PyPI yet and silent installs would misconfigure users.
+#   - CLI resolution: prefer `memoir` on PATH; if missing, fall back to
+#     `uvx --from memoir-ai memoir` when `uv` is available (no global install,
+#     no env pollution, one-time cache warmup). If neither is available we
+#     surface an install hint in the status line and disable capture/recall.
 
 set -euo pipefail
 
@@ -51,15 +52,33 @@ else
   MEMOIR_STORE_PATH="$(bash "$SCRIPT_PARENT/scripts/derive-store-path.sh" "$_PROJECT_DIR")"
 fi
 
-# Resolve the memoir CLI via PATH only. Empty MEMOIR_CMD => disabled.
+# Resolve the memoir CLI. Preference order:
+#   1. `memoir` on PATH (explicit install, fastest cold start).
+#   2. `uvx --from memoir-ai memoir` (uv installed, no global CLI) — ephemeral,
+#      no pollution of the user's Python envs, ~1s warmup on first use then
+#      cached.
+#   3. Nothing — capture/recall disabled, install hint shown.
+#
+# MEMOIR_CMD is the human-readable form used for `[ -z "$MEMOIR_CMD" ]`
+# enable/disable checks throughout the hooks. MEMOIR_CMD_ARGV is the bash
+# array used for actual invocation, since the uvx fallback is multi-token.
 if command -v memoir &>/dev/null; then
   MEMOIR_CMD="memoir"
+  MEMOIR_CMD_ARGV=(memoir)
+elif command -v uvx &>/dev/null; then
+  MEMOIR_CMD="uvx --from memoir-ai memoir"
+  MEMOIR_CMD_ARGV=(uvx --from memoir-ai memoir)
+elif command -v uv &>/dev/null; then
+  MEMOIR_CMD="uv tool run --from memoir-ai memoir"
+  MEMOIR_CMD_ARGV=(uv tool run --from memoir-ai memoir)
 else
   MEMOIR_CMD=""
+  MEMOIR_CMD_ARGV=()
 fi
 
-# Short prefix used in injected instructions / status lines even when CLI missing.
-MEMOIR_CMD_PREFIX="${MEMOIR_CMD:-memoir}"
+# Short prefix used in injected instructions / status lines. Always "memoir"
+# so user-facing messages stay clean regardless of how the CLI is resolved.
+MEMOIR_CMD_PREFIX="memoir"
 
 # --- JSON helpers (jq preferred, python3 fallback) ---
 
@@ -112,7 +131,7 @@ memoir_json() {
   if [ -z "$MEMOIR_CMD" ]; then
     return 1
   fi
-  "$MEMOIR_CMD" --json -s "$MEMOIR_STORE_PATH" "$@" 2>/dev/null
+  "${MEMOIR_CMD_ARGV[@]}" --json -s "$MEMOIR_STORE_PATH" "$@" 2>/dev/null
 }
 
 # memoir_plain <subcommand> [args...]
@@ -122,7 +141,7 @@ memoir_plain() {
   if [ -z "$MEMOIR_CMD" ]; then
     return 1
   fi
-  "$MEMOIR_CMD" -s "$MEMOIR_STORE_PATH" "$@" 2>/dev/null
+  "${MEMOIR_CMD_ARGV[@]}" -s "$MEMOIR_STORE_PATH" "$@" 2>/dev/null
 }
 
 # code_git_branch — current git branch of the user's project repo (not memoir's
@@ -147,7 +166,7 @@ ensure_store() {
     # --no-connect because the plugin manages store selection via MEMOIR_STORE
     # env rather than memoir's global config file — we don't want to clobber
     # what a user may have set for CLI use outside the plugin.
-    "$MEMOIR_CMD" new "$MEMOIR_STORE_PATH" --taxonomy-builtin --no-connect >/dev/null 2>&1 || return 1
+    "${MEMOIR_CMD_ARGV[@]}" new "$MEMOIR_STORE_PATH" --taxonomy-builtin --no-connect >/dev/null 2>&1 || return 1
   fi
   return 0
 }
@@ -266,9 +285,9 @@ auto_match_memoir_branch() {
 
   # Need to switch. Create from main first if the branch doesn't exist.
   if ! branch_exists_in_memoir "$code_branch"; then
-    "$MEMOIR_CMD" -s "$MEMOIR_STORE_PATH" branch "$code_branch" --from main >/dev/null 2>&1 || return 1
+    "${MEMOIR_CMD_ARGV[@]}" -s "$MEMOIR_STORE_PATH" branch "$code_branch" --from main >/dev/null 2>&1 || return 1
   fi
-  "$MEMOIR_CMD" -s "$MEMOIR_STORE_PATH" checkout "$code_branch" >/dev/null 2>&1 || return 1
+  "${MEMOIR_CMD_ARGV[@]}" -s "$MEMOIR_STORE_PATH" checkout "$code_branch" >/dev/null 2>&1 || return 1
   return 0
 }
 

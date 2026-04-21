@@ -11,45 +11,39 @@ Give Claude Code a **git-versioned, taxonomy-structured memory**. Unlike vector-
 
 ## Install
 
-### 1. Install memoir (prerequisite)
-
-The plugin expects the `memoir` CLI on your `PATH`. Install from PyPI or from source:
-
-```bash
-pip install memoir-ai                # from PyPI (dist name is memoir-ai, CLI is memoir)
-# or
-pip install -e /path/to/memoir       # editable install from the repo
-```
-
-Verify: `memoir --version` should print a version string.
-
-If `memoir` is not found at session start, the plugin surfaces a hint in the status line and disables capture/recall (everything else works).
-
-#### LLM backend — no API key needed (recommended)
-
-Memoir's classifier and search engine call an LLM internally. By default they use LiteLLM and need an `OPENAI_API_KEY` (or `ANTHROPIC_API_KEY` etc.) of their own — separate from your Claude Code auth.
-
-For zero-config use under Claude Code, set:
-
-```bash
-export MEMOIR_LLM_BACKEND=claude-cli
-export MEMOIR_LLM_MODEL=claude-haiku-4-5   # optional, this is the default
-```
-
-When set, memoir shells out to `claude -p` instead of making direct provider API calls. Every LLM call inherits Claude Code's auth (subscription OAuth or API key — whichever you're logged in with). No `OPENAI_API_KEY`, no `ANTHROPIC_API_KEY` required. Putting these two lines in your shell profile makes the plugin work end-to-end with a single auth.
-
-### 2. Install the plugin
-
-**Via the marketplace (recommended)** — in Claude Code:
+**In Claude Code**:
 
 ```
 /plugin marketplace add zhangfengcdt/memoir
 /plugin install memoir@memoir
 ```
 
-Claude Code subscribes to the marketplace manifest at the repo root (`.claude-plugin/marketplace.json`), installs the plugin from `plugins/claude-code/`, registers its four hooks, loads the `memory-recall` skill, and exposes the `/memoir-*` commands.
+That's it. Claude Code subscribes to the marketplace manifest at the repo root (`.claude-plugin/marketplace.json`), installs the plugin from `plugins/claude-code/`, registers its four hooks, loads the `memory-recall` skill, and exposes the `/memoir-*` commands.
 
-**From a local checkout** — if you're developing or want to use an unreleased version:
+### CLI resolution (how the plugin finds `memoir`)
+
+The plugin shells out to the `memoir` CLI. Resolution preference, on every SessionStart:
+
+1. **`memoir` on PATH** — fastest cold start. Install with any of:
+   ```bash
+   pip install memoir-ai
+   pipx install memoir-ai
+   uv tool install memoir-ai
+   ```
+2. **`uvx` on PATH** (no `memoir` installed) — the plugin transparently runs the CLI as `uvx --from memoir-ai memoir …`. No global install, no env pollution, ~1 s warmup on first use then cached. If you already have [`uv`](https://docs.astral.sh/uv/) installed, this path is fully zero-setup.
+3. **Neither** — the plugin surfaces an install hint in the status line and disables capture/recall (slash commands remain visible but no-op).
+
+Verify: `memoir --version` (or `uvx --from memoir-ai memoir --version`) should print a version string.
+
+### LLM backend (automatic)
+
+Memoir's classifier and search engine call an LLM internally. The plugin hooks set `MEMOIR_LLM_BACKEND=claude-cli` and `MEMOIR_LLM_MODEL=claude-haiku-4-5` for every call they make, so every LLM invocation inherits Claude Code's auth — no `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` needed. Override `MEMOIR_LLM_MODEL` in your shell if you want `sonnet` or `opus` instead.
+
+If you want the same auth passthrough when running `memoir` directly in a shell (outside the plugin), export the same two vars from your shell profile.
+
+### From a local checkout
+
+If you're developing the plugin or want to use an unreleased version, point Claude Code at the path directly:
 
 ```json
 {
@@ -57,7 +51,7 @@ Claude Code subscribes to the marketplace manifest at the repo root (`.claude-pl
 }
 ```
 
-### 3. (Optional) Add memoir as an MCP server
+### (Optional) Add memoir as an MCP server
 
 The plugin does **not** ship an `.mcp.json` — MCP is opt-in. If you want Claude to be able to call `memoir_remember` / `memoir_recall` / etc. mid-turn (as native MCP tools, not via the skill), drop this into your project `.mcp.json` or `~/.claude.json`:
 
