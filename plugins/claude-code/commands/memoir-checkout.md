@@ -9,9 +9,6 @@ Switch branches. Append `-b` (or `--create`) to create if missing. If the target
 !`bash -c '
 STORE="${MEMOIR_STORE:-$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/derive-store-path.sh")}"
 memoir -s "$STORE" checkout $ARGUMENTS
-# memoir checkout leaves the working tree dirty (updates .git/HEAD but not
-# index + working tree). Reset so `git status` stays clean.
-git -C "$STORE" reset --hard HEAD >/dev/null 2>&1 || true
 # Parse the target branch name (first positional arg — skip -b/--create flags).
 TARGET=""
 for arg in $ARGUMENTS; do

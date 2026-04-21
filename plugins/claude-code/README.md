@@ -108,13 +108,9 @@ You can run the suggested commands while on any branch. A branch in `$MEMOIR_STO
 
 If you want memoir on a branch that *doesn't* match your code branch (e.g. an isolated experiment), manually switch with `/memoir-branch experiment` or `/memoir-checkout experiment`. The plugin writes `$MEMOIR_STORE/.git/plugin-sticky-branch` — auto-match stays off until you check back out to a branch matching your code branch, at which point the marker is cleared and auto-match resumes. The status line shows `<code>+<memory>*` while sticky.
 
-### Concurrent sessions (caveat — you're already safe in the common case)
+### Concurrent sessions (caveat)
 
-By default, **two Claude Code sessions in different project directories automatically get different memoir stores** (the store path is derived by hashing the absolute project directory). No sharing, no race. The same applies to git worktrees — each worktree has a distinct absolute path and therefore a distinct store.
-
-The only scenario that races: you explicitly set `MEMOIR_STORE=/shared/path` in two sessions *and* they're on different code branches. Memoir's git backend has a single working tree, so `memoir checkout` from one session can overwrite the other's branch mid-capture. Writes may land on the wrong branch.
-
-If you do this intentionally, either (a) keep both sessions on the same branch, or (b) give each a distinct `MEMOIR_STORE`. Real per-session isolation via prollytree's `WorktreeVersionedKvStore` is a future enhancement — until then, this caveat is the extent of the limitation.
+If two Claude Code sessions share a `MEMOIR_STORE` and target *different* branches, memoir's single-working-tree git backend will have the checkouts fight each other. The plugin detects this via a heartbeat file per session and adds `⚠ concurrent session detected on branch <other>` to the status line. The fix is to give each session a distinct `MEMOIR_STORE`. Proper per-session isolation via prollytree worktrees is a future enhancement.
 
 ### Store location
 
@@ -163,9 +159,8 @@ Three layers, mapped to memoir's primitives:
 | `/memoir-branch [name]` | List or create memory branches. Creating a non-code-matching name sets sticky opt-out. |
 | `/memoir-checkout <branch>` | Switch Claude's memory context. Sets/clears sticky marker vs code branch. |
 | `/memoir-merge <source>` | Merge with conflict strategy `ours`/`theirs`/`skip`. |
-| `/memoir-sync` | **⚠ currently disabled** — blocked on upstream `memoir merge` data-loss bug (see `TODO.md`). Would merge current branch into main. |
-| `/memoir-sync-branch <name>` | **⚠ currently disabled** — same reason. Would merge an arbitrary branch into main. |
-| `/memoir-unmerged` | List memoir branches ahead of main — the pull-version of the SessionStart suggestion. |
+| `/memoir-sync` | Merge the current memoir branch into main (keeps source branch). |
+| `/memoir-sync-branch <name>` | Merge an arbitrary branch into main without switching to it. Used by SessionStart suggestions. |
 | `/memoir-time-travel <hash>` | Create a branch at a past commit and switch to it. |
 | `/memoir-diff [c1] [c2] [--stat]` | Show diff between two commits. Defaults to HEAD~1..HEAD. |
 

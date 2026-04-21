@@ -70,24 +70,17 @@ elif [ -n "$CODE_BRANCH" ]; then
 else
   DISPLAY_BRANCH="${BRANCH}"
 fi
-# Compute unmerged-branch list once; used for both the status-line summary
-# (visible to the user) and the additionalContext block (visible to Claude).
-unmerged=$(list_unmerged_memoir_branches 2>/dev/null || true)
-unmerged_count=0
-if [ -n "$unmerged" ]; then
-  unmerged_count=$(printf '%s\n' "$unmerged" | grep -c .)
-fi
-
 status="[memoir] ${DISPLAY_BRANCH} · ${USER_MEMORIES} memories · ${COMMITS} commits"
 if [ "${MEMOIR_NO_CAPTURE:-}" = "1" ]; then
   status+=" · capture disabled"
 fi
-if [ "$unmerged_count" -gt 0 ]; then
-  if [ "$unmerged_count" -eq 1 ]; then
-    status+=" · 1 branch ahead of main (/memoir-unmerged)"
-  else
-    status+=" · ${unmerged_count} branches ahead of main (/memoir-unmerged)"
-  fi
+
+# Concurrent-session warning: if another Claude Code session shares this
+# MEMOIR_STORE on a different branch, surface it once in the status line.
+# (Writes collide silently otherwise — memoir's git backend has one HEAD.)
+CONCURRENT_WARN=$(concurrent_session_warning 2>/dev/null || true)
+if [ -n "$CONCURRENT_WARN" ]; then
+  status+=" · ${CONCURRENT_WARN}"
 fi
 
 # Inject a short taxonomy snapshot as additionalContext so Claude sees what
@@ -115,26 +108,29 @@ except Exception:
   context="$ns_list"
 fi
 
-# Append the detailed unmerged-branch block to additionalContext (already
-# computed above; $unmerged holds "<branch>\t<count>" per line).
-# Note: /memoir-sync-branch is currently disabled due to an upstream prollytree
-# merge bug (see plugins/claude-code/TODO.md). We still surface the unmerged
-# branches so users are aware of accumulating state — they just can't promote
-# to main until the upstream fix lands.
+# Unmerged-branch detector: surface any memoir branches ahead of main so the
+# user notices captured knowledge that hasn't been promoted. Stateless —
+# scans all branches each SessionStart. Filters to ≤30d active + not ignored.
+unmerged=$(list_unmerged_memoir_branches 2>/dev/null || true)
 if [ -n "$unmerged" ]; then
   unmerged_block="# memoir — unmerged branches detected"$'\n'
   unmerged_block+="You have captured memories on these branches that aren't on main yet:"$'\n\n'
   while IFS=$'\t' read -r b n; do
     [ -z "$b" ] && continue
-    unmerged_block+="- memoir/${b}: ${n} unmerged commits"$'\n'
+    unmerged_block+="- memoir/${b}: ${n} unmerged commits → /memoir-sync-branch ${b}"$'\n'
   done <<< "$unmerged"
-  unmerged_block+=$'\n'"⚠ Promotion to main (/memoir-sync-branch) is currently disabled — see plugins/claude-code/TODO.md. Feature branches retain their captures; re-enable after the upstream prollytree merge bugfix."
+  unmerged_block+=$'\n'"Run the suggested command to promote them to main (keeps the source branch)."
   if [ -n "$context" ]; then
     context="${context}"$'\n\n'"${unmerged_block}"
   else
     context="$unmerged_block"
   fi
 fi
+
+# Record this session's heartbeat so any parallel session can detect the
+# collision. Must happen after auto-match so we record the actual branch
+# we're targeting.
+write_session_heartbeat || true
 
 json_status=$(_json_encode_str "$status")
 if [ -n "$context" ]; then
