@@ -26,6 +26,7 @@ Timeline: commit1 ──→ commit2 ──→ commit3 ──→ CORRUPT ──�
             └─ Python preference
 
 Debugging Process:
+
 1. Agent makes bad decision (CORRUPT state)
 2. Time-travel to investigate (commit3)
 3. Compare memory states across timeline

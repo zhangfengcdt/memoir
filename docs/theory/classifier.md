@@ -12,6 +12,7 @@ Both classifiers serve different use cases and represent different points on the
 ## Core Problem Statement
 
 Traditional AI memory systems suffer from:
+
 - **Opaque Storage**: UUID-based keys with no semantic meaning
 - **Expensive Search**: O(n) vector similarity search for every query
 - **No History**: Lack of version control or audit trails
@@ -28,6 +29,7 @@ Memoir:      profile.professional.skills.python → O(log n) lookup → full ver
 ```
 
 The classification system transforms unstructured memory content into structured taxonomy paths, enabling:
+
 - **Deterministic Retrieval**: Direct path lookups instead of similarity search
 - **Hierarchical Organization**: Natural grouping of related memories
 - **Human Interpretability**: Paths that make sense to developers and users
@@ -80,6 +82,7 @@ if isinstance(taxonomy, AdvancedTaxonomyInterface):
 ```
 
 This enables:
+
 - **Smart Fallbacks**: Using 'other' categories when uncertain
 - **Expansion Tracking**: Recording patterns for taxonomy growth
 - **Confidence Boosting**: Leveraging historical classification data
@@ -92,6 +95,7 @@ if not is_valid_path(suggested_path):
 ```
 
 Fallback hierarchy:
+
 1. Try progressively shorter paths (removing last segment)
 2. Use configured fallback path if valid
 3. Find any valid path in the same top-level category
@@ -119,11 +123,13 @@ The classifier first determines if content should be stored at all:
 
 ```python
 Skip if:
+
 - Transient information (greetings, weather)
 - General conversation without specifics
 - Below confidence threshold
 
 Store if:
+
 - Personal preferences, facts, skills
 - Relationships, goals, experiences
 - Meets minimum confidence threshold
@@ -134,6 +140,7 @@ Unlike SemanticClassifier's single-path approach, IntelligentClassifier supports
 
 ```python
 Multiple paths allowed ONLY when:
+
 1. Content spans DIFFERENT top-level categories
 2. Maximum 2 paths
 3. Each path represents distinct information
@@ -149,6 +156,7 @@ Example:
 **Profile Updates**:
 ```python
 Detects definitive facts that replace previous information:
+
 - "I'm 25 years old" → profile.personal.identity.age.current
 - "I work at Google" → profile.professional.current.company.name
 ```
@@ -156,6 +164,7 @@ Detects definitive facts that replace previous information:
 **Timeline Events**:
 ```python
 Extracts temporal events with date calculation:
+
 - "Yesterday was my first day" (session: 2023-03-15)
   → date: "20230314", description: "first day at new job"
 ```
@@ -163,6 +172,7 @@ Extracts temporal events with date calculation:
 **Location Events**:
 ```python
 Captures geographic references:
+
 - "The support group in Los Angeles"
   → location: "Los Angeles", description: "support group attendance"
 ```
@@ -195,6 +205,7 @@ if confidence < threshold and content is specialized:
 ```
 
 Expansion follows hierarchical depth rules:
+
 - Add ONE intermediate level at a time
 - Use general-to-specific progression
 - Maximum recommended depth: 4 levels
@@ -226,6 +237,7 @@ This ensures robustness against LLM formatting inconsistencies.
 ##### Validation and Fallback Logic
 ```python
 Path validation hierarchy:
+
 1. Check if path exists in taxonomy
 2. Accept new top-level categories (for expansion)
 3. Find valid parent paths
@@ -289,6 +301,7 @@ if len(pending) >= threshold:
 
 ### 3. Context-Aware Classification
 Both classifiers support contextual information:
+
 - User ID, Session ID
 - Conversation history
 - Available memory paths

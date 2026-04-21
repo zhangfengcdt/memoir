@@ -90,8 +90,8 @@ nav:
   - Theory:
       - Overview: theory/index.md
       - Classifier: theory/classifier.md
-      - Memento: theory/memento.md
       - Search: theory/search.md
+      - Memento: theory/memento.md
   - API Reference:
       - Memoir: api/memoir.md
       - Classifier: api/classifier.md

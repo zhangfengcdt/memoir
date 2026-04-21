@@ -95,6 +95,7 @@ await memory_manager.store_memory(
 ```
 
 The memories will be automatically classified to semantic paths like:
+
 - `profile.identity.name.first`
 - `profile.demographics.age`
 - `profile.professional.occupation.role`

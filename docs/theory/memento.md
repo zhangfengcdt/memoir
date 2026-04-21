@@ -14,6 +14,7 @@ These mementos represent a paradigm shift from general-purpose memory storage to
 
 ### The Memento Pattern
 The term "memento" is deliberately chosen over "manager" to emphasize that these are **memory collections** rather than controllers. Each memento:
+
 - Represents a specific lens through which memories are viewed
 - Maintains its own organizational schema
 - Provides specialized retrieval and summarization capabilities
@@ -26,6 +27,7 @@ Memoir:      Dimensional separation → targeted storage → coherent retrieval
 ```
 
 The memento system recognizes that human memory naturally organizes along three primary dimensions:
+
 - **Identity** (Who am I?) → ProfileMemento
 - **Time** (When did it happen?) → TimelineMemento
 - **Space** (Where did it occur?) → LocationMemento
@@ -572,6 +574,7 @@ LocationMemento: Low (places accumulate events)
 ### Retrieval Efficiency
 
 The dimensional separation enables:
+
 - **O(1)** access to profile facts via direct paths
 - **O(log n)** timeline navigation via date ordering
 - **O(k)** location retrieval where k = events at location

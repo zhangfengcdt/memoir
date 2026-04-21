@@ -186,11 +186,13 @@ Alternative timeline snapshot: alt_timeline_1755877259
 Comparing career memories across branches
 
 Alternative timeline skills:
+
 - I've been promoted to senior engineer after 3 years
 - I chose to work at a startup doing backend development
 - At Google, I would have focused on React and large-scale UI systems
 
 Main timeline skills:
+
 - I've been promoted to senior engineer after 3 years
 - I chose to work at a startup doing backend development
 

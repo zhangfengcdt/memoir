@@ -14,6 +14,7 @@ This section answers common questions about Memoir's capabilities, use cases, an
 **Current AI Agent Debugging Problems:**
 
 Traditional AI agents (including coding tools) suffer from:
+
 - **Opaque decision-making**: No visibility into what memories influenced a bad code suggestion
 - **Irreversible corruption**: Once the agent "learns" something wrong, it's hard to undo
 - **No historical context**: Can't see how the agent's understanding evolved over time
@@ -270,6 +271,7 @@ Performance Comparison:
 | Branch exploration | Not supported | <1ms | Impossible → Instant |
 
 The key advantages come from:
+
 - **O(log n) hierarchical lookups** instead of O(n) vector similarity searches
 - **Semantic paths** that enable direct access instead of expensive embeddings
 - **Structural sharing** in the underlying ProllyTree for efficient storage
@@ -286,6 +288,7 @@ The key advantages come from:
 - **Horizontal Scaling**: Deploy multiple Memoir instances with different user shards
 
 For very large deployments, consider:
+
 - Partitioning users across multiple Memoir instances
 - Using read replicas for search-heavy workloads
 - Implementing periodic cleanup of old memory versions

@@ -9,12 +9,14 @@ The Memoir project implements an LLM-powered search engine for retrieving memori
 ## Core Problem Statement
 
 Traditional AI memory systems suffer from fundamental search inefficiencies:
+
 - **O(n) Complexity**: Vector similarity search across entire corpus
 - **High Latency**: 150-750ms for embeddings + similarity computation
 - **Opaque Ranking**: Black-box similarity scores without interpretability
 - **No Hierarchical Leverage**: Flat search space ignoring semantic relationships
 
 Memoir solves this through **hierarchical semantic search** where:
+
 - Memories are pre-organized into semantic paths (via classification)
 - Search can leverage the hierarchical structure for O(log n) operations
 - Path-based filtering dramatically reduces search space
@@ -28,6 +30,7 @@ Memoir:      query → path selection → O(log n) retrieval → filtered result
 ```
 
 The search system exploits the pre-classified semantic structure to:
+
 - **Reduce Search Space**: Focus only on relevant taxonomy branches
 - **Improve Interpretability**: Clear path-based result organization
 - **Enable Prefix Queries**: Efficient hierarchical exploration
@@ -67,6 +70,7 @@ for _, path, data in all_memories:
 - **Sample**: First 100 chars for context
 
 This provides the LLM with:
+
 - Complete path inventory
 - Memory density information
 - Content previews for informed selection
@@ -82,6 +86,7 @@ Please select the most relevant memory paths from:
 - context.conversation.history (10 memories): Discussed AI...
 
 Instructions:
+
 - Select 1-3 paths most relevant to query
 - Return ONLY path names, one per line
 - If no paths relevant, return "NONE"

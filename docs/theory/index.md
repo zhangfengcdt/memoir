@@ -6,13 +6,9 @@ These documents provide comprehensive explanations of the algorithms, design dec
 
 ## Component Theory
 
-```{toctree}
-:maxdepth: 2
-
-classifier
-search
-memento
-```
+- [Classifier](classifier.md)
+- [Search](search.md)
+- [Memento](memento.md)
 
 ## Overview
 
