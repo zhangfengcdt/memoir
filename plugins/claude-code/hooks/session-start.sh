@@ -76,7 +76,15 @@ fi
 # user notices captured knowledge that hasn't been promoted. Stateless —
 # scans all branches each SessionStart. Filters to ≤30d active + not ignored.
 # Computed early so it can feed both the status line and additionalContext.
-unmerged=$(list_unmerged_memoir_branches 2>/dev/null || true)
+#
+# Gated on code branch == main: while the user is mid-flight on a feature
+# branch, other branches' unmerged work is noise. main is the natural sync
+# point, so we only nag there. (An empty CODE_BRANCH — no code repo — also
+# skips; users without a code repo can invoke /memoir-unmerged manually.)
+unmerged=""
+if [ "$CODE_BRANCH" = "main" ]; then
+  unmerged=$(list_unmerged_memoir_branches 2>/dev/null || true)
+fi
 
 status="[memoir] ${DISPLAY_BRANCH} · ${USER_MEMORIES} memories · ${COMMITS} commits"
 if [ "${MEMOIR_NO_CAPTURE:-}" = "1" ]; then

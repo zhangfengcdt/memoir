@@ -201,6 +201,30 @@ context=$(session_start_context)
 assert_not_contains "feature/deletable suppressed after its code branch is deleted" \
   "/memoir-sync-branch feature/deletable" "$context"
 
+# -------- 9c. Unmerged detection only fires while code branch is main --------
+heading "Unmerged detection suppressed when code branch != main"
+# Put fresh unmerged work on memoir feature/b so it's a live candidate.
+memoir -s "$STORE" checkout feature/b >/dev/null
+sleep 2  # commit ts must exceed the existing sync-marker ts
+memoir -s "$STORE" --json remember "fresh B fact" -p context.project.database >/dev/null
+memoir -s "$STORE" checkout main >/dev/null
+
+# While on code feature/a, the scan must not run — even though feature/b
+# has unmerged captures.
+git -C "$PROJ" checkout -q feature/a
+context=$(session_start_context)
+assert_not_contains "no unmerged suggestions while on code feature/a" \
+  "/memoir-sync-branch" "$context"
+
+# Returning to main resurfaces feature/b.
+git -C "$PROJ" checkout -q main
+context=$(session_start_context)
+assert_contains "feature/b surfaces once code returns to main" \
+  "/memoir-sync-branch feature/b" "$context"
+
+# Clean up so later tests start from a quiet state.
+sync_branch feature/b
+
 # -------- 10. Sticky opt-out --------
 heading "Sticky opt-out: create 'experiment' branch while code is on main"
 memoir -s "$STORE" branch experiment --from main >/dev/null

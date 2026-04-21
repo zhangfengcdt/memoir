@@ -88,7 +88,7 @@ When a session starts on code branch `feature/x`, the plugin auto-checks out mem
 
 **The "empty main" problem**: main stays bare unless someone captures directly on code `main`. Solved by fork-inheritance (feature branches start rich) + explicit sync at completion (main grows over time with promoted knowledge).
 
-**Unmerged-branch suggestions**: at every SessionStart, the plugin scans all memoir branches ahead of main (active in the last 30d) and surfaces them via `additionalContext`:
+**Unmerged-branch suggestions**: at every SessionStart *while the code branch is `main`*, the plugin scans all memoir branches ahead of main (active in the last 30d) and surfaces them via `additionalContext`. When you're on a feature branch the scan is suppressed — other branches' unmerged work is noise mid-flight; `main` is the natural sync point.
 
 ```
 # memoir — unmerged branches detected
@@ -118,7 +118,7 @@ Per-project store at `~/.memoir/<sanitized-basename>_<8-char-hash>`. The hash is
 4. Status line: `[memoir] <branch> · N memories · M commits`. `⚠ concurrent session detected…` is appended if another session is using the same `MEMOIR_STORE` on a different branch.
 5. Inject as `additionalContext`:
    - A short taxonomy summary (user namespaces only).
-   - An **unmerged-branch suggestion block** listing any memoir branches ahead of main with `/memoir-sync-branch <name>` suggestions. Stateless scan — branches ahead of main and active in the last 30 days show up until you merge them.
+   - An **unmerged-branch suggestion block** listing any memoir branches ahead of main with `/memoir-sync-branch <name>` suggestions. Only runs when the code branch is `main`; suppressed on feature branches. Stateless scan — branches ahead of main and active in the last 30 days show up until you merge them.
 6. Write this session's heartbeat to `$MEMOIR_STORE/.git/plugin-active-sessions/<id>` so concurrent-session detection works.
 
 ### Per-turn capture
