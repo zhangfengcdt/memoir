@@ -158,6 +158,7 @@ ensure_store() {
 # not tracked because they live under .git.
 _sticky_file() { printf '%s' "$MEMOIR_STORE_PATH/.git/plugin-sticky-branch"; }
 _ignored_branches_file() { printf '%s' "$MEMOIR_STORE_PATH/.git/plugin-ignored-branches"; }
+_heartbeats_dir() { printf '%s' "$MEMOIR_STORE_PATH/.git/plugin-active-sessions"; }
 _synced_dir() { printf '%s' "$MEMOIR_STORE_PATH/.git/plugin-synced-branches"; }
 
 # record_branch_synced <branch> — called by /memoir-sync* after a successful
@@ -236,18 +237,6 @@ except Exception:
 " "$name"
 }
 
-# cleanup_store_worktree — reset the memoir store's working tree to match
-# HEAD. Workaround for a prollytree behavior where `memoir checkout` updates
-# .git/HEAD but doesn't sync the working tree + index, leaving `git status`
-# showing `MM` on data files. Memoir itself reads from its internal data
-# files (which ARE correct post-checkout), so this is primarily a `git status`
-# cleanliness fix — but it also prevents the dirt from confusing subsequent
-# git-based tooling or future memoir operations that might pay attention.
-cleanup_store_worktree() {
-  [ ! -d "$MEMOIR_STORE_PATH/.git" ] && return 0
-  git -C "$MEMOIR_STORE_PATH" reset --hard HEAD >/dev/null 2>&1 || true
-}
-
 # auto_match_memoir_branch — if auto-match isn't sticky-disabled and the
 # current code branch differs from the checked-out memoir branch, create
 # the memoir branch (forked from main) if needed and check it out.
@@ -278,11 +267,8 @@ auto_match_memoir_branch() {
   # Need to switch. Create from main first if the branch doesn't exist.
   if ! branch_exists_in_memoir "$code_branch"; then
     "$MEMOIR_CMD" -s "$MEMOIR_STORE_PATH" branch "$code_branch" --from main >/dev/null 2>&1 || return 1
-    # `memoir branch --from main` also leaves the working tree dirty.
-    cleanup_store_worktree
   fi
   "$MEMOIR_CMD" -s "$MEMOIR_STORE_PATH" checkout "$code_branch" >/dev/null 2>&1 || return 1
-  cleanup_store_worktree
   return 0
 }
 
@@ -337,10 +323,72 @@ except Exception:
   done <<< "$all_branches"
 }
 
-# (Concurrent-session heartbeats were removed — the common cases are already
-# safe by construction [different cwds → different stores via path hash], and
-# the only genuinely-racing case [explicit `MEMOIR_STORE` sharing across two
-# sessions on different code branches] is self-evident to anyone who opts
-# into it. The README documents the caveat. Real per-session isolation
-# belongs in memoir's `WorktreeVersionedKvStore` integration, not in plugin
-# bookkeeping.)
+# --- concurrent-session heartbeats ---
+
+# write_session_heartbeat — record that this session is active on the current
+# memoir branch. Idempotent; overwrites any prior heartbeat for this session.
+write_session_heartbeat() {
+  [ ! -d "$MEMOIR_STORE_PATH/.git" ] && return 0
+  local session_id branch dir f
+  # Claude Code puts the session id on the transcript path; fall back to PID.
+  session_id="${CLAUDE_SESSION_ID:-${PPID:-$$}}"
+  branch=$(memoir_json status 2>/dev/null | python3 -c "import json,sys; print(json.loads(sys.stdin.read() or '{}').get('branch',''))" 2>/dev/null)
+  dir=$(_heartbeats_dir)
+  mkdir -p "$dir"
+  f="$dir/$session_id"
+  printf '%s\t%s\n' "$branch" "$(date +%s)" > "$f"
+}
+
+remove_session_heartbeat() {
+  local session_id dir f
+  session_id="${CLAUDE_SESSION_ID:-${PPID:-$$}}"
+  dir=$(_heartbeats_dir)
+  f="$dir/$session_id"
+  rm -f "$f"
+}
+
+# concurrent_session_warning — returns non-empty on stdout if another live
+# heartbeat (≤12h old) targets a memoir branch different from ours. Stale
+# heartbeats are garbage-collected opportunistically.
+concurrent_session_warning() {
+  local dir my_session current twelve_hours_ago
+  dir=$(_heartbeats_dir)
+  [ ! -d "$dir" ] && return 0
+  my_session="${CLAUDE_SESSION_ID:-${PPID:-$$}}"
+  current=$(memoir_json status 2>/dev/null | python3 -c "import json,sys; print(json.loads(sys.stdin.read() or '{}').get('branch',''))" 2>/dev/null)
+  twelve_hours_ago=$(( $(date +%s) - 12 * 3600 ))
+
+  local other_branch=""
+  local -a stale=()
+  for f in "$dir"/*; do
+    [ -f "$f" ] || continue
+    local fname
+    fname=$(basename "$f")
+    [ "$fname" = "$my_session" ] && continue
+    # file format: "<branch>\t<epoch>"
+    local rec branch ts
+    rec=$(head -n1 "$f" 2>/dev/null || echo "")
+    branch=$(printf '%s' "$rec" | cut -f1)
+    ts=$(printf '%s' "$rec" | cut -f2)
+    # numeric check; skip malformed
+    case "$ts" in
+      ''|*[!0-9]*) stale+=("$f"); continue ;;
+    esac
+    if [ "$ts" -lt "$twelve_hours_ago" ]; then
+      stale+=("$f")
+      continue
+    fi
+    if [ -n "$branch" ] && [ "$branch" != "$current" ]; then
+      other_branch="$branch"
+    fi
+  done
+
+  # GC stale heartbeats
+  if [ "${#stale[@]}" -gt 0 ]; then
+    rm -f "${stale[@]}"
+  fi
+
+  if [ -n "$other_branch" ]; then
+    printf '⚠ concurrent session detected on branch %s. Captures may collide; set a distinct MEMOIR_STORE per session.' "$other_branch"
+  fi
+}
