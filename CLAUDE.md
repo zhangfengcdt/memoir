@@ -328,12 +328,6 @@ Click-based CLI optimized for AI agents:
 - Supports `--json` flag for machine-readable output
 - Environment variables: `MEMOIR_STORE`, `MEMOIR_JSON`
 
-### TUI Interface (`src/memoir/tui/`)
-Textual-based terminal UI:
-- Entry point: `memoir tui` or `memoir-tui`
-- Commands: `/connect`, `/remember`, `/recall`, `/branch`, `/checkout`, `/theme`
-- 5 color themes: default, ocean, forest, mono, sunset
-
 ### Test Structure
 ```
 tests/

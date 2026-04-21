@@ -128,33 +128,6 @@ memoir checkout context-branch --create-if-missing  # Auto-create context branch
 
 Exit codes enable reliable error handling: `0` success, `1` error, `2` not found, `3` no store configured, `5` git operation failed.
 
-### Interactive TUI
-
-A scrolling command-line interface for interactive sessions:
-
-```bash
-memoir tui
-memoir tui -c /path/to/store
-```
-
-Commands within the TUI:
-
-```
-/connect <path>   Connect to a memory store
-/new <path>       Create a new memory store
-/status           Show store status
-/remember <text>  Store a memory
-/recall <query>   Search memories
-/forget <key>     Delete a memory
-/branch [name]    List or create branches
-/checkout <ref>   Switch branch or commit
-/commits          Show commit history
-/help             Show available commands
-/quit             Exit
-```
-
-Aliases: `/con`, `/rem`, `/del`, `/br`, `/co`, `/log`, `/h`
-
 ### Web UI
 
 Browser-based interface with visualization:
