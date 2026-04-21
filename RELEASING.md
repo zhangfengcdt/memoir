@@ -1,10 +1,45 @@
 # Releasing memoir
 
-This document describes how to cut a release of the `memoir-ai` Python package to [PyPI](https://pypi.org/project/memoir-ai/). (The Python import name is `memoir`; the distribution name on PyPI is `memoir-ai` because `memoir` was already taken.)
+Memoir ships as **two independently versioned products**:
 
-The release workflow uses **PyPI Trusted Publishing** (OIDC) — no long-lived API tokens in GitHub secrets. Trusted publishers on [PyPI](https://pypi.org/manage/account/publishing/) and [TestPyPI](https://test.pypi.org/manage/account/publishing/) must be configured with project name `memoir-ai`, owner `zhangfengcdt`, repo `memoir`, workflow `release.yml`, environment `pypi`. A GitHub Environment named `pypi` must also exist.
+| Product | Version source of truth | Distributed via |
+| --- | --- | --- |
+| Python package `memoir-ai` | `src/memoir/__init__.py` → `__version__` | [PyPI](https://pypi.org/project/memoir-ai/) |
+| Claude Code plugin `memoir` | `plugins/claude-code/.claude-plugin/plugin.json` → `version` | Marketplace (`.claude-plugin/marketplace.json`) |
 
-## Cutting a release
+The two versions may diverge (different release cadences). Within each product, every manifest that declares the version **must agree** — enforced in CI by `scripts/check_version_consistency.py` (see [Version consistency](#version-consistency) below).
+
+(The Python import name is `memoir`; the distribution name on PyPI is `memoir-ai` because `memoir` was already taken.)
+
+The PyPI release workflow uses **PyPI Trusted Publishing** (OIDC) — no long-lived API tokens in GitHub secrets. Trusted publishers on [PyPI](https://pypi.org/manage/account/publishing/) and [TestPyPI](https://test.pypi.org/manage/account/publishing/) must be configured with project name `memoir-ai`, owner `zhangfengcdt`, repo `memoir`, workflow `release.yml`, environment `pypi`. A GitHub Environment named `pypi` must also exist.
+
+## Version consistency
+
+Before pushing a release branch, run:
+
+```bash
+make check-versions
+# or:
+python3 scripts/check_version_consistency.py
+```
+
+This verifies that every version-bearing file inside each product agrees. CI runs the same check in the `lint` job.
+
+**All files that declare a version:**
+
+- **Python package (`memoir-ai`)**
+  - `src/memoir/__init__.py` — `__version__ = "X.Y.Z"`  *(source of truth; `pyproject.toml` reads it via `[tool.hatch.version]`)*
+- **Claude Code plugin (`memoir`)** — all three must match:
+  - `plugins/claude-code/.claude-plugin/plugin.json` — `"version": "X.Y.Z"`
+  - `.claude-plugin/marketplace.json` — `metadata.version`
+  - `.claude-plugin/marketplace.json` — `plugins[<memoir>].version`
+
+Ancillary versions that are **intentionally independent** and not checked:
+
+- `src/memoir/ui/__init__.py` — UI app version, decoupled from the package.
+- `pyproject.toml` `target-version` / `python_version` / `minversion` — tool configs, not package versions.
+
+## Cutting a Python package release (PyPI)
 
 1. **Create a release branch from `main`:**
 
@@ -14,11 +49,13 @@ The release workflow uses **PyPI Trusted Publishing** (OIDC) — no long-lived A
    git checkout -b release/X.Y.Z
    ```
 
-2. **Bump the version.** Edit `src/memoir/__init__.py` line 6 — this is the single source of truth. `pyproject.toml` reads it dynamically.
+2. **Bump the version.** Edit `src/memoir/__init__.py` line 6 — this is the single source of truth for the Python package. `pyproject.toml` reads it dynamically.
 
    ```python
    __version__ = "X.Y.Z"  # Single source of truth; read by hatch + release workflow (keep on one line)
    ```
+
+   Run `make check-versions` to confirm the Python-package group stays consistent.
 
 3. **Update `CHANGELOG.md`** (if present) with the release entry.
 
@@ -57,6 +94,48 @@ The release workflow uses **PyPI Trusted Publishing** (OIDC) — no long-lived A
 
 8. **Merge the PR** into `main`.
 
+## Cutting a Claude Code plugin release
+
+The plugin is distributed via the marketplace file in this repo — there is no external registry to publish to. A "release" is a coordinated version bump across three manifests plus a tag.
+
+1. **Create a release branch from `main`:**
+
+   ```bash
+   git checkout -b release/plugin-X.Y.Z
+   ```
+
+2. **Bump the plugin version in all three locations** (they must stay in lockstep):
+
+   - `plugins/claude-code/.claude-plugin/plugin.json` → `"version": "X.Y.Z"`
+   - `.claude-plugin/marketplace.json` → `metadata.version`
+   - `.claude-plugin/marketplace.json` → `plugins[0].version` (the entry where `name == "memoir"`)
+
+3. **Verify consistency:**
+
+   ```bash
+   make check-versions
+   ```
+
+   This must pass before pushing.
+
+4. **Commit and push:**
+
+   ```bash
+   git add plugins/claude-code/.claude-plugin/plugin.json .claude-plugin/marketplace.json
+   git commit -m "Release plugin vX.Y.Z"
+   git push -u origin release/plugin-X.Y.Z
+   ```
+
+5. **Open a PR, merge after review, then tag:**
+
+   ```bash
+   git checkout main && git pull
+   git tag plugin-vX.Y.Z
+   git push origin plugin-vX.Y.Z
+   ```
+
+Users pick up the new plugin version on their next `/plugin update memoir` (or whatever refresh command they use for marketplace-sourced plugins).
+
 ## Rollback
 
 If a bad release reaches PyPI:
@@ -77,3 +156,4 @@ If a bad release reaches PyPI:
 - Don't force-push a `release/*` branch once the workflow has started.
 - Don't edit the version in `pyproject.toml` directly — it's `dynamic`. Edit `src/memoir/__init__.py` only.
 - Don't skip the dry-run step — TestPyPI is free and catches most issues.
+- Don't bump only one of the three plugin manifests (`plugin.json`, `marketplace.json` metadata, `marketplace.json` plugin entry). `make check-versions` will fail in CI — run it locally first.
