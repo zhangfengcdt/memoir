@@ -11,7 +11,7 @@ source "$SCRIPT_DIR/common.sh"
 
 # If the CLI isn't installed, surface a clear install hint and stop — no fallbacks.
 if [ -z "$MEMOIR_CMD" ]; then
-  status="[memoir] CLI not found on PATH — install with: pip install -e /path/to/memoir  (or pip install memoir once published). Capture/recall disabled."
+  status="[memoir] CLI not found on PATH — install with: pip install memoir-ai  (or pip install -e /path/to/memoir). Capture/recall disabled."
   json_status=$(_json_encode_str "$status")
   echo "{\"systemMessage\": $json_status}"
   exit 0

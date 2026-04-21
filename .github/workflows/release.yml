@@ -89,7 +89,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: pypi
-      url: https://pypi.org/project/memoir/
+      url: https://pypi.org/project/memoir-ai/
     permissions:
       id-token: write  # Required for trusted publishing (OIDC)
 
@@ -144,12 +144,12 @@ jobs:
             echo "## Installation"
             echo ""
             echo '```bash'
-            echo "pip install memoir==$VERSION"
+            echo "pip install memoir-ai==$VERSION"
             echo '```'
             echo ""
             echo "## Package"
             echo ""
-            echo "- PyPI: https://pypi.org/project/memoir/$VERSION/"
+            echo "- PyPI: https://pypi.org/project/memoir-ai/$VERSION/"
           } > release-notes.md
 
           if [ -f CHANGELOG.md ]; then

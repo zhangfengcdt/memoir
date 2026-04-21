@@ -120,7 +120,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
         except ImportError as e:
             raise ImportError(
                 "LangGraphMemoryStore requires the 'langmem' extra. "
-                "Install with: pip install 'memoir[langmem]'"
+                "Install with: pip install 'memoir-ai[langmem]'"
             ) from e
 
         self.memory_manager = ProllyTreeMemoryStoreManager(

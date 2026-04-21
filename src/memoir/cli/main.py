@@ -120,7 +120,7 @@ def get_cli_schema(group: click.Group) -> dict[str, Any]:
     try:
         from importlib.metadata import version
 
-        schema["version"] = version("memoir")
+        schema["version"] = version("memoir-ai")
     except Exception:
         pass
 
@@ -291,7 +291,7 @@ def print_machine_readable(ctx: click.Context, _param: click.Parameter, value: b
     callback=print_machine_readable,
     help="Output CLI schema as JSON (for agents to parse commands)",
 )
-@click.version_option(package_name="memoir")
+@click.version_option(package_name="memoir-ai")
 @pass_context
 def cli(
     ctx: MemoirContext,

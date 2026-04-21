@@ -15,6 +15,18 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
+def _get_version() -> str:
+    """Return the installed package version, or fall back to memoir.__version__."""
+    try:
+        from importlib.metadata import version
+
+        return version("memoir-ai")
+    except Exception:
+        from memoir import __version__
+
+        return __version__
+
+
 # Tool definitions for MCP
 TOOLS = [
     {
@@ -334,7 +346,7 @@ async def run_stdio_server(store_path: str):
                         "capabilities": {"tools": {}},
                         "serverInfo": {
                             "name": "memoir",
-                            "version": "0.1.0",
+                            "version": _get_version(),
                         },
                     },
                 }

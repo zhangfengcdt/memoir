@@ -3,7 +3,7 @@ LangMem-ProllyTree Integration
 High-performance semantic memory system for AI agents.
 """
 
-__version__ = "0.1.0"  # Single source of truth; read by hatch + release workflow (keep on one line)
+__version__ = "0.1.3"  # Single source of truth; read by hatch + release workflow (keep on one line)
 
 from .classifier.semantic import (
     ClassificationResult,
@@ -38,7 +38,7 @@ __all__ = [
 ]
 
 # Optional: ProllyTreeMemoryStoreManager requires the `langmem` extra.
-# Install via `pip install memoir[langmem]` to enable it.
+# Install via `pip install memoir-ai[langmem]` to enable it.
 try:
     from .core.memory import ProllyTreeMemoryStoreManager  # noqa: F401
 

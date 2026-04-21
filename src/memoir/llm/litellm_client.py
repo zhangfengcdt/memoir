@@ -104,7 +104,7 @@ class LiteLLMWrapper:
         except ImportError as e:
             raise ImportError(
                 "litellm is required for LLM-backed classification and search. "
-                "Install with: pip install 'memoir[litellm]'"
+                "Install with: pip install 'memoir-ai[litellm]'"
             ) from e
 
     def _supports_prompt_cache(self) -> bool:

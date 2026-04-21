@@ -1,7 +1,7 @@
 # Memoir
 
 <div align="center">
-  <img src="static/memoir.png" alt="Memoir Logo" width="200" height="200">
+  <img src="https://memoir-ai-dev.vercel.app/images/memoir.png" alt="Memoir Logo" width="200" height="200">
 
   **Git for AI Memory**
 
@@ -9,7 +9,7 @@
 </div>
 
 [![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://python.org)
-[![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://github.com/zhangfengcdt/memoir/blob/main/LICENSE)
 [![Status](https://img.shields.io/badge/Status-Alpha-orange.svg)]()
 
 Memoir brings Git-like version control to AI memory systems. Just as Git revolutionized software development by making code history transparent and reliable, Memoir transforms AI memory from unversioned, mutable storage into a versioned, auditable, and cryptographically secure system.
@@ -43,8 +43,10 @@ pip install -e ".[dev]"
 ### From PyPI
 
 ```bash
-pip install memoir
+pip install memoir-ai
 ```
+
+> The distribution name on PyPI is `memoir-ai` (the `memoir` name was already taken). After install, the Python import is still `import memoir` and the CLI is still `memoir`.
 
 ## Usage
 
@@ -242,4 +244,4 @@ See all options with `python benchmarks/classifier.py --help` or `make benchmark
 
 ## License
 
-Apache License 2.0 - see [LICENSE](LICENSE) file.
+Apache License 2.0 - see [LICENSE](https://github.com/zhangfengcdt/memoir/blob/main/LICENSE) file.
