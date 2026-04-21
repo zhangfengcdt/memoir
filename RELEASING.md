@@ -2,28 +2,7 @@
 
 This document describes how to cut a release of the `memoir-ai` Python package to [PyPI](https://pypi.org/project/memoir-ai/). (The Python import name is `memoir`; the distribution name on PyPI is `memoir-ai` because `memoir` was already taken.)
 
-## One-time setup (first release only)
-
-The release workflow uses **PyPI Trusted Publishing** (OIDC) — no long-lived API tokens are stored in GitHub secrets. The following one-time configuration is required before the first successful release.
-
-### 1. Configure Trusted Publisher on PyPI
-
-1. Create the project on [pypi.org](https://pypi.org/) (if not already reserved) by running a first manual upload, or let the first trusted-publishing upload create it.
-2. Go to `https://pypi.org/manage/project/memoir-ai/settings/publishing/` and add a **pending publisher** (for the first release) or a regular publisher (after the project exists):
-   - **PyPI project name**: `memoir-ai`
-   - **Owner**: `zhangfengcdt`
-   - **Repository name**: `memoir`
-   - **Workflow name**: `release.yml`
-   - **Environment name**: `pypi`
-
-### 2. Configure Trusted Publisher on TestPyPI
-
-Repeat the same at [test.pypi.org](https://test.pypi.org/manage/account/publishing/) with the same parameters. This is what the dry-run path uses.
-
-### 3. Create the `pypi` GitHub Environment
-
-1. In the GitHub repo: **Settings → Environments → New environment** → name it `pypi`.
-2. No required reviewers are needed by default. Optionally add yourself as a required reviewer to add an extra approval gate before publishing.
+The release workflow uses **PyPI Trusted Publishing** (OIDC) — no long-lived API tokens in GitHub secrets. Trusted publishers on [PyPI](https://pypi.org/manage/account/publishing/) and [TestPyPI](https://test.pypi.org/manage/account/publishing/) must be configured with project name `memoir-ai`, owner `zhangfengcdt`, repo `memoir`, workflow `release.yml`, environment `pypi`. A GitHub Environment named `pypi` must also exist.
 
 ## Cutting a release
 
@@ -88,8 +67,8 @@ If a bad release reaches PyPI:
 
 ## Troubleshooting
 
-- **403 Forbidden on publish** — Trusted publisher config mismatch. Re-check owner / repo / workflow filename / environment name on PyPI.
-- **Missing data files in installed package** (`ui.html`, `static/`, `taxonomy/data/`) — Check `[tool.hatch.build.targets.wheel.force-include]` in `pyproject.toml`. The workflow's `Inspect wheel contents` step also fails fast if these are missing.
+- **403 Forbidden on publish** — Trusted publisher config mismatch. Most often the **PyPI project name** field doesn't match `[project] name` in `pyproject.toml` (currently `memoir-ai`). Also re-check owner / repo / workflow filename / environment name. Remember PyPI and TestPyPI have separate publisher configs.
+- **Missing data files in installed package** (`ui.html`, `static/`, `taxonomy/data/`) — hatchling includes them by default via `[tool.hatch.build.targets.wheel] packages = ["src/memoir"]`. The workflow's `Inspect wheel contents` step fails fast if they're absent.
 - **Version extraction fails** — The workflow greps `^__version__` from `src/memoir/__init__.py`. Keep the assignment on a single line without leading whitespace.
 - **`twine check` fails on long description** — Most often a README rendering issue. Fix locally with `make release-check`.
 
