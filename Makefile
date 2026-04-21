@@ -1,4 +1,4 @@
-.PHONY: help install install-dev clean test test-cov lint format type-check security benchmark docs docs-live docs-clean pre-commit build publish
+.PHONY: help install install-dev clean test test-cov lint format type-check security benchmark docs docs-live docs-clean pre-commit build publish release-check release-test
 
 # Default target
 help:
@@ -19,6 +19,8 @@ help:
 	@echo "  pre-commit      Install and run pre-commit hooks"
 	@echo "  build           Build package distributions"
 	@echo "  publish         Publish to PyPI (requires tokens)"
+	@echo "  release-check   Build + twine check + verify data files in wheel"
+	@echo "  release-test    Build + upload to TestPyPI (requires ~/.pypirc testpypi entry)"
 	@echo "  ci              Run full CI pipeline locally"
 
 install:
@@ -95,6 +97,15 @@ build:
 
 publish: build
 	twine upload dist/*
+
+release-check: build
+	twine check dist/*
+	@echo "Verifying data files present in wheel:"
+	@unzip -l dist/*.whl | grep -E '(ui\.html|static/|taxonomy/data)' || (echo "ERROR: data files missing from wheel" && exit 1)
+	@echo "✓ release-check passed"
+
+release-test: build
+	twine upload --repository testpypi dist/*
 
 # Run comprehensive CI checks locally
 ci: clean install-dev lint type-check security test-cov docs
