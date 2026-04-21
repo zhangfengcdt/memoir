@@ -812,14 +812,14 @@
   
   
     <li class="md-nav__item">
-      <a href="memento/" class="md-nav__link">
+      <a href="search/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Memento
+    Search
   
 
     
@@ -840,14 +840,14 @@
   
   
     <li class="md-nav__item">
-      <a href="search/" class="md-nav__link">
+      <a href="memento/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Search
+    Memento
   
 
     
@@ -1469,16 +1469,15 @@
 <p>Deep technical analysis and theoretical foundations of Memoir's core components.</p>
 <p>These documents provide comprehensive explanations of the algorithms, design decisions, and architectural patterns used throughout the Memoir system.</p>
 <h2 id="component-theory">Component Theory<a class="headerlink" href="#component-theory" title="Permanent link">&para;</a></h2>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>:maxdepth: 2
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>classifier
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>search
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>memento
-</span></code></pre></div>
+<ul>
+<li><a href="classifier/">Classifier</a></li>
+<li><a href="search/">Search</a></li>
+<li><a href="memento/">Memento</a></li>
+</ul>
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
 <p>The theory documentation explores three fundamental aspects of Memoir:</p>
 <h3 id="classifier-theory">Classifier Theory<a class="headerlink" href="#classifier-theory" title="Permanent link">&para;</a></h3>
-<p>Detailed analysis of the two classifier approaches (SemanticClassifier and IntelligentClassifier), including their algorithms, performance characteristics, and use cases.</p>
+<p>Detailed analysis of the two classifier approaches (<code>SemanticClassifier</code> in <code>classifier/semantic.py</code> and <code>IntelligentClassifier</code> in <code>classifier/intelligent.py</code>), including their algorithms, performance characteristics, and use cases.</p>
 <ul>
 <li><strong>SemanticClassifier</strong>: High-performance, cache-optimized classification with pattern matching fallbacks</li>
 <li><strong>IntelligentClassifier</strong>: Advanced multi-stage classification with memory-worthiness detection and event extraction</li>

@@ -925,14 +925,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../theory/memento/" class="md-nav__link">
+      <a href="../theory/search/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Memento
+    Search
   
 
     
@@ -953,14 +953,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../theory/search/" class="md-nav__link">
+      <a href="../theory/memento/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Search
+    Memento
   
 
     
@@ -1552,15 +1552,21 @@
 
 <h1 id="frequently-asked-questions">Frequently Asked Questions<a class="headerlink" href="#frequently-asked-questions" title="Permanent link">&para;</a></h1>
 <p>This section answers common questions about Memoir's capabilities, use cases, and implementation details.</p>
+<div class="admonition note">
+<p class="admonition-title">About the code samples</p>
+<p>Code snippets in this FAQ use the <a href="../api/memoir/"><code>MemoryClient</code></a> SDK surface — <code>memory.remember(...)</code>, <code>memory.recall(...)</code>, <code>memory.forget(...)</code> for content operations, and <code>memory.branch.create/checkout/merge/delete(...)</code> for git-style operations. Every example assumes <code>memory = MemoryClient("/path/to/store")</code> is in scope. Equivalent operations are available via the <code>memoir</code> CLI (<code>memoir remember</code>, <code>memoir branch</code>, <code>memoir checkout</code>, <code>memoir merge</code>, <code>memoir time-travel</code>).</p>
+</div>
 <h2 id="ai-agent-development-debugging">AI Agent Development &amp; Debugging<a class="headerlink" href="#ai-agent-development-debugging" title="Permanent link">&para;</a></h2>
 <p><strong>Q: With the branching and time-travel features for AI agent memory, would it help vibe coding tools (such as Claude Code) to debug and fix agent bugs or issues more efficiently?</strong></p>
 <p><strong>A:</strong> Absolutely! Memoir's branching and time-travel features would be <strong>incredibly powerful</strong> for debugging Claude Code and other AI coding tools. Here's why:</p>
 <p><strong>Current AI Agent Debugging Problems:</strong></p>
-<p>Traditional AI agents (including coding tools) suffer from:
-- <strong>Opaque decision-making</strong>: No visibility into what memories influenced a bad code suggestion
-- <strong>Irreversible corruption</strong>: Once the agent "learns" something wrong, it's hard to undo
-- <strong>No historical context</strong>: Can't see how the agent's understanding evolved over time
-- <strong>Contaminated memory</strong>: Previous interactions pollute future ones</p>
+<p>Traditional AI agents (including coding tools) suffer from:</p>
+<ul>
+<li><strong>Opaque decision-making</strong>: No visibility into what memories influenced a bad code suggestion</li>
+<li><strong>Irreversible corruption</strong>: Once the agent "learns" something wrong, it's hard to undo</li>
+<li><strong>No historical context</strong>: Can't see how the agent's understanding evolved over time</li>
+<li><strong>Contaminated memory</strong>: Previous interactions pollute future ones</li>
+</ul>
 <p><strong>How Memoir Transforms AI Coding Tool Debugging:</strong></p>
 <ol>
 <li>
@@ -1569,41 +1575,41 @@
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">agent</span><span class="o">.</span><span class="n">suggest_code</span><span class="p">(</span><span class="s2">&quot;implement authentication&quot;</span><span class="p">)</span>  <span class="c1"># Returns broken OAuth code</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Debug: Jump back to see what memories influenced this decision</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;before_oauth_confusion&quot;</span><span class="p">)</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">memories</span> <span class="o">=</span> <span class="n">memory_manager</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s2">&quot;authentication patterns&quot;</span><span class="p">)</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;before_oauth_confusion&quot;</span><span class="p">)</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">memories</span> <span class="o">=</span> <span class="k">await</span> <span class="n">memory</span><span class="o">.</span><span class="n">recall</span><span class="p">(</span><span class="s2">&quot;authentication patterns&quot;</span><span class="p">)</span>
 </span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># See exactly which memories led to the bad suggestion</span>
 </span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>
 </span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a><span class="c1"># Fix: Remove the corrupted memory and add correct one</span>
-</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;main&quot;</span><span class="p">)</span>
-</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">delete_memory</span><span class="p">(</span><span class="s2">&quot;oauth.broken_pattern&quot;</span><span class="p">)</span>
-</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">store_memory</span><span class="p">(</span><span class="s2">&quot;OAuth 2.0 requires proper state validation&quot;</span><span class="p">)</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;main&quot;</span><span class="p">)</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a><span class="k">await</span> <span class="n">memory</span><span class="o">.</span><span class="n">forget</span><span class="p">(</span><span class="s2">&quot;oauth.broken_pattern&quot;</span><span class="p">)</span>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a><span class="k">await</span> <span class="n">memory</span><span class="o">.</span><span class="n">remember</span><span class="p">(</span><span class="s2">&quot;OAuth 2.0 requires proper state validation&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 </li>
 <li>
 <p><strong>Branch-Based Hypothesis Testing</strong></p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># User reports: &quot;Claude Code keeps suggesting React instead of Vue&quot;</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="c1"># Create debugging branch to investigate without affecting main agent</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">create_branch</span><span class="p">(</span><span class="s2">&quot;debug_react_bias&quot;</span><span class="p">)</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="s2">&quot;debug_react_bias&quot;</span><span class="p">)</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="c1"># Test hypothesis: Is there a React bias in the codebase memory?</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">react_memories</span> <span class="o">=</span> <span class="n">memory_manager</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s2">&quot;frontend framework&quot;</span><span class="p">)</span>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">react_memories</span> <span class="o">=</span> <span class="k">await</span> <span class="n">memory</span><span class="o">.</span><span class="n">recall</span><span class="p">(</span><span class="s2">&quot;frontend framework&quot;</span><span class="p">)</span>
 </span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># Discover: Agent learned from React-heavy repositories</span>
 </span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a><span class="c1"># Fix in isolation, then merge back</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">store_memory</span><span class="p">(</span><span class="s2">&quot;User prefers Vue.js for this project&quot;</span><span class="p">)</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;main&quot;</span><span class="p">)</span>
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="s2">&quot;debug_react_bias&quot;</span><span class="p">)</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="k">await</span> <span class="n">memory</span><span class="o">.</span><span class="n">remember</span><span class="p">(</span><span class="s2">&quot;User prefers Vue.js for this project&quot;</span><span class="p">)</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;main&quot;</span><span class="p">)</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="s2">&quot;debug_react_bias&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 </li>
 <li>
 <p><strong>Reproducible Bug Reports</strong></p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># User: &quot;Claude Code suggested wrong import on line 42&quot;</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># Instead of: &quot;Can you reproduce this?&quot;</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># You get: exact memory state snapshot</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">bug_snapshot</span> <span class="o">=</span> <span class="n">memory_manager</span><span class="o">.</span><span class="n">create_snapshot</span><span class="p">(</span><span class="s2">&quot;bug_report_line_42&quot;</span><span class="p">)</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># You get: exact memory state snapshot (a branch acts as a named bookmark)</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="s2">&quot;bug_report_line_42&quot;</span><span class="p">)</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="c1"># Developer can instantly reproduce:</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="n">bug_snapshot</span><span class="p">)</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;bug_report_line_42&quot;</span><span class="p">)</span>
 </span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="n">suggestion</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">suggest_import</span><span class="p">(</span><span class="s2">&quot;pandas&quot;</span><span class="p">)</span>  <span class="c1"># Gets same wrong result</span>
 </span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="c1"># Fix and verify fix works</span>
 </span></code></pre></div>
@@ -1635,7 +1641,7 @@
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>2. Claude Code: &quot;Let me time-travel to debug this...&quot;
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a># INSTANT time-travel - no rebuilding needed!
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>memory_manager.checkout(&quot;before_classification_bug&quot;)
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>memory.branch.checkout(&quot;before_classification_bug&quot;)
 </span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
 </span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a># Claude Code can now:
 </span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a># - See EXACT memory state when bug occurred
@@ -1644,17 +1650,17 @@
 </span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a># - Fix without affecting production memories
 </span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a>
 </span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a># Create debugging branch
-</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>memory_manager.create_branch(&quot;debug_python_classification&quot;)
+</span><span id="__span-4-15"><a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a>memory.branch.create(&quot;debug_python_classification&quot;)
 </span><span id="__span-4-16"><a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a>
 </span><span id="__span-4-17"><a id="__codelineno-4-17" name="__codelineno-4-17" href="#__codelineno-4-17"></a># Test fixes in isolation
-</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a>memory_manager.store_memory(
+</span><span id="__span-4-18"><a id="__codelineno-4-18" name="__codelineno-4-18" href="#__codelineno-4-18"></a>await memory.remember(
 </span><span id="__span-4-19"><a id="__codelineno-4-19" name="__codelineno-4-19" href="#__codelineno-4-19"></a>    &quot;Python programming is a professional skill&quot;,
-</span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a>    key=&quot;profile.professional.skills.python&quot;
+</span><span id="__span-4-20"><a id="__codelineno-4-20" name="__codelineno-4-20" href="#__codelineno-4-20"></a>    namespace=&quot;profile.professional.skills.python&quot;
 </span><span id="__span-4-21"><a id="__codelineno-4-21" name="__codelineno-4-21" href="#__codelineno-4-21"></a>)
 </span><span id="__span-4-22"><a id="__codelineno-4-22" name="__codelineno-4-22" href="#__codelineno-4-22"></a>
 </span><span id="__span-4-23"><a id="__codelineno-4-23" name="__codelineno-4-23" href="#__codelineno-4-23"></a># Verify fix works, then merge back
 </span><span id="__span-4-24"><a id="__codelineno-4-24" name="__codelineno-4-24" href="#__codelineno-4-24"></a>if classification_test_passes():
-</span><span id="__span-4-25"><a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a>    memory_manager.merge(&quot;debug_python_classification&quot;)
+</span><span id="__span-4-25"><a id="__codelineno-4-25" name="__codelineno-4-25" href="#__codelineno-4-25"></a>    memory.branch.merge(&quot;debug_python_classification&quot;)
 </span></code></pre></div>
 <p><strong>Specific Benefits for Classification Agent Debugging:</strong></p>
 <ol>
@@ -1665,16 +1671,16 @@
 </span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>create_test_fixtures()  # May miss real-world complexity
 </span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>
 </span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a># Memoir approach:
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>memory_manager.checkout(&quot;bug_occurrence_timestamp&quot;)  # &lt;1ms
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>memory.branch.checkout(&quot;bug_occurrence_timestamp&quot;)  # &lt;1ms
 </span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a># Exact same memory state instantly available
 </span></code></pre></div>
 </li>
 <li>
 <p><strong>Safe Experimentation</strong></p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Claude Code can test multiple hypotheses simultaneously:</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">create_branch</span><span class="p">(</span><span class="s2">&quot;hypothesis_1_context_window&quot;</span><span class="p">)</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">create_branch</span><span class="p">(</span><span class="s2">&quot;hypothesis_2_classification_threshold&quot;</span><span class="p">)</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">create_branch</span><span class="p">(</span><span class="s2">&quot;hypothesis_3_memory_aggregation&quot;</span><span class="p">)</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="s2">&quot;hypothesis_1_context_window&quot;</span><span class="p">)</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="s2">&quot;hypothesis_2_classification_threshold&quot;</span><span class="p">)</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="s2">&quot;hypothesis_3_memory_aggregation&quot;</span><span class="p">)</span>
 </span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>
 </span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="c1"># Test each hypothesis without affecting others</span>
 </span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c1"># Keep the one that works, discard the rest</span>
@@ -1683,9 +1689,9 @@
 <li>
 <p><strong>Pinpoint Root Cause Analysis</strong></p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Binary search through memory timeline to find exact corruption point</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;1_hour_ago&quot;</span><span class="p">)</span>      <span class="c1"># Classifications working?</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;30_minutes_ago&quot;</span><span class="p">)</span>  <span class="c1"># Still working?</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;15_minutes_ago&quot;</span><span class="p">)</span>  <span class="c1"># Found the bug!</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;1_hour_ago&quot;</span><span class="p">)</span>      <span class="c1"># Classifications working?</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;30_minutes_ago&quot;</span><span class="p">)</span>  <span class="c1"># Still working?</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;15_minutes_ago&quot;</span><span class="p">)</span>  <span class="c1"># Found the bug!</span>
 </span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>
 </span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="c1"># Now Claude Code knows EXACTLY when/why classification broke</span>
 </span></code></pre></div>
@@ -1695,21 +1701,21 @@
 <div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Scenario: Agent incorrectly classifies &quot;I love Python programming&quot;</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="c1"># 1. Instant time-travel to bug occurrence</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;classification_bug_2024_01_15_14_30&quot;</span><span class="p">)</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;classification_bug_2024_01_15_14_30&quot;</span><span class="p">)</span>
 </span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>
 </span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="c1"># 2. Claude Code analyzes: &quot;I see the issue!&quot;</span>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="n">bug_analysis</span> <span class="o">=</span> <span class="n">memory_manager</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s2">&quot;programming AND personal&quot;</span><span class="p">)</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="n">bug_analysis</span> <span class="o">=</span> <span class="k">await</span> <span class="n">memory</span><span class="o">.</span><span class="n">recall</span><span class="p">(</span><span class="s2">&quot;programming AND personal&quot;</span><span class="p">)</span>
 </span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="c1"># Finds conflicting memories:</span>
 </span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="c1"># - &quot;programming is hobby&quot; (personal.hobbies.programming)</span>
 </span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="c1"># - &quot;Python for work&quot; (profile.professional.skills.python)</span>
 </span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>
 </span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="c1"># 3. Create fix branch and test solution</span>
-</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">create_branch</span><span class="p">(</span><span class="s2">&quot;fix_programming_context&quot;</span><span class="p">)</span>
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="s2">&quot;fix_programming_context&quot;</span><span class="p">)</span>
 </span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a>
 </span><span id="__span-8-15"><a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="c1"># 4. Claude Code applies nuanced fix:</span>
-</span><span id="__span-8-16"><a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">store_memory</span><span class="p">(</span>
+</span><span id="__span-8-16"><a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="k">await</span> <span class="n">memory</span><span class="o">.</span><span class="n">remember</span><span class="p">(</span>
 </span><span id="__span-8-17"><a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a>    <span class="s2">&quot;Context: &#39;I love X programming&#39; indicates professional skill when discussing career&quot;</span><span class="p">,</span>
-</span><span id="__span-8-18"><a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a>    <span class="n">key</span><span class="o">=</span><span class="s2">&quot;classification.rules.programming_context&quot;</span>
+</span><span id="__span-8-18"><a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a>    <span class="n">namespace</span><span class="o">=</span><span class="s2">&quot;classification.rules.programming_context&quot;</span>
 </span><span id="__span-8-19"><a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a><span class="p">)</span>
 </span><span id="__span-8-20"><a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a>
 </span><span id="__span-8-21"><a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a><span class="c1"># 5. Test fix immediately on same memory state</span>
@@ -1722,50 +1728,48 @@
 <p><strong>Claude Code Enhanced Debugging Workflow:</strong></p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">ClaudeCodeWithMemoir</span><span class="p">:</span>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">debug_classification_issue</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">problematic_input</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>        <span class="c1"># 1. Create checkpoint before debugging</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>        <span class="n">checkpoint</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;debug_session_</span><span class="si">{</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">memory_manager</span><span class="o">.</span><span class="n">create_snapshot</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">)</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>        <span class="c1"># 1. Bookmark current state before debugging (branches act as snapshots)</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>        <span class="n">checkpoint</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;debug_session_</span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">())</span><span class="si">}</span><span class="s2">&quot;</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">checkpoint</span><span class="p">)</span>
 </span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
 </span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a>        <span class="c1"># 2. Time-travel to find when classification first broke</span>
 </span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>        <span class="n">bug_timeline</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_binary_search_bug_timeline</span><span class="p">(</span><span class="n">problematic_input</span><span class="p">)</span>
 </span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>
 </span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>        <span class="c1"># 3. Create debugging branch for safe experimentation</span>
 </span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>        <span class="n">debug_branch</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;fix_</span><span class="si">{</span><span class="nb">hash</span><span class="p">(</span><span class="n">problematic_input</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
-</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">memory_manager</span><span class="o">.</span><span class="n">create_branch</span><span class="p">(</span><span class="n">debug_branch</span><span class="p">)</span>
+</span><span id="__span-9-12"><a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">debug_branch</span><span class="p">)</span>
 </span><span id="__span-9-13"><a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a>
-</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>        <span class="c1"># 4. Analyze memory state at bug occurrence</span>
-</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>        <span class="n">bug_memories</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory_manager</span><span class="o">.</span><span class="n">search_memories</span><span class="p">(</span>
-</span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>            <span class="n">query</span><span class="o">=</span><span class="s2">&quot;classification patterns&quot;</span><span class="p">,</span>
-</span><span id="__span-9-17"><a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a>            <span class="n">at_commit</span><span class="o">=</span><span class="n">bug_timeline</span><span class="o">.</span><span class="n">bug_commit</span>
-</span><span id="__span-9-18"><a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a>        <span class="p">)</span>
-</span><span id="__span-9-19"><a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a>
-</span><span id="__span-9-20"><a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a>        <span class="c1"># 5. Generate and test multiple fix hypotheses</span>
-</span><span id="__span-9-21"><a id="__codelineno-9-21" name="__codelineno-9-21" href="#__codelineno-9-21"></a>        <span class="n">fix_candidates</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_fix_hypotheses</span><span class="p">(</span>
-</span><span id="__span-9-22"><a id="__codelineno-9-22" name="__codelineno-9-22" href="#__codelineno-9-22"></a>            <span class="n">problematic_input</span><span class="p">,</span> <span class="n">bug_memories</span>
-</span><span id="__span-9-23"><a id="__codelineno-9-23" name="__codelineno-9-23" href="#__codelineno-9-23"></a>        <span class="p">)</span>
-</span><span id="__span-9-24"><a id="__codelineno-9-24" name="__codelineno-9-24" href="#__codelineno-9-24"></a>
-</span><span id="__span-9-25"><a id="__codelineno-9-25" name="__codelineno-9-25" href="#__codelineno-9-25"></a>        <span class="k">for</span> <span class="n">fix</span> <span class="ow">in</span> <span class="n">fix_candidates</span><span class="p">:</span>
-</span><span id="__span-9-26"><a id="__codelineno-9-26" name="__codelineno-9-26" href="#__codelineno-9-26"></a>            <span class="c1"># Test fix in isolated sub-branch</span>
-</span><span id="__span-9-27"><a id="__codelineno-9-27" name="__codelineno-9-27" href="#__codelineno-9-27"></a>            <span class="n">fix_branch</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">debug_branch</span><span class="si">}</span><span class="s2">_fix_</span><span class="si">{</span><span class="n">fix</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">&quot;</span>
-</span><span id="__span-9-28"><a id="__codelineno-9-28" name="__codelineno-9-28" href="#__codelineno-9-28"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">memory_manager</span><span class="o">.</span><span class="n">create_branch</span><span class="p">(</span><span class="n">fix_branch</span><span class="p">)</span>
-</span><span id="__span-9-29"><a id="__codelineno-9-29" name="__codelineno-9-29" href="#__codelineno-9-29"></a>
-</span><span id="__span-9-30"><a id="__codelineno-9-30" name="__codelineno-9-30" href="#__codelineno-9-30"></a>            <span class="c1"># Apply fix</span>
-</span><span id="__span-9-31"><a id="__codelineno-9-31" name="__codelineno-9-31" href="#__codelineno-9-31"></a>            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_classification_fix</span><span class="p">(</span><span class="n">fix</span><span class="p">)</span>
-</span><span id="__span-9-32"><a id="__codelineno-9-32" name="__codelineno-9-32" href="#__codelineno-9-32"></a>
-</span><span id="__span-9-33"><a id="__codelineno-9-33" name="__codelineno-9-33" href="#__codelineno-9-33"></a>            <span class="c1"># Validate fix works and doesn&#39;t break existing</span>
-</span><span id="__span-9-34"><a id="__codelineno-9-34" name="__codelineno-9-34" href="#__codelineno-9-34"></a>            <span class="k">if</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validate_fix_comprehensive</span><span class="p">(</span><span class="n">fix</span><span class="p">):</span>
-</span><span id="__span-9-35"><a id="__codelineno-9-35" name="__codelineno-9-35" href="#__codelineno-9-35"></a>                <span class="c1"># Keep this fix</span>
-</span><span id="__span-9-36"><a id="__codelineno-9-36" name="__codelineno-9-36" href="#__codelineno-9-36"></a>                <span class="bp">self</span><span class="o">.</span><span class="n">memory_manager</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">fix_branch</span><span class="p">)</span>
-</span><span id="__span-9-37"><a id="__codelineno-9-37" name="__codelineno-9-37" href="#__codelineno-9-37"></a>                <span class="k">break</span>
-</span><span id="__span-9-38"><a id="__codelineno-9-38" name="__codelineno-9-38" href="#__codelineno-9-38"></a>            <span class="k">else</span><span class="p">:</span>
-</span><span id="__span-9-39"><a id="__codelineno-9-39" name="__codelineno-9-39" href="#__codelineno-9-39"></a>                <span class="c1"># Discard this fix attempt</span>
-</span><span id="__span-9-40"><a id="__codelineno-9-40" name="__codelineno-9-40" href="#__codelineno-9-40"></a>                <span class="bp">self</span><span class="o">.</span><span class="n">memory_manager</span><span class="o">.</span><span class="n">delete_branch</span><span class="p">(</span><span class="n">fix_branch</span><span class="p">)</span>
-</span><span id="__span-9-41"><a id="__codelineno-9-41" name="__codelineno-9-41" href="#__codelineno-9-41"></a>
-</span><span id="__span-9-42"><a id="__codelineno-9-42" name="__codelineno-9-42" href="#__codelineno-9-42"></a>        <span class="c1"># 6. Deploy validated fix to main timeline</span>
-</span><span id="__span-9-43"><a id="__codelineno-9-43" name="__codelineno-9-43" href="#__codelineno-9-43"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">memory_manager</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;main&quot;</span><span class="p">)</span>
-</span><span id="__span-9-44"><a id="__codelineno-9-44" name="__codelineno-9-44" href="#__codelineno-9-44"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">memory_manager</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">debug_branch</span><span class="p">)</span>
-</span><span id="__span-9-45"><a id="__codelineno-9-45" name="__codelineno-9-45" href="#__codelineno-9-45"></a>
-</span><span id="__span-9-46"><a id="__codelineno-9-46" name="__codelineno-9-46" href="#__codelineno-9-46"></a>        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Fixed classification bug in </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">fix_candidates</span><span class="p">)</span><span class="si">}</span><span class="s2"> attempts&quot;</span>
+</span><span id="__span-9-14"><a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a>        <span class="c1"># 4. Checkout the bug-era commit and analyze memory state</span>
+</span><span id="__span-9-15"><a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="n">bug_timeline</span><span class="o">.</span><span class="n">bug_commit</span><span class="p">)</span>
+</span><span id="__span-9-16"><a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a>        <span class="n">bug_memories</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">recall</span><span class="p">(</span><span class="s2">&quot;classification patterns&quot;</span><span class="p">)</span>
+</span><span id="__span-9-17"><a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a>
+</span><span id="__span-9-18"><a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a>        <span class="c1"># 5. Generate and test multiple fix hypotheses</span>
+</span><span id="__span-9-19"><a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a>        <span class="n">fix_candidates</span> <span class="o">=</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_generate_fix_hypotheses</span><span class="p">(</span>
+</span><span id="__span-9-20"><a id="__codelineno-9-20" name="__codelineno-9-20" href="#__codelineno-9-20"></a>            <span class="n">problematic_input</span><span class="p">,</span> <span class="n">bug_memories</span>
+</span><span id="__span-9-21"><a id="__codelineno-9-21" name="__codelineno-9-21" href="#__codelineno-9-21"></a>        <span class="p">)</span>
+</span><span id="__span-9-22"><a id="__codelineno-9-22" name="__codelineno-9-22" href="#__codelineno-9-22"></a>
+</span><span id="__span-9-23"><a id="__codelineno-9-23" name="__codelineno-9-23" href="#__codelineno-9-23"></a>        <span class="k">for</span> <span class="n">fix</span> <span class="ow">in</span> <span class="n">fix_candidates</span><span class="p">:</span>
+</span><span id="__span-9-24"><a id="__codelineno-9-24" name="__codelineno-9-24" href="#__codelineno-9-24"></a>            <span class="c1"># Test fix in isolated sub-branch</span>
+</span><span id="__span-9-25"><a id="__codelineno-9-25" name="__codelineno-9-25" href="#__codelineno-9-25"></a>            <span class="n">fix_branch</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">debug_branch</span><span class="si">}</span><span class="s2">_fix_</span><span class="si">{</span><span class="n">fix</span><span class="o">.</span><span class="n">id</span><span class="si">}</span><span class="s2">&quot;</span>
+</span><span id="__span-9-26"><a id="__codelineno-9-26" name="__codelineno-9-26" href="#__codelineno-9-26"></a>            <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="n">fix_branch</span><span class="p">)</span>
+</span><span id="__span-9-27"><a id="__codelineno-9-27" name="__codelineno-9-27" href="#__codelineno-9-27"></a>
+</span><span id="__span-9-28"><a id="__codelineno-9-28" name="__codelineno-9-28" href="#__codelineno-9-28"></a>            <span class="c1"># Apply fix</span>
+</span><span id="__span-9-29"><a id="__codelineno-9-29" name="__codelineno-9-29" href="#__codelineno-9-29"></a>            <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_apply_classification_fix</span><span class="p">(</span><span class="n">fix</span><span class="p">)</span>
+</span><span id="__span-9-30"><a id="__codelineno-9-30" name="__codelineno-9-30" href="#__codelineno-9-30"></a>
+</span><span id="__span-9-31"><a id="__codelineno-9-31" name="__codelineno-9-31" href="#__codelineno-9-31"></a>            <span class="c1"># Validate fix works and doesn&#39;t break existing</span>
+</span><span id="__span-9-32"><a id="__codelineno-9-32" name="__codelineno-9-32" href="#__codelineno-9-32"></a>            <span class="k">if</span> <span class="k">await</span> <span class="bp">self</span><span class="o">.</span><span class="n">_validate_fix_comprehensive</span><span class="p">(</span><span class="n">fix</span><span class="p">):</span>
+</span><span id="__span-9-33"><a id="__codelineno-9-33" name="__codelineno-9-33" href="#__codelineno-9-33"></a>                <span class="c1"># Keep this fix</span>
+</span><span id="__span-9-34"><a id="__codelineno-9-34" name="__codelineno-9-34" href="#__codelineno-9-34"></a>                <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">fix_branch</span><span class="p">)</span>
+</span><span id="__span-9-35"><a id="__codelineno-9-35" name="__codelineno-9-35" href="#__codelineno-9-35"></a>                <span class="k">break</span>
+</span><span id="__span-9-36"><a id="__codelineno-9-36" name="__codelineno-9-36" href="#__codelineno-9-36"></a>            <span class="k">else</span><span class="p">:</span>
+</span><span id="__span-9-37"><a id="__codelineno-9-37" name="__codelineno-9-37" href="#__codelineno-9-37"></a>                <span class="c1"># Discard this fix attempt</span>
+</span><span id="__span-9-38"><a id="__codelineno-9-38" name="__codelineno-9-38" href="#__codelineno-9-38"></a>                <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">fix_branch</span><span class="p">)</span>
+</span><span id="__span-9-39"><a id="__codelineno-9-39" name="__codelineno-9-39" href="#__codelineno-9-39"></a>
+</span><span id="__span-9-40"><a id="__codelineno-9-40" name="__codelineno-9-40" href="#__codelineno-9-40"></a>        <span class="c1"># 6. Deploy validated fix to main timeline</span>
+</span><span id="__span-9-41"><a id="__codelineno-9-41" name="__codelineno-9-41" href="#__codelineno-9-41"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;main&quot;</span><span class="p">)</span>
+</span><span id="__span-9-42"><a id="__codelineno-9-42" name="__codelineno-9-42" href="#__codelineno-9-42"></a>        <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">merge</span><span class="p">(</span><span class="n">debug_branch</span><span class="p">)</span>
+</span><span id="__span-9-43"><a id="__codelineno-9-43" name="__codelineno-9-43" href="#__codelineno-9-43"></a>
+</span><span id="__span-9-44"><a id="__codelineno-9-44" name="__codelineno-9-44" href="#__codelineno-9-44"></a>        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;Fixed classification bug in </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">fix_candidates</span><span class="p">)</span><span class="si">}</span><span class="s2"> attempts&quot;</span>
 </span></code></pre></div>
 <p>Efficiency Comparison:</p>
 <table>
@@ -1843,11 +1847,13 @@
 </tr>
 </tbody>
 </table>
-<p>The key advantages come from:
-- <strong>O(log n) hierarchical lookups</strong> instead of O(n) vector similarity searches
-- <strong>Semantic paths</strong> that enable direct access instead of expensive embeddings
-- <strong>Structural sharing</strong> in the underlying ProllyTree for efficient storage
-- <strong>No vector computations</strong> during retrieval operations</p>
+<p>The key advantages come from:</p>
+<ul>
+<li><strong>O(log n) hierarchical lookups</strong> instead of O(n) vector similarity searches</li>
+<li><strong>Semantic paths</strong> that enable direct access instead of expensive embeddings</li>
+<li><strong>Structural sharing</strong> in the underlying ProllyTree for efficient storage</li>
+<li><strong>No vector computations</strong> during retrieval operations</li>
+</ul>
 <p><strong>Q: Can Memoir handle large-scale production deployments with thousands of users?</strong></p>
 <p><strong>A:</strong> Yes! Memoir is designed for production scale:</p>
 <ul>
@@ -1857,10 +1863,12 @@
 <li><strong>Concurrent Access</strong>: Multiple agents can read/write simultaneously with proper locking</li>
 <li><strong>Horizontal Scaling</strong>: Deploy multiple Memoir instances with different user shards</li>
 </ul>
-<p>For very large deployments, consider:
-- Partitioning users across multiple Memoir instances
-- Using read replicas for search-heavy workloads
-- Implementing periodic cleanup of old memory versions</p>
+<p>For very large deployments, consider:</p>
+<ul>
+<li>Partitioning users across multiple Memoir instances</li>
+<li>Using read replicas for search-heavy workloads</li>
+<li>Implementing periodic cleanup of old memory versions</li>
+</ul>
 <h2 id="memory-management-classification">Memory Management &amp; Classification<a class="headerlink" href="#memory-management-classification" title="Permanent link">&para;</a></h2>
 <p><strong>Q: How does automatic memory classification work, and can I customize it?</strong></p>
 <p><strong>A:</strong> Memoir provides flexible classification through multiple strategies:</p>
@@ -1871,43 +1879,44 @@
 <li><strong>Hybrid Approach</strong>: Fast patterns for common cases, LLM for complex content</li>
 </ol>
 <p><strong>Customization Options:</strong></p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Option 1: Custom taxonomy</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">memoir.taxonomy.presets</span><span class="w"> </span><span class="kn">import</span> <span class="n">TaxonomyPresets</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="n">custom_taxonomy</span> <span class="o">=</span> <span class="n">TaxonomyPresets</span><span class="o">.</span><span class="n">create_domain_specific</span><span class="p">(</span><span class="s2">&quot;medical&quot;</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Option 1: Custom taxonomy via markdown data sources</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">memoir.taxonomy.loader</span><span class="w"> </span><span class="kn">import</span> <span class="n">TaxonomyLoader</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">memoir.taxonomy.markdown_source</span><span class="w"> </span><span class="kn">import</span> <span class="n">MarkdownTaxonomyDataSource</span>
 </span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="c1"># Option 2: Custom classification thresholds</span>
-</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="n">classifier</span> <span class="o">=</span> <span class="n">IntelligentClassifier</span><span class="p">(</span>
-</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>    <span class="n">llm</span><span class="o">=</span><span class="n">llm</span><span class="p">,</span>
-</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a>    <span class="n">confidence_thresholds</span><span class="o">=</span><span class="p">{</span>
-</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a>        <span class="s2">&quot;high&quot;</span><span class="p">:</span> <span class="mf">0.9</span><span class="p">,</span>    <span class="c1"># Use LLM for uncertain cases</span>
-</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>        <span class="s2">&quot;medium&quot;</span><span class="p">:</span> <span class="mf">0.7</span><span class="p">,</span>  <span class="c1"># Use pattern matching</span>
-</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>        <span class="s2">&quot;low&quot;</span><span class="p">:</span> <span class="mf">0.0</span>      <span class="c1"># Accept any classification</span>
-</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>    <span class="p">}</span>
-</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a><span class="p">)</span>
-</span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>
-</span><span id="__span-10-15"><a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a><span class="c1"># Option 3: Manual classification</span>
-</span><span id="__span-10-16"><a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="k">await</span> <span class="n">memory_manager</span><span class="o">.</span><span class="n">store_memory</span><span class="p">(</span>
-</span><span id="__span-10-17"><a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>    <span class="n">content</span><span class="o">=</span><span class="s2">&quot;Patient has type 2 diabetes&quot;</span><span class="p">,</span>
-</span><span id="__span-10-18"><a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a>    <span class="n">key</span><span class="o">=</span><span class="s2">&quot;medical.conditions.diabetes.type2&quot;</span><span class="p">,</span>  <span class="c1"># Manual key</span>
-</span><span id="__span-10-19"><a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a>    <span class="n">auto_classify</span><span class="o">=</span><span class="kc">False</span>
-</span><span id="__span-10-20"><a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a><span class="p">)</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="n">loader</span> <span class="o">=</span> <span class="n">TaxonomyLoader</span><span class="p">(</span><span class="n">store</span><span class="o">=</span><span class="n">store</span><span class="p">)</span>
+</span><span id="__span-10-6"><a id="__codelineno-10-6" name="__codelineno-10-6" href="#__codelineno-10-6"></a><span class="n">loader</span><span class="o">.</span><span class="n">load_from_source</span><span class="p">(</span><span class="n">MarkdownTaxonomyDataSource</span><span class="p">(</span><span class="s2">&quot;/path/to/medical_taxonomy.md&quot;</span><span class="p">))</span>
+</span><span id="__span-10-7"><a id="__codelineno-10-7" name="__codelineno-10-7" href="#__codelineno-10-7"></a>
+</span><span id="__span-10-8"><a id="__codelineno-10-8" name="__codelineno-10-8" href="#__codelineno-10-8"></a><span class="c1"># Option 2: Custom classification thresholds</span>
+</span><span id="__span-10-9"><a id="__codelineno-10-9" name="__codelineno-10-9" href="#__codelineno-10-9"></a><span class="n">classifier</span> <span class="o">=</span> <span class="n">IntelligentClassifier</span><span class="p">(</span>
+</span><span id="__span-10-10"><a id="__codelineno-10-10" name="__codelineno-10-10" href="#__codelineno-10-10"></a>    <span class="n">llm</span><span class="o">=</span><span class="n">llm</span><span class="p">,</span>
+</span><span id="__span-10-11"><a id="__codelineno-10-11" name="__codelineno-10-11" href="#__codelineno-10-11"></a>    <span class="n">confidence_thresholds</span><span class="o">=</span><span class="p">{</span>
+</span><span id="__span-10-12"><a id="__codelineno-10-12" name="__codelineno-10-12" href="#__codelineno-10-12"></a>        <span class="s2">&quot;high&quot;</span><span class="p">:</span> <span class="mf">0.9</span><span class="p">,</span>    <span class="c1"># Use LLM for uncertain cases</span>
+</span><span id="__span-10-13"><a id="__codelineno-10-13" name="__codelineno-10-13" href="#__codelineno-10-13"></a>        <span class="s2">&quot;medium&quot;</span><span class="p">:</span> <span class="mf">0.7</span><span class="p">,</span>  <span class="c1"># Use pattern matching</span>
+</span><span id="__span-10-14"><a id="__codelineno-10-14" name="__codelineno-10-14" href="#__codelineno-10-14"></a>        <span class="s2">&quot;low&quot;</span><span class="p">:</span> <span class="mf">0.0</span>      <span class="c1"># Accept any classification</span>
+</span><span id="__span-10-15"><a id="__codelineno-10-15" name="__codelineno-10-15" href="#__codelineno-10-15"></a>    <span class="p">}</span>
+</span><span id="__span-10-16"><a id="__codelineno-10-16" name="__codelineno-10-16" href="#__codelineno-10-16"></a><span class="p">)</span>
+</span><span id="__span-10-17"><a id="__codelineno-10-17" name="__codelineno-10-17" href="#__codelineno-10-17"></a>
+</span><span id="__span-10-18"><a id="__codelineno-10-18" name="__codelineno-10-18" href="#__codelineno-10-18"></a><span class="c1"># Option 3: Manual classification (bypass the classifier by choosing the path yourself)</span>
+</span><span id="__span-10-19"><a id="__codelineno-10-19" name="__codelineno-10-19" href="#__codelineno-10-19"></a><span class="k">await</span> <span class="n">memory</span><span class="o">.</span><span class="n">remember</span><span class="p">(</span>
+</span><span id="__span-10-20"><a id="__codelineno-10-20" name="__codelineno-10-20" href="#__codelineno-10-20"></a>    <span class="s2">&quot;Patient has type 2 diabetes&quot;</span><span class="p">,</span>
+</span><span id="__span-10-21"><a id="__codelineno-10-21" name="__codelineno-10-21" href="#__codelineno-10-21"></a>    <span class="n">namespace</span><span class="o">=</span><span class="s2">&quot;medical.conditions.diabetes.type2&quot;</span><span class="p">,</span>  <span class="c1"># Manual path</span>
+</span><span id="__span-10-22"><a id="__codelineno-10-22" name="__codelineno-10-22" href="#__codelineno-10-22"></a><span class="p">)</span>
 </span></code></pre></div>
 <p><strong>Q: What happens when memory classification is wrong?</strong></p>
 <p><strong>A:</strong> Memoir provides several correction mechanisms:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># 1. Time-travel to find the misclassification</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;before_wrong_classification&quot;</span><span class="p">)</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;before_wrong_classification&quot;</span><span class="p">)</span>
 </span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># 2. Move memory to correct location</span>
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">move_memory</span><span class="p">(</span>
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>    <span class="n">from_key</span><span class="o">=</span><span class="s2">&quot;profile.hobbies.programming&quot;</span><span class="p">,</span>
-</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>    <span class="n">to_key</span><span class="o">=</span><span class="s2">&quot;profile.professional.skills.python&quot;</span>
-</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a><span class="p">)</span>
-</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a>
-</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a><span class="c1"># 3. Update classification rules to prevent recurrence</span>
-</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="n">classifier</span><span class="o">.</span><span class="n">add_pattern</span><span class="p">(</span><span class="s2">&quot;Python&quot;</span><span class="p">,</span> <span class="s2">&quot;profile.professional.skills.python&quot;</span><span class="p">)</span>
-</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a>
-</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="c1"># 4. Create snapshot for future reference</span>
-</span><span id="__span-11-14"><a id="__codelineno-11-14" name="__codelineno-11-14" href="#__codelineno-11-14"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">create_snapshot</span><span class="p">(</span><span class="s2">&quot;classification_fix_v1&quot;</span><span class="p">)</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># 2. Move memory to correct location (delete + re-store under the right path)</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="k">await</span> <span class="n">memory</span><span class="o">.</span><span class="n">forget</span><span class="p">(</span><span class="s2">&quot;profile.hobbies.programming&quot;</span><span class="p">)</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a><span class="k">await</span> <span class="n">memory</span><span class="o">.</span><span class="n">remember</span><span class="p">(</span>
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>    <span class="s2">&quot;Python programming&quot;</span><span class="p">,</span>
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>    <span class="n">namespace</span><span class="o">=</span><span class="s2">&quot;profile.professional.skills.python&quot;</span><span class="p">,</span>
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="p">)</span>
+</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>
+</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a><span class="c1"># 3. Bookmark the fix as a branch for future reference</span>
+</span><span id="__span-11-12"><a id="__codelineno-11-12" name="__codelineno-11-12" href="#__codelineno-11-12"></a><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;main&quot;</span><span class="p">)</span>
+</span><span id="__span-11-13"><a id="__codelineno-11-13" name="__codelineno-11-13" href="#__codelineno-11-13"></a><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">create</span><span class="p">(</span><span class="s2">&quot;classification_fix_v1&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <h2 id="versioning-git-integration">Versioning &amp; Git Integration<a class="headerlink" href="#versioning-git-integration" title="Permanent link">&para;</a></h2>
 <p><strong>Q: How does Memoir's Git-like versioning actually work under the hood?</strong></p>
@@ -1951,31 +1960,28 @@
 </div>
 <h2 id="integration-compatibility">Integration &amp; Compatibility<a class="headerlink" href="#integration-compatibility" title="Permanent link">&para;</a></h2>
 <p><strong>Q: Can I migrate from an existing vector database to Memoir?</strong></p>
-<p><strong>A:</strong> Yes! Memoir provides migration utilities and compatibility layers:</p>
-<p><strong>Migration Process:</strong></p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">memoir.migration.vector_db</span><span class="w"> </span><span class="kn">import</span> <span class="n">VectorDBMigrator</span>
+<p><strong>A:</strong> Yes — there is no built-in migration tool, but the pattern is straightforward: pull records out of the source store, then replay them through Memoir's <code>remember()</code> API so the classifier can place each record on a semantic path.</p>
+<p><strong>Migration pattern:</strong></p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">memoir.sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">MemoryClient</span>
 </span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="c1"># 1. Extract from existing system</span>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="n">migrator</span> <span class="o">=</span> <span class="n">VectorDBMigrator</span><span class="p">(</span>
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>    <span class="n">source</span><span class="o">=</span><span class="s2">&quot;pinecone&quot;</span><span class="p">,</span>  <span class="c1"># or &quot;weaviate&quot;, &quot;qdrant&quot;, etc.</span>
-</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>    <span class="n">source_config</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;api_key&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">,</span> <span class="s2">&quot;environment&quot;</span><span class="p">:</span> <span class="s2">&quot;...&quot;</span><span class="p">}</span>
-</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="p">)</span>
-</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>
-</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a><span class="c1"># 2. Classify and import memories</span>
-</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a><span class="k">await</span> <span class="n">migrator</span><span class="o">.</span><span class="n">migrate_to_memoir</span><span class="p">(</span>
-</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>    <span class="n">memoir_store</span><span class="o">=</span><span class="n">store</span><span class="p">,</span>
-</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>    <span class="n">classifier</span><span class="o">=</span><span class="n">classifier</span><span class="p">,</span>
-</span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a>    <span class="n">batch_size</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span>
-</span><span id="__span-14-14"><a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a>    <span class="n">namespace_mapping</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;user_id&quot;</span><span class="p">:</span> <span class="s2">&quot;user_</span><span class="si">{id}</span><span class="s2">&quot;</span><span class="p">}</span>
-</span><span id="__span-14-15"><a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a><span class="p">)</span>
-</span><span id="__span-14-16"><a id="__codelineno-14-16" name="__codelineno-14-16" href="#__codelineno-14-16"></a>
-</span><span id="__span-14-17"><a id="__codelineno-14-17" name="__codelineno-14-17" href="#__codelineno-14-17"></a><span class="c1"># 3. Validate migration results</span>
-</span><span id="__span-14-18"><a id="__codelineno-14-18" name="__codelineno-14-18" href="#__codelineno-14-18"></a><span class="n">validation_report</span> <span class="o">=</span> <span class="n">migrator</span><span class="o">.</span><span class="n">validate_migration</span><span class="p">()</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="c1"># 1. Extract records from the source vector DB with whatever client it exposes</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="n">records</span> <span class="o">=</span> <span class="n">source_client</span><span class="o">.</span><span class="n">query</span><span class="p">(</span><span class="n">top_k</span><span class="o">=</span><span class="mi">10_000</span><span class="p">)</span>  <span class="c1"># e.g. Pinecone, Weaviate, Qdrant</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="c1"># 2. Replay each record through Memoir — the classifier picks the semantic path</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="k">async</span> <span class="k">with</span> <span class="n">MemoryClient</span><span class="p">(</span><span class="s2">&quot;./memoir_store&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">memory</span><span class="p">:</span>
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a>    <span class="k">for</span> <span class="n">rec</span> <span class="ow">in</span> <span class="n">records</span><span class="p">:</span>
+</span><span id="__span-14-9"><a id="__codelineno-14-9" name="__codelineno-14-9" href="#__codelineno-14-9"></a>        <span class="k">await</span> <span class="n">memory</span><span class="o">.</span><span class="n">remember</span><span class="p">(</span>
+</span><span id="__span-14-10"><a id="__codelineno-14-10" name="__codelineno-14-10" href="#__codelineno-14-10"></a>            <span class="n">rec</span><span class="p">[</span><span class="s2">&quot;text&quot;</span><span class="p">],</span>
+</span><span id="__span-14-11"><a id="__codelineno-14-11" name="__codelineno-14-11" href="#__codelineno-14-11"></a>            <span class="n">namespace</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;user_</span><span class="si">{</span><span class="n">rec</span><span class="p">[</span><span class="s1">&#39;metadata&#39;</span><span class="p">][</span><span class="s1">&#39;user_id&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+</span><span id="__span-14-12"><a id="__codelineno-14-12" name="__codelineno-14-12" href="#__codelineno-14-12"></a>        <span class="p">)</span>
+</span><span id="__span-14-13"><a id="__codelineno-14-13" name="__codelineno-14-13" href="#__codelineno-14-13"></a>
+</span><span id="__span-14-14"><a id="__codelineno-14-14" name="__codelineno-14-14" href="#__codelineno-14-14"></a><span class="c1"># 3. Spot-check by recalling a few known queries</span>
+</span><span id="__span-14-15"><a id="__codelineno-14-15" name="__codelineno-14-15" href="#__codelineno-14-15"></a><span class="n">result</span> <span class="o">=</span> <span class="k">await</span> <span class="n">memory</span><span class="o">.</span><span class="n">recall</span><span class="p">(</span><span class="s2">&quot;sample query&quot;</span><span class="p">,</span> <span class="n">namespace</span><span class="o">=</span><span class="s2">&quot;user_123&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <p><strong>Compatibility Notes:</strong>
 - <strong>Semantic paths</strong> replace vector embeddings for much faster retrieval
 - <strong>Memory aggregation</strong> may change how related memories are stored
-- <strong>Version history</strong> starts fresh (no historical versions from vector DB)
+- <strong>Version history</strong> starts fresh (no historical versions from the source DB)
 - <strong>Performance improvement</strong> typically 10-100x faster after migration</p>
 <p><strong>Q: Can I use Memoir with frameworks other than LangGraph/LangChain?</strong></p>
 <p><strong>A:</strong> Absolutely! Memoir is designed to be framework-agnostic:</p>
@@ -2034,12 +2040,12 @@
 <p><strong>Q: My agent's memory seems corrupted. How do I debug and fix it?</strong></p>
 <p><strong>A:</strong> Use Memoir's time-travel debugging capabilities:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1"># 1. Identify the problem timeline</span>
-</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;main&quot;</span><span class="p">)</span>
-</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="n">current_memories</span> <span class="o">=</span> <span class="n">memory_manager</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s2">&quot;problematic topic&quot;</span><span class="p">)</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;main&quot;</span><span class="p">)</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a><span class="n">current_memories</span> <span class="o">=</span> <span class="p">(</span><span class="k">await</span> <span class="n">memory</span><span class="o">.</span><span class="n">recall</span><span class="p">(</span><span class="s2">&quot;problematic topic&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">memories</span>
 </span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a>
 </span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="c1"># 2. Binary search through history to find corruption point</span>
-</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;yesterday&quot;</span><span class="p">)</span>  <span class="c1"># Known good state</span>
-</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="n">yesterday_memories</span> <span class="o">=</span> <span class="n">memory_manager</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="s2">&quot;problematic topic&quot;</span><span class="p">)</span>
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;yesterday&quot;</span><span class="p">)</span>  <span class="c1"># Known good commit / branch</span>
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="n">yesterday_memories</span> <span class="o">=</span> <span class="p">(</span><span class="k">await</span> <span class="n">memory</span><span class="o">.</span><span class="n">recall</span><span class="p">(</span><span class="s2">&quot;problematic topic&quot;</span><span class="p">))</span><span class="o">.</span><span class="n">memories</span>
 </span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a>
 </span><span id="__span-17-9"><a id="__codelineno-17-9" name="__codelineno-17-9" href="#__codelineno-17-9"></a><span class="c1"># 3. Compare memory states</span>
 </span><span id="__span-17-10"><a id="__codelineno-17-10" name="__codelineno-17-10" href="#__codelineno-17-10"></a><span class="k">for</span> <span class="n">current</span><span class="p">,</span> <span class="n">past</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">current_memories</span><span class="p">,</span> <span class="n">yesterday_memories</span><span class="p">):</span>
@@ -2049,9 +2055,9 @@
 </span><span id="__span-17-14"><a id="__codelineno-17-14" name="__codelineno-17-14" href="#__codelineno-17-14"></a>        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;After: </span><span class="si">{</span><span class="n">current</span><span class="o">.</span><span class="n">content</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </span><span id="__span-17-15"><a id="__codelineno-17-15" name="__codelineno-17-15" href="#__codelineno-17-15"></a>
 </span><span id="__span-17-16"><a id="__codelineno-17-16" name="__codelineno-17-16" href="#__codelineno-17-16"></a><span class="c1"># 4. Fix by reverting or correcting</span>
-</span><span id="__span-17-17"><a id="__codelineno-17-17" name="__codelineno-17-17" href="#__codelineno-17-17"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;main&quot;</span><span class="p">)</span>
-</span><span id="__span-17-18"><a id="__codelineno-17-18" name="__codelineno-17-18" href="#__codelineno-17-18"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">delete_memory</span><span class="p">(</span><span class="s2">&quot;corrupted.memory.key&quot;</span><span class="p">)</span>
-</span><span id="__span-17-19"><a id="__codelineno-17-19" name="__codelineno-17-19" href="#__codelineno-17-19"></a><span class="n">memory_manager</span><span class="o">.</span><span class="n">store_memory</span><span class="p">(</span><span class="s2">&quot;Corrected memory content&quot;</span><span class="p">,</span> <span class="n">key</span><span class="o">=</span><span class="s2">&quot;fixed.memory.key&quot;</span><span class="p">)</span>
+</span><span id="__span-17-17"><a id="__codelineno-17-17" name="__codelineno-17-17" href="#__codelineno-17-17"></a><span class="n">memory</span><span class="o">.</span><span class="n">branch</span><span class="o">.</span><span class="n">checkout</span><span class="p">(</span><span class="s2">&quot;main&quot;</span><span class="p">)</span>
+</span><span id="__span-17-18"><a id="__codelineno-17-18" name="__codelineno-17-18" href="#__codelineno-17-18"></a><span class="k">await</span> <span class="n">memory</span><span class="o">.</span><span class="n">forget</span><span class="p">(</span><span class="s2">&quot;corrupted.memory.key&quot;</span><span class="p">)</span>
+</span><span id="__span-17-19"><a id="__codelineno-17-19" name="__codelineno-17-19" href="#__codelineno-17-19"></a><span class="k">await</span> <span class="n">memory</span><span class="o">.</span><span class="n">remember</span><span class="p">(</span><span class="s2">&quot;Corrected memory content&quot;</span><span class="p">,</span> <span class="n">namespace</span><span class="o">=</span><span class="s2">&quot;fixed.memory.key&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <p><strong>Q: Memoir is running slower than expected. How do I optimize performance?</strong></p>
 <p><strong>A:</strong> Several optimization strategies:</p>
@@ -2075,10 +2081,13 @@
 </span><span id="__span-20-3"><a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="n">search_engine</span> <span class="o">=</span> <span class="n">IntelligentSearchEngine</span><span class="p">(</span><span class="n">llm</span><span class="o">=</span><span class="n">llm</span><span class="p">,</span> <span class="n">store</span><span class="o">=</span><span class="n">store</span><span class="p">)</span>
 </span></code></pre></div>
 <p><strong>4. Monitor Performance:</strong></p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1"># Get performance metrics</span>
-</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="n">stats</span> <span class="o">=</span> <span class="n">memory_manager</span><span class="o">.</span><span class="n">get_performance_metrics</span><span class="p">()</span>
-</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Average search time: </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">&#39;avg_search_ms&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">ms&quot;</span><span class="p">)</span>
-</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Classification time: </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">&#39;avg_classification_ms&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">ms&quot;</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="c1"># Get performance metrics from the low-level manager</span>
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a><span class="c1"># (requires the `langmem` extra: pip install memoir-ai[langmem])</span>
+</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a><span class="kn">from</span><span class="w"> </span><span class="nn">memoir</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProllyTreeMemoryStoreManager</span>
+</span><span id="__span-21-4"><a id="__codelineno-21-4" name="__codelineno-21-4" href="#__codelineno-21-4"></a>
+</span><span id="__span-21-5"><a id="__codelineno-21-5" name="__codelineno-21-5" href="#__codelineno-21-5"></a><span class="n">stats</span> <span class="o">=</span> <span class="n">memory_manager</span><span class="o">.</span><span class="n">get_performance_metrics</span><span class="p">()</span>
+</span><span id="__span-21-6"><a id="__codelineno-21-6" name="__codelineno-21-6" href="#__codelineno-21-6"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Average search time: </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">&#39;avg_search_ms&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">ms&quot;</span><span class="p">)</span>
+</span><span id="__span-21-7"><a id="__codelineno-21-7" name="__codelineno-21-7" href="#__codelineno-21-7"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Classification time: </span><span class="si">{</span><span class="n">stats</span><span class="p">[</span><span class="s1">&#39;avg_classification_ms&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">ms&quot;</span><span class="p">)</span>
 </span></code></pre></div>
 <p><strong>Q: How do I backup and restore Memoir data?</strong></p>
 <p><strong>A:</strong> Multiple backup strategies available:</p>
@@ -2089,13 +2098,21 @@
 </span><span id="__span-22-4"><a id="__codelineno-22-4" name="__codelineno-22-4" href="#__codelineno-22-4"></a>git<span class="w"> </span>push<span class="w"> </span>backup<span class="w"> </span>--all<span class="w">    </span><span class="c1"># Backup all branches</span>
 </span><span id="__span-22-5"><a id="__codelineno-22-5" name="__codelineno-22-5" href="#__codelineno-22-5"></a>git<span class="w"> </span>push<span class="w"> </span>backup<span class="w"> </span>--tags<span class="w">   </span><span class="c1"># Backup all snapshots</span>
 </span></code></pre></div>
-<p><strong>2. Export/Import:</strong></p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># Export specific namespace</span>
+<p><strong>2. Export + replay:</strong></p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># Export a specific namespace to JSON</span>
 </span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="n">store</span><span class="o">.</span><span class="n">export_namespace</span><span class="p">(</span><span class="s2">&quot;user123&quot;</span><span class="p">,</span> <span class="s2">&quot;/backup/user123_memories.json&quot;</span><span class="p">)</span>
 </span><span id="__span-23-3"><a id="__codelineno-23-3" name="__codelineno-23-3" href="#__codelineno-23-3"></a>
-</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="c1"># Import to new store</span>
-</span><span id="__span-23-5"><a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="n">new_store</span> <span class="o">=</span> <span class="n">ProllyTreeStore</span><span class="p">(</span><span class="s2">&quot;/new/location&quot;</span><span class="p">)</span>
-</span><span id="__span-23-6"><a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="n">new_store</span><span class="o">.</span><span class="n">import_namespace</span><span class="p">(</span><span class="s2">&quot;/backup/user123_memories.json&quot;</span><span class="p">)</span>
+</span><span id="__span-23-4"><a id="__codelineno-23-4" name="__codelineno-23-4" href="#__codelineno-23-4"></a><span class="c1"># Replay the export into a fresh store via the SDK (no import helper yet —</span>
+</span><span id="__span-23-5"><a id="__codelineno-23-5" name="__codelineno-23-5" href="#__codelineno-23-5"></a><span class="c1"># iterate the exported records and re-remember each one).</span>
+</span><span id="__span-23-6"><a id="__codelineno-23-6" name="__codelineno-23-6" href="#__codelineno-23-6"></a><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+</span><span id="__span-23-7"><a id="__codelineno-23-7" name="__codelineno-23-7" href="#__codelineno-23-7"></a><span class="kn">from</span><span class="w"> </span><span class="nn">memoir.sdk</span><span class="w"> </span><span class="kn">import</span> <span class="n">MemoryClient</span>
+</span><span id="__span-23-8"><a id="__codelineno-23-8" name="__codelineno-23-8" href="#__codelineno-23-8"></a>
+</span><span id="__span-23-9"><a id="__codelineno-23-9" name="__codelineno-23-9" href="#__codelineno-23-9"></a><span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="s2">&quot;/backup/user123_memories.json&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+</span><span id="__span-23-10"><a id="__codelineno-23-10" name="__codelineno-23-10" href="#__codelineno-23-10"></a>    <span class="n">records</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+</span><span id="__span-23-11"><a id="__codelineno-23-11" name="__codelineno-23-11" href="#__codelineno-23-11"></a>
+</span><span id="__span-23-12"><a id="__codelineno-23-12" name="__codelineno-23-12" href="#__codelineno-23-12"></a><span class="k">async</span> <span class="k">with</span> <span class="n">MemoryClient</span><span class="p">(</span><span class="s2">&quot;/new/location&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">memory</span><span class="p">:</span>
+</span><span id="__span-23-13"><a id="__codelineno-23-13" name="__codelineno-23-13" href="#__codelineno-23-13"></a>    <span class="k">for</span> <span class="n">rec</span> <span class="ow">in</span> <span class="n">records</span><span class="p">:</span>
+</span><span id="__span-23-14"><a id="__codelineno-23-14" name="__codelineno-23-14" href="#__codelineno-23-14"></a>        <span class="k">await</span> <span class="n">memory</span><span class="o">.</span><span class="n">remember</span><span class="p">(</span><span class="n">rec</span><span class="p">[</span><span class="s2">&quot;content&quot;</span><span class="p">],</span> <span class="n">namespace</span><span class="o">=</span><span class="n">rec</span><span class="p">[</span><span class="s2">&quot;namespace&quot;</span><span class="p">])</span>
 </span></code></pre></div>
 <p><strong>3. File System Backup:</strong></p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="c1"># Simple file copy (ensure store is not actively writing)</span>

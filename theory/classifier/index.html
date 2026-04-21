@@ -16,7 +16,7 @@
         <link rel="prev" href="../">
       
       
-        <link rel="next" href="../memento/">
+        <link rel="next" href="../search/">
       
       
         
@@ -1365,14 +1365,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../memento/" class="md-nav__link">
+      <a href="../search/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Memento
+    Search
   
 
     
@@ -1393,14 +1393,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../search/" class="md-nav__link">
+      <a href="../memento/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-    Search
+    Memento
   
 
     
@@ -2439,21 +2439,25 @@
 </ol>
 <p>Both classifiers serve different use cases and represent different points on the performance-accuracy spectrum.</p>
 <h2 id="core-problem-statement">Core Problem Statement<a class="headerlink" href="#core-problem-statement" title="Permanent link">&para;</a></h2>
-<p>Traditional AI memory systems suffer from:
-- <strong>Opaque Storage</strong>: UUID-based keys with no semantic meaning
-- <strong>Expensive Search</strong>: O(n) vector similarity search for every query
-- <strong>No History</strong>: Lack of version control or audit trails
-- <strong>Flat Structure</strong>: No hierarchical organization of related memories</p>
+<p>Traditional AI memory systems suffer from:</p>
+<ul>
+<li><strong>Opaque Storage</strong>: UUID-based keys with no semantic meaning</li>
+<li><strong>Expensive Search</strong>: O(n) vector similarity search for every query</li>
+<li><strong>No History</strong>: Lack of version control or audit trails</li>
+<li><strong>Flat Structure</strong>: No hierarchical organization of related memories</li>
+</ul>
 <p>Memoir solves this by introducing a <strong>semantic taxonomy</strong> where memories are classified into human-readable hierarchical paths like <code>profile.professional.skills.python</code> instead of opaque identifiers.</p>
 <h2 id="classification-philosophy">Classification Philosophy<a class="headerlink" href="#classification-philosophy" title="Permanent link">&para;</a></h2>
 <h3 id="key-paradigm-shift">Key Paradigm Shift<a class="headerlink" href="#key-paradigm-shift" title="Permanent link">&para;</a></h3>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Traditional: uuid-1234 → expensive vector search → no history
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>Memoir:      profile.professional.skills.python → O(log n) lookup → full versioning
 </span></code></pre></div>
-<p>The classification system transforms unstructured memory content into structured taxonomy paths, enabling:
-- <strong>Deterministic Retrieval</strong>: Direct path lookups instead of similarity search
-- <strong>Hierarchical Organization</strong>: Natural grouping of related memories
-- <strong>Human Interpretability</strong>: Paths that make sense to developers and users</p>
+<p>The classification system transforms unstructured memory content into structured taxonomy paths, enabling:</p>
+<ul>
+<li><strong>Deterministic Retrieval</strong>: Direct path lookups instead of similarity search</li>
+<li><strong>Hierarchical Organization</strong>: Natural grouping of related memories</li>
+<li><strong>Human Interpretability</strong>: Paths that make sense to developers and users</li>
+</ul>
 <h2 id="architecture-overview">Architecture Overview<a class="headerlink" href="#architecture-overview" title="Permanent link">&para;</a></h2>
 <h3 id="1-semanticclassifier">1. SemanticClassifier<a class="headerlink" href="#1-semanticclassifier" title="Permanent link">&para;</a></h3>
 <h4 id="design-goals">Design Goals<a class="headerlink" href="#design-goals" title="Permanent link">&para;</a></h4>
@@ -2501,20 +2505,24 @@
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>        <span class="n">classification_result</span><span class="p">,</span> <span class="n">memory_content</span><span class="p">,</span> <span class="n">metadata</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="p">)</span>
 </span></code></pre></div></p>
-<p>This enables:
-- <strong>Smart Fallbacks</strong>: Using 'other' categories when uncertain
-- <strong>Expansion Tracking</strong>: Recording patterns for taxonomy growth
-- <strong>Confidence Boosting</strong>: Leveraging historical classification data</p>
+<p>This enables:</p>
+<ul>
+<li><strong>Smart Fallbacks</strong>: Using 'other' categories when uncertain</li>
+<li><strong>Expansion Tracking</strong>: Recording patterns for taxonomy growth</li>
+<li><strong>Confidence Boosting</strong>: Leveraging historical classification data</li>
+</ul>
 <h5 id="stage-4-path-validation-correction">Stage 4: Path Validation &amp; Correction<a class="headerlink" href="#stage-4-path-validation-correction" title="Permanent link">&para;</a></h5>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">if</span> <span class="ow">not</span> <span class="n">is_valid_path</span><span class="p">(</span><span class="n">suggested_path</span><span class="p">):</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="c1"># Progressive fallback strategy</span>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">find_closest_valid_path</span><span class="p">(</span><span class="n">suggested_path</span><span class="p">)</span>
 </span></code></pre></div>
-<p>Fallback hierarchy:
-1. Try progressively shorter paths (removing last segment)
-2. Use configured fallback path if valid
-3. Find any valid path in the same top-level category
-4. Ultimate fallback to first available path</p>
+<p>Fallback hierarchy:</p>
+<ol>
+<li>Try progressively shorter paths (removing last segment)</li>
+<li>Use configured fallback path if valid</li>
+<li>Find any valid path in the same top-level category</li>
+<li>Ultimate fallback to first available path</li>
+</ol>
 <h4 id="performance-characteristics">Performance Characteristics<a class="headerlink" href="#performance-characteristics" title="Permanent link">&para;</a></h4>
 <ul>
 <li><strong>Cache Hit</strong>: 1-5ms</li>
@@ -2535,42 +2543,48 @@
 <h5 id="stage-1-memory-worthiness-detection">Stage 1: Memory Worthiness Detection<a class="headerlink" href="#stage-1-memory-worthiness-detection" title="Permanent link">&para;</a></h5>
 <p>The classifier first determines if content should be stored at all:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">Skip</span> <span class="k">if</span><span class="p">:</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="o">-</span> <span class="n">Transient</span> <span class="n">information</span> <span class="p">(</span><span class="n">greetings</span><span class="p">,</span> <span class="n">weather</span><span class="p">)</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="o">-</span> <span class="n">General</span> <span class="n">conversation</span> <span class="n">without</span> <span class="n">specifics</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="o">-</span> <span class="n">Below</span> <span class="n">confidence</span> <span class="n">threshold</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="n">Store</span> <span class="k">if</span><span class="p">:</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="o">-</span> <span class="n">Personal</span> <span class="n">preferences</span><span class="p">,</span> <span class="n">facts</span><span class="p">,</span> <span class="n">skills</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="o">-</span> <span class="n">Relationships</span><span class="p">,</span> <span class="n">goals</span><span class="p">,</span> <span class="n">experiences</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="o">-</span> <span class="n">Meets</span> <span class="n">minimum</span> <span class="n">confidence</span> <span class="n">threshold</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="o">-</span> <span class="n">Transient</span> <span class="n">information</span> <span class="p">(</span><span class="n">greetings</span><span class="p">,</span> <span class="n">weather</span><span class="p">)</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="o">-</span> <span class="n">General</span> <span class="n">conversation</span> <span class="n">without</span> <span class="n">specifics</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="o">-</span> <span class="n">Below</span> <span class="n">confidence</span> <span class="n">threshold</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">Store</span> <span class="k">if</span><span class="p">:</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="o">-</span> <span class="n">Personal</span> <span class="n">preferences</span><span class="p">,</span> <span class="n">facts</span><span class="p">,</span> <span class="n">skills</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="o">-</span> <span class="n">Relationships</span><span class="p">,</span> <span class="n">goals</span><span class="p">,</span> <span class="n">experiences</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="o">-</span> <span class="n">Meets</span> <span class="n">minimum</span> <span class="n">confidence</span> <span class="n">threshold</span>
 </span></code></pre></div>
 <h5 id="stage-2-multi-path-classification">Stage 2: Multi-Path Classification<a class="headerlink" href="#stage-2-multi-path-classification" title="Permanent link">&para;</a></h5>
 <p>Unlike SemanticClassifier's single-path approach, IntelligentClassifier supports multi-label classification with strict rules:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">Multiple</span> <span class="n">paths</span> <span class="n">allowed</span> <span class="n">ONLY</span> <span class="n">when</span><span class="p">:</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="mf">1.</span> <span class="n">Content</span> <span class="n">spans</span> <span class="n">DIFFERENT</span> <span class="n">top</span><span class="o">-</span><span class="n">level</span> <span class="n">categories</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="mf">2.</span> <span class="n">Maximum</span> <span class="mi">2</span> <span class="n">paths</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="mf">3.</span> <span class="n">Each</span> <span class="n">path</span> <span class="n">represents</span> <span class="n">distinct</span> <span class="n">information</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="n">Example</span><span class="p">:</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="s2">&quot;My colleague John loves machine learning&quot;</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="err">→</span> <span class="n">entity</span><span class="o">.</span><span class="n">people</span><span class="o">.</span><span class="n">mentioned</span><span class="o">.</span><span class="n">colleagues</span> <span class="p">(</span><span class="n">ENTITY</span> <span class="n">category</span><span class="p">)</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="err">→</span> <span class="n">topics</span><span class="o">.</span><span class="n">technology</span><span class="o">.</span><span class="n">artificial_intelligence</span> <span class="p">(</span><span class="n">TOPICS</span> <span class="n">category</span><span class="p">)</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="mf">1.</span> <span class="n">Content</span> <span class="n">spans</span> <span class="n">DIFFERENT</span> <span class="n">top</span><span class="o">-</span><span class="n">level</span> <span class="n">categories</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="mf">2.</span> <span class="n">Maximum</span> <span class="mi">2</span> <span class="n">paths</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="mf">3.</span> <span class="n">Each</span> <span class="n">path</span> <span class="n">represents</span> <span class="n">distinct</span> <span class="n">information</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">Example</span><span class="p">:</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="s2">&quot;My colleague John loves machine learning&quot;</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="err">→</span> <span class="n">entity</span><span class="o">.</span><span class="n">people</span><span class="o">.</span><span class="n">mentioned</span><span class="o">.</span><span class="n">colleagues</span> <span class="p">(</span><span class="n">ENTITY</span> <span class="n">category</span><span class="p">)</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="err">→</span> <span class="n">topics</span><span class="o">.</span><span class="n">technology</span><span class="o">.</span><span class="n">artificial_intelligence</span> <span class="p">(</span><span class="n">TOPICS</span> <span class="n">category</span><span class="p">)</span>
 </span></code></pre></div>
 <h5 id="stage-3-specialized-event-extraction">Stage 3: Specialized Event Extraction<a class="headerlink" href="#stage-3-specialized-event-extraction" title="Permanent link">&para;</a></h5>
 <p><strong>Profile Updates</strong>:
 <div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">Detects</span> <span class="n">definitive</span> <span class="n">facts</span> <span class="n">that</span> <span class="n">replace</span> <span class="n">previous</span> <span class="n">information</span><span class="p">:</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="o">-</span> <span class="s2">&quot;I&#39;m 25 years old&quot;</span> <span class="err">→</span> <span class="n">profile</span><span class="o">.</span><span class="n">personal</span><span class="o">.</span><span class="n">identity</span><span class="o">.</span><span class="n">age</span><span class="o">.</span><span class="n">current</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="o">-</span> <span class="s2">&quot;I work at Google&quot;</span> <span class="err">→</span> <span class="n">profile</span><span class="o">.</span><span class="n">professional</span><span class="o">.</span><span class="n">current</span><span class="o">.</span><span class="n">company</span><span class="o">.</span><span class="n">name</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="o">-</span> <span class="s2">&quot;I&#39;m 25 years old&quot;</span> <span class="err">→</span> <span class="n">profile</span><span class="o">.</span><span class="n">personal</span><span class="o">.</span><span class="n">identity</span><span class="o">.</span><span class="n">age</span><span class="o">.</span><span class="n">current</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="o">-</span> <span class="s2">&quot;I work at Google&quot;</span> <span class="err">→</span> <span class="n">profile</span><span class="o">.</span><span class="n">professional</span><span class="o">.</span><span class="n">current</span><span class="o">.</span><span class="n">company</span><span class="o">.</span><span class="n">name</span>
 </span></code></pre></div></p>
 <p><strong>Timeline Events</strong>:
 <div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">Extracts</span> <span class="n">temporal</span> <span class="n">events</span> <span class="k">with</span> <span class="n">date</span> <span class="n">calculation</span><span class="p">:</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="o">-</span> <span class="s2">&quot;Yesterday was my first day&quot;</span> <span class="p">(</span><span class="n">session</span><span class="p">:</span> <span class="mi">2023</span><span class="o">-</span><span class="mi">03</span><span class="o">-</span><span class="mi">15</span><span class="p">)</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>  <span class="err">→</span> <span class="n">date</span><span class="p">:</span> <span class="s2">&quot;20230314&quot;</span><span class="p">,</span> <span class="n">description</span><span class="p">:</span> <span class="s2">&quot;first day at new job&quot;</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="o">-</span> <span class="s2">&quot;Yesterday was my first day&quot;</span> <span class="p">(</span><span class="n">session</span><span class="p">:</span> <span class="mi">2023</span><span class="o">-</span><span class="mi">03</span><span class="o">-</span><span class="mi">15</span><span class="p">)</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>  <span class="err">→</span> <span class="n">date</span><span class="p">:</span> <span class="s2">&quot;20230314&quot;</span><span class="p">,</span> <span class="n">description</span><span class="p">:</span> <span class="s2">&quot;first day at new job&quot;</span>
 </span></code></pre></div></p>
 <p><strong>Location Events</strong>:
 <div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">Captures</span> <span class="n">geographic</span> <span class="n">references</span><span class="p">:</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="o">-</span> <span class="s2">&quot;The support group in Los Angeles&quot;</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>  <span class="err">→</span> <span class="n">location</span><span class="p">:</span> <span class="s2">&quot;Los Angeles&quot;</span><span class="p">,</span> <span class="n">description</span><span class="p">:</span> <span class="s2">&quot;support group attendance&quot;</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="o">-</span> <span class="s2">&quot;The support group in Los Angeles&quot;</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>  <span class="err">→</span> <span class="n">location</span><span class="p">:</span> <span class="s2">&quot;Los Angeles&quot;</span><span class="p">,</span> <span class="n">description</span><span class="p">:</span> <span class="s2">&quot;support group attendance&quot;</span>
 </span></code></pre></div></p>
 <h5 id="stage-4-confidence-based-actions">Stage 4: Confidence-Based Actions<a class="headerlink" href="#stage-4-confidence-based-actions" title="Permanent link">&para;</a></h5>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">HIGH</span> <span class="n">confidence</span> <span class="p">(</span><span class="o">&gt;</span><span class="mf">0.8</span><span class="p">):</span>
@@ -2593,10 +2607,12 @@
 </span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>        <span class="n">new_categories</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;piano&quot;</span><span class="p">,</span> <span class="s2">&quot;composition&quot;</span><span class="p">,</span> <span class="s2">&quot;theory&quot;</span><span class="p">]</span>
 </span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="p">)</span>
 </span></code></pre></div>
-<p>Expansion follows hierarchical depth rules:
-- Add ONE intermediate level at a time
-- Use general-to-specific progression
-- Maximum recommended depth: 4 levels</p>
+<p>Expansion follows hierarchical depth rules:</p>
+<ul>
+<li>Add ONE intermediate level at a time</li>
+<li>Use general-to-specific progression</li>
+<li>Maximum recommended depth: 4 levels</li>
+</ul>
 <h4 id="key-implementation-details">Key Implementation Details<a class="headerlink" href="#key-implementation-details" title="Permanent link">&para;</a></h4>
 <h5 id="simplified-taxonomy-for-prompts">Simplified Taxonomy for Prompts<a class="headerlink" href="#simplified-taxonomy-for-prompts" title="Permanent link">&para;</a></h5>
 <p>To reduce prompt size, IntelligentClassifier uses a simplified taxonomy:
@@ -2616,11 +2632,12 @@
 <p>This ensures robustness against LLM formatting inconsistencies.</p>
 <h5 id="validation-and-fallback-logic">Validation and Fallback Logic<a class="headerlink" href="#validation-and-fallback-logic" title="Permanent link">&para;</a></h5>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">Path</span> <span class="n">validation</span> <span class="n">hierarchy</span><span class="p">:</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="mf">1.</span> <span class="n">Check</span> <span class="k">if</span> <span class="n">path</span> <span class="n">exists</span> <span class="ow">in</span> <span class="n">taxonomy</span>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="mf">2.</span> <span class="n">Accept</span> <span class="n">new</span> <span class="n">top</span><span class="o">-</span><span class="n">level</span> <span class="n">categories</span> <span class="p">(</span><span class="k">for</span> <span class="n">expansion</span><span class="p">)</span>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="mf">3.</span> <span class="n">Find</span> <span class="n">valid</span> <span class="n">parent</span> <span class="n">paths</span>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="mf">4.</span> <span class="n">Enforce</span> <span class="n">minimum</span> <span class="mi">2</span><span class="o">-</span><span class="n">level</span> <span class="n">depth</span>
-</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="mf">5.</span> <span class="n">Apply</span> <span class="n">domain</span><span class="o">-</span><span class="n">specific</span> <span class="n">fallbacks</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="mf">1.</span> <span class="n">Check</span> <span class="k">if</span> <span class="n">path</span> <span class="n">exists</span> <span class="ow">in</span> <span class="n">taxonomy</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="mf">2.</span> <span class="n">Accept</span> <span class="n">new</span> <span class="n">top</span><span class="o">-</span><span class="n">level</span> <span class="n">categories</span> <span class="p">(</span><span class="k">for</span> <span class="n">expansion</span><span class="p">)</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="mf">3.</span> <span class="n">Find</span> <span class="n">valid</span> <span class="n">parent</span> <span class="n">paths</span>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="mf">4.</span> <span class="n">Enforce</span> <span class="n">minimum</span> <span class="mi">2</span><span class="o">-</span><span class="n">level</span> <span class="n">depth</span>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="mf">5.</span> <span class="n">Apply</span> <span class="n">domain</span><span class="o">-</span><span class="n">specific</span> <span class="n">fallbacks</span>
 </span></code></pre></div>
 <h2 id="comparative-analysis">Comparative Analysis<a class="headerlink" href="#comparative-analysis" title="Permanent link">&para;</a></h2>
 <h3 id="semanticclassifier-vs-intelligentclassifier">SemanticClassifier vs IntelligentClassifier<a class="headerlink" href="#semanticclassifier-vs-intelligentclassifier" title="Permanent link">&para;</a></h3>
@@ -2715,11 +2732,13 @@
 </span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>    <span class="n">trigger_expansion</span><span class="p">(</span><span class="n">parent_path</span><span class="p">)</span>
 </span></code></pre></div></p>
 <h3 id="3-context-aware-classification">3. Context-Aware Classification<a class="headerlink" href="#3-context-aware-classification" title="Permanent link">&para;</a></h3>
-<p>Both classifiers support contextual information:
-- User ID, Session ID
-- Conversation history
-- Available memory paths
-- Temporal context</p>
+<p>Both classifiers support contextual information:</p>
+<ul>
+<li>User ID, Session ID</li>
+<li>Conversation history</li>
+<li>Available memory paths</li>
+<li>Temporal context</li>
+</ul>
 <h3 id="4-batch-processing-semanticclassifier">4. Batch Processing (SemanticClassifier)<a class="headerlink" href="#4-batch-processing-semanticclassifier" title="Permanent link">&para;</a></h3>
 <p>Efficient batch classification with cache benefits:
 <div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">classifier</span><span class="o">.</span><span class="n">batch_classify</span><span class="p">(</span><span class="n">memories</span><span class="p">,</span> <span class="n">shared_context</span><span class="p">)</span>

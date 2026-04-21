@@ -13,10 +13,10 @@
         <link rel="canonical" href="https://zhangfengcdt.github.io/memoir/theory/memento/">
       
       
-        <link rel="prev" href="../classifier/">
+        <link rel="prev" href="../search/">
       
       
-        <link rel="next" href="../search/">
+        <link rel="next" href="../../api/memoir/">
       
       
         
@@ -792,6 +792,34 @@
     
   
     Classifier
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../search/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Search
   
 
     
@@ -1654,34 +1682,6 @@
   
 </nav>
       
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../search/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Search
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -2987,19 +2987,23 @@
 <p>These mementos represent a paradigm shift from general-purpose memory storage to <strong>dimension-specific memory repositories</strong> that mirror how humans naturally organize experiences.</p>
 <h2 id="core-philosophy">Core Philosophy<a class="headerlink" href="#core-philosophy" title="Permanent link">&para;</a></h2>
 <h3 id="the-memento-pattern">The Memento Pattern<a class="headerlink" href="#the-memento-pattern" title="Permanent link">&para;</a></h3>
-<p>The term "memento" is deliberately chosen over "manager" to emphasize that these are <strong>memory collections</strong> rather than controllers. Each memento:
-- Represents a specific lens through which memories are viewed
-- Maintains its own organizational schema
-- Provides specialized retrieval and summarization capabilities
-- Handles dimension-specific merging and deduplication</p>
+<p>The term "memento" is deliberately chosen over "manager" to emphasize that these are <strong>memory collections</strong> rather than controllers. Each memento:</p>
+<ul>
+<li>Represents a specific lens through which memories are viewed</li>
+<li>Maintains its own organizational schema</li>
+<li>Provides specialized retrieval and summarization capabilities</li>
+<li>Handles dimension-specific merging and deduplication</li>
+</ul>
 <h3 id="key-innovation">Key Innovation<a class="headerlink" href="#key-innovation" title="Permanent link">&para;</a></h3>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Traditional: Flat memory storage → complex queries → mixed results
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>Memoir:      Dimensional separation → targeted storage → coherent retrieval
 </span></code></pre></div>
-<p>The memento system recognizes that human memory naturally organizes along three primary dimensions:
-- <strong>Identity</strong> (Who am I?) → ProfileMemento
-- <strong>Time</strong> (When did it happen?) → TimelineMemento
-- <strong>Space</strong> (Where did it occur?) → LocationMemento</p>
+<p>The memento system recognizes that human memory naturally organizes along three primary dimensions:</p>
+<ul>
+<li><strong>Identity</strong> (Who am I?) → ProfileMemento</li>
+<li><strong>Time</strong> (When did it happen?) → TimelineMemento</li>
+<li><strong>Space</strong> (Where did it occur?) → LocationMemento</li>
+</ul>
 <h2 id="architecture-overview">Architecture Overview<a class="headerlink" href="#architecture-overview" title="Permanent link">&para;</a></h2>
 <h3 id="common-patterns-across-mementos">Common Patterns Across Mementos<a class="headerlink" href="#common-patterns-across-mementos" title="Permanent link">&para;</a></h3>
 <p>All three mementos share fundamental patterns:</p>
@@ -3451,10 +3455,12 @@
 </span><span id="__span-30-9"><a id="__codelineno-30-9" name="__codelineno-30-9" href="#__codelineno-30-9"></a>LocationMemento: Low (places accumulate events)
 </span></code></pre></div>
 <h3 id="retrieval-efficiency">Retrieval Efficiency<a class="headerlink" href="#retrieval-efficiency" title="Permanent link">&para;</a></h3>
-<p>The dimensional separation enables:
-- <strong>O(1)</strong> access to profile facts via direct paths
-- <strong>O(log n)</strong> timeline navigation via date ordering
-- <strong>O(k)</strong> location retrieval where k = events at location</p>
+<p>The dimensional separation enables:</p>
+<ul>
+<li><strong>O(1)</strong> access to profile facts via direct paths</li>
+<li><strong>O(log n)</strong> timeline navigation via date ordering</li>
+<li><strong>O(k)</strong> location retrieval where k = events at location</li>
+</ul>
 <h2 id="future-enhancements">Future Enhancements<a class="headerlink" href="#future-enhancements" title="Permanent link">&para;</a></h2>
 <h3 id="planned-improvements">Planned Improvements<a class="headerlink" href="#planned-improvements" title="Permanent link">&para;</a></h3>
 <ol>
