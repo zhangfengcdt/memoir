@@ -21,9 +21,12 @@ Usage:
     print(response.content)
 """
 
+from memoir.llm.claude_cli_client import ClaudeCLIError, ClaudeCLIWrapper
 from memoir.llm.litellm_client import LiteLLMResponse, LiteLLMWrapper, get_llm
 
 __all__ = [
+    "ClaudeCLIError",
+    "ClaudeCLIWrapper",
     "LiteLLMResponse",
     "LiteLLMWrapper",
     "get_llm",

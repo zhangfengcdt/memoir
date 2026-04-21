@@ -11,7 +11,17 @@ You are a memory retrieval agent for memoir. Memoir is **not** a vector store �
 
 Store: !`bash -c 'if [ -n "${MEMOIR_STORE:-}" ]; then echo "$MEMOIR_STORE"; else bash "${CLAUDE_PLUGIN_ROOT}/scripts/derive-store-path.sh"; fi'`
 
-Use this path for every memoir invocation below: `memoir --json -s <STORE_PATH> <subcommand> …`. Note the flag order — memoir's global flags (`--json`, `-s`) **must** come before the subcommand.
+Use this path for every memoir invocation below.
+
+## Auth — important
+
+Every shell command you run below that invokes `memoir` **must** be prefixed with `MEMOIR_LLM_BACKEND=claude-cli` — this routes memoir's internal LLM calls (path selection in `recall`, classification in `remember`) through `claude -p` instead of a direct provider API. Without it, memoir will try to call OpenAI/Anthropic directly and fail if the user has no API key set. Example:
+
+```bash
+MEMOIR_LLM_BACKEND=claude-cli memoir --json -s <STORE_PATH> recall "<query>"
+```
+
+Note the flag order — memoir's global flags (`--json`, `-s`) **must** come before the subcommand.
 
 ## Your task
 
@@ -24,7 +34,7 @@ Unlike vector-store plugins (which search chunks, expand chunks, then fall back 
 ### L1 — recall (always start here)
 
 ```bash
-memoir --json -s <STORE_PATH> recall "<query>" -l 5
+MEMOIR_LLM_BACKEND=claude-cli memoir --json -s <STORE_PATH> recall "<query>" -l 5
 ```
 
 Returns `memories[]` with `path`, `content`, `relevance_score`, `namespace`. Each entry is a **single typed fact** at a named taxonomy path — not a chunk of text. That means one L1 result is usually enough to answer most questions; you often don't need to expand anything.

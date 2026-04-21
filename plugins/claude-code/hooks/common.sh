@@ -22,6 +22,18 @@ for p in "$HOME/.local/bin" "$HOME/.cargo/bin" "$HOME/bin" "/usr/local/bin"; do
   [[ -d "$p" ]] && [[ ":$PATH:" != *":$p:"* ]] && export PATH="$p:$PATH"
 done
 
+# Force memoir's LLM layer to the claude-cli backend so every memoir call the
+# plugin makes (classification inside `memoir remember`, path selection inside
+# `memoir recall`) rides Claude Code's auth — no OPENAI_API_KEY / ANTHROPIC_API_KEY
+# needed. This is hard-set (not `${…:-claude-cli}`) because the plugin's whole
+# value proposition under Claude Code is one-auth-for-everything; LiteLLM routing
+# here would mean silent failures for users who don't have their own API key.
+# If you need LiteLLM, use memoir outside the plugin.
+export MEMOIR_LLM_BACKEND=claude-cli
+# Model is still overridable — haiku is the sensible default, but a user who
+# wants sonnet/opus for better classification can set MEMOIR_LLM_MODEL.
+export MEMOIR_LLM_MODEL="${MEMOIR_LLM_MODEL:-claude-haiku-4-5}"
+
 # Project directory: git root preferred (CLAUDE_PROJECT_DIR may point to a subdir
 # inside forked `claude -p` sessions, which would otherwise create sibling stores).
 _GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo "")"

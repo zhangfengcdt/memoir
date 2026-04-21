@@ -22,8 +22,19 @@ from memoir.cli.main import (
 @click.command()
 @click.argument("content")
 @click.option("-n", "--namespace", default="default", help="Memory namespace")
+@click.option(
+    "-p",
+    "--path",
+    default=None,
+    help=(
+        "Pre-classified taxonomy path (e.g. 'preferences.coding.languages'). "
+        "When given, skips memoir's LLM classifier entirely and stores at this "
+        "path directly. Use for bulk imports or when the caller has already "
+        "classified the content (e.g. plugins that pre-classify via `claude -p`)."
+    ),
+)
 @pass_context
-def remember(ctx: MemoirContext, content: str, namespace: str):
+def remember(ctx: MemoirContext, content: str, namespace: str, path: str):
     """Store content in memory with intelligent classification.
 
     INPUT: Any text content (facts, preferences, events, notes).
@@ -32,11 +43,14 @@ def remember(ctx: MemoirContext, content: str, namespace: str):
     Content is automatically classified into hierarchical paths using LLM
     and stored with git versioning. Each store creates a commit.
 
+    Pass --path/-p to skip classification and store directly at a known path.
+
     \b
     Examples:
       memoir remember "User prefers dark mode"
       memoir remember "Meeting at 3pm tomorrow" -n calendar
       memoir remember "API key is abc123" -n secrets
+      memoir remember "Uses 4-space indentation" -p preferences.coding.style
 
     \b
     JSON output includes: key, confidence, reasoning, commit_hash
@@ -51,7 +65,7 @@ def remember(ctx: MemoirContext, content: str, namespace: str):
     service = MemoryService(ctx.store_path)
 
     try:
-        result = asyncio.run(service.remember(content, namespace))
+        result = asyncio.run(service.remember(content, namespace, path=path))
 
         if ctx.json_output:
             ctx.output(result.to_dict())

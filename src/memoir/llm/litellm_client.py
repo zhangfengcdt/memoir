@@ -328,7 +328,7 @@ def get_llm(
     api_key: Optional[str] = None,
     enable_prompt_cache: bool = True,
     debug_cache: bool = False,
-) -> LiteLLMWrapper:
+) -> Any:
     """
     Get LLM instance using LiteLLM for multi-provider support.
 
@@ -360,6 +360,13 @@ def get_llm(
         - GEMINI_API_KEY: Required for Gemini models
         - OLLAMA_HOST: Optional for non-default Ollama server
 
+    Backend selection (MEMOIR_LLM_BACKEND env var):
+        - unset / "litellm" (default): this LiteLLM path — direct provider APIs,
+          needs OPENAI_API_KEY / ANTHROPIC_API_KEY / etc.
+        - "claude-cli": shell out to `claude -p` instead — no API key needed,
+          inherits Claude Code's auth (subscription OAuth or API key).
+          Only Claude models supported. See claude_cli_client.py.
+
     Example:
         >>> from memoir.llm import get_llm
         >>> llm = get_llm(model="claude-haiku-4-5")
@@ -367,6 +374,26 @@ def get_llm(
         >>> print(response.content)
         Paris
     """
+    # Route to the claude-cli backend if requested. This is the zero-API-key
+    # path for running memoir under Claude Code; see ClaudeCLIWrapper docstring.
+    backend = os.getenv("MEMOIR_LLM_BACKEND", "").strip().lower()
+    if backend in ("claude-cli", "claude_cli", "cli"):
+        from memoir.llm.claude_cli_client import ClaudeCLIWrapper
+
+        # Coerce the default OpenAI model to a Claude model; claude-cli can't run gpt-*.
+        cli_model = model
+        if model.lower().startswith("gpt-") or "gpt-" in model.lower():
+            cli_model = os.getenv("MEMOIR_LLM_MODEL", "claude-haiku-4-5")
+        return ClaudeCLIWrapper(
+            model=cli_model,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            base_url=base_url,
+            api_key=api_key,
+            enable_prompt_cache=enable_prompt_cache,
+            debug_cache=debug_cache,
+        )
+
     # Auto-add provider prefix for Claude models (LiteLLM requirement)
     model_lower = model.lower()
     if model_lower.startswith("claude") and not model_lower.startswith("anthropic/"):

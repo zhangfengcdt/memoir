@@ -25,6 +25,19 @@ Verify: `memoir --version` should print a version string.
 
 If `memoir` is not found at session start, the plugin surfaces a hint in the status line and disables capture/recall (everything else works).
 
+#### LLM backend — no API key needed (recommended)
+
+Memoir's classifier and search engine call an LLM internally. By default they use LiteLLM and need an `OPENAI_API_KEY` (or `ANTHROPIC_API_KEY` etc.) of their own — separate from your Claude Code auth.
+
+For zero-config use under Claude Code, set:
+
+```bash
+export MEMOIR_LLM_BACKEND=claude-cli
+export MEMOIR_LLM_MODEL=claude-haiku-4-5   # optional, this is the default
+```
+
+When set, memoir shells out to `claude -p` instead of making direct provider API calls. Every LLM call inherits Claude Code's auth (subscription OAuth or API key — whichever you're logged in with). No `OPENAI_API_KEY`, no `ANTHROPIC_API_KEY` required. Putting these two lines in your shell profile makes the plugin work end-to-end with a single auth.
+
 ### 2. Install the plugin
 
 **Via the marketplace (recommended)** — in Claude Code:
@@ -85,8 +98,10 @@ Per-project store at `~/.memoir/<sanitized-basename>_<8-char-hash>`. The hash is
 On the `Stop` hook (async, non-blocking):
 
 1. Parse the last turn from Claude Code's JSONL transcript.
-2. Pipe to `claude -p --model haiku` with a strict "extract 0-6 durable facts, one per line" system prompt.
-3. For each non-empty fact, call `memoir remember "<fact>"`. Memoir's classifier drops each fact into the correct taxonomy path and creates a commit.
+2. Pipe to `claude -p --model haiku` with a strict prompt that extracts **and classifies** durable facts in one shot — output format is `<taxonomy-path>\t<fact>` per line.
+3. For each line, call `memoir remember "<fact>" --path <path>`, which **skips memoir's internal LLM classifier** entirely and stores at the caller-provided path.
+
+This collapses the per-turn LLM cost from `1 + N × (4-5)` calls to **just 1** — about 2× faster end-to-end, and the per-fact `memoir remember` calls drop from ~10s each to ~0.4s. Async means the user never waits.
 
 To disable per-session: `MEMOIR_NO_CAPTURE=1`.
 

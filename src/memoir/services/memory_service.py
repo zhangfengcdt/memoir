@@ -99,23 +99,32 @@ class MemoryService(BaseService):
         self,
         content: str,
         namespace: str = "default",
+        path: Optional[str] = None,
     ) -> RememberResult:
         """
         Classify and store content in memory.
 
         This implements the 5-step pipeline:
         1. Store initialization
-        2. Classification & path generation
+        2. Classification & path generation  (skipped when `path` is provided)
         3. Memory storage
-        4. Timeline processing
-        5. Location processing
+        4. Timeline processing                (skipped when `path` is provided)
+        5. Location processing                (skipped when `path` is provided)
 
         Args:
             content: The content to store
             namespace: Namespace for organization
+            path: Optional pre-classified taxonomy path (e.g. "preferences.coding.languages").
+                When provided, the LLM classifier is bypassed entirely — no LLM call
+                is made and the content is stored directly at the given path. Use this
+                when the caller has already determined the path (e.g. plugin pre-classifies
+                with `claude -p` to avoid memoir's internal LLM auth path) or for bulk
+                imports from structured data.
 
         Returns:
-            RememberResult with classification info and commit details
+            RememberResult with classification info and commit details. When `path`
+            is provided, confidence is reported as 1.0 and reasoning notes that the
+            caller supplied the path.
         """
         if not Path(self.store_path).exists():
             raise StoreNotFoundError(self.store_path)
@@ -137,52 +146,63 @@ class MemoryService(BaseService):
         timeline_events = None
         location_events = None
 
-        try:
-            classifier = self._get_classifier()
-            current_date = datetime.now().strftime("%Y-%m-%d")
-
-            result = await classifier.classify_input(
-                content,
-                metadata={"session_date": current_date},
-                return_prompt=True,
-            )
-
-            confidence = result.confidence
-
-            # Handle multi-label classification
-            if result.paths and len(result.paths) > 1:
-                keys = result.paths
-                key = keys[0]
-                reasoning = (
-                    f"Multi-label classified as {keys} (confidence: {confidence:.2f})"
-                )
-            else:
-                key = result.path if result.path else "context.current.session"
-                keys = [key]
-                reasoning = f"Classified as {key} (confidence: {confidence:.2f})"
-
-            timeline_events = result.timeline_events
-            location_events = result.location_events
-
-        except Exception as e:
-            logger.warning(f"LLM classification failed: {e}, using pattern matching")
+        if path:
+            # Caller provided the path — skip the entire LLM classification chain.
+            # Big latency win when invoked from a plugin that has already done its
+            # own classification (e.g. via `claude -p`), since memoir's classifier
+            # otherwise fires several sequential LLM calls (classify, decide-action,
+            # extract-metadata, etc.).
+            key = path
+            keys = [path]
+            confidence = 1.0
+            reasoning = f"Path provided by caller; classifier skipped: {path}"
+        else:
             try:
-                from memoir.classifier.semantic import SemanticClassifier
+                classifier = self._get_classifier()
+                current_date = datetime.now().strftime("%Y-%m-%d")
 
-                semantic_classifier = SemanticClassifier()
-                result = semantic_classifier.classify(content)
-                key = result.path
-                keys = [key]
-                confidence = result.confidence
-                reasoning = f"Pattern-matched as {key} (confidence: {confidence:.2f})"
-            except Exception as e2:
-                logger.warning(
-                    f"Pattern matching failed: {e2}, using timestamp fallback"
+                result = await classifier.classify_input(
+                    content,
+                    metadata={"session_date": current_date},
+                    return_prompt=True,
                 )
-                key = f"memory.{int(time.time())}"
-                keys = [key]
-                confidence = 1.0
-                reasoning = "Fallback to timestamp key due to classification error"
+
+                confidence = result.confidence
+
+                # Handle multi-label classification
+                if result.paths and len(result.paths) > 1:
+                    keys = result.paths
+                    key = keys[0]
+                    reasoning = (
+                        f"Multi-label classified as {keys} (confidence: {confidence:.2f})"
+                    )
+                else:
+                    key = result.path if result.path else "context.current.session"
+                    keys = [key]
+                    reasoning = f"Classified as {key} (confidence: {confidence:.2f})"
+
+                timeline_events = result.timeline_events
+                location_events = result.location_events
+
+            except Exception as e:
+                logger.warning(f"LLM classification failed: {e}, using pattern matching")
+                try:
+                    from memoir.classifier.semantic import SemanticClassifier
+
+                    semantic_classifier = SemanticClassifier()
+                    result = semantic_classifier.classify(content)
+                    key = result.path
+                    keys = [key]
+                    confidence = result.confidence
+                    reasoning = f"Pattern-matched as {key} (confidence: {confidence:.2f})"
+                except Exception as e2:
+                    logger.warning(
+                        f"Pattern matching failed: {e2}, using timestamp fallback"
+                    )
+                    key = f"memory.{int(time.time())}"
+                    keys = [key]
+                    confidence = 1.0
+                    reasoning = "Fallback to timestamp key due to classification error"
 
         step_timings["step2_classification"] = round(time.time() - step2_start, 3)
 

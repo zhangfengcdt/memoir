@@ -25,11 +25,32 @@ if ! ensure_store; then
   exit 0
 fi
 
-# Pull status JSON — contains branch, commit_count, memory_count.
+# Pull status JSON — contains branch, commit_count, memory_count (total).
 STATUS_JSON=$(memoir_json status || true)
 BRANCH=$(_json_val "$STATUS_JSON" "branch" "main")
 COMMITS=$(_json_val "$STATUS_JSON" "commit_count" "0")
-MEMORIES=$(_json_val "$STATUS_JSON" "memory_count" "0")
+TOTAL_MEMORIES=$(_json_val "$STATUS_JSON" "memory_count" "0")
+
+# Compute *user-facing* memory count by subtracting entries in memoir's
+# internal taxonomy:v1:* namespaces. A brand-new store created with
+# `--taxonomy-builtin` has ~8 taxonomy entries that are classification
+# hints, not user memories; showing them in the status line as "8 memories"
+# confuses users who expect that number to reflect what they've captured.
+# `summarize taxonomy --json` returns a per-namespace count map; we sum the
+# non-taxonomy entries. Quick read, no LLM call, safe to run every session.
+SUMMARY_JSON=$(memoir_json summarize taxonomy 2>/dev/null || true)
+USER_MEMORIES="$TOTAL_MEMORIES"
+if [ -n "$SUMMARY_JSON" ]; then
+  USER_MEMORIES=$(python3 -c "
+import json, sys
+try:
+    obj = json.loads(sys.argv[1])
+    ns = obj.get('namespaces', {}) or {}
+    print(sum(v for k, v in ns.items() if not k.startswith('taxonomy:')))
+except Exception:
+    print(sys.argv[2])
+" "$SUMMARY_JSON" "$TOTAL_MEMORIES" 2>/dev/null || echo "$TOTAL_MEMORIES")
+fi
 
 # Status line mirrors memsearch's shape but surfaces memoir's differentiators:
 # current branch (what CLI recalls/captures target) and commit_count (full history).
@@ -45,40 +66,34 @@ if [ -n "$CODE_BRANCH" ]; then
 else
   DISPLAY_BRANCH="${BRANCH}"
 fi
-status="[memoir] ${DISPLAY_BRANCH} · ${MEMORIES} memories · ${COMMITS} commits"
+status="[memoir] ${DISPLAY_BRANCH} · ${USER_MEMORIES} memories · ${COMMITS} commits"
 if [ "${MEMOIR_NO_CAPTURE:-}" = "1" ]; then
   status+=" · capture disabled"
 fi
 
 # Inject a short taxonomy snapshot as additionalContext so Claude sees what
 # kinds of memories exist without having to invoke the recall skill up front.
-# `summarize taxonomy --json` returns a namespace->count mapping; we trim the
-# taxonomy:v1:* internal namespaces and keep user-facing ones.
+# Reuses SUMMARY_JSON fetched above; filters the same taxonomy:v1:* noise.
 context=""
-if [ "$MEMORIES" != "0" ]; then
-  SUMMARY_JSON=$(memoir_json summarize taxonomy || true)
-  if [ -n "$SUMMARY_JSON" ]; then
-    ns_list=$(python3 -c "
+if [ "$USER_MEMORIES" != "0" ] && [ -n "$SUMMARY_JSON" ]; then
+  ns_list=$(python3 -c "
 import json, sys
 try:
     obj = json.loads(sys.argv[1])
     ns = obj.get('namespaces', {}) or {}
-    # Drop memoir's internal bookkeeping namespaces — they're noise for Claude.
     user_ns = {k: v for k, v in ns.items() if not k.startswith('taxonomy:')}
     if not user_ns:
         sys.exit(0)
-    total = obj.get('total_memories', 0)
     lines = [f'- {k}: {v} memor' + ('y' if v == 1 else 'ies') for k, v in sorted(user_ns.items())]
     print('# Memoir store — current state')
-    print(f'branch (code+memory): $DISPLAY_BRANCH  ·  total memories: {total}')
+    print(f'branch (code+memory): $DISPLAY_BRANCH  ·  user memories: $USER_MEMORIES')
     print('')
     print('namespaces:')
     print('\n'.join(lines))
 except Exception:
     pass
 " "$SUMMARY_JSON" 2>/dev/null || true)
-    context="$ns_list"
-  fi
+  context="$ns_list"
 fi
 
 json_status=$(_json_encode_str "$status")
