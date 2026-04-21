@@ -123,7 +123,20 @@ class ProllyTreeStore(BaseStore):
             # Create data subdirectory for VersionedKvStore
             data_dir = self.path / "data"
             data_dir.mkdir(exist_ok=True)
-            self.tree = VersionedKvStore(str(data_dir))
+            # VersionedKvStore (prollytree Rust binding) uses cwd to locate the
+            # enclosing git repository even when handed an absolute path —
+            # which means callers in non-git cwds (e.g. /tmp, ~/.memoir) get
+            # "Not in a git repository" errors. Workaround: chdir into the
+            # store before constructing, then restore so caller's cwd stays
+            # clean. Once constructed, the tree retains its handle and works
+            # from any cwd.
+            import os as _os
+            _saved_cwd = _os.getcwd()
+            try:
+                _os.chdir(str(self.path))
+                self.tree = VersionedKvStore(str(data_dir))
+            finally:
+                _os.chdir(_saved_cwd)
         else:
             # Use memory mode for simplicity (can be changed to 'file' for persistence)
             self.tree = ProllyTree("memory")
