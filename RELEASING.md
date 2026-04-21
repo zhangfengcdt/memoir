@@ -1,6 +1,6 @@
 # Releasing memoir
 
-This document describes how to cut a release of the `memoir` Python package to [PyPI](https://pypi.org/project/memoir/).
+This document describes how to cut a release of the `memoir-ai` Python package to [PyPI](https://pypi.org/project/memoir-ai/). (The Python import name is `memoir`; the distribution name on PyPI is `memoir-ai` because `memoir` was already taken.)
 
 ## One-time setup (first release only)
 
@@ -9,7 +9,8 @@ The release workflow uses **PyPI Trusted Publishing** (OIDC) — no long-lived A
 ### 1. Configure Trusted Publisher on PyPI
 
 1. Create the project on [pypi.org](https://pypi.org/) (if not already reserved) by running a first manual upload, or let the first trusted-publishing upload create it.
-2. Go to `https://pypi.org/manage/project/memoir/settings/publishing/` and add a **pending publisher** (for the first release) or a regular publisher (after the project exists):
+2. Go to `https://pypi.org/manage/project/memoir-ai/settings/publishing/` and add a **pending publisher** (for the first release) or a regular publisher (after the project exists):
+   - **PyPI project name**: `memoir-ai`
    - **Owner**: `zhangfengcdt`
    - **Repository name**: `memoir`
    - **Workflow name**: `release.yml`
@@ -58,7 +59,7 @@ Repeat the same at [test.pypi.org](https://test.pypi.org/manage/account/publishi
    - Select the `release/X.Y.Z` branch.
    - Set `dry_run` to `true` (default).
    - Click **Run workflow**.
-   - When it completes, verify `https://test.pypi.org/project/memoir/X.Y.Z/` exists.
+   - When it completes, verify `https://test.pypi.org/project/memoir-ai/X.Y.Z/` exists.
    - Smoke-test install:
 
      ```bash
@@ -66,7 +67,7 @@ Repeat the same at [test.pypi.org](https://test.pypi.org/manage/account/publishi
      /tmp/memoir-test/bin/pip install \
        -i https://test.pypi.org/simple/ \
        --extra-index-url https://pypi.org/simple/ \
-       memoir==X.Y.Z
+       memoir-ai==X.Y.Z
      /tmp/memoir-test/bin/memoir --help
      /tmp/memoir-test/bin/python -c "import memoir; print(memoir.__version__)"
      ```
@@ -82,7 +83,7 @@ Repeat the same at [test.pypi.org](https://test.pypi.org/manage/account/publishi
 If a bad release reaches PyPI:
 
 - **Do not delete the version** (PyPI does not allow re-uploading a deleted version).
-- Instead, **yank** it: `https://pypi.org/manage/project/memoir/release/X.Y.Z/` → Yank release. Yanked versions are still installable by exact pin but are skipped by default resolvers.
+- Instead, **yank** it: `https://pypi.org/manage/project/memoir-ai/release/X.Y.Z/` → Yank release. Yanked versions are still installable by exact pin but are skipped by default resolvers.
 - Cut `X.Y.(Z+1)` with the fix.
 
 ## Troubleshooting

@@ -38,7 +38,7 @@ __all__ = [
 ]
 
 # Optional: ProllyTreeMemoryStoreManager requires the `langmem` extra.
-# Install via `pip install memoir[langmem]` to enable it.
+# Install via `pip install memoir-ai[langmem]` to enable it.
 try:
     from .core.memory import ProllyTreeMemoryStoreManager  # noqa: F401
 

@@ -13,12 +13,12 @@ Give Claude Code a **git-versioned, taxonomy-structured memory**. Unlike vector-
 
 ### 1. Install memoir (prerequisite)
 
-The plugin expects the `memoir` CLI on your `PATH`. Until memoir is on PyPI, install from source:
+The plugin expects the `memoir` CLI on your `PATH`. Install from PyPI or from source:
 
 ```bash
-pip install -e /path/to/memoir      # editable install from the repo
-# or (once published):
-pip install memoir
+pip install memoir-ai                # from PyPI (dist name is memoir-ai, CLI is memoir)
+# or
+pip install -e /path/to/memoir       # editable install from the repo
 ```
 
 Verify: `memoir --version` should print a version string.

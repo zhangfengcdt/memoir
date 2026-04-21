@@ -14,7 +14,9 @@ Install Memoir using pip:
 
 .. code-block:: bash
 
-   pip install memoir
+   pip install memoir-ai
+
+The distribution name on PyPI is ``memoir-ai`` (the ``memoir`` name was already taken). After install, the Python import is still ``import memoir``.
 
 Development Installation
 ------------------------

@@ -10,7 +10,7 @@ Install Memoir using pip:
 
 .. code-block:: bash
 
-   pip install memoir
+   pip install memoir-ai
 
 For development installation with all dependencies:
 
