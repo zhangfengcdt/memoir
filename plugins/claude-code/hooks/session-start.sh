@@ -31,10 +31,9 @@ fi
 # up on whatever memoir branch was already current.
 auto_match_memoir_branch || true
 
-# Pull status JSON — contains branch, commit_count, memory_count (total).
+# Pull status JSON — contains branch, memory_count (total).
 STATUS_JSON=$(memoir_json status || true)
 BRANCH=$(_json_val "$STATUS_JSON" "branch" "main")
-COMMITS=$(_json_val "$STATUS_JSON" "commit_count" "0")
 TOTAL_MEMORIES=$(_json_val "$STATUS_JSON" "memory_count" "0")
 
 # Compute *user-facing* memory count by subtracting entries in memoir's
@@ -76,9 +75,17 @@ fi
 # user notices captured knowledge that hasn't been promoted. Stateless —
 # scans all branches each SessionStart. Filters to ≤30d active + not ignored.
 # Computed early so it can feed both the status line and additionalContext.
-unmerged=$(list_unmerged_memoir_branches 2>/dev/null || true)
+#
+# Gated on code branch == main: while the user is mid-flight on a feature
+# branch, other branches' unmerged work is noise. main is the natural sync
+# point, so we only nag there. (An empty CODE_BRANCH — no code repo — also
+# skips; users without a code repo can invoke /memoir-unmerged manually.)
+unmerged=""
+if [ "$CODE_BRANCH" = "main" ]; then
+  unmerged=$(list_unmerged_memoir_branches 2>/dev/null || true)
+fi
 
-status="[memoir] ${DISPLAY_BRANCH} · ${USER_MEMORIES} memories · ${COMMITS} commits"
+status="[memoir] ${DISPLAY_BRANCH} · ${USER_MEMORIES} memories"
 if [ "${MEMOIR_NO_CAPTURE:-}" = "1" ]; then
   status+=" · capture disabled"
 fi
@@ -130,7 +137,7 @@ if [ -n "$unmerged" ]; then
   unmerged_block+="You have captured memories on these branches that aren't on main yet:"$'\n\n'
   while IFS=$'\t' read -r b n; do
     [ -z "$b" ] && continue
-    unmerged_block+="- memoir/${b}: ${n} unmerged commits → /memoir-sync-branch ${b}"$'\n'
+    unmerged_block+="- memoir/${b}: ${n} unmerged commits → memoir:memoir-sync-branch ${b}"$'\n'
   done <<< "$unmerged"
   unmerged_block+=$'\n'"Run the suggested command to promote them to main (keeps the source branch)."
   if [ -n "$context" ]; then

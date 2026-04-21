@@ -155,6 +155,23 @@ code_git_branch() {
   git -C "$_GIT_ROOT" branch --show-current 2>/dev/null || true
 }
 
+# code_branch_exists <name> — returns 0 if the project git repo still has a
+# local branch of that name. Memoir branches are named after code branches,
+# so a missing local counterpart means the work unit is gone and its
+# unmerged memories shouldn't nag the user. Remote-tracking refs are
+# intentionally ignored: a branch the user has locally deleted is "done"
+# from their perspective, even if a copy still lives on some remote.
+#
+# When there's no project git repo (_GIT_ROOT empty), return 0 — we can't
+# tell whether the branch "exists", so preserve current behavior rather than
+# suppressing all unmerged detection.
+code_branch_exists() {
+  local name="$1"
+  [ -z "$name" ] && return 1
+  [ -z "$_GIT_ROOT" ] && return 0
+  git -C "$_GIT_ROOT" show-ref --verify --quiet "refs/heads/$name" 2>/dev/null
+}
+
 # ensure_store — create the store directory with builtin taxonomy if missing.
 # Safe to call on every SessionStart.
 ensure_store() {
@@ -318,6 +335,11 @@ except Exception:
     [ "$b" = "main" ] && continue
     [ "$b" = "$current" ] && continue
     is_branch_ignored "$b" && continue
+    # If the corresponding code branch is gone (deleted locally and absent
+    # from every remote), the work unit no longer exists — suppress the
+    # nag. Users who want to promote those memories can still do so via
+    # /memoir-sync-branch explicitly.
+    code_branch_exists "$b" || continue
 
     # Memoir's merge rewrites patches on main (not a normal two-parent merge
     # commit), so we can't use git graph, diff, or cherry to detect "already

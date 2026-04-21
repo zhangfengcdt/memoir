@@ -9,7 +9,7 @@
 #   - Auto-matching memoir branch to current code branch on SessionStart
 #   - Fork-from-main when a matching memoir branch doesn't exist
 #   - Multi-branch unmerged detection (e.g. sequence main → a → b → main)
-#   - /memoir-sync-branch writes the sync marker and suppresses suggestions
+#   - memoir:memoir-sync-branch writes the sync marker and suppresses suggestions
 #   - New captures after sync correctly resurface the branch
 #   - Sticky opt-out and its auto-clear on return to code-matching branch
 #   - Concurrent-session heartbeat warning
@@ -101,7 +101,7 @@ memoir_current_branch() {
     python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('branch',''))"
 }
 sync_branch() {
-  # Simulate what /memoir-sync-branch <name> does.
+  # Simulate what memoir:memoir-sync-branch <name> does.
   local target="$1" current
   current=$(memoir_current_branch)
   memoir -s "$STORE" checkout main >/dev/null
@@ -152,8 +152,8 @@ heading "Back to code main — expect BOTH feature/a and feature/b in suggestion
 git -C "$PROJ" checkout -q main
 session_start_status >/dev/null
 context=$(session_start_context)
-assert_contains "suggestions list feature/a" "/memoir-sync-branch feature/a" "$context"
-assert_contains "suggestions list feature/b" "/memoir-sync-branch feature/b" "$context"
+assert_contains "suggestions list feature/a" "memoir:memoir-sync-branch feature/a" "$context"
+assert_contains "suggestions list feature/b" "memoir:memoir-sync-branch feature/b" "$context"
 
 # -------- 6. Sync feature/a --------
 heading "Sync feature/a"
@@ -163,14 +163,14 @@ assert "sync marker exists for feature/a" "0" "$([ -f "$STORE/.git/plugin-synced
 # -------- 7. After sync: only feature/b remains --------
 heading "Re-run SessionStart after syncing feature/a"
 context=$(session_start_context)
-assert_not_contains "feature/a gone from suggestions" "/memoir-sync-branch feature/a" "$context"
-assert_contains "feature/b still in suggestions" "/memoir-sync-branch feature/b" "$context"
+assert_not_contains "feature/a gone from suggestions" "memoir:memoir-sync-branch feature/a" "$context"
+assert_contains "feature/b still in suggestions" "memoir:memoir-sync-branch feature/b" "$context"
 
 # -------- 8. Sync feature/b, suggestions empty --------
 heading "Sync feature/b"
 sync_branch feature/b
 context=$(session_start_context)
-assert_not_contains "no suggestions after both synced" "/memoir-sync-branch" "$context"
+assert_not_contains "no suggestions after both synced" "memoir:memoir-sync-branch" "$context"
 
 # -------- 9. New capture resurfaces branch --------
 heading "New capture on feature/a resurfaces it"
@@ -179,10 +179,51 @@ sleep 2  # ensure commit timestamp strictly > sync-marker timestamp
 memoir -s "$STORE" --json remember "A follow-up" -p preferences.coding.style >/dev/null
 memoir -s "$STORE" checkout main >/dev/null
 context=$(session_start_context)
-assert_contains "feature/a resurfaces after new capture" "/memoir-sync-branch feature/a" "$context"
+assert_contains "feature/a resurfaces after new capture" "memoir:memoir-sync-branch feature/a" "$context"
 
 # Clean state for the remaining tests — sync feature/a again.
 sync_branch feature/a
+
+# -------- 9b. Deleted code branch suppresses unmerged memoir branch --------
+heading "Deleting the code branch removes its memoir branch from suggestions"
+git -C "$PROJ" checkout -qb feature/deletable
+session_start_status >/dev/null
+assert "memoir matched feature/deletable via SessionStart" "feature/deletable" "$(memoir_current_branch)"
+memoir -s "$STORE" --json remember "captured on deletable" -p context.project.database >/dev/null
+
+git -C "$PROJ" checkout -q main
+context=$(session_start_context)
+assert_contains "feature/deletable initially listed while code branch exists" \
+  "memoir:memoir-sync-branch feature/deletable" "$context"
+
+git -C "$PROJ" branch -D feature/deletable >/dev/null
+context=$(session_start_context)
+assert_not_contains "feature/deletable suppressed after its code branch is deleted" \
+  "memoir:memoir-sync-branch feature/deletable" "$context"
+
+# -------- 9c. Unmerged detection only fires while code branch is main --------
+heading "Unmerged detection suppressed when code branch != main"
+# Put fresh unmerged work on memoir feature/b so it's a live candidate.
+memoir -s "$STORE" checkout feature/b >/dev/null
+sleep 2  # commit ts must exceed the existing sync-marker ts
+memoir -s "$STORE" --json remember "fresh B fact" -p context.project.database >/dev/null
+memoir -s "$STORE" checkout main >/dev/null
+
+# While on code feature/a, the scan must not run — even though feature/b
+# has unmerged captures.
+git -C "$PROJ" checkout -q feature/a
+context=$(session_start_context)
+assert_not_contains "no unmerged suggestions while on code feature/a" \
+  "memoir:memoir-sync-branch" "$context"
+
+# Returning to main resurfaces feature/b.
+git -C "$PROJ" checkout -q main
+context=$(session_start_context)
+assert_contains "feature/b surfaces once code returns to main" \
+  "memoir:memoir-sync-branch feature/b" "$context"
+
+# Clean up so later tests start from a quiet state.
+sync_branch feature/b
 
 # -------- 10. Sticky opt-out --------
 heading "Sticky opt-out: create 'experiment' branch while code is on main"

@@ -10,7 +10,7 @@ Merge a specified memoir branch into main while staying on your current branch. 
 STORE="${MEMOIR_STORE:-$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/derive-store-path.sh")}"
 TARGET="$ARGUMENTS"
 if [ -z "$TARGET" ]; then
-  echo "Usage: /memoir-sync-branch <branch-name>"
+  echo "Usage: memoir:memoir-sync-branch <branch-name>"
   exit 1
 fi
 if [ "$TARGET" = "main" ]; then

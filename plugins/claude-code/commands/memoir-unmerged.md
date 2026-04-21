@@ -41,8 +41,8 @@ if [ "$FOUND" = "0" ]; then
   echo "All memoir branches are synced to main. Nothing to do."
 else
   echo
-  echo "Promote to main with: /memoir-sync-branch <branch-name>"
+  echo "Promote to main with: memoir:memoir-sync-branch <branch-name>"
 fi
 '`
 
-Report the list (or the "all clean" message). If branches are shown, remind the user they can run `/memoir-sync-branch <name>` for each, or `/memoir-sync` from the branch itself.
+Report the list (or the "all clean" message). If branches are shown, remind the user they can run `memoir:memoir-sync-branch <name>` for each, or `memoir:memoir-sync` from the branch itself.
