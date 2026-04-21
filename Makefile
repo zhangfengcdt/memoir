@@ -38,7 +38,7 @@ clean:
 	rm -rf htmlcov/
 	rm -rf .mypy_cache/
 	rm -rf .ruff_cache/
-	rm -rf docs/_build/
+	rm -rf site/
 	find . -type d -name __pycache__ -delete
 	find . -type f -name "*.pyc" -delete
 
@@ -72,21 +72,17 @@ benchmark:
 
 docs:
 	@echo "Building documentation..."
-	cd docs && make install
-	cd docs && make clean
-	cd docs && make html
-	@echo "✓ Documentation built successfully at docs/_build/html/index.html"
-	@echo "  To view: open docs/_build/html/index.html"
+	mkdocs build
+	@echo "✓ Documentation built successfully at site/index.html"
+	@echo "  To view: open site/index.html"
 
 docs-live:
 	@echo "Starting live documentation server..."
-	cd docs && make install
-	cd docs && make livehtml
+	mkdocs serve
 
 docs-clean:
 	@echo "Cleaning documentation build..."
-	cd docs && make clean
-	@echo "✓ Documentation structure looks good"
+	rm -rf site/
 
 pre-commit:
 	pre-commit install
