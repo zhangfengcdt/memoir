@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-# SessionEnd hook: no-op for memoir (no watch process, no daemons).
-# Kept for symmetry with SessionStart and to reserve the hook slot for future
-# cleanup needs (e.g. optional GC of dangling branches).
+# SessionEnd hook: clear this session's heartbeat file so future sessions'
+# concurrent-session detector doesn't spuriously warn on our stale state.
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/common.sh"
+
+remove_session_heartbeat 2>/dev/null || true
 exit 0

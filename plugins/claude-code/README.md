@@ -82,6 +82,36 @@ bash /path/to/memoir/plugins/claude-code/scripts/derive-store-path.sh /path/to/y
 
 ## How it works
 
+### Memory branches follow code branches (by default)
+
+When a session starts on code branch `feature/x`, the plugin auto-checks out memoir branch `feature/x`, creating it forked from memoir `main` if it doesn't exist. This means:
+
+- A new feature branch starts **pre-loaded with all of main's captured memories** (via the fork). You're never on an empty branch.
+- Captures made while on `feature/x` stay on that memoir branch — they don't mix with `main` until you promote them.
+- Recall from `feature/x` reads from `feature/x` (which includes everything forked from `main` plus the branch-local captures).
+
+**Promote to main when a feature is done**: run `/memoir-sync` while on the feature branch. This merges the branch into `main` (keeping the source for further captures). `/memoir-sync-branch <name>` merges any named branch without switching away from your current one.
+
+**The "empty main" problem**: main stays bare unless someone captures directly on code `main`. Solved by fork-inheritance (feature branches start rich) + explicit sync at completion (main grows over time with promoted knowledge).
+
+**Unmerged-branch suggestions**: at every SessionStart, the plugin scans all memoir branches ahead of main (active in the last 30d) and surfaces them via `additionalContext`:
+
+```
+# memoir — unmerged branches detected
+- memoir/feature/a: 4 unmerged commits → /memoir-sync-branch feature/a
+- memoir/feature/b: 2 unmerged commits → /memoir-sync-branch feature/b
+```
+
+You can run the suggested commands while on any branch. A branch in `$MEMOIR_STORE/.git/plugin-ignored-branches` is silently skipped (one name per line — add manually to permanently silence a dormant branch).
+
+### Opting out: sticky experiments
+
+If you want memoir on a branch that *doesn't* match your code branch (e.g. an isolated experiment), manually switch with `/memoir-branch experiment` or `/memoir-checkout experiment`. The plugin writes `$MEMOIR_STORE/.git/plugin-sticky-branch` — auto-match stays off until you check back out to a branch matching your code branch, at which point the marker is cleared and auto-match resumes. The status line shows `<code>+<memory>*` while sticky.
+
+### Concurrent sessions (caveat)
+
+If two Claude Code sessions share a `MEMOIR_STORE` and target *different* branches, memoir's single-working-tree git backend will have the checkouts fight each other. The plugin detects this via a heartbeat file per session and adds `⚠ concurrent session detected on branch <other>` to the status line. The fix is to give each session a distinct `MEMOIR_STORE`. Proper per-session isolation via prollytree worktrees is a future enhancement.
+
 ### Store location
 
 Per-project store at `~/.memoir/<sanitized-basename>_<8-char-hash>`. The hash is a SHA-256 of the project's absolute path, so the mapping is deterministic across machines with the same checkout path. Override with `MEMOIR_STORE=/your/path` if you want a shared or custom store.
@@ -90,8 +120,12 @@ Per-project store at `~/.memoir/<sanitized-basename>_<8-char-hash>`. The hash is
 
 1. Detect `memoir` in `PATH`. If missing, surface an install hint and stop.
 2. `memoir new <store> --taxonomy-builtin --no-connect` if the store doesn't exist yet. Idempotent.
-3. Show the status line as `[memoir] <code-branch>+<memory-branch> · N memories · M commits`. Memoir's memory branch and your code repo's git branch are distinct coordinates — they're displayed as a composite so both are always visible at a glance. Note: the `+` is display-only; when you run `/memoir-checkout <name>`, you still pass only the memory branch name.
-4. Inject a short taxonomy summary (user namespaces only; internal `taxonomy:v1:*` is filtered) as `additionalContext`.
+3. **Auto-match memoir branch to code branch**: if you're on code branch `feature/x`, the plugin creates memoir branch `feature/x` (forked from `main`) if it doesn't exist, and checks it out. When code and memoir branches agree (the default), the status line shows just `<branch>`; when you've sticky-opted-out, it shows `<code>+<memory>*`.
+4. Status line: `[memoir] <branch> · N memories · M commits`. `⚠ concurrent session detected…` is appended if another session is using the same `MEMOIR_STORE` on a different branch.
+5. Inject as `additionalContext`:
+   - A short taxonomy summary (user namespaces only).
+   - An **unmerged-branch suggestion block** listing any memoir branches ahead of main with `/memoir-sync-branch <name>` suggestions. Stateless scan — branches ahead of main and active in the last 30 days show up until you merge them.
+6. Write this session's heartbeat to `$MEMOIR_STORE/.git/plugin-active-sessions/<id>` so concurrent-session detection works.
 
 ### Per-turn capture
 
@@ -122,9 +156,11 @@ Three layers, mapped to memoir's primitives:
 | Command | What it does |
 |---|---|
 | `/memoir-status` | Memory branch + commit/memory counts. |
-| `/memoir-branch [name]` | List or create memory branches. |
-| `/memoir-checkout <branch>` | Switch Claude's memory context. |
+| `/memoir-branch [name]` | List or create memory branches. Creating a non-code-matching name sets sticky opt-out. |
+| `/memoir-checkout <branch>` | Switch Claude's memory context. Sets/clears sticky marker vs code branch. |
 | `/memoir-merge <source>` | Merge with conflict strategy `ours`/`theirs`/`skip`. |
+| `/memoir-sync` | Merge the current memoir branch into main (keeps source branch). |
+| `/memoir-sync-branch <name>` | Merge an arbitrary branch into main without switching to it. Used by SessionStart suggestions. |
 | `/memoir-time-travel <hash>` | Create a branch at a past commit and switch to it. |
 | `/memoir-diff [c1] [c2] [--stat]` | Show diff between two commits. Defaults to HEAD~1..HEAD. |
 

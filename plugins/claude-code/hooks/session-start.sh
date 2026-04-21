@@ -25,6 +25,11 @@ if ! ensure_store; then
   exit 0
 fi
 
+# Auto-match memoir branch to current code branch (creates from main if
+# missing; honors sticky opt-out). Failures are non-fatal — we just end
+# up on whatever memoir branch was already current.
+auto_match_memoir_branch || true
+
 # Pull status JSON — contains branch, commit_count, memory_count (total).
 STATUS_JSON=$(memoir_json status || true)
 BRANCH=$(_json_val "$STATUS_JSON" "branch" "main")
@@ -52,23 +57,30 @@ except Exception:
 " "$SUMMARY_JSON" "$TOTAL_MEMORIES" 2>/dev/null || echo "$TOTAL_MEMORIES")
 fi
 
-# Status line mirrors memsearch's shape but surfaces memoir's differentiators:
-# current branch (what CLI recalls/captures target) and commit_count (full history).
+# Status line:
+# - Under the new auto-matching default, code and memoir branches should agree,
+#   so we collapse to just `<branch>`. When they diverge (user chose a sticky
+#   opt-out memoir branch), show `<code>+<memory>*` — the `*` signals "sticky".
+# - Falls back to just `<memory-branch>` when there's no code git repo.
 CODE_BRANCH=$(code_git_branch)
-# Display memoir's memory branch as `<code-branch>+<memory-branch>` so the
-# code repo context is always part of the memory-branch identifier in the UI,
-# even though memoir's internal branch name is just `<memory-branch>`.
-# The `+` signals "pair of branches" and makes the two coordinates impossible
-# to conflate at a glance. Falls back to just `<memory-branch>` when the
-# project isn't a git repo.
-if [ -n "$CODE_BRANCH" ]; then
-  DISPLAY_BRANCH="${CODE_BRANCH}+${BRANCH}"
+if [ -n "$CODE_BRANCH" ] && [ "$CODE_BRANCH" = "$BRANCH" ]; then
+  DISPLAY_BRANCH="${BRANCH}"
+elif [ -n "$CODE_BRANCH" ]; then
+  DISPLAY_BRANCH="${CODE_BRANCH}+${BRANCH}*"
 else
   DISPLAY_BRANCH="${BRANCH}"
 fi
 status="[memoir] ${DISPLAY_BRANCH} · ${USER_MEMORIES} memories · ${COMMITS} commits"
 if [ "${MEMOIR_NO_CAPTURE:-}" = "1" ]; then
   status+=" · capture disabled"
+fi
+
+# Concurrent-session warning: if another Claude Code session shares this
+# MEMOIR_STORE on a different branch, surface it once in the status line.
+# (Writes collide silently otherwise — memoir's git backend has one HEAD.)
+CONCURRENT_WARN=$(concurrent_session_warning 2>/dev/null || true)
+if [ -n "$CONCURRENT_WARN" ]; then
+  status+=" · ${CONCURRENT_WARN}"
 fi
 
 # Inject a short taxonomy snapshot as additionalContext so Claude sees what
@@ -86,7 +98,7 @@ try:
         sys.exit(0)
     lines = [f'- {k}: {v} memor' + ('y' if v == 1 else 'ies') for k, v in sorted(user_ns.items())]
     print('# Memoir store — current state')
-    print(f'branch (code+memory): $DISPLAY_BRANCH  ·  user memories: $USER_MEMORIES')
+    print(f'branch: $DISPLAY_BRANCH  ·  user memories: $USER_MEMORIES')
     print('')
     print('namespaces:')
     print('\n'.join(lines))
@@ -95,6 +107,30 @@ except Exception:
 " "$SUMMARY_JSON" 2>/dev/null || true)
   context="$ns_list"
 fi
+
+# Unmerged-branch detector: surface any memoir branches ahead of main so the
+# user notices captured knowledge that hasn't been promoted. Stateless —
+# scans all branches each SessionStart. Filters to ≤30d active + not ignored.
+unmerged=$(list_unmerged_memoir_branches 2>/dev/null || true)
+if [ -n "$unmerged" ]; then
+  unmerged_block="# memoir — unmerged branches detected"$'\n'
+  unmerged_block+="You have captured memories on these branches that aren't on main yet:"$'\n\n'
+  while IFS=$'\t' read -r b n; do
+    [ -z "$b" ] && continue
+    unmerged_block+="- memoir/${b}: ${n} unmerged commits → /memoir-sync-branch ${b}"$'\n'
+  done <<< "$unmerged"
+  unmerged_block+=$'\n'"Run the suggested command to promote them to main (keeps the source branch)."
+  if [ -n "$context" ]; then
+    context="${context}"$'\n\n'"${unmerged_block}"
+  else
+    context="$unmerged_block"
+  fi
+fi
+
+# Record this session's heartbeat so any parallel session can detect the
+# collision. Must happen after auto-match so we record the actual branch
+# we're targeting.
+write_session_heartbeat || true
 
 json_status=$(_json_encode_str "$status")
 if [ -n "$context" ]; then
