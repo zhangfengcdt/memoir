@@ -9,7 +9,7 @@ import json
 import logging
 import subprocess
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from memoir.services.base import BaseService, ServiceError, StoreNotFoundError
 from memoir.services.models import CreateStoreResult, StoreInfo
@@ -24,7 +24,7 @@ class StoreService(BaseService):
     This provides store creation, reading, and status operations.
     """
 
-    def __init__(self, store_path: Optional[str] = None):
+    def __init__(self, store_path: str | None = None):
         """
         Initialize store service.
 

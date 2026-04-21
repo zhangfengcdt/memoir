@@ -6,7 +6,7 @@ import json
 import logging
 import time
 from datetime import datetime
-from typing import Any, Optional, Union
+from typing import Any
 
 from langmem.knowledge.extraction import MemoryStoreManager
 from pydantic import BaseModel, Field
@@ -40,7 +40,7 @@ class MemoryVersion(BaseModel):
     content: Any
     metadata: dict[str, Any]
     message: str
-    author: Optional[str] = None
+    author: str | None = None
 
 
 class ProllyTreeMemoryStoreManager(MemoryStoreManager):
@@ -51,13 +51,13 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
 
     def __init__(
         self,
-        prolly_store: Optional[Any] = None,  # ProllyTreeStore instance (preferred)
-        prolly_path: Optional[str] = None,  # Path to create store (fallback)
-        model: Union[str, Any] = "gpt-3.5-turbo",  # Default model
-        classifier: Optional[
-            Any
-        ] = None,  # SemanticClassifier or IntelligentClassifier instance
-        search_engine: Optional[Any] = None,  # Search engine instance
+        prolly_store: Any | None = None,  # ProllyTreeStore instance (preferred)
+        prolly_path: str | None = None,  # Path to create store (fallback)
+        model: str | Any = "gpt-3.5-turbo",  # Default model
+        classifier: (
+            Any | None
+        ) = None,  # SemanticClassifier or IntelligentClassifier instance
+        search_engine: Any | None = None,  # Search engine instance
         enable_versioning: bool = True,
         auto_commit: bool = True,
         enable_fast_classification: bool = True,
@@ -176,7 +176,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         self,
         content: Any,
         namespace: str,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
         auto_classify: bool = True,
     ) -> str:
         """
@@ -269,7 +269,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
 
         return semantic_key
 
-    def store_commit(self, message: str = "Batch memory operations") -> Optional[str]:
+    def store_commit(self, message: str = "Batch memory operations") -> str | None:
         """
         Commit all pending memory operations to the versioned store.
 
@@ -377,7 +377,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         return versions
 
     async def time_travel(
-        self, namespace: str, target_time: Union[datetime, float]
+        self, namespace: str, target_time: datetime | float
     ) -> dict[str, Any]:
         """
         Get all memories as they were at a specific time.
@@ -430,7 +430,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         return current_state
 
     async def create_memory_snapshot(
-        self, namespace: str, snapshot_name: Optional[str] = None
+        self, namespace: str, snapshot_name: str | None = None
     ) -> str:
         """
         Create a snapshot of the current memory state.
@@ -461,8 +461,8 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
     async def compare_memory_states(
         self,
         namespace: str,
-        time1: Union[datetime, float],
-        time2: Union[datetime, float],
+        time1: datetime | float,
+        time2: datetime | float,
     ) -> dict[str, Any]:
         """
         Compare memory states between two points in time.
@@ -669,7 +669,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         # logger.info(f"Exported memories to {output_path}")
 
     async def import_memories(
-        self, input_path: str, namespace: Optional[str] = None
+        self, input_path: str, namespace: str | None = None
     ) -> int:
         """
         Import memories from file.

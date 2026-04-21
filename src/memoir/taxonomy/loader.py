@@ -6,7 +6,7 @@ into the store, and reading from store for classifier/search operations.
 
 import logging
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from .markdown_source import MarkdownTaxonomySource, TaxonomyData
 from .registry import TaxonomyRegistry
@@ -199,7 +199,7 @@ class TaxonomyLoader:
     # -------------------------------------------------------------------------
 
     def get_examples_from_store(
-        self, limit: Optional[int] = None, domain: Optional[str] = None
+        self, limit: int | None = None, domain: str | None = None
     ) -> list[tuple[str, str, str]]:
         """Get classification examples from the store.
 
@@ -241,9 +241,7 @@ class TaxonomyLoader:
         logger.debug(f"[TaxonomyLoader] Loaded {len(examples)} examples from store")
         return examples[:limit] if limit else examples
 
-    def get_descriptions_from_store(
-        self, domain: Optional[str] = None
-    ) -> dict[str, str]:
+    def get_descriptions_from_store(self, domain: str | None = None) -> dict[str, str]:
         """Get category descriptions from the store.
 
         Args:
@@ -281,7 +279,7 @@ class TaxonomyLoader:
         return descriptions
 
     def get_preset_paths_from_store(
-        self, preset_id: Optional[str] = None
+        self, preset_id: str | None = None
     ) -> dict[str, list[str]]:
         """Get preset taxonomy paths from the store.
 
@@ -323,7 +321,7 @@ class TaxonomyLoader:
     def init_store(
         self,
         include_builtin: bool = True,
-        external_paths: Optional[list[Path | str]] = None,
+        external_paths: list[Path | str] | None = None,
         merge_strategy: str = "extend",
     ) -> dict[str, Any]:
         """Initialize the store with taxonomy data from files.
@@ -406,7 +404,7 @@ class TaxonomyLoader:
         include_examples: bool = True,
         include_descriptions: bool = True,
         example_limit: int = 8,
-        domain: Optional[str] = None,
+        domain: str | None = None,
     ) -> str:
         """Format taxonomy data for LLM prompt insertion.
 
@@ -457,7 +455,7 @@ class TaxonomyLoader:
         self._ensure_store()
         return self._get_from_store("index:by-type", {})
 
-    def get_taxonomy_metadata(self, taxonomy_id: str) -> Optional[dict[str, Any]]:
+    def get_taxonomy_metadata(self, taxonomy_id: str) -> dict[str, Any] | None:
         """Get metadata for a specific taxonomy from the store.
 
         Args:

@@ -9,7 +9,6 @@ import contextlib
 import logging
 from enum import Enum
 from pathlib import Path
-from typing import Optional
 
 from prollytree import ConflictResolution
 
@@ -140,7 +139,7 @@ class BranchService(BaseService):
             logger.error(f"Failed to get commits: {e}")
             raise GitOperationError(f"Failed to get commits: {e}")
 
-    def get_current_branch(self) -> tuple[str, Optional[str]]:
+    def get_current_branch(self) -> tuple[str, str | None]:
         """
         Get the current branch and commit.
 
@@ -183,7 +182,7 @@ class BranchService(BaseService):
     def checkout(
         self,
         target: str,
-        create_branch: Optional[str] = None,
+        create_branch: str | None = None,
         create_if_missing: bool = False,
     ) -> CheckoutResult:
         """
@@ -302,7 +301,7 @@ class BranchService(BaseService):
     def create_branch(
         self,
         branch_name: str,
-        from_ref: Optional[str] = None,
+        from_ref: str | None = None,
     ) -> CheckoutResult:
         """
         Create a new branch using VersionedKvStore.
@@ -593,8 +592,8 @@ class BranchService(BaseService):
 
     def diff(
         self,
-        commit1: Optional[str] = None,
-        commit2: Optional[str] = None,
+        commit1: str | None = None,
+        commit2: str | None = None,
         stat_only: bool = False,
     ) -> dict:
         """

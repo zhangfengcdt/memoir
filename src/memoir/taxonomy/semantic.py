@@ -7,7 +7,7 @@ import logging
 import threading
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from memoir.classifier.base import BaseTaxonomy
 
@@ -46,7 +46,7 @@ class SemanticTaxonomy(BaseTaxonomy):
     Implements TaxonomyInterface for standardized access.
     """
 
-    def __init__(self, taxonomy_loader: Optional[Any] = None):
+    def __init__(self, taxonomy_loader: Any | None = None):
         """
         Initialize semantic taxonomy with flexible data loading.
 

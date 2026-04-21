@@ -8,7 +8,7 @@ import json
 import logging
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from langgraph.store.base import BaseStore
 from prollytree import ProllyTree, VersionedKvStore
@@ -32,7 +32,7 @@ class MemoryItem(BaseModel):
     timestamp: float = Field(
         default_factory=time.time, description="Creation timestamp"
     )
-    version: Optional[str] = Field(default=None, description="Version/commit ID")
+    version: str | None = Field(default=None, description="Version/commit ID")
     confidence: float = Field(default=1.0, description="Classification confidence")
 
 
@@ -131,6 +131,7 @@ class ProllyTreeStore(BaseStore):
             # clean. Once constructed, the tree retains its handle and works
             # from any cwd.
             import os as _os
+
             _saved_cwd = _os.getcwd()
             try:
                 _os.chdir(str(self.path))
@@ -223,7 +224,7 @@ class ProllyTreeStore(BaseStore):
         return self.batch(ops)
 
     def search(
-        self, namespace: tuple, *, filter: Optional[dict] = None, limit: int = 10
+        self, namespace: tuple, *, filter: dict | None = None, limit: int = 10
     ) -> list[tuple]:
         """Search for items in a namespace."""
         self._stats["searches"] += 1
@@ -295,7 +296,7 @@ class ProllyTreeStore(BaseStore):
             logger.error(f"Error storing {full_key}: {e}")
             raise
 
-    def get(self, namespace: tuple, key: str) -> Optional[dict]:
+    def get(self, namespace: tuple, key: str) -> dict | None:
         """Retrieve a value from a namespace."""
         self._stats["reads"] += 1
         full_key = ":".join(namespace) + ":" + key
@@ -327,7 +328,7 @@ class ProllyTreeStore(BaseStore):
         except Exception as e:
             logger.error(f"Error deleting {full_key}: {e}")
 
-    def commit(self, message: str = "Manual commit") -> Optional[str]:
+    def commit(self, message: str = "Manual commit") -> str | None:
         """
         Manually commit pending changes to the versioned store.
 
@@ -382,7 +383,7 @@ class ProllyTreeStore(BaseStore):
 
     def get_key_at_commit(
         self, namespace: tuple, key: str, commit_id: str
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """
         Get the value of a key at a specific commit.
 

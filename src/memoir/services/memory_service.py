@@ -10,7 +10,6 @@ import logging
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 from memoir.services.base import BaseService, StoreNotFoundError
 from memoir.services.models import DeleteResult, Memory, RecallResult, RememberResult
@@ -99,7 +98,7 @@ class MemoryService(BaseService):
         self,
         content: str,
         namespace: str = "default",
-        path: Optional[str] = None,
+        path: str | None = None,
     ) -> RememberResult:
         """
         Classify and store content in memory.
@@ -173,9 +172,7 @@ class MemoryService(BaseService):
                 if result.paths and len(result.paths) > 1:
                     keys = result.paths
                     key = keys[0]
-                    reasoning = (
-                        f"Multi-label classified as {keys} (confidence: {confidence:.2f})"
-                    )
+                    reasoning = f"Multi-label classified as {keys} (confidence: {confidence:.2f})"
                 else:
                     key = result.path if result.path else "context.current.session"
                     keys = [key]
@@ -185,7 +182,9 @@ class MemoryService(BaseService):
                 location_events = result.location_events
 
             except Exception as e:
-                logger.warning(f"LLM classification failed: {e}, using pattern matching")
+                logger.warning(
+                    f"LLM classification failed: {e}, using pattern matching"
+                )
                 try:
                     from memoir.classifier.semantic import SemanticClassifier
 
@@ -194,7 +193,9 @@ class MemoryService(BaseService):
                     key = result.path
                     keys = [key]
                     confidence = result.confidence
-                    reasoning = f"Pattern-matched as {key} (confidence: {confidence:.2f})"
+                    reasoning = (
+                        f"Pattern-matched as {key} (confidence: {confidence:.2f})"
+                    )
                 except Exception as e2:
                     logger.warning(
                         f"Pattern matching failed: {e2}, using timestamp fallback"
@@ -374,8 +375,8 @@ class MemoryService(BaseService):
         self,
         query: str,
         limit: int = 10,
-        namespace: Optional[str] = None,
-        person_filter: Optional[str] = None,
+        namespace: str | None = None,
+        person_filter: str | None = None,
     ) -> RecallResult:
         """
         Search memories using intelligent search engine.
@@ -503,8 +504,8 @@ class MemoryService(BaseService):
         self,
         query: str,
         limit: int = 10,
-        namespace: Optional[str] = None,
-        person_filter: Optional[str] = None,
+        namespace: str | None = None,
+        person_filter: str | None = None,
     ) -> RecallResult:
         """
         Synchronous wrapper for recall().

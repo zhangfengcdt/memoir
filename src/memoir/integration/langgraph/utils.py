@@ -3,7 +3,7 @@
 import hashlib
 import json
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langgraph.store.base import NamespacePath
@@ -16,8 +16,8 @@ if TYPE_CHECKING:
 
 def create_memory_namespace(
     agent_id: str,
-    thread_id: Optional[str] = None,
-    user_id: Optional[str] = None,
+    thread_id: str | None = None,
+    user_id: str | None = None,
 ) -> NamespacePath:
     """Create a namespace path for memory storage.
 
@@ -44,7 +44,7 @@ def create_memory_namespace(
 def message_to_memory_entry(
     message: BaseMessage,
     agent_id: str,
-    thread_id: Optional[str] = None,
+    thread_id: str | None = None,
 ) -> MemoryEntry:
     """Convert a LangChain message to a memory entry.
 
@@ -111,7 +111,7 @@ def memory_entry_to_message(entry: MemoryEntry) -> BaseMessage:
 
 def create_memory_key(
     content: str,
-    metadata: Optional[dict[str, Any]] = None,
+    metadata: dict[str, Any] | None = None,
 ) -> str:
     """Create a unique key for a memory entry.
 
@@ -135,8 +135,8 @@ def create_memory_key(
 
 def filter_memories_by_time(
     memories: list[MemoryEntry],
-    start_time: Optional[datetime] = None,
-    end_time: Optional[datetime] = None,
+    start_time: datetime | None = None,
+    end_time: datetime | None = None,
 ) -> list[MemoryEntry]:
     """Filter memories by time range.
 
@@ -182,8 +182,8 @@ def group_memories_by_thread(
 
 
 def format_memory_for_prompt(
-    memories: list[Union[MemoryEntry, SearchResult, Any]],
-    max_tokens: Optional[int] = None,
+    memories: list[MemoryEntry | SearchResult | Any],
+    max_tokens: int | None = None,
 ) -> str:
     """Format memories for inclusion in a prompt.
 

@@ -9,7 +9,7 @@ import base64
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from memoir.services.base import BaseService, StoreNotFoundError
 from memoir.services.models import BlameEntry, ProofResult, VerifyResult
@@ -101,7 +101,7 @@ class CryptoService(BaseService):
         proof_b64: str,
         key: str,
         namespace: str = "default",
-        expected_value: Optional[Any] = None,
+        expected_value: Any | None = None,
     ) -> VerifyResult:
         """
         Verify a cryptographic proof.

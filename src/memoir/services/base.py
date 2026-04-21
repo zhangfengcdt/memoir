@@ -11,7 +11,6 @@ All services inherit from BaseService to share:
 import logging
 import subprocess
 from pathlib import Path
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +114,7 @@ class BaseService:
 
         return result
 
-    def _get_current_commit_info(self) -> tuple[Optional[str], Optional[str]]:
+    def _get_current_commit_info(self) -> tuple[str | None, str | None]:
         """
         Get current commit hash and date.
 

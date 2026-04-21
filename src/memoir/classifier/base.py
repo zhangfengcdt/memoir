@@ -3,7 +3,7 @@ Base interfaces and protocols for taxonomy systems.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional, Protocol, runtime_checkable
+from typing import Any, Protocol, runtime_checkable
 
 
 @runtime_checkable
@@ -37,7 +37,7 @@ class AdvancedTaxonomyInterface(TaxonomyInterface, Protocol):
         self,
         classification_result: Any,
         memory_content: str,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> tuple[str, float]:
         """
         Select taxonomy path with intelligent fallback logic.

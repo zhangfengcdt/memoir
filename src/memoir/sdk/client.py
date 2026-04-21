@@ -6,7 +6,6 @@ Provides a Python API for AI agents to interact with memoir memory stores.
 
 import asyncio
 from pathlib import Path
-from typing import Optional, Union
 
 from memoir.services.models import (
     BranchInfo,
@@ -49,7 +48,7 @@ class BranchManager:
         """
         return self._get_service().list_branches()
 
-    def current(self) -> tuple[str, Optional[str]]:
+    def current(self) -> tuple[str, str | None]:
         """
         Get current branch and commit.
 
@@ -58,7 +57,7 @@ class BranchManager:
         """
         return self._get_service().get_current_branch()
 
-    def create(self, name: str, from_ref: Optional[str] = None) -> CheckoutResult:
+    def create(self, name: str, from_ref: str | None = None) -> CheckoutResult:
         """
         Create a new branch.
 
@@ -135,7 +134,7 @@ class MemoryClient:
             memories = await memory.recall("user preferences")
     """
 
-    def __init__(self, store_path: Union[str, Path]):
+    def __init__(self, store_path: str | Path):
         """
         Initialize the memory client.
 
@@ -244,7 +243,7 @@ class MemoryClient:
         self,
         query: str,
         limit: int = 10,
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ) -> RecallResult:
         """
         Search memories using semantic query.
@@ -264,7 +263,7 @@ class MemoryClient:
         self,
         query: str,
         limit: int = 10,
-        namespace: Optional[str] = None,
+        namespace: str | None = None,
     ) -> RecallResult:
         """
         Synchronous version of recall.

@@ -7,7 +7,7 @@ Events are stored under location.{location_name} keys with automatic merging of 
 
 import logging
 import re
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class LocationMemento:
     async def apply_location_events(
         self,
         location_events: list[dict[str, str]],
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
         namespace: str = "default",
     ) -> None:
         """
@@ -125,7 +125,7 @@ class LocationMemento:
         self,
         location_path: str,
         description: str,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
         namespace: str = "default",
     ) -> None:
         """
@@ -251,7 +251,7 @@ class LocationMemento:
         return " | ".join(existing_events)
 
     async def get_location_summary(
-        self, llm: Optional[Any] = None, namespace: str = "default"
+        self, llm: Any | None = None, namespace: str = "default"
     ) -> str:
         """
         Generate a summary of all location events.

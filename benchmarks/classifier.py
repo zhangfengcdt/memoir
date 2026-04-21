@@ -51,7 +51,6 @@ import sys
 import tempfile
 import time
 from dataclasses import dataclass, field
-from typing import Optional
 
 from memoir.llm import LiteLLMWrapper
 
@@ -64,8 +63,8 @@ class TimingResult:
     input_text: str
     duration_ms: float
     success: bool
-    result_path: Optional[str] = None
-    error: Optional[str] = None
+    result_path: str | None = None
+    error: str | None = None
     details: dict = field(default_factory=dict)
 
 
@@ -111,7 +110,7 @@ class BenchmarkReport:
 
 def get_llm(
     model: str = "gpt-4o-mini",
-    base_url: Optional[str] = None,
+    base_url: str | None = None,
     enable_prompt_cache: bool = True,
 ):
     """
@@ -515,8 +514,8 @@ async def benchmark_recall(
 
 async def run_benchmark(
     model: str = "gpt-4o-mini",
-    base_url: Optional[str] = None,
-    num_cases: Optional[int] = None,
+    base_url: str | None = None,
+    num_cases: int | None = None,
     verbose: bool = False,
     skip_recall: bool = False,
     classifier_type: str = "intelligent",

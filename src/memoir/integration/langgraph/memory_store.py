@@ -5,7 +5,7 @@ import contextlib
 import logging
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from langgraph.store.base import BaseStore, Item, NamespacePath, Op, Result
 
@@ -34,8 +34,8 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
 
     def __init__(
         self,
-        config: Optional[MemoryConfig] = None,
-        llm: Optional[Any] = None,
+        config: MemoryConfig | None = None,
+        llm: Any | None = None,
     ):
         """Initialize the LangGraph memory store.
 
@@ -227,7 +227,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
     async def _search_items(
         self,
         namespace: NamespacePath,
-        query: Optional[str] = None,
+        query: str | None = None,
         limit: int = 10,
     ) -> list[Item]:
         """Search for items in the memory system.
@@ -311,7 +311,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
         self,
         namespace: NamespacePath,
         key: str,
-    ) -> Optional[Item]:
+    ) -> Item | None:
         """Get a single item by key.
 
         Args:
@@ -344,7 +344,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
         self,
         namespace: NamespacePath,
         key: str,
-    ) -> Optional[Item]:
+    ) -> Item | None:
         """Synchronous get (delegates to async)."""
         return asyncio.run(self.aget(namespace, key))
 
@@ -352,7 +352,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
         self,
         namespace: NamespacePath,
         *,
-        query: Optional[str] = None,
+        query: str | None = None,
         limit: int = 10,
         offset: int = 0,
     ) -> list[Item]:
@@ -375,7 +375,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
         self,
         namespace: NamespacePath,
         *,
-        query: Optional[str] = None,
+        query: str | None = None,
         limit: int = 10,
         offset: int = 0,
     ) -> list[Item]:
@@ -389,7 +389,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
         namespace: NamespacePath,
         key: str,
         value: Any,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Store a single item.
 
@@ -420,7 +420,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
         namespace: NamespacePath,
         key: str,
         value: Any,
-        metadata: Optional[dict[str, Any]] = None,
+        metadata: dict[str, Any] | None = None,
     ) -> None:
         """Synchronous put (delegates to async)."""
         asyncio.run(self.aput(namespace, key, value, metadata))
@@ -507,7 +507,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
         self,
         content: str,
         metadata: dict[str, Any],
-        namespace: Optional[NamespacePath] = None,
+        namespace: NamespacePath | None = None,
     ) -> Item:
         """Convert memory data to LangGraph Item.
 
@@ -550,7 +550,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
         self,
         namespace: NamespacePath,
         key: str,
-    ) -> Optional[str]:
+    ) -> str | None:
         """Get memory ID from item key.
 
         Args:
@@ -564,7 +564,7 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
         data = self.store.get(namespace=("_mappings",), key=mapping_key)
         return data.get("memory_id") if data else None
 
-    async def _get_semantic_path(self, memory_id: str) -> Optional[str]:
+    async def _get_semantic_path(self, memory_id: str) -> str | None:
         """Get semantic path for a memory ID.
 
         Args:

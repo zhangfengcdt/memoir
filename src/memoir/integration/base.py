@@ -1,7 +1,7 @@
 """Base integration interface for framework adapters."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Optional, TypeVar
+from typing import Any, TypeVar
 
 T = TypeVar("T")
 
@@ -9,7 +9,7 @@ T = TypeVar("T")
 class BaseIntegration(ABC):
     """Abstract base class for framework integrations."""
 
-    def __init__(self, config: Optional[dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         """Initialize the integration with optional configuration.
 
         Args:

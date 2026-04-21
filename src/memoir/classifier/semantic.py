@@ -6,7 +6,7 @@ Uses LLM-based classification with caching and optimization.
 import hashlib
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -40,11 +40,11 @@ class SemanticClassifier:
 
     def __init__(
         self,
-        llm: Optional[Any] = None,
-        taxonomy: Optional[TaxonomyInterface] = None,
+        llm: Any | None = None,
+        taxonomy: TaxonomyInterface | None = None,
         cache_size: int = DEFAULT_CACHE_SIZE,
         use_examples: bool = True,
-        fallback_path: Optional[str] = None,
+        fallback_path: str | None = None,
     ):
         """
         Initialize the semantic classifier.
@@ -320,7 +320,7 @@ MEMORY CONTENT TO CLASSIFY:
                 }
             ]
 
-    def _find_example_path(self, all_paths: list[str], pattern: str) -> Optional[str]:
+    def _find_example_path(self, all_paths: list[str], pattern: str) -> str | None:
         """Find a suitable taxonomy path for example generation."""
         # Look for paths that contain the pattern
         candidates = [path for path in all_paths if pattern.lower() in path.lower()]
@@ -349,7 +349,7 @@ MEMORY CONTENT TO CLASSIFY:
 
         return candidates[0] if candidates else None
 
-    def _get_context_info(self, context: Optional[dict] = None) -> str:
+    def _get_context_info(self, context: dict | None = None) -> str:
         """Format context information for classification."""
         if not context:
             return ""
@@ -381,7 +381,7 @@ MEMORY CONTENT TO CLASSIFY:
         return ""
 
     def _compute_cache_key(
-        self, memory_content: str, context: Optional[dict] = None
+        self, memory_content: str, context: dict | None = None
     ) -> str:
         """Compute a cache key for the classification."""
         content_hash = hashlib.sha256(memory_content.encode()).hexdigest()
@@ -392,7 +392,7 @@ MEMORY CONTENT TO CLASSIFY:
     async def classify_async(
         self,
         memory_content: str,
-        context: Optional[dict] = None,
+        context: dict | None = None,
         use_cache: bool = True,
     ) -> ClassificationResult:
         """
@@ -559,7 +559,7 @@ MEMORY CONTENT TO CLASSIFY:
     def classify(
         self,
         memory_content: str,
-        context: Optional[dict] = None,
+        context: dict | None = None,
         use_cache: bool = True,
     ) -> ClassificationResult:
         """
@@ -602,7 +602,7 @@ MEMORY CONTENT TO CLASSIFY:
         )
 
     def batch_classify(
-        self, memories: list[str], context: Optional[dict] = None
+        self, memories: list[str], context: dict | None = None
     ) -> list[ClassificationResult]:
         """
         Classify multiple memories in batch.

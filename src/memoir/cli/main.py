@@ -9,7 +9,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import click
 
@@ -164,7 +164,7 @@ def get_config_dir() -> Path:
     return Path(config_home) / "memoir"
 
 
-def load_default_store() -> Optional[str]:
+def load_default_store() -> str | None:
     """Load the default store path from config."""
     config_file = get_config_dir() / "config.json"
     if config_file.exists():
@@ -200,7 +200,7 @@ class MemoirContext:
     """Context object passed to all commands."""
 
     def __init__(self):
-        self.store_path: Optional[str] = None
+        self.store_path: str | None = None
         self.json_output: bool = False
         self.quiet: bool = False
         self.verbose: bool = False
@@ -213,7 +213,7 @@ class MemoirContext:
             # Human-readable output handled by commands
             pass
 
-    def success(self, message: str, data: Optional[dict] = None) -> None:
+    def success(self, message: str, data: dict | None = None) -> None:
         """Output a success message."""
         if self.json_output:
             output = {"success": True, "message": message}
@@ -295,7 +295,7 @@ def print_machine_readable(ctx: click.Context, _param: click.Parameter, value: b
 @pass_context
 def cli(
     ctx: MemoirContext,
-    store: Optional[str],
+    store: str | None,
     json_output: bool,
     quiet: bool,
     verbose: bool,

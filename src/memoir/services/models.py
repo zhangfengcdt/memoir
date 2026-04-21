@@ -6,7 +6,7 @@ providing a consistent interface for CLI, TUI, SDK, and HTTP handlers.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
@@ -18,16 +18,16 @@ class RememberResult:
     keys: list[str]  # All paths (multi-label classification)
     confidence: float  # Classification confidence 0.0-1.0
     reasoning: str  # Explanation of classification
-    commit_hash: Optional[str] = None  # Git commit hash
-    commit_date: Optional[str] = None  # Git commit date
+    commit_hash: str | None = None  # Git commit hash
+    commit_date: str | None = None  # Git commit date
     timings: dict[str, float] = field(default_factory=dict)  # Step timings
-    timeline_events: Optional[list[dict]] = None  # Extracted timeline events
-    location_events: Optional[list[dict]] = None  # Extracted location events
+    timeline_events: list[dict] | None = None  # Extracted timeline events
+    location_events: list[dict] | None = None  # Extracted location events
     timeline_applied: bool = False  # Whether timeline events were applied
     location_applied: bool = False  # Whether location events were applied
     namespace: str = "default"
     content: str = ""  # Original content
-    error: Optional[str] = None
+    error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -82,7 +82,7 @@ class RecallResult:
     query: str
     timing_ms: float = 0.0
     metadata: dict[str, Any] = field(default_factory=dict)
-    error: Optional[str] = None
+    error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -104,9 +104,9 @@ class DeleteResult:
     success: bool
     key: str
     namespace: str = "default"
-    commit_hash: Optional[str] = None
+    commit_hash: str | None = None
     message: str = ""
-    error: Optional[str] = None
+    error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -166,7 +166,7 @@ class CheckoutResult:
     target: str  # Branch or commit checked out
     current_branch: str
     message: str = ""
-    error: Optional[str] = None
+    error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -187,10 +187,10 @@ class MergeResult:
     source_branch: str
     target_branch: str
     conflicts: list[str] = field(default_factory=list)
-    strategy: Optional[str] = None  # Conflict resolution strategy used
-    commit_hash: Optional[str] = None  # Merge commit hash
+    strategy: str | None = None  # Conflict resolution strategy used
+    commit_hash: str | None = None  # Merge commit hash
     message: str = ""
-    error: Optional[str] = None
+    error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -218,7 +218,7 @@ class ProofResult:
     value: Any = None
     proof_size: int = 0
     message: str = ""
-    error: Optional[str] = None
+    error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -247,7 +247,7 @@ class VerifyResult:
     current_value: Any = None
     expected_value: Any = None
     message: str = ""
-    error: Optional[str] = None
+    error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -290,7 +290,7 @@ class StoreInfo:
     path: str
     exists: bool
     initialized: bool
-    branch: Optional[str] = None
+    branch: str | None = None
     commit_count: int = 0
     memory_count: int = 0
     namespaces: list[str] = field(default_factory=list)
@@ -315,7 +315,7 @@ class CreateStoreResult:
     success: bool
     path: str
     message: str = ""
-    error: Optional[str] = None
+    error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""

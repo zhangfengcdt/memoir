@@ -5,7 +5,7 @@ Handles profile serialization, summary generation, and profile updates.
 """
 
 import logging
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ class ProfileMemento:
     async def apply_profile_updates(
         self,
         profile_updates: list[dict[str, str]],
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
         namespace: str = "default",
     ) -> None:
         """

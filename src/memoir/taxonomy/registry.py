@@ -7,7 +7,6 @@ and provides access to combined taxonomy data.
 import logging
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
 
 from .markdown_source import MarkdownTaxonomySource, TaxonomyData, TaxonomyParseError
 
@@ -19,7 +18,7 @@ class TaxonomyEntry:
     """Entry in the taxonomy registry."""
 
     data: TaxonomyData
-    source_path: Optional[Path] = None
+    source_path: Path | None = None
     is_builtin: bool = True
 
 
@@ -120,7 +119,7 @@ class TaxonomyRegistry:
 
         return taxonomy_id
 
-    def get(self, taxonomy_id: str) -> Optional[TaxonomyData]:
+    def get(self, taxonomy_id: str) -> TaxonomyData | None:
         """Get taxonomy data by ID.
 
         Args:
@@ -132,7 +131,7 @@ class TaxonomyRegistry:
         entry = self._entries.get(taxonomy_id)
         return entry.data if entry else None
 
-    def get_entry(self, taxonomy_id: str) -> Optional[TaxonomyEntry]:
+    def get_entry(self, taxonomy_id: str) -> TaxonomyEntry | None:
         """Get full taxonomy entry by ID.
 
         Args:
@@ -144,7 +143,7 @@ class TaxonomyRegistry:
         return self._entries.get(taxonomy_id)
 
     def get_by_type(
-        self, taxonomy_type: str, domain: Optional[str] = None
+        self, taxonomy_type: str, domain: str | None = None
     ) -> list[TaxonomyData]:
         """Get all taxonomy data of a specific type.
 
@@ -162,7 +161,7 @@ class TaxonomyRegistry:
         return [self._entries[tid].data for tid in ids if tid in self._entries]
 
     def get_combined_examples(
-        self, domain: Optional[str] = None
+        self, domain: str | None = None
     ) -> list[tuple[str, str, str]]:
         """Get all examples combined, optionally filtered by domain.
 
@@ -190,7 +189,7 @@ class TaxonomyRegistry:
 
         return examples
 
-    def get_combined_descriptions(self, domain: Optional[str] = None) -> dict[str, str]:
+    def get_combined_descriptions(self, domain: str | None = None) -> dict[str, str]:
         """Get all descriptions merged, domain-specific overriding general.
 
         Args:
@@ -215,7 +214,7 @@ class TaxonomyRegistry:
         return descriptions
 
     def get_combined_paths(
-        self, preset_id: Optional[str] = None, domain: Optional[str] = None
+        self, preset_id: str | None = None, domain: str | None = None
     ) -> dict[str, list[str]]:
         """Get preset paths, optionally filtered by preset ID or domain.
 

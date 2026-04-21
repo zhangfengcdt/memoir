@@ -12,7 +12,7 @@ Features:
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from memoir.taxonomy.loader import TaxonomyLoader
 from memoir.taxonomy.taxonomy import TaxonomyPresets
@@ -47,7 +47,7 @@ class IntelligentSearchEngine:
         self,
         llm: Any,
         store: Any,
-        taxonomy_loader: Optional[TaxonomyLoader] = None,
+        taxonomy_loader: TaxonomyLoader | None = None,
     ):
         """
         Initialize the intelligent search engine.
@@ -62,7 +62,7 @@ class IntelligentSearchEngine:
         self.llm = llm
         self.store = store
         self._taxonomy_loader = taxonomy_loader
-        self._static_prompt_cache: Optional[str] = None
+        self._static_prompt_cache: str | None = None
 
     def _get_classification_examples(
         self, limit: int = 100
@@ -174,7 +174,7 @@ SEARCH INSTRUCTIONS:
         namespace: str,
         limit: int = 10,
         return_prompts: bool = False,
-        person_filter: Optional[str] = None,
+        person_filter: str | None = None,
     ) -> list[IntelligentSearchResult]:
         """
         Search for relevant memories using LLM path selection.
@@ -423,7 +423,7 @@ SEARCH INSTRUCTIONS:
         query: str,
         paths_info: dict,
         limit: int = 5,
-        llm_prompts: Optional[dict] = None,
+        llm_prompts: dict | None = None,
     ) -> list[str]:
         """
         Use LLM to select the most relevant paths for the query.

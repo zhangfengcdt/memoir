@@ -12,7 +12,7 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -29,7 +29,7 @@ class DynamicNode:
     """Represents a node in the dynamic taxonomy tree."""
 
     path: str
-    category: Optional[str]
+    category: str | None
     depth: int
     is_leaf: bool
     is_dynamic: bool
@@ -96,8 +96,8 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
     def __init__(
         self,
         taxonomy_version: TaxonomyVersion = TaxonomyVersion.GENERAL,
-        base_taxonomy: Optional[SemanticTaxonomy] = None,
-        llm: Optional[Any] = None,
+        base_taxonomy: SemanticTaxonomy | None = None,
+        llm: Any | None = None,
         expansion_strategy: LLMExpansionStrategy = LLMExpansionStrategy.FOCUSED_SUBTREE,
         min_items_threshold: int = MIN_ITEMS_FOR_EXPANSION,
         enable_combinations: bool = True,
@@ -197,7 +197,7 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
                 self._add_strategic_other_categories(child, max_depth)
 
     async def expand_subtree_with_llm(
-        self, node_path: str, focus_depth: Optional[int] = None
+        self, node_path: str, focus_depth: int | None = None
     ) -> TaxonomyExpansionResult:
         """
         Expand a subtree using LLM-driven analysis.
@@ -478,7 +478,7 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
             "reasoning": reasoning,
         }
 
-    def _analyze_domain_patterns(self, domain: str, area: Optional[str] = None) -> dict:
+    def _analyze_domain_patterns(self, domain: str, area: str | None = None) -> dict:
         """
         Dynamically analyze existing taxonomy patterns for a domain/area.
 
@@ -961,7 +961,7 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
 
     async def _find_best_category(
         self, item: dict[str, Any], candidate_paths: list[str]
-    ) -> Optional[str]:
+    ) -> str | None:
         """Find the best category for an item among candidates using LLM-based classification."""
         if not candidate_paths:
             return None
@@ -1014,7 +1014,7 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
 
     def _parse_best_category_response(
         self, response: str, candidate_paths: list[str]
-    ) -> Optional[str]:
+    ) -> str | None:
         """Parse LLM response to get the best category path."""
         try:
             # Extract number from response
@@ -1045,7 +1045,7 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
 
     def _find_category_by_text_similarity(
         self, content: str, candidate_paths: list[str]
-    ) -> Optional[str]:
+    ) -> str | None:
         """Fallback method using simple text similarity when LLM is unavailable."""
         content_lower = content.lower()
 
@@ -1068,7 +1068,7 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
         return None
 
     async def parallel_expand(
-        self, target_paths: Optional[list[str]] = None
+        self, target_paths: list[str] | None = None
     ) -> list[TaxonomyExpansionResult]:
         """
         Perform parallel expansion of multiple subtrees.
@@ -1345,7 +1345,7 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
         }
 
     def track_classification(
-        self, path: str, content: str, metadata: Optional[dict] = None
+        self, path: str, content: str, metadata: dict | None = None
     ) -> bool:
         """
         Track a classification result and trigger expansion if needed.
@@ -1495,7 +1495,7 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
     async def classify_with_confidence(
         self,
         content: str,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
         confidence_threshold: float = 0.6,
     ) -> dict[str, Any]:
         """
@@ -1589,7 +1589,7 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
         }
 
     def _build_classification_prompt_with_structure(
-        self, content: str, structure: dict, metadata: Optional[dict]
+        self, content: str, structure: dict, metadata: dict | None
     ) -> str:
         """Build classification prompt with full taxonomy structure."""
         prompt_parts = [
@@ -1673,7 +1673,7 @@ class LLMIterativeTaxonomy(BaseTaxonomy):
         }
 
     async def _suggest_expansion_for_low_confidence(
-        self, content: str, path: str, metadata: Optional[dict]
+        self, content: str, path: str, metadata: dict | None
     ) -> dict:
         """Suggest expansion options for low confidence classification."""
         if not path:

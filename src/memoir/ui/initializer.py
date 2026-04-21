@@ -11,7 +11,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 # Add parent directories to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -244,7 +244,7 @@ async def process_txt_data(
     memory_manager: ProllyTreeMemoryStoreManager,
     store: ProllyTreeStore,
     data_file: str,
-    session: Optional[str],
+    session: str | None,
 ):
     """Process text data format and ingest into memory store."""
     import re
@@ -421,7 +421,7 @@ class SpeakerPrefixMemoryManager:
         self,
         content: Any,
         namespace: str = "default",
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
         auto_classify: bool = True,
     ) -> str:
         """
@@ -590,9 +590,7 @@ class SpeakerPrefixMemoryManager:
 
         return semantic_key
 
-    def _format_content_with_metadata(
-        self, content: str, metadata: Optional[dict]
-    ) -> str:
+    def _format_content_with_metadata(self, content: str, metadata: dict | None) -> str:
         """Format content with date information."""
         if not metadata:
             return content
@@ -606,7 +604,7 @@ class SpeakerPrefixMemoryManager:
         return formatted
 
 
-def _parse_session_parameter(session: Optional[str]) -> Optional[list[int]]:
+def _parse_session_parameter(session: str | None) -> list[int] | None:
     """Parse session parameter to handle single values, ranges, and lists."""
     if not session:
         return None
@@ -639,7 +637,7 @@ async def process_locomo_data(
     store: ProllyTreeStore,
     data_file: str,
     person_name: str,
-    session: Optional[str],
+    session: str | None,
     conversation_id: int,
 ):
     """Process LOCOMO conversation data and ingest into memory store."""
@@ -1038,9 +1036,7 @@ async def create_sample_branches_and_commits(
     store.tree.checkout("main")
 
 
-async def print_summary(
-    store: ProllyTreeStore, store_path: str, data_file: Optional[str]
-):
+async def print_summary(store: ProllyTreeStore, store_path: str, data_file: str | None):
     """Print summary information about the initialized store."""
     print("\n" + "=" * 60)
     print(f"✅ Memory store initialized at: {store_path}")

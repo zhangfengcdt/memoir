@@ -37,14 +37,10 @@ def _init_git_dir(root: Path) -> Path:
     subprocess.run(
         ["git", "config", "user.email", "test@memoir.local"], cwd=root, check=True
     )
-    subprocess.run(
-        ["git", "config", "user.name", "memoir-test"], cwd=root, check=True
-    )
+    subprocess.run(["git", "config", "user.name", "memoir-test"], cwd=root, check=True)
     (root / "README.md").write_text("# backend test\n")
     subprocess.run(["git", "add", "."], cwd=root, check=True)
-    subprocess.run(
-        ["git", "commit", "-m", "init", "--quiet"], cwd=root, check=True
-    )
+    subprocess.run(["git", "commit", "-m", "init", "--quiet"], cwd=root, check=True)
     data_dir = root / "data"
     data_dir.mkdir()
     return data_dir
@@ -135,9 +131,7 @@ class TestBackendCoreOperations:
         assert len(commit_id) == 40
         int(commit_id, 16)  # raises if not hex
 
-    def test_storage_backend_getter_reports_chosen_backend(
-        self, store_path, backend
-    ):
+    def test_storage_backend_getter_reports_chosen_backend(self, store_path, backend):
         store = VersionedKvStore(str(store_path), backend)
         assert store.storage_backend() == backend
 

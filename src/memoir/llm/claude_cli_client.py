@@ -34,7 +34,7 @@ import logging
 import os
 import shutil
 import subprocess
-from typing import Any, ClassVar, Optional
+from typing import Any, ClassVar
 
 from memoir.llm.litellm_client import LiteLLMResponse
 
@@ -70,8 +70,8 @@ class ClaudeCLIWrapper:
         model: str = "haiku",
         temperature: float = 0,  # accepted for interface parity; claude CLI ignores
         max_tokens: int = 500,  # accepted for interface parity; claude CLI ignores
-        base_url: Optional[str] = None,  # accepted for interface parity
-        api_key: Optional[str] = None,  # accepted for interface parity
+        base_url: str | None = None,  # accepted for interface parity
+        api_key: str | None = None,  # accepted for interface parity
         enable_prompt_cache: bool = True,  # claude CLI caches internally
         debug_cache: bool = False,
         timeout: int = DEFAULT_TIMEOUT,
@@ -116,7 +116,7 @@ class ClaudeCLIWrapper:
             )
         return model
 
-    def _split_prompt(self, prompt: str) -> tuple[Optional[str], str]:
+    def _split_prompt(self, prompt: str) -> tuple[str | None, str]:
         """
         Split a classification prompt into (system, user) parts using the same
         [STATIC_SECTION_END] marker LiteLLMWrapper uses.
@@ -130,7 +130,7 @@ class ClaudeCLIWrapper:
             return prompt[:end], prompt[end:].lstrip()
         return None, prompt
 
-    def _build_argv(self, system_prompt: Optional[str]) -> list[str]:
+    def _build_argv(self, system_prompt: str | None) -> list[str]:
         argv = [
             self._claude_path,
             "-p",
@@ -196,9 +196,7 @@ class ClaudeCLIWrapper:
                 check=False,
             )
         except subprocess.TimeoutExpired as e:
-            raise ClaudeCLIError(
-                f"claude CLI timed out after {self._timeout}s"
-            ) from e
+            raise ClaudeCLIError(f"claude CLI timed out after {self._timeout}s") from e
 
         if result.returncode != 0:
             raise ClaudeCLIError(
@@ -228,9 +226,7 @@ class ClaudeCLIWrapper:
         except asyncio.TimeoutError as e:
             proc.kill()
             await proc.wait()
-            raise ClaudeCLIError(
-                f"claude CLI timed out after {self._timeout}s"
-            ) from e
+            raise ClaudeCLIError(f"claude CLI timed out after {self._timeout}s") from e
 
         if proc.returncode != 0:
             raise ClaudeCLIError(

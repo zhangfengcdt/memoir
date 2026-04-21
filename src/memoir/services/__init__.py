@@ -9,8 +9,6 @@ This module provides the business logic layer shared by all interfaces:
 - MCP Server (Model Context Protocol)
 """
 
-from typing import Optional
-
 from memoir.services.models import (
     BlameEntry,
     BranchInfo,
@@ -55,7 +53,7 @@ def get_crypto_service(store_path: str):
     return CryptoService(store_path)
 
 
-def get_store_service(store_path: Optional[str] = None):
+def get_store_service(store_path: str | None = None):
     """Get a StoreService instance for the given store path."""
     from memoir.services.store_service import StoreService
 

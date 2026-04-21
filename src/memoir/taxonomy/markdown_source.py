@@ -6,7 +6,7 @@ Parses YAML frontmatter and structured markdown content into taxonomy data.
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import yaml
 
@@ -26,13 +26,13 @@ class TaxonomyMetadata:
     name: str
     domain: str = "general"
     version: str = "1.0.0"
-    created: Optional[str] = None
-    updated: Optional[str] = None
+    created: str | None = None
+    updated: str | None = None
     author: str = "system"
     description: str = ""
     tags: list[str] = field(default_factory=list)
     dependencies: list[str] = field(default_factory=list)
-    taxonomy_version: Optional[str] = None  # For presets (e.g., "simplified")
+    taxonomy_version: str | None = None  # For presets (e.g., "simplified")
 
 
 @dataclass
@@ -40,9 +40,9 @@ class TaxonomyData:
     """Parsed taxonomy data from markdown."""
 
     metadata: TaxonomyMetadata
-    examples: Optional[list[tuple[str, str, str]]] = None  # (input, path, reasoning)
-    descriptions: Optional[dict[str, str]] = None  # category -> description
-    paths: Optional[dict[str, list[str]]] = None  # category -> [subcategory.type, ...]
+    examples: list[tuple[str, str, str]] | None = None  # (input, path, reasoning)
+    descriptions: dict[str, str] | None = None  # category -> description
+    paths: dict[str, list[str]] | None = None  # category -> [subcategory.type, ...]
     raw_content: str = ""
 
 

@@ -30,15 +30,11 @@ def _init_git_dir(root: Path) -> Path:
     subprocess.run(
         ["git", "config", "user.email", "test@memoir.local"], cwd=root, check=True
     )
-    subprocess.run(
-        ["git", "config", "user.name", "memoir-test"], cwd=root, check=True
-    )
+    subprocess.run(["git", "config", "user.name", "memoir-test"], cwd=root, check=True)
     readme = root / "README.md"
     readme.write_text("# ns test\n")
     subprocess.run(["git", "add", "."], cwd=root, check=True)
-    subprocess.run(
-        ["git", "commit", "-m", "init", "--quiet"], cwd=root, check=True
-    )
+    subprocess.run(["git", "commit", "-m", "init", "--quiet"], cwd=root, check=True)
     data_dir = root / "data"
     data_dir.mkdir()
     return data_dir

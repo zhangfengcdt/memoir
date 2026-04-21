@@ -12,7 +12,7 @@ See https://docs.litellm.ai/docs/providers for the full list.
 
 import logging
 import os
-from typing import Any, ClassVar, Optional
+from typing import Any, ClassVar
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class LiteLLMResponse:
     """Response object that mimics LangChain's response format."""
 
-    def __init__(self, content: str, usage: Optional[dict] = None):
+    def __init__(self, content: str, usage: dict | None = None):
         self.content = content
         self.usage = usage or {}
 
@@ -61,8 +61,8 @@ class LiteLLMWrapper:
         model: str = "gpt-4o-mini",
         temperature: float = 0,
         max_tokens: int = 500,
-        base_url: Optional[str] = None,
-        api_key: Optional[str] = None,
+        base_url: str | None = None,
+        api_key: str | None = None,
         enable_prompt_cache: bool = True,
         debug_cache: bool = False,
     ):
@@ -325,8 +325,8 @@ def get_llm(
     model: str = "gpt-4o-mini",
     temperature: float = 0,
     max_tokens: int = 500,
-    base_url: Optional[str] = None,
-    api_key: Optional[str] = None,
+    base_url: str | None = None,
+    api_key: str | None = None,
     enable_prompt_cache: bool = True,
     debug_cache: bool = False,
 ) -> Any:

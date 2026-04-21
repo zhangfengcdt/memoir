@@ -7,7 +7,7 @@ import json
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from memoir.taxonomy.iterative import (
     LLMExpansionStrategy,
@@ -55,14 +55,14 @@ class ClassificationResult:
     confidence_level: ClassificationConfidence
     reasoning: str
     suggested_action: ClassificationAction
-    path: Optional[str] = None  # Primary path (for backward compatibility)
-    paths: Optional[list[str]] = None  # Multiple paths for multi-label classification
-    suggested_expansion: Optional[str] = None  # For low confidence
+    path: str | None = None  # Primary path (for backward compatibility)
+    paths: list[str] | None = None  # Multiple paths for multi-label classification
+    suggested_expansion: str | None = None  # For low confidence
     use_parent: bool = False  # For low confidence
-    profile_updates: Optional[list[dict[str, str]]] = None  # Profile updates detected
-    timeline_events: Optional[list[dict[str, str]]] = None  # Timeline events detected
-    location_events: Optional[list[dict[str, str]]] = None  # Location events detected
-    llm_prompt: Optional[str] = None  # LLM prompt used (if return_prompt=True)
+    profile_updates: list[dict[str, str]] | None = None  # Profile updates detected
+    timeline_events: list[dict[str, str]] | None = None  # Timeline events detected
+    location_events: list[dict[str, str]] | None = None  # Location events detected
+    llm_prompt: str | None = None  # LLM prompt used (if return_prompt=True)
 
     @property
     def all_paths(self) -> list[str]:
@@ -81,9 +81,9 @@ class MemoryProcessingResult:
 
     classification: ClassificationResult
     memory_action: MemoryAction
-    memory_path: Optional[str] = None
-    previous_content: Optional[str] = None
-    new_content: Optional[str] = None
+    memory_path: str | None = None
+    previous_content: str | None = None
+    new_content: str | None = None
     expanded_paths: list[str] = None
     success: bool = True
     storage_reasoning: str = ""
@@ -98,17 +98,17 @@ class IntelligentClassifier:
     def __init__(
         self,
         llm: Any,
-        memory_store: Optional[Any] = None,
+        memory_store: Any | None = None,
         taxonomy_version: TaxonomyVersion = TaxonomyVersion.GENERAL,
-        confidence_thresholds: Optional[dict] = None,
+        confidence_thresholds: dict | None = None,
         expansion_strategy: LLMExpansionStrategy = LLMExpansionStrategy.FOCUSED_SUBTREE,
         min_items_for_expansion: int = 3,
-        profile_manager: Optional[Any] = None,
-        timeline_manager: Optional[Any] = None,
-        location_manager: Optional[Any] = None,
+        profile_manager: Any | None = None,
+        timeline_manager: Any | None = None,
+        location_manager: Any | None = None,
         suppress_path_warnings: bool = True,
         enable_metadata_extraction: bool = False,
-        taxonomy_loader: Optional[TaxonomyLoader] = None,
+        taxonomy_loader: TaxonomyLoader | None = None,
     ):
         """
         Initialize the intelligent classifier.
@@ -183,8 +183,8 @@ class IntelligentClassifier:
         self.pending_expansions = {}
 
         # Cache for taxonomy data (loaded once from store)
-        self._examples_cache: Optional[list[tuple[str, str, str]]] = None
-        self._descriptions_cache: Optional[dict[str, str]] = None
+        self._examples_cache: list[tuple[str, str, str]] | None = None
+        self._descriptions_cache: dict[str, str] | None = None
 
     def _get_confidence_level(self, confidence: float) -> ClassificationConfidence:
         """Determine confidence level from score."""
@@ -296,8 +296,8 @@ class IntelligentClassifier:
     async def classify_input(
         self,
         content: str,
-        metadata: Optional[dict] = None,
-        conversation_context: Optional[list[str]] = None,
+        metadata: dict | None = None,
+        conversation_context: list[str] | None = None,
         return_prompt: bool = False,
     ) -> ClassificationResult:
         """
@@ -351,8 +351,8 @@ class IntelligentClassifier:
         self,
         content: str,
         paths: list[str],
-        metadata: Optional[dict],
-        conversation_context: Optional[list[str]] = None,
+        metadata: dict | None,
+        conversation_context: list[str] | None = None,
     ) -> str:
         """
         Build prompt for LLM classification.
@@ -648,8 +648,8 @@ class IntelligentClassifier:
         self,
         content: str,
         paths: list[str],
-        metadata: Optional[dict],
-        conversation_context: Optional[list[str]] = None,
+        metadata: dict | None,
+        conversation_context: list[str] | None = None,
     ) -> str:
         """
         Build a minimal prompt for fast classification (no metadata extraction).
@@ -1025,7 +1025,7 @@ CONTENT: {content}
         self,
         content: str,
         classification: ClassificationResult,
-        metadata: Optional[dict] = None,
+        metadata: dict | None = None,
     ) -> ClassificationResult:
         """
         Handle low confidence classification by asking LLM to expand or use parent.
@@ -1091,7 +1091,7 @@ CONTENT: {content}
         return classification
 
     def _build_expansion_decision_prompt(
-        self, content: str, path: str, confidence: float, metadata: Optional[dict]
+        self, content: str, path: str, confidence: float, metadata: dict | None
     ) -> str:
         """Build prompt for expansion decision."""
         prompt_parts = [
@@ -1182,8 +1182,8 @@ CONTENT: {content}
     async def process_classification(
         self,
         content: str,
-        metadata: Optional[dict] = None,
-        conversation_context: Optional[list[str]] = None,
+        metadata: dict | None = None,
+        conversation_context: list[str] | None = None,
     ) -> ClassificationResult:
         """
         Main entry point for processing classification.
@@ -1333,8 +1333,8 @@ Examples:
     async def process_memory_with_storage(
         self,
         content: str,
-        metadata: Optional[dict] = None,
-        conversation_context: Optional[list[str]] = None,
+        metadata: dict | None = None,
+        conversation_context: list[str] | None = None,
     ) -> MemoryProcessingResult:
         """
         Complete memory processing including classification and storage.
@@ -1524,8 +1524,8 @@ Examples:
         existing_memory: dict,
         new_memory: dict,
         new_content: str,
-        conversation_context: Optional[list[str]] = None,
-    ) -> Optional[dict]:
+        conversation_context: list[str] | None = None,
+    ) -> dict | None:
         """
         Intelligently merge new memory content with existing memory.
 
@@ -1627,7 +1627,7 @@ Examples:
         self,
         existing_content: str,
         new_content: str,
-        primary_subject: Optional[str] = None,
+        primary_subject: str | None = None,
     ) -> dict:
         """
         Check if new content conflicts with existing content using LLM.
@@ -1696,7 +1696,7 @@ Respond in JSON format:
             return {"has_conflict": False, "reasoning": f"Conflict check error: {e}"}
 
     async def _create_semantic_summary(
-        self, content: str, path: str, metadata: Optional[dict] = None
+        self, content: str, path: str, metadata: dict | None = None
     ) -> dict:
         """
         Create a concise, structured summary of the content based on taxonomy path.
@@ -1788,7 +1788,7 @@ Respond in JSON format:
         existing_data: dict,
         path: str,
         namespace: tuple,
-        metadata: Optional[dict],
+        metadata: dict | None,
     ) -> dict:
         """Handle updating existing memory content."""
         existing_content = existing_data.get("content", "")
@@ -2011,7 +2011,7 @@ Respond in JSON format:
         }
 
     async def evaluate_semantic_appropriateness(
-        self, content: str, path: str, context_paths: Optional[list[str]] = None
+        self, content: str, path: str, context_paths: list[str] | None = None
     ) -> dict:
         """
         Use LLM to evaluate if content semantically belongs in the assigned path.
@@ -2172,7 +2172,7 @@ Respond in JSON format:
         return results
 
     async def classify_async(
-        self, content: str, metadata: Optional[dict] = None
+        self, content: str, metadata: dict | None = None
     ) -> ClassificationResult:
         """Compatibility method for SemanticClassifier interface."""
         return await self.classify_input(content, metadata)

@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 
 @dataclass
@@ -12,11 +12,11 @@ class MemoryEntry:
     content: str
     metadata: dict[str, Any]
     timestamp: datetime
-    memory_id: Optional[str] = None
-    thread_id: Optional[str] = None
-    user_id: Optional[str] = None
-    semantic_path: Optional[str] = None
-    commit_hash: Optional[str] = None
+    memory_id: str | None = None
+    thread_id: str | None = None
+    user_id: str | None = None
+    semantic_path: str | None = None
+    commit_hash: str | None = None
 
 
 @dataclass
@@ -25,7 +25,7 @@ class SearchResult:
 
     memory: MemoryEntry
     score: float
-    relevance_context: Optional[str] = None
+    relevance_context: str | None = None
 
 
 @dataclass
@@ -44,9 +44,9 @@ class MemoryConfig:
     similarity_threshold: float = 0.7
 
     # LLM settings for intelligent features
-    llm_provider: Optional[str] = None  # "openai", "anthropic", etc.
-    llm_model: Optional[str] = None
-    api_key: Optional[str] = None
+    llm_provider: str | None = None  # "openai", "anthropic", etc.
+    llm_model: str | None = None
+    api_key: str | None = None
 
     # Performance settings
     batch_size: int = 100

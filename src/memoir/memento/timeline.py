@@ -7,7 +7,7 @@ Events are stored under timeline.YYYYMMDD keys with automatic merging of same-da
 
 import logging
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +22,8 @@ class TimelineMemento:
     async def apply_timeline_events(
         self,
         timeline_events: list[dict[str, str]],
-        metadata: Optional[dict] = None,
-        original_content: Optional[str] = None,
+        metadata: dict | None = None,
+        original_content: str | None = None,
         namespace: str = "default",
     ) -> None:
         """
@@ -88,8 +88,8 @@ class TimelineMemento:
 
     async def get_timeline_summary(
         self,
-        start_date: Optional[str] = None,
-        end_date: Optional[str] = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
         llm=None,
         namespace: str = "default",
     ) -> str:
@@ -191,8 +191,8 @@ class TimelineMemento:
     def _filter_by_date_range(
         self,
         memories: list[tuple[str, Any]],
-        start_date: Optional[str],
-        end_date: Optional[str],
+        start_date: str | None,
+        end_date: str | None,
     ) -> list[tuple[str, Any]]:
         """Filter timeline memories by date range."""
         filtered = []
