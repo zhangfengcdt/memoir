@@ -247,7 +247,6 @@ class ClaudeCLIWrapper:
         """Same shape as LiteLLMWrapper.get_cache_stats() — values are zero because
         claude CLI doesn't report per-call cache activity back to the caller."""
         stats = self.cache_stats.copy()
-        total = stats["total_requests"]
         stats["cache_hit_rate"] = 0.0
         stats["estimated_token_savings"] = 0
         stats["note"] = (
