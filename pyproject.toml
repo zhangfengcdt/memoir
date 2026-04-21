@@ -30,7 +30,6 @@ dependencies = [
     "pydantic>=2.0.0",
     "typing-extensions>=4.0.0",
     "click>=8.0.0",
-    "litellm>=1.0.0",
 ]
 
 [project.scripts]
@@ -74,10 +73,17 @@ langmem = [
     "langmem>=0.0.29",
 ]
 
+# Enables LLM-backed classification and search via memoir.llm.get_llm().
+# Without this extra, `get_llm(...)` raises ImportError; the rest of memoir works fine.
+litellm = [
+    "litellm>=1.0.0",
+]
+
 all = [
     "textual>=3.0.0",
     "rich>=13.0.0",
     "langmem>=0.0.29",
+    "litellm>=1.0.0",
 ]
 
 [project.urls]
