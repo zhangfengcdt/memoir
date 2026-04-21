@@ -217,6 +217,43 @@ assert_contains "status carries concurrency warning" "concurrent session detecte
 assert_contains "warning names the other branch" "feature/xyz" "$status"
 rm -rf "$STORE/.git/plugin-active-sessions"
 
+# -------- 13. Mid-session code branch switch --------
+# Simulates the user running `git checkout feature/b` in a terminal without
+# restarting Claude Code. UserPromptSubmit and Stop hooks must re-run
+# auto_match so captures land on the right memoir branch.
+heading "Mid-session code switch (UserPromptSubmit + Stop re-run auto-match)"
+
+# Put memoir on feature/a via SessionStart.
+git -C "$PROJ" checkout -q feature/a
+session_start_status >/dev/null
+assert "memoir matched feature/a via SessionStart" "feature/a" "$(memoir_current_branch)"
+
+# User git-switches to feature/b without restarting Claude Code.
+git -C "$PROJ" checkout -q feature/b
+
+# Simulate a UserPromptSubmit — its call to auto_match should move memoir to feature/b.
+INPUT='{"prompt":"a reasonably long prompt that the hook will actually process"}'
+echo "$INPUT" | bash "$CLAUDE_PLUGIN_ROOT/hooks/user-prompt-submit.sh" >/dev/null 2>&1
+assert "UserPromptSubmit flipped memoir to feature/b" "feature/b" "$(memoir_current_branch)"
+
+# Simulate a Stop hook turn and verify it captures onto feature/b.
+# Build a minimal transcript the parser accepts (≥3 lines, includes a real user turn).
+TRANSCRIPT=$(mktemp -t memoir-test-transcript.XXXXXX)
+cat > "$TRANSCRIPT" <<'EOF'
+{"type":"user","message":{"content":"setup"}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"ok"}]}}
+{"type":"user","message":{"content":"Remember: this test says the capture must land on feature/b."}}
+{"type":"assistant","message":{"content":[{"type":"text","text":"noted"}]}}
+EOF
+# Put memoir back on feature/a to prove the Stop hook itself re-matches before capturing.
+memoir -s "$STORE" checkout feature/a >/dev/null
+# Stop's haiku path won't be reachable without a credentialed `claude` CLI, but
+# the auto-match call happens before the haiku extraction — so even if the
+# capture ultimately no-ops, the branch switch is what we're verifying here.
+echo "{\"transcript_path\":\"$TRANSCRIPT\"}" | bash "$CLAUDE_PLUGIN_ROOT/hooks/stop.sh" >/dev/null 2>&1
+assert "Stop hook re-matched memoir to feature/b before capture" "feature/b" "$(memoir_current_branch)"
+rm -f "$TRANSCRIPT"
+
 # -------- Summary --------
 printf '\n--------------------------------\n'
 printf 'PASS: %d    FAIL: %d\n' "$PASS" "$FAIL"

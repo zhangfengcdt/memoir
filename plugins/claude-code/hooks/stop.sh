@@ -27,6 +27,13 @@ if [ ! -d "$MEMOIR_STORE_PATH/.git" ]; then
   exit 0
 fi
 
+# Ensure memoir is on the branch matching the current code branch before we
+# write. Covers the case where the user switched code branches mid-session
+# (e.g. via `git checkout feature/b` in a terminal). Without this, captures
+# from the post-switch turn would land on the previous code branch's memoir
+# branch. Fast no-op when branches already agree.
+auto_match_memoir_branch || true
+
 TRANSCRIPT_PATH=$(_json_val "$INPUT" "transcript_path" "")
 if [ -z "$TRANSCRIPT_PATH" ] || [ ! -f "$TRANSCRIPT_PATH" ]; then
   echo '{}'

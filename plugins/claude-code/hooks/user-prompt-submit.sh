@@ -17,16 +17,27 @@ if [ -z "$MEMOIR_CMD" ]; then
   exit 0
 fi
 
-# Surface both memory branch and code git branch so they're never confused.
-# memoir's branch is its single clearest superpower over a flat vector store,
-# and showing the code branch alongside makes it unambiguous which "branch" is which.
+# Re-run auto-match here (not just SessionStart). If the user switched code
+# branches mid-session (e.g. `git checkout feature/b` in a terminal), the
+# memoir branch would otherwise remain on the old match and subsequent Stop
+# captures would write to the wrong branch. Calling auto_match on every
+# prompt makes "memoir branch == code branch (unless sticky)" an invariant
+# across the entire session, not just at start. Fast no-op when branches
+# already agree; flips the memoir branch when they don't.
+auto_match_memoir_branch || true
+
+# Read state AFTER the potential auto-switch so the status hint reflects reality.
 STATUS_JSON=$(memoir_json status || true)
 BRANCH=$(_json_val "$STATUS_JSON" "branch" "main")
 CODE_BRANCH=$(code_git_branch)
 
-# Composite display `<code>+<memory>` — see session-start.sh for the reasoning.
-if [ -n "$CODE_BRANCH" ]; then
-  DISPLAY_BRANCH="${CODE_BRANCH}+${BRANCH}"
+# Display: collapse to `<branch>` when code and memoir agree (the default
+# after auto-match); show `<code>+<memory>*` when they differ, which only
+# happens when the user has a sticky opt-out active.
+if [ -n "$CODE_BRANCH" ] && [ "$CODE_BRANCH" = "$BRANCH" ]; then
+  DISPLAY_BRANCH="${BRANCH}"
+elif [ -n "$CODE_BRANCH" ]; then
+  DISPLAY_BRANCH="${CODE_BRANCH}+${BRANCH}*"
 else
   DISPLAY_BRANCH="${BRANCH}"
 fi
