@@ -32,8 +32,16 @@ Memoir brings engineering rigor to agent memory:
 
 ### From Source
 
+One-liner:
+
 ```bash
-git clone https://github.com/yourusername/memoir.git
+git clone https://github.com/zhangfengcdt/memoir.git && cd memoir && python -m venv venv && source venv/bin/activate && pip install -e ".[dev]"
+```
+
+Or step-by-step:
+
+```bash
+git clone https://github.com/zhangfengcdt/memoir.git
 cd memoir
 python -m venv venv
 source venv/bin/activate

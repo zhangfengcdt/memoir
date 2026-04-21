@@ -364,6 +364,42 @@ except Exception:
   done <<< "$all_branches"
 }
 
+# --- status-line cache ---
+
+# write_statusline_cache <user_memory_count> — persist the current user-facing
+# memory count so the statusline widget (scripts/statusline.sh) can render
+# without spawning the memoir CLI on every refresh. Branch is read live from
+# $STORE/.git/HEAD by the widget, so we only cache the count here.
+write_statusline_cache() {
+  local count="$1"
+  [ ! -d "$MEMOIR_STORE_PATH/.git" ] && return 0
+  printf '%s\n' "$count" > "$MEMOIR_STORE_PATH/.git/plugin-statusline-cache" 2>/dev/null || true
+}
+
+# compute_user_memory_count — returns the user-facing memory count (total
+# minus memoir's internal taxonomy:* namespaces). Shared between session-start
+# and stop so both surface the same number in the statusline cache.
+compute_user_memory_count() {
+  [ -z "$MEMOIR_CMD" ] && return 1
+  local status_json summary_json total
+  status_json=$(memoir_json status 2>/dev/null || true)
+  total=$(_json_val "$status_json" "memory_count" "0")
+  summary_json=$(memoir_json summarize taxonomy 2>/dev/null || true)
+  if [ -z "$summary_json" ]; then
+    printf '%s' "$total"
+    return 0
+  fi
+  python3 -c "
+import json, sys
+try:
+    obj = json.loads(sys.argv[1])
+    ns = obj.get('namespaces', {}) or {}
+    print(sum(v for k, v in ns.items() if not k.startswith('taxonomy:')))
+except Exception:
+    print(sys.argv[2])
+" "$summary_json" "$total" 2>/dev/null || printf '%s' "$total"
+}
+
 # --- concurrent-session heartbeats ---
 
 # write_session_heartbeat — record that this session is active on the current

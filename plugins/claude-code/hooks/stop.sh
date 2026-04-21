@@ -124,4 +124,11 @@ printf '%s\n' "$FACTS_TSV" | while IFS=$'\t' read -r path fact; do
   memoir_json remember "$fact" -p "$path" >/dev/null 2>&1 || true
 done
 
+# Refresh the statusline cache so the count ticks up after this turn's
+# captures. Stop is async, so a small extra CLI round-trip here is fine.
+NEW_COUNT=$(compute_user_memory_count 2>/dev/null || true)
+if [ -n "$NEW_COUNT" ]; then
+  write_statusline_cache "$NEW_COUNT" || true
+fi
+
 echo '{}'

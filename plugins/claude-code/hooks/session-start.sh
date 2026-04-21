@@ -147,6 +147,10 @@ if [ -n "$unmerged" ]; then
   fi
 fi
 
+# Refresh the statusline cache so the plugin's statusline widget can render
+# the current memory count without spawning the CLI on every tick.
+write_statusline_cache "$USER_MEMORIES" || true
+
 # Record this session's heartbeat so any parallel session can detect the
 # collision. Must happen after auto-match so we record the actual branch
 # we're targeting.
