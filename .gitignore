@@ -68,9 +68,6 @@ instance/
 # Scrapy stuff:
 .scrapy
 
-# Sphinx documentation
-docs/_build/
-
 # PyBuilder
 .pybuilder/
 target/
@@ -239,6 +236,3 @@ semgrep-report.json
 # Temporary files
 *.tmp
 *.temp
-
-# memsearch
-.memsearch/

@@ -1,0 +1,112 @@
+site_name: Memoir
+site_description: High-performance semantic memory system with Git-like version control for AI agents
+site_url: https://zhangfengcdt.github.io/memoir/
+repo_url: https://github.com/zhangfengcdt/memoir
+repo_name: zhangfengcdt/memoir
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  logo: _static/memoir.png
+  favicon: _static/memoir.png
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - navigation.indexes
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.action.edit
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            show_source: true
+            show_root_heading: true
+            show_if_no_docstring: false
+            docstring_style: google
+            members_order: source
+            separate_signature: true
+            show_signature_annotations: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Quickstart: quickstart.md
+      - Installation: installation.md
+      - Basic Usage: basic_usage.md
+  - User Guide:
+      - Architecture: architecture.md
+      - FAQ: faq.md
+  - Theory:
+      - Overview: theory/index.md
+      - Classifier: theory/classifier.md
+      - Memento: theory/memento.md
+      - Search: theory/search.md
+  - API Reference:
+      - Memoir: api/memoir.md
+      - Classifier: api/classifier.md
+      - Memento: api/memento.md
+      - Search: api/search.md
+      - Store: api/store.md
+      - Taxonomy: api/taxonomy.md
+  - Examples:
+      - Overview: examples.md
+      - Context Branching: examples/context_branching.md
+      - Memory Debugging: examples/memory_debugging.md
+      - Production Debugging: examples/production_debugging.md
+      - Reproducible Testing: examples/reproducible_testing.md
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/zhangfengcdt/memoir

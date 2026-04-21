@@ -194,30 +194,3 @@ Three layers, mapped to memoir's primitives:
 | Daemons | watch process, milvus | none |
 
 Memoir gives up pure-text semantic search in exchange for **structured, auditable, branchable** memory. If you care about *"what did I decide, when, and can I prove it?"*, that's the trade you want.
-
-## Troubleshooting
-
-- **`[memoir] CLI not found` in the status line** — `memoir` isn't on `PATH`. The plugin intentionally has no auto-install fallback (memoir isn't on PyPI yet, and silent installs would misconfigure users). Install it as shown above.
-- **Status says `0 memories` but the store exists** — the `taxonomy:v1:*` internal namespaces are filtered from the user-facing count on purpose. If you just created the store, the count is accurate.
-- **Store in the wrong place** — set `MEMOIR_STORE` to override the derived path. Useful if you want a single store across multiple projects, or want to keep the store inside the repo.
-- **Don't want auto-capture** — set `MEMOIR_NO_CAPTURE=1`. Recall still works.
-- **`claude` CLI not found in the Stop hook** — capture is skipped silently (no facts extracted). Install the Claude Code CLI if you want auto-capture; otherwise use the MCP `memoir_remember` tool or the CLI directly.
-
-## Layout
-
-```
-plugins/claude-code/
-├── .claude-plugin/plugin.json
-├── README.md
-├── hooks/
-│   ├── hooks.json
-│   ├── common.sh
-│   ├── session-start.sh
-│   ├── user-prompt-submit.sh
-│   ├── stop.sh
-│   ├── session-end.sh
-│   └── parse-transcript.sh
-├── skills/memory-recall/SKILL.md
-├── commands/memoir-*.md          (9 commands)
-└── scripts/derive-store-path.sh
-```
