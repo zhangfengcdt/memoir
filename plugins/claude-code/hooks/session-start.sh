@@ -71,9 +71,25 @@ elif [ -n "$CODE_BRANCH" ]; then
 else
   DISPLAY_BRANCH="${BRANCH}"
 fi
+
+# Unmerged-branch detector: surface any memoir branches ahead of main so the
+# user notices captured knowledge that hasn't been promoted. Stateless —
+# scans all branches each SessionStart. Filters to ≤30d active + not ignored.
+# Computed early so it can feed both the status line and additionalContext.
+unmerged=$(list_unmerged_memoir_branches 2>/dev/null || true)
+
 status="[memoir] ${DISPLAY_BRANCH} · ${USER_MEMORIES} memories · ${COMMITS} commits"
 if [ "${MEMOIR_NO_CAPTURE:-}" = "1" ]; then
   status+=" · capture disabled"
+fi
+
+if [ -n "$unmerged" ]; then
+  unmerged_branch_count=$(printf '%s\n' "$unmerged" | grep -c .)
+  if [ "$unmerged_branch_count" = "1" ]; then
+    status+=" · 1 branch unmerged"
+  else
+    status+=" · ${unmerged_branch_count} branches unmerged"
+  fi
 fi
 
 # Concurrent-session warning: if another Claude Code session shares this
@@ -109,10 +125,6 @@ except Exception:
   context="$ns_list"
 fi
 
-# Unmerged-branch detector: surface any memoir branches ahead of main so the
-# user notices captured knowledge that hasn't been promoted. Stateless —
-# scans all branches each SessionStart. Filters to ≤30d active + not ignored.
-unmerged=$(list_unmerged_memoir_branches 2>/dev/null || true)
 if [ -n "$unmerged" ]; then
   unmerged_block="# memoir — unmerged branches detected"$'\n'
   unmerged_block+="You have captured memories on these branches that aren't on main yet:"$'\n\n'

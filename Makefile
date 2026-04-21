@@ -1,4 +1,4 @@
-.PHONY: help install install-dev clean test test-cov lint format type-check security benchmark docs docs-live docs-clean pre-commit build publish release-check release-test
+.PHONY: help install install-dev clean test test-cov lint format type-check security benchmark docs docs-live docs-clean pre-commit build publish release-check release-test check-versions
 
 # Default target
 help:
@@ -21,6 +21,7 @@ help:
 	@echo "  publish         Publish to PyPI (requires tokens)"
 	@echo "  release-check   Build + twine check + verify data files in wheel"
 	@echo "  release-test    Build + upload to TestPyPI (requires ~/.pypirc testpypi entry)"
+	@echo "  check-versions  Verify version consistency across package + plugin manifests"
 	@echo "  ci              Run full CI pipeline locally"
 
 install:
@@ -48,10 +49,13 @@ test:
 test-cov:
 	pytest tests/ -v -W "ignore::DeprecationWarning" --cov=memoir --cov-report=html --cov-report=term-missing
 
-lint:
+lint: check-versions
 	ruff check src/ tests/ benchmarks/
 	black --check src/ tests/ benchmarks/
 	isort --check-only src/ tests/ benchmarks/
+
+check-versions:
+	python3 scripts/check_version_consistency.py
 
 format:
 	black src/ tests/ benchmarks/
