@@ -31,10 +31,9 @@ fi
 # up on whatever memoir branch was already current.
 auto_match_memoir_branch || true
 
-# Pull status JSON — contains branch, commit_count, memory_count (total).
+# Pull status JSON — contains branch, memory_count (total).
 STATUS_JSON=$(memoir_json status || true)
 BRANCH=$(_json_val "$STATUS_JSON" "branch" "main")
-COMMITS=$(_json_val "$STATUS_JSON" "commit_count" "0")
 TOTAL_MEMORIES=$(_json_val "$STATUS_JSON" "memory_count" "0")
 
 # Compute *user-facing* memory count by subtracting entries in memoir's
@@ -86,7 +85,7 @@ if [ "$CODE_BRANCH" = "main" ]; then
   unmerged=$(list_unmerged_memoir_branches 2>/dev/null || true)
 fi
 
-status="[memoir] ${DISPLAY_BRANCH} · ${USER_MEMORIES} memories · ${COMMITS} commits"
+status="[memoir] ${DISPLAY_BRANCH} · ${USER_MEMORIES} memories"
 if [ "${MEMOIR_NO_CAPTURE:-}" = "1" ]; then
   status+=" · capture disabled"
 fi

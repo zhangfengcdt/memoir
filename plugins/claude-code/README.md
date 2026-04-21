@@ -115,7 +115,7 @@ Per-project store at `~/.memoir/<sanitized-basename>_<8-char-hash>`. The hash is
 1. Detect `memoir` in `PATH`. If missing, surface an install hint and stop.
 2. `memoir new <store> --taxonomy-builtin --no-connect` if the store doesn't exist yet. Idempotent.
 3. **Auto-match memoir branch to code branch**: if you're on code branch `feature/x`, the plugin creates memoir branch `feature/x` (forked from `main`) if it doesn't exist, and checks it out. When code and memoir branches agree (the default), the status line shows just `<branch>`; when you've sticky-opted-out, it shows `<code>+<memory>*`.
-4. Status line: `[memoir] <branch> · N memories · M commits`. `⚠ concurrent session detected…` is appended if another session is using the same `MEMOIR_STORE` on a different branch.
+4. Status line: `[memoir] <branch> · N memories`. `⚠ concurrent session detected…` is appended if another session is using the same `MEMOIR_STORE` on a different branch.
 5. Inject as `additionalContext`:
    - A short taxonomy summary (user namespaces only).
    - An **unmerged-branch suggestion block** listing any memoir branches ahead of main with `/memoir-sync-branch <name>` suggestions. Only runs when the code branch is `main`; suppressed on feature branches. Stateless scan — branches ahead of main and active in the last 30 days show up until you merge them.
