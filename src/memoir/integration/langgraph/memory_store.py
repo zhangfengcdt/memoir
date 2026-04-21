@@ -10,7 +10,9 @@ from typing import Any, Optional
 from langgraph.store.base import BaseStore, Item, NamespacePath, Op, Result
 
 from memoir.classifier.intelligent import IntelligentClassifier
-from memoir.core.memory import ProllyTreeMemoryStoreManager
+
+# ProllyTreeMemoryStoreManager depends on the optional `langmem` extra.
+# Imported lazily inside _init_search so `import memoir` works without langmem.
 from memoir.integration.base import BaseIntegration
 from memoir.search.intelligent import IntelligentSearchEngine
 from memoir.store.prolly_adapter import ProllyTreeStore
@@ -111,7 +113,16 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
             # Fallback to a simple search if no LLM
             self.search_engine = None
 
-        # Now initialize memory manager with all dependencies
+        # Now initialize memory manager with all dependencies.
+        # Lazy import: requires the `langmem` extra.
+        try:
+            from memoir.core.memory import ProllyTreeMemoryStoreManager
+        except ImportError as e:
+            raise ImportError(
+                "LangGraphMemoryStore requires the 'langmem' extra. "
+                "Install with: pip install 'memoir[langmem]'"
+            ) from e
+
         self.memory_manager = ProllyTreeMemoryStoreManager(
             prolly_store=self.store,
             classifier=getattr(self, "classifier", None),

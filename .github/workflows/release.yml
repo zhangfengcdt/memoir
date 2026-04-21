@@ -1,0 +1,172 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (publish to TestPyPI only, do not tag or create release)'
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  validate:
+    name: Validate Release Branch
+    runs-on: ubuntu-latest
+    outputs:
+      can_release: ${{ steps.check.outputs.can_release }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check branch name
+        id: check
+        run: |
+          BRANCH_NAME="${{ github.ref_name }}"
+          echo "Current branch: $BRANCH_NAME"
+          if [[ "$BRANCH_NAME" == release/* ]] || [[ "$BRANCH_NAME" == release-* ]]; then
+            echo "Valid release branch: $BRANCH_NAME"
+            echo "can_release=true" >> $GITHUB_OUTPUT
+          else
+            echo "Not a release branch. Must start with 'release/' or 'release-'"
+            echo "can_release=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+      - name: Extract version from src/memoir/__init__.py
+        id: version
+        run: |
+          VERSION=$(grep '^__version__' src/memoir/__init__.py | head -1 | cut -d'"' -f2)
+          if [ -z "$VERSION" ]; then
+            echo "Failed to extract version from src/memoir/__init__.py"
+            exit 1
+          fi
+          echo "Version found: $VERSION"
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+  build:
+    name: Build sdist and wheel
+    needs: validate
+    if: ${{ needs.validate.outputs.can_release == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Build sdist and wheel
+        run: python -m build
+
+      - name: Validate packages with twine
+        run: twine check dist/*
+
+      - name: Inspect wheel contents
+        run: |
+          echo "Wheel contents:"
+          unzip -l dist/*.whl
+          echo "---"
+          echo "Verifying data files present in wheel:"
+          unzip -l dist/*.whl | grep -E '(ui\.html|static/|taxonomy/data)' || (echo "ERROR: data files missing from wheel" && exit 1)
+
+      - name: Upload distribution artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: [validate, build]
+    if: ${{ needs.validate.outputs.can_release == 'true' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/memoir/
+    permissions:
+      id-token: write  # Required for trusted publishing (OIDC)
+
+    steps:
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: List distribution files
+        run: ls -la dist/
+
+      - name: Publish to TestPyPI (dry run)
+        if: ${{ inputs.dry_run == true }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          skip-existing: true
+          verbose: true
+
+      - name: Publish to PyPI
+        if: ${{ inputs.dry_run == false }}
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
+          verbose: true
+
+  create-release:
+    name: Create GitHub Release
+    needs: [validate, publish]
+    if: ${{ needs.validate.outputs.can_release == 'true' && inputs.dry_run == false }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist
+
+      - name: Generate release notes
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          {
+            echo "# memoir v$VERSION"
+            echo ""
+            echo "## Installation"
+            echo ""
+            echo '```bash'
+            echo "pip install memoir==$VERSION"
+            echo '```'
+            echo ""
+            echo "## Package"
+            echo ""
+            echo "- PyPI: https://pypi.org/project/memoir/$VERSION/"
+          } > release-notes.md
+
+          if [ -f CHANGELOG.md ]; then
+            echo "" >> release-notes.md
+            echo "## Changes" >> release-notes.md
+            awk "/^## \[$VERSION\]/,/^## \[/" CHANGELOG.md | sed '$d' >> release-notes.md || true
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.validate.outputs.version }}
+          name: Release v${{ needs.validate.outputs.version }}
+          body_path: release-notes.md
+          draft: false
+          prerelease: ${{ contains(needs.validate.outputs.version, 'alpha') || contains(needs.validate.outputs.version, 'beta') || contains(needs.validate.outputs.version, 'rc') }}
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+          fail_on_unmatched_files: false

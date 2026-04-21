@@ -101,10 +101,11 @@ class LiteLLMWrapper:
             self._litellm = litellm
             # Suppress litellm's verbose logging
             litellm.suppress_debug_info = True
-        except ImportError:
+        except ImportError as e:
             raise ImportError(
-                "litellm package is required. Install with: pip install litellm"
-            )
+                "litellm is required for LLM-backed classification and search. "
+                "Install with: pip install 'memoir[litellm]'"
+            ) from e
 
     def _supports_prompt_cache(self) -> bool:
         """Check if the current model supports prompt caching."""

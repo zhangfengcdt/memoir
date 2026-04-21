@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "memoir"
-version = "0.1.0"
+dynamic = ["version"]
 description = "High-performance semantic memory system integrating LangMem with ProllyTree"
 readme = "README.md"
 requires-python = ">=3.9"
 license = {text = "MIT"}
 authors = [
-    {name = "Your Name", email = "your.email@example.com"},
+    {name = "zhangfengcdt", email = "f.feng.zhang@gmail.com"},
 ]
 keywords = ["ai", "memory", "langchain", "langgraph", "prollytree", "semantic-search"]
 classifiers = [
@@ -25,13 +25,11 @@ classifiers = [
 ]
 
 dependencies = [
-    "langmem>=0.0.29",
     "prollytree>=0.3.2",
     "langgraph>=0.6.0",
     "pydantic>=2.0.0",
     "typing-extensions>=4.0.0",
     "click>=8.0.0",
-    "litellm>=1.0.0",
 ]
 
 [project.scripts]
@@ -68,16 +66,48 @@ tui = [
     "rich>=13.0.0",
 ]
 
+# Enables ProllyTreeMemoryStoreManager (drop-in LangMem replacement).
+# Without this extra, `from memoir import ProllyTreeMemoryStoreManager` will fail
+# with ImportError; the rest of memoir works fine.
+langmem = [
+    "langmem>=0.0.29",
+]
+
+# Enables LLM-backed classification and search via memoir.llm.get_llm().
+# Without this extra, `get_llm(...)` raises ImportError; the rest of memoir works fine.
+litellm = [
+    "litellm>=1.0.0",
+]
+
 all = [
     "textual>=3.0.0",
     "rich>=13.0.0",
+    "langmem>=0.0.29",
+    "litellm>=1.0.0",
 ]
 
 [project.urls]
-Homepage = "https://github.com/yourusername/memoir"
+Homepage = "https://github.com/zhangfengcdt/memoir"
 Documentation = "https://memoir.readthedocs.io"
-Repository = "https://github.com/yourusername/memoir"
-Issues = "https://github.com/yourusername/memoir/issues"
+Repository = "https://github.com/zhangfengcdt/memoir"
+Issues = "https://github.com/zhangfengcdt/memoir/issues"
+
+[tool.hatch.version]
+path = "src/memoir/__init__.py"
+
+[tool.hatch.build.targets.wheel]
+# hatchling picks up all files under src/memoir by default, including
+# non-Python assets (ui/ui.html, ui/static/**, taxonomy/data/**).
+packages = ["src/memoir"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/memoir",
+    "README.md",
+    "LICENSE",
+    "pyproject.toml",
+    "CHANGELOG.md",
+]
 
 [tool.pytest.ini_options]
 minversion = "7.0"
