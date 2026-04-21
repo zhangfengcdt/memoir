@@ -239,6 +239,3 @@ semgrep-report.json
 # Temporary files
 *.tmp
 *.temp
-
-# memsearch
-.memsearch/

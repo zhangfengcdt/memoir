@@ -177,17 +177,6 @@ result = client.remember_sync("User prefers dark mode")
 results = client.recall_sync("preferences")
 ```
 
-### MCP Server
-
-For integration with MCP-compatible clients:
-
-```bash
-export MEMOIR_STORE=/path/to/store
-memoir-mcp
-```
-
-Add to your MCP client configuration to enable memoir tools.
-
 ## Development
 
 ```bash
@@ -204,43 +193,6 @@ make format
 # Run all checks
 make ci
 ```
-
-## Benchmarks
-
-Benchmark the classifier and search performance with different LLM providers:
-
-```bash
-# Using OpenAI (default)
-export OPENAI_API_KEY=your-key
-python benchmarks/classifier.py
-
-# Using Anthropic Claude
-export ANTHROPIC_API_KEY=your-key
-python benchmarks/classifier.py --model claude-haiku-4-5
-
-# Using Google Gemini
-export GEMINI_API_KEY=your-key
-python benchmarks/classifier.py --model gemini/gemini-1.5-flash
-
-# Using Ollama (local, free)
-python benchmarks/classifier.py --model ollama/llama3.2
-
-# Run specific tests
-python benchmarks/classifier.py --skip-recall        # Only remember benchmarks
-python benchmarks/classifier.py --num-cases 10      # Limit test cases
-python benchmarks/classifier.py --verbose           # Detailed output
-```
-
-See all options with `python benchmarks/classifier.py --help` or `make benchmark`.
-
-## Architecture
-
-| Component | Description |
-|-----------|-------------|
-| ProllyTreeStore | Git-like versioned storage with cryptographic integrity |
-| IntelligentClassifier | LLM-powered classification with 3-level taxonomy paths |
-| IntelligentSearchEngine | Single-stage LLM search with prompt caching support |
-| Services Layer | Shared business logic for all interfaces |
 
 ## License
 
