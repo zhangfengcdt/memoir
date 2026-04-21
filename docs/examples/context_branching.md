@@ -45,8 +45,9 @@ Key Benefits:
 
 ```python
 import asyncio
-import tempfile
 import os
+import tempfile
+import time
 from memoir.store.prolly_adapter import ProllyTreeStore
 
 # Create memory store with versioning enabled

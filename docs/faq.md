@@ -2,6 +2,9 @@
 
 This section answers common questions about Memoir's capabilities, use cases, and implementation details.
 
+!!! note "About the code samples"
+    Code snippets in this FAQ use the [`MemoryClient`](api/memoir.md) SDK surface — `memory.remember(...)`, `memory.recall(...)`, `memory.forget(...)` for content operations, and `memory.branch.create/checkout/merge/delete(...)` for git-style operations. Every example assumes `memory = MemoryClient("/path/to/store")` is in scope. Equivalent operations are available via the `memoir` CLI (`memoir remember`, `memoir branch`, `memoir checkout`, `memoir merge`, `memoir time-travel`).
+
 ## AI Agent Development & Debugging
 
 **Q: With the branching and time-travel features for AI agent memory, would it help vibe coding tools (such as Claude Code) to debug and fix agent bugs or issues more efficiently?**
@@ -25,14 +28,14 @@ Traditional AI agents (including coding tools) suffer from:
     agent.suggest_code("implement authentication")  # Returns broken OAuth code
 
     # Debug: Jump back to see what memories influenced this decision
-    memory_manager.checkout("before_oauth_confusion")
-    memories = memory_manager.search("authentication patterns")
+    memory.branch.checkout("before_oauth_confusion")
+    memories = await memory.recall("authentication patterns")
     # See exactly which memories led to the bad suggestion
 
     # Fix: Remove the corrupted memory and add correct one
-    memory_manager.checkout("main")
-    memory_manager.delete_memory("oauth.broken_pattern")
-    memory_manager.store_memory("OAuth 2.0 requires proper state validation")
+    memory.branch.checkout("main")
+    await memory.forget("oauth.broken_pattern")
+    await memory.remember("OAuth 2.0 requires proper state validation")
     ```
 
 2. **Branch-Based Hypothesis Testing**
@@ -40,16 +43,16 @@ Traditional AI agents (including coding tools) suffer from:
     ```python
     # User reports: "Claude Code keeps suggesting React instead of Vue"
     # Create debugging branch to investigate without affecting main agent
-    memory_manager.create_branch("debug_react_bias")
+    memory.branch.create("debug_react_bias")
 
     # Test hypothesis: Is there a React bias in the codebase memory?
-    react_memories = memory_manager.search("frontend framework")
+    react_memories = await memory.recall("frontend framework")
     # Discover: Agent learned from React-heavy repositories
 
     # Fix in isolation, then merge back
-    memory_manager.store_memory("User prefers Vue.js for this project")
-    memory_manager.checkout("main")
-    memory_manager.merge("debug_react_bias")
+    await memory.remember("User prefers Vue.js for this project")
+    memory.branch.checkout("main")
+    memory.branch.merge("debug_react_bias")
     ```
 
 3. **Reproducible Bug Reports**
@@ -57,11 +60,11 @@ Traditional AI agents (including coding tools) suffer from:
     ```python
     # User: "Claude Code suggested wrong import on line 42"
     # Instead of: "Can you reproduce this?"
-    # You get: exact memory state snapshot
-    bug_snapshot = memory_manager.create_snapshot("bug_report_line_42")
+    # You get: exact memory state snapshot (a branch acts as a named bookmark)
+    memory.branch.create("bug_report_line_42")
 
     # Developer can instantly reproduce:
-    memory_manager.checkout(bug_snapshot)
+    memory.branch.checkout("bug_report_line_42")
     suggestion = agent.suggest_import("pandas")  # Gets same wrong result
     # Fix and verify fix works
     ```
@@ -99,7 +102,7 @@ Traditional AI agents (including coding tools) suffer from:
 2. Claude Code: "Let me time-travel to debug this..."
 
 # INSTANT time-travel - no rebuilding needed!
-memory_manager.checkout("before_classification_bug")
+memory.branch.checkout("before_classification_bug")
 
 # Claude Code can now:
 # - See EXACT memory state when bug occurred
@@ -108,17 +111,17 @@ memory_manager.checkout("before_classification_bug")
 # - Fix without affecting production memories
 
 # Create debugging branch
-memory_manager.create_branch("debug_python_classification")
+memory.branch.create("debug_python_classification")
 
 # Test fixes in isolation
-memory_manager.store_memory(
+await memory.remember(
     "Python programming is a professional skill",
-    key="profile.professional.skills.python"
+    namespace="profile.professional.skills.python"
 )
 
 # Verify fix works, then merge back
 if classification_test_passes():
-    memory_manager.merge("debug_python_classification")
+    memory.branch.merge("debug_python_classification")
 ```
 
 **Specific Benefits for Classification Agent Debugging:**
@@ -131,7 +134,7 @@ if classification_test_passes():
     create_test_fixtures()  # May miss real-world complexity
 
     # Memoir approach:
-    memory_manager.checkout("bug_occurrence_timestamp")  # <1ms
+    memory.branch.checkout("bug_occurrence_timestamp")  # <1ms
     # Exact same memory state instantly available
     ```
 
@@ -139,9 +142,9 @@ if classification_test_passes():
 
     ```python
     # Claude Code can test multiple hypotheses simultaneously:
-    memory_manager.create_branch("hypothesis_1_context_window")
-    memory_manager.create_branch("hypothesis_2_classification_threshold")
-    memory_manager.create_branch("hypothesis_3_memory_aggregation")
+    memory.branch.create("hypothesis_1_context_window")
+    memory.branch.create("hypothesis_2_classification_threshold")
+    memory.branch.create("hypothesis_3_memory_aggregation")
 
     # Test each hypothesis without affecting others
     # Keep the one that works, discard the rest
@@ -151,9 +154,9 @@ if classification_test_passes():
 
     ```python
     # Binary search through memory timeline to find exact corruption point
-    memory_manager.checkout("1_hour_ago")      # Classifications working?
-    memory_manager.checkout("30_minutes_ago")  # Still working?
-    memory_manager.checkout("15_minutes_ago")  # Found the bug!
+    memory.branch.checkout("1_hour_ago")      # Classifications working?
+    memory.branch.checkout("30_minutes_ago")  # Still working?
+    memory.branch.checkout("15_minutes_ago")  # Found the bug!
 
     # Now Claude Code knows EXACTLY when/why classification broke
     ```
@@ -164,21 +167,21 @@ if classification_test_passes():
 # Scenario: Agent incorrectly classifies "I love Python programming"
 
 # 1. Instant time-travel to bug occurrence
-memory_manager.checkout("classification_bug_2024_01_15_14_30")
+memory.branch.checkout("classification_bug_2024_01_15_14_30")
 
 # 2. Claude Code analyzes: "I see the issue!"
-bug_analysis = memory_manager.search("programming AND personal")
+bug_analysis = await memory.recall("programming AND personal")
 # Finds conflicting memories:
 # - "programming is hobby" (personal.hobbies.programming)
 # - "Python for work" (profile.professional.skills.python)
 
 # 3. Create fix branch and test solution
-memory_manager.create_branch("fix_programming_context")
+memory.branch.create("fix_programming_context")
 
 # 4. Claude Code applies nuanced fix:
-memory_manager.store_memory(
+await memory.remember(
     "Context: 'I love X programming' indicates professional skill when discussing career",
-    key="classification.rules.programming_context"
+    namespace="classification.rules.programming_context"
 )
 
 # 5. Test fix immediately on same memory state
@@ -194,22 +197,20 @@ assert test_result.path == "profile.professional.skills.python"  # Fixed!
 ```python
 class ClaudeCodeWithMemoir:
     async def debug_classification_issue(self, problematic_input: str):
-        # 1. Create checkpoint before debugging
-        checkpoint = f"debug_session_{time.time()}"
-        self.memory_manager.create_snapshot(checkpoint)
+        # 1. Bookmark current state before debugging (branches act as snapshots)
+        checkpoint = f"debug_session_{int(time.time())}"
+        self.memory.branch.create(checkpoint)
 
         # 2. Time-travel to find when classification first broke
         bug_timeline = await self._binary_search_bug_timeline(problematic_input)
 
         # 3. Create debugging branch for safe experimentation
         debug_branch = f"fix_{hash(problematic_input)}"
-        self.memory_manager.create_branch(debug_branch)
+        self.memory.branch.create(debug_branch)
 
-        # 4. Analyze memory state at bug occurrence
-        bug_memories = await self.memory_manager.search_memories(
-            query="classification patterns",
-            at_commit=bug_timeline.bug_commit
-        )
+        # 4. Checkout the bug-era commit and analyze memory state
+        self.memory.branch.checkout(bug_timeline.bug_commit)
+        bug_memories = await self.memory.recall("classification patterns")
 
         # 5. Generate and test multiple fix hypotheses
         fix_candidates = await self._generate_fix_hypotheses(
@@ -219,7 +220,7 @@ class ClaudeCodeWithMemoir:
         for fix in fix_candidates:
             # Test fix in isolated sub-branch
             fix_branch = f"{debug_branch}_fix_{fix.id}"
-            self.memory_manager.create_branch(fix_branch)
+            self.memory.branch.create(fix_branch)
 
             # Apply fix
             await self._apply_classification_fix(fix)
@@ -227,15 +228,15 @@ class ClaudeCodeWithMemoir:
             # Validate fix works and doesn't break existing
             if await self._validate_fix_comprehensive(fix):
                 # Keep this fix
-                self.memory_manager.merge(fix_branch)
+                self.memory.branch.merge(fix_branch)
                 break
             else:
                 # Discard this fix attempt
-                self.memory_manager.delete_branch(fix_branch)
+                self.memory.branch.delete(fix_branch)
 
         # 6. Deploy validated fix to main timeline
-        self.memory_manager.checkout("main")
-        self.memory_manager.merge(debug_branch)
+        self.memory.branch.checkout("main")
+        self.memory.branch.merge(debug_branch)
 
         return f"Fixed classification bug in {len(fix_candidates)} attempts"
 ```
@@ -304,9 +305,12 @@ For very large deployments, consider:
 **Customization Options:**
 
 ```python
-# Option 1: Custom taxonomy
-from memoir.taxonomy.presets import TaxonomyPresets
-custom_taxonomy = TaxonomyPresets.create_domain_specific("medical")
+# Option 1: Custom taxonomy via markdown data sources
+from memoir.taxonomy.loader import TaxonomyLoader
+from memoir.taxonomy.markdown_source import MarkdownTaxonomyDataSource
+
+loader = TaxonomyLoader(store=store)
+loader.load_from_source(MarkdownTaxonomyDataSource("/path/to/medical_taxonomy.md"))
 
 # Option 2: Custom classification thresholds
 classifier = IntelligentClassifier(
@@ -318,11 +322,10 @@ classifier = IntelligentClassifier(
     }
 )
 
-# Option 3: Manual classification
-await memory_manager.store_memory(
-    content="Patient has type 2 diabetes",
-    key="medical.conditions.diabetes.type2",  # Manual key
-    auto_classify=False
+# Option 3: Manual classification (bypass the classifier by choosing the path yourself)
+await memory.remember(
+    "Patient has type 2 diabetes",
+    namespace="medical.conditions.diabetes.type2",  # Manual path
 )
 ```
 
@@ -332,19 +335,18 @@ await memory_manager.store_memory(
 
 ```python
 # 1. Time-travel to find the misclassification
-memory_manager.checkout("before_wrong_classification")
+memory.branch.checkout("before_wrong_classification")
 
-# 2. Move memory to correct location
-memory_manager.move_memory(
-    from_key="profile.hobbies.programming",
-    to_key="profile.professional.skills.python"
+# 2. Move memory to correct location (delete + re-store under the right path)
+await memory.forget("profile.hobbies.programming")
+await memory.remember(
+    "Python programming",
+    namespace="profile.professional.skills.python",
 )
 
-# 3. Update classification rules to prevent recurrence
-classifier.add_pattern("Python", "profile.professional.skills.python")
-
-# 4. Create snapshot for future reference
-memory_manager.create_snapshot("classification_fix_v1")
+# 3. Bookmark the fix as a branch for future reference
+memory.branch.checkout("main")
+memory.branch.create("classification_fix_v1")
 ```
 
 ## Versioning & Git Integration
@@ -402,35 +404,32 @@ git log --follow data/namespace_key  # Follow specific memory path
 
 **Q: Can I migrate from an existing vector database to Memoir?**
 
-**A:** Yes! Memoir provides migration utilities and compatibility layers:
+**A:** Yes — there is no built-in migration tool, but the pattern is straightforward: pull records out of the source store, then replay them through Memoir's `remember()` API so the classifier can place each record on a semantic path.
 
-**Migration Process:**
+**Migration pattern:**
 
 ```python
-from memoir.migration.vector_db import VectorDBMigrator
+from memoir.sdk import MemoryClient
 
-# 1. Extract from existing system
-migrator = VectorDBMigrator(
-    source="pinecone",  # or "weaviate", "qdrant", etc.
-    source_config={"api_key": "...", "environment": "..."}
-)
+# 1. Extract records from the source vector DB with whatever client it exposes
+records = source_client.query(top_k=10_000)  # e.g. Pinecone, Weaviate, Qdrant
 
-# 2. Classify and import memories
-await migrator.migrate_to_memoir(
-    memoir_store=store,
-    classifier=classifier,
-    batch_size=100,
-    namespace_mapping={"user_id": "user_{id}"}
-)
+# 2. Replay each record through Memoir — the classifier picks the semantic path
+async with MemoryClient("./memoir_store") as memory:
+    for rec in records:
+        await memory.remember(
+            rec["text"],
+            namespace=f"user_{rec['metadata']['user_id']}",
+        )
 
-# 3. Validate migration results
-validation_report = migrator.validate_migration()
+# 3. Spot-check by recalling a few known queries
+result = await memory.recall("sample query", namespace="user_123")
 ```
 
 **Compatibility Notes:**
 - **Semantic paths** replace vector embeddings for much faster retrieval
 - **Memory aggregation** may change how related memories are stored
-- **Version history** starts fresh (no historical versions from vector DB)
+- **Version history** starts fresh (no historical versions from the source DB)
 - **Performance improvement** typically 10-100x faster after migration
 
 **Q: Can I use Memoir with frameworks other than LangGraph/LangChain?**
@@ -504,12 +503,12 @@ hf_llm = HuggingFacePipeline.from_model_id(
 
 ```python
 # 1. Identify the problem timeline
-memory_manager.checkout("main")
-current_memories = memory_manager.search("problematic topic")
+memory.branch.checkout("main")
+current_memories = (await memory.recall("problematic topic")).memories
 
 # 2. Binary search through history to find corruption point
-memory_manager.checkout("yesterday")  # Known good state
-yesterday_memories = memory_manager.search("problematic topic")
+memory.branch.checkout("yesterday")  # Known good commit / branch
+yesterday_memories = (await memory.recall("problematic topic")).memories
 
 # 3. Compare memory states
 for current, past in zip(current_memories, yesterday_memories):
@@ -519,9 +518,9 @@ for current, past in zip(current_memories, yesterday_memories):
         print(f"After: {current.content}")
 
 # 4. Fix by reverting or correcting
-memory_manager.checkout("main")
-memory_manager.delete_memory("corrupted.memory.key")
-memory_manager.store_memory("Corrected memory content", key="fixed.memory.key")
+memory.branch.checkout("main")
+await memory.forget("corrupted.memory.key")
+await memory.remember("Corrected memory content", namespace="fixed.memory.key")
 ```
 
 **Q: Memoir is running slower than expected. How do I optimize performance?**
@@ -559,7 +558,10 @@ search_engine = IntelligentSearchEngine(llm=llm, store=store)
 **4. Monitor Performance:**
 
 ```python
-# Get performance metrics
+# Get performance metrics from the low-level manager
+# (requires the `langmem` extra: pip install memoir-ai[langmem])
+from memoir import ProllyTreeMemoryStoreManager
+
 stats = memory_manager.get_performance_metrics()
 print(f"Average search time: {stats['avg_search_ms']}ms")
 print(f"Classification time: {stats['avg_classification_ms']}ms")
@@ -579,15 +581,23 @@ git push backup --all    # Backup all branches
 git push backup --tags   # Backup all snapshots
 ```
 
-**2. Export/Import:**
+**2. Export + replay:**
 
 ```python
-# Export specific namespace
+# Export a specific namespace to JSON
 store.export_namespace("user123", "/backup/user123_memories.json")
 
-# Import to new store
-new_store = ProllyTreeStore("/new/location")
-new_store.import_namespace("/backup/user123_memories.json")
+# Replay the export into a fresh store via the SDK (no import helper yet —
+# iterate the exported records and re-remember each one).
+import json
+from memoir.sdk import MemoryClient
+
+with open("/backup/user123_memories.json") as f:
+    records = json.load(f)
+
+async with MemoryClient("/new/location") as memory:
+    for rec in records:
+        await memory.remember(rec["content"], namespace=rec["namespace"])
 ```
 
 **3. File System Backup:**

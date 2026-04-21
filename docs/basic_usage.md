@@ -15,7 +15,7 @@ from langchain_openai import ChatOpenAI
 from memoir import ProllyTreeMemoryStoreManager
 from memoir.classifier.intelligent import IntelligentClassifier
 from memoir.search.intelligent import IntelligentSearchEngine
-from memoir.taxonomy.taxonomy_presets import TaxonomyVersion
+from memoir.taxonomy.taxonomy import TaxonomyVersion
 
 async def main():
     # 1. Set up LLM
@@ -213,14 +213,13 @@ results = await memory_manager.search_memories(
 )
 ```
 
-**Advanced Search with Filters**
+**Search with Limit**
 
 ```python
 results = await memory_manager.search_memories(
     query="programming languages",
     namespace="user123",
     limit=10,
-    filter={"confidence": {"$gte": 0.7}}
 )
 ```
 
@@ -263,38 +262,27 @@ await memory_manager.store_memory(content2, namespace)
 commit_hash = memory_manager.store_commit("Logical batch description")
 ```
 
-**Branching**
+**Branching, Merging and Time Travel**
 
-```python
-# Create experimental branch
-await memory_manager.create_branch("experiment")
-await memory_manager.checkout("experiment")
+Branch, checkout, merge, and time-travel operations are available via the
+`memoir` CLI (which drives the underlying service layer). For example:
 
-# Make changes
-await memory_manager.store_memory("Experimental data", "user123")
-
-# Commit changes
-commit_hash = await memory_manager.commit("Added experimental data")
+```bash
+memoir branch experiment       # create a branch
+memoir checkout experiment      # switch branches
+memoir merge experiment         # merge into the current branch
+memoir time-travel <commit>     # inspect state at a specific commit
 ```
 
-**Merging**
+Programmatically, the memory manager exposes `time_travel` for snapshot-based
+historical state retrieval:
 
 ```python
-# Switch back to main
-await memory_manager.checkout("main")
+from datetime import datetime
 
-# Merge changes
-await memory_manager.merge("experiment", into="main")
-```
-
-**Time Travel**
-
-```python
-# Search at specific commit
-historical_results = await memory_manager.search_memories(
-    query="user data",
+state = await memory_manager.time_travel(
     namespace="user123",
-    at_commit=commit_hash
+    target_time=datetime(2024, 1, 1),
 )
 ```
 

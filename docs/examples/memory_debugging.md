@@ -46,10 +46,16 @@ Key Benefits:
 
 ```python
 import asyncio
+import os
+import tempfile
+import time
 from datetime import datetime
 from memoir.store.prolly_adapter import ProllyTreeStore
 
 # Initialize store with versioning
+temp_dir = tempfile.mkdtemp()
+prolly_path = os.path.join(temp_dir, "memory_store")
+
 prolly_store = ProllyTreeStore(
     path=prolly_path,
     enable_versioning=True,

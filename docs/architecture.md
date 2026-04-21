@@ -159,7 +159,7 @@ profile.professional.occupation → {
 The taxonomy system provides hierarchical organization:
 
 **Fixed Taxonomy** (`memoir.taxonomy.semantic`):
-- ~800 predefined paths
+- ~200 predefined paths
 - Fast pattern matching
 - Consistent organization
 

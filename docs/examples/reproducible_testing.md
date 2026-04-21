@@ -46,9 +46,15 @@ Key Benefits:
 
 ```python
 import asyncio
+import os
+import tempfile
+import time
 from memoir.store.prolly_adapter import ProllyTreeStore
 
 # Initialize store with versioning
+temp_dir = tempfile.mkdtemp()
+prolly_path = os.path.join(temp_dir, "memory_store")
+
 prolly_store = ProllyTreeStore(
     path=prolly_path,
     enable_versioning=True,
@@ -272,7 +278,7 @@ async def create_user_profile_baseline():
     for content, path in memories:
         await prolly_store.store_memory_async(namespace, content, path)
 
-    return prolly_store.create_time_snapshot(f"baseline_{time.time()}")
+    return prolly_store.create_time_snapshot(f"baseline_{int(time.time())}")
 ```
 
 ## Next Steps

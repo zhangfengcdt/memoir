@@ -187,7 +187,7 @@ To try these examples yourself:
 1. **Install Dependencies**:
 
     ```bash
-    pip install langchain-openai memoir
+    pip install langchain-openai memoir-ai
     ```
 
 2. **Set API Key** (for LLM-powered examples):

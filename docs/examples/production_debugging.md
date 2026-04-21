@@ -46,11 +46,16 @@ Debugging Power:
 
 ```python
 import asyncio
+import os
+import tempfile
 import time
 from datetime import datetime, timedelta
 from memoir.store.prolly_adapter import ProllyTreeStore
 
 # Initialize production memory store
+temp_dir = tempfile.mkdtemp()
+prolly_path = os.path.join(temp_dir, "memory_store")
+
 prolly_store = ProllyTreeStore(
     path=prolly_path,
     enable_versioning=True,
@@ -130,6 +135,7 @@ prolly_store.create_time_snapshot(problem_snapshot)
 
 ```python
 # Day 4: User files complaint
+current_memories = prolly_store.search((namespace,), limit=500)
 print("User Complaint Received:")
 print('"Agent recommended terrible colors yesterday at 11:15 AM"')
 print(f"Current production state: {len(current_memories)} memories")
@@ -158,7 +164,9 @@ print(f"   Total memories then: {problem_count}")
 # Check for the specific error
 error_memory = prolly_store.get((namespace,), "system.errors.accessibility")
 if error_memory:
-    print(f"Found error: {error_memory[:50]}...")
+    # Aggregated memories are stored as dicts with a `memories` list
+    first_entry = error_memory.get("memories", [{}])[0]
+    print(f"Found error: {str(first_entry.get('content', ''))[:50]}...")
 ```
 
 ### Root Cause Analysis

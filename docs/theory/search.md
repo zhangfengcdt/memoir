@@ -95,30 +95,9 @@ Instructions:
 - **Clear Format**: Line-separated paths for parsing
 - **Null Case**: Explicit "NONE" for no matches
 
-##### Stage 3: Content Refinement (200-500ms)
+##### Stage 3: Memory Retrieval (5-20ms)
 ```python
-# Second LLM call to verify selected paths based on actual content
-content_prompt = f"""You are refining memory search results based on actual content.
-
-Query: "{query}"
-
-Here are the candidate paths with their actual content:
-[path and content samples]
-
-Instructions:
-- Look at the actual CONTENT, not just the path names
-- Select only paths whose content directly answers or relates to the query
-- Return ONLY the path names, one per line
-"""
-```
-
-This two-stage refinement ensures:
-- **Path-based filtering**: First pass uses semantic path meaning
-- **Content-based verification**: Second pass confirms with actual data
-
-##### Stage 4: Memory Retrieval (5-20ms)
-```python
-for path in refined_paths[:limit]:
+for path in selected_paths[:limit]:
     path_memories = _get_memories_from_path(namespace, path, all_memories)
     results.extend(path_memories)
 
@@ -146,10 +125,9 @@ except Exception as e:
 
 #### Performance Characteristics
 - **Path Discovery**: 10-50ms
-- **LLM Path Selection**: 200-500ms
-- **Content Refinement**: 200-500ms (optional)
+- **LLM Path Selection**: 200-500ms (single LLM call; prompt caching on cached sections)
 - **Memory Retrieval**: 5-20ms
-- **Total Latency**: 215-570ms typical
+- **Total Latency**: 215-570ms typical (500-800ms measured end-to-end)
 - **Memory Usage**: O(all_paths + selected_memories)
 - **LLM Token Usage**: ~500-1500 tokens per search
 
@@ -160,7 +138,7 @@ except Exception as e:
 - Handles complex, abstract queries
 - Leverages memory organization
 - Provides reasoning transparency
-- Two-stage refinement improves accuracy
+- Single LLM call keeps latency bounded
 
 **Limitations**:
 - Higher latency (LLM dependency)
