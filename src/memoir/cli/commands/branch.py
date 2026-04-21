@@ -311,7 +311,14 @@ def diff(ctx: MemoirContext, commit1: str, commit2: str, stat: bool):
         else:
             c1, c2 = commit1, commit2
 
-        diff_output = service.get_diff(c1, c2, stat_only=stat)
+        # service.diff returns dict {success, diff, error}; extract the diff text
+        result = service.diff(c1, c2, stat_only=stat)
+        if not result.get("success"):
+            ctx.error(
+                f"Diff failed: {result.get('error') or 'unknown error'}",
+                EXIT_GIT_FAILED,
+            )
+        diff_output = result.get("diff", "")
 
         if ctx.json_output:
             ctx.output({"diff": diff_output, "from": c1, "to": c2})

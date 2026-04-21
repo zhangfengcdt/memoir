@@ -595,6 +595,7 @@ class BranchService(BaseService):
         self,
         commit1: Optional[str] = None,
         commit2: Optional[str] = None,
+        stat_only: bool = False,
     ) -> dict:
         """
         Show differences between commits.
@@ -602,6 +603,7 @@ class BranchService(BaseService):
         Args:
             commit1: First commit (default: HEAD~1)
             commit2: Second commit (default: HEAD)
+            stat_only: If True, return only --stat summary; otherwise full diff.
 
         Returns:
             Dict with diff information
@@ -611,11 +613,13 @@ class BranchService(BaseService):
 
         try:
             if commit1 and commit2:
-                cmd = ["diff", commit1, commit2, "--stat"]
+                cmd = ["diff", commit1, commit2]
             elif commit1:
-                cmd = ["diff", commit1, "--stat"]
+                cmd = ["diff", commit1]
             else:
-                cmd = ["diff", "HEAD~1", "HEAD", "--stat"]
+                cmd = ["diff", "HEAD~1", "HEAD"]
+            if stat_only:
+                cmd.append("--stat")
 
             result = self._run_git_command(cmd, check=False)
 
@@ -632,3 +636,8 @@ class BranchService(BaseService):
                 "diff": "",
                 "error": str(e),
             }
+
+    # Alias kept because the CLI command (cli/commands/branch.py:314) calls
+    # `service.get_diff(...)`. Rather than touching two call sites, expose
+    # both names. New callers should prefer `diff()`.
+    get_diff = diff

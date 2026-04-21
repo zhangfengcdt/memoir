@@ -115,15 +115,31 @@ Three layers, mapped to memoir's primitives:
 - **L2 — blame** (`memoir blame <path>`): who changed that path, when, in which commit. Memoir's answer to "expand the chunk" — except you get git history, not surrounding text.
 - **L3 — diff / branch** (`memoir diff`, `memoir branch`): cross-commit or cross-branch comparison. Only used for "how did this evolve?" questions.
 
-### Slash commands (memoir's differentiators)
+### Slash commands
+
+**Branching / time-travel (memoir's differentiators)**
 
 | Command | What it does |
 |---|---|
-| `/memoir-status` | Branch + commit/memory counts. |
-| `/memoir-branch [name]` | List or create branches. |
+| `/memoir-status` | Memory branch + commit/memory counts. |
+| `/memoir-branch [name]` | List or create memory branches. |
 | `/memoir-checkout <branch>` | Switch Claude's memory context. |
 | `/memoir-merge <source>` | Merge with conflict strategy `ours`/`theirs`/`skip`. |
 | `/memoir-time-travel <hash>` | Create a branch at a past commit and switch to it. |
+| `/memoir-diff [c1] [c2] [--stat]` | Show diff between two commits. Defaults to HEAD~1..HEAD. |
+
+**Memory ops**
+
+| Command | What it does |
+|---|---|
+| `/memoir-remember "<fact>" [-p <path>] [-n <ns>]` | Manually capture a memory now (independent of Stop-hook). With `-p`, skips the classifier (~25× faster). |
+| `/memoir-forget <key> [-n <ns>]` | Delete a memory (always uses `--force`; recoverable via time-travel). |
+| `/memoir-keys [<glob>]` | List all keys, optionally filtered by glob (e.g. `preferences.*`). |
+
+**Taxonomy / verification**
+
+| Command | What it does |
+|---|---|
 | `/memoir-taxonomy` | Per-namespace counts + registered taxonomies. |
 | `/memoir-blame <path>` | Change history for a specific taxonomy path. |
 | `/memoir-proof <path>` | Generate a SHA-256 proof of the path's current value. |
