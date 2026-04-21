@@ -184,6 +184,23 @@ assert_contains "feature/a resurfaces after new capture" "/memoir-sync-branch fe
 # Clean state for the remaining tests — sync feature/a again.
 sync_branch feature/a
 
+# -------- 9b. Deleted code branch suppresses unmerged memoir branch --------
+heading "Deleting the code branch removes its memoir branch from suggestions"
+git -C "$PROJ" checkout -qb feature/deletable
+session_start_status >/dev/null
+assert "memoir matched feature/deletable via SessionStart" "feature/deletable" "$(memoir_current_branch)"
+memoir -s "$STORE" --json remember "captured on deletable" -p context.project.database >/dev/null
+
+git -C "$PROJ" checkout -q main
+context=$(session_start_context)
+assert_contains "feature/deletable initially listed while code branch exists" \
+  "/memoir-sync-branch feature/deletable" "$context"
+
+git -C "$PROJ" branch -D feature/deletable >/dev/null
+context=$(session_start_context)
+assert_not_contains "feature/deletable suppressed after its code branch is deleted" \
+  "/memoir-sync-branch feature/deletable" "$context"
+
 # -------- 10. Sticky opt-out --------
 heading "Sticky opt-out: create 'experiment' branch while code is on main"
 memoir -s "$STORE" branch experiment --from main >/dev/null
