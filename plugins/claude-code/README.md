@@ -1,6 +1,6 @@
-# memoir plugin for Claude Code
+# Memoir Plugin for Claude Code
 
-Give Claude Code a **git-versioned, taxonomy-structured memory**. Unlike vector-store plugins, memoir doesn't index chunks of text — every captured fact is classified into a named taxonomy path (`preferences.coding.languages`, `profile.professional.skills`, …) and stored as a value at that path inside a per-project git repo. That makes memory **branchable**, **time-travelable**, and **cryptographically verifiable**.
+Give Claude Code a **git-versioned, taxonomy-structured memory**. Unlike vector-store plugins, Memoir doesn't index chunks of text — every captured fact is classified into a named taxonomy path (`preferences.coding.languages`, `profile.professional.skills`, …) and stored as a value at that path inside a per-project git repo. That makes memory **branchable**, **time-travelable**, and **cryptographically verifiable**.
 
 ## What you get
 
