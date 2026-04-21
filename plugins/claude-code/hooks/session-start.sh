@@ -138,7 +138,7 @@ if [ -n "$unmerged" ]; then
   unmerged_block+="You have captured memories on these branches that aren't on main yet:"$'\n\n'
   while IFS=$'\t' read -r b n; do
     [ -z "$b" ] && continue
-    unmerged_block+="- memoir/${b}: ${n} unmerged commits → /memoir-sync-branch ${b}"$'\n'
+    unmerged_block+="- memoir/${b}: ${n} unmerged commits → memoir:memoir-sync-branch ${b}"$'\n'
   done <<< "$unmerged"
   unmerged_block+=$'\n'"Run the suggested command to promote them to main (keeps the source branch)."
   if [ -n "$context" ]; then

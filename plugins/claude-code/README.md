@@ -92,8 +92,8 @@ When a session starts on code branch `feature/x`, the plugin auto-checks out mem
 
 ```
 # memoir — unmerged branches detected
-- memoir/feature/a: 4 unmerged commits → /memoir-sync-branch feature/a
-- memoir/feature/b: 2 unmerged commits → /memoir-sync-branch feature/b
+- memoir/feature/a: 4 unmerged commits → memoir:memoir-sync-branch feature/a
+- memoir/feature/b: 2 unmerged commits → memoir:memoir-sync-branch feature/b
 ```
 
 You can run the suggested commands while on any branch. A branch in `$MEMOIR_STORE/.git/plugin-ignored-branches` is silently skipped (one name per line — add manually to permanently silence a dormant branch).
