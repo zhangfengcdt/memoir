@@ -27,6 +27,18 @@ Note the flag order — memoir's global flags (`--json`, `-s`) **must** come bef
 
 Recall memories relevant to: $ARGUMENTS
 
+## Fast path — `get` (skip if the path is already known)
+
+If the user's request already names an exact taxonomy path (e.g. they said "what's in `preferences.coding.style`?") or you just learned the path from a prior recall, **use `get` instead of `recall`**. It performs a direct key/value lookup with no LLM call — typically <10ms vs ~500-800ms for recall — and accepts multiple keys in one call.
+
+```bash
+memoir --json -s <STORE_PATH> get <path> [<path>...] [-n <namespace>]
+```
+
+Returns `items[]` with `{key, namespace, full_key, found, value}`. `value` is the raw stored object (with `content`, `confidence`, `timestamp`, etc.). Missing keys report `found: false` rather than erroring, so you can batch-check several paths cheaply.
+
+Only fall through to the three-layer flow below when the path is **not** already known.
+
 ## Three-layer progressive disclosure
 
 Unlike vector-store plugins (which search chunks, expand chunks, then fall back to raw transcripts), memoir's layers are **taxonomy-aware**:

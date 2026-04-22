@@ -6,6 +6,7 @@ Commands: remember, recall, forget
 
 import asyncio
 import json
+import sys
 
 import click
 
@@ -156,6 +157,82 @@ def recall(
                 )
     except Exception as e:
         ctx.error(f"Failed to recall: {e}", EXIT_ERROR)
+
+
+@click.command("get")
+@click.argument("keys", nargs=-1, required=True)
+@click.option("-n", "--namespace", default="default", help="Memory namespace")
+@pass_context
+def get_memory(ctx: MemoirContext, keys: tuple, namespace: str):
+    """Fast direct lookup of memories by key. No LLM involved.
+
+    INPUT: One or more exact taxonomy paths (space-separated).
+    OUTPUT: Stored value for each key. Missing keys report found=false.
+
+    This is the fast shortcut for reading memories when you already know the
+    path — skips the LLM classifier and semantic search that `recall` uses.
+    Typical latency is <10ms vs ~500-800ms for `recall`.
+
+    \b
+    Examples:
+      memoir get preferences.coding.style
+      memoir get preferences.coding.style profile.professional.skills
+      memoir get "user.preferences.theme" -n default
+      memoir --json get preferences.coding.style   # JSON output
+
+    \b
+    JSON output includes: items[{key, namespace, full_key, found, value}],
+    count, found_count, timing_ms
+    """
+    if not ctx.store_path:
+        ctx.error(
+            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
+        )
+
+    from memoir.services.memory_service import MemoryService
+
+    service = MemoryService(ctx.store_path)
+
+    try:
+        result = service.get(list(keys), namespace)
+
+        if ctx.json_output:
+            ctx.output(result.to_dict())
+            return
+
+        if not result.success:
+            ctx.error(result.error or "Get failed", EXIT_ERROR)
+
+        any_missing = False
+        for item in result.items:
+            full_key = item["full_key"]
+            if item["found"]:
+                value = item["value"]
+                content = value.get("content") if isinstance(value, dict) else value
+                click.echo(click.style("✓ ", fg="green") + full_key)
+                if isinstance(content, (dict, list)):
+                    click.echo(f"  {json.dumps(content)}")
+                else:
+                    click.echo(f"  {content}")
+                if ctx.verbose and isinstance(value, dict):
+                    for k in ("confidence", "timestamp"):
+                        if k in value:
+                            click.echo(f"  {k}: {value[k]}")
+            else:
+                any_missing = True
+                click.echo(click.style("✗ ", fg="red") + f"{full_key} (not found)")
+
+        click.echo(
+            f"\n{sum(1 for i in result.items if i['found'])}/{len(result.items)} "
+            f"found in {result.timing_ms:.1f}ms"
+        )
+
+        if any_missing and len(result.items) == 1:
+            # Single-key miss: exit with not-found code so agents can branch on it.
+            sys.exit(EXIT_NOT_FOUND)
+
+    except Exception as e:
+        ctx.error(f"Failed to get: {e}", EXIT_ERROR)
 
 
 @click.command()

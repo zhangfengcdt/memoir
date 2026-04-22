@@ -121,6 +121,32 @@ class DeleteResult:
 
 
 @dataclass
+class GetResult:
+    """Result of a direct get (key lookup) operation.
+
+    Unlike recall, this performs no LLM call and no semantic search — it is a
+    direct key/value fetch from the ProllyTree store, suitable for fast
+    lookups when the caller already knows the taxonomy path(s).
+    """
+
+    success: bool
+    items: list[dict[str, Any]]  # Each: {key, namespace, found, value}
+    timing_ms: float = 0.0
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "success": self.success,
+            "items": self.items,
+            "count": len(self.items),
+            "found_count": sum(1 for i in self.items if i.get("found")),
+            "timing_ms": self.timing_ms,
+            "error": self.error,
+        }
+
+
+@dataclass
 class BranchInfo:
     """Information about branches in the repository."""
 
