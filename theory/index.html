@@ -1483,9 +1483,11 @@
 <li><strong>IntelligentClassifier</strong>: Advanced multi-stage classification with memory-worthiness detection and event extraction</li>
 </ul>
 <h3 id="search-theory">Search Theory<a class="headerlink" href="#search-theory" title="Permanent link">&para;</a></h3>
-<p>In-depth exploration of the IntelligentSearchEngine, covering LLM-powered path selection and performance optimizations.</p>
+<p>In-depth exploration of the three retrieval pipelines: two in-engine (single-stage and tiered drill-down in <code>IntelligentSearchEngine</code>) and one caller-driven (LLM-free primitives consumed by an outer agent).</p>
 <ul>
-<li><strong>IntelligentSearchEngine</strong>: LLM-powered semantic understanding and path selection (215-570ms)</li>
+<li><strong><code>IntelligentSearchEngine</code> — <code>mode="single"</code></strong>: one-shot LLM path selection (215-570ms)</li>
+<li><strong><code>IntelligentSearchEngine</code> — <code>mode="tiered"</code></strong>: staged drill-down (L1 → optional L2 → key pick) that mirrors the caller-driven flow but runs inside the engine (~1-2s; better scaling with store size)</li>
+<li><strong>Caller-driven tiered retrieval</strong>: LLM-free <code>summarize</code> / <code>get</code> primitives, picking driven by an outer agent (~100-300ms, zero memoir-side tokens)</li>
 </ul>
 <h3 id="memento-theory">Memento Theory<a class="headerlink" href="#memento-theory" title="Permanent link">&para;</a></h3>
 <p>Comprehensive examination of the memento pattern implementation for ProfileMemento, TimelineMemento, and LocationMemento, explaining dimensional memory organization.</p>
@@ -1517,9 +1519,19 @@
 <td>200-1000ms (LLM)</td>
 </tr>
 <tr>
-<td><strong>Search</strong></td>
+<td><strong>Search (single)</strong></td>
 <td>N/A</td>
-<td>215-570ms (LLM)</td>
+<td>215-570ms (1 LLM call)</td>
+</tr>
+<tr>
+<td><strong>Search (tiered)</strong></td>
+<td>N/A</td>
+<td>~1-2s (2-3 LLM calls)</td>
+</tr>
+<tr>
+<td><strong>Search (caller-driven)</strong></td>
+<td>~100-300ms (no LLM)</td>
+<td>N/A</td>
 </tr>
 <tr>
 <td><strong>Storage</strong></td>
