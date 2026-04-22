@@ -158,6 +158,30 @@ if [ -n "$unmerged" ]; then
   fi
 fi
 
+# Inject the codebase:onboard snapshot so fresh sessions start with a high-level
+# map of the repo (structure, goals, rules, lessons). Gated on
+# MEMOIR_ONBOARD_INJECT (default=1) so a user who finds the block noisy can
+# opt out with MEMOIR_ONBOARD_INJECT=0. If the namespace is empty, emit a
+# one-line hint nudging the user to populate it via /memoir-onboard.
+if [ "${MEMOIR_ONBOARD_INJECT:-1}" = "1" ]; then
+  onboard_block=$(render_codebase_onboard_compact 2>/dev/null || true)
+  if [ -z "$onboard_block" ]; then
+    # No snapshot yet — only surface the hint if some user memories already
+    # exist (brand-new store gets no extra noise on first launch).
+    if [ "$USER_MEMORIES" != "0" ]; then
+      onboard_block="# codebase:onboard snapshot"$'\n'
+      onboard_block+="(none yet — run /memoir-onboard to generate one; future sessions will auto-inject it here)"
+    fi
+  fi
+  if [ -n "$onboard_block" ]; then
+    if [ -n "$context" ]; then
+      context="${context}"$'\n\n'"${onboard_block}"
+    else
+      context="$onboard_block"
+    fi
+  fi
+fi
+
 # Refresh the statusline cache so the plugin's statusline widget can render
 # the current memory count without spawning the CLI on every tick.
 write_statusline_cache "$USER_MEMORIES" || true

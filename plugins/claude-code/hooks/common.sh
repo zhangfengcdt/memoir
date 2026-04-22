@@ -585,3 +585,148 @@ concurrent_session_warning() {
     printf '⚠ concurrent session detected on branch %s. Captures may collide; set a distinct MEMOIR_STORE per session.' "$other_branch"
   fi
 }
+
+# --- codebase:onboard rendering & meta update ---
+
+# render_codebase_onboard_compact — emit a compact block summarizing the
+# codebase:onboard namespace for SessionStart injection. One line per non-_meta
+# top-level root, joined from the first sentence of each child key, capped at
+# ~140 chars per line. Empty output (nothing printed) when the namespace is
+# empty or the CLI is unavailable — callers treat that as "no snapshot yet".
+#
+# If the last_onboard date is > 30 days old, the header is tagged stale="true"
+# and a trailing refresh hint is appended.
+render_codebase_onboard_compact() {
+  [ -z "$MEMOIR_CMD" ] && return 0
+  [ ! -d "$MEMOIR_STORE_PATH/.git" ] && return 0
+
+  local keys_json all_keys
+  keys_json=$(memoir_json summarize --keys "*" -n codebase:onboard 2>/dev/null || true)
+  [ -z "$keys_json" ] && return 0
+  all_keys=$(python3 -c "
+import json, sys
+try:
+    obj = json.loads(sys.argv[1])
+    keys = obj.get('matching_keys', {}).get('codebase:onboard', []) or []
+    print('\n'.join(keys))
+except Exception:
+    pass
+" "$keys_json" 2>/dev/null || true)
+  [ -z "$all_keys" ] && return 0
+
+  # Batch-fetch every key in one `get` call. Keys are space-separated args.
+  local keys_args values_json
+  keys_args=$(printf '%s' "$all_keys" | tr '\n' ' ')
+  # shellcheck disable=SC2086
+  values_json=$("${MEMOIR_CMD_ARGV[@]}" --json -s "$MEMOIR_STORE_PATH" get $keys_args -n codebase:onboard 2>/dev/null || true)
+  [ -z "$values_json" ] && return 0
+
+  python3 -c "
+import json, re, sys
+from datetime import datetime, timezone
+
+try:
+    obj = json.loads(sys.argv[1])
+except Exception:
+    sys.exit(0)
+
+items = obj.get('items', []) or []
+if not items:
+    sys.exit(0)
+
+roots = {}
+meta = {}
+for it in items:
+    if not it.get('found'):
+        continue
+    key = it.get('key', '')
+    content = (it.get('value', {}) or {}).get('content', '')
+    if not key or not content:
+        continue
+    if key.startswith('_meta.'):
+        meta[key] = content
+        continue
+    root = key.split('.', 1)[0]
+    roots.setdefault(root, []).append((key, content))
+
+if not roots:
+    sys.exit(0)
+
+def first_sentence(s, maxlen=60):
+    s = ' '.join(s.strip().split())
+    m = re.match(r'^(.+?[.!?])(\s|$)', s)
+    first = m.group(1) if m else s
+    if len(first) > maxlen:
+        first = first[:maxlen - 1].rstrip() + '…'
+    return first
+
+commit = (meta.get('_meta.last_onboard.commit', '') or '')[:7] or '?'
+date_iso = meta.get('_meta.last_onboard.date', '')
+mode = meta.get('_meta.last_onboard.mode', '') or '?'
+age_str = '?'
+stale = False
+if date_iso:
+    try:
+        dt = datetime.fromisoformat(date_iso.replace('Z', '+00:00'))
+        now = datetime.now(timezone.utc)
+        delta = now - dt
+        days = delta.days
+        if days > 30:
+            stale = True
+        if days >= 1:
+            age_str = f'{days}d ago'
+        else:
+            hours = delta.seconds // 3600
+            age_str = f'{hours}h ago' if hours >= 1 else '<1h ago'
+    except Exception:
+        pass
+
+header_attrs = [f'last_onboard=\"{age_str} @ {commit}\"', f'mode=\"{mode}\"']
+if stale:
+    header_attrs.append('stale=\"true\"')
+
+print('# codebase:onboard snapshot')
+print(f'<codebase-onboard {\" \".join(header_attrs)}>')
+
+preferred = ['goal', 'structure', 'test', 'debug', 'deploy', 'rules', 'lessons', 'references', 'document']
+seen = set()
+ordered = [r for r in preferred if r in roots]
+seen.update(ordered)
+ordered.extend(sorted(r for r in roots.keys() if r not in seen))
+
+for root in ordered:
+    children = sorted(roots[root], key=lambda kv: kv[0])
+    pieces = [first_sentence(v) for _, v in children]
+    body = '; '.join(pieces)
+    if len(body) > 140:
+        body = body[:139].rstrip() + '…'
+    print(f'{root}: {body}')
+
+print('</codebase-onboard>')
+if stale:
+    print('(snapshot is stale — run /memoir-onboard to refresh)')
+" "$values_json" 2>/dev/null || true
+}
+
+# update_onboard_meta_after_sync <code_sha> [memoir_sha]
+# Deterministic post-sync bump of the _meta.last_onboard.* keys on the
+# currently-checked-out memoir branch. No LLM work. Called by
+# /memoir-sync-branch after the merge step so the metadata stays truthful
+# even when the user hasn't re-run /memoir-onboard yet; the narrative keys
+# (structure.*, goal.*, …) are left alone.
+#
+# A missing code_sha is a no-op; a missing memoir_sha skips just that key.
+update_onboard_meta_after_sync() {
+  local code_sha="$1" memoir_sha="${2:-}"
+  [ -z "$MEMOIR_CMD" ] && return 0
+  [ ! -d "$MEMOIR_STORE_PATH/.git" ] && return 0
+  [ -z "$code_sha" ] && return 0
+  local date_iso
+  date_iso=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  "${MEMOIR_CMD_ARGV[@]}" -s "$MEMOIR_STORE_PATH" remember "$code_sha"  -p _meta.last_onboard.commit -n codebase:onboard >/dev/null 2>&1 || true
+  "${MEMOIR_CMD_ARGV[@]}" -s "$MEMOIR_STORE_PATH" remember "$date_iso"  -p _meta.last_onboard.date   -n codebase:onboard >/dev/null 2>&1 || true
+  if [ -n "$memoir_sha" ]; then
+    "${MEMOIR_CMD_ARGV[@]}" -s "$MEMOIR_STORE_PATH" remember "$memoir_sha" -p _meta.last_onboard.memoir_commit -n codebase:onboard >/dev/null 2>&1 || true
+  fi
+  return 0
+}
