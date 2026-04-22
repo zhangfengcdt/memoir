@@ -55,7 +55,7 @@ class TestTaxonomyLoaderIntegration:
 
         descriptions = loader.get_descriptions_from_store()
 
-        assert len(descriptions) == 16  # 16 categories
+        assert len(descriptions) == 17  # 17 categories (v1.1.0 taxonomy)
         assert "profile" in descriptions
         assert "preferences" in descriptions
 

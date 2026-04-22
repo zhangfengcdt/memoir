@@ -273,7 +273,7 @@ class TestTaxonomyRegistry:
         registry.load_builtin()
 
         descriptions = registry.get_combined_descriptions()
-        assert len(descriptions) == 16  # 16 categories
+        assert len(descriptions) == 17  # 17 categories (v1.1.0 taxonomy)
         assert "profile" in descriptions
         assert "preferences" in descriptions
 
