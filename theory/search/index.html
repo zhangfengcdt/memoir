@@ -1044,6 +1044,100 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#caller-driven-tiered-retrieval" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Caller-Driven Tiered Retrieval
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Caller-Driven Tiered Retrieval">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#primitives" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Primitives
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-four-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The four modes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#drill-down-walkthrough" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Drill-down walkthrough
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-the-outer-llm-is-the-better-picker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why the outer LLM is the better picker
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#performance-characteristics_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Characteristics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use-which-entry-point" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to use which entry point
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#design-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design references
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -1285,6 +1379,17 @@
         
       </ul>
     </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#reference-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reference Files
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1994,6 +2099,100 @@
   
 </li>
         
+          <li class="md-nav__item">
+  <a href="#caller-driven-tiered-retrieval" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Caller-Driven Tiered Retrieval
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Caller-Driven Tiered Retrieval">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#primitives" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Primitives
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#the-four-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The four modes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#drill-down-walkthrough" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Drill-down walkthrough
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#why-the-outer-llm-is-the-better-picker" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Why the outer LLM is the better picker
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#performance-characteristics_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Performance Characteristics
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#when-to-use-which-entry-point" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        When to use which entry point
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#design-references" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Design references
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
       </ul>
     </nav>
   
@@ -2239,6 +2438,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#reference-files" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Reference Files
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#conclusion" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2276,8 +2486,16 @@
 
 <h1 id="memoir-search-theory-architecture">Memoir Search Theory &amp; Architecture<a class="headerlink" href="#memoir-search-theory-architecture" title="Permanent link">&para;</a></h1>
 <h2 id="executive-summary">Executive Summary<a class="headerlink" href="#executive-summary" title="Permanent link">&para;</a></h2>
-<p>The Memoir project implements an LLM-powered search engine for retrieving memories from semantic taxonomy paths:</p>
-<p><strong>IntelligentSearchEngine</strong>: An LLM-powered search engine that intelligently selects relevant memory paths before retrieval.</p>
+<p>Memoir exposes two retrieval entry points that share the same taxonomy-structured store:</p>
+<ul>
+<li>
+<p><strong><code>IntelligentSearchEngine</code></strong> (in-engine, LLM-powered): a single LLM call selects relevant taxonomy paths and returns their memories. Used when the caller does not have its own LLM — e.g. direct SDK usage, non-agent scripts. Total latency ~500–800ms.</p>
+</li>
+<li>
+<p><strong>Caller-driven tiered retrieval</strong> (out-of-engine, LLM-free): the primitives <code>summarize --depth N</code> and <code>get</code> let an outer LLM (the Claude Code <code>memory-recall</code> skill is the canonical example) drive its own drill-down — <strong>no LLM call inside memoir</strong>. Latency is tens to hundreds of ms because no model inference happens on the retrieval side.</p>
+</li>
+</ul>
+<p>Both paths exploit pre-classified semantic paths for O(log n)-shaped lookups instead of O(n) similarity search. Where the path picker sits — inside the engine vs. outside in the calling agent — is a factoring choice, not an algorithmic one.</p>
 <h2 id="core-problem-statement">Core Problem Statement<a class="headerlink" href="#core-problem-statement" title="Permanent link">&para;</a></h2>
 <p>Traditional AI memory systems suffer from fundamental search inefficiencies:</p>
 <ul>
@@ -2294,16 +2512,18 @@
 </ul>
 <h2 id="search-philosophy">Search Philosophy<a class="headerlink" href="#search-philosophy" title="Permanent link">&para;</a></h2>
 <h3 id="key-innovation">Key Innovation<a class="headerlink" href="#key-innovation" title="Permanent link">&para;</a></h3>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Traditional: query → embedding → O(n) similarity search → ranked results
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>Memoir:      query → path selection → O(log n) retrieval → filtered results
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Traditional:             query → embedding → O(n) similarity search → ranked results
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>Memoir (in-engine):      query → LLM path selection → O(log n) retrieval → filtered results
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>Memoir (caller-driven):  query → caller-LLM picks prefix → summarize --depth N → get
 </span></code></pre></div>
-<p>The search system exploits the pre-classified semantic structure to:</p>
+<p>Both memoir modes exploit pre-classified semantic structure to:</p>
 <ul>
 <li><strong>Reduce Search Space</strong>: Focus only on relevant taxonomy branches</li>
 <li><strong>Improve Interpretability</strong>: Clear path-based result organization</li>
 <li><strong>Enable Prefix Queries</strong>: Efficient hierarchical exploration</li>
 <li><strong>Leverage LLM Understanding</strong>: True semantic query comprehension</li>
 </ul>
+<p>The caller-driven mode additionally avoids a second LLM inside memoir when the caller is itself an LLM — the outer model already has the query plus session context and is a strictly better picker than a fresh in-engine pass.</p>
 <h2 id="architecture-overview">Architecture Overview<a class="headerlink" href="#architecture-overview" title="Permanent link">&para;</a></h2>
 <h3 id="intelligentsearchengine">IntelligentSearchEngine<a class="headerlink" href="#intelligentsearchengine" title="Permanent link">&para;</a></h3>
 <h4 id="design-goals">Design Goals<a class="headerlink" href="#design-goals" title="Permanent link">&para;</a></h4>
@@ -2402,104 +2622,251 @@
 - Higher latency (LLM dependency)
 - Costs associated with LLM usage
 - Non-deterministic results
-- Requires online LLM access</p>
+- Requires online LLM access
+- Picker sees only the query string — not the caller's conversational context</p>
+<h3 id="caller-driven-tiered-retrieval">Caller-Driven Tiered Retrieval<a class="headerlink" href="#caller-driven-tiered-retrieval" title="Permanent link">&para;</a></h3>
+<p>When the caller is itself an LLM (e.g. the Claude Code <code>memory-recall</code> skill, agentic tool-use clients), running a second LLM inside memoir to pick paths is wasteful — the outer model already reads the query plus full session context and can pick better than a context-free in-engine pass. The caller-driven pipeline exposes raw primitives and lets the outer LLM drive the drill-down.</p>
+<h4 id="primitives">Primitives<a class="headerlink" href="#primitives" title="Permanent link">&para;</a></h4>
+<p>Three LLM-free CLI commands compose into every retrieval shape:</p>
+<ul>
+<li><strong><code>memoir summarize --depth N [--keys &lt;pattern&gt;]</code></strong> — groups taxonomy keys by the first <code>N</code> dot-separated segments and emits a <code>prefix_counts</code> histogram. <code>N=1</code> gives the L1 layout (typically 5–15 prefixes); deeper <code>N</code> drills further. Composable with <code>--keys &lt;pattern&gt;</code> for scoped surveys (<code>--keys "preferences.*" --depth 2</code> gives the L2 breakdown under <code>preferences</code>).</li>
+<li><em>Implementation</em>: <code>src/memoir/cli/commands/analysis.py</code> — <code>_filter_keys</code> (fnmatch) + <code>_group_by_depth</code>.</li>
+<li>
+<p><em>Cost</em>: pure taxonomy scan, no LLM. ~100ms on a mid-sized store.</p>
+</li>
+<li>
+<p><strong><code>memoir get &lt;key&gt; [&lt;key&gt;...] [-n &lt;namespace&gt;]</code></strong> — batched exact-path lookup. Missing keys return <code>found: false</code> rather than erroring, so the caller can include speculative candidates without branching logic.</p>
+</li>
+<li><em>Implementation</em>: <code>src/memoir/cli/commands/memory.py</code> + <code>src/memoir/services/memory_service.py</code>.</li>
+<li>
+<p><em>Cost</em>: &lt;10ms for a batched lookup (merkle-tree point queries).</p>
+</li>
+<li>
+<p><strong><code>memoir blame &lt;path&gt; -l N</code></strong> / <strong><code>memoir diff &lt;a&gt; &lt;b&gt;</code></strong> — escalations for history / cross-commit questions. Not on the hot path.</p>
+</li>
+</ul>
+<h4 id="the-four-modes">The four modes<a class="headerlink" href="#the-four-modes" title="Permanent link">&para;</a></h4>
+<p>Every response from the caller-driven path prefixes a <strong>mode marker</strong> so the cost/correctness trade-off is visible in the transcript:</p>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>Trigger</th>
+<th>Flow</th>
+<th>Typical cost</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>[mode=get]</code></td>
+<td>Query already names a path</td>
+<td>direct <code>get</code></td>
+<td>&lt;10ms</td>
+</tr>
+<tr>
+<td><code>[mode=flat]</code></td>
+<td>A single glob covers the scope (e.g. <code>*.testing.*</code>, <code>*pytest*</code>)</td>
+<td><code>summarize --keys &lt;pattern&gt;</code> → pick → <code>get</code></td>
+<td>~100ms</td>
+</tr>
+<tr>
+<td><code>[mode=drill]</code></td>
+<td>Open-ended query (the default)</td>
+<td><code>summarize --depth 1</code> → pick 2–4 L1 prefixes → <code>summarize --keys "&lt;L1&gt;.*"</code> → (optional depth-2 escalation when an L1 has &gt; 40 keys) → <code>get</code></td>
+<td>~200–300ms</td>
+</tr>
+<tr>
+<td><code>[mode=blame]</code> / <code>[mode=diff]</code></td>
+<td>Provenance or cross-commit/branch question</td>
+<td>run <code>drill</code> first to identify keys, then <code>blame -l N</code> or <code>diff &lt;a&gt; &lt;b&gt;</code></td>
+<td>+100ms on top of drill</td>
+</tr>
+</tbody>
+</table>
+<p>Markers combine when paths chain (<code>[mode=drill+blame]</code>). The legacy LLM-bundled path is tagged <code>[mode=recall-legacy]</code> and is explicitly discouraged for agent callers.</p>
+<h4 id="drill-down-walkthrough">Drill-down walkthrough<a class="headerlink" href="#drill-down-walkthrough" title="Permanent link">&para;</a></h4>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>query: &quot;what&#39;s my testing setup?&quot;
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>1. summarize --depth 1 -n default
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>   → prefix_counts: { preferences: 28, context: 25, workflow: 24, routine: 8, ... }
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>2. Caller-LLM picks: [preferences, workflow, routine]
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>   (all plausibly host testing-related facts)
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>3. For each pick, summarize --keys &quot;&lt;prefix&gt;.*&quot;:
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a>   - preferences.coding.testing, preferences.tools.testing, preferences.work.testing
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>   - workflow.coding.testing, workflow.automation.testing
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a>   - routine.coding.testing
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>4. Caller-LLM picks 3–7 exact keys. Batched get:
+</span><span id="__span-5-15"><a id="__codelineno-5-15" name="__codelineno-5-15" href="#__codelineno-5-15"></a>   memoir get preferences.coding.testing preferences.tools.testing \
+</span><span id="__span-5-16"><a id="__codelineno-5-16" name="__codelineno-5-16" href="#__codelineno-5-16"></a>               workflow.coding.testing routine.coding.testing
+</span><span id="__span-5-17"><a id="__codelineno-5-17" name="__codelineno-5-17" href="#__codelineno-5-17"></a>   → 4 items, each with value.content populated.
+</span><span id="__span-5-18"><a id="__codelineno-5-18" name="__codelineno-5-18" href="#__codelineno-5-18"></a>
+</span><span id="__span-5-19"><a id="__codelineno-5-19" name="__codelineno-5-19" href="#__codelineno-5-19"></a>5. Response: &quot;[mode=drill]\n\n- You use pytest over unittest ...&quot;
+</span></code></pre></div>
+<p>No LLM call on memoir's side anywhere in this flow. Total wall-time is dominated by CLI startup + the three <code>summarize</code> invocations.</p>
+<h4 id="why-the-outer-llm-is-the-better-picker">Why the outer LLM is the better picker<a class="headerlink" href="#why-the-outer-llm-is-the-better-picker" title="Permanent link">&para;</a></h4>
+<ul>
+<li>It sees the full query plus conversational context; the in-engine picker sees only the query string.</li>
+<li>It can make ambiguity-aware calls (fetch from 2–4 plausible prefixes, discard irrelevant results downstream) without a second round trip.</li>
+<li>It avoids the latency + token cost of a nested LLM invocation.</li>
+<li>The contract is minimal — three CLI commands, stable JSON shape — so any agent framework can consume it.</li>
+</ul>
+<h4 id="performance-characteristics_1">Performance Characteristics<a class="headerlink" href="#performance-characteristics_1" title="Permanent link">&para;</a></h4>
+<table>
+<thead>
+<tr>
+<th>Mode</th>
+<th>LLM calls in memoir</th>
+<th>Typical wall time</th>
+<th>Network dependence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>IntelligentSearchEngine</code> (classic)</td>
+<td>1 (path selection)</td>
+<td>500–800ms</td>
+<td>Requires online LLM</td>
+</tr>
+<tr>
+<td><code>[mode=get]</code></td>
+<td>0</td>
+<td>&lt;10ms</td>
+<td>Local only</td>
+</tr>
+<tr>
+<td><code>[mode=flat]</code></td>
+<td>0</td>
+<td>~100ms</td>
+<td>Local only</td>
+</tr>
+<tr>
+<td><code>[mode=drill]</code></td>
+<td>0</td>
+<td>~200–300ms</td>
+<td>Local only</td>
+</tr>
+<tr>
+<td><code>[mode=blame]</code> / <code>[mode=diff]</code></td>
+<td>0</td>
+<td>+100ms</td>
+<td>Local only</td>
+</tr>
+</tbody>
+</table>
+<p>The caller-driven modes consume zero memoir-side tokens. Tokens spent by the outer LLM to do the picking are amortized against conversational context it already has loaded — effectively free at the margin.</p>
+<h4 id="when-to-use-which-entry-point">When to use which entry point<a class="headerlink" href="#when-to-use-which-entry-point" title="Permanent link">&para;</a></h4>
+<ul>
+<li><strong>SDK / non-LLM caller (scripts, direct Python use)</strong> → <code>IntelligentSearchEngine</code> — memoir does the picking.</li>
+<li><strong>Agent caller with its own LLM (Claude Code, agentic clients)</strong> → caller-driven drill-down — skip the nested LLM call.</li>
+<li><strong>Narrow lookup (known path, obvious pattern)</strong> → <code>[mode=get]</code> or <code>[mode=flat]</code>; the outer LLM decides.</li>
+<li><strong>Open-ended or ambiguous query</strong> → <code>[mode=drill]</code>; escalate to <code>blame</code> / <code>diff</code> only for explicit provenance questions.</li>
+</ul>
+<h4 id="design-references">Design references<a class="headerlink" href="#design-references" title="Permanent link">&para;</a></h4>
+<ul>
+<li><code>plugins/claude-code/skills/memory-recall/SKILL.md</code> — canonical caller contract, decision rules, and mode-marker convention.</li>
+<li><code>plugins/claude-code/commands/memoir-get.md</code> — slash-command surface for <code>get</code>.</li>
+<li><code>plugins/claude-code/hooks/user-prompt-submit.sh</code> — SessionStart nudge that steers the outer LLM toward recall on non-trivial prompts.</li>
+</ul>
 <h2 id="advanced-search-patterns">Advanced Search Patterns<a class="headerlink" href="#advanced-search-patterns" title="Permanent link">&para;</a></h2>
 <h3 id="1-hierarchical-prefix-search">1. Hierarchical Prefix Search<a class="headerlink" href="#1-hierarchical-prefix-search" title="Permanent link">&para;</a></h3>
 <p>Exploit path structure for exploration:
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Search all memories under a path prefix</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">prefix</span> <span class="o">=</span> <span class="s2">&quot;profile.professional&quot;</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="n">memories</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">search_prefix</span><span class="p">(</span><span class="n">namespace</span><span class="p">,</span> <span class="n">prefix</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Search all memories under a path prefix</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">prefix</span> <span class="o">=</span> <span class="s2">&quot;profile.professional&quot;</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">memories</span> <span class="o">=</span> <span class="n">store</span><span class="o">.</span><span class="n">search_prefix</span><span class="p">(</span><span class="n">namespace</span><span class="p">,</span> <span class="n">prefix</span><span class="p">)</span>
 </span></code></pre></div></p>
 <h3 id="2-multi-namespace-search">2. Multi-Namespace Search<a class="headerlink" href="#2-multi-namespace-search" title="Permanent link">&para;</a></h3>
 <p>Search across multiple user namespaces:
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">namespaces</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;user:alice&quot;</span><span class="p">,</span> <span class="s2">&quot;user:bob&quot;</span><span class="p">,</span> <span class="s2">&quot;shared:team&quot;</span><span class="p">]</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="k">for</span> <span class="n">ns</span> <span class="ow">in</span> <span class="n">namespaces</span><span class="p">:</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>    <span class="n">results</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">engine</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">ns</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="mi">3</span><span class="p">))</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">namespaces</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;user:alice&quot;</span><span class="p">,</span> <span class="s2">&quot;user:bob&quot;</span><span class="p">,</span> <span class="s2">&quot;shared:team&quot;</span><span class="p">]</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="k">for</span> <span class="n">ns</span> <span class="ow">in</span> <span class="n">namespaces</span><span class="p">:</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">results</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">engine</span><span class="o">.</span><span class="n">search</span><span class="p">(</span><span class="n">query</span><span class="p">,</span> <span class="n">ns</span><span class="p">,</span> <span class="n">limit</span><span class="o">=</span><span class="mi">3</span><span class="p">))</span>
 </span></code></pre></div></p>
 <h3 id="3-temporal-search">3. Temporal Search<a class="headerlink" href="#3-temporal-search" title="Permanent link">&para;</a></h3>
 <p>Combine with version control for time-based queries:
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Search at specific commit/timestamp</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">historical_results</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">search</span><span class="p">(</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>    <span class="n">query</span><span class="p">,</span> <span class="n">namespace</span><span class="p">,</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>    <span class="n">at_commit</span><span class="o">=</span><span class="s2">&quot;abc123&quot;</span>  <span class="c1"># Git-like time travel</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Search at specific commit/timestamp</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">historical_results</span> <span class="o">=</span> <span class="n">engine</span><span class="o">.</span><span class="n">search</span><span class="p">(</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">query</span><span class="p">,</span> <span class="n">namespace</span><span class="p">,</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">at_commit</span><span class="o">=</span><span class="s2">&quot;abc123&quot;</span>  <span class="c1"># Git-like time travel</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="p">)</span>
 </span></code></pre></div></p>
 <h3 id="4-person-filtered-search">4. Person-Filtered Search<a class="headerlink" href="#4-person-filtered-search" title="Permanent link">&para;</a></h3>
 <p>Filter results by person context:
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Search only memories related to a specific person</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">engine</span><span class="o">.</span><span class="n">search</span><span class="p">(</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>    <span class="n">query</span><span class="o">=</span><span class="s2">&quot;favorite food&quot;</span><span class="p">,</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>    <span class="n">namespace</span><span class="o">=</span><span class="s2">&quot;user123&quot;</span><span class="p">,</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>    <span class="n">person_filter</span><span class="o">=</span><span class="s2">&quot;john&quot;</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Search only memories related to a specific person</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">results</span> <span class="o">=</span> <span class="k">await</span> <span class="n">engine</span><span class="o">.</span><span class="n">search</span><span class="p">(</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>    <span class="n">query</span><span class="o">=</span><span class="s2">&quot;favorite food&quot;</span><span class="p">,</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="n">namespace</span><span class="o">=</span><span class="s2">&quot;user123&quot;</span><span class="p">,</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="n">person_filter</span><span class="o">=</span><span class="s2">&quot;john&quot;</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="p">)</span>
 </span></code></pre></div></p>
 <h2 id="performance-optimization-strategies">Performance Optimization Strategies<a class="headerlink" href="#performance-optimization-strategies" title="Permanent link">&para;</a></h2>
 <h3 id="1-search-result-caching">1. Search Result Caching<a class="headerlink" href="#1-search-result-caching" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Cache search results by query + namespace</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">cache_key</span> <span class="o">=</span> <span class="nb">hash</span><span class="p">(</span><span class="n">query</span> <span class="o">+</span> <span class="n">namespace</span><span class="p">)</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="k">if</span> <span class="n">cache_key</span> <span class="ow">in</span> <span class="n">search_cache</span><span class="p">:</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>    <span class="k">return</span> <span class="n">search_cache</span><span class="p">[</span><span class="n">cache_key</span><span class="p">]</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Cache search results by query + namespace</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">cache_key</span> <span class="o">=</span> <span class="nb">hash</span><span class="p">(</span><span class="n">query</span> <span class="o">+</span> <span class="n">namespace</span><span class="p">)</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="k">if</span> <span class="n">cache_key</span> <span class="ow">in</span> <span class="n">search_cache</span><span class="p">:</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="k">return</span> <span class="n">search_cache</span><span class="p">[</span><span class="n">cache_key</span><span class="p">]</span>
 </span></code></pre></div>
 <h3 id="2-path-index-precomputation">2. Path Index Precomputation<a class="headerlink" href="#2-path-index-precomputation" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="c1"># Precompute path -&gt; memory count mapping</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">path_index</span> <span class="o">=</span> <span class="p">{}</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">all_memories</span><span class="p">:</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>    <span class="n">path_index</span><span class="p">[</span><span class="n">path</span><span class="p">]</span> <span class="o">=</span> <span class="n">path_index</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Precompute path -&gt; memory count mapping</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">path_index</span> <span class="o">=</span> <span class="p">{}</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">path</span><span class="p">,</span> <span class="n">data</span> <span class="ow">in</span> <span class="n">all_memories</span><span class="p">:</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="n">path_index</span><span class="p">[</span><span class="n">path</span><span class="p">]</span> <span class="o">=</span> <span class="n">path_index</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="o">+</span> <span class="mi">1</span>
 </span></code></pre></div>
 <h3 id="3-parallel-path-retrieval">3. Parallel Path Retrieval<a class="headerlink" href="#3-parallel-path-retrieval" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Retrieve from multiple paths concurrently</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">parallel_retrieval</span><span class="p">(</span><span class="n">paths</span><span class="p">):</span>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>    <span class="n">tasks</span> <span class="o">=</span> <span class="p">[</span><span class="n">retrieve_path</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">paths</span><span class="p">]</span>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="k">return</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="o">*</span><span class="n">tasks</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Retrieve from multiple paths concurrently</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">parallel_retrieval</span><span class="p">(</span><span class="n">paths</span><span class="p">):</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>    <span class="n">tasks</span> <span class="o">=</span> <span class="p">[</span><span class="n">retrieve_path</span><span class="p">(</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">paths</span><span class="p">]</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="k">return</span> <span class="k">await</span> <span class="n">asyncio</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="o">*</span><span class="n">tasks</span><span class="p">)</span>
 </span></code></pre></div>
 <h3 id="4-progressive-result-loading">4. Progressive Result Loading<a class="headerlink" href="#4-progressive-result-loading" title="Permanent link">&para;</a></h3>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Return results as they&#39;re found</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">streaming_search</span><span class="p">():</span>
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>    <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">selected_paths</span><span class="p">:</span>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>        <span class="n">memories</span> <span class="o">=</span> <span class="k">await</span> <span class="n">get_memories</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>        <span class="k">yield</span> <span class="n">memories</span>  <span class="c1"># Stream results</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Return results as they&#39;re found</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="k">async</span> <span class="k">def</span><span class="w"> </span><span class="nf">streaming_search</span><span class="p">():</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>    <span class="k">for</span> <span class="n">path</span> <span class="ow">in</span> <span class="n">selected_paths</span><span class="p">:</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>        <span class="n">memories</span> <span class="o">=</span> <span class="k">await</span> <span class="n">get_memories</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>        <span class="k">yield</span> <span class="n">memories</span>  <span class="c1"># Stream results</span>
 </span></code></pre></div>
 <h2 id="implementation-details">Implementation Details<a class="headerlink" href="#implementation-details" title="Permanent link">&para;</a></h2>
 <h3 id="memory-format-handling">Memory Format Handling<a class="headerlink" href="#memory-format-handling" title="Permanent link">&para;</a></h3>
 <p>The engine handles two memory formats:</p>
 <p><strong>Aggregated Memory Format</strong>:
-<div class="language-json highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="p">{</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="nt">&quot;memories&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;content&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;confidence&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.9</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;metadata&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}},</span>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;content&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;confidence&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.8</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;metadata&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}}</span>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">  </span><span class="p">],</span>
-</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="w">  </span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
-</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="w">  </span><span class="nt">&quot;last_updated&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2024-01-01&quot;</span>
-</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="p">}</span>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="p">{</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span><span class="nt">&quot;memories&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;content&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;confidence&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.9</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;metadata&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}},</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;content&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;confidence&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.8</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;metadata&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}}</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="w">  </span><span class="p">],</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="w">  </span><span class="nt">&quot;count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">2</span><span class="p">,</span>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="w">  </span><span class="nt">&quot;last_updated&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;2024-01-01&quot;</span>
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="p">}</span>
 </span></code></pre></div></p>
 <p><strong>Single Memory Format</strong>:
-<div class="language-json highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="p">{</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="w">  </span><span class="nt">&quot;content&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Memory content here&quot;</span><span class="p">,</span>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">  </span><span class="nt">&quot;confidence&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.95</span><span class="p">,</span>
-</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="w">  </span><span class="nt">&quot;metadata&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;source&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;conversation&quot;</span><span class="p">}</span>
-</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="p">}</span>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="p">{</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="w">  </span><span class="nt">&quot;content&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Memory content here&quot;</span><span class="p">,</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="w">  </span><span class="nt">&quot;confidence&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.95</span><span class="p">,</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="w">  </span><span class="nt">&quot;metadata&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span><span class="nt">&quot;source&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;conversation&quot;</span><span class="p">}</span>
+</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="p">}</span>
 </span></code></pre></div></p>
 <h3 id="search-result-structure">Search Result Structure<a class="headerlink" href="#search-result-structure" title="Permanent link">&para;</a></h3>
 <p>Results use a standardized structure:
-<div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="nd">@dataclass</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">IntelligentSearchResult</span><span class="p">:</span>
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>    <span class="n">path</span><span class="p">:</span> <span class="nb">str</span>              <span class="c1"># Semantic path</span>
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>    <span class="n">content</span><span class="p">:</span> <span class="nb">str</span>           <span class="c1"># Memory content</span>
-</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>    <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span>         <span class="c1"># Additional metadata</span>
-</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>    <span class="n">relevance_score</span><span class="p">:</span> <span class="nb">float</span> <span class="c1"># 0.0 to 1.0</span>
-</span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a>    <span class="n">namespace</span><span class="p">:</span> <span class="nb">str</span>         <span class="c1"># User namespace</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="nd">@dataclass</span>
+</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="k">class</span><span class="w"> </span><span class="nc">IntelligentSearchResult</span><span class="p">:</span>
+</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>    <span class="n">path</span><span class="p">:</span> <span class="nb">str</span>              <span class="c1"># Semantic path</span>
+</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a>    <span class="n">content</span><span class="p">:</span> <span class="nb">str</span>           <span class="c1"># Memory content</span>
+</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a>    <span class="n">metadata</span><span class="p">:</span> <span class="nb">dict</span>         <span class="c1"># Additional metadata</span>
+</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>    <span class="n">relevance_score</span><span class="p">:</span> <span class="nb">float</span> <span class="c1"># 0.0 to 1.0</span>
+</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a>    <span class="n">namespace</span><span class="p">:</span> <span class="nb">str</span>         <span class="c1"># User namespace</span>
 </span></code></pre></div></p>
 <h3 id="namespace-handling">Namespace Handling<a class="headerlink" href="#namespace-handling" title="Permanent link">&para;</a></h3>
 <p>Flexible namespace format support:
-<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="c1"># String format</span>
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="n">namespace</span> <span class="o">=</span> <span class="s2">&quot;user:alice&quot;</span>
-</span><span id="__span-16-3"><a id="__codelineno-16-3" name="__codelineno-16-3" href="#__codelineno-16-3"></a>
-</span><span id="__span-16-4"><a id="__codelineno-16-4" name="__codelineno-16-4" href="#__codelineno-16-4"></a><span class="c1"># Tuple format</span>
-</span><span id="__span-16-5"><a id="__codelineno-16-5" name="__codelineno-16-5" href="#__codelineno-16-5"></a><span class="n">namespace</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="s2">&quot;alice&quot;</span><span class="p">)</span>
-</span><span id="__span-16-6"><a id="__codelineno-16-6" name="__codelineno-16-6" href="#__codelineno-16-6"></a>
-</span><span id="__span-16-7"><a id="__codelineno-16-7" name="__codelineno-16-7" href="#__codelineno-16-7"></a><span class="c1"># Conversion</span>
-</span><span id="__span-16-8"><a id="__codelineno-16-8" name="__codelineno-16-8" href="#__codelineno-16-8"></a><span class="n">namespace_tuple</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">))</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-17-1"><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a><span class="c1"># String format</span>
+</span><span id="__span-17-2"><a id="__codelineno-17-2" name="__codelineno-17-2" href="#__codelineno-17-2"></a><span class="n">namespace</span> <span class="o">=</span> <span class="s2">&quot;user:alice&quot;</span>
+</span><span id="__span-17-3"><a id="__codelineno-17-3" name="__codelineno-17-3" href="#__codelineno-17-3"></a>
+</span><span id="__span-17-4"><a id="__codelineno-17-4" name="__codelineno-17-4" href="#__codelineno-17-4"></a><span class="c1"># Tuple format</span>
+</span><span id="__span-17-5"><a id="__codelineno-17-5" name="__codelineno-17-5" href="#__codelineno-17-5"></a><span class="n">namespace</span> <span class="o">=</span> <span class="p">(</span><span class="s2">&quot;user&quot;</span><span class="p">,</span> <span class="s2">&quot;alice&quot;</span><span class="p">)</span>
+</span><span id="__span-17-6"><a id="__codelineno-17-6" name="__codelineno-17-6" href="#__codelineno-17-6"></a>
+</span><span id="__span-17-7"><a id="__codelineno-17-7" name="__codelineno-17-7" href="#__codelineno-17-7"></a><span class="c1"># Conversion</span>
+</span><span id="__span-17-8"><a id="__codelineno-17-8" name="__codelineno-17-8" href="#__codelineno-17-8"></a><span class="n">namespace_tuple</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">))</span>
 </span></code></pre></div></p>
 <h2 id="future-enhancements">Future Enhancements<a class="headerlink" href="#future-enhancements" title="Permanent link">&para;</a></h2>
 <h3 id="planned-improvements">Planned Improvements<a class="headerlink" href="#planned-improvements" title="Permanent link">&para;</a></h3>
@@ -2565,22 +2932,78 @@
 <li>Semantic clustering of related memories</li>
 </ol>
 <h3 id="hierarchical-search-advantages">Hierarchical Search Advantages<a class="headerlink" href="#hierarchical-search-advantages" title="Permanent link">&para;</a></h3>
-<p>The semantic path structure enables:</p>
+<p>The semantic path structure supports O(log n)-shaped lookups via two concrete mechanisms exposed as CLI primitives:</p>
 <ol>
-<li><strong>Logarithmic Complexity</strong>: O(log n) path lookups vs O(n) scans</li>
-<li><strong>Semantic Clustering</strong>: Related memories naturally grouped</li>
-<li><strong>Progressive Refinement</strong>: Drill down through hierarchy</li>
-<li><strong>Faceted Search</strong>: Filter by path prefixes</li>
+<li>
+<p><strong>Prefix-indexed summarization</strong> — <code>summarize --depth N [--keys &lt;pattern&gt;]</code> groups keys by the first <code>N</code> segments in O(k) where <code>k</code> is the number of matching keys (always ≤ the full corpus). An L1 histogram is typically 5–15 entries, constant-sized from the caller's perspective regardless of how many memories exist. A depth-2 survey scoped to one L1 prefix is similarly bounded.</p>
+</li>
+<li>
+<p><strong>Exact-key batched <code>get</code></strong> — once the caller has picked keys, retrieval is O(1) per key in the underlying ProllyTree (merkle-tree point query). Batching amortizes CLI startup across 3–7 fetches.</p>
+</li>
 </ol>
+<p>The "log n" label is a <em>shape</em> claim rather than a strict complexity bound — typical queries touch one depth-1 histogram + one depth-2 survey + a handful of <code>get</code>s, which is bounded independently of corpus size for well-distributed taxonomies. The formal complexity depends on branching factor at each level; in practice, depth-3 is the ceiling because the taxonomy itself is capped at 3 levels.</p>
+<p>Additional benefits that fall out of the same structure:</p>
+<ul>
+<li><strong>Semantic Clustering</strong>: Related memories are naturally grouped at a common prefix.</li>
+<li><strong>Progressive Refinement</strong>: The caller drills only the prefixes that plausibly match, skipping irrelevant subtrees entirely.</li>
+<li><strong>Faceted Search</strong>: <code>--keys &lt;pattern&gt;</code> supports arbitrary glob filters (<code>preferences.coding.*</code>, <code>*testing*</code>, <code>context.project.*</code>) composable with <code>--depth N</code>.</li>
+<li><strong>Auditable decisions</strong>: Because mode markers (<code>[mode=get|flat|drill|blame|diff]</code>) tag every caller-driven response, the retrieval path taken is visible in the transcript — the search becomes debuggable post-hoc.</li>
+</ul>
+<h2 id="reference-files">Reference Files<a class="headerlink" href="#reference-files" title="Permanent link">&para;</a></h2>
+<p>Implementation entry points for the two retrieval paths:</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>File</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>IntelligentSearchEngine</code> (LLM-picker)</td>
+<td><code>src/memoir/search/intelligent.py</code></td>
+</tr>
+<tr>
+<td><code>summarize --depth N</code> (drill-down primitive)</td>
+<td><code>src/memoir/cli/commands/analysis.py</code></td>
+</tr>
+<tr>
+<td><code>get &lt;key&gt;...</code> (batched exact lookup)</td>
+<td><code>src/memoir/cli/commands/memory.py</code></td>
+</tr>
+<tr>
+<td><code>get</code> service layer</td>
+<td><code>src/memoir/services/memory_service.py</code></td>
+</tr>
+<tr>
+<td>Response shapes</td>
+<td><code>src/memoir/services/models.py</code></td>
+</tr>
+<tr>
+<td>Caller contract + mode markers</td>
+<td><code>plugins/claude-code/skills/memory-recall/SKILL.md</code></td>
+</tr>
+<tr>
+<td><code>get</code> slash command</td>
+<td><code>plugins/claude-code/commands/memoir-get.md</code></td>
+</tr>
+<tr>
+<td>Per-prompt recall nudge</td>
+<td><code>plugins/claude-code/hooks/user-prompt-submit.sh</code></td>
+</tr>
+<tr>
+<td><code>--depth</code> CLI tests</td>
+<td><code>tests/test_cli.py</code></td>
+</tr>
+</tbody>
+</table>
 <h2 id="conclusion">Conclusion<a class="headerlink" href="#conclusion" title="Permanent link">&para;</a></h2>
-<p>The Memoir search architecture demonstrates that effective memory retrieval doesn't require expensive vector similarity search. By leveraging semantic taxonomy paths and LLM-powered search, the system provides:</p>
+<p>The Memoir search architecture demonstrates that effective memory retrieval doesn't require expensive vector similarity search. By leveraging semantic taxonomy paths, the system provides two complementary paths that share the same substrate:</p>
 <ol>
-<li><strong>10-50x faster search</strong> than traditional vector approaches</li>
-<li><strong>Transparent, interpretable</strong> ranking mechanisms</li>
-<li><strong>True semantic understanding</strong> of query intent</li>
-<li><strong>Hierarchical exploration</strong> of memory spaces</li>
+<li><strong><code>IntelligentSearchEngine</code></strong> — a single LLM call picks paths for SDK-style callers that don't have their own model. 10–50x faster than vector approaches while preserving semantic understanding.</li>
+<li><strong>Caller-driven tiered retrieval</strong> — LLM-free primitives (<code>summarize --depth N</code>, <code>get</code>) let agentic callers drive the drill-down themselves. Zero memoir-side tokens, ~100–300ms wall time, fully auditable via mode markers.</li>
 </ol>
-<p>The key insight is that pre-classification into semantic paths transforms the search problem from finding needles in haystacks to navigating well-organized filing cabinets, fundamentally improving both performance and user experience.</p>
+<p>Both paths benefit from the same underlying insight: pre-classification into semantic paths transforms retrieval from finding needles in haystacks to navigating a well-organized filing cabinet. The choice between them is a factoring decision about where the picker lives — inside memoir for simple callers, outside in the calling agent when the caller is already an LLM with richer context.</p>
 
 
 
