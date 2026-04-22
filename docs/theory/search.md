@@ -2,9 +2,13 @@
 
 ## Executive Summary
 
-The Memoir project implements an LLM-powered search engine for retrieving memories from semantic taxonomy paths:
+Memoir exposes two retrieval entry points that share the same taxonomy-structured store:
 
-**IntelligentSearchEngine**: An LLM-powered search engine that intelligently selects relevant memory paths before retrieval.
+- **`IntelligentSearchEngine`** (in-engine, LLM-powered): a single LLM call selects relevant taxonomy paths and returns their memories. Used when the caller does not have its own LLM — e.g. direct SDK usage, non-agent scripts. Total latency ~500–800ms.
+
+- **Caller-driven tiered retrieval** (out-of-engine, LLM-free): the primitives `summarize --depth N` and `get` let an outer LLM (the Claude Code `memory-recall` skill is the canonical example) drive its own drill-down — **no LLM call inside memoir**. Latency is tens to hundreds of ms because no model inference happens on the retrieval side.
+
+Both paths exploit pre-classified semantic paths for O(log n)-shaped lookups instead of O(n) similarity search. Where the path picker sits — inside the engine vs. outside in the calling agent — is a factoring choice, not an algorithmic one.
 
 ## Core Problem Statement
 
@@ -25,16 +29,19 @@ Memoir solves this through **hierarchical semantic search** where:
 
 ### Key Innovation
 ```
-Traditional: query → embedding → O(n) similarity search → ranked results
-Memoir:      query → path selection → O(log n) retrieval → filtered results
+Traditional:             query → embedding → O(n) similarity search → ranked results
+Memoir (in-engine):      query → LLM path selection → O(log n) retrieval → filtered results
+Memoir (caller-driven):  query → caller-LLM picks prefix → summarize --depth N → get
 ```
 
-The search system exploits the pre-classified semantic structure to:
+Both memoir modes exploit pre-classified semantic structure to:
 
 - **Reduce Search Space**: Focus only on relevant taxonomy branches
 - **Improve Interpretability**: Clear path-based result organization
 - **Enable Prefix Queries**: Efficient hierarchical exploration
 - **Leverage LLM Understanding**: True semantic query comprehension
+
+The caller-driven mode additionally avoids a second LLM inside memoir when the caller is itself an LLM — the outer model already has the query plus session context and is a strictly better picker than a fresh in-engine pass.
 
 ## Architecture Overview
 
@@ -150,6 +157,96 @@ except Exception as e:
 - Costs associated with LLM usage
 - Non-deterministic results
 - Requires online LLM access
+- Picker sees only the query string — not the caller's conversational context
+
+### Caller-Driven Tiered Retrieval
+
+When the caller is itself an LLM (e.g. the Claude Code `memory-recall` skill, agentic tool-use clients), running a second LLM inside memoir to pick paths is wasteful — the outer model already reads the query plus full session context and can pick better than a context-free in-engine pass. The caller-driven pipeline exposes raw primitives and lets the outer LLM drive the drill-down.
+
+#### Primitives
+
+Three LLM-free CLI commands compose into every retrieval shape:
+
+- **`memoir summarize --depth N [--keys <pattern>]`** — groups taxonomy keys by the first `N` dot-separated segments and emits a `prefix_counts` histogram. `N=1` gives the L1 layout (typically 5–15 prefixes); deeper `N` drills further. Composable with `--keys <pattern>` for scoped surveys (`--keys "preferences.*" --depth 2` gives the L2 breakdown under `preferences`).
+  - *Implementation*: `src/memoir/cli/commands/analysis.py` — `_filter_keys` (fnmatch) + `_group_by_depth`.
+  - *Cost*: pure taxonomy scan, no LLM. ~100ms on a mid-sized store.
+
+- **`memoir get <key> [<key>...] [-n <namespace>]`** — batched exact-path lookup. Missing keys return `found: false` rather than erroring, so the caller can include speculative candidates without branching logic.
+  - *Implementation*: `src/memoir/cli/commands/memory.py` + `src/memoir/services/memory_service.py`.
+  - *Cost*: <10ms for a batched lookup (merkle-tree point queries).
+
+- **`memoir blame <path> -l N`** / **`memoir diff <a> <b>`** — escalations for history / cross-commit questions. Not on the hot path.
+
+#### The four modes
+
+Every response from the caller-driven path prefixes a **mode marker** so the cost/correctness trade-off is visible in the transcript:
+
+| Mode | Trigger | Flow | Typical cost |
+|---|---|---|---|
+| `[mode=get]` | Query already names a path | direct `get` | <10ms |
+| `[mode=flat]` | A single glob covers the scope (e.g. `*.testing.*`, `*pytest*`) | `summarize --keys <pattern>` → pick → `get` | ~100ms |
+| `[mode=drill]` | Open-ended query (the default) | `summarize --depth 1` → pick 2–4 L1 prefixes → `summarize --keys "<L1>.*"` → (optional depth-2 escalation when an L1 has > 40 keys) → `get` | ~200–300ms |
+| `[mode=blame]` / `[mode=diff]` | Provenance or cross-commit/branch question | run `drill` first to identify keys, then `blame -l N` or `diff <a> <b>` | +100ms on top of drill |
+
+Markers combine when paths chain (`[mode=drill+blame]`). The legacy LLM-bundled path is tagged `[mode=recall-legacy]` and is explicitly discouraged for agent callers.
+
+#### Drill-down walkthrough
+
+```
+query: "what's my testing setup?"
+
+1. summarize --depth 1 -n default
+   → prefix_counts: { preferences: 28, context: 25, workflow: 24, routine: 8, ... }
+
+2. Caller-LLM picks: [preferences, workflow, routine]
+   (all plausibly host testing-related facts)
+
+3. For each pick, summarize --keys "<prefix>.*":
+   - preferences.coding.testing, preferences.tools.testing, preferences.work.testing
+   - workflow.coding.testing, workflow.automation.testing
+   - routine.coding.testing
+
+4. Caller-LLM picks 3–7 exact keys. Batched get:
+   memoir get preferences.coding.testing preferences.tools.testing \
+               workflow.coding.testing routine.coding.testing
+   → 4 items, each with value.content populated.
+
+5. Response: "[mode=drill]\n\n- You use pytest over unittest ..."
+```
+
+No LLM call on memoir's side anywhere in this flow. Total wall-time is dominated by CLI startup + the three `summarize` invocations.
+
+#### Why the outer LLM is the better picker
+
+- It sees the full query plus conversational context; the in-engine picker sees only the query string.
+- It can make ambiguity-aware calls (fetch from 2–4 plausible prefixes, discard irrelevant results downstream) without a second round trip.
+- It avoids the latency + token cost of a nested LLM invocation.
+- The contract is minimal — three CLI commands, stable JSON shape — so any agent framework can consume it.
+
+#### Performance Characteristics
+
+| Mode | LLM calls in memoir | Typical wall time | Network dependence |
+|---|---|---|---|
+| `IntelligentSearchEngine` (classic) | 1 (path selection) | 500–800ms | Requires online LLM |
+| `[mode=get]` | 0 | <10ms | Local only |
+| `[mode=flat]` | 0 | ~100ms | Local only |
+| `[mode=drill]` | 0 | ~200–300ms | Local only |
+| `[mode=blame]` / `[mode=diff]` | 0 | +100ms | Local only |
+
+The caller-driven modes consume zero memoir-side tokens. Tokens spent by the outer LLM to do the picking are amortized against conversational context it already has loaded — effectively free at the margin.
+
+#### When to use which entry point
+
+- **SDK / non-LLM caller (scripts, direct Python use)** → `IntelligentSearchEngine` — memoir does the picking.
+- **Agent caller with its own LLM (Claude Code, agentic clients)** → caller-driven drill-down — skip the nested LLM call.
+- **Narrow lookup (known path, obvious pattern)** → `[mode=get]` or `[mode=flat]`; the outer LLM decides.
+- **Open-ended or ambiguous query** → `[mode=drill]`; escalate to `blame` / `diff` only for explicit provenance questions.
+
+#### Design references
+
+- `plugins/claude-code/skills/memory-recall/SKILL.md` — canonical caller contract, decision rules, and mode-marker convention.
+- `plugins/claude-code/commands/memoir-get.md` — slash-command surface for `get`.
+- `plugins/claude-code/hooks/user-prompt-submit.sh` — SessionStart nudge that steers the outer LLM toward recall on non-trivial prompts.
 
 ## Advanced Search Patterns
 
@@ -330,20 +427,42 @@ The search engine implements concepts from:
 
 ### Hierarchical Search Advantages
 
-The semantic path structure enables:
+The semantic path structure supports O(log n)-shaped lookups via two concrete mechanisms exposed as CLI primitives:
 
-1. **Logarithmic Complexity**: O(log n) path lookups vs O(n) scans
-2. **Semantic Clustering**: Related memories naturally grouped
-3. **Progressive Refinement**: Drill down through hierarchy
-4. **Faceted Search**: Filter by path prefixes
+1. **Prefix-indexed summarization** — `summarize --depth N [--keys <pattern>]` groups keys by the first `N` segments in O(k) where `k` is the number of matching keys (always ≤ the full corpus). An L1 histogram is typically 5–15 entries, constant-sized from the caller's perspective regardless of how many memories exist. A depth-2 survey scoped to one L1 prefix is similarly bounded.
+
+2. **Exact-key batched `get`** — once the caller has picked keys, retrieval is O(1) per key in the underlying ProllyTree (merkle-tree point query). Batching amortizes CLI startup across 3–7 fetches.
+
+The "log n" label is a *shape* claim rather than a strict complexity bound — typical queries touch one depth-1 histogram + one depth-2 survey + a handful of `get`s, which is bounded independently of corpus size for well-distributed taxonomies. The formal complexity depends on branching factor at each level; in practice, depth-3 is the ceiling because the taxonomy itself is capped at 3 levels.
+
+Additional benefits that fall out of the same structure:
+
+- **Semantic Clustering**: Related memories are naturally grouped at a common prefix.
+- **Progressive Refinement**: The caller drills only the prefixes that plausibly match, skipping irrelevant subtrees entirely.
+- **Faceted Search**: `--keys <pattern>` supports arbitrary glob filters (`preferences.coding.*`, `*testing*`, `context.project.*`) composable with `--depth N`.
+- **Auditable decisions**: Because mode markers (`[mode=get|flat|drill|blame|diff]`) tag every caller-driven response, the retrieval path taken is visible in the transcript — the search becomes debuggable post-hoc.
+
+## Reference Files
+
+Implementation entry points for the two retrieval paths:
+
+| Component | File |
+|---|---|
+| `IntelligentSearchEngine` (LLM-picker) | `src/memoir/search/intelligent.py` |
+| `summarize --depth N` (drill-down primitive) | `src/memoir/cli/commands/analysis.py` |
+| `get <key>...` (batched exact lookup) | `src/memoir/cli/commands/memory.py` |
+| `get` service layer | `src/memoir/services/memory_service.py` |
+| Response shapes | `src/memoir/services/models.py` |
+| Caller contract + mode markers | `plugins/claude-code/skills/memory-recall/SKILL.md` |
+| `get` slash command | `plugins/claude-code/commands/memoir-get.md` |
+| Per-prompt recall nudge | `plugins/claude-code/hooks/user-prompt-submit.sh` |
+| `--depth` CLI tests | `tests/test_cli.py` |
 
 ## Conclusion
 
-The Memoir search architecture demonstrates that effective memory retrieval doesn't require expensive vector similarity search. By leveraging semantic taxonomy paths and LLM-powered search, the system provides:
+The Memoir search architecture demonstrates that effective memory retrieval doesn't require expensive vector similarity search. By leveraging semantic taxonomy paths, the system provides two complementary paths that share the same substrate:
 
-1. **10-50x faster search** than traditional vector approaches
-2. **Transparent, interpretable** ranking mechanisms
-3. **True semantic understanding** of query intent
-4. **Hierarchical exploration** of memory spaces
+1. **`IntelligentSearchEngine`** — a single LLM call picks paths for SDK-style callers that don't have their own model. 10–50x faster than vector approaches while preserving semantic understanding.
+2. **Caller-driven tiered retrieval** — LLM-free primitives (`summarize --depth N`, `get`) let agentic callers drive the drill-down themselves. Zero memoir-side tokens, ~100–300ms wall time, fully auditable via mode markers.
 
-The key insight is that pre-classification into semantic paths transforms the search problem from finding needles in haystacks to navigating well-organized filing cabinets, fundamentally improving both performance and user experience.
+Both paths benefit from the same underlying insight: pre-classification into semantic paths transforms retrieval from finding needles in haystacks to navigating a well-organized filing cabinet. The choice between them is a factoring decision about where the picker lives — inside memoir for simple callers, outside in the calling agent when the caller is already an LLM with richer context.
