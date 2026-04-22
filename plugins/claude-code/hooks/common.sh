@@ -193,7 +193,7 @@ ensure_store() {
   return 0
 }
 
-# --- project-local custom taxonomy auto-discovery ---
+# --- custom taxonomy auto-discovery (global + project-local) ---
 
 # _project_root — resolve the project root the same way derive-store-path.sh
 # does: prefer the git toplevel, fall back to CWD. Kept identical so that
@@ -209,39 +209,62 @@ _project_root() {
   fi
 }
 
-# load_project_custom_taxonomy — on first store creation, discover and load
-# any markdown taxonomy files under <project-root>/.memoir/taxonomy/*.md into
-# the freshly created store. Each file is loaded via `memoir taxonomy load`,
-# which appends to (not replaces) the builtin taxonomy already installed by
-# `memoir new --taxonomy-builtin`. Best-effort: per-file failures are
-# silently swallowed so a broken custom file never blocks auto-capture.
+# _load_taxonomy_dir <dir> — scan <dir> for *.md files and load each via
+# `memoir taxonomy load`. Best-effort: per-file failures don't abort.
+# Writes two integers on stdout separated by a space: "<loaded> <failed>".
+# Absent/empty directory is a silent no-op returning "0 0".
+_load_taxonomy_dir() {
+  local dir="$1"
+  local loaded=0 failed=0 f
+  if [ -d "$dir" ]; then
+    shopt -s nullglob
+    for f in "$dir"/*.md; do
+      if "${MEMOIR_CMD_ARGV[@]}" -s "$MEMOIR_STORE_PATH" taxonomy load "$f" >/dev/null 2>&1; then
+        loaded=$((loaded + 1))
+      else
+        failed=$((failed + 1))
+      fi
+    done
+    shopt -u nullglob
+  fi
+  printf '%d %d' "$loaded" "$failed"
+}
+
+# load_custom_taxonomy_files — on first store creation, discover and load
+# any markdown taxonomy files from two locations, in this order:
+#
+#   1. ~/.memoir/taxonomy/*.md                    — user-global taxonomies
+#   2. <project-root>/.memoir/taxonomy/*.md       — project-specific
+#
+# Each file is appended to the store via `memoir taxonomy load`, on top of
+# the builtin taxonomy already installed by `memoir new --taxonomy-builtin`.
+# Project-local files load *after* global, so they can introduce narrower
+# or overriding taxonomies for this particular repo.
 #
 # Intentionally one-shot — callers gate on MEMOIR_STORE_WAS_CREATED=1 so we
 # do not re-run on every session. Users who edit their custom taxonomy
 # after store creation must reload manually via `memoir taxonomy load` or
 # by deleting the store.
-load_project_custom_taxonomy() {
+load_custom_taxonomy_files() {
   [ -z "$MEMOIR_CMD" ] && return 0
   [ ! -d "$MEMOIR_STORE_PATH/.git" ] && return 0
-  local root dir
-  root=$(_project_root)
-  dir="$root/.memoir/taxonomy"
-  [ -d "$dir" ] || return 0
-  local loaded=0 failed=0 f
-  # Bash globs return the literal pattern when nothing matches; guard with nullglob.
-  shopt -s nullglob
-  for f in "$dir"/*.md; do
-    if "${MEMOIR_CMD_ARGV[@]}" -s "$MEMOIR_STORE_PATH" taxonomy load "$f" >/dev/null 2>&1; then
-      loaded=$((loaded + 1))
-    else
-      failed=$((failed + 1))
-    fi
+
+  local total_loaded=0 total_failed=0
+  local global_dir="$HOME/.memoir/taxonomy"
+  local project_dir
+  project_dir="$(_project_root)/.memoir/taxonomy"
+
+  local result loaded failed
+  for dir in "$global_dir" "$project_dir"; do
+    result=$(_load_taxonomy_dir "$dir")
+    loaded=${result% *}
+    failed=${result#* }
+    total_loaded=$((total_loaded + loaded))
+    total_failed=$((total_failed + failed))
   done
-  shopt -u nullglob
-  # Echo a compact summary for the caller to optionally surface; nothing
-  # happens if the caller ignores stdout.
-  if [ "$loaded" -gt 0 ] || [ "$failed" -gt 0 ]; then
-    printf '%s' "loaded=${loaded} failed=${failed}"
+
+  if [ "$total_loaded" -gt 0 ] || [ "$total_failed" -gt 0 ]; then
+    printf '%s' "loaded=${total_loaded} failed=${total_failed}"
   fi
 }
 
