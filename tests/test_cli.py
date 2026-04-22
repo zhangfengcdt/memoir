@@ -339,6 +339,97 @@ class TestAnalysisCommands:
         data = json.loads(result.output)
         assert isinstance(data, dict)
 
+    def test_summarize_depth_rejects_zero(self, runner, initialized_store):
+        """--depth 0 must fail fast — depth is 1-indexed."""
+        result = runner.invoke(
+            cli, ["-s", initialized_store, "summarize", "--depth", "0"]
+        )
+        assert result.exit_code != 0
+
+    def test_summarize_depth_json_shape(self, runner, initialized_store):
+        """--depth adds depth + prefix_counts to JSON; omitted otherwise."""
+        result = runner.invoke(
+            cli, ["--json", "-s", initialized_store, "summarize", "--depth", "1"]
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["depth"] == 1
+        assert "prefix_counts" in data
+        assert isinstance(data["prefix_counts"], dict)
+
+        # Without --depth, those keys must not appear.
+        result = runner.invoke(cli, ["--json", "-s", initialized_store, "summarize"])
+        data = json.loads(result.output)
+        assert "depth" not in data
+        assert "prefix_counts" not in data
+
+    def test_summarize_depth_groups_keys(self, monkeypatch, runner, initialized_store):
+        """--depth groups keys by first N segments and returns counts per namespace."""
+        from memoir.services.store_service import StoreService
+
+        fake = {
+            "namespaces": {
+                "default": [
+                    "preferences.coding.style",
+                    "preferences.coding.languages",
+                    "preferences.tools.cli",
+                    "profile.professional.skills",
+                    "toplevel",
+                ]
+            }
+        }
+        monkeypatch.setattr(StoreService, "read_store", lambda self: fake)
+
+        result = runner.invoke(
+            cli, ["--json", "-s", initialized_store, "summarize", "--depth", "1"]
+        )
+        assert result.exit_code == 0
+        counts = json.loads(result.output)["prefix_counts"]["default"]
+        assert counts == {"preferences": 3, "profile": 1, "toplevel": 1}
+
+        result = runner.invoke(
+            cli, ["--json", "-s", initialized_store, "summarize", "--depth", "2"]
+        )
+        counts = json.loads(result.output)["prefix_counts"]["default"]
+        assert counts == {
+            "preferences.coding": 2,
+            "preferences.tools": 1,
+            "profile.professional": 1,
+            "toplevel": 1,
+        }
+
+    def test_summarize_depth_with_pattern(self, monkeypatch, runner, initialized_store):
+        """--keys filter applies before --depth grouping."""
+        from memoir.services.store_service import StoreService
+
+        fake = {
+            "namespaces": {
+                "default": [
+                    "preferences.coding.style",
+                    "preferences.tools.cli",
+                    "profile.professional.skills",
+                ]
+            }
+        }
+        monkeypatch.setattr(StoreService, "read_store", lambda self: fake)
+
+        result = runner.invoke(
+            cli,
+            [
+                "--json",
+                "-s",
+                initialized_store,
+                "summarize",
+                "--keys",
+                "preferences.*",
+                "--depth",
+                "1",
+            ],
+        )
+        assert result.exit_code == 0
+        counts = json.loads(result.output)["prefix_counts"]["default"]
+        assert counts == {"preferences": 2}
+
 
 class TestMemoryCommands:
     """Test memory commands: remember, recall, forget.

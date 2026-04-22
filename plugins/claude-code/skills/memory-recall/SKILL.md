@@ -1,11 +1,11 @@
 ---
 name: memory-recall
-description: "Recall relevant facts from past sessions via memoir. Use when the user's question could benefit from historical context, past decisions, prior preferences, earlier project state, or previous conversations — especially questions like 'what did I decide about X', 'why did we do Y', or 'have I seen this before'. Also use when you see `[memoir] memory available` hints injected via SessionStart or UserPromptSubmit. Typical flow: recall 3-5 taxonomy paths, then optionally blame a path to see its history or diff two commits to see how a fact evolved. Skip when the question is purely about current code state (use Read/Grep), ephemeral (today's task only), or the user has explicitly asked to ignore memory."
+description: "Recall relevant facts from past sessions via memoir. Use whenever past context could shape the current turn — not only for explicit questions but also for task descriptions, design work, and implementation requests. Typical triggers: (1) QUESTIONS — 'what did I decide about X', 'why did we do Y', 'have I seen this before'; (2) TASK / DESIGN / IMPLEMENTATION PROMPTS — 'add feature Z', 'refactor module W', 'design a new API', 'set up the CI for this', 'write the schema for X' — past preferences, architectural decisions, and project conventions should inform how the work is done; (3) ANY non-trivial prompt that touches user preferences, prior decisions, coding style, project standards, or team workflow. Also use when you see `[memoir] memory available` hints injected via SessionStart or UserPromptSubmit. IMPORTANT: before starting non-trivial coding or system-design work, recall first — silently applying remembered preferences is a common failure mode to avoid. Skip only when the prompt is trivial (single-file read, simple lookup), purely about current code state (use Read/Grep), ephemeral (today's task only), or the user has explicitly asked to ignore memory."
 context: fork
 allowed-tools: Bash
 ---
 
-You are a memory retrieval agent for memoir. Memoir is **not** a vector store — it is a git-versioned, taxonomy-structured memory system. Recall works by an LLM picking the right **taxonomy paths** (e.g. `preferences.coding.languages`, `profile.professional.skills`) and returning the typed values stored at each path.
+You are a memory retrieval agent for memoir. Memoir is **not** a vector store — it is a git-versioned, taxonomy-structured memory system. Each memory lives at a human-readable taxonomy path (e.g. `preferences.coding.languages`, `profile.professional.skills`). Your job is to pick the right paths for the user's query and fetch their values.
 
 ## Store path
 
@@ -13,86 +13,131 @@ Store: !`bash -c 'if [ -n "${MEMOIR_STORE:-}" ]; then echo "$MEMOIR_STORE"; else
 
 Use this path for every memoir invocation below.
 
-## Auth — important
+## How recall works — pick paths, then fetch
 
-Every shell command you run below that invokes `memoir` **must** be prefixed with `MEMOIR_LLM_BACKEND=claude-cli` — this routes memoir's internal LLM calls (path selection in `recall`, classification in `remember`) through `claude -p` instead of a direct provider API. Without it, memoir will try to call OpenAI/Anthropic directly and fail if the user has no API key set. Example:
+Your primitives are all LLM-free CLI calls:
 
-```bash
-MEMOIR_LLM_BACKEND=claude-cli memoir --json -s <STORE_PATH> recall "<query>"
-```
+1. **`summarize --depth N [--keys <pattern>]`** — groups keys by the first N dot-separated segments and returns counts. Fast (~100ms).
+2. **`summarize --keys <pattern>`** — lists taxonomy keys matching a glob. Fast (~100ms).
+3. **`get <key> [<key>...]`** — returns stored values for named keys. Fast (<10ms, batched, missing keys report `found: false`).
 
-Note the flag order — memoir's global flags (`--json`, `-s`) **must** come before the subcommand.
+Between them, **you** are the picker. Read the query, read the taxonomy prefixes, pick relevant names, batch-`get` their values. Do **not** shell out to `memoir recall` — that invokes an LLM internally (slow; spawns a nested `claude -p`) and duplicates work the outer LLM (you) should do directly.
 
-## Your task
+## Fast path — query already names a path
 
-Recall memories relevant to: $ARGUMENTS
-
-## Three-layer progressive disclosure
-
-Unlike vector-store plugins (which search chunks, expand chunks, then fall back to raw transcripts), memoir's layers are **taxonomy-aware**:
-
-### L1 — recall (always start here)
+If the user's request already names an exact taxonomy path (e.g. "what's in `preferences.coding.style`?") or you just learned the path from a prior turn, **skip straight to `get`**:
 
 ```bash
-MEMOIR_LLM_BACKEND=claude-cli memoir --json -s <STORE_PATH> recall "<query>" -l 5
+memoir --json -s <STORE_PATH> get <path> [<path>...] [-n <namespace>]
 ```
 
-Returns `memories[]` with `path`, `content`, `relevance_score`, `namespace`. Each entry is a **single typed fact** at a named taxonomy path — not a chunk of text. That means one L1 result is usually enough to answer most questions; you often don't need to expand anything.
+Returns `items[]` with `{key, namespace, full_key, found, value}`. Batching is safe.
 
-Choose `<query>` to capture the core intent. Skip results with low relevance or irrelevant content.
+## Standard path — hierarchical drill-down
 
-**Ignore** the `metadata.llm_prompts` field in the JSON — it's internal debugging noise (the taxonomy prompt memoir sent to its classifier). Parse only `memories[].path`, `.content`, `.relevance_score`.
+Flat "list every key, then pick" works for small stores but blows up past a few hundred memories. The drill-down path scales: survey the top level, descend only into prefixes that match the query.
 
-### L2 — blame a path (when "how/when was this established" matters)
+### Step 1 — L1 survey
+
+```bash
+memoir --json -s <STORE_PATH> summarize --depth 1 -n default
+```
+
+Returns `prefix_counts: { "default": { "preferences": 9, "context": 15, "workflow": 7, ... } }`. Typically ≤ 10 top-level prefixes.
+
+(The `default` namespace holds user-captured memories; `taxonomy:v1:*` namespaces are classifier bookkeeping — ignore them unless explicitly asked.)
+
+### Step 2 — pick L1 prefixes
+
+Read the L1 histogram. Pick 2–4 prefixes whose names plausibly cover the query. Top-level names are stable and semantic (`preferences`, `context`, `workflow`, `knowledge`, `profile`, `goals`, `project`, `entity`, `settings`) — names alone usually suffice.
+
+### Step 3 — descend
+
+For each picked L1 prefix, list its keys:
+
+```bash
+memoir --json -s <STORE_PATH> summarize --keys "<L1>.*" -n default
+```
+
+If a single L1 prefix still has too many keys (say > 40), drill another level first:
+
+```bash
+memoir --json -s <STORE_PATH> summarize --keys "<L1>.*" --depth 2 -n default
+# pick likely L2 prefixes, then:
+memoir --json -s <STORE_PATH> summarize --keys "<L1>.<L2>.*" -n default
+```
+
+### Step 4 — fetch
+
+Pick 3–7 exact keys across all the descended prefixes, then batch-`get`:
+
+```bash
+memoir --json -s <STORE_PATH> get <path1> <path2> ...
+```
+
+Each item's `value.content` is the stored fact. `get` is cheap — when names are ambiguous, err on the side of including extra candidates.
+
+## Flat path — when a single glob covers the query
+
+If the query is narrow and you can express the scope as one glob (e.g. "what do I know about pytest?" → `*pytest*` or `*.testing.*`), skip the drill-down:
+
+```bash
+memoir --json -s <STORE_PATH> summarize --keys "<pattern>" -n default
+# pick from returned matches, then get
+```
+
+Use this when you have a strong a-priori match on path shape. Use drill-down when the right prefix isn't obvious up front.
+
+## When history or evolution matters
+
+### L2 — blame a path
 
 ```bash
 memoir --json -s <STORE_PATH> blame "<path>" -l 10
 ```
 
-This is memoir's analog of "expand the chunk" — but instead of surrounding text, you get the **git history** of who/when/what at that exact path. Returns `entries[]` with `commit`, `author`, `date`, `message`.
+Use when the caller asks "when did I decide this?" or "has this changed?". Returns `entries[]` with `commit`, `author`, `date`, `message`.
 
-Use L2 when the caller asks things like:
-- "when did I decide this?"
-- "has this preference changed?"
-- "who last updated this config?"
-
-### L3 — diff across commits (when evolution matters)
+### L3 — diff across commits
 
 ```bash
 memoir --json -s <STORE_PATH> diff <commit_a> <commit_b>
 ```
 
-Or, for the list of recent branches and the current one:
+Or list branches:
 
 ```bash
 memoir --json -s <STORE_PATH> branch
 ```
 
-Use L3 only when the question is explicitly about change between two points in time, or when the user is comparing branches (e.g., "what's in `experiment` that's not in `main`?").
+Use only when the question is explicitly about change between two points, or cross-branch comparison.
 
 ## Decision rules
 
-- Start at L1. If L1 answers the question, stop there.
-- Escalate to L2 only when the question is about history/provenance of a specific fact.
-- Escalate to L3 only for diff-style or cross-branch questions.
-- Memoir has **no background watcher** and **no vector chunks** — there is no "reindex" step and nothing is expanded from embeddings. All state is already in git.
-
-## When unsure what to query
-
-If the user's question is vague, get a taxonomy overview first:
-
-```bash
-memoir --json -s <STORE_PATH> summarize taxonomy
-```
-
-This returns per-namespace counts and a top-level view of what's been classified. Pick a likely namespace (e.g. `preferences`, `context`, `profile`) and then run L1 with a more concrete query.
+- Query names a path → just `get`.
+- Query has strong path-shape hint (single glob suffices) → flat `summarize --keys` → pick → `get`.
+- Otherwise → drill-down: `summarize --depth 1` → pick L1 → descend → `get`.
+- Escalate to `blame` only for provenance questions.
+- Escalate to `diff` only for cross-commit/branch questions.
+- **Never** invoke `memoir recall` — it's the legacy LLM-bundled path, slower and redundant when you can do the picking directly.
 
 ## Output format
 
-Return a curated summary to the main conversation. For each relevant memory include:
+**First line of every response MUST be a mode marker** so the caller can verify which path you took. Use one of:
 
-- The fact itself (the `content` field).
-- The taxonomy path (`path`) — this is human-readable and useful context.
-- Where it came from (L2 `commit` + `date` if you escalated, or just "recalled" if L1).
+- `[mode=get]` — you jumped straight to `get` (fast path, query named a known path).
+- `[mode=drill]` — hierarchical drill-down (`summarize --depth 1` → L1 pick → descend → `get`).
+- `[mode=flat]` — single-glob scope (`summarize --keys <pattern>` → pick → `get`).
+- `[mode=blame]` — you escalated to L2.
+- `[mode=diff]` — you escalated to L3.
+- `[mode=recall-legacy]` — you invoked `memoir recall` (you should NOT do this; if you see yourself emitting this tag, stop and switch to `drill` or `flat`).
 
-Be concise. Only include what's genuinely useful for the user's current question. If nothing relevant is found, say "No relevant memories found." — do not fabricate.
+Combine markers when you chained paths (e.g. `[mode=drill+blame]`).
+
+After the marker, return a curated summary. For each relevant memory include:
+
+- The fact itself (`value.content` from `get`).
+- The taxonomy path (`key`).
+- Where it came from (`blame` `commit` + `date` if you escalated, otherwise just "recalled").
+
+Be concise. Only include what's genuinely useful. If nothing relevant exists, say "No relevant memories found." — do not fabricate.

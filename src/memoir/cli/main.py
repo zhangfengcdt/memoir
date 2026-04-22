@@ -316,7 +316,7 @@ def cli(
     \b
     COMMAND GROUPS:
       Store:    new, connect, status, refresh
-      Memory:   remember, recall, forget
+      Memory:   remember, recall, get, forget
       Branch:   branch, checkout, merge, time-travel, diff
       Crypto:   proof, verify, blame
       Analysis: summarize
@@ -362,6 +362,7 @@ cli.add_command(taxonomy.taxonomy)
 # Memory commands
 cli.add_command(memory.remember)
 cli.add_command(memory.recall)
+cli.add_command(memory.get_memory)
 cli.add_command(memory.forget)
 
 # Branch commands

@@ -12,7 +12,13 @@ from datetime import datetime
 from pathlib import Path
 
 from memoir.services.base import BaseService, StoreNotFoundError
-from memoir.services.models import DeleteResult, Memory, RecallResult, RememberResult
+from memoir.services.models import (
+    DeleteResult,
+    GetResult,
+    Memory,
+    RecallResult,
+    RememberResult,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -370,6 +376,63 @@ class MemoryService(BaseService):
             return loop.run_until_complete(self.forget(key, namespace))
         finally:
             loop.close()
+
+    def get(
+        self,
+        keys: list[str],
+        namespace: str = "default",
+    ) -> GetResult:
+        """
+        Directly fetch one or more memories by key.
+
+        This is a fast path — no LLM, no semantic search. Use when the caller
+        already knows the exact taxonomy path(s) (e.g. from a prior `recall` or
+        `summarize --keys` call) and just needs to read the stored value.
+
+        Args:
+            keys: List of taxonomy paths to fetch (e.g. ["preferences.coding.style"]).
+            namespace: Namespace to look in. Defaults to "default".
+
+        Returns:
+            GetResult with one entry per requested key. Missing keys are marked
+            with `found=False` and `value=None`.
+        """
+        if not Path(self.store_path).exists():
+            raise StoreNotFoundError(self.store_path)
+
+        start = time.time()
+
+        try:
+            store = self._get_store()
+            namespace_tuple = self.namespace_to_tuple(namespace)
+
+            items = []
+            for key in keys:
+                value = store.get(namespace_tuple, key)
+                items.append(
+                    {
+                        "key": key,
+                        "namespace": namespace,
+                        "full_key": f"{namespace}:{key}",
+                        "found": value is not None,
+                        "value": value,
+                    }
+                )
+
+            return GetResult(
+                success=True,
+                items=items,
+                timing_ms=(time.time() - start) * 1000,
+            )
+
+        except Exception as e:
+            logger.error(f"Get failed: {e}")
+            return GetResult(
+                success=False,
+                items=[],
+                timing_ms=(time.time() - start) * 1000,
+                error=str(e),
+            )
 
     async def recall(
         self,

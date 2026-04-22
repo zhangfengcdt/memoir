@@ -26,6 +26,17 @@ if ! ensure_store; then
   exit 0
 fi
 
+# One-shot: on brand-new store creation, auto-discover and load any custom
+# taxonomy markdown files from:
+#   1. ~/.memoir/taxonomy/*.md                — user-global
+#   2. <project-root>/.memoir/taxonomy/*.md   — project-specific (overrides)
+# Both are appended to the builtin taxonomy already installed by `memoir
+# new`. Skipped for existing stores so editing these files mid-project
+# doesn't silently change what the user has already captured against.
+if [ "${MEMOIR_STORE_WAS_CREATED:-0}" = "1" ]; then
+  load_custom_taxonomy_files >/dev/null 2>&1 || true
+fi
+
 # Auto-match memoir branch to current code branch (creates from main if
 # missing; honors sticky opt-out). Failures are non-fatal — we just end
 # up on whatever memoir branch was already current.
@@ -150,6 +161,13 @@ fi
 # Refresh the statusline cache so the plugin's statusline widget can render
 # the current memory count without spawning the CLI on every tick.
 write_statusline_cache "$USER_MEMORIES" || true
+
+# Snapshot the store's taxonomy into a prompt snippet that the Stop hook's
+# fact extractor will fold into its system prompt. Keeps auto-capture aligned
+# with whatever taxonomy the user loaded at `memoir new` (builtin or custom).
+# Refreshed once per session — mid-session taxonomy edits won't take effect
+# until the next SessionStart, which is an acceptable staleness trade-off.
+write_stop_prompt_cache || true
 
 # Record this session's heartbeat so any parallel session can detect the
 # collision. Must happen after auto-match so we record the actual branch

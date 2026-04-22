@@ -173,8 +173,12 @@ code_branch_exists() {
 }
 
 # ensure_store — create the store directory with builtin taxonomy if missing.
-# Safe to call on every SessionStart.
+# Safe to call on every SessionStart. Sets MEMOIR_STORE_WAS_CREATED=1 as a
+# side effect when this call actually created the store (vs. finding one
+# already there) so callers can run one-time setup like custom-taxonomy
+# loading without tracking that state themselves.
 ensure_store() {
+  MEMOIR_STORE_WAS_CREATED=0
   if [ -z "$MEMOIR_CMD" ]; then
     return 1
   fi
@@ -184,8 +188,84 @@ ensure_store() {
     # env rather than memoir's global config file — we don't want to clobber
     # what a user may have set for CLI use outside the plugin.
     "${MEMOIR_CMD_ARGV[@]}" new "$MEMOIR_STORE_PATH" --taxonomy-builtin --no-connect >/dev/null 2>&1 || return 1
+    MEMOIR_STORE_WAS_CREATED=1
   fi
   return 0
+}
+
+# --- custom taxonomy auto-discovery (global + project-local) ---
+
+# _project_root — resolve the project root the same way derive-store-path.sh
+# does: prefer the git toplevel, fall back to CWD. Kept identical so that
+# the taxonomy directory and the store lookup agree on what "this project"
+# means.
+_project_root() {
+  local root
+  root=$(git rev-parse --show-toplevel 2>/dev/null || true)
+  if [ -n "$root" ]; then
+    printf '%s' "$root"
+  else
+    printf '%s' "$PWD"
+  fi
+}
+
+# _load_taxonomy_dir <dir> — scan <dir> for *.md files and load each via
+# `memoir taxonomy load`. Best-effort: per-file failures don't abort.
+# Writes two integers on stdout separated by a space: "<loaded> <failed>".
+# Absent/empty directory is a silent no-op returning "0 0".
+_load_taxonomy_dir() {
+  local dir="$1"
+  local loaded=0 failed=0 f
+  if [ -d "$dir" ]; then
+    shopt -s nullglob
+    for f in "$dir"/*.md; do
+      if "${MEMOIR_CMD_ARGV[@]}" -s "$MEMOIR_STORE_PATH" taxonomy load "$f" >/dev/null 2>&1; then
+        loaded=$((loaded + 1))
+      else
+        failed=$((failed + 1))
+      fi
+    done
+    shopt -u nullglob
+  fi
+  printf '%d %d' "$loaded" "$failed"
+}
+
+# load_custom_taxonomy_files — on first store creation, discover and load
+# any markdown taxonomy files from two locations, in this order:
+#
+#   1. ~/.memoir/taxonomy/*.md                    — user-global taxonomies
+#   2. <project-root>/.memoir/taxonomy/*.md       — project-specific
+#
+# Each file is appended to the store via `memoir taxonomy load`, on top of
+# the builtin taxonomy already installed by `memoir new --taxonomy-builtin`.
+# Project-local files load *after* global, so they can introduce narrower
+# or overriding taxonomies for this particular repo.
+#
+# Intentionally one-shot — callers gate on MEMOIR_STORE_WAS_CREATED=1 so we
+# do not re-run on every session. Users who edit their custom taxonomy
+# after store creation must reload manually via `memoir taxonomy load` or
+# by deleting the store.
+load_custom_taxonomy_files() {
+  [ -z "$MEMOIR_CMD" ] && return 0
+  [ ! -d "$MEMOIR_STORE_PATH/.git" ] && return 0
+
+  local total_loaded=0 total_failed=0
+  local global_dir="$HOME/.memoir/taxonomy"
+  local project_dir
+  project_dir="$(_project_root)/.memoir/taxonomy"
+
+  local result loaded failed
+  for dir in "$global_dir" "$project_dir"; do
+    result=$(_load_taxonomy_dir "$dir")
+    loaded=${result% *}
+    failed=${result#* }
+    total_loaded=$((total_loaded + loaded))
+    total_failed=$((total_failed + failed))
+  done
+
+  if [ "$total_loaded" -gt 0 ] || [ "$total_failed" -gt 0 ]; then
+    printf '%s' "loaded=${total_loaded} failed=${total_failed}"
+  fi
 }
 
 # --- branch auto-matching (memoir branch follows code branch) ---
@@ -398,6 +478,42 @@ try:
 except Exception:
     print(sys.argv[2])
 " "$summary_json" "$total" 2>/dev/null || printf '%s' "$total"
+}
+
+# --- stop-hook taxonomy-prompt cache ---
+
+# Path to the cached taxonomy prompt snippet used by stop.sh's extractor.
+# Populated by session-start.sh once per session so the Stop hook can inject
+# the store's live taxonomy into its system prompt without another CLI hop
+# on every turn.
+_stop_prompt_cache_path() {
+  printf '%s' "$MEMOIR_STORE_PATH/.git/plugin-stop-taxonomy-prompt-cache"
+}
+
+# write_stop_prompt_cache — render the taxonomy:v1:* contents into a prompt
+# snippet via `memoir taxonomy prompt-snippet` and cache it. Silent no-op if
+# the store has no taxonomy, the CLI call fails, or output is empty.
+write_stop_prompt_cache() {
+  [ ! -d "$MEMOIR_STORE_PATH/.git" ] && return 0
+  [ -z "$MEMOIR_CMD" ] && return 0
+  local snippet cache
+  cache=$(_stop_prompt_cache_path)
+  snippet=$($MEMOIR_CMD -s "$MEMOIR_STORE_PATH" taxonomy prompt-snippet 2>/dev/null || true)
+  if [ -n "$snippet" ]; then
+    printf '%s\n' "$snippet" > "$cache" 2>/dev/null || true
+  else
+    # No taxonomy loaded — clear any stale cache so the hook falls back cleanly.
+    rm -f "$cache" 2>/dev/null || true
+  fi
+}
+
+# read_stop_prompt_cache — emit the cached taxonomy prompt snippet, or nothing
+# if unavailable. Callers treat empty output as "use hardcoded fallback".
+read_stop_prompt_cache() {
+  local cache
+  cache=$(_stop_prompt_cache_path)
+  [ -s "$cache" ] || return 0
+  cat "$cache" 2>/dev/null || true
 }
 
 # --- concurrent-session heartbeats ---

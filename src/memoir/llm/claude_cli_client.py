@@ -16,8 +16,14 @@ call sites in the codebase work unchanged.
 
 Tradeoffs vs LiteLLM:
 - Pros: no API key management, rides Claude Code auth (incl. subscription).
-- Cons: process-spawn overhead (~50-100ms per call), no direct cache-stat
-  access, only Claude models (no GPT/Gemini/Ollama).
+- Cons: each call spawns a Node subprocess — cold-start is in seconds, not
+  ms. Typical end-to-end latency for a short classification prompt:
+    - OAuth + MCP discovery + CLAUDE.md load (unoptimized):  ~13s cold
+    - --strict-mcp-config with empty --mcp-config:           ~5s cold
+    - --bare (requires ANTHROPIC_API_KEY):                   ~1.7s cold
+    - LiteLLM direct-API backend, same prompt:               ~1-1.5s
+  No direct cache-stat access, only Claude models (no GPT/Gemini/Ollama).
+  If you have an API key, prefer the LiteLLM backend.
 
 Implementation notes:
 - System prompt (the cacheable [STATIC_SECTION_START]...[STATIC_SECTION_END]
@@ -27,6 +33,14 @@ Implementation notes:
 - `claude` subprocess is invoked with CLAUDECODE= and MEMOIR_NO_CAPTURE=1 to
   prevent recursion when memoir is called from within a Claude Code session
   whose plugin would otherwise fire hooks on the child `claude` call.
+- MCP discovery is suppressed via --strict-mcp-config + an empty --mcp-config
+  JSON string. Memoir's LLM calls are pure text completions that never need
+  MCP tools, and MCP startup on the outer user's environment can add 5-10s
+  per subprocess on setups with many configured servers.
+- When ANTHROPIC_API_KEY is set, --bare is also added: skips hooks, LSP,
+  plugin sync, CLAUDE.md auto-discovery, and keychain reads, saving another
+  ~3s of cold start. --bare forces ANTHROPIC_API_KEY-only auth (OAuth and
+  keychain are skipped), so it's conditional on the env var being present.
 """
 
 import asyncio
@@ -64,6 +78,11 @@ class ClaudeCLIWrapper:
 
     # Default subprocess timeout (seconds). Classification tasks are short.
     DEFAULT_TIMEOUT = 60
+
+    # Empty MCP config passed on every call together with --strict-mcp-config
+    # to suppress the outer environment's MCP server discovery. See module
+    # docstring for why this matters (5-10s savings on typical setups).
+    _EMPTY_MCP_CONFIG_JSON: ClassVar[str] = '{"mcpServers":{}}'
 
     def __init__(
         self,
@@ -138,7 +157,12 @@ class ClaudeCLIWrapper:
             self.model,
             "--no-session-persistence",
             "--no-chrome",
+            "--strict-mcp-config",
+            "--mcp-config",
+            self._EMPTY_MCP_CONFIG_JSON,
         ]
+        if os.getenv("ANTHROPIC_API_KEY"):
+            argv.append("--bare")
         if system_prompt:
             argv += ["--system-prompt", system_prompt]
         return argv
