@@ -23,10 +23,11 @@ def taxonomy():
 
     \b
     COMMANDS:
-      init   Initialize store with builtin taxonomy
-      load   Load an external taxonomy markdown file
-      list   List loaded taxonomies
-      show   Show details of a specific taxonomy
+      init            Initialize store with builtin taxonomy
+      load            Load an external taxonomy markdown file
+      list            List loaded taxonomies
+      show            Show details of a specific taxonomy
+      prompt-snippet  Render the taxonomy as an LLM prompt block
 
     \b
     Examples:
@@ -264,3 +265,73 @@ def show_taxonomy(ctx: MemoirContext, taxonomy_id: str):
                     click.echo(f"    {key}: {value}")
     except Exception as e:
         ctx.error(f"Failed to show taxonomy: {e}", EXIT_ERROR)
+
+
+@taxonomy.command("prompt-snippet")
+@click.option(
+    "--max-examples",
+    type=int,
+    default=500,
+    show_default=True,
+    help="Cap on examples included (matches classifier fast mode).",
+)
+@pass_context
+def prompt_snippet(ctx: MemoirContext, max_examples: int):
+    """Render the persisted taxonomy as an LLM prompt block.
+
+    Output mirrors the CATEGORIES / EXAMPLES / RULES structure used by
+    memoir's own classifier (_build_fast_classification_prompt), so the
+    plugin's Stop-hook extractor sees the same taxonomy grounding as
+    `memoir remember`. Emits nothing if the store has no taxonomy —
+    callers should fall back to their own hardcoded prompt.
+
+    \b
+    Examples:
+      memoir taxonomy prompt-snippet
+      memoir taxonomy prompt-snippet --max-examples 50
+    """
+    if not ctx.store_path:
+        ctx.error(
+            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
+        )
+
+    from memoir.store.prolly_adapter import ProllyTreeStore
+    from memoir.taxonomy.loader import TaxonomyLoader
+
+    try:
+        store = ProllyTreeStore(ctx.store_path)
+        loader = TaxonomyLoader(store)
+
+        if not loader.has_taxonomy_in_store():
+            # Caller falls back to its hardcoded default.
+            return
+
+        descriptions = loader.get_descriptions_from_store() or {}
+        examples = loader.get_examples_from_store() or []
+
+        if not descriptions and not examples:
+            return
+
+        # Include all examples sorted deterministically (path, then text) —
+        # matches _build_fast_classification_prompt's limit=500 behavior.
+        selected = sorted(examples, key=lambda e: (e[1], e[0]))[:max_examples]
+
+        lines: list[str] = []
+        if descriptions:
+            lines.append("CATEGORIES:")
+            for cat, desc in sorted(descriptions.items()):
+                lines.append(f"  {cat}: {desc}")
+            lines.append("")
+
+        if selected:
+            lines.append(
+                "EXAMPLES (paths MUST be exactly 3 levels: "
+                "category.subcategory.type):"
+            )
+            for input_text, path, _reason in selected:
+                lines.append(f'  "{input_text}" → {path}')
+            lines.append("")
+
+        click.echo("\n".join(lines).rstrip())
+    except Exception as e:
+        ctx.error(f"Failed to render taxonomy snippet: {e}", EXIT_ERROR)

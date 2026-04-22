@@ -151,6 +151,13 @@ fi
 # the current memory count without spawning the CLI on every tick.
 write_statusline_cache "$USER_MEMORIES" || true
 
+# Snapshot the store's taxonomy into a prompt snippet that the Stop hook's
+# fact extractor will fold into its system prompt. Keeps auto-capture aligned
+# with whatever taxonomy the user loaded at `memoir new` (builtin or custom).
+# Refreshed once per session — mid-session taxonomy edits won't take effect
+# until the next SessionStart, which is an acceptable staleness trade-off.
+write_stop_prompt_cache || true
+
 # Record this session's heartbeat so any parallel session can detect the
 # collision. Must happen after auto-match so we record the actual branch
 # we're targeting.

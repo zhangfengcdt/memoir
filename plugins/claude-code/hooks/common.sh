@@ -400,6 +400,42 @@ except Exception:
 " "$summary_json" "$total" 2>/dev/null || printf '%s' "$total"
 }
 
+# --- stop-hook taxonomy-prompt cache ---
+
+# Path to the cached taxonomy prompt snippet used by stop.sh's extractor.
+# Populated by session-start.sh once per session so the Stop hook can inject
+# the store's live taxonomy into its system prompt without another CLI hop
+# on every turn.
+_stop_prompt_cache_path() {
+  printf '%s' "$MEMOIR_STORE_PATH/.git/plugin-stop-taxonomy-prompt-cache"
+}
+
+# write_stop_prompt_cache — render the taxonomy:v1:* contents into a prompt
+# snippet via `memoir taxonomy prompt-snippet` and cache it. Silent no-op if
+# the store has no taxonomy, the CLI call fails, or output is empty.
+write_stop_prompt_cache() {
+  [ ! -d "$MEMOIR_STORE_PATH/.git" ] && return 0
+  [ -z "$MEMOIR_CMD" ] && return 0
+  local snippet cache
+  cache=$(_stop_prompt_cache_path)
+  snippet=$($MEMOIR_CMD -s "$MEMOIR_STORE_PATH" taxonomy prompt-snippet 2>/dev/null || true)
+  if [ -n "$snippet" ]; then
+    printf '%s\n' "$snippet" > "$cache" 2>/dev/null || true
+  else
+    # No taxonomy loaded — clear any stale cache so the hook falls back cleanly.
+    rm -f "$cache" 2>/dev/null || true
+  fi
+}
+
+# read_stop_prompt_cache — emit the cached taxonomy prompt snippet, or nothing
+# if unavailable. Callers treat empty output as "use hardcoded fallback".
+read_stop_prompt_cache() {
+  local cache
+  cache=$(_stop_prompt_cache_path)
+  [ -s "$cache" ] || return 0
+  cat "$cache" 2>/dev/null || true
+}
+
 # --- concurrent-session heartbeats ---
 
 # write_session_heartbeat — record that this session is active on the current
