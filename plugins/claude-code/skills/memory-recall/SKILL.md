@@ -105,7 +105,17 @@ This returns per-namespace counts. Pick a likely namespace, then run Step 1 with
 
 ## Output format
 
-Return a curated summary to the main conversation. For each relevant memory include:
+**First line of every response MUST be a mode marker** so the caller can verify which path you took. Use one of:
+
+- `[mode=get]` — you jumped straight to `get` (fast path, query named a known path).
+- `[mode=list-pick-get]` — you ran `summarize --keys` then `get` (standard path).
+- `[mode=blame]` — you escalated to L2.
+- `[mode=diff]` — you escalated to L3.
+- `[mode=recall-legacy]` — you invoked `memoir recall` (you should NOT do this; if you see yourself emitting this tag, stop and switch to `list-pick-get`).
+
+Combine markers when you chained paths (e.g. `[mode=list-pick-get+blame]`).
+
+After the marker, return a curated summary. For each relevant memory include:
 
 - The fact itself (`value.content` from `get`).
 - The taxonomy path (`key`).
