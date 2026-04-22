@@ -1,15 +1,20 @@
 """
 IntelligentSearchEngine that uses LLM to select relevant memory paths.
 
-This engine presents all available memory paths to an LLM and asks it to select
-the most relevant ones for a given query, then retrieves memories from those paths.
+Two modes:
+- ``mode="single"`` (default): one LLM call picks paths from the full path
+  inventory. Lowest latency for small/medium stores.
+- ``mode="tiered"``: multi-stage drill-down (L1 histogram → L1 pick → optional
+  L2 pick → exact-key pick) that mirrors the caller-driven ``[mode=drill]``
+  flow used by the ``memory-recall`` skill. Narrower prompts per stage; scales
+  better as the store grows.
 
-Features:
-- Single-stage LLM path selection for low latency
-- Prompt caching support via static/dynamic section markers
-- Uses TaxonomyLoader (store) or TaxonomyPresets for classification examples
+Both modes reuse the same store data (single ``store.search`` call) and emit
+``step_timings`` / ``llm_prompts`` metadata so downstream consumers (UI,
+benchmarks, tests) keep observability parity.
 """
 
+import fnmatch
 import logging
 from dataclasses import dataclass
 from typing import Any
@@ -18,6 +23,29 @@ from memoir.taxonomy.loader import TaxonomyLoader
 from memoir.taxonomy.taxonomy import TaxonomyPresets
 
 logger = logging.getLogger(__name__)
+
+VALID_MODES = ("single", "tiered")
+
+# Escalate to an L2 pick LLM call when a single L1 prefix yields more than this
+# many keys. Mirrors the skill's drill-down rule of thumb.
+L2_ESCALATION_THRESHOLD = 40
+
+
+def _filter_keys(keys: list[str], pattern: str | None) -> list[str]:
+    """Filter keys by fnmatch glob; pattern=None returns keys unchanged."""
+    if not pattern:
+        return list(keys)
+    return [k for k in keys if fnmatch.fnmatch(k, pattern)]
+
+
+def _group_by_depth(keys: list[str], n: int) -> dict[str, int]:
+    """Group keys by first N dot-separated segments; return {prefix: count}."""
+    counts: dict[str, int] = {}
+    for key in keys:
+        segments = key.split(".")
+        prefix = ".".join(segments[:n]) if len(segments) >= n else key
+        counts[prefix] = counts.get(prefix, 0) + 1
+    return dict(sorted(counts.items()))
 
 
 @dataclass
@@ -35,12 +63,27 @@ class IntelligentSearchEngine:
     """
     LLM-powered search engine that intelligently selects relevant memory paths.
 
-    This engine uses a single-stage LLM process:
-    1. Gets all available memory paths from the store
-    2. Asks the LLM to select relevant paths based on semantic meaning and content samples
-    3. Retrieves all memories from the selected paths
+    Two selection pipelines are available via the ``mode`` argument on
+    :meth:`search`:
 
-    Prompt caching is supported via static/dynamic section markers.
+    - ``mode="single"`` (default) - one LLM call picks 1-3 paths from the full
+      path inventory (with content samples). Lowest latency; signal-to-noise
+      degrades as the store grows.
+    - ``mode="tiered"`` - staged drill-down that mirrors the caller-driven
+      ``[mode=drill]`` flow used by the ``memory-recall`` skill:
+
+      1. Pure-compute L1 histogram over stored paths.
+      2. LLM #1 picks 2-4 L1 prefixes likely to hold the answer.
+      3. Optional LLM #1.5 picks L2 prefixes when any picked L1 exceeds
+         :data:`L2_ESCALATION_THRESHOLD` keys.
+      4. LLM #2 picks 3-7 exact keys from the descended subset.
+      5. Batched memory fetch via :meth:`_extract_memories_from_data`.
+
+    Both pipelines share path-discovery pre-work and emit comparable
+    ``step_timings`` / ``llm_prompts`` metadata. Prompt caching markers in the
+    single-stage prompt (``[STATIC_SECTION_START]`` / ``[STATIC_SECTION_END]``)
+    are also applied to the tiered key-pick stage, which reuses
+    :meth:`_select_relevant_paths`.
     """
 
     def __init__(
@@ -175,6 +218,7 @@ SEARCH INSTRUCTIONS:
         limit: int = 10,
         return_prompts: bool = False,
         person_filter: str | None = None,
+        mode: str = "single",
     ) -> list[IntelligentSearchResult]:
         """
         Search for relevant memories using LLM path selection.
@@ -185,10 +229,18 @@ SEARCH INSTRUCTIONS:
             limit: Maximum number of results
             return_prompts: Whether to capture and return LLM prompts
             person_filter: Optional person name to filter paths (e.g., "john")
+            mode: "single" (default, one LLM call) or "tiered" (multi-stage
+                drill-down: L1 pick → optional L2 pick → key pick). Unknown
+                values raise ValueError.
 
         Returns:
             List of IntelligentSearchResult objects
         """
+        if mode not in VALID_MODES:
+            raise ValueError(
+                f"Unknown search mode {mode!r}; expected one of {VALID_MODES}"
+            )
+
         try:
             import time
 
@@ -328,6 +380,21 @@ SEARCH INSTRUCTIONS:
 
             step_timings["step1_path_discovery"] = round(time.time() - step1_start, 3)
 
+            # Fork to tiered pipeline once common pre-work (namespace parsing,
+            # store read, paths_info build) is done. The tiered path runs its
+            # own multi-stage selection and memory retrieval, then returns.
+            if mode == "tiered":
+                return await self._search_tiered(
+                    query=query,
+                    namespace_tuple=namespace_tuple,
+                    limit=limit,
+                    all_memories=all_memories,
+                    paths_info=paths_info,
+                    step_timings=step_timings,
+                    llm_prompts=llm_prompts,
+                    search_start=search_start,
+                )
+
             # Step 2: Semantic Path Selection - Ask LLM to select relevant paths
             step2_start = time.time()
             selected_paths = await self._select_relevant_paths(
@@ -384,6 +451,7 @@ SEARCH INSTRUCTIONS:
                     if not result.metadata:
                         result.metadata = {}
                     result.metadata["step_timings"] = step_timings
+                    result.metadata["mode"] = "single"
                     if llm_prompts:
                         result.metadata["llm_prompts"] = llm_prompts
 
@@ -416,6 +484,284 @@ SEARCH INSTRUCTIONS:
                     namespace="",
                 )
                 return [dummy_result]
+            return []
+
+    async def _search_tiered(
+        self,
+        query: str,
+        namespace_tuple: tuple,
+        limit: int,
+        all_memories: list,
+        paths_info: dict,
+        step_timings: dict,
+        llm_prompts: dict | None,
+        search_start: float,
+    ) -> list[IntelligentSearchResult]:
+        """Multi-stage drill-down selection, mirroring the skill's ``[mode=drill]``.
+
+        Pipeline: L1 histogram → LLM picks L1 prefixes → (optional LLM L2 pick
+        when an L1 is too wide) → LLM picks exact keys → batched memory fetch.
+        """
+        import time
+
+        all_paths = list(paths_info.keys())
+
+        # Step 2a: L1 survey (pure compute — no LLM).
+        step_l1 = time.time()
+        l1_counts = _group_by_depth(all_paths, 1)
+        step_timings["l1_survey"] = round(time.time() - step_l1, 3)
+
+        # Step 2b: L1 pick (LLM call #1).
+        step_l1_llm = time.time()
+        picked_l1 = await self._pick_l1_prefixes(
+            query, l1_counts, limit=4, llm_prompts=llm_prompts
+        )
+        step_timings["l1_pick_llm"] = round(time.time() - step_l1_llm, 3)
+        if not picked_l1:
+            # Defensive fallback: take top-N by count so the search still
+            # produces something rather than dying silently.
+            picked_l1 = [
+                p for p, _ in sorted(l1_counts.items(), key=lambda x: -x[1])[:3]
+            ]
+            logger.info(
+                f"Tiered: L1 pick empty/failed, falling back to top-N by count: {picked_l1}"
+            )
+
+        # Step 2c: Descend from L1 into concrete keys.
+        step_descend = time.time()
+        descended_paths: list[str] = []
+        oversized_l1: dict[str, list[str]] = {}
+        for l1 in picked_l1:
+            scoped = _filter_keys(all_paths, f"{l1}.*")
+            if len(scoped) > L2_ESCALATION_THRESHOLD:
+                oversized_l1[l1] = scoped
+            else:
+                descended_paths.extend(scoped)
+        step_timings["descend"] = round(time.time() - step_descend, 3)
+
+        # Step 2d: Optional L2 pick (LLM call #1.5) for any wide L1.
+        if oversized_l1:
+            step_l2_llm = time.time()
+            for l1, scoped in oversized_l1.items():
+                l2_counts = _group_by_depth(scoped, 2)
+                picked_l2 = await self._pick_l2_prefixes(
+                    query,
+                    l1,
+                    l2_counts,
+                    limit=3,
+                    llm_prompts=llm_prompts,
+                )
+                if not picked_l2:
+                    picked_l2 = [
+                        p for p, _ in sorted(l2_counts.items(), key=lambda x: -x[1])[:2]
+                    ]
+                    logger.info(
+                        f"Tiered: L2 pick empty/failed for '{l1}', "
+                        f"falling back to top-N by count: {picked_l2}"
+                    )
+                for l2_prefix in picked_l2:
+                    descended_paths.extend(_filter_keys(scoped, f"{l2_prefix}.*"))
+            step_timings["l2_pick_llm"] = round(time.time() - step_l2_llm, 3)
+
+        # Step 2e: Key pick (LLM call #2) — choose exact keys from descended set.
+        step_key_llm = time.time()
+        # Dedupe while preserving order; filter to known paths_info entries.
+        seen: set[str] = set()
+        descended_info: dict[str, dict] = {}
+        for p in descended_paths:
+            if p in seen or p not in paths_info:
+                continue
+            seen.add(p)
+            descended_info[p] = paths_info[p]
+
+        if not descended_info:
+            step_timings["key_pick_llm"] = 0.0
+            step_timings["memory_retrieval"] = 0.0
+            step_timings["total_search"] = round(time.time() - search_start, 3)
+            metadata = {
+                "step_timings": step_timings,
+                "is_timing_only": True,
+                "mode": "tiered",
+            }
+            if llm_prompts:
+                metadata["llm_prompts"] = llm_prompts
+            return [
+                IntelligentSearchResult(
+                    path="",
+                    content="",
+                    metadata=metadata,
+                    relevance_score=0.0,
+                    namespace="",
+                )
+            ]
+
+        selected_paths = await self._select_relevant_paths(
+            query, descended_info, limit=limit, llm_prompts=llm_prompts
+        )
+        # _select_relevant_paths writes under "path_selection"; rename for the
+        # tiered-mode key naming the plan specifies (l1_pick / l2_pick / key_pick).
+        if llm_prompts is not None and "path_selection" in llm_prompts:
+            llm_prompts["key_pick"] = llm_prompts.pop("path_selection")
+        step_timings["key_pick_llm"] = round(time.time() - step_key_llm, 3)
+
+        # Step 3: Memory retrieval (same shape as single-stage).
+        step_retrieval = time.time()
+        memory_dict = {path: data for _, path, data in all_memories}
+        results: list[IntelligentSearchResult] = []
+        for path in selected_paths[:limit]:
+            if path in memory_dict:
+                path_memories = self._extract_memories_from_data(
+                    namespace_tuple, path, memory_dict[path]
+                )
+                results.extend(path_memories)
+            if len(results) >= limit:
+                break
+        step_timings["memory_retrieval"] = round(time.time() - step_retrieval, 3)
+        step_timings["total_search"] = round(time.time() - search_start, 3)
+
+        for result in results:
+            if hasattr(result, "metadata"):
+                if not result.metadata:
+                    result.metadata = {}
+                result.metadata["step_timings"] = step_timings
+                result.metadata["mode"] = "tiered"
+                if llm_prompts:
+                    result.metadata["llm_prompts"] = llm_prompts
+
+        if not results:
+            metadata = {
+                "step_timings": step_timings,
+                "is_timing_only": True,
+                "mode": "tiered",
+            }
+            if llm_prompts:
+                metadata["llm_prompts"] = llm_prompts
+            return [
+                IntelligentSearchResult(
+                    path="",
+                    content="",
+                    metadata=metadata,
+                    relevance_score=0.0,
+                    namespace="",
+                )
+            ]
+
+        return results[:limit]
+
+    async def _pick_l1_prefixes(
+        self,
+        query: str,
+        l1_counts: dict[str, int],
+        limit: int = 4,
+        llm_prompts: dict | None = None,
+    ) -> list[str]:
+        """LLM picks 2-4 top-level prefixes likely to hold the answer."""
+        if not l1_counts:
+            return []
+
+        histogram_lines = [
+            f"- {prefix} ({count})" for prefix, count in l1_counts.items()
+        ]
+        histogram_text = "\n".join(histogram_lines)
+
+        prompt = f"""You are a memory search assistant. You will receive a user query and a histogram of top-level taxonomy prefixes (with memory counts). Pick the prefixes most likely to contain memories that answer the query.
+
+Query: "{query}"
+
+Top-level prefixes in the store:
+{histogram_text}
+
+Instructions:
+- Select up to {limit} prefixes whose names plausibly cover the query.
+- Return ONLY prefix names, one per line. No explanation, no prose.
+- If none are relevant, return "NONE".
+
+Selected prefixes (up to {limit}):"""
+
+        if llm_prompts is not None:
+            llm_prompts["l1_pick"] = prompt
+
+        try:
+            messages = [{"role": "user", "content": prompt}]
+            if hasattr(self.llm, "ainvoke"):
+                response = await self.llm.ainvoke(messages)
+            else:
+                response = self.llm.invoke(messages)
+            response_text = response.content.strip()
+            if response_text.upper() == "NONE":
+                return []
+            valid = set(l1_counts.keys())
+            picked: list[str] = []
+            for line in response_text.split("\n"):
+                line = line.strip().lstrip("- ").strip()
+                if line and line in valid and line not in picked:
+                    picked.append(line)
+            logger.info(f"Tiered: L1 picked {picked} for query '{query}'")
+            return picked
+        except Exception as e:
+            logger.error(f"Tiered: L1 pick LLM failed: {e}")
+            return []
+
+    async def _pick_l2_prefixes(
+        self,
+        query: str,
+        l1: str,
+        l2_counts: dict[str, int],
+        limit: int = 3,
+        llm_prompts: dict | None = None,
+    ) -> list[str]:
+        """LLM narrows a wide L1 prefix down to 2-3 L2 prefixes."""
+        if not l2_counts:
+            return []
+
+        histogram_lines = [
+            f"- {prefix} ({count})" for prefix, count in l2_counts.items()
+        ]
+        histogram_text = "\n".join(histogram_lines)
+
+        prompt = f"""You are a memory search assistant drilling into a large taxonomy branch.
+
+Query: "{query}"
+
+The branch '{l1}' has many keys. Here is its L2 histogram:
+{histogram_text}
+
+Instructions:
+- Select up to {limit} L2 prefixes under '{l1}' most likely to contain memories that answer the query.
+- Return ONLY L2 prefix names (as shown above, including the '{l1}.' part), one per line.
+- If none are relevant, return "NONE".
+
+Selected prefixes (up to {limit}):"""
+
+        # Accumulate L2 prompts per-l1 so a single query with multiple wide L1s
+        # still exposes each sub-prompt to callers.
+        if llm_prompts is not None:
+            existing = llm_prompts.get("l2_pick")
+            combined_entry = f"[l1={l1}]\n{prompt}"
+            if existing:
+                llm_prompts["l2_pick"] = f"{existing}\n\n{combined_entry}"
+            else:
+                llm_prompts["l2_pick"] = combined_entry
+
+        try:
+            messages = [{"role": "user", "content": prompt}]
+            if hasattr(self.llm, "ainvoke"):
+                response = await self.llm.ainvoke(messages)
+            else:
+                response = self.llm.invoke(messages)
+            response_text = response.content.strip()
+            if response_text.upper() == "NONE":
+                return []
+            valid = set(l2_counts.keys())
+            picked: list[str] = []
+            for line in response_text.split("\n"):
+                line = line.strip().lstrip("- ").strip()
+                if line and line in valid and line not in picked:
+                    picked.append(line)
+            logger.info(f"Tiered: L2 picked {picked} under '{l1}'")
+            return picked
+        except Exception as e:
+            logger.error(f"Tiered: L2 pick LLM failed for '{l1}': {e}")
             return []
 
     async def _select_relevant_paths(

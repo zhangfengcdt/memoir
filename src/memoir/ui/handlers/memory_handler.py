@@ -403,6 +403,7 @@ class MemoryHandler(BaseAPIHandler):
         store_path = query_params.get("path", [None])[0]
         query = query_params.get("query", [None])[0]
         person = query_params.get("person", [None])[0]  # New person parameter
+        mode = query_params.get("mode", ["single"])[0]
 
         if not store_path:
             self.handler.send_error(400, "Missing 'path' parameter")
@@ -410,6 +411,12 @@ class MemoryHandler(BaseAPIHandler):
 
         if not query:
             self.handler.send_error(400, "Missing 'query' parameter")
+            return
+
+        if mode not in ("single", "tiered"):
+            self.handler.send_error(
+                400, f"Invalid 'mode': {mode!r}. Expected 'single' or 'tiered'."
+            )
             return
 
         if not Path(store_path).exists():
@@ -474,6 +481,7 @@ class MemoryHandler(BaseAPIHandler):
                         limit=10,
                         return_prompts=True,
                         person_filter=person,
+                        mode=mode,
                     )
                 )
                 print(f"🔍 Search in default found {len(results)} results")
@@ -519,6 +527,7 @@ class MemoryHandler(BaseAPIHandler):
                                     limit=10,
                                     return_prompts=True,
                                     person_filter=person,
+                                    mode=mode,
                                 )
                             )
                             print(

@@ -440,6 +440,7 @@ class MemoryService(BaseService):
         limit: int = 10,
         namespace: str | None = None,
         person_filter: str | None = None,
+        mode: str = "single",
     ) -> RecallResult:
         """
         Search memories using intelligent search engine.
@@ -449,6 +450,7 @@ class MemoryService(BaseService):
             limit: Maximum results to return
             namespace: Namespace to search (None = try all)
             person_filter: Filter by person name
+            mode: "single" (default) or "tiered" — see IntelligentSearchEngine.
 
         Returns:
             RecallResult with matching memories
@@ -472,6 +474,7 @@ class MemoryService(BaseService):
                 limit=limit,
                 return_prompts=True,
                 person_filter=person_filter,
+                mode=mode,
             )
 
             timing_info["primary_search"] = round(time.time() - search_start, 3)
@@ -502,6 +505,7 @@ class MemoryService(BaseService):
                             limit=limit,
                             return_prompts=True,
                             person_filter=person_filter,
+                            mode=mode,
                         )
                         if ns_results:
                             results.extend(ns_results)
@@ -569,6 +573,7 @@ class MemoryService(BaseService):
         limit: int = 10,
         namespace: str | None = None,
         person_filter: str | None = None,
+        mode: str = "single",
     ) -> RecallResult:
         """
         Synchronous wrapper for recall().
@@ -578,6 +583,7 @@ class MemoryService(BaseService):
             limit: Maximum results to return
             namespace: Namespace to search
             person_filter: Filter by person name
+            mode: "single" or "tiered" — see recall().
 
         Returns:
             RecallResult with matching memories
@@ -586,7 +592,7 @@ class MemoryService(BaseService):
         asyncio.set_event_loop(loop)
         try:
             return loop.run_until_complete(
-                self.recall(query, limit, namespace, person_filter)
+                self.recall(query, limit, namespace, person_filter, mode=mode)
             )
         finally:
             loop.close()

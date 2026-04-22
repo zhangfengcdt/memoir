@@ -21,9 +21,11 @@ Detailed analysis of the two classifier approaches (`SemanticClassifier` in `cla
 - **IntelligentClassifier**: Advanced multi-stage classification with memory-worthiness detection and event extraction
 
 ### Search Theory
-In-depth exploration of the IntelligentSearchEngine, covering LLM-powered path selection and performance optimizations.
+In-depth exploration of the three retrieval pipelines: two in-engine (single-stage and tiered drill-down in `IntelligentSearchEngine`) and one caller-driven (LLM-free primitives consumed by an outer agent).
 
-- **IntelligentSearchEngine**: LLM-powered semantic understanding and path selection (215-570ms)
+- **`IntelligentSearchEngine` — `mode="single"`**: one-shot LLM path selection (215-570ms)
+- **`IntelligentSearchEngine` — `mode="tiered"`**: staged drill-down (L1 → optional L2 → key pick) that mirrors the caller-driven flow but runs inside the engine (~1-2s; better scaling with store size)
+- **Caller-driven tiered retrieval**: LLM-free `summarize` / `get` primitives, picking driven by an outer agent (~100-300ms, zero memoir-side tokens)
 
 ### Memento Theory
 Comprehensive examination of the memento pattern implementation for ProfileMemento, TimelineMemento, and LocationMemento, explaining dimensional memory organization.
@@ -44,7 +46,9 @@ Comprehensive examination of the memento pattern implementation for ProfileMemen
 | Component | Fast Implementation | Intelligent Implementation |
 |-----------|-------------------|---------------------------|
 | **Classifier** | 1-5ms (cached) | 200-1000ms (LLM) |
-| **Search** | N/A | 215-570ms (LLM) |
+| **Search (single)** | N/A | 215-570ms (1 LLM call) |
+| **Search (tiered)** | N/A | ~1-2s (2-3 LLM calls) |
+| **Search (caller-driven)** | ~100-300ms (no LLM) | N/A |
 | **Storage** | 20-30ms | 20-30ms |
 
 ## Architecture Benefits

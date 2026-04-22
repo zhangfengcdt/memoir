@@ -94,9 +94,21 @@ def remember(ctx: MemoirContext, content: str, namespace: str, path: str):
 @click.option(
     "--threshold", default=0.0, type=float, help="Minimum relevance score (0.0-1.0)"
 )
+@click.option(
+    "--mode",
+    type=click.Choice(["single", "tiered"], case_sensitive=False),
+    default="single",
+    show_default=True,
+    help="Search mode: 'single' (one LLM call) or 'tiered' (multi-stage drill-down).",
+)
 @pass_context
 def recall(
-    ctx: MemoirContext, query: str, namespace: str, limit: int, threshold: float
+    ctx: MemoirContext,
+    query: str,
+    namespace: str,
+    limit: int,
+    threshold: float,
+    mode: str,
 ):
     """Search memories using semantic query.
 
@@ -111,6 +123,7 @@ def recall(
       memoir recall "user preferences"
       memoir recall "meeting notes" -n calendar -l 5
       memoir recall "programming languages" --threshold 0.5
+      memoir recall "testing setup" --mode tiered
 
     \b
     JSON output includes: memories[{path, content, score}], timing_ms
@@ -125,7 +138,9 @@ def recall(
     service = MemoryService(ctx.store_path)
 
     try:
-        result = asyncio.run(service.recall(query, limit=limit, namespace=namespace))
+        result = asyncio.run(
+            service.recall(query, limit=limit, namespace=namespace, mode=mode)
+        )
 
         if ctx.json_output:
             ctx.output(result.to_dict())
