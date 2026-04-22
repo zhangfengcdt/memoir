@@ -26,6 +26,15 @@ if ! ensure_store; then
   exit 0
 fi
 
+# One-shot: on brand-new store creation, auto-discover and load any custom
+# taxonomy markdown files at <project-root>/.memoir/taxonomy/*.md. Appends
+# to the builtin taxonomy already installed by `memoir new`. Skipped for
+# existing stores so editing those files mid-project doesn't silently
+# overwrite what the user has already captured against.
+if [ "${MEMOIR_STORE_WAS_CREATED:-0}" = "1" ]; then
+  load_project_custom_taxonomy >/dev/null 2>&1 || true
+fi
+
 # Auto-match memoir branch to current code branch (creates from main if
 # missing; honors sticky opt-out). Failures are non-fatal — we just end
 # up on whatever memoir branch was already current.

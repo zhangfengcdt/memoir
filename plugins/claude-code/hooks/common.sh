@@ -173,8 +173,12 @@ code_branch_exists() {
 }
 
 # ensure_store — create the store directory with builtin taxonomy if missing.
-# Safe to call on every SessionStart.
+# Safe to call on every SessionStart. Sets MEMOIR_STORE_WAS_CREATED=1 as a
+# side effect when this call actually created the store (vs. finding one
+# already there) so callers can run one-time setup like custom-taxonomy
+# loading without tracking that state themselves.
 ensure_store() {
+  MEMOIR_STORE_WAS_CREATED=0
   if [ -z "$MEMOIR_CMD" ]; then
     return 1
   fi
@@ -184,8 +188,61 @@ ensure_store() {
     # env rather than memoir's global config file — we don't want to clobber
     # what a user may have set for CLI use outside the plugin.
     "${MEMOIR_CMD_ARGV[@]}" new "$MEMOIR_STORE_PATH" --taxonomy-builtin --no-connect >/dev/null 2>&1 || return 1
+    MEMOIR_STORE_WAS_CREATED=1
   fi
   return 0
+}
+
+# --- project-local custom taxonomy auto-discovery ---
+
+# _project_root — resolve the project root the same way derive-store-path.sh
+# does: prefer the git toplevel, fall back to CWD. Kept identical so that
+# the taxonomy directory and the store lookup agree on what "this project"
+# means.
+_project_root() {
+  local root
+  root=$(git rev-parse --show-toplevel 2>/dev/null || true)
+  if [ -n "$root" ]; then
+    printf '%s' "$root"
+  else
+    printf '%s' "$PWD"
+  fi
+}
+
+# load_project_custom_taxonomy — on first store creation, discover and load
+# any markdown taxonomy files under <project-root>/.memoir/taxonomy/*.md into
+# the freshly created store. Each file is loaded via `memoir taxonomy load`,
+# which appends to (not replaces) the builtin taxonomy already installed by
+# `memoir new --taxonomy-builtin`. Best-effort: per-file failures are
+# silently swallowed so a broken custom file never blocks auto-capture.
+#
+# Intentionally one-shot — callers gate on MEMOIR_STORE_WAS_CREATED=1 so we
+# do not re-run on every session. Users who edit their custom taxonomy
+# after store creation must reload manually via `memoir taxonomy load` or
+# by deleting the store.
+load_project_custom_taxonomy() {
+  [ -z "$MEMOIR_CMD" ] && return 0
+  [ ! -d "$MEMOIR_STORE_PATH/.git" ] && return 0
+  local root dir
+  root=$(_project_root)
+  dir="$root/.memoir/taxonomy"
+  [ -d "$dir" ] || return 0
+  local loaded=0 failed=0 f
+  # Bash globs return the literal pattern when nothing matches; guard with nullglob.
+  shopt -s nullglob
+  for f in "$dir"/*.md; do
+    if "${MEMOIR_CMD_ARGV[@]}" -s "$MEMOIR_STORE_PATH" taxonomy load "$f" >/dev/null 2>&1; then
+      loaded=$((loaded + 1))
+    else
+      failed=$((failed + 1))
+    fi
+  done
+  shopt -u nullglob
+  # Echo a compact summary for the caller to optionally surface; nothing
+  # happens if the caller ignores stdout.
+  if [ "$loaded" -gt 0 ] || [ "$failed" -gt 0 ]; then
+    printf '%s' "loaded=${loaded} failed=${failed}"
+  fi
 }
 
 # --- branch auto-matching (memoir branch follows code branch) ---
