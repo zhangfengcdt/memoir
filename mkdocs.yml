@@ -12,14 +12,14 @@ theme:
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
-      primary: indigo
+      primary: black
       accent: indigo
       toggle:
         icon: material/weather-night
         name: Switch to dark mode
     - media: "(prefers-color-scheme: dark)"
       scheme: slate
-      primary: indigo
+      primary: black
       accent: indigo
       toggle:
         icon: material/weather-sunny
@@ -92,6 +92,7 @@ nav:
       - Classifier: theory/classifier.md
       - Search: theory/search.md
       - Memento: theory/memento.md
+  - CLI: cli.md
   - API Reference:
       - Memoir: api/memoir.md
       - Classifier: api/classifier.md
