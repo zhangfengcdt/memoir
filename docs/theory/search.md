@@ -343,6 +343,135 @@ The caller-driven modes consume zero memoir-side tokens. Tokens spent by the out
 - `plugins/claude-code/commands/memoir-get.md` — slash-command surface for `get`.
 - `plugins/claude-code/hooks/user-prompt-submit.sh` — SessionStart nudge that steers the outer LLM toward recall on non-trivial prompts.
 
+## Search CLI Reference
+
+The three pipelines described above are all reachable from the `memoir` CLI. Set `MEMOIR_STORE` once (recommended for agents and repeat usage) so you can skip `-s <path>` on every command:
+
+```bash
+export MEMOIR_STORE=/path/to/store
+```
+
+Add `--json` at the group level for machine-readable output (always recommended when scripting). `MEMOIR_JSON=1` as an env var has the same effect.
+
+### `memoir recall` — in-engine search (single or tiered)
+
+Primary search entry point. Accepts a natural-language query and returns ranked `IntelligentSearchResult` memories. Mode is selected per call via `--mode`.
+
+```bash
+# Single-stage (default) — one LLM call, 500-800ms typical
+memoir recall "what's my testing setup?"
+
+# Tiered drill-down — 2-3 LLM calls, narrower prompts, ~1-2s typical
+memoir recall "what's my testing setup?" --mode tiered
+
+# Scope to a namespace and cap the result count
+memoir recall "meeting notes" -n calendar -l 5
+
+# Drop results below a relevance threshold (0.0-1.0)
+memoir recall "programming languages" --threshold 0.5
+
+# Machine-readable — best shape for agents / scripts / benchmarks
+memoir --json recall "testing setup" --mode tiered
+```
+
+The `--json` form exposes per-stage observability. For `--mode tiered` the `step_timings` block contains `l1_survey`, `l1_pick_llm`, `descend`, `key_pick_llm`, `memory_retrieval`, `total_search` (plus `l2_pick_llm` when an L1 exceeded the 40-key escalation threshold). Every result carries `metadata.mode` so a consumer never has to guess which pipeline produced it:
+
+```bash
+memoir --json recall "testing setup" --mode tiered \
+  | jq '.memories[0].metadata | {mode, step_timings}'
+```
+
+```json
+{
+  "mode": "tiered",
+  "step_timings": {
+    "step1_path_discovery": 0.012,
+    "l1_survey": 0.001,
+    "l1_pick_llm": 0.412,
+    "descend": 0.001,
+    "key_pick_llm": 0.587,
+    "memory_retrieval": 0.008,
+    "total_search": 1.021
+  }
+}
+```
+
+A/B the two modes on the same store:
+
+```bash
+memoir --json recall "testing setup" --mode single  | jq '.timing_ms'
+memoir --json recall "testing setup" --mode tiered  | jq '.timing_ms'
+```
+
+### `memoir get` — direct lookup by taxonomy path
+
+No LLM, no search. Pass one or more exact keys; missing keys come back as `found: false` so you can batch speculative candidates without branching. Latency is typically <10ms.
+
+```bash
+# Single lookup
+memoir get preferences.coding.style
+
+# Batched lookup in one call
+memoir get preferences.coding.style profile.professional.skills
+
+# Scope to a namespace, JSON output
+memoir --json get preferences.coding.style -n default
+```
+
+This is the primitive the outer-LLM caller-driven flow uses once it has narrowed to exact keys (see the skill-side walkthrough above). From the CLI it's also the fastest way to read a known memory.
+
+### `memoir summarize` — taxonomy surveys (the caller-driven primitives)
+
+Pure-compute taxonomy inspection. The building blocks behind `[mode=drill]` / `[mode=flat]` / `[mode=get]` are directly usable from the shell when you want to understand the layout of a store without invoking any LLM.
+
+```bash
+# Full store breakdown
+memoir summarize
+
+# Taxonomy-only view, scoped to one namespace
+memoir summarize taxonomy -n default
+
+# Keys matching a glob
+memoir summarize --keys "preferences.*"
+
+# Top-level prefix histogram (L1 survey)
+memoir summarize --depth 1
+
+# Glob + depth: L2 breakdown under preferences.*
+memoir summarize --keys "preferences.*" --depth 2
+
+# JSON for scripting
+memoir --json summarize --depth 1 -n default
+```
+
+A shell-only drill-down — mirror of the skill's `[mode=drill]` — is just three calls:
+
+```bash
+memoir --json summarize --depth 1 -n default
+# → pick L1 prefixes from prefix_counts
+
+memoir --json summarize --keys "preferences.*" -n default
+# → pick 3-7 exact keys from matching_keys
+
+memoir --json get preferences.coding.style preferences.tools.editor
+# → stored values, <10ms
+```
+
+### Environment variables
+
+| Variable | Effect |
+|---|---|
+| `MEMOIR_STORE` | Default store path. Avoids `-s <path>` on every call. |
+| `MEMOIR_JSON` | If `1`, all commands output JSON (same as passing `--json`). |
+| `MEMOIR_QUIET` | If `1`, suppresses non-essential output. |
+
+### When to reach for which CLI command
+
+- You want **semantic search** over a natural-language query → `memoir recall` (add `--mode tiered` if the single-stage picker is dropping signal on your store size).
+- You already know the exact **taxonomy path** → `memoir get` — skip the classifier entirely.
+- You want to **inspect the taxonomy layout** (what prefixes exist, how dense each branch is) → `memoir summarize --depth N` with or without `--keys <glob>`.
+- You're scripting an **agent / LLM caller** and want to avoid a nested LLM call on memoir's side → compose `summarize` + `get` yourself; this is exactly what the `memory-recall` skill does.
+
 ## Advanced Search Patterns
 
 ### 1. Hierarchical Prefix Search
