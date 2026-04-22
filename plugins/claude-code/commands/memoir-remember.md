@@ -13,6 +13,6 @@ Save a memory immediately, without waiting for the Stop hook to fire after the n
 /memoir-remember "Project uses Python 3.12 and ruff"
 ```
 
-!`bash -c 'STORE="${MEMOIR_STORE:-$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/derive-store-path.sh")}"; eval "MEMOIR_LLM_BACKEND=claude-cli memoir --json -s \"$STORE\" remember $ARGUMENTS"' ARGUMENTS="$ARGUMENTS"`
+!`bash -c 'STORE="${MEMOIR_STORE:-$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/derive-store-path.sh")}"; MEMOIR_LLM_BACKEND=claude-cli memoir --json -s "$STORE" remember $ARGUMENTS'`
 
 Show the resulting `key` (taxonomy path) and `commit_hash`. This is independent of the Stop hook — the auto-capture pipeline still fires at the end of the turn for any other durable facts mentioned.

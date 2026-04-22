@@ -13,14 +13,15 @@ Store: !`bash -c 'if [ -n "${MEMOIR_STORE:-}" ]; then echo "$MEMOIR_STORE"; else
 
 Use this path for every memoir invocation below.
 
-## How recall works — list, pick, get
+## How recall works — pick paths, then fetch
 
-Your two primitives are both LLM-free CLI calls:
+Your primitives are all LLM-free CLI calls:
 
-1. **`summarize --keys <pattern>`** — lists taxonomy keys (fast, ~100ms, no LLM).
-2. **`get <key> [<key>...]`** — returns stored values for named keys (fast, <10ms, no LLM, batched).
+1. **`summarize --depth N [--keys <pattern>]`** — groups keys by the first N dot-separated segments and returns counts. Fast (~100ms).
+2. **`summarize --keys <pattern>`** — lists taxonomy keys matching a glob. Fast (~100ms).
+3. **`get <key> [<key>...]`** — returns stored values for named keys. Fast (<10ms, batched, missing keys report `found: false`).
 
-Between them, **you** are the picker. Read the query, read the key list, select relevant names, batch-`get` their values. Do **not** shell out to `memoir recall` — that invokes an LLM internally (slow; spawns a nested `claude -p` when auth is via `claude-cli`) and duplicates work the outer LLM (you) should do directly.
+Between them, **you** are the picker. Read the query, read the taxonomy prefixes, pick relevant names, batch-`get` their values. Do **not** shell out to `memoir recall` — that invokes an LLM internally (slow; spawns a nested `claude -p`) and duplicates work the outer LLM (you) should do directly.
 
 ## Fast path — query already names a path
 
@@ -30,36 +31,62 @@ If the user's request already names an exact taxonomy path (e.g. "what's in `pre
 memoir --json -s <STORE_PATH> get <path> [<path>...] [-n <namespace>]
 ```
 
-Returns `items[]` with `{key, namespace, full_key, found, value}`. Missing keys report `found: false` instead of erroring, so batching is safe.
+Returns `items[]` with `{key, namespace, full_key, found, value}`. Batching is safe.
 
-## Standard path — list → pick → fetch
+## Standard path — hierarchical drill-down
 
-### Step 1 — list keys
+Flat "list every key, then pick" works for small stores but blows up past a few hundred memories. The drill-down path scales: survey the top level, descend only into prefixes that match the query.
 
-```bash
-memoir --json -s <STORE_PATH> summarize --keys "*" -n default
-```
-
-Returns `matching_keys: { "default": ["context.project.repository", "preferences.tools.memory", ...] }`. The `default` namespace holds user-captured memories; `taxonomy:v1:*` namespaces are classifier bookkeeping — ignore them unless explicitly asked.
-
-Output is typically small (< 200 keys). If the store is large, narrow with a glob:
+### Step 1 — L1 survey
 
 ```bash
-memoir --json -s <STORE_PATH> summarize --keys "preferences.*"
-memoir --json -s <STORE_PATH> summarize --keys "*coding*"
+memoir --json -s <STORE_PATH> summarize --depth 1 -n default
 ```
 
-### Step 2 — pick
+Returns `prefix_counts: { "default": { "preferences": 9, "context": 15, "workflow": 7, ... } }`. Typically ≤ 10 top-level prefixes.
 
-Read the returned key list and select 3–7 paths whose names plausibly cover the query. Path names are intentionally descriptive (`preferences.tools.claude_code`, `workflow.coding.version_control`) — names alone usually suffice. When names are ambiguous, include multiple candidates; `get` is cheap and handles missing keys gracefully.
+(The `default` namespace holds user-captured memories; `taxonomy:v1:*` namespaces are classifier bookkeeping — ignore them unless explicitly asked.)
 
-### Step 3 — fetch
+### Step 2 — pick L1 prefixes
+
+Read the L1 histogram. Pick 2–4 prefixes whose names plausibly cover the query. Top-level names are stable and semantic (`preferences`, `context`, `workflow`, `knowledge`, `profile`, `goals`, `project`, `entity`, `settings`) — names alone usually suffice.
+
+### Step 3 — descend
+
+For each picked L1 prefix, list its keys:
+
+```bash
+memoir --json -s <STORE_PATH> summarize --keys "<L1>.*" -n default
+```
+
+If a single L1 prefix still has too many keys (say > 40), drill another level first:
+
+```bash
+memoir --json -s <STORE_PATH> summarize --keys "<L1>.*" --depth 2 -n default
+# pick likely L2 prefixes, then:
+memoir --json -s <STORE_PATH> summarize --keys "<L1>.<L2>.*" -n default
+```
+
+### Step 4 — fetch
+
+Pick 3–7 exact keys across all the descended prefixes, then batch-`get`:
 
 ```bash
 memoir --json -s <STORE_PATH> get <path1> <path2> ...
 ```
 
-Returns `items[]`. Each item's `value.content` is the stored fact.
+Each item's `value.content` is the stored fact. `get` is cheap — when names are ambiguous, err on the side of including extra candidates.
+
+## Flat path — when a single glob covers the query
+
+If the query is narrow and you can express the scope as one glob (e.g. "what do I know about pytest?" → `*pytest*` or `*.testing.*`), skip the drill-down:
+
+```bash
+memoir --json -s <STORE_PATH> summarize --keys "<pattern>" -n default
+# pick from returned matches, then get
+```
+
+Use this when you have a strong a-priori match on path shape. Use drill-down when the right prefix isn't obvious up front.
 
 ## When history or evolution matters
 
@@ -88,37 +115,29 @@ Use only when the question is explicitly about change between two points, or cro
 ## Decision rules
 
 - Query names a path → just `get`.
-- Otherwise → `summarize --keys` → pick → `get`.
+- Query has strong path-shape hint (single glob suffices) → flat `summarize --keys` → pick → `get`.
+- Otherwise → drill-down: `summarize --depth 1` → pick L1 → descend → `get`.
 - Escalate to `blame` only for provenance questions.
 - Escalate to `diff` only for cross-commit/branch questions.
 - **Never** invoke `memoir recall` — it's the legacy LLM-bundled path, slower and redundant when you can do the picking directly.
-
-## When unsure what to query
-
-Get a taxonomy overview first:
-
-```bash
-memoir --json -s <STORE_PATH> summarize taxonomy
-```
-
-This returns per-namespace counts. Pick a likely namespace, then run Step 1 with a scoped `--keys` pattern.
 
 ## Output format
 
 **First line of every response MUST be a mode marker** so the caller can verify which path you took. Use one of:
 
 - `[mode=get]` — you jumped straight to `get` (fast path, query named a known path).
-- `[mode=list-pick-get]` — you ran `summarize --keys` then `get` (standard path).
+- `[mode=drill]` — hierarchical drill-down (`summarize --depth 1` → L1 pick → descend → `get`).
+- `[mode=flat]` — single-glob scope (`summarize --keys <pattern>` → pick → `get`).
 - `[mode=blame]` — you escalated to L2.
 - `[mode=diff]` — you escalated to L3.
-- `[mode=recall-legacy]` — you invoked `memoir recall` (you should NOT do this; if you see yourself emitting this tag, stop and switch to `list-pick-get`).
+- `[mode=recall-legacy]` — you invoked `memoir recall` (you should NOT do this; if you see yourself emitting this tag, stop and switch to `drill` or `flat`).
 
-Combine markers when you chained paths (e.g. `[mode=list-pick-get+blame]`).
+Combine markers when you chained paths (e.g. `[mode=drill+blame]`).
 
 After the marker, return a curated summary. For each relevant memory include:
 
 - The fact itself (`value.content` from `get`).
 - The taxonomy path (`key`).
-- Where it came from (L2 `commit` + `date` if you escalated, otherwise just "recalled").
+- Where it came from (`blame` `commit` + `date` if you escalated, otherwise just "recalled").
 
 Be concise. Only include what's genuinely useful. If nothing relevant exists, say "No relevant memories found." — do not fabricate.

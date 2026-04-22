@@ -16,6 +16,6 @@ Pass one or more keys separated by spaces:
 
 Latency is typically <10ms vs ~500-800ms for `/memoir-recall`, since no LLM call is made.
 
-!`bash -c 'STORE="${MEMOIR_STORE:-$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/derive-store-path.sh")}"; eval "memoir --json -s \"$STORE\" get $ARGUMENTS"' ARGUMENTS="$ARGUMENTS"`
+!`bash -c 'STORE="${MEMOIR_STORE:-$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/derive-store-path.sh")}"; memoir --json -s "$STORE" get $ARGUMENTS'`
 
 Show each returned `full_key` and its `value.content`. Mark any `found: false` entries as missing so the user knows which keys don't exist.
