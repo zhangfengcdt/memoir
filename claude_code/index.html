@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://zhangfengcdt.github.io/memoir/cli/">
+        <link rel="canonical" href="https://zhangfengcdt.github.io/memoir/claude_code/">
       
       
-        <link rel="prev" href="../theory/memento/">
+        <link rel="prev" href="../cli/">
       
       
-        <link rel="next" href="../claude_code/">
+        <link rel="next" href="../api/memoir/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>CLI - Memoir</title>
+        <title>Claude Code - Memoir</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#cli-reference" class="md-skip">
+        <a href="#claude-code-plugin" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              CLI
+              Claude Code
             
           </span>
         </div>
@@ -314,11 +314,9 @@
   
   
   
-    
   
-  
-    <li class="md-tabs__item md-tabs__item--active">
-      <a href="./" class="md-tabs__link">
+    <li class="md-tabs__item">
+      <a href="../cli/" class="md-tabs__link">
         
   
   
@@ -335,9 +333,11 @@
   
   
   
+    
   
-    <li class="md-tabs__item">
-      <a href="../claude_code/" class="md-tabs__link">
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
         
   
   
@@ -905,6 +905,33 @@
       
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../cli/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    CLI
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -924,7 +951,7 @@
   <span class="md-ellipsis">
     
   
-    CLI
+    Claude Code
   
 
     
@@ -942,7 +969,7 @@
   <span class="md-ellipsis">
     
   
-    CLI
+    Claude Code
   
 
     
@@ -968,33 +995,55 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#setup" class="md-nav__link">
+  <a href="#install" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Setup
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Setup">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#environment-variables" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Environment variables
+        Install
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#global-flags" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#what-ships" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Global flags
+        What ships
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#slash-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Slash commands
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skills" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Skills
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Skills">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#readwrite-asymmetry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Read/write asymmetry
       
     </span>
   </a>
@@ -1007,71 +1056,54 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#search-commands" class="md-nav__link">
+  <a href="#lifecycle-hooks" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Search commands
+        Lifecycle hooks
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Search commands">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#memoir-recall-semantic-search-in-engine" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        memoir recall — semantic search (in-engine)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#memoir-get-direct-lookup-by-taxonomy-path" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        memoir get — direct lookup by taxonomy path
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#memoir-summarize-taxonomy-surveys" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        memoir summarize — taxonomy surveys
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#when-to-reach-for-which-cli-command" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        When to reach for which CLI command
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#other-command-groups" class="md-nav__link">
+  <a href="#helper-scripts" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Other command groups
+        Helper scripts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#manifest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manifest
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
       
     </span>
   </a>
@@ -1082,33 +1114,6 @@
   
 </nav>
       
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../claude_code/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Claude Code
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -1592,33 +1597,55 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#setup" class="md-nav__link">
+  <a href="#install" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Setup
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Setup">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#environment-variables" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Environment variables
+        Install
       
     </span>
   </a>
   
 </li>
-        
-          <li class="md-nav__item">
-  <a href="#global-flags" class="md-nav__link">
+      
+        <li class="md-nav__item">
+  <a href="#what-ships" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Global flags
+        What ships
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#slash-commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Slash commands
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#skills" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Skills
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Skills">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#readwrite-asymmetry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Read/write asymmetry
       
     </span>
   </a>
@@ -1631,71 +1658,54 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#search-commands" class="md-nav__link">
+  <a href="#lifecycle-hooks" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Search commands
+        Lifecycle hooks
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Search commands">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#memoir-recall-semantic-search-in-engine" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        memoir recall — semantic search (in-engine)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#memoir-get-direct-lookup-by-taxonomy-path" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        memoir get — direct lookup by taxonomy path
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#memoir-summarize-taxonomy-surveys" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        memoir summarize — taxonomy surveys
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#when-to-reach-for-which-cli-command" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        When to reach for which CLI command
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#other-command-groups" class="md-nav__link">
+  <a href="#helper-scripts" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Other command groups
+        Helper scripts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#lifecycle" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Lifecycle
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#manifest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manifest
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
       
     </span>
   </a>
@@ -1719,7 +1729,7 @@
 
 
   
-    <a href="https://github.com/zhangfengcdt/memoir/edit/main/docs/cli.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/zhangfengcdt/memoir/edit/main/docs/claude_code.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -1727,193 +1737,240 @@
   
 
 
-<h1 id="cli-reference">CLI Reference<a class="headerlink" href="#cli-reference" title="Permanent link">&para;</a></h1>
-<p>The <code>memoir</code> command is the primary shell interface to a memory store. It exposes every retrieval and mutation pipeline the Python SDK supports, plus taxonomy-inspection primitives designed for agentic callers.</p>
-<p>This page documents the search-adjacent commands — <code>recall</code>, <code>get</code>, and <code>summarize</code> — in depth. For mutation (<code>remember</code>, <code>forget</code>), versioning (<code>branch</code>, <code>checkout</code>, <code>merge</code>, <code>time-travel</code>), and crypto (<code>proof</code>, <code>verify</code>, <code>blame</code>) commands, use <code>memoir &lt;command&gt; --help</code> or see the API reference.</p>
-<h2 id="setup">Setup<a class="headerlink" href="#setup" title="Permanent link">&para;</a></h2>
-<p>Set <code>MEMOIR_STORE</code> once so you can skip <code>-s &lt;path&gt;</code> on every call. Most usage assumes this is exported:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">MEMOIR_STORE</span><span class="o">=</span>/path/to/store
+<h1 id="claude-code-plugin">Claude Code Plugin<a class="headerlink" href="#claude-code-plugin" title="Permanent link">&para;</a></h1>
+<p>Memoir ships a first-class plugin for <a href="https://docs.claude.com/en/docs/claude-code/overview">Claude Code</a>. Drop it in and memoir becomes native to your coding sessions: context injected on session start, durable facts auto-captured at turn end, and a full suite of slash commands for everything in between.</p>
+<p>The plugin lives in the repo at <code>plugins/claude-code/</code>.</p>
+<h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
+<p>Inside a Claude Code session, run:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>/plugin marketplace add zhangfengcdt/memoir
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>/plugin install memoir@memoir
 </span></code></pre></div>
-<p>Add <code>--json</code> at the group level for machine-readable output (recommended when scripting or piping into <code>jq</code>). <code>MEMOIR_JSON=1</code> in the environment has the same effect globally.</p>
-<h3 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h3>
+<p>The first command registers the memoir GitHub repo as a plugin marketplace; the second installs the <code>memoir</code> plugin from that marketplace. Hooks take effect on the next session start.</p>
+<p>Each project gets its own memoir store under <code>~/.memoir/memoir_&lt;hash&gt;/</code>, derived from your cwd. Override by exporting <code>MEMOIR_STORE=/path/to/store</code>.</p>
+<h2 id="what-ships">What ships<a class="headerlink" href="#what-ships" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Variable</th>
-<th>Effect</th>
+<th>Component</th>
+<th>Count</th>
+<th>Role</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>MEMOIR_STORE</code></td>
-<td>Default store path. Avoids <code>-s &lt;path&gt;</code> on every call.</td>
+<td>Slash commands</td>
+<td>9</td>
+<td>Manual memory ops, admin, UI launch</td>
 </tr>
 <tr>
-<td><code>MEMOIR_JSON</code></td>
-<td>If <code>1</code>, all commands output JSON (same as passing <code>--json</code>).</td>
+<td>Skills</td>
+<td>2</td>
+<td>Auto-invoked: recall + codebase onboarding</td>
 </tr>
 <tr>
-<td><code>MEMOIR_QUIET</code></td>
-<td>If <code>1</code>, suppresses non-essential output.</td>
+<td>Lifecycle hooks</td>
+<td>4</td>
+<td>Context injection + auto-capture</td>
+</tr>
+<tr>
+<td>Helper scripts</td>
+<td>3</td>
+<td>Store path, UI control, status line</td>
 </tr>
 </tbody>
 </table>
-<h3 id="global-flags">Global flags<a class="headerlink" href="#global-flags" title="Permanent link">&para;</a></h3>
-<p>Flags accepted before the subcommand, on the <code>memoir</code> group itself:</p>
+<h2 id="slash-commands">Slash commands<a class="headerlink" href="#slash-commands" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
-<th>Flag</th>
-<th>Effect</th>
+<th>Command</th>
+<th>Purpose</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>-s, --store &lt;path&gt;</code></td>
-<td>Override the store path (takes precedence over <code>MEMOIR_STORE</code>).</td>
+<td><code>/memoir-remember &lt;fact&gt;</code></td>
+<td>Capture a memory. <code>-p &lt;path&gt;</code> skips classification.</td>
 </tr>
 <tr>
-<td><code>--json</code></td>
-<td>Machine-readable output for every subcommand.</td>
+<td><code>/memory-recall &lt;query&gt;</code></td>
+<td>Recall from prior sessions (delegates to the <code>memory-recall</code> skill).</td>
 </tr>
 <tr>
-<td><code>-q, --quiet</code></td>
-<td>Suppress non-essential output.</td>
+<td><code>/memoir-forget &lt;key&gt;</code></td>
+<td>Delete a memory. Always <code>--force</code> for non-interactive use.</td>
 </tr>
 <tr>
-<td><code>-v, --verbose</code></td>
-<td>Enable verbose logging.</td>
+<td><code>/memoir-status</code></td>
+<td>Branch, commit count, memory count, namespaces.</td>
+</tr>
+<tr>
+<td><code>/memoir-taxonomy</code></td>
+<td>Loaded categories + per-namespace distribution.</td>
+</tr>
+<tr>
+<td><code>/memoir-ui</code></td>
+<td>Launch or re-open the web UI (readonly, LLM off by default).</td>
+</tr>
+<tr>
+<td><code>/memoir-onboard [--force]</code></td>
+<td>Populate or refresh the <code>codebase:onboard</code> snapshot.</td>
+</tr>
+<tr>
+<td><code>/memoir-unmerged</code></td>
+<td>List memoir branches ahead of <code>main</code>.</td>
+</tr>
+<tr>
+<td><code>/memoir-sync-branch &lt;name&gt;</code></td>
+<td>Merge a branch into <code>main</code> without switching.</td>
 </tr>
 </tbody>
 </table>
-<h2 id="search-commands">Search commands<a class="headerlink" href="#search-commands" title="Permanent link">&para;</a></h2>
-<p>The three pipelines described in <a href="../theory/search/">Search Theory</a> are all reachable here. Pick the one that matches how narrow or open-ended your query is.</p>
-<h3 id="memoir-recall-semantic-search-in-engine"><code>memoir recall</code> — semantic search (in-engine)<a class="headerlink" href="#memoir-recall-semantic-search-in-engine" title="Permanent link">&para;</a></h3>
-<p>Primary search entry point. Accepts a natural-language query and returns ranked <code>IntelligentSearchResult</code> memories. Mode is selected per call via <code>--mode</code>.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Single-stage (default) — one LLM call, 500-800ms typical</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>memoir<span class="w"> </span>recall<span class="w"> </span><span class="s2">&quot;what&#39;s my testing setup?&quot;</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># Tiered drill-down — 2-3 LLM calls, narrower prompts, ~1-2s typical</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>memoir<span class="w"> </span>recall<span class="w"> </span><span class="s2">&quot;what&#39;s my testing setup?&quot;</span><span class="w"> </span>--mode<span class="w"> </span>tiered
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="c1"># Scope to a namespace and cap the result count</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>memoir<span class="w"> </span>recall<span class="w"> </span><span class="s2">&quot;meeting notes&quot;</span><span class="w"> </span>-n<span class="w"> </span>calendar<span class="w"> </span>-l<span class="w"> </span><span class="m">5</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="c1"># Drop results below a relevance threshold (0.0-1.0)</span>
-</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>memoir<span class="w"> </span>recall<span class="w"> </span><span class="s2">&quot;programming languages&quot;</span><span class="w"> </span>--threshold<span class="w"> </span><span class="m">0</span>.5
-</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>
-</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a><span class="c1"># Machine-readable — best shape for agents / scripts / benchmarks</span>
-</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>memoir<span class="w"> </span>--json<span class="w"> </span>recall<span class="w"> </span><span class="s2">&quot;testing setup&quot;</span><span class="w"> </span>--mode<span class="w"> </span>tiered
-</span></code></pre></div>
-<p>The <code>--json</code> form exposes per-stage observability. For <code>--mode tiered</code> the <code>step_timings</code> block contains <code>l1_survey</code>, <code>l1_pick_llm</code>, <code>descend</code>, <code>key_pick_llm</code>, <code>memory_retrieval</code>, <code>total_search</code> (plus <code>l2_pick_llm</code> when an L1 exceeded the 40-key escalation threshold). Every result carries <code>metadata.mode</code> so a consumer never has to guess which pipeline produced it:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>memoir<span class="w"> </span>--json<span class="w"> </span>recall<span class="w"> </span><span class="s2">&quot;testing setup&quot;</span><span class="w"> </span>--mode<span class="w"> </span>tiered<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;.memories[0].metadata | {mode, step_timings}&#39;</span>
-</span></code></pre></div>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">&quot;mode&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;tiered&quot;</span><span class="p">,</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">&quot;step_timings&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">    </span><span class="nt">&quot;step1_path_discovery&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.012</span><span class="p">,</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nt">&quot;l1_survey&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.001</span><span class="p">,</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="nt">&quot;l1_pick_llm&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.412</span><span class="p">,</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span><span class="nt">&quot;descend&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.001</span><span class="p">,</span>
-</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">    </span><span class="nt">&quot;key_pick_llm&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.587</span><span class="p">,</span>
-</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="nt">&quot;memory_retrieval&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">0.008</span><span class="p">,</span>
-</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="nt">&quot;total_search&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1.021</span>
-</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="w">  </span><span class="p">}</span>
-</span><span id="__span-3-12"><a id="__codelineno-3-12" name="__codelineno-3-12" href="#__codelineno-3-12"></a><span class="p">}</span>
-</span></code></pre></div>
-<p>A/B the two modes on the same store:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>memoir<span class="w"> </span>--json<span class="w"> </span>recall<span class="w"> </span><span class="s2">&quot;testing setup&quot;</span><span class="w"> </span>--mode<span class="w"> </span>single<span class="w">  </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;.timing_ms&#39;</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>memoir<span class="w"> </span>--json<span class="w"> </span>recall<span class="w"> </span><span class="s2">&quot;testing setup&quot;</span><span class="w"> </span>--mode<span class="w"> </span>tiered<span class="w">  </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;.timing_ms&#39;</span>
-</span></code></pre></div>
-<h3 id="memoir-get-direct-lookup-by-taxonomy-path"><code>memoir get</code> — direct lookup by taxonomy path<a class="headerlink" href="#memoir-get-direct-lookup-by-taxonomy-path" title="Permanent link">&para;</a></h3>
-<p>No LLM, no search. Pass one or more exact keys; missing keys come back as <code>found: false</code> so you can batch speculative candidates without branching. Latency is typically &lt;10ms.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Single lookup</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>memoir<span class="w"> </span>get<span class="w"> </span>preferences.coding.style
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Batched lookup in one call</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>memoir<span class="w"> </span>get<span class="w"> </span>preferences.coding.style<span class="w"> </span>profile.professional.skills
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># Scope to a namespace, JSON output</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>memoir<span class="w"> </span>--json<span class="w"> </span>get<span class="w"> </span>preferences.coding.style<span class="w"> </span>-n<span class="w"> </span>default
-</span></code></pre></div>
-<p>This is the primitive an outer-LLM caller-driven flow uses once it has narrowed to exact keys. From the CLI it's also the fastest way to read a known memory.</p>
-<h3 id="memoir-summarize-taxonomy-surveys"><code>memoir summarize</code> — taxonomy surveys<a class="headerlink" href="#memoir-summarize-taxonomy-surveys" title="Permanent link">&para;</a></h3>
-<p>Pure-compute taxonomy inspection. The building blocks behind the caller-driven <code>[mode=drill]</code> / <code>[mode=flat]</code> / <code>[mode=get]</code> patterns are directly usable from the shell when you want to understand the layout of a store without invoking any LLM.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Full store breakdown</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>memoir<span class="w"> </span>summarize
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Taxonomy-only view, scoped to one namespace</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>memoir<span class="w"> </span>summarize<span class="w"> </span>taxonomy<span class="w"> </span>-n<span class="w"> </span>default
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c1"># Keys matching a glob</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>memoir<span class="w"> </span>summarize<span class="w"> </span>--keys<span class="w"> </span><span class="s2">&quot;preferences.*&quot;</span>
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>
-</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="c1"># Top-level prefix histogram (L1 survey)</span>
-</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>memoir<span class="w"> </span>summarize<span class="w"> </span>--depth<span class="w"> </span><span class="m">1</span>
-</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>
-</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="c1"># Glob + depth: L2 breakdown under preferences.*</span>
-</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>memoir<span class="w"> </span>summarize<span class="w"> </span>--keys<span class="w"> </span><span class="s2">&quot;preferences.*&quot;</span><span class="w"> </span>--depth<span class="w"> </span><span class="m">2</span>
-</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>
-</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="c1"># JSON for scripting</span>
-</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>memoir<span class="w"> </span>--json<span class="w"> </span>summarize<span class="w"> </span>--depth<span class="w"> </span><span class="m">1</span><span class="w"> </span>-n<span class="w"> </span>default
-</span></code></pre></div>
-<p>A shell-only drill-down — mirror of the skill's <code>[mode=drill]</code> — is just three calls:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>memoir<span class="w"> </span>--json<span class="w"> </span>summarize<span class="w"> </span>--depth<span class="w"> </span><span class="m">1</span><span class="w"> </span>-n<span class="w"> </span>default
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1"># → pick L1 prefixes from prefix_counts</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>memoir<span class="w"> </span>--json<span class="w"> </span>summarize<span class="w"> </span>--keys<span class="w"> </span><span class="s2">&quot;preferences.*&quot;</span><span class="w"> </span>-n<span class="w"> </span>default
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="c1"># → pick 3-7 exact keys from matching_keys</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>memoir<span class="w"> </span>--json<span class="w"> </span>get<span class="w"> </span>preferences.coding.style<span class="w"> </span>preferences.tools.editor
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="c1"># → stored values, &lt;10ms</span>
-</span></code></pre></div>
-<h3 id="when-to-reach-for-which-cli-command">When to reach for which CLI command<a class="headerlink" href="#when-to-reach-for-which-cli-command" title="Permanent link">&para;</a></h3>
+<h2 id="skills">Skills<a class="headerlink" href="#skills" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Skill</th>
+<th>Namespace</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>memory-recall</code></td>
+<td><code>default</code></td>
+<td>User-captured facts. Picks taxonomy paths with <code>summarize</code>, batches <code>get</code>, never invokes nested LLMs. Runs in a forked context. Configured <strong>default on</strong> with aggressive triggering so remembered preferences are never silently skipped.</td>
+</tr>
+<tr>
+<td><code>memoir-onboard</code></td>
+<td><code>codebase:onboard</code></td>
+<td>Maintains a high-level repo snapshot that seeds future sessions via SessionStart injection.</td>
+</tr>
+</tbody>
+</table>
+<p>The split is deliberate: <strong>recall owns user-captured facts; onboard owns codebase structure.</strong></p>
+<h3 id="readwrite-asymmetry">Read/write asymmetry<a class="headerlink" href="#readwrite-asymmetry" title="Permanent link">&para;</a></h3>
+<p>By design:</p>
 <ul>
-<li>You want <strong>semantic search</strong> over a natural-language query → <code>memoir recall</code> (add <code>--mode tiered</code> if the single-stage picker is dropping signal on your store size).</li>
-<li>You already know the exact <strong>taxonomy path</strong> → <code>memoir get</code> — skip the classifier entirely.</li>
-<li>You want to <strong>inspect the taxonomy layout</strong> (what prefixes exist, how dense each branch is) → <code>memoir summarize --depth N</code> with or without <code>--keys &lt;glob&gt;</code>.</li>
-<li>You're scripting an <strong>agent / LLM caller</strong> and want to avoid a nested LLM call on memoir's side → compose <code>summarize</code> + <code>get</code> yourself; this is exactly what the <code>memory-recall</code> skill does.</li>
+<li><strong>Reads are auto-triggered via skills.</strong> The agent pulls context when it thinks it might need to, without the user asking.</li>
+<li><strong>Writes and deletes are explicit slash commands.</strong> <code>/memoir-remember</code> and <code>/memoir-forget</code> stay as commands — not skills — because the <code>Stop</code> hook already handles auto-capture, and deletion is kept explicit for safety.</li>
 </ul>
-<h2 id="other-command-groups">Other command groups<a class="headerlink" href="#other-command-groups" title="Permanent link">&para;</a></h2>
-<p>The rest of the CLI surface is documented inline via <code>--help</code>. Command groups at a glance:</p>
+<h2 id="lifecycle-hooks">Lifecycle hooks<a class="headerlink" href="#lifecycle-hooks" title="Permanent link">&para;</a></h2>
+<p>Configured in <code>plugins/claude-code/hooks/hooks.json</code>:</p>
 <table>
 <thead>
 <tr>
-<th>Group</th>
-<th>Commands</th>
-<th><code>--help</code></th>
+<th>Event</th>
+<th>Script</th>
+<th>Timeout</th>
+<th>Async</th>
+<th>Purpose</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Store</td>
-<td><code>new</code>, <code>connect</code>, <code>status</code>, <code>refresh</code></td>
-<td><code>memoir new --help</code></td>
+<td><code>SessionStart</code></td>
+<td><code>session-start.sh</code></td>
+<td>15s</td>
+<td>—</td>
+<td>Inject store status, branch/commit state, onboard snapshot, and "memory available" hints.</td>
 </tr>
 <tr>
-<td>Memory</td>
-<td><code>remember</code>, <code>recall</code>, <code>get</code>, <code>forget</code></td>
-<td><code>memoir remember --help</code></td>
+<td><code>UserPromptSubmit</code></td>
+<td><code>user-prompt-submit.sh</code></td>
+<td>10s</td>
+<td>—</td>
+<td>Surface matching memory hints for the current prompt.</td>
 </tr>
 <tr>
-<td>Branch</td>
-<td><code>branch</code>, <code>checkout</code>, <code>merge</code>, <code>time-travel</code>, <code>diff</code></td>
-<td><code>memoir branch --help</code></td>
+<td><code>Stop</code></td>
+<td><code>stop.sh</code></td>
+<td>180s</td>
+<td>yes</td>
+<td>Parse the transcript and auto-capture durable facts into the taxonomy.</td>
 </tr>
 <tr>
-<td>Crypto</td>
-<td><code>proof</code>, <code>verify</code>, <code>blame</code></td>
-<td><code>memoir proof --help</code></td>
-</tr>
-<tr>
-<td>Analysis</td>
-<td><code>summarize</code></td>
-<td><code>memoir summarize --help</code></td>
+<td><code>SessionEnd</code></td>
+<td><code>session-end.sh</code></td>
+<td>5s</td>
+<td>yes</td>
+<td>Cleanup.</td>
 </tr>
 </tbody>
 </table>
-<p>For the underlying Python APIs these commands call into, see the <a href="../api/memoir/">API Reference</a>.</p>
+<p>Shared helpers: <code>hooks/common.sh</code>, <code>hooks/parse-transcript.sh</code>.</p>
+<h2 id="helper-scripts">Helper scripts<a class="headerlink" href="#helper-scripts" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Script</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>derive-store-path.sh</code></td>
+<td>Maps the current cwd to <code>~/.memoir/memoir_&lt;hash&gt;</code>. Respects <code>$MEMOIR_STORE</code>.</td>
+</tr>
+<tr>
+<td><code>memoir-ui-ctl.sh</code></td>
+<td><code>start</code> / <code>stop</code> / <code>status</code> for the web UI, with pidfile bookkeeping so repeated <code>/memoir-ui</code> calls reuse the same server.</td>
+</tr>
+<tr>
+<td><code>statusline.sh</code></td>
+<td>Renders memoir state into Claude Code's status line, e.g. <code>memoir: feature/foo · 14 memories</code>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="lifecycle">Lifecycle<a class="headerlink" href="#lifecycle" title="Permanent link">&para;</a></h2>
+<p>A session flows through four hook events. Steps 2–4 loop once per user prompt; step 5 runs once at the end.</p>
+<pre class="mermaid"><code>sequenceDiagram
+    actor You
+    participant Claude as Claude Code
+    participant Plugin as memoir plugin hooks
+    participant Store as memoir store
+
+    rect rgb(30, 50, 70)
+    Note over Claude,Store: 1. SessionStart — session-start.sh (sync, 15s)
+    Plugin-&gt;&gt;Store: read status, branch/commit, codebase:onboard
+    Store--&gt;&gt;Claude: inject snapshot + "memory available" hints
+    end
+
+    rect rgb(30, 55, 45)
+    Note over You,Store: 2–4. Per user prompt (loops)
+    You-&gt;&gt;Claude: prompt
+    Plugin-&gt;&gt;Store: 2. UserPromptSubmit — match paths (sync, 10s)
+    Store--&gt;&gt;Claude: "[memoir] memory available" hints
+    Claude-&gt;&gt;Store: 3. memory-recall skill (forked, on-demand)
+    Store--&gt;&gt;Claude: summarize → pick prefixes → get → facts
+    Claude--&gt;&gt;You: response
+    Plugin-&gt;&gt;Store: 4. Stop — classify + auto-capture (async, 180s)
+    end
+
+    rect rgb(60, 45, 30)
+    Note over Claude,Store: 5. SessionEnd — session-end.sh (async, 5s)
+    Plugin-&gt;&gt;Store: cleanup
+    end</code></pre>
+<p>Two properties to notice:</p>
+<ul>
+<li><strong>Reads happen eagerly, writes happen lazily.</strong> Every prompt passes through <code>UserPromptSubmit</code> (step 2) and potentially fires <code>memory-recall</code> (step 3) — the agent pulls context without the user asking. Auto-capture is deferred to <code>Stop</code> (step 4), which is async so it never blocks the turn.</li>
+<li><strong>Namespaces split along read/write paths.</strong> <code>memory-recall</code> works against <code>default</code> (user-captured facts, written by the <code>Stop</code> hook or <code>/memoir-remember</code>). <code>memoir-onboard</code> works against <code>codebase:onboard</code> (repo snapshot, written by <code>/memoir-onboard</code>, replayed by the <code>SessionStart</code> hook). Two namespaces, two lifecycles, no overlap.</li>
+</ul>
+<p>The admin surface — <code>/memoir-ui</code>, <code>/memoir-status</code>, <code>/memoir-taxonomy</code>, <code>/memoir-unmerged</code>, <code>/memoir-sync-branch</code> — sits outside this lifecycle: it's explicit user invocation, not hook-driven.</p>
+<h2 id="manifest">Manifest<a class="headerlink" href="#manifest" title="Permanent link">&para;</a></h2>
+<p><code>plugins/claude-code/.claude-plugin/plugin.json</code>:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;memoir&quot;</span><span class="p">,</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span><span class="p">,</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Git-versioned, taxonomy-structured memory for Claude Code — recall by path, branch to isolate, time-travel to audit.&quot;</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="p">}</span>
+</span></code></pre></div>
+<h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../cli/">CLI</a> — the underlying <code>memoir</code> commands the plugin wraps.</li>
+<li><a href="../api/memoir/">API</a> — the Python library for programmatic use.</li>
+<li><a href="../architecture/">Architecture</a> — how memoir is structured under the hood.</li>
+</ul>
 
 
 

@@ -336,6 +336,25 @@
   
   
   
+    <li class="md-tabs__item">
+      <a href="../../claude_code/" class="md-tabs__link">
+        
+  
+  
+    
+  
+  Claude Code
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
     
     
       <li class="md-tabs__item">
@@ -345,7 +364,7 @@
   
     
   
-  API Reference
+  API
 
         </a>
       </li>
@@ -1473,6 +1492,33 @@
   
   
   
+    <li class="md-nav__item">
+      <a href="../../claude_code/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Claude Code
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
     
     
       
@@ -1501,17 +1547,17 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
         
           
-          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
             
   
   
   <span class="md-ellipsis">
     
   
-    API Reference
+    API
   
 
     
@@ -1522,12 +1568,12 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_6">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
             <span class="md-nav__icon md-icon"></span>
             
   
-    API Reference
+    API
   
 
           </label>
@@ -1740,10 +1786,10 @@
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_8" >
         
           
-          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_8" id="__nav_8_label" tabindex="0">
             
   
   
@@ -1761,8 +1807,8 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
-          <label class="md-nav__title" for="__nav_7">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_8">
             <span class="md-nav__icon md-icon"></span>
             
   
@@ -2495,9 +2541,15 @@
 <p>Memoir solves this by introducing a <strong>semantic taxonomy</strong> where memories are classified into human-readable hierarchical paths like <code>profile.professional.skills.python</code> instead of opaque identifiers.</p>
 <h2 id="classification-philosophy">Classification Philosophy<a class="headerlink" href="#classification-philosophy" title="Permanent link">&para;</a></h2>
 <h3 id="key-paradigm-shift">Key Paradigm Shift<a class="headerlink" href="#key-paradigm-shift" title="Permanent link">&para;</a></h3>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>Traditional: uuid-1234 → expensive vector search → no history
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>Memoir:      profile.professional.skills.python → O(log n) lookup → full versioning
-</span></code></pre></div>
+<pre class="mermaid"><code>flowchart TB
+    subgraph Trad[Traditional]
+        direction LR
+        t1[uuid-1234] --&gt; t2[expensive vector search] --&gt; t3[no history]
+    end
+    subgraph Mem[Memoir]
+        direction LR
+        m1[profile.professional.skills.python] --&gt; m2["O(log n) lookup"] --&gt; m3[full versioning]
+    end</code></pre>
 <p>The classification system transforms unstructured memory content into structured taxonomy paths, enabling:</p>
 <ul>
 <li><strong>Deterministic Retrieval</strong>: Direct path lookups instead of similarity search</li>
@@ -2515,9 +2567,9 @@
 </ul>
 <h4 id="algorithm-implementation">Algorithm &amp; Implementation<a class="headerlink" href="#algorithm-implementation" title="Permanent link">&para;</a></h4>
 <h5 id="stage-1-cache-lookup-1-5ms">Stage 1: Cache Lookup (1-5ms)<a class="headerlink" href="#stage-1-cache-lookup-1-5ms" title="Permanent link">&para;</a></h5>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="n">cache_key</span> <span class="o">=</span> <span class="n">sha256</span><span class="p">(</span><span class="n">memory_content</span> <span class="o">+</span> <span class="n">context</span><span class="p">)</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">if</span> <span class="n">cache_key</span> <span class="ow">in</span> <span class="n">cache</span><span class="p">:</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>    <span class="k">return</span> <span class="n">cached_result</span>  <span class="c1"># Instant return</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="n">cache_key</span> <span class="o">=</span> <span class="n">sha256</span><span class="p">(</span><span class="n">memory_content</span> <span class="o">+</span> <span class="n">context</span><span class="p">)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">if</span> <span class="n">cache_key</span> <span class="ow">in</span> <span class="n">cache</span><span class="p">:</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>    <span class="k">return</span> <span class="n">cached_result</span>  <span class="c1"># Instant return</span>
 </span></code></pre></div>
 <h5 id="stage-2-llm-classification-100-500ms">Stage 2: LLM Classification (100-500ms)<a class="headerlink" href="#stage-2-llm-classification-100-500ms" title="Permanent link">&para;</a></h5>
 <p>The classifier constructs a sophisticated prompt that includes:</p>
@@ -2546,10 +2598,10 @@
 </ol>
 <h5 id="stage-3-advanced-taxonomy-integration">Stage 3: Advanced Taxonomy Integration<a class="headerlink" href="#stage-3-advanced-taxonomy-integration" title="Permanent link">&para;</a></h5>
 <p>For taxonomies implementing <code>AdvancedTaxonomyInterface</code>:
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">taxonomy</span><span class="p">,</span> <span class="n">AdvancedTaxonomyInterface</span><span class="p">):</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="n">selected_path</span><span class="p">,</span> <span class="n">confidence</span> <span class="o">=</span> <span class="n">taxonomy</span><span class="o">.</span><span class="n">select_path_with_fallback</span><span class="p">(</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>        <span class="n">classification_result</span><span class="p">,</span> <span class="n">memory_content</span><span class="p">,</span> <span class="n">metadata</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>    <span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">taxonomy</span><span class="p">,</span> <span class="n">AdvancedTaxonomyInterface</span><span class="p">):</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>    <span class="n">selected_path</span><span class="p">,</span> <span class="n">confidence</span> <span class="o">=</span> <span class="n">taxonomy</span><span class="o">.</span><span class="n">select_path_with_fallback</span><span class="p">(</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>        <span class="n">classification_result</span><span class="p">,</span> <span class="n">memory_content</span><span class="p">,</span> <span class="n">metadata</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="p">)</span>
 </span></code></pre></div></p>
 <p>This enables:</p>
 <ul>
@@ -2558,9 +2610,9 @@
 <li><strong>Confidence Boosting</strong>: Leveraging historical classification data</li>
 </ul>
 <h5 id="stage-4-path-validation-correction">Stage 4: Path Validation &amp; Correction<a class="headerlink" href="#stage-4-path-validation-correction" title="Permanent link">&para;</a></h5>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">if</span> <span class="ow">not</span> <span class="n">is_valid_path</span><span class="p">(</span><span class="n">suggested_path</span><span class="p">):</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>    <span class="c1"># Progressive fallback strategy</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">find_closest_valid_path</span><span class="p">(</span><span class="n">suggested_path</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">if</span> <span class="ow">not</span> <span class="n">is_valid_path</span><span class="p">(</span><span class="n">suggested_path</span><span class="p">):</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>    <span class="c1"># Progressive fallback strategy</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>    <span class="n">path</span> <span class="o">=</span> <span class="n">find_closest_valid_path</span><span class="p">(</span><span class="n">suggested_path</span><span class="p">)</span>
 </span></code></pre></div>
 <p>Fallback hierarchy:</p>
 <ol>
@@ -2588,70 +2640,70 @@
 <h4 id="algorithm-implementation_1">Algorithm &amp; Implementation<a class="headerlink" href="#algorithm-implementation_1" title="Permanent link">&para;</a></h4>
 <h5 id="stage-1-memory-worthiness-detection">Stage 1: Memory Worthiness Detection<a class="headerlink" href="#stage-1-memory-worthiness-detection" title="Permanent link">&para;</a></h5>
 <p>The classifier first determines if content should be stored at all:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">Skip</span> <span class="k">if</span><span class="p">:</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="o">-</span> <span class="n">Transient</span> <span class="n">information</span> <span class="p">(</span><span class="n">greetings</span><span class="p">,</span> <span class="n">weather</span><span class="p">)</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="o">-</span> <span class="n">General</span> <span class="n">conversation</span> <span class="n">without</span> <span class="n">specifics</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="o">-</span> <span class="n">Below</span> <span class="n">confidence</span> <span class="n">threshold</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">Store</span> <span class="k">if</span><span class="p">:</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="o">-</span> <span class="n">Personal</span> <span class="n">preferences</span><span class="p">,</span> <span class="n">facts</span><span class="p">,</span> <span class="n">skills</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="o">-</span> <span class="n">Relationships</span><span class="p">,</span> <span class="n">goals</span><span class="p">,</span> <span class="n">experiences</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="o">-</span> <span class="n">Meets</span> <span class="n">minimum</span> <span class="n">confidence</span> <span class="n">threshold</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="n">Skip</span> <span class="k">if</span><span class="p">:</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="o">-</span> <span class="n">Transient</span> <span class="n">information</span> <span class="p">(</span><span class="n">greetings</span><span class="p">,</span> <span class="n">weather</span><span class="p">)</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="o">-</span> <span class="n">General</span> <span class="n">conversation</span> <span class="n">without</span> <span class="n">specifics</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="o">-</span> <span class="n">Below</span> <span class="n">confidence</span> <span class="n">threshold</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="n">Store</span> <span class="k">if</span><span class="p">:</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="o">-</span> <span class="n">Personal</span> <span class="n">preferences</span><span class="p">,</span> <span class="n">facts</span><span class="p">,</span> <span class="n">skills</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="o">-</span> <span class="n">Relationships</span><span class="p">,</span> <span class="n">goals</span><span class="p">,</span> <span class="n">experiences</span>
+</span><span id="__span-3-11"><a id="__codelineno-3-11" name="__codelineno-3-11" href="#__codelineno-3-11"></a><span class="o">-</span> <span class="n">Meets</span> <span class="n">minimum</span> <span class="n">confidence</span> <span class="n">threshold</span>
 </span></code></pre></div>
 <h5 id="stage-2-multi-path-classification">Stage 2: Multi-Path Classification<a class="headerlink" href="#stage-2-multi-path-classification" title="Permanent link">&para;</a></h5>
 <p>Unlike SemanticClassifier's single-path approach, IntelligentClassifier supports multi-label classification with strict rules:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">Multiple</span> <span class="n">paths</span> <span class="n">allowed</span> <span class="n">ONLY</span> <span class="n">when</span><span class="p">:</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="mf">1.</span> <span class="n">Content</span> <span class="n">spans</span> <span class="n">DIFFERENT</span> <span class="n">top</span><span class="o">-</span><span class="n">level</span> <span class="n">categories</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="mf">2.</span> <span class="n">Maximum</span> <span class="mi">2</span> <span class="n">paths</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="mf">3.</span> <span class="n">Each</span> <span class="n">path</span> <span class="n">represents</span> <span class="n">distinct</span> <span class="n">information</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="n">Example</span><span class="p">:</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="s2">&quot;My colleague John loves machine learning&quot;</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="err">→</span> <span class="n">entity</span><span class="o">.</span><span class="n">people</span><span class="o">.</span><span class="n">mentioned</span><span class="o">.</span><span class="n">colleagues</span> <span class="p">(</span><span class="n">ENTITY</span> <span class="n">category</span><span class="p">)</span>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="err">→</span> <span class="n">topics</span><span class="o">.</span><span class="n">technology</span><span class="o">.</span><span class="n">artificial_intelligence</span> <span class="p">(</span><span class="n">TOPICS</span> <span class="n">category</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="n">Multiple</span> <span class="n">paths</span> <span class="n">allowed</span> <span class="n">ONLY</span> <span class="n">when</span><span class="p">:</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="mf">1.</span> <span class="n">Content</span> <span class="n">spans</span> <span class="n">DIFFERENT</span> <span class="n">top</span><span class="o">-</span><span class="n">level</span> <span class="n">categories</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="mf">2.</span> <span class="n">Maximum</span> <span class="mi">2</span> <span class="n">paths</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="mf">3.</span> <span class="n">Each</span> <span class="n">path</span> <span class="n">represents</span> <span class="n">distinct</span> <span class="n">information</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="n">Example</span><span class="p">:</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="s2">&quot;My colleague John loves machine learning&quot;</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="err">→</span> <span class="n">entity</span><span class="o">.</span><span class="n">people</span><span class="o">.</span><span class="n">mentioned</span><span class="o">.</span><span class="n">colleagues</span> <span class="p">(</span><span class="n">ENTITY</span> <span class="n">category</span><span class="p">)</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="err">→</span> <span class="n">topics</span><span class="o">.</span><span class="n">technology</span><span class="o">.</span><span class="n">artificial_intelligence</span> <span class="p">(</span><span class="n">TOPICS</span> <span class="n">category</span><span class="p">)</span>
 </span></code></pre></div>
 <h5 id="stage-3-specialized-event-extraction">Stage 3: Specialized Event Extraction<a class="headerlink" href="#stage-3-specialized-event-extraction" title="Permanent link">&para;</a></h5>
 <p><strong>Profile Updates</strong>:
-<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">Detects</span> <span class="n">definitive</span> <span class="n">facts</span> <span class="n">that</span> <span class="n">replace</span> <span class="n">previous</span> <span class="n">information</span><span class="p">:</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="o">-</span> <span class="s2">&quot;I&#39;m 25 years old&quot;</span> <span class="err">→</span> <span class="n">profile</span><span class="o">.</span><span class="n">personal</span><span class="o">.</span><span class="n">identity</span><span class="o">.</span><span class="n">age</span><span class="o">.</span><span class="n">current</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="o">-</span> <span class="s2">&quot;I work at Google&quot;</span> <span class="err">→</span> <span class="n">profile</span><span class="o">.</span><span class="n">professional</span><span class="o">.</span><span class="n">current</span><span class="o">.</span><span class="n">company</span><span class="o">.</span><span class="n">name</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="n">Detects</span> <span class="n">definitive</span> <span class="n">facts</span> <span class="n">that</span> <span class="n">replace</span> <span class="n">previous</span> <span class="n">information</span><span class="p">:</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="o">-</span> <span class="s2">&quot;I&#39;m 25 years old&quot;</span> <span class="err">→</span> <span class="n">profile</span><span class="o">.</span><span class="n">personal</span><span class="o">.</span><span class="n">identity</span><span class="o">.</span><span class="n">age</span><span class="o">.</span><span class="n">current</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="o">-</span> <span class="s2">&quot;I work at Google&quot;</span> <span class="err">→</span> <span class="n">profile</span><span class="o">.</span><span class="n">professional</span><span class="o">.</span><span class="n">current</span><span class="o">.</span><span class="n">company</span><span class="o">.</span><span class="n">name</span>
 </span></code></pre></div></p>
 <p><strong>Timeline Events</strong>:
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">Extracts</span> <span class="n">temporal</span> <span class="n">events</span> <span class="k">with</span> <span class="n">date</span> <span class="n">calculation</span><span class="p">:</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="o">-</span> <span class="s2">&quot;Yesterday was my first day&quot;</span> <span class="p">(</span><span class="n">session</span><span class="p">:</span> <span class="mi">2023</span><span class="o">-</span><span class="mi">03</span><span class="o">-</span><span class="mi">15</span><span class="p">)</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>  <span class="err">→</span> <span class="n">date</span><span class="p">:</span> <span class="s2">&quot;20230314&quot;</span><span class="p">,</span> <span class="n">description</span><span class="p">:</span> <span class="s2">&quot;first day at new job&quot;</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="n">Extracts</span> <span class="n">temporal</span> <span class="n">events</span> <span class="k">with</span> <span class="n">date</span> <span class="n">calculation</span><span class="p">:</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="o">-</span> <span class="s2">&quot;Yesterday was my first day&quot;</span> <span class="p">(</span><span class="n">session</span><span class="p">:</span> <span class="mi">2023</span><span class="o">-</span><span class="mi">03</span><span class="o">-</span><span class="mi">15</span><span class="p">)</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>  <span class="err">→</span> <span class="n">date</span><span class="p">:</span> <span class="s2">&quot;20230314&quot;</span><span class="p">,</span> <span class="n">description</span><span class="p">:</span> <span class="s2">&quot;first day at new job&quot;</span>
 </span></code></pre></div></p>
 <p><strong>Location Events</strong>:
-<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">Captures</span> <span class="n">geographic</span> <span class="n">references</span><span class="p">:</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="o">-</span> <span class="s2">&quot;The support group in Los Angeles&quot;</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>  <span class="err">→</span> <span class="n">location</span><span class="p">:</span> <span class="s2">&quot;Los Angeles&quot;</span><span class="p">,</span> <span class="n">description</span><span class="p">:</span> <span class="s2">&quot;support group attendance&quot;</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">Captures</span> <span class="n">geographic</span> <span class="n">references</span><span class="p">:</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="o">-</span> <span class="s2">&quot;The support group in Los Angeles&quot;</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>  <span class="err">→</span> <span class="n">location</span><span class="p">:</span> <span class="s2">&quot;Los Angeles&quot;</span><span class="p">,</span> <span class="n">description</span><span class="p">:</span> <span class="s2">&quot;support group attendance&quot;</span>
 </span></code></pre></div></p>
 <h5 id="stage-4-confidence-based-actions">Stage 4: Confidence-Based Actions<a class="headerlink" href="#stage-4-confidence-based-actions" title="Permanent link">&para;</a></h5>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="n">HIGH</span> <span class="n">confidence</span> <span class="p">(</span><span class="o">&gt;</span><span class="mf">0.8</span><span class="p">):</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>  <span class="err">→</span> <span class="n">Direct</span> <span class="n">classification</span> <span class="n">to</span> <span class="n">suggested</span> <span class="n">path</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="n">MEDIUM</span> <span class="n">confidence</span> <span class="p">(</span><span class="mf">0.6</span><span class="o">-</span><span class="mf">0.8</span><span class="p">):</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>  <span class="err">→</span> <span class="n">Classify</span> <span class="n">but</span> <span class="n">consider</span> <span class="n">alternatives</span>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="n">LOW</span> <span class="n">confidence</span> <span class="p">(</span><span class="o">&lt;</span><span class="mf">0.6</span><span class="p">):</span>
-</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>  <span class="err">→</span> <span class="n">Trigger</span> <span class="n">expansion</span> <span class="n">decision</span><span class="p">:</span>
-</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a>     <span class="o">-</span> <span class="n">EXPAND</span><span class="p">:</span> <span class="n">Create</span> <span class="n">new</span> <span class="n">subcategories</span>
-</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a>     <span class="o">-</span> <span class="n">USE_PARENT</span><span class="p">:</span> <span class="n">Move</span> <span class="n">to</span> <span class="n">more</span> <span class="n">general</span> <span class="n">category</span>
-</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a>     <span class="o">-</span> <span class="n">SKIP</span><span class="p">:</span> <span class="n">Don</span><span class="s1">&#39;t store</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="n">HIGH</span> <span class="n">confidence</span> <span class="p">(</span><span class="o">&gt;</span><span class="mf">0.8</span><span class="p">):</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>  <span class="err">→</span> <span class="n">Direct</span> <span class="n">classification</span> <span class="n">to</span> <span class="n">suggested</span> <span class="n">path</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="n">MEDIUM</span> <span class="n">confidence</span> <span class="p">(</span><span class="mf">0.6</span><span class="o">-</span><span class="mf">0.8</span><span class="p">):</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>  <span class="err">→</span> <span class="n">Classify</span> <span class="n">but</span> <span class="n">consider</span> <span class="n">alternatives</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="n">LOW</span> <span class="n">confidence</span> <span class="p">(</span><span class="o">&lt;</span><span class="mf">0.6</span><span class="p">):</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a>  <span class="err">→</span> <span class="n">Trigger</span> <span class="n">expansion</span> <span class="n">decision</span><span class="p">:</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a>     <span class="o">-</span> <span class="n">EXPAND</span><span class="p">:</span> <span class="n">Create</span> <span class="n">new</span> <span class="n">subcategories</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>     <span class="o">-</span> <span class="n">USE_PARENT</span><span class="p">:</span> <span class="n">Move</span> <span class="n">to</span> <span class="n">more</span> <span class="n">general</span> <span class="n">category</span>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a>     <span class="o">-</span> <span class="n">SKIP</span><span class="p">:</span> <span class="n">Don</span><span class="s1">&#39;t store</span>
 </span></code></pre></div>
 <h5 id="stage-5-dynamic-taxonomy-expansion">Stage 5: Dynamic Taxonomy Expansion<a class="headerlink" href="#stage-5-dynamic-taxonomy-expansion" title="Permanent link">&para;</a></h5>
 <p>When confidence is low, the classifier can suggest taxonomy expansion:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">if</span> <span class="n">confidence</span> <span class="o">&lt;</span> <span class="n">threshold</span> <span class="ow">and</span> <span class="n">content</span> <span class="ow">is</span> <span class="n">specialized</span><span class="p">:</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="n">suggest_expansion</span><span class="p">(</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>        <span class="n">parent_path</span><span class="o">=</span><span class="s2">&quot;knowledge.music&quot;</span><span class="p">,</span>
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>        <span class="n">new_categories</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;piano&quot;</span><span class="p">,</span> <span class="s2">&quot;composition&quot;</span><span class="p">,</span> <span class="s2">&quot;theory&quot;</span><span class="p">]</span>
-</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>    <span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="k">if</span> <span class="n">confidence</span> <span class="o">&lt;</span> <span class="n">threshold</span> <span class="ow">and</span> <span class="n">content</span> <span class="ow">is</span> <span class="n">specialized</span><span class="p">:</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>    <span class="n">suggest_expansion</span><span class="p">(</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>        <span class="n">parent_path</span><span class="o">=</span><span class="s2">&quot;knowledge.music&quot;</span><span class="p">,</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>        <span class="n">new_categories</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;piano&quot;</span><span class="p">,</span> <span class="s2">&quot;composition&quot;</span><span class="p">,</span> <span class="s2">&quot;theory&quot;</span><span class="p">]</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>    <span class="p">)</span>
 </span></code></pre></div>
 <p>Expansion follows hierarchical depth rules:</p>
 <ul>
@@ -2662,28 +2714,28 @@
 <h4 id="key-implementation-details">Key Implementation Details<a class="headerlink" href="#key-implementation-details" title="Permanent link">&para;</a></h4>
 <h5 id="simplified-taxonomy-for-prompts">Simplified Taxonomy for Prompts<a class="headerlink" href="#simplified-taxonomy-for-prompts" title="Permanent link">&para;</a></h5>
 <p>To reduce prompt size, IntelligentClassifier uses a simplified taxonomy:
-<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">PresetTaxonomy</span><span class="p">:</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>    <span class="c1"># Only multi-level paths (2+ levels) are valid</span>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>    <span class="c1"># Single-level categories are forbidden</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="k">class</span><span class="w"> </span><span class="nc">PresetTaxonomy</span><span class="p">:</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>    <span class="c1"># Only multi-level paths (2+ levels) are valid</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>    <span class="c1"># Single-level categories are forbidden</span>
 </span></code></pre></div></p>
 <p>This enforces proper hierarchical classification and prevents shallow categorization.</p>
 <h5 id="json-response-parsing-with-repair">JSON Response Parsing with Repair<a class="headerlink" href="#json-response-parsing-with-repair" title="Permanent link">&para;</a></h5>
 <p>The classifier includes sophisticated JSON repair logic:
-<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">_fix_common_json_issues</span><span class="p">(</span><span class="n">json_str</span><span class="p">):</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>    <span class="c1"># Remove comments</span>
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>    <span class="c1"># Fix trailing commas</span>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a>    <span class="c1"># Add missing quotes</span>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>    <span class="c1"># Handle array formatting</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="k">def</span><span class="w"> </span><span class="nf">_fix_common_json_issues</span><span class="p">(</span><span class="n">json_str</span><span class="p">):</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>    <span class="c1"># Remove comments</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>    <span class="c1"># Fix trailing commas</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>    <span class="c1"># Add missing quotes</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>    <span class="c1"># Handle array formatting</span>
 </span></code></pre></div></p>
 <p>This ensures robustness against LLM formatting inconsistencies.</p>
 <h5 id="validation-and-fallback-logic">Validation and Fallback Logic<a class="headerlink" href="#validation-and-fallback-logic" title="Permanent link">&para;</a></h5>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">Path</span> <span class="n">validation</span> <span class="n">hierarchy</span><span class="p">:</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="mf">1.</span> <span class="n">Check</span> <span class="k">if</span> <span class="n">path</span> <span class="n">exists</span> <span class="ow">in</span> <span class="n">taxonomy</span>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="mf">2.</span> <span class="n">Accept</span> <span class="n">new</span> <span class="n">top</span><span class="o">-</span><span class="n">level</span> <span class="n">categories</span> <span class="p">(</span><span class="k">for</span> <span class="n">expansion</span><span class="p">)</span>
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="mf">3.</span> <span class="n">Find</span> <span class="n">valid</span> <span class="n">parent</span> <span class="n">paths</span>
-</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="mf">4.</span> <span class="n">Enforce</span> <span class="n">minimum</span> <span class="mi">2</span><span class="o">-</span><span class="n">level</span> <span class="n">depth</span>
-</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="mf">5.</span> <span class="n">Apply</span> <span class="n">domain</span><span class="o">-</span><span class="n">specific</span> <span class="n">fallbacks</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="n">Path</span> <span class="n">validation</span> <span class="n">hierarchy</span><span class="p">:</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="mf">1.</span> <span class="n">Check</span> <span class="k">if</span> <span class="n">path</span> <span class="n">exists</span> <span class="ow">in</span> <span class="n">taxonomy</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="mf">2.</span> <span class="n">Accept</span> <span class="n">new</span> <span class="n">top</span><span class="o">-</span><span class="n">level</span> <span class="n">categories</span> <span class="p">(</span><span class="k">for</span> <span class="n">expansion</span><span class="p">)</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="mf">3.</span> <span class="n">Find</span> <span class="n">valid</span> <span class="n">parent</span> <span class="n">paths</span>
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a><span class="mf">4.</span> <span class="n">Enforce</span> <span class="n">minimum</span> <span class="mi">2</span><span class="o">-</span><span class="n">level</span> <span class="n">depth</span>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="mf">5.</span> <span class="n">Apply</span> <span class="n">domain</span><span class="o">-</span><span class="n">specific</span> <span class="n">fallbacks</span>
 </span></code></pre></div>
 <h2 id="comparative-analysis">Comparative Analysis<a class="headerlink" href="#comparative-analysis" title="Permanent link">&para;</a></h2>
 <h3 id="semanticclassifier-vs-intelligentclassifier">SemanticClassifier vs IntelligentClassifier<a class="headerlink" href="#semanticclassifier-vs-intelligentclassifier" title="Permanent link">&para;</a></h3>
@@ -2764,18 +2816,18 @@
 <h2 id="advanced-features">Advanced Features<a class="headerlink" href="#advanced-features" title="Permanent link">&para;</a></h2>
 <h3 id="1-classification-hints-semanticclassifier">1. Classification Hints (SemanticClassifier)<a class="headerlink" href="#1-classification-hints-semanticclassifier" title="Permanent link">&para;</a></h3>
 <p>When using iterative taxonomies, the classifier can leverage historical patterns:
-<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">hints</span> <span class="o">=</span> <span class="n">taxonomy</span><span class="o">.</span><span class="n">get_classification_hints</span><span class="p">(</span><span class="n">memory_content</span><span class="p">)</span>
-</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="k">if</span> <span class="n">hint_path</span> <span class="n">matches</span> <span class="n">classification</span><span class="p">:</span>
-</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>    <span class="n">boost_confidence</span><span class="p">(</span><span class="o">+</span><span class="mf">0.1</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="n">hints</span> <span class="o">=</span> <span class="n">taxonomy</span><span class="o">.</span><span class="n">get_classification_hints</span><span class="p">(</span><span class="n">memory_content</span><span class="p">)</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="k">if</span> <span class="n">hint_path</span> <span class="n">matches</span> <span class="n">classification</span><span class="p">:</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>    <span class="n">boost_confidence</span><span class="p">(</span><span class="o">+</span><span class="mf">0.1</span><span class="p">)</span>
 </span></code></pre></div></p>
 <h3 id="2-expansion-tracking-intelligentclassifier">2. Expansion Tracking (IntelligentClassifier)<a class="headerlink" href="#2-expansion-tracking-intelligentclassifier" title="Permanent link">&para;</a></h3>
 <p>The classifier tracks pending expansions:
-<div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">pending_expansions</span><span class="p">[</span><span class="n">parent_path</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
-</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>    <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="n">content</span><span class="p">,</span>
-</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a>    <span class="s2">&quot;suggested_expansion&quot;</span><span class="p">:</span> <span class="n">new_categories</span>
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a><span class="p">})</span>
-</span><span id="__span-15-5"><a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a><span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pending</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">threshold</span><span class="p">:</span>
-</span><span id="__span-15-6"><a id="__codelineno-15-6" name="__codelineno-15-6" href="#__codelineno-15-6"></a>    <span class="n">trigger_expansion</span><span class="p">(</span><span class="n">parent_path</span><span class="p">)</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="n">pending_expansions</span><span class="p">[</span><span class="n">parent_path</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>    <span class="s2">&quot;content&quot;</span><span class="p">:</span> <span class="n">content</span><span class="p">,</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>    <span class="s2">&quot;suggested_expansion&quot;</span><span class="p">:</span> <span class="n">new_categories</span>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="p">})</span>
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">pending</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">threshold</span><span class="p">:</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>    <span class="n">trigger_expansion</span><span class="p">(</span><span class="n">parent_path</span><span class="p">)</span>
 </span></code></pre></div></p>
 <h3 id="3-context-aware-classification">3. Context-Aware Classification<a class="headerlink" href="#3-context-aware-classification" title="Permanent link">&para;</a></h3>
 <p>Both classifiers support contextual information:</p>
@@ -2787,8 +2839,8 @@
 </ul>
 <h3 id="4-batch-processing-semanticclassifier">4. Batch Processing (SemanticClassifier)<a class="headerlink" href="#4-batch-processing-semanticclassifier" title="Permanent link">&para;</a></h3>
 <p>Efficient batch classification with cache benefits:
-<div class="language-python highlight"><pre><span></span><code><span id="__span-16-1"><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">classifier</span><span class="o">.</span><span class="n">batch_classify</span><span class="p">(</span><span class="n">memories</span><span class="p">,</span> <span class="n">shared_context</span><span class="p">)</span>
-</span><span id="__span-16-2"><a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="c1"># Later classifications benefit from earlier cache entries</span>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="n">results</span> <span class="o">=</span> <span class="n">classifier</span><span class="o">.</span><span class="n">batch_classify</span><span class="p">(</span><span class="n">memories</span><span class="p">,</span> <span class="n">shared_context</span><span class="p">)</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a><span class="c1"># Later classifications benefit from earlier cache entries</span>
 </span></code></pre></div></p>
 <h2 id="performance-optimization-strategies">Performance Optimization Strategies<a class="headerlink" href="#performance-optimization-strategies" title="Permanent link">&para;</a></h2>
 <h3 id="1-caching-strategy-semanticclassifier">1. Caching Strategy (SemanticClassifier)<a class="headerlink" href="#1-caching-strategy-semanticclassifier" title="Permanent link">&para;</a></h3>
