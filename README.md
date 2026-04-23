@@ -5,203 +5,74 @@
 
   **Git for AI Memory**
 
-  *Making AI memory as reliable and versioned as Git made code*
+  *The best memory system for coding agents.*
 </div>
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://github.com/zhangfengcdt/memoir/blob/main/LICENSE)
 [![Status](https://img.shields.io/badge/Status-Alpha-orange.svg)]()
+[![Docs](https://img.shields.io/badge/Docs-zhangfengcdt.github.io%2Fmemoir-blue.svg)](https://zhangfengcdt.github.io/memoir/)
 
-Memoir brings Git-like version control to AI memory systems. Just as Git revolutionized software development by making code history transparent and reliable, Memoir transforms AI memory from unversioned, mutable storage into a versioned, auditable, and cryptographically secure system.
+Memoir brings Git-like version control to AI memory. Long-running coding agents — Claude Code, LangGraph pipelines, multi-agent systems — lose state, overwrite context, and silently corrupt their own knowledge. Memoir replaces ad-hoc `CLAUDE.md` dumps with a versioned, queryable, cryptographically-verified memory store designed around how coding agents actually work.
 
-## Why Memoir
+## Why Memoir for Coding Agents
 
-Long-running AI agents like Claude Code, OpenClaw, and LangGraph-based systems need persistent memory. Current approaches rely on flat files (Memory.md, CLAUDE.md), rolling logs, or ad-hoc storage - fine for simple cases, but inadequate for production multi-agent systems where memory conflicts, state corruption, and debugging complexity become real problems.
+- **Persistent, queryable memory across sessions.** `CLAUDE.md` grows unboundedly and context windows don't. Memoir stores each durable fact at a hierarchical semantic path (e.g. `preferences.coding.style`, `workflow.coding.testing`) so agents recall only what's relevant to the current task.
+- **Branches for experiments.** Try a refactor direction or a new coding style on `experiment/*`, keep it if it works, discard it if it doesn't — same workflow you already trust from git.
+- **Cryptographic provenance.** Every memory is hashed and committed. An agent running for hours or days can prove what it remembered, when, and that nothing corrupted in between.
+- **Taxonomy designed for coding workflows.** The v1.1.0 taxonomy maps to how coding agents actually think — `workflow.coding`, `debugging`, `knowledge`, `preferences.tools` — not generic prose buckets.
+- **Agent-native ergonomics.** `--json` on every CLI command, stable exit codes, KV-cache-friendly output shapes, and an MCP server for any MCP-compatible client.
 
-Memoir brings engineering rigor to agent memory:
+## Install for Claude Code
 
-- **Version Control for Agent Memory**: Branch experimental strategies, rollback bad states, merge successful approaches - the same workflow that made collaborative software development reliable
-- **Semantic Paths over Flat Files**: Replace unstructured Memory.md files with hierarchical paths like `user.preferences.coding_style` that agents can query precisely
-- **Automatic Organization**: LLM-powered classification so agents store memories without manual path management
-- **Debuggable History**: Time-travel queries let you understand why an agent behaved a certain way by viewing its memory at any point
-- **Agent-Native Interfaces**: CLI and SDK for agent integration, TUI and Web UI for human inspection, MCP server for any MCP-compatible client
-- **KV-Cache Friendly**: Structured, consistent memory format enables KV-cache aware prompting to reduce inference costs and latency
-- **Multi-Agent Coordination**: Shared memory with cryptographic integrity enables multiple agents to collaborate on the same knowledge base safely
+Inside a Claude Code session, run:
 
-## Installation
-
-### From Source
-
-One-liner:
-
-```bash
-git clone https://github.com/zhangfengcdt/memoir.git && cd memoir && python -m venv venv && source venv/bin/activate && pip install -e ".[dev]"
+```
+/plugin marketplace add zhangfengcdt/memoir
+/plugin install memoir@memoir
 ```
 
-Or step-by-step:
+The plugin registers hooks for session start, user-prompt-submit, and stop, so your project gets automatic context injection and auto-captured memories. Each project gets its own store under `~/.memoir/memoir_<hash>/` (override with `MEMOIR_STORE`). See the [Claude Code plugin guide](https://zhangfengcdt.github.io/memoir/claude_code/) for the full slash-command and hook reference.
 
-```bash
-git clone https://github.com/zhangfengcdt/memoir.git
-cd memoir
-python -m venv venv
-source venv/bin/activate
-pip install -e ".[dev]"
-```
-
-### From PyPI
+## Install from PyPI
 
 ```bash
 pip install memoir-ai
 ```
 
-> The distribution name on PyPI is `memoir-ai` (the `memoir` name was already taken). After install, the Python import is still `import memoir` and the CLI is still `memoir`.
+> The distribution name on PyPI is `memoir-ai` (the `memoir` name was taken). The Python import is still `import memoir` and the CLI is still `memoir`.
 
-## Usage
-
-Memoir provides multiple interfaces for different use cases.
-
-### Command Line Interface (CLI)
-
-Direct commands for scripting and automation:
+## Quick look
 
 ```bash
-# Create a new memory store
-memoir new /path/to/store
-
-# Connect and check status
-memoir status -s /path/to/store
-
-# Store a memory
-memoir remember "I prefer dark mode" -s /path/to/store
-
-# Search memories
-memoir recall "preferences" -s /path/to/store
-
-# Branch operations
-memoir branch                     # List branches
-memoir branch experiment          # Create branch
-memoir checkout experiment        # Switch branch
-memoir commits                    # View history
+export MEMOIR_STORE=/tmp/my_store
+memoir new "$MEMOIR_STORE"
+memoir remember "prefer pytest over unittest, parametrize aggressively"
+memoir recall "what's my testing setup?"
 ```
 
-Set `MEMOIR_STORE` environment variable to avoid passing `-s` each time:
+That's the core loop — auto-classified on the way in, semantically retrieved on the way out.
 
-```bash
-export MEMOIR_STORE=/path/to/store
-memoir status
-memoir remember "User prefers Python over JavaScript"
-memoir recall "programming"
-```
+## Documentation
 
-Use `--json` flag for machine-readable output:
+Full docs live at **[zhangfengcdt.github.io/memoir](https://zhangfengcdt.github.io/memoir/)**:
 
-```bash
-memoir status --json
-memoir recall "preferences" --json
-```
+- [Quickstart](https://zhangfengcdt.github.io/memoir/quickstart/) — five-minute tour of the core loop.
+- [CLI Reference](https://zhangfengcdt.github.io/memoir/cli/) — every command, flag, and exit code.
+- [UI](https://zhangfengcdt.github.io/memoir/ui/) — the visual explorer (Tree / Graph / Timeline / Places + `/stats`).
+- [Claude Code](https://zhangfengcdt.github.io/memoir/claude_code/) — plugin install, slash commands, hooks, lifecycle.
+- [Architecture](https://zhangfengcdt.github.io/memoir/architecture/) — taxonomy, classifier, store, search.
+- [API Reference](https://zhangfengcdt.github.io/memoir/api/memoir/) — Python SDK.
+- [Examples](https://zhangfengcdt.github.io/memoir/examples/) — context branching, memory debugging, reproducible testing.
 
-### Agent Integration
+## Contributing
 
-Memoir is designed for AI agent integration. Use `--machine-readable` (or `--json-schema`) to get the full CLI schema as JSON:
+Memoir is alpha and contributions are very welcome — especially from people building coding agents, since that's the audience we're optimizing for. Good first paths in:
 
-```bash
-memoir --machine-readable
-```
-
-This outputs structured JSON with all commands, arguments, options, and exit codes - enabling agents to programmatically understand the CLI without parsing help text:
-
-```json
-{
-  "name": "memoir",
-  "version": "0.1.0",
-  "exit_codes": {"0": "success", "1": "error", "2": "not_found", "3": "no_store", "5": "git_failed"},
-  "env_vars": {"MEMOIR_STORE": "Default store path", "MEMOIR_JSON": "Always output JSON"},
-  "commands": {
-    "memory": [{"name": "remember", "arguments": [...], "options": [...]}],
-    "branch": [{"name": "checkout", "options": [{"flags": ["--create-if-missing"]}]}]
-  }
-}
-```
-
-Recommended agent setup:
-
-```bash
-# Set environment for JSON output
-export MEMOIR_STORE=/path/to/store
-export MEMOIR_JSON=1
-
-# Quick workflow
-memoir remember "learned fact"       # Returns JSON with key, confidence
-memoir recall "query" --limit 5      # Returns JSON with memories array
-memoir checkout context-branch --create-if-missing  # Auto-create context branches
-```
-
-Exit codes enable reliable error handling: `0` success, `1` error, `2` not found, `3` no store configured, `5` git operation failed.
-
-### Web UI
-
-Browser-based interface with visualization:
-
-```bash
-python -m memoir.ui.server
-```
-
-Open http://localhost:8080 in your browser. Use `/demo` command to explore with sample data.
-
-### Python SDK
-
-For integration into Python applications:
-
-```python
-from memoir.sdk import MemoryClient
-
-async def main():
-    client = MemoryClient("/path/to/store")
-
-    # Store memory
-    result = await client.remember("User prefers dark mode")
-    print(f"Stored at: {result.key}")
-
-    # Search memories
-    results = await client.recall("preferences", limit=10)
-    for mem in results.memories:
-        print(f"{mem['path']}: {mem['content']}")
-
-    # Branch operations
-    client.branch.create("experiment")
-    client.branch.checkout("experiment")
-    branches = client.branch.list()
-
-if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
-```
-
-Synchronous API is also available:
-
-```python
-client = MemoryClient("/path/to/store")
-result = client.remember_sync("User prefers dark mode")
-results = client.recall_sync("preferences")
-```
-
-## Development
-
-```bash
-# Setup
-make setup
-
-# Run tests
-make test
-
-# Lint and format
-make lint
-make format
-
-# Run all checks
-make ci
-```
+- Pick an issue from the [issue tracker](https://github.com/zhangfengcdt/memoir/issues) or open one describing a gap.
+- Fork the repo, branch off `main`, and run `make ci` before opening a PR (lint, tests, docs build must be green).
+- Bug reports with a minimal reproducer and benchmark / taxonomy proposals for coding-agent use cases are particularly appreciated.
 
 ## License
 
-Apache License 2.0 - see [LICENSE](https://github.com/zhangfengcdt/memoir/blob/main/LICENSE) file.
+Apache License 2.0 — see [LICENSE](https://github.com/zhangfengcdt/memoir/blob/main/LICENSE).
