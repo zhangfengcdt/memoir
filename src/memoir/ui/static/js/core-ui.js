@@ -2528,6 +2528,13 @@ ${result.valid ?
         }
 
         async function summarizeMemoryStore(summaryType = 'all') {
+            // Defense in depth: every caller of this function ultimately
+            // hits /api/summarize which requires an LLM. Refuse under
+            // --no-usellm so we never surface opaque server errors like
+            // "Failed to fetch" to the user.
+            if (window.memoirConfig && !window.memoirConfig.guardCommand('/summarize')) {
+                return;
+            }
             if (!connectedStorePath) {
                 showNotification('Please connect to a memory store first', 'error');
                 return;
@@ -4713,9 +4720,24 @@ ${result.valid ?
                             </div>
                         </div>
                         <div class="node-actions-section">
-                            <button class="node-summarize-btn" onclick="summarizeNodePath('${fullPath.replace(/'/g, "\\'")}')">
-                                📋 Summarize Keys
-                            </button>
+                            ${(() => {
+                                const block = window.memoirConfig
+                                    ? window.memoirConfig.isCommandBlocked('/summarize')
+                                    : null;
+                                if (block) {
+                                    const attr = window.memoirConfig.escapeAttr(block.message);
+                                    return `<button class="node-summarize-btn" disabled
+                                            data-block-msg="${attr}"
+                                            onclick="window.memoirConfig.notifyFromData(this)"
+                                            style="opacity:0.4;cursor:not-allowed;"
+                                            title="${attr}">
+                                        📋 Summarize Keys <span style="margin-left:6px;color:#a78bfa;font-size:9px;font-weight:700;">🔒 ${block.label}</span>
+                                    </button>`;
+                                }
+                                return `<button class="node-summarize-btn" onclick="summarizeNodePath('${fullPath.replace(/'/g, "\\'")}')">
+                                    📋 Summarize Keys
+                                </button>`;
+                            })()}
                         </div>
                     </div>
                 </div>
