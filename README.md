@@ -5,7 +5,7 @@
 
   **Git for AI Memory**
 
-  *The best memory system for coding agents.*
+  *Hierarchical Memory with Git-Like Version Control*
 </div>
 
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://python.org)
@@ -13,11 +13,11 @@
 [![Status](https://img.shields.io/badge/Status-Alpha-orange.svg)]()
 [![Docs](https://img.shields.io/badge/Docs-zhangfengcdt.github.io%2Fmemoir-blue.svg)](https://zhangfengcdt.github.io/memoir/)
 
-Memoir brings Git-like version control to AI memory. Long-running coding agents — Claude Code, LangGraph pipelines, multi-agent systems — lose state, overwrite context, and silently corrupt their own knowledge. Memoir replaces ad-hoc `CLAUDE.md` dumps with a versioned, queryable, cryptographically-verified memory store designed around how coding agents actually work.
+Memoir brings Git-like version control to AI memory. Long-running coding agents — Claude Code, LangGraph pipelines, multi-agent systems — lose state, overwrite context, and silently corrupt their own knowledge. Memoir adds a versioned, queryable, cryptographically-verified memory store that **complements `CLAUDE.md`**: static rules and invariants still live in `CLAUDE.md`, while things that evolve over time — decisions, debugging trails, accumulated preferences, branch-specific context — live in memoir where they can be branched, recalled, and audited.
 
 ## Why Memoir for Coding Agents
 
-- **Persistent, queryable memory across sessions.** `CLAUDE.md` grows unboundedly and context windows don't. Memoir stores each durable fact at a hierarchical semantic path (e.g. `preferences.coding.style`, `workflow.coding.testing`) so agents recall only what's relevant to the current task.
+- **Persistent, queryable memory across sessions.** `CLAUDE.md` is great for invariants (style, rules, always-true facts) but context windows don't stretch. Memoir sits alongside it, storing each evolving fact at a hierarchical semantic path (e.g. `preferences.coding.style`, `workflow.coding.testing`) so agents recall only what's relevant to the current task.
 - **Branches for experiments.** Try a refactor direction or a new coding style on `experiment/*`, keep it if it works, discard it if it doesn't — same workflow you already trust from git.
 - **Cryptographic provenance.** Every memory is hashed and committed. An agent running for hours or days can prove what it remembered, when, and that nothing corrupted in between.
 - **Taxonomy designed for coding workflows.** The v1.1.0 taxonomy maps to how coding agents actually think — `workflow.coding`, `debugging`, `knowledge`, `preferences.tools` — not generic prose buckets.
