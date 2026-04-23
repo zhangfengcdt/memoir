@@ -38,6 +38,14 @@ from memoir.cli.main import (
     help="Enable UI features that call an LLM (recall, summarize, classify) "
     "(default: False)",
 )
+@click.option(
+    "--idle-timeout",
+    default=300,
+    type=int,
+    show_default=True,
+    help="Auto-stop the server after this many seconds of inactivity. "
+    "Pass 0 to disable (run indefinitely).",
+)
 @pass_context
 def ui(
     ctx: MemoirContext,
@@ -46,6 +54,7 @@ def ui(
     no_browser: bool,
     readonly: bool,
     usellm: bool,
+    idle_timeout: int,
 ):
     """Launch the web UI to explore a memoir repo.
 
@@ -104,7 +113,7 @@ def ui(
     try:
         from memoir.ui.server import run_server
 
-        run_server(port=port, on_ready=_on_ready)
+        run_server(port=port, on_ready=_on_ready, idle_timeout=idle_timeout)
     except KeyboardInterrupt:
         ctx.info("UI server stopped.")
     except OSError as e:
