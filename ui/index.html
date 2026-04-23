@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://zhangfengcdt.github.io/memoir/theory/">
+        <link rel="canonical" href="https://zhangfengcdt.github.io/memoir/ui/">
       
       
-        <link rel="prev" href="../faq/">
+        <link rel="prev" href="../cli/">
       
       
-        <link rel="next" href="classifier/">
+        <link rel="next" href="../claude_code/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Overview - Memoir</title>
+        <title>UI - Memoir</title>
       
     
     
@@ -80,7 +80,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#theory-documentation" class="md-skip">
+        <a href="#ui" class="md-skip">
           Skip to content
         </a>
       
@@ -113,7 +113,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Overview
+              UI
             
           </span>
         </div>
@@ -292,13 +292,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../theory/" class="md-tabs__link">
           
   
   
@@ -335,9 +333,11 @@
   
   
   
+    
   
-    <li class="md-tabs__item">
-      <a href="../ui/" class="md-tabs__link">
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
         
   
   
@@ -760,8 +760,6 @@
       
   
   
-    
-  
   
   
     
@@ -781,23 +779,20 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
         
           
           <div class="md-nav__link md-nav__container">
-            <a href="./" class="md-nav__link md-nav__link--active">
+            <a href="../theory/" class="md-nav__link ">
               
   
   
@@ -815,13 +810,13 @@
             </a>
             
               
-              <label class="md-nav__link md-nav__link--active" for="__nav_4" id="__nav_4_label" tabindex="">
+              <label class="md-nav__link " for="__nav_4" id="__nav_4_label" tabindex="0">
                 <span class="md-nav__icon md-icon"></span>
               </label>
             
           </div>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_4">
             <span class="md-nav__icon md-icon"></span>
             
@@ -841,7 +836,7 @@
   
   
     <li class="md-nav__item">
-      <a href="classifier/" class="md-nav__link">
+      <a href="../theory/classifier/" class="md-nav__link">
         
   
   
@@ -869,7 +864,7 @@
   
   
     <li class="md-nav__item">
-      <a href="search/" class="md-nav__link">
+      <a href="../theory/search/" class="md-nav__link">
         
   
   
@@ -897,7 +892,7 @@
   
   
     <li class="md-nav__item">
-      <a href="memento/" class="md-nav__link">
+      <a href="../theory/memento/" class="md-nav__link">
         
   
   
@@ -956,10 +951,37 @@
       
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../ui/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    UI
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -975,6 +997,192 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#launching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Launching
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#layout" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Layout
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Layout">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#top-bar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Top bar
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#commit-rail-left-sidebar" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Commit rail (left sidebar)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#main-canvas" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Main canvas
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#command-input-bottom" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Command input (bottom)
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#views" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Views
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Views">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tree" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tree
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Graph
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#timeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Timeline
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#places" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Places
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#memory-store-statistics-stats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Memory Store Statistics (/stats)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#slash-commands-in-the-ui" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Slash commands in the UI
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#related" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Related
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1485,10 +1693,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#component-theory" class="md-nav__link">
+  <a href="#launching" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Component Theory
+        Launching
       
     </span>
   </a>
@@ -1496,22 +1704,22 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#overview" class="md-nav__link">
+  <a href="#layout" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Overview
+        Layout
       
     </span>
   </a>
   
-    <nav class="md-nav" aria-label="Overview">
+    <nav class="md-nav" aria-label="Layout">
       <ul class="md-nav__list">
         
           <li class="md-nav__item">
-  <a href="#classifier-theory" class="md-nav__link">
+  <a href="#top-bar" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Classifier Theory
+        Top bar
       
     </span>
   </a>
@@ -1519,10 +1727,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#search-theory" class="md-nav__link">
+  <a href="#commit-rail-left-sidebar" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Search Theory
+        Commit rail (left sidebar)
       
     </span>
   </a>
@@ -1530,10 +1738,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#memento-theory" class="md-nav__link">
+  <a href="#main-canvas" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Memento Theory
+        Main canvas
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#command-input-bottom" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Command input (bottom)
       
     </span>
   </a>
@@ -1546,10 +1765,71 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#key-insights" class="md-nav__link">
+  <a href="#views" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Key Insights
+        Views
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Views">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#tree" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Tree
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#graph" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Graph
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#timeline" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Timeline
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#places" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Places
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#memory-store-statistics-stats" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Memory Store Statistics (/stats)
       
     </span>
   </a>
@@ -1557,10 +1837,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#performance-benchmarks" class="md-nav__link">
+  <a href="#slash-commands-in-the-ui" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Performance Benchmarks
+        Slash commands in the UI
       
     </span>
   </a>
@@ -1568,10 +1848,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#architecture-benefits" class="md-nav__link">
+  <a href="#related" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Architecture Benefits
+        Related
       
     </span>
   </a>
@@ -1595,7 +1875,7 @@
 
 
   
-    <a href="https://github.com/zhangfengcdt/memoir/edit/main/docs/theory/index.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/zhangfengcdt/memoir/edit/main/docs/ui.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -1603,88 +1883,153 @@
   
 
 
-<h1 id="theory-documentation">Theory Documentation<a class="headerlink" href="#theory-documentation" title="Permanent link">&para;</a></h1>
-<p>Deep technical analysis and theoretical foundations of Memoir's core components.</p>
-<p>These documents provide comprehensive explanations of the algorithms, design decisions, and architectural patterns used throughout the Memoir system.</p>
-<h2 id="component-theory">Component Theory<a class="headerlink" href="#component-theory" title="Permanent link">&para;</a></h2>
-<ul>
-<li><a href="classifier/">Classifier</a></li>
-<li><a href="search/">Search</a></li>
-<li><a href="memento/">Memento</a></li>
-</ul>
-<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>The theory documentation explores three fundamental aspects of Memoir:</p>
-<h3 id="classifier-theory">Classifier Theory<a class="headerlink" href="#classifier-theory" title="Permanent link">&para;</a></h3>
-<p>Detailed analysis of the two classifier approaches (<code>SemanticClassifier</code> in <code>classifier/semantic.py</code> and <code>IntelligentClassifier</code> in <code>classifier/intelligent.py</code>), including their algorithms, performance characteristics, and use cases.</p>
-<ul>
-<li><strong>SemanticClassifier</strong>: High-performance, cache-optimized classification with pattern matching fallbacks</li>
-<li><strong>IntelligentClassifier</strong>: Advanced multi-stage classification with memory-worthiness detection and event extraction</li>
-</ul>
-<h3 id="search-theory">Search Theory<a class="headerlink" href="#search-theory" title="Permanent link">&para;</a></h3>
-<p>In-depth exploration of the three retrieval pipelines: two in-engine (single-stage and tiered drill-down in <code>IntelligentSearchEngine</code>) and one caller-driven (LLM-free primitives consumed by an outer agent).</p>
-<ul>
-<li><strong><code>IntelligentSearchEngine</code> — <code>mode="single"</code></strong>: one-shot LLM path selection (215-570ms)</li>
-<li><strong><code>IntelligentSearchEngine</code> — <code>mode="tiered"</code></strong>: staged drill-down (L1 → optional L2 → key pick) that mirrors the caller-driven flow but runs inside the engine (~1-2s; better scaling with store size)</li>
-<li><strong>Caller-driven tiered retrieval</strong>: LLM-free <code>summarize</code> / <code>get</code> primitives, picking driven by an outer agent (~100-300ms, zero memoir-side tokens)</li>
-</ul>
-<h3 id="memento-theory">Memento Theory<a class="headerlink" href="#memento-theory" title="Permanent link">&para;</a></h3>
-<p>Comprehensive examination of the memento pattern implementation for ProfileMemento, TimelineMemento, and LocationMemento, explaining dimensional memory organization.</p>
-<ul>
-<li><strong>ProfileMemento</strong>: Identity and biographical information with replacement semantics</li>
-<li><strong>TimelineMemento</strong>: Chronological event organization by date</li>
-<li><strong>LocationMemento</strong>: Spatial memory management with geographic normalization</li>
-</ul>
-<h2 id="key-insights">Key Insights<a class="headerlink" href="#key-insights" title="Permanent link">&para;</a></h2>
-<ul>
-<li><strong>Performance vs Accuracy Trade-offs</strong>: Each component offers multiple implementations optimized for different use cases</li>
-<li><strong>Hierarchical Organization</strong>: Leveraging semantic paths for O(log n) operations instead of O(n) vector searches</li>
-<li><strong>Dimensional Separation</strong>: Organizing memories along natural human cognitive dimensions (identity, time, space)</li>
-<li><strong>Git-like Versioning</strong>: Bringing version control concepts to AI memory management</li>
-</ul>
-<h2 id="performance-benchmarks">Performance Benchmarks<a class="headerlink" href="#performance-benchmarks" title="Permanent link">&para;</a></h2>
+<h1 id="ui">UI<a class="headerlink" href="#ui" title="Permanent link">&para;</a></h1>
+<p>The memoir web UI is an interactive, D3.js-backed explorer for a memoir store. It exposes the same operations as the CLI — connect to a store, browse memories by semantic path, switch branches, walk commits, verify cryptographic proofs — but in a visual form that makes structural and temporal relationships easier to see.</p>
+<h2 id="launching">Launching<a class="headerlink" href="#launching" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Connect to an existing store</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>memoir<span class="w"> </span>ui<span class="w"> </span>/path/to/store
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Enable semantic search in the UI&#39;s command input</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>memoir<span class="w"> </span>ui<span class="w"> </span>/path/to/store<span class="w"> </span>--usellm
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Custom port (default: 8080)</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>memoir<span class="w"> </span>ui<span class="w"> </span>/path/to/store<span class="w"> </span>--port<span class="w"> </span><span class="m">8081</span>
+</span></code></pre></div>
+<p>The server binds to <code>http://localhost:8080</code> and opens the UI in the browser. <code>Ctrl-C</code> in the launching shell stops it.</p>
+<h2 id="layout">Layout<a class="headerlink" href="#layout" title="Permanent link">&para;</a></h2>
+<p>The UI is one page with three fixed regions and a floating command input.</p>
+<h3 id="top-bar">Top bar<a class="headerlink" href="#top-bar" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
-<th>Component</th>
-<th>Fast Implementation</th>
-<th>Intelligent Implementation</th>
+<th>Region</th>
+<th>Purpose</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><strong>Classifier</strong></td>
-<td>1-5ms (cached)</td>
-<td>200-1000ms (LLM)</td>
+<td><strong>Branch selector</strong> (top-left)</td>
+<td>Switch the active memoir branch. Mirrors git branch semantics — each branch has its own commit history and HEAD.</td>
 </tr>
 <tr>
-<td><strong>Search (single)</strong></td>
-<td>N/A</td>
-<td>215-570ms (1 LLM call)</td>
+<td><strong>Store path</strong> (top-center)</td>
+<td>The memoir store currently connected. Click the 🔗 icon to copy the absolute path.</td>
 </tr>
 <tr>
-<td><strong>Search (tiered)</strong></td>
-<td>N/A</td>
-<td>~1-2s (2-3 LLM calls)</td>
+<td><strong>View switcher</strong> (top-right)</td>
+<td>Toggle between <strong>Tree</strong>, <strong>Graph</strong>, <strong>Timeline</strong>, and <strong>Places</strong> without losing the current branch and store context.</td>
 </tr>
 <tr>
-<td><strong>Search (caller-driven)</strong></td>
-<td>~100-300ms (no LLM)</td>
-<td>N/A</td>
-</tr>
-<tr>
-<td><strong>Storage</strong></td>
-<td>20-30ms</td>
-<td>20-30ms</td>
+<td><strong>Theme toggle</strong> (far right)</td>
+<td>Switch between light and dark themes.</td>
 </tr>
 </tbody>
 </table>
-<h2 id="architecture-benefits">Architecture Benefits<a class="headerlink" href="#architecture-benefits" title="Permanent link">&para;</a></h2>
-<ol>
-<li><strong>10-50x faster search</strong> than traditional vector approaches</li>
-<li><strong>Transparent, interpretable</strong> ranking mechanisms</li>
-<li><strong>Flexible trade-offs</strong> between speed and understanding</li>
-<li><strong>Hierarchical exploration</strong> of memory spaces</li>
-</ol>
+<h3 id="commit-rail-left-sidebar">Commit rail (left sidebar)<a class="headerlink" href="#commit-rail-left-sidebar" title="Permanent link">&para;</a></h3>
+<p>Every commit on the current branch, newest first. Each row shows:</p>
+<ul>
+<li>The short commit hash (e.g. <code>5e6fd7d</code>) and a <code>HEAD</code> badge when applicable.</li>
+<li>The commit message — typically <code>Store &lt;path&gt;.&lt;name&gt;</code> for auto-classified memories.</li>
+<li>Author and relative age.</li>
+<li>A diff badge (<code>+N ~N -N</code>) revealed on hover, counting added / modified / removed paths.</li>
+</ul>
+<p>Clicking a commit inspects its change set in the main canvas.</p>
+<h3 id="main-canvas">Main canvas<a class="headerlink" href="#main-canvas" title="Permanent link">&para;</a></h3>
+<p>Renders the currently-selected view. See <a href="#views">Views</a> below.</p>
+<h3 id="command-input-bottom">Command input (bottom)<a class="headerlink" href="#command-input-bottom" title="Permanent link">&para;</a></h3>
+<p>Type <code>/</code> to open a slash-command menu, or type plain text for natural-language search. Semantic search activates when the server was launched with <code>--usellm</code> (otherwise the input falls back to keyword matching).</p>
+<h2 id="views">Views<a class="headerlink" href="#views" title="Permanent link">&para;</a></h2>
+<h3 id="tree">Tree<a class="headerlink" href="#tree" title="Permanent link">&para;</a></h3>
+<p>Hierarchical, folder-style view of memory paths. Expand a node to reveal its children; click a leaf to see the memory value, classification metadata, and commit provenance.</p>
+<p><img alt="Memoir UI — Tree view" src="../_static/ui-tree.png" width="720" /></p>
+<p>Best for: drilling into a known category, confirming a semantic path exists.</p>
+<h3 id="graph">Graph<a class="headerlink" href="#graph" title="Permanent link">&para;</a></h3>
+<p>Force-directed node graph of the taxonomy. Edges connect parent paths to children.</p>
+<p><img alt="Memoir UI — Graph view with commit rail" src="../_static/ui-graph.png" width="720" /></p>
+<p>Node coloring:</p>
+<table>
+<thead>
+<tr>
+<th>Color</th>
+<th>Meaning</th>
+<th>Example</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Teal</strong></td>
+<td>Root category</td>
+<td><code>workflow</code>, <code>settings</code>, <code>project</code>, <code>preferences</code>, <code>entity</code></td>
+</tr>
+<tr>
+<td><strong>Purple</strong></td>
+<td>Sub-category</td>
+<td><code>workflow.coding</code>, <code>preferences.tools</code>, <code>context.project</code></td>
+</tr>
+<tr>
+<td><strong>Red</strong></td>
+<td>Leaf (actual stored memory)</td>
+<td><code>workflow.coding.classification</code>, <code>preferences.tools.memory</code></td>
+</tr>
+</tbody>
+</table>
+<p>Hover any node to highlight its neighborhood; hover a commit in the rail to see a diff overlay on the graph.</p>
+<p>Best for: understanding how a store is organized at a glance, spotting over-broad or orphan categories.</p>
+<h3 id="timeline">Timeline<a class="headerlink" href="#timeline" title="Permanent link">&para;</a></h3>
+<p>Chronological feed of commits with per-commit file diffs. Each entry expands to show the memory values added, modified, or removed in that commit.</p>
+<p>Best for: reviewing recent activity, auditing what changed between two points in time.</p>
+<h3 id="places">Places<a class="headerlink" href="#places" title="Permanent link">&para;</a></h3>
+<p>Groups memories by location metadata. Useful when memories carry <code>place</code> / <code>site</code> attributes — e.g. commits captured across different projects or repositories.</p>
+<h2 id="memory-store-statistics-stats">Memory Store Statistics (<code>/stats</code>)<a class="headerlink" href="#memory-store-statistics-stats" title="Permanent link">&para;</a></h2>
+<p>Typing <code>/stats</code> in the command input opens the <strong>Memory Store Statistics</strong> panel — a 7-tab modal over the connected store.</p>
+<p><img alt="Memory Store Statistics — Codebase tab" src="../_static/ui-stats-modal.png" width="640" /></p>
+<table>
+<thead>
+<tr>
+<th>Tab</th>
+<th>What it shows</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Overview</strong></td>
+<td>Top-line counts: total memories, commits, branches, namespaces.</td>
+</tr>
+<tr>
+<td><strong>Codebase</strong></td>
+<td>The <code>codebase:onboard</code> snapshot — goals, structure, modules — when the store was populated via <code>/memoir-onboard</code>.</td>
+</tr>
+<tr>
+<td><strong>Tree Structure</strong></td>
+<td>Depth, branching factor, and leaf counts at each level of the taxonomy tree.</td>
+</tr>
+<tr>
+<td><strong>Version Control</strong></td>
+<td>Commits per branch, merge history, HEADs, recent activity.</td>
+</tr>
+<tr>
+<td><strong>Performance</strong></td>
+<td>Classification and search latencies, cache hit rates.</td>
+</tr>
+<tr>
+<td><strong>Classification</strong></td>
+<td>Distribution of memories across the taxonomy — which paths are hot, which are sparse.</td>
+</tr>
+<tr>
+<td><strong>Content Analysis</strong></td>
+<td>Per-memory size, token counts, and content-type breakdowns.</td>
+</tr>
+</tbody>
+</table>
+<p>The footer offers <strong>🔄 Refresh</strong> to re-query the store and <strong>📤 Export JSON</strong> to download the raw statistics payload.</p>
+<h2 id="slash-commands-in-the-ui">Slash commands in the UI<a class="headerlink" href="#slash-commands-in-the-ui" title="Permanent link">&para;</a></h2>
+<p>The command input accepts the same mutation and inspection verbs as the CLI — <code>/connect</code>, <code>/new</code>, <code>/remember</code>, <code>/forget</code>, <code>/branch</code>, <code>/checkout</code>, <code>/merge</code>, <code>/commits</code>, <code>/blame</code>, <code>/proof</code>, <code>/verify</code>, <code>/stats</code>, <code>/help</code>, and more. Type <code>/help</code> to open the full command reference with examples.</p>
+<p>Plain text (no leading <code>/</code>) is treated as a search query against the current store.</p>
+<h2 id="related">Related<a class="headerlink" href="#related" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../cli/">CLI Reference</a> — the non-visual interface to the same store operations.</li>
+<li><a href="../architecture/">Architecture</a> — how the store, taxonomy, and classifier fit together behind the UI.</li>
+</ul>
 
 
 
