@@ -1,6 +1,6 @@
 ---
 name: memoir-ui
-description: "Launch (or re-open) the memoir web UI in the background so the user can visually browse their memory store. Use when the user wants a visual / tree view of what's stored, NOT for answering specific factual questions (that's memory-recall's job). Typical triggers: 'show me my memories', 'open the memoir UI', 'what memories do I have — visually', 'browse my memory tree', 'launch the memory explorer', 'open memoir in a browser', 'I want to see my memory store'. If a UI is already running for the current project's store, the skill re-opens the existing tab instead of spawning a new server. Skip when the user wants a text recall (use memory-recall), an onboarding summary (use memoir-onboard), or explicitly wants to stop the UI (use /memoir-ui-stop)."
+description: "Launch (or re-open) the memoir web UI in the background so the user can visually browse their memory store. Use when the user wants a visual / tree view of what's stored, NOT for answering specific factual questions (that's memory-recall's job). Typical triggers: 'show me my memories', 'open the memoir UI', 'what memories do I have — visually', 'browse my memory tree', 'launch the memory explorer', 'open memoir in a browser', 'I want to see my memory store'. If a UI is already running for the current project's store, the skill re-opens the existing tab instead of spawning a new server. Skip when the user wants a text recall (use memory-recall), an onboarding summary (use memoir-onboard), or explicitly wants to stop the UI (kill the PID shown in the skill's reply)."
 context: fork
 allowed-tools: Bash
 ---
@@ -47,7 +47,7 @@ Memoir UI available at <URL>
 Store: <STORE>
 Mode: readonly · LLM off (relaunch from a terminal with `memoir ui <STORE> --no-readonly --usellm` for write/search access)
 PID: <PID>
-Stop anytime with `/memoir-ui-stop` (or `kill <PID>`).
+Stop anytime with `kill <PID>`.
 ```
 
 If the helper exits non-zero, print its stderr back to the user under a one-line header like `UI failed to start:` — don't swallow it.

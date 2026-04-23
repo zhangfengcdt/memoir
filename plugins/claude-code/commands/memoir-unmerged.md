@@ -45,4 +45,4 @@ else
 fi
 '`
 
-Report the list (or the "all clean" message). If branches are shown, remind the user they can run `memoir:memoir-sync-branch <name>` for each, or `memoir:memoir-sync` from the branch itself.
+Report the list (or the "all clean" message). If branches are shown, remind the user they can run `memoir:memoir-sync-branch <name>` for each.

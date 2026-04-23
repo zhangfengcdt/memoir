@@ -277,7 +277,7 @@ _ignored_branches_file() { printf '%s' "$MEMOIR_STORE_PATH/.git/plugin-ignored-b
 _heartbeats_dir() { printf '%s' "$MEMOIR_STORE_PATH/.git/plugin-active-sessions"; }
 _synced_dir() { printf '%s' "$MEMOIR_STORE_PATH/.git/plugin-synced-branches"; }
 
-# record_branch_synced <branch> — called by /memoir-sync* after a successful
+# record_branch_synced <branch> — called by /memoir-sync-branch after a successful
 # merge. Records the Unix timestamp of the sync. The detector uses this to
 # determine whether a branch's tip is newer than its last known promotion.
 # Needed because memoir's merge rewrites patches on main, so git graph/diff
@@ -424,7 +424,7 @@ except Exception:
     # Memoir's merge rewrites patches on main (not a normal two-parent merge
     # commit), so we can't use git graph, diff, or cherry to detect "already
     # merged". Instead, compare the branch's last-commit timestamp against a
-    # sync-marker timestamp recorded by /memoir-sync / /memoir-sync-branch.
+    # sync-marker timestamp recorded by /memoir-sync-branch.
     #
     # Considered merged if: marker exists AND marker_ts >= last_commit_ts.
     # If the user captures more on the branch after syncing, the branch's
