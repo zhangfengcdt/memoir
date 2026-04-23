@@ -340,7 +340,6 @@ The caller-driven modes consume zero memoir-side tokens. Tokens spent by the out
 #### Design references
 
 - `plugins/claude-code/skills/memory-recall/SKILL.md` — canonical caller contract, decision rules, and mode-marker convention.
-- `plugins/claude-code/commands/memoir-get.md` — slash-command surface for `get`.
 - `plugins/claude-code/hooks/user-prompt-submit.sh` — SessionStart nudge that steers the outer LLM toward recall on non-trivial prompts.
 
 ## Reaching the pipelines from the shell
@@ -563,7 +562,6 @@ Implementation entry points for the three retrieval pipelines:
 | `get` service layer | `src/memoir/services/memory_service.py` |
 | Response shapes | `src/memoir/services/models.py` |
 | Caller contract + mode markers | `plugins/claude-code/skills/memory-recall/SKILL.md` |
-| `get` slash command | `plugins/claude-code/commands/memoir-get.md` |
 | Per-prompt recall nudge | `plugins/claude-code/hooks/user-prompt-submit.sh` |
 | `--depth` CLI tests | `tests/test_cli.py` |
 | Tiered-mode engine tests | `tests/test_search_tiered.py` |

@@ -6,7 +6,7 @@ Give Claude Code a **git-versioned, taxonomy-structured memory**. Unlike vector-
 
 - **Auto-capture**: after each turn, a lightweight haiku pass extracts durable facts and `memoir remember` classifies each into the taxonomy. One commit per fact.
 - **Auto-recall**: a `memory-recall` skill (forked subagent) runs taxonomy-path recall, and — when asked about provenance — escalates to `blame` or `diff`. Only a curated summary returns to the main context.
-- **Slash commands** for memoir's git-like superpowers: `/memoir-branch`, `/memoir-checkout`, `/memoir-merge`, `/memoir-time-travel`, `/memoir-taxonomy`, `/memoir-blame`, `/memoir-proof`, `/memoir-verify`, `/memoir-status`.
+- **Slash commands** for everyday ops: `/memoir-status`, `/memoir-taxonomy`, `/memoir-remember`, `/memoir-forget`, `/memoir-sync-branch`, `/memoir-unmerged`, `/memoir-onboard`, `/memoir-ui`, `/memory-recall`. Deeper git operations (branch, checkout, merge, time-travel, blame, proof, verify, diff, get, keys) live on the `memoir` CLI.
 - **Zero daemons**: no watch process, no vector index, nothing to clean up.
 
 ## Install
@@ -84,7 +84,7 @@ When a session starts on code branch `feature/x`, the plugin auto-checks out mem
 - Captures made while on `feature/x` stay on that memoir branch — they don't mix with `main` until you promote them.
 - Recall from `feature/x` reads from `feature/x` (which includes everything forked from `main` plus the branch-local captures).
 
-**Promote to main when a feature is done**: run `/memoir-sync` while on the feature branch. This merges the branch into `main` (keeping the source for further captures). `/memoir-sync-branch <name>` merges any named branch without switching away from your current one.
+**Promote to main when a feature is done**: run `/memoir-sync-branch <branch-name>` to merge a branch into `main`. This works from any branch — you don't need to switch to the one you're promoting, and the source branch is kept intact for further captures.
 
 **The "empty main" problem**: main stays bare unless someone captures directly on code `main`. Solved by fork-inheritance (feature branches start rich) + explicit sync at completion (main grows over time with promoted knowledge).
 
@@ -100,7 +100,7 @@ You can run the suggested commands while on any branch. A branch in `$MEMOIR_STO
 
 ### Opting out: sticky experiments
 
-If you want memoir on a branch that *doesn't* match your code branch (e.g. an isolated experiment), manually switch with `/memoir-branch experiment` or `/memoir-checkout experiment`. The plugin writes `$MEMOIR_STORE/.git/plugin-sticky-branch` — auto-match stays off until you check back out to a branch matching your code branch, at which point the marker is cleared and auto-match resumes. The status line shows `<code>+<memory>*` while sticky.
+If you want memoir on a branch that *doesn't* match your code branch (e.g. an isolated experiment), manually switch with `memoir branch <name>` / `memoir checkout <name>` from your shell. The plugin writes `$MEMOIR_STORE/.git/plugin-sticky-branch` — auto-match stays off until you check back out to a branch matching your code branch, at which point the marker is cleared and auto-match resumes. The status line shows `<code>+<memory>*` while sticky.
 
 ### Concurrent sessions (caveat)
 
@@ -145,35 +145,19 @@ Three layers, mapped to memoir's primitives:
 
 ### Slash commands
 
-**Branching / time-travel (memoir's differentiators)**
-
 | Command | What it does |
 |---|---|
 | `/memoir-status` | Memory branch + commit/memory counts. |
-| `/memoir-branch [name]` | List or create memory branches. Creating a non-code-matching name sets sticky opt-out. |
-| `/memoir-checkout <branch>` | Switch Claude's memory context. Sets/clears sticky marker vs code branch. |
-| `/memoir-merge <source>` | Merge with conflict strategy `ours`/`theirs`/`skip`. |
-| `/memoir-sync` | Merge the current memoir branch into main (keeps source branch). |
-| `/memoir-sync-branch <name>` | Merge an arbitrary branch into main without switching to it. Used by SessionStart suggestions. |
-| `/memoir-time-travel <hash>` | Create a branch at a past commit and switch to it. |
-| `/memoir-diff [c1] [c2] [--stat]` | Show diff between two commits. Defaults to HEAD~1..HEAD. |
-
-**Memory ops**
-
-| Command | What it does |
-|---|---|
-| `/memoir-remember "<fact>" [-p <path>] [-n <ns>]` | Manually capture a memory now (independent of Stop-hook). With `-p`, skips the classifier (~25× faster). |
-| `/memoir-forget <key> [-n <ns>]` | Delete a memory (always uses `--force`; recoverable via time-travel). |
-| `/memoir-keys [<glob>]` | List all keys, optionally filtered by glob (e.g. `preferences.*`). |
-
-**Taxonomy / verification**
-
-| Command | What it does |
-|---|---|
 | `/memoir-taxonomy` | Per-namespace counts + registered taxonomies. |
-| `/memoir-blame <path>` | Change history for a specific taxonomy path. |
-| `/memoir-proof <path>` | Generate a SHA-256 proof of the path's current value. |
-| `/memoir-verify <path>` | Verify a proof — detects tampering. |
+| `/memoir-remember "<fact>" [-p <path>] [-n <ns>]` | Manually capture a memory now (independent of Stop-hook). With `-p`, skips the classifier (~25× faster). |
+| `/memoir-forget <key> [-n <ns>]` | Delete a memory (always uses `--force`). |
+| `/memoir-sync-branch <name>` | Merge a memoir branch into main without switching to it. Used by SessionStart suggestions. |
+| `/memoir-unmerged` | List memoir branches ahead of main — candidates for `/memoir-sync-branch`. |
+| `/memoir-onboard [--force]` | Populate or refresh the `codebase:onboard` snapshot surfaced at SessionStart. |
+| `/memoir-ui` | Launch (or re-open) the memoir web UI. |
+| `/memory-recall <query>` | Recall facts from past sessions via the `memory-recall` skill. |
+
+For branch management, time-travel, merge, blame, proof, verify, diff, get, and keys, use the `memoir` CLI directly — these operations aren't exposed as slash commands by default.
 
 ## Why memoir (vs a vector-search memory plugin)
 
