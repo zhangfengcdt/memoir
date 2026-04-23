@@ -7963,6 +7963,18 @@ No commit history found for this key.
             }
         }
 
+        // --- Commit hover popover state ---------------------------------
+        // Ordered commits (newest-first) for the currently rendered git
+        // history panel. Used to look up a commit's parent hash for the
+        // hover diff call without a second API roundtrip.
+        let __commitHashOrder = [];
+        // commit-hash -> { stats, changes } | { error: "..." }
+        const __commitDiffCache = new Map();
+        let __commitHoverTimer = null;
+        let __commitHoverAbort = null;
+        let __commitHoverNode = null;  // the <div.commit-node> currently hovered
+        const COMMIT_HOVER_DELAY_MS = 250;
+
         async function updateGitHistory() {
             if (!connectedStorePath) return;
 
@@ -8020,16 +8032,267 @@ No commit history found for this key.
                     `;
                 });
 
+                // A re-render drops the old .commit-node listeners with
+                // the old DOM; also dispose any popover still attached to
+                // a now-stale node.
+                cancelCommitHoverPopover();
+
                 gitTreeElement.innerHTML = historyHTML;
+
+                // Remember commit order for the hover-popover parent lookup.
+                __commitHashOrder = data.commits.map(c => c.hash);
 
                 // Add menu button handlers
                 initializeCommitMenus();
+
+                // Wire hover popovers for each commit node.
+                attachCommitHoverHandlers(gitTreeElement);
 
             } catch (error) {
                 console.error('Failed to update git history:', error);
                 // Keep existing history on error
             }
         }
+
+        function attachCommitHoverHandlers(gitTreeElement) {
+            gitTreeElement.querySelectorAll('.commit-node').forEach(node => {
+                const hash = node.dataset.commit;
+                if (!hash) return;
+                node.style.cursor = 'pointer';
+                node.addEventListener('mouseenter', () => scheduleCommitHoverPopover(node, hash));
+                node.addEventListener('mouseleave', () => cancelCommitHoverPopover());
+                node.addEventListener('click', (e) => {
+                    // The ⋯ menu button has its own handler — don't double-fire.
+                    // Same for the floating context menu that pops out from it.
+                    if (e.target.closest('.commit-menu-btn')) return;
+                    if (e.target.closest('.commit-context-menu')) return;
+                    cancelCommitHoverPopover();
+                    showCommitDiff(hash);
+                });
+            });
+        }
+
+        function scheduleCommitHoverPopover(node, hash) {
+            // If hovering the same node that's already pending/showing, no-op.
+            if (__commitHoverNode === node) return;
+            // Switching nodes fast: cancel prior pending work + popover.
+            cancelCommitHoverPopover();
+            __commitHoverNode = node;
+            __commitHoverTimer = setTimeout(() => {
+                __commitHoverTimer = null;
+                showCommitHoverPopover(node, hash);
+            }, COMMIT_HOVER_DELAY_MS);
+        }
+
+        function cancelCommitHoverPopover() {
+            if (__commitHoverTimer) {
+                clearTimeout(__commitHoverTimer);
+                __commitHoverTimer = null;
+            }
+            if (__commitHoverAbort) {
+                __commitHoverAbort.abort();
+                __commitHoverAbort = null;
+            }
+            if (__commitHoverPopover && __commitHoverPopover.parentNode) {
+                __commitHoverPopover.parentNode.removeChild(__commitHoverPopover);
+            }
+            __commitHoverPopover = null;
+            __commitHoverNode = null;
+        }
+
+        let __commitHoverPopover = null;
+
+        async function showCommitHoverPopover(node, hash) {
+            // Determine parent hash from the ordered list (newest-first).
+            const idx = __commitHashOrder.indexOf(hash);
+            const parentHash = idx >= 0 && idx + 1 < __commitHashOrder.length
+                ? __commitHashOrder[idx + 1]
+                : null;
+
+            // Render an immediate "loading" skeleton so the user gets
+            // feedback even while the diff request is in flight.
+            renderCommitPopover(node, hash, { state: 'loading', parentHash });
+
+            // If no parent in the fetched window → can't diff — tell the user.
+            if (!parentHash) {
+                renderCommitPopover(node, hash, {
+                    state: 'no-parent',
+                    parentHash: null,
+                });
+                return;
+            }
+
+            // Cached response → render immediately.
+            if (__commitDiffCache.has(hash)) {
+                renderCommitPopover(node, hash, {
+                    state: 'ready',
+                    parentHash,
+                    data: __commitDiffCache.get(hash),
+                });
+                return;
+            }
+
+            try {
+                __commitHoverAbort = new AbortController();
+                const url = `/api/diff?path=${encodeURIComponent(connectedStorePath)}`
+                    + `&commit1=${encodeURIComponent(parentHash)}`
+                    + `&commit2=${encodeURIComponent(hash)}`;
+                const res = await fetch(url, { signal: __commitHoverAbort.signal });
+                __commitHoverAbort = null;
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                if (!data.success) throw new Error(data.error || 'diff failed');
+                __commitDiffCache.set(hash, data);
+                // Still hovering the same node? render; else ignore.
+                if (__commitHoverNode === node) {
+                    renderCommitPopover(node, hash, { state: 'ready', parentHash, data });
+                }
+            } catch (err) {
+                if (err.name === 'AbortError') return;
+                if (__commitHoverNode === node) {
+                    renderCommitPopover(node, hash, {
+                        state: 'error',
+                        parentHash,
+                        error: err.message,
+                    });
+                }
+            }
+        }
+
+        function renderCommitPopover(node, hash, payload) {
+            // Replace any existing popover content.
+            if (__commitHoverPopover && __commitHoverPopover.parentNode) {
+                __commitHoverPopover.parentNode.removeChild(__commitHoverPopover);
+            }
+            __commitHoverPopover = document.createElement('div');
+            __commitHoverPopover.className = 'commit-hover-popover';
+
+            const short = hash.slice(0, 8);
+            let body = '';
+            if (payload.state === 'loading') {
+                body = `<div class="commit-hover-loading">Loading changes for ${short}…</div>`;
+            } else if (payload.state === 'no-parent') {
+                body = `<div class="commit-hover-note">Oldest commit in the loaded history — no parent to diff against.</div>`;
+            } else if (payload.state === 'error') {
+                body = `<div class="commit-hover-error">Failed to load diff: ${escapeHtml(payload.error || 'unknown error')}</div>`;
+            } else if (payload.state === 'ready') {
+                const { data } = payload;
+                const stats = data.stats || { added: 0, modified: 0, deleted: 0 };
+                const changes = data.changes || [];
+                const statsLine = `<span class="cpop-stat cpop-added">+${stats.added || 0}</span>`
+                    + ` <span class="cpop-stat cpop-modified">~${stats.modified || 0}</span>`
+                    + ` <span class="cpop-stat cpop-deleted">−${stats.deleted || 0}</span>`;
+                const max = 10;
+                const rows = changes.slice(0, max).map(c => {
+                    const icon = c.type === 'added' ? '+' : c.type === 'modified' ? '~' : '−';
+                    const cls  = c.type === 'added' ? 'cpop-added' : c.type === 'modified' ? 'cpop-modified' : 'cpop-deleted';
+                    return `<div class="cpop-row ${cls}"><span class="cpop-icon">${icon}</span><span class="cpop-path">${escapeHtml(c.path || '')}</span></div>`;
+                }).join('');
+                const more = changes.length > max
+                    ? `<div class="cpop-more">… and ${changes.length - max} more</div>`
+                    : '';
+                const empty = changes.length === 0
+                    ? `<div class="commit-hover-note">No key-level changes (commit may only touch metadata).</div>`
+                    : '';
+                body = `
+                    <div class="cpop-header">
+                        <span class="cpop-short">${short}</span>
+                        <span class="cpop-stats">${statsLine}</span>
+                    </div>
+                    ${empty}
+                    ${rows ? `<div class="cpop-list">${rows}${more}</div>` : ''}
+                `;
+            }
+            __commitHoverPopover.innerHTML = body;
+            document.body.appendChild(__commitHoverPopover);
+
+            // Position: prefer right of the commit node; flip if off-screen.
+            const rect = node.getBoundingClientRect();
+            const pop = __commitHoverPopover.getBoundingClientRect();
+            const margin = 8;
+            let left = rect.right + margin;
+            if (left + pop.width > window.innerWidth - margin) {
+                left = Math.max(margin, rect.left - pop.width - margin);
+            }
+            let top = rect.top;
+            if (top + pop.height > window.innerHeight - margin) {
+                top = Math.max(margin, window.innerHeight - pop.height - margin);
+            }
+            __commitHoverPopover.style.left = `${left}px`;
+            __commitHoverPopover.style.top = `${top}px`;
+        }
+
+        // Inject popover CSS once.
+        (function injectCommitHoverStyles() {
+            if (document.getElementById('commit-hover-styles')) return;
+            const style = document.createElement('style');
+            style.id = 'commit-hover-styles';
+            style.textContent = `
+                .commit-hover-popover {
+                    position: fixed;
+                    z-index: 10050;
+                    min-width: 280px;
+                    max-width: 420px;
+                    background: rgba(17, 24, 39, 0.97);
+                    color: var(--text-primary, #e5e7eb);
+                    border: 1px solid rgba(99, 102, 241, 0.35);
+                    border-radius: 10px;
+                    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+                    padding: 10px 12px;
+                    font-family: 'JetBrains Mono', ui-monospace, monospace;
+                    font-size: 12px;
+                    line-height: 1.5;
+                    pointer-events: none;
+                    backdrop-filter: blur(6px);
+                    animation: cpop-fadein 0.12s ease-out;
+                }
+                @keyframes cpop-fadein {
+                    from { opacity: 0; transform: translateY(-2px); }
+                    to   { opacity: 1; transform: translateY(0);    }
+                }
+                .cpop-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+                    padding-bottom: 6px;
+                    margin-bottom: 6px;
+                }
+                .cpop-short {
+                    color: #a5b4fc;
+                    font-weight: 600;
+                }
+                .cpop-stats { display: inline-flex; gap: 8px; }
+                .cpop-stat  { font-weight: 700; }
+                .cpop-added    { color: #34d399; }
+                .cpop-modified { color: #fbbf24; }
+                .cpop-deleted  { color: #f87171; }
+                .cpop-list { display: flex; flex-direction: column; gap: 2px; }
+                .cpop-row  {
+                    display: flex;
+                    gap: 6px;
+                    align-items: baseline;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+                .cpop-icon { width: 10px; text-align: center; font-weight: 700; }
+                .cpop-path {
+                    color: var(--text-primary, #e5e7eb);
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+                .cpop-more {
+                    color: #94a3b8;
+                    font-style: italic;
+                    margin-top: 4px;
+                }
+                .commit-hover-note,
+                .commit-hover-loading { color: #94a3b8; font-style: italic; }
+                .commit-hover-error   { color: #f87171; }
+            `;
+            document.head.appendChild(style);
+        })();
 
         function getTimeAgo(date) {
             const seconds = Math.floor((new Date() - date) / 1000);

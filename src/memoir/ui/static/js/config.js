@@ -117,10 +117,139 @@
             }, true);
         };
 
+        const hide = (id) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.style.display = 'none';
+            el.setAttribute('aria-hidden', 'true');
+        };
+
+        const attachBranchListPopover = (id) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            ensureBranchPopoverStyles();
+            let popover = null;
+            let showTimer = null;
+
+            const show = () => {
+                if (popover) return;
+                // Read current branch list straight off the (disabled)
+                // <select>'s options so we stay in sync automatically with
+                // updateBranchesDropdown() — no extra fetch needed.
+                const options = Array.from(el.options || []);
+                if (options.length === 0) return;
+                const current = el.value;
+                const lines = options.map(o => {
+                    const mark = o.value === current ? '●' : '○';
+                    const cls  = o.value === current ? 'mbp-row mbp-current' : 'mbp-row';
+                    return `<div class="${cls}"><span class="mbp-mark">${mark}</span><span class="mbp-name">${escapeAttr(o.textContent || o.value)}</span></div>`;
+                }).join('');
+                popover = document.createElement('div');
+                popover.className = 'memoir-branch-popover';
+                popover.innerHTML = `
+                    <div class="mbp-header">Branches (${options.length})</div>
+                    <div class="mbp-list">${lines}</div>
+                    <div class="mbp-footer">● current · readonly — branch switching writes the current-branch pointer</div>
+                `;
+                document.body.appendChild(popover);
+
+                // Position below the dropdown; flip up if it would overflow.
+                const rect = el.getBoundingClientRect();
+                const pop = popover.getBoundingClientRect();
+                const margin = 6;
+                let left = rect.left;
+                if (left + pop.width > window.innerWidth - margin) {
+                    left = Math.max(margin, window.innerWidth - pop.width - margin);
+                }
+                let top = rect.bottom + margin;
+                if (top + pop.height > window.innerHeight - margin) {
+                    top = Math.max(margin, rect.top - pop.height - margin);
+                }
+                popover.style.left = `${left}px`;
+                popover.style.top  = `${top}px`;
+            };
+
+            const hidePop = () => {
+                if (showTimer) { clearTimeout(showTimer); showTimer = null; }
+                if (popover && popover.parentNode) popover.parentNode.removeChild(popover);
+                popover = null;
+            };
+
+            el.addEventListener('mouseenter', () => {
+                if (showTimer) clearTimeout(showTimer);
+                showTimer = setTimeout(show, 180);
+            });
+            el.addEventListener('mouseleave', hidePop);
+            // Safety net: tear down on any blur/scroll so a stale popover
+            // never lingers after the user tabs away or resizes.
+            window.addEventListener('blur', hidePop);
+            window.addEventListener('scroll', hidePop, true);
+        };
+
+        const ensureBranchPopoverStyles = () => {
+            if (document.getElementById('memoir-branch-popover-styles')) return;
+            const s = document.createElement('style');
+            s.id = 'memoir-branch-popover-styles';
+            s.textContent = `
+                .memoir-branch-popover {
+                    position: fixed;
+                    z-index: 10050;
+                    min-width: 220px;
+                    max-width: 320px;
+                    max-height: 60vh;
+                    overflow-y: auto;
+                    background: rgba(17, 24, 39, 0.97);
+                    color: #e5e7eb;
+                    border: 1px solid rgba(99, 102, 241, 0.35);
+                    border-radius: 10px;
+                    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+                    padding: 10px 12px;
+                    font-family: 'JetBrains Mono', ui-monospace, monospace;
+                    font-size: 12px;
+                    line-height: 1.5;
+                    pointer-events: none;
+                    backdrop-filter: blur(6px);
+                    animation: mbp-fadein 0.12s ease-out;
+                }
+                @keyframes mbp-fadein {
+                    from { opacity: 0; transform: translateY(-2px); }
+                    to   { opacity: 1; transform: translateY(0);    }
+                }
+                .mbp-header {
+                    font-weight: 600;
+                    color: #a5b4fc;
+                    border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+                    padding-bottom: 6px;
+                    margin-bottom: 6px;
+                }
+                .mbp-list { display: flex; flex-direction: column; gap: 2px; }
+                .mbp-row  { display: flex; gap: 8px; align-items: baseline; }
+                .mbp-mark { width: 10px; color: #64748b; text-align: center; }
+                .mbp-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                .mbp-current .mbp-mark { color: #34d399; }
+                .mbp-current .mbp-name { color: #e5e7eb; font-weight: 600; }
+                .mbp-footer {
+                    margin-top: 8px;
+                    padding-top: 6px;
+                    border-top: 1px solid rgba(148, 163, 184, 0.15);
+                    color: #94a3b8;
+                    font-style: italic;
+                    font-size: 11px;
+                }
+            `;
+            document.head.appendChild(s);
+        };
+
         if (config.readonly) {
-            disable('addBranchBtn',    'Readonly mode: cannot create branches');
-            disable('removeBranchBtn', 'Readonly mode: cannot delete branches');
+            // Hide +/- entirely in readonly so the dropdown can expand into
+            // the freed horizontal space.
+            hide('addBranchBtn');
+            hide('removeBranchBtn');
             disable('branchSelector',  'Readonly mode: switching branches writes the current-branch pointer');
+            // Hover popup on the (disabled) dropdown that lists every
+            // branch, with the current one marked — lets the user peek
+            // at what's available even though they can't switch.
+            attachBranchListPopover('branchSelector');
             // refreshBtn intentionally NOT disabled — reloading store data
             // is a pure read operation.
         }
