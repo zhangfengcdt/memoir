@@ -5887,6 +5887,21 @@ ${result.valid ?
         }
 
         function buildTreeFromPaths(pathCount) {
+            // Data view caps total path entries at 500. Shallow paths win ties
+            // so the top of the hierarchy always renders.
+            const TREE_KEY_LIMIT = 500;
+            const allKeys = Object.keys(pathCount);
+            if (allKeys.length > TREE_KEY_LIMIT) {
+                const kept = allKeys
+                    .sort((a, b) => {
+                        const la = a.split('.').length;
+                        const lb = b.split('.').length;
+                        return la !== lb ? la - lb : a.localeCompare(b);
+                    })
+                    .slice(0, TREE_KEY_LIMIT);
+                pathCount = Object.fromEntries(kept.map(k => [k, pathCount[k]]));
+            }
+
             const tree = {};
 
             // Create organized structure with memento and taxonomy folders
@@ -5985,6 +6000,10 @@ ${result.valid ?
         //                  (used for the numeric badge, so folders show
         //                  rolled-up totals)
         function buildTreeFromNamespaces(namespaces) {
+            // Data view caps total keys across all namespaces at 500 to keep
+            // large stores navigable. `default` is drawn first (sort order
+            // below), so if the cap bites it takes keys from other namespaces.
+            const TREE_KEY_LIMIT = 500;
             const makeNode = () => ({ children: {}, ownCount: 0, subtreeCount: 0 });
             const tree = {};
 
@@ -5995,9 +6014,13 @@ ${result.valid ?
                 return a.localeCompare(b);
             });
 
+            let remaining = TREE_KEY_LIMIT;
             namespaceNames.forEach(ns => {
-                const keys = namespaces[ns] || [];
+                if (remaining <= 0) return;
+                let keys = namespaces[ns] || [];
+                if (keys.length > remaining) keys = keys.slice(0, remaining);
                 if (keys.length === 0) return;
+                remaining -= keys.length;
 
                 const root = makeNode();
 
@@ -6109,22 +6132,39 @@ ${result.valid ?
             const links = [];
             const nodeMap = new Map();
 
-            // Process memories or tree data
+            // Graph view restricts to the `default` namespace and caps total path
+            // nodes at 200. `data.tree` is aggregated across namespaces server-side,
+            // so we rebuild from `data.memories` (which carries per-item namespace)
+            // and only fall back to the aggregated tree when memories are absent.
+            const GRAPH_NAMESPACE = 'default';
+            const GRAPH_KEY_LIMIT = 200;
+
             let pathCount = {};
-            if (data.tree && Object.keys(data.tree).length > 0) {
-                pathCount = data.tree;
-            } else if (data.memories && data.memories.length > 0) {
+            if (data.memories && data.memories.length > 0) {
                 data.memories.forEach(memory => {
-                    if (memory.path) {
-                        const parts = memory.path.split('.');
-                        let currentPath = '';
-                        parts.forEach(part => {
-                            currentPath = currentPath ? currentPath + '.' + part : part;
-                            pathCount[currentPath] = (pathCount[currentPath] || 0) + 1;
-                        });
-                    }
+                    if ((memory.namespace || 'default') !== GRAPH_NAMESPACE) return;
+                    if (!memory.path) return;
+                    const parts = memory.path.split('.');
+                    let currentPath = '';
+                    parts.forEach(part => {
+                        currentPath = currentPath ? currentPath + '.' + part : part;
+                        pathCount[currentPath] = (pathCount[currentPath] || 0) + 1;
+                    });
                 });
+            } else if (data.tree && Object.keys(data.tree).length > 0) {
+                pathCount = { ...data.tree };
             }
+
+            // Only levels 0–2 render; sort shallow-first then alphabetical, then cap.
+            const kept = Object.keys(pathCount)
+                .filter(k => (k.split('.').length - 1) <= 2)
+                .sort((a, b) => {
+                    const la = a.split('.').length;
+                    const lb = b.split('.').length;
+                    return la !== lb ? la - lb : a.localeCompare(b);
+                })
+                .slice(0, GRAPH_KEY_LIMIT);
+            pathCount = Object.fromEntries(kept.map(k => [k, pathCount[k]]));
 
             // Create nodes from paths - limit to 3 levels deep for cleaner visualization
             Object.keys(pathCount).forEach(path => {
