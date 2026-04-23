@@ -97,6 +97,7 @@ nav:
       - Search: theory/search.md
       - Memento: theory/memento.md
   - CLI: cli.md
+  - UI: ui.md
   - Claude Code: claude_code.md
   - API:
       - Memoir: api/memoir.md
