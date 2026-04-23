@@ -166,7 +166,7 @@ class BranchHandler(BaseAPIHandler):
             result = {
                 "success": True,
                 "message": message,
-                "current_branch": checkout_result.branch,
+                "current_branch": checkout_result.current_branch,
                 "target": target,
             }
 

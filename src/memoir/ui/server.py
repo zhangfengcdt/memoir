@@ -29,6 +29,13 @@ from memoir.ui.handlers.utils import UtilityHandler
 PORT = 8080
 
 
+class ReusableTCPServer(socketserver.TCPServer):
+    """TCPServer with SO_REUSEADDR enabled so quick restarts don't trip over
+    TIME_WAIT sockets from a prior run."""
+
+    allow_reuse_address = True
+
+
 class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         # Set the directory to serve from
@@ -2851,19 +2858,41 @@ Answer:"""
         return datetime.now().isoformat()
 
 
-def main():
-    print(f"Starting Memoir UI server on http://localhost:{PORT}")
-    print(f"Open http://localhost:{PORT} in your browser")
-    print("\nTo connect to a memory store, use the command in the UI:")
-    print("  /connect /tmp/memoir_ui_store")
-    print("\nPress Ctrl+C to stop the server")
+def run_server(port: int = 0, on_ready=None):
+    """Run the Memoir UI HTTP server.
 
-    with socketserver.TCPServer(("", PORT), MemoryStoreHandler) as httpd:
+    ``port=0`` (the default) asks the OS for a free ephemeral port; pass an
+    explicit port to pin it. Binds the socket first so port-conflict errors
+    surface before any startup output. ``on_ready`` is called with the bound
+    port after a successful bind but before ``serve_forever`` — use it to open
+    a browser tab, etc.
+
+    Blocks until the server is shut down (e.g. via Ctrl+C).
+    """
+    # Bind first; this raises OSError (EADDRINUSE) before we print anything.
+    with ReusableTCPServer(("", port), MemoryStoreHandler) as httpd:
+        bound_port = httpd.server_address[1]
+        print(f"Starting Memoir UI server on http://localhost:{bound_port}")
+        print(f"Open http://localhost:{bound_port} in your browser")
+        print("\nTo connect to a memory store, use the command in the UI:")
+        print("  /connect /tmp/memoir_ui_store")
+        print("\nPress Ctrl+C to stop the server")
+
+        if on_ready is not None:
+            try:
+                on_ready(bound_port)
+            except Exception as e:
+                print(f"on_ready callback failed: {e}")
+
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
             print("\nShutting down server...")
             httpd.shutdown()
+
+
+def main():
+    run_server(PORT)  # python -m invocation keeps the historical 8080 default
 
 
 if __name__ == "__main__":

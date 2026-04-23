@@ -146,6 +146,7 @@ def get_cli_schema(group: click.Group) -> dict[str, Any]:
         "crypto": ["proof", "verify", "blame"],
         "analysis": ["summarize"],
         "taxonomy": ["taxonomy"],
+        "utility": ["ui"],
     }
 
     for group_name, cmd_names in command_groups.items():
@@ -320,6 +321,7 @@ def cli(
       Branch:   branch, checkout, merge, time-travel, diff
       Crypto:   proof, verify, blame
       Analysis: summarize
+      Utility:  ui
 
     \b
     AGENT TIPS:
@@ -348,6 +350,7 @@ from memoir.cli.commands import (  # noqa: E402
     memory,
     store,
     taxonomy,
+    ui,
 )
 
 # Store commands
@@ -379,6 +382,9 @@ cli.add_command(crypto.blame)
 
 # Analysis commands
 cli.add_command(analysis.summarize)
+
+# Utility commands
+cli.add_command(ui.ui)
 
 
 def main():
