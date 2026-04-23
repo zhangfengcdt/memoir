@@ -21,9 +21,16 @@ The term "memento" is deliberately chosen over "manager" to emphasize that these
 - Handles dimension-specific merging and deduplication
 
 ### Key Innovation
-```
-Traditional: Flat memory storage → complex queries → mixed results
-Memoir:      Dimensional separation → targeted storage → coherent retrieval
+```mermaid
+flowchart TB
+    subgraph Trad[Traditional]
+        direction LR
+        t1[Flat memory storage] --> t2[complex queries] --> t3[mixed results]
+    end
+    subgraph Mem[Memoir]
+        direction LR
+        m1[Dimensional separation] --> m2[targeted storage] --> m3[coherent retrieval]
+    end
 ```
 
 The memento system recognizes that human memory naturally organizes along three primary dimensions:

@@ -118,13 +118,15 @@ if __name__ == "__main__":
 
 Memoir follows a clean dependency injection pattern where each layer depends only on the layers below it:
 
-```text
-Memory Manager
-     ↓
-┌─────────┬──────────────┬─────────────┐
-│ Storage │ Classification │   Search    │
-│ Layer   │     Layer      │  Engine     │
-└─────────┴──────────────┴─────────────┘
+```mermaid
+flowchart TB
+    MM[Memory Manager]
+    S[Storage Layer]
+    C[Classification Layer]
+    SE[Search Engine]
+    MM --> S
+    MM --> C
+    MM --> SE
 ```
 
 This design enables:

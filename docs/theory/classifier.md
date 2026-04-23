@@ -23,9 +23,16 @@ Memoir solves this by introducing a **semantic taxonomy** where memories are cla
 ## Classification Philosophy
 
 ### Key Paradigm Shift
-```
-Traditional: uuid-1234 → expensive vector search → no history
-Memoir:      profile.professional.skills.python → O(log n) lookup → full versioning
+```mermaid
+flowchart TB
+    subgraph Trad[Traditional]
+        direction LR
+        t1[uuid-1234] --> t2[expensive vector search] --> t3[no history]
+    end
+    subgraph Mem[Memoir]
+        direction LR
+        m1[profile.professional.skills.python] --> m2["O(log n) lookup"] --> m3[full versioning]
+    end
 ```
 
 The classification system transforms unstructured memory content into structured taxonomy paths, enabling:

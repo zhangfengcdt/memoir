@@ -30,11 +30,24 @@ Memoir solves this through **hierarchical semantic search** where:
 ## Search Philosophy
 
 ### Key Innovation
-```
-Traditional:                    query → embedding → O(n) similarity search → ranked results
-Memoir (in-engine, single):     query → LLM path selection → O(log n) retrieval → filtered results
-Memoir (in-engine, tiered):     query → LLM picks L1 → [LLM picks L2] → LLM picks keys → O(log n) retrieval
-Memoir (caller-driven):         query → caller-LLM picks prefix → summarize --depth N → get
+```mermaid
+flowchart TB
+    subgraph Trad[Traditional]
+        direction LR
+        t1[query] --> t2[embedding] --> t3["O(n) similarity search"] --> t4[ranked results]
+    end
+    subgraph Single["Memoir — in-engine, single"]
+        direction LR
+        s1[query] --> s2[LLM path selection] --> s3["O(log n) retrieval"] --> s4[filtered results]
+    end
+    subgraph Tiered["Memoir — in-engine, tiered"]
+        direction LR
+        ti1[query] --> ti2[LLM picks L1] --> ti3["(optional) LLM picks L2"] --> ti4[LLM picks keys] --> ti5["O(log n) retrieval"]
+    end
+    subgraph Caller["Memoir — caller-driven"]
+        direction LR
+        c1[query] --> c2[caller-LLM picks prefix] --> c3["summarize --depth N"] --> c4[get]
+    end
 ```
 
 All three memoir pipelines exploit pre-classified semantic structure to:
@@ -185,16 +198,16 @@ The picker in tiered mode still does not see the caller's conversational context
 5. **Key pick (LLM #2)** — the descended key set plus content samples goes into the reused `_select_relevant_paths` prompt (the same static taxonomy-aware prompt the single-stage path uses). LLM returns 3–7 exact keys.
 6. **Memory retrieval (pure compute)** — picked keys are fetched from the already-loaded `memory_dict` via `_extract_memories_from_data`, same shape as single-stage.
 
-```
-query: "what's my testing setup?"
-
-1. L1 histogram  → { preferences: 28, context: 25, workflow: 24, routine: 8, ... }
-2. LLM #1        → [preferences, workflow, routine]
-3. Descent       → 15 keys under preferences.*, 12 under workflow.*, 6 under routine.*
-4. (no L2)       → all three L1s under the 40-key threshold
-5. LLM #2        → [preferences.coding.testing, workflow.coding.testing,
-                     routine.coding.testing]
-6. Fetch         → 3 IntelligentSearchResult objects with step_timings + llm_prompts
+```mermaid
+flowchart TB
+    Q["query: what's my testing setup?"]
+    S1["1. L1 histogram<br/>{preferences: 28, context: 25,<br/>workflow: 24, routine: 8, ...}"]
+    S2["2. LLM #1<br/>[preferences, workflow, routine]"]
+    S3["3. Descent<br/>15 keys under preferences.*<br/>12 under workflow.*, 6 under routine.*"]
+    S4["4. (no L2)<br/>all three L1s under the 40-key threshold"]
+    S5["5. LLM #2<br/>[preferences.coding.testing,<br/>workflow.coding.testing,<br/>routine.coding.testing]"]
+    S6["6. Fetch<br/>3 IntelligentSearchResult objects<br/>with step_timings + llm_prompts"]
+    Q --> S1 --> S2 --> S3 --> S4 --> S5 --> S6
 ```
 
 #### Prompt stages
@@ -284,26 +297,15 @@ Markers combine when paths chain (`[mode=drill+blame]`). The legacy LLM-bundled 
 
 #### Drill-down walkthrough
 
-```
-query: "what's my testing setup?"
-
-1. summarize --depth 1 -n default
-   → prefix_counts: { preferences: 28, context: 25, workflow: 24, routine: 8, ... }
-
-2. Caller-LLM picks: [preferences, workflow, routine]
-   (all plausibly host testing-related facts)
-
-3. For each pick, summarize --keys "<prefix>.*":
-   - preferences.coding.testing, preferences.tools.testing, preferences.work.testing
-   - workflow.coding.testing, workflow.automation.testing
-   - routine.coding.testing
-
-4. Caller-LLM picks 3–7 exact keys. Batched get:
-   memoir get preferences.coding.testing preferences.tools.testing \
-               workflow.coding.testing routine.coding.testing
-   → 4 items, each with value.content populated.
-
-5. Response: "[mode=drill]\n\n- You use pytest over unittest ..."
+```mermaid
+flowchart TB
+    Q["query: what's my testing setup?"]
+    S1["1. summarize --depth 1 -n default<br/>prefix_counts: {preferences, context,<br/>workflow, routine, ...}"]
+    S2["2. Caller-LLM picks<br/>[preferences, workflow, routine]<br/>(all plausibly host testing-related facts)"]
+    S3["3. For each pick: summarize --keys prefix.*<br/>preferences.coding.testing, preferences.tools.testing, ...<br/>workflow.coding.testing, workflow.automation.testing<br/>routine.coding.testing"]
+    S4["4. Caller-LLM picks 3–7 exact keys<br/>Batched: memoir get preferences.coding.testing ...<br/>→ 4 items with value.content"]
+    S5["5. Response<br/>[mode=drill] — You use pytest over unittest ..."]
+    Q --> S1 --> S2 --> S3 --> S4 --> S5
 ```
 
 No LLM call on memoir's side anywhere in this flow. Total wall-time is dominated by CLI startup + the three `summarize` invocations.

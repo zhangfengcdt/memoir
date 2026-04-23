@@ -12,23 +12,21 @@ Memoir implements a **clean layered architecture** with proper separation of con
 
 ## System Architecture
 
-```text
-┌─────────────────────────────────────────────────┐
-│               Memory Manager                    │
-│           (Orchestration Layer)                 │
-└─────────────────┬───────────────────────────────┘
-                  │
-    ┌─────────────┼─────────────┐
-    │             │             │
-┌───▼────┐   ┌────▼────┐   ┌────▼────┐
-│Storage │   │Classify │   │ Search  │
-│ Layer  │   │  Layer  │   │ Engine  │
-└────────┘   └─────────┘   └─────────┘
-    │             │             │
-┌───▼────┐   ┌────▼────┐   ┌────▼────┐
-│Prolly  │   │Taxonomy │   │Path     │
-│ Tree   │   │ System  │   │Selection│
-└────────┘   └─────────┘   └─────────┘
+```mermaid
+flowchart TB
+    MM["Memory Manager<br/>(Orchestration Layer)"]
+    S[Storage Layer]
+    C[Classification Layer]
+    SE[Search Engine]
+    PT[ProllyTree]
+    TX[Taxonomy System]
+    PS[Path Selection]
+    MM --> S
+    MM --> C
+    MM --> SE
+    S --> PT
+    C --> TX
+    SE --> PS
 ```
 
 ## Layer Details
@@ -111,21 +109,22 @@ memory_manager = ProllyTreeMemoryStoreManager(
 
 **Storage Flow**:
 
-```text
-Memory Input → Classification → Path Selection → Aggregation → Storage
-     ↓              ↓              ↓              ↓            ↓
-"I work at X"  →  Classifier  →  "profile.   →  Aggregate  → ProllyTree
-                   Analysis      professional.   with        Storage
-                                occupation"     similar
+```mermaid
+flowchart LR
+    A["Memory Input<br/>I work at X"] --> B["Classification<br/>Classifier analysis"]
+    B --> C["Path Selection<br/>profile.professional.occupation"]
+    C --> D["Aggregation<br/>with similar memories"]
+    D --> E["Storage<br/>ProllyTree"]
 ```
 
 **Retrieval Flow**:
 
-```text
-Query → Path Selection → Storage Lookup → Aggregation → Results
-  ↓          ↓               ↓             ↓            ↓
-"user job" → "profile.*" → Tree Search → Collect → Ranked Results
-             paths                        memories
+```mermaid
+flowchart LR
+    A["Query<br/>user job"] --> B["Path Selection<br/>profile.* paths"]
+    B --> C["Storage Lookup<br/>Tree Search"]
+    C --> D["Aggregation<br/>Collect memories"]
+    D --> E["Results<br/>Ranked"]
 ```
 
 ## Memory Aggregation

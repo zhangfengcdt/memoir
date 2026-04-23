@@ -54,7 +54,11 @@ markdown_extensions:
       pygments_lang_class: true
   - pymdownx.inlinehilite
   - pymdownx.snippets
-  - pymdownx.superfences
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
   - pymdownx.tabbed:
       alternate_style: true
   - pymdownx.tasklist:
@@ -93,7 +97,8 @@ nav:
       - Search: theory/search.md
       - Memento: theory/memento.md
   - CLI: cli.md
-  - API Reference:
+  - Claude Code: claude_code.md
+  - API:
       - Memoir: api/memoir.md
       - Classifier: api/classifier.md
       - Memento: api/memento.md
