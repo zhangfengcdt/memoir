@@ -43,6 +43,7 @@ class StoreStatsModal {
 
                 <div class="stats-tabs">
                     <button class="stats-tab active" data-tab="overview">Overview</button>
+                    <button class="stats-tab" data-tab="codebase" id="statsTabCodebase" style="display: none;">Codebase</button>
                     <button class="stats-tab" data-tab="structure">Tree Structure</button>
                     <button class="stats-tab" data-tab="versioning">Version Control</button>
                     <button class="stats-tab" data-tab="performance">Performance</button>
@@ -136,21 +137,77 @@ class StoreStatsModal {
         this.showLoading();
 
         try {
-            const response = await fetch(`/api/statistics?path=${encodeURIComponent(storePath)}`);
-            const data = await response.json();
+            // Load stats and raw store data in parallel — the Codebase tab
+            // needs the full key/value payload which /api/statistics doesn't
+            // return.
+            const [statsRes, storeRes] = await Promise.all([
+                fetch(`/api/statistics?path=${encodeURIComponent(storePath)}`),
+                fetch(`/api/store?path=${encodeURIComponent(storePath)}`),
+            ]);
+            const statsData = await statsRes.json();
+            const storeData = storeRes.ok ? await storeRes.json() : null;
 
-            if (data.success) {
-                this.statistics = data.statistics;
+            if (statsData.success) {
+                this.statistics = statsData.statistics;
+                this.codebaseData = this.collectCodebaseData(storeData);
+                this.updateCodebaseTabVisibility();
                 this.updateLastUpdated();
                 this.renderContent();
             } else {
-                this.showError(data.error || 'Failed to load statistics');
+                this.showError(statsData.error || 'Failed to load statistics');
             }
         } catch (error) {
             console.error('Error loading statistics:', error);
             this.showError('Failed to load statistics: ' + error.message);
         } finally {
             this.isLoading = false;
+        }
+    }
+
+    // Scan /api/store memories for any namespace matching `codebase*`
+    // (covers `codebase:onboard`, `codebase:tests`, plain `codebase`, etc.)
+    // and group them the way SessionStart does: per-namespace, then per
+    // top-level root (goal.*, structure.*, test.*, _meta.*, …).
+    collectCodebaseData(storeData) {
+        if (!storeData || !storeData.memories) return null;
+        const groups = new Map();  // namespace -> { meta: {...}, roots: { root: [{key, content}] } }
+        for (const m of storeData.memories) {
+            const ns = m.namespace || '';
+            if (!(ns === 'codebase' || ns.startsWith('codebase:') || ns.startsWith('codebase.'))) continue;
+            if (!groups.has(ns)) groups.set(ns, { meta: {}, roots: {} });
+            const g = groups.get(ns);
+            const key = m.path || m.key || '';
+            const content = (m.value && typeof m.value === 'object' && 'content' in m.value)
+                ? (m.value.content || '')
+                : (m.content || '');
+            if (key.startsWith('_meta.')) {
+                g.meta[key] = content;
+            } else {
+                const root = key.split('.', 1)[0] || '(other)';
+                if (!g.roots[root]) g.roots[root] = [];
+                g.roots[root].push({ key, content });
+            }
+        }
+        if (groups.size === 0) return null;
+        // Sort each root's keys alphabetically for a stable display.
+        for (const g of groups.values()) {
+            for (const root of Object.keys(g.roots)) {
+                g.roots[root].sort((a, b) => a.key.localeCompare(b.key));
+            }
+        }
+        return groups;
+    }
+
+    updateCodebaseTabVisibility() {
+        const btn = document.getElementById('statsTabCodebase');
+        if (!btn) return;
+        if (this.codebaseData && this.codebaseData.size > 0) {
+            btn.style.display = '';
+        } else {
+            btn.style.display = 'none';
+            // If the user was on the codebase tab and the namespace went
+            // away (unusual but possible after a /forget), fall back.
+            if (this.currentTab === 'codebase') this.currentTab = 'overview';
         }
     }
 
@@ -201,6 +258,9 @@ class StoreStatsModal {
         switch (this.currentTab) {
             case 'overview':
                 this.renderOverview();
+                break;
+            case 'codebase':
+                this.renderCodebase();
                 break;
             case 'structure':
                 this.renderTreeStructure();
@@ -477,6 +537,130 @@ class StoreStatsModal {
                 </div>
             </div>
         `;
+    }
+
+    // Render the Codebase tab: show each `codebase:*` namespace exactly
+    // the way SessionStart groups it (header meta + top-level roots), but
+    // expand every key to its full stored value so the user can audit
+    // what's being injected at session start.
+    renderCodebase() {
+        const content = document.getElementById('statsContent');
+        if (!content) return;
+
+        if (!this.codebaseData || this.codebaseData.size === 0) {
+            content.innerHTML = `<div class="stats-error"><p>No <code>codebase:*</code> namespaces in this store.</p></div>`;
+            return;
+        }
+
+        // SessionStart's preferred root order, with anything else appended
+        // alphabetically at the end — matches render_codebase_onboard_compact
+        // in plugins/claude-code/hooks/common.sh.
+        const preferredRoots = ['goal', 'structure', 'test', 'debug', 'deploy', 'rules', 'lessons', 'references', 'document'];
+
+        const namespaces = Array.from(this.codebaseData.entries()).sort(([a], [b]) => a.localeCompare(b));
+        const blocks = namespaces.map(([ns, g]) => this.renderCodebaseNamespace(ns, g, preferredRoots)).join('');
+        content.innerHTML = `<div class="stats-codebase">${blocks}</div>`;
+    }
+
+    renderCodebaseNamespace(namespace, group, preferredRoots) {
+        const esc = (s) => this.escapeHtml(s);
+        const meta = group.meta || {};
+        const commit = (meta['_meta.last_onboard.commit'] || '').slice(0, 7) || '?';
+        const dateIso = meta['_meta.last_onboard.date'] || '';
+        const mode = meta['_meta.last_onboard.mode'] || '?';
+        const ageStr = dateIso ? this.formatRelativeAge(dateIso) : '?';
+        const stale = dateIso ? this.isOnboardStale(dateIso) : false;
+
+        // Ordered list of roots: preferred first, then the rest alphabetically.
+        const seen = new Set();
+        const ordered = preferredRoots.filter(r => r in group.roots);
+        ordered.forEach(r => seen.add(r));
+        Object.keys(group.roots).sort().forEach(r => { if (!seen.has(r)) ordered.push(r); });
+
+        const sections = ordered.map(root => {
+            const rows = group.roots[root].map(({ key, content }) => `
+                <div class="cb-row">
+                    <div class="cb-key">${esc(key)}</div>
+                    <div class="cb-value">${esc(content)}</div>
+                </div>
+            `).join('');
+            return `
+                <div class="cb-section">
+                    <div class="cb-section-header">${esc(root)} <span class="cb-section-count">(${group.roots[root].length})</span></div>
+                    <div class="cb-rows">${rows}</div>
+                </div>
+            `;
+        }).join('');
+
+        const metaKeys = Object.keys(meta).sort();
+        const metaRows = metaKeys.length > 0
+            ? metaKeys.map(k => `
+                <div class="cb-row cb-meta-row">
+                    <div class="cb-key">${esc(k)}</div>
+                    <div class="cb-value">${esc(meta[k])}</div>
+                </div>
+            `).join('')
+            : '';
+        const metaSection = metaRows ? `
+            <div class="cb-section cb-meta-section">
+                <div class="cb-section-header">_meta <span class="cb-section-count">(${metaKeys.length})</span></div>
+                <div class="cb-rows">${metaRows}</div>
+            </div>
+        ` : '';
+
+        const staleBadge = stale ? `<span class="cb-badge cb-badge-stale">stale</span>` : '';
+        const noContent = ordered.length === 0 && metaKeys.length === 0
+            ? `<div class="stats-error"><p>Namespace <code>${esc(namespace)}</code> is empty.</p></div>`
+            : '';
+
+        return `
+            <div class="cb-namespace">
+                <div class="cb-namespace-header">
+                    <div class="cb-namespace-title">
+                        <span class="cb-ns-icon">📘</span>
+                        <span class="cb-ns-name">${esc(namespace)}</span>
+                        ${staleBadge}
+                    </div>
+                    <div class="cb-namespace-meta">
+                        <span>last_onboard: <strong>${esc(ageStr)}</strong> @ <code>${esc(commit)}</code></span>
+                        <span>mode: <code>${esc(mode)}</code></span>
+                    </div>
+                </div>
+                ${noContent}
+                ${sections}
+                ${metaSection}
+            </div>
+        `;
+    }
+
+    escapeHtml(text) {
+        if (text === null || text === undefined) return '';
+        return String(text)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    formatRelativeAge(isoStr) {
+        try {
+            const dt = new Date(isoStr);
+            const delta = Date.now() - dt.getTime();
+            const days = Math.floor(delta / (24 * 3600 * 1000));
+            if (days >= 1) return `${days}d ago`;
+            const hours = Math.floor(delta / (3600 * 1000));
+            if (hours >= 1) return `${hours}h ago`;
+            return '<1h ago';
+        } catch (e) { return '?'; }
+    }
+
+    isOnboardStale(isoStr) {
+        try {
+            const dt = new Date(isoStr);
+            const days = (Date.now() - dt.getTime()) / (24 * 3600 * 1000);
+            return days > 30;
+        } catch (e) { return false; }
     }
 
     renderContentAnalysis() {
