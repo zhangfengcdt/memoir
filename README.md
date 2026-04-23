@@ -13,15 +13,25 @@
 [![Status](https://img.shields.io/badge/Status-Alpha-orange.svg)]()
 [![Docs](https://img.shields.io/badge/Docs-zhangfengcdt.github.io%2Fmemoir-blue.svg)](https://zhangfengcdt.github.io/memoir/)
 
-Memoir brings Git-like version control to AI memory. Long-running coding agents — Claude Code, LangGraph pipelines, multi-agent systems — lose state, overwrite context, and silently corrupt their own knowledge. Memoir adds a versioned, queryable, cryptographically-verified memory store that **complements `CLAUDE.md`**: static rules and invariants still live in `CLAUDE.md`, while things that evolve over time — decisions, debugging trails, accumulated preferences, branch-specific context — live in memoir where they can be branched, recalled, and audited.
+Memoir is a **hierarchical memory system for AI agents**, with Git-like version control built in. Instead of storing facts as opaque embeddings and guessing at relevance through vector similarity, Memoir classifies every fact into a semantic taxonomy path like `preferences.coding.style` or `workflow.coding.testing`. Retrieval becomes **explainable** (you see which path was chosen and why) and **efficient** (O(log n) tree lookup — no vector index, no embedding model to host, no re-rank stage). Memoir is framework-agnostic — usable from any agent runtime via its CLI, Python SDK, or MCP server — and sits alongside any static prompt or instruction file your agent already uses, carrying the evolving layer (decisions, debugging trails, accumulated preferences, branch-specific context) that a static file can't version or query.
 
 ## Why Memoir for Coding Agents
 
-- **Persistent, queryable memory across sessions.** `CLAUDE.md` is great for invariants (style, rules, always-true facts) but context windows don't stretch. Memoir sits alongside it, storing each evolving fact at a hierarchical semantic path (e.g. `preferences.coding.style`, `workflow.coding.testing`) so agents recall only what's relevant to the current task.
+- **Hierarchical paths, not embeddings.** Every fact lands at a named path in a 3-level taxonomy (~200 paths in v1.1.0). No vector DB to operate, no similarity threshold to tune — lookup is a tree walk and results trace directly back to the path that matched.
+- **Explainable retrieval.** Unlike semantic/vector search, you can always answer *why* a memory was surfaced: the agent picked path `preferences.coding.style` and read the value there. Good for debugging, auditability, and reproducibility.
+- **Efficient at scale.** Taxonomy classification is O(log n), not O(n). No embedding inference on the hot path, no vector index to warm, no re-ranker. The CLI returns typical recalls in hundreds of milliseconds.
+- **Complements static prompts.** System prompts and instruction files are great for invariants. Memoir handles the evolving layer — per-session decisions, debugging history, branch-specific context — so the prompt stays lean and the history stays queryable.
 - **Branches for experiments.** Try a refactor direction or a new coding style on `experiment/*`, keep it if it works, discard it if it doesn't — same workflow you already trust from git.
-- **Cryptographic provenance.** Every memory is hashed and committed. An agent running for hours or days can prove what it remembered, when, and that nothing corrupted in between.
-- **Taxonomy designed for coding workflows.** The v1.1.0 taxonomy maps to how coding agents actually think — `workflow.coding`, `debugging`, `knowledge`, `preferences.tools` — not generic prose buckets.
-- **Agent-native ergonomics.** `--json` on every CLI command, stable exit codes, KV-cache-friendly output shapes, and an MCP server for any MCP-compatible client.
+- **Taxonomy designed for coding workflows.** v1.1.0 maps to how coding agents actually think — `workflow.coding`, `debugging`, `knowledge`, `preferences.tools` — not generic prose buckets.
+- **Framework-agnostic, agent-native ergonomics.** Works with Claude Code, LangGraph, custom runtimes, or anything that can shell out. `--json` on every CLI command, stable exit codes, KV-cache-friendly output shapes, and an MCP server for any MCP-compatible client.
+
+## Install from PyPI
+
+```bash
+pip install memoir-ai
+```
+
+> The distribution name on PyPI is `memoir-ai`. The Python import is `import memoir` and the CLI is `memoir`.
 
 ## Install for Claude Code
 
@@ -33,14 +43,6 @@ Inside a Claude Code session, run:
 ```
 
 The plugin registers hooks for session start, user-prompt-submit, and stop, so your project gets automatic context injection and auto-captured memories. Each project gets its own store under `~/.memoir/memoir_<hash>/` (override with `MEMOIR_STORE`). See the [Claude Code plugin guide](https://zhangfengcdt.github.io/memoir/claude_code/) for the full slash-command and hook reference.
-
-## Install from PyPI
-
-```bash
-pip install memoir-ai
-```
-
-> The distribution name on PyPI is `memoir-ai` (the `memoir` name was taken). The Python import is still `import memoir` and the CLI is still `memoir`.
 
 ## Quick look
 
