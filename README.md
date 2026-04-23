@@ -13,6 +13,10 @@
 [![Status](https://img.shields.io/badge/Status-Alpha-orange.svg)]()
 [![Docs](https://img.shields.io/badge/Docs-zhangfengcdt.github.io%2Fmemoir-blue.svg)](https://zhangfengcdt.github.io/memoir/)
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/zhangfengcdt/memoir/main/docs/_static/memoir-demo.gif" alt="Memoir demo" width="900">
+</p>
+
 Memoir is a **hierarchical memory system for AI agents**, with Git-like version control built in. Instead of storing facts as opaque embeddings and guessing at relevance through vector similarity, Memoir classifies every fact into a semantic taxonomy path like `preferences.coding.style` or `workflow.coding.testing`. Retrieval becomes **explainable** (you see which path was chosen and why) and **efficient** (O(log n) tree lookup — no vector index, no embedding model to host, no re-rank stage). Memoir is framework-agnostic — usable from any agent runtime via its CLI, Python SDK, or MCP server — and sits alongside any static prompt or instruction file your agent already uses, carrying the evolving layer (decisions, debugging trails, accumulated preferences, branch-specific context) that a static file can't version or query.
 
 ## Why Memoir for Coding Agents
