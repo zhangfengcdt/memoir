@@ -522,14 +522,17 @@ read_stop_prompt_cache() {
 # memoir branch. Idempotent; overwrites any prior heartbeat for this session.
 write_session_heartbeat() {
   [ ! -d "$MEMOIR_STORE_PATH/.git" ] && return 0
-  local session_id branch dir f
+  local session_id branch dir f pid
   # Claude Code puts the session id on the transcript path; fall back to PID.
   session_id="${CLAUDE_SESSION_ID:-${PPID:-$$}}"
+  # Record the owning PID so readers can reap the heartbeat the moment the
+  # process is gone, instead of waiting for the 12h timestamp GC.
+  pid="${PPID:-$$}"
   branch=$(memoir_json status 2>/dev/null | python3 -c "import json,sys; print(json.loads(sys.stdin.read() or '{}').get('branch',''))" 2>/dev/null)
   dir=$(_heartbeats_dir)
   mkdir -p "$dir"
   f="$dir/$session_id"
-  printf '%s\t%s\n' "$branch" "$(date +%s)" > "$f"
+  printf '%s\t%s\t%s\n' "$branch" "$(date +%s)" "$pid" > "$f"
 }
 
 remove_session_heartbeat() {
@@ -541,7 +544,8 @@ remove_session_heartbeat() {
 }
 
 # concurrent_session_warning — returns non-empty on stdout if another live
-# heartbeat (≤12h old) targets a memoir branch different from ours. Stale
+# heartbeat targets a memoir branch different from ours. Liveness is established
+# by PID check when recorded; otherwise the 12h timestamp window applies. Stale
 # heartbeats are garbage-collected opportunistically.
 concurrent_session_warning() {
   local dir my_session current twelve_hours_ago
@@ -558,14 +562,26 @@ concurrent_session_warning() {
     local fname
     fname=$(basename "$f")
     [ "$fname" = "$my_session" ] && continue
-    # file format: "<branch>\t<epoch>"
-    local rec branch ts
+    # file format: "<branch>\t<epoch>[\t<pid>]"  (pid is optional for back-compat)
+    local rec branch ts pid
     rec=$(head -n1 "$f" 2>/dev/null || echo "")
     branch=$(printf '%s' "$rec" | cut -f1)
     ts=$(printf '%s' "$rec" | cut -f2)
+    pid=$(printf '%s' "$rec" | cut -f3)
     # numeric check; skip malformed
     case "$ts" in
       ''|*[!0-9]*) stale+=("$f"); continue ;;
+    esac
+    # If a PID was recorded and the process is gone, reap immediately — no
+    # need to wait out the 12h window for a session that crashed or was killed.
+    case "$pid" in
+      ''|*[!0-9]*) ;;  # no/invalid pid — fall through to timestamp check
+      *)
+        if ! kill -0 "$pid" 2>/dev/null; then
+          stale+=("$f")
+          continue
+        fi
+        ;;
     esac
     if [ "$ts" -lt "$twelve_hours_ago" ]; then
       stale+=("$f")

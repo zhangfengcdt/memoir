@@ -258,6 +258,38 @@ assert_contains "status carries concurrency warning" "concurrent session detecte
 assert_contains "warning names the other branch" "feature/xyz" "$status"
 rm -rf "$STORE/.git/plugin-active-sessions"
 
+# -------- 12b. Dead-PID heartbeat is reaped, not warned on --------
+heading "Dead-PID heartbeat reaped immediately"
+mkdir -p "$STORE/.git/plugin-active-sessions"
+# Pick a PID that is exceedingly unlikely to be live. `kill -0` on a free PID
+# returns non-zero, which is what concurrent_session_warning should detect.
+dead_pid=$(python3 -c "
+import os
+for p in range(99990, 99000, -1):
+    try: os.kill(p, 0)
+    except ProcessLookupError:
+        print(p); break
+    except PermissionError:
+        continue
+")
+hb="$STORE/.git/plugin-active-sessions/test-dead-pid-session"
+printf '%s\t%s\t%s\n' "feature/zombie" "$(date +%s)" "$dead_pid" > "$hb"
+status=$(session_start_status)
+assert_not_contains "dead-PID heartbeat does not warn" "feature/zombie" "$status"
+assert "dead-PID heartbeat file is reaped" "0" "$([ ! -f "$hb" ]; echo $?)"
+rm -rf "$STORE/.git/plugin-active-sessions"
+
+# -------- 12c. Live-PID heartbeat on another branch still warns --------
+heading "Live-PID heartbeat still warns"
+mkdir -p "$STORE/.git/plugin-active-sessions"
+# Use this test's own PID — guaranteed alive for the rest of the run.
+printf '%s\t%s\t%s\n' "feature/alive" "$(date +%s)" "$$" \
+  > "$STORE/.git/plugin-active-sessions/test-live-pid-session"
+status=$(session_start_status)
+assert_contains "live-PID heartbeat triggers warning" "concurrent session detected" "$status"
+assert_contains "live-PID warning names the branch" "feature/alive" "$status"
+rm -rf "$STORE/.git/plugin-active-sessions"
+
 # -------- 13. Mid-session code branch switch --------
 # Simulates the user running `git checkout feature/b` in a terminal without
 # restarting Claude Code. UserPromptSubmit and Stop hooks must re-run
