@@ -3335,6 +3335,21 @@ body {
     height: 16px;
 }
 
+.branch-btn-stats {
+    color: var(--accent-secondary, #a78bfa);
+}
+
+.branch-btn-stats:hover {
+    background: rgba(167, 139, 250, 0.1);
+    border-color: rgba(167, 139, 250, 0.3);
+    color: #c4b5fd;
+}
+
+.branch-btn-stats svg {
+    width: 16px;
+    height: 16px;
+}
+
 .branch-sync-modal {
     display: none;
     position: fixed;

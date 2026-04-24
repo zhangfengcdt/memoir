@@ -8653,6 +8653,20 @@ Message: ${commit.message}`;
             if (syncBtn) {
                 syncBtn.addEventListener('click', openBranchSyncModal);
             }
+
+            const statsBtn = document.getElementById('storeStatsBtn');
+            if (statsBtn) {
+                statsBtn.addEventListener('click', () => {
+                    if (!connectedStorePath) {
+                        showNotification('No memory store connected', 'warning');
+                        return;
+                    }
+                    if (!storeStatsModal) {
+                        storeStatsModal = new StoreStatsModal();
+                    }
+                    storeStatsModal.show(connectedStorePath);
+                });
+            }
         }
 
         // ---- Branch Sync modal -----------------------------------------

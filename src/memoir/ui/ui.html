@@ -36,6 +36,13 @@
                     </select>
                     <button class="branch-btn branch-btn-add" id="addBranchBtn" title="Create new branch">+</button>
                     <button class="branch-btn branch-btn-remove" id="removeBranchBtn" title="Delete current branch">-</button>
+                    <button class="branch-btn branch-btn-refresh" id="refreshBtn" title="Refresh store data">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polyline points="23 4 23 10 17 10"></polyline>
+                            <polyline points="1 20 1 14 7 14"></polyline>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                        </svg>
+                    </button>
                     <button class="branch-btn branch-btn-sync" id="syncBranchesBtn" title="Sync branches — show unmerged memories and push/pull between branches">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <polyline points="17 1 21 5 17 9"></polyline>
@@ -44,11 +51,12 @@
                             <path d="M21 13v2a4 4 0 0 1-4 4H3"></path>
                         </svg>
                     </button>
-                    <button class="branch-btn branch-btn-refresh" id="refreshBtn" title="Refresh store data">
+                    <button class="branch-btn branch-btn-stats" id="storeStatsBtn" title="Memory Store Statistics">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <polyline points="23 4 23 10 17 10"></polyline>
-                            <polyline points="1 20 1 14 7 14"></polyline>
-                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                            <line x1="12" y1="20" x2="12" y2="10"></line>
+                            <line x1="18" y1="20" x2="18" y2="4"></line>
+                            <line x1="6" y1="20" x2="6" y2="16"></line>
+                            <line x1="3" y1="20" x2="21" y2="20"></line>
                         </svg>
                     </button>
                 </div>

@@ -129,14 +129,15 @@ async def main():
         )()
     else:
         try:
-            from memoir.llm import get_llm
+            from memoir.llm import default_ui_model, get_llm
 
+            model = default_ui_model()
             llm = get_llm(
-                model="gpt-4o-mini",
+                model=model,
                 temperature=0,
                 max_tokens=500,
             )
-            print("✓ Using LiteLLM with gpt-4o-mini for intelligent classification")
+            print(f"✓ Using LiteLLM with {model} for intelligent classification")
         except ImportError:
             print("⚠️  litellm not installed. Using mock LLM.")
             from unittest.mock import MagicMock

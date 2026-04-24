@@ -333,7 +333,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 # Initialize the IntelligentClassifier
                 try:
                     from memoir.classifier.intelligent import IntelligentClassifier
-                    from memoir.llm import get_llm
+                    from memoir.llm import default_ui_model, get_llm
                     from memoir.taxonomy.loader import TaxonomyLoader
                     from memoir.taxonomy.taxonomy import TaxonomyVersion
 
@@ -350,7 +350,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                     if not taxonomy_loader.has_taxonomy_in_store():
                         taxonomy_loader.init_store(include_builtin=True)
 
-                    llm = get_llm(model="gpt-4o-mini", temperature=0)
+                    llm = get_llm(model=default_ui_model(), temperature=0)
                     classifier = IntelligentClassifier(
                         llm=llm,
                         taxonomy_version=TaxonomyVersion.GENERAL,
@@ -580,7 +580,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                 # Initialize the IntelligentClassifier
                 try:
                     from memoir.classifier.intelligent import IntelligentClassifier
-                    from memoir.llm import get_llm
+                    from memoir.llm import default_ui_model, get_llm
                     from memoir.taxonomy.loader import TaxonomyLoader
                     from memoir.taxonomy.taxonomy import TaxonomyVersion
 
@@ -597,7 +597,7 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
                     if not taxonomy_loader.has_taxonomy_in_store():
                         taxonomy_loader.init_store(include_builtin=True)
 
-                    llm = get_llm(model="gpt-4o-mini", temperature=0)
+                    llm = get_llm(model=default_ui_model(), temperature=0)
                     classifier = IntelligentClassifier(
                         llm=llm,
                         taxonomy_version=TaxonomyVersion.GENERAL,
@@ -940,9 +940,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
 
             # Initialize LLM for summarization
             try:
-                from memoir.llm import get_llm
+                from memoir.llm import default_ui_model, get_llm
 
-                llm = get_llm(model="gpt-4o-mini", temperature=0)
+                llm = get_llm(model=default_ui_model(), temperature=0)
             except Exception as e:
                 self.send_error(500, f"Error initializing LLM: {e!s}")
                 return
@@ -1404,9 +1404,10 @@ Provide a concise summary (maximum 3 sentences) that captures the essence of thi
 
             # Initialize LLM
             try:
-                from memoir.llm import get_llm
+                from memoir.llm import default_ui_model, get_llm
 
-                llm = get_llm(model="gpt-4o-mini", temperature=0.7)
+                llm_model = default_ui_model()
+                llm = get_llm(model=llm_model, temperature=0.7)
             except Exception as e:
                 error_response = {
                     "success": False,
@@ -1461,7 +1462,7 @@ Answer:"""
                 "metadata": {
                     "query": query,
                     "person": person,
-                    "llm_model": "gpt-4o-mini",
+                    "llm_model": llm_model,
                     "memories_provided": bool(memories),
                 },
             }
