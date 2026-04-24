@@ -570,6 +570,290 @@ class BranchService(BaseService):
                 error=str(e),
             )
 
+    def get_default_branch(self) -> str:
+        """
+        Return the repository's default branch.
+
+        Resolves in order:
+          1. "main" if it exists.
+          2. "master" if it exists.
+          3. The first branch returned by list_branches().
+          4. "main" as a last-resort empty-repo fallback.
+        """
+        try:
+            info = self.list_branches()
+        except Exception as e:
+            logger.warning(f"get_default_branch: list_branches failed: {e}")
+            return "main"
+
+        if "main" in info.branches:
+            return "main"
+        if "master" in info.branches:
+            return "master"
+        if info.branches:
+            return info.branches[0]
+        return "main"
+
+    def get_divergence(
+        self,
+        branch: str,
+        base: str | None = None,
+    ) -> dict:
+        """
+        Count how many commits `branch` is ahead/behind `base`.
+
+        Uses `git rev-list --count --left-right base...branch` — left side
+        (base-only) becomes `behind`, right side (branch-only) becomes `ahead`.
+
+        Args:
+            branch: Branch to compare.
+            base: Base branch. Defaults to get_default_branch().
+
+        Returns:
+            Dict with keys: branch, base, ahead, behind, error (optional).
+            On any git failure, ahead and behind are 0 and `error` is set.
+        """
+        if not Path(self.store_path).exists():
+            raise StoreNotFoundError(self.store_path)
+
+        resolved_base = base if base is not None else self.get_default_branch()
+        out = {
+            "branch": branch,
+            "base": resolved_base,
+            "ahead": 0,
+            "behind": 0,
+        }
+
+        if branch == resolved_base:
+            return out
+
+        try:
+            result = self._run_git_command(
+                [
+                    "rev-list",
+                    "--count",
+                    "--left-right",
+                    f"{resolved_base}...{branch}",
+                ],
+                check=False,
+            )
+            if result.returncode != 0 or not result.stdout.strip():
+                out["error"] = (result.stderr or "").strip() or "rev-list failed"
+                return out
+
+            parts = result.stdout.strip().split()
+            if len(parts) >= 2:
+                out["behind"] = int(parts[0])
+                out["ahead"] = int(parts[1])
+        except Exception as e:
+            logger.warning(f"get_divergence({branch}, {resolved_base}) failed: {e}")
+            out["error"] = str(e)
+        return out
+
+    def _get_branch_last_commit_iso(self, branch: str) -> str | None:
+        """Return ISO timestamp of the tip commit of `branch`, or None."""
+        try:
+            result = self._run_git_command(
+                ["log", "-1", "--format=%aI", branch],
+                check=False,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return result.stdout.strip()
+        except Exception:
+            pass
+        return None
+
+    def _get_branch_last_commit_unix(self, branch: str) -> int | None:
+        """Return unix timestamp of the tip commit of `branch`, or None."""
+        try:
+            result = self._run_git_command(
+                ["log", "-1", "--format=%ct", branch],
+                check=False,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return int(result.stdout.strip())
+        except Exception:
+            pass
+        return None
+
+    # Shared sync-marker convention with /memoir-sync-branch:
+    # $STORE/.git/plugin-synced-branches/<branch> holds a unix timestamp of
+    # the last sync. A branch is considered synced when that timestamp is >=
+    # the branch tip's commit timestamp (i.e. no new commits since sync).
+    _SYNC_MARKER_DIR = ".git/plugin-synced-branches"
+
+    def _sync_marker_path(self, branch: str) -> Path:
+        return Path(self.store_path) / self._SYNC_MARKER_DIR / branch
+
+    def _read_sync_marker(self, branch: str) -> int | None:
+        path = self._sync_marker_path(branch)
+        try:
+            if path.is_file():
+                return int(path.read_text().strip())
+        except Exception:
+            pass
+        return None
+
+    def _write_sync_marker(self, branch: str) -> None:
+        import time
+
+        path = self._sync_marker_path(branch)
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(str(int(time.time())))
+        except Exception as e:
+            logger.warning(f"Could not write sync marker for {branch}: {e}")
+
+    def get_branches_status(self) -> dict:
+        """
+        Return divergence info for every branch relative to the default.
+
+        Returns:
+            {
+              "default": str,
+              "current": str,
+              "branches": [
+                {name, is_default, is_current, ahead, behind, last_commit_date},
+                ...
+              ]
+            }
+
+        Raises:
+            StoreNotFoundError: If store path doesn't exist.
+            GitOperationError: If list_branches fails.
+        """
+        info = self.list_branches()  # raises StoreNotFoundError / GitOperationError
+        default = self.get_default_branch()
+
+        branches: list[dict] = []
+        for name in info.branches:
+            div = self.get_divergence(name, base=default)
+            ahead = div["ahead"]
+            synced = False
+
+            # Treat ahead as 0 when a sync marker was written after the branch
+            # tip's last commit. ProllyTree's merge creates a single-parent
+            # commit on the target, so git ancestry still shows the source as
+            # "ahead" even after a successful push — the marker disambiguates.
+            marker_ts = self._read_sync_marker(name)
+            tip_ts = self._get_branch_last_commit_unix(name)
+            if marker_ts is not None and tip_ts is not None and marker_ts >= tip_ts:
+                synced = True
+                ahead = 0
+
+            branches.append(
+                {
+                    "name": name,
+                    "is_default": name == default,
+                    "is_current": name == info.current,
+                    "ahead": ahead,
+                    "behind": div["behind"],
+                    "last_commit_date": self._get_branch_last_commit_iso(name),
+                    "synced": synced,
+                }
+            )
+
+        return {
+            "default": default,
+            "current": info.current,
+            "branches": branches,
+        }
+
+    def sync_branch(
+        self,
+        source: str,
+        target: str,
+        strategy: MergeStrategy = MergeStrategy.SKIP,
+        restore: bool = True,
+    ) -> MergeResult:
+        """
+        Merge `source` into `target` while preserving the caller's current branch.
+
+        Steps: remember current → checkout(target) → merge(source, strategy) →
+        checkout(original) if restore=True. The original branch is restored
+        whether the merge succeeds or fails, so the user never ends up on an
+        unexpected branch.
+
+        Args:
+            source: Branch whose commits should flow in.
+            target: Branch to merge into.
+            strategy: Conflict resolution strategy.
+            restore: If True, checkout the original branch at the end.
+
+        Returns:
+            MergeResult with `restored_branch` populated when restore succeeded.
+        """
+        if not Path(self.store_path).exists():
+            raise StoreNotFoundError(self.store_path)
+
+        if source == target:
+            return MergeResult(
+                success=False,
+                source_branch=source,
+                target_branch=target,
+                strategy=strategy.value,
+                error="Source and target are the same branch",
+            )
+
+        # Remember the originally-checked-out branch so we can restore it.
+        try:
+            original_branch, _ = self.get_current_branch()
+        except Exception as e:
+            return MergeResult(
+                success=False,
+                source_branch=source,
+                target_branch=target,
+                strategy=strategy.value,
+                error=f"Could not read current branch: {e}",
+            )
+
+        # Checkout the target branch.
+        if original_branch != target:
+            checkout_target = self.checkout(target)
+            if not checkout_target.success:
+                return MergeResult(
+                    success=False,
+                    source_branch=source,
+                    target_branch=target,
+                    strategy=strategy.value,
+                    error=checkout_target.error
+                    or f"Could not checkout target '{target}'",
+                )
+            # Drop the cached VersionedKvStore so the next step re-reads the
+            # on-disk prolly_hash_mappings for `target`. Without this, prollytree
+            # can look up tree roots that belong to the previous branch and emit
+            # "Root node not found in storage" (history.rs:118) — cosmetic, but
+            # a fresh store instance avoids it.
+            self._store = None
+
+        # Perform the merge on `target`.
+        merge_result = self.merge(source, strategy=strategy)
+
+        # On a successful merge, record a sync marker for `source`. ProllyTree's
+        # merge is single-parent, so git ancestry alone cannot tell us that
+        # `source` has been promoted. The marker fills that gap and is shared
+        # with the /memoir-sync-branch slash command.
+        if merge_result.success:
+            self._write_sync_marker(source)
+
+        # Always attempt to restore the caller's original branch.
+        restored: str | None = None
+        if restore and original_branch and original_branch != target:
+            # Same reasoning as above — fresh store for the restore.
+            self._store = None
+            restore_result = self.checkout(original_branch)
+            if restore_result.success:
+                restored = original_branch
+            else:
+                logger.warning(
+                    f"sync_branch: failed to restore '{original_branch}' "
+                    f"after merging '{source}' into '{target}': "
+                    f"{restore_result.error}"
+                )
+
+        merge_result.restored_branch = restored
+        return merge_result
+
     def time_travel(
         self,
         target: str,

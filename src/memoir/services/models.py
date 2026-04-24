@@ -217,6 +217,9 @@ class MergeResult:
     commit_hash: str | None = None  # Merge commit hash
     message: str = ""
     error: str | None = None
+    # Set by sync_branch when the original branch was restored after merging
+    # into a different target. None for plain merge().
+    restored_branch: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -229,6 +232,7 @@ class MergeResult:
             "commit_hash": self.commit_hash,
             "message": self.message,
             "error": self.error,
+            "restored_branch": self.restored_branch,
         }
 
 

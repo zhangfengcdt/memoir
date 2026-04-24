@@ -99,9 +99,7 @@ def ui(
             mode = []
             mode.append("readonly" if readonly else "writable")
             mode.append("llm on" if usellm else "llm off")
-            ctx.info(
-                f"Opening {resolved} in the UI at {url}  ({', '.join(mode)})"
-            )
+            ctx.info(f"Opening {resolved} in the UI at {url}  ({', '.join(mode)})")
         else:
             url = f"{base}/?{flags}"
             ctx.info(f"Starting UI at {url} (no store pre-loaded)")

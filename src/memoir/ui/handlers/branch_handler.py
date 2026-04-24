@@ -278,6 +278,108 @@ class BranchHandler(BaseAPIHandler):
         except Exception as e:
             self.handler.send_error(500, f"Error during merge: {e!s}")
 
+    def handle_branches_status_api(self, parsed_path):
+        """Get per-branch ahead/behind counts vs the default branch."""
+        from memoir.services.branch_service import BranchService
+
+        query_params = parse_qs(parsed_path.query)
+        store_path = query_params.get("path", [None])[0]
+
+        if not store_path:
+            self.handler.send_error(400, "Missing 'path' parameter")
+            return
+
+        if not Path(store_path).exists():
+            self.handler.send_error(404, f"Store path does not exist: {store_path}")
+            return
+
+        try:
+            service = BranchService(store_path)
+            status = service.get_branches_status()
+
+            data = {
+                "success": True,
+                "default": status["default"],
+                "current": status["current"],
+                "branches": status["branches"],
+            }
+
+            self.handler.send_response(200)
+            self.handler.send_header("Content-Type", "application/json")
+            self.handler.send_header("Access-Control-Allow-Origin", "*")
+            self.handler.end_headers()
+            self.handler.wfile.write(json.dumps(data, indent=2).encode())
+
+        except Exception as e:
+            self.handler.send_error(500, f"Error getting branches status: {e!s}")
+
+    def handle_sync_branches_api(self):
+        """Merge `source` into `target` while preserving current branch."""
+        from memoir.services.branch_service import BranchService, MergeStrategy
+
+        try:
+            content_length = int(self.handler.headers["Content-Length"])
+            post_data = self.handler.rfile.read(content_length)
+            data = json.loads(post_data.decode("utf-8"))
+
+            store_path = data.get("path")
+            source = data.get("source")
+            target = data.get("target")
+            strategy_raw = data.get("strategy", "skip")
+
+            if not store_path:
+                self.handler.send_error(400, "Missing 'path' parameter")
+                return
+
+            if not source:
+                self.handler.send_error(400, "Missing 'source' parameter")
+                return
+
+            if not target:
+                self.handler.send_error(400, "Missing 'target' parameter")
+                return
+
+            if not Path(store_path).exists():
+                self.handler.send_error(404, f"Store path does not exist: {store_path}")
+                return
+
+            try:
+                strategy = MergeStrategy(strategy_raw)
+            except ValueError:
+                self.handler.send_error(
+                    400,
+                    f"Invalid strategy '{strategy_raw}'. Expected one of: ours, theirs, skip",
+                )
+                return
+
+            service = BranchService(store_path)
+            result = service.sync_branch(source, target, strategy=strategy)
+
+            if result.success:
+                payload = result.to_dict()
+                payload["success"] = True
+                self.handler.send_response(200)
+                self.handler.send_header("Content-Type", "application/json")
+                self.handler.send_header("Access-Control-Allow-Origin", "*")
+                self.handler.end_headers()
+                self.handler.wfile.write(json.dumps(payload, indent=2).encode())
+            else:
+                # Conflict (unresolved) → 409 with the conflict list so the UI
+                # can prompt for a strategy and retry. Any other error → 500.
+                if result.conflicts:
+                    payload = result.to_dict()
+                    payload["strategy_required"] = True
+                    self.handler.send_response(409)
+                    self.handler.send_header("Content-Type", "application/json")
+                    self.handler.send_header("Access-Control-Allow-Origin", "*")
+                    self.handler.end_headers()
+                    self.handler.wfile.write(json.dumps(payload, indent=2).encode())
+                else:
+                    self.handler.send_error(500, result.error or "Sync failed")
+
+        except Exception as e:
+            self.handler.send_error(500, f"Error syncing branches: {e!s}")
+
     def handle_delete_branch_api(self):
         """Delete a branch."""
         from memoir.services.branch_service import BranchService

@@ -8634,6 +8634,7 @@ Message: ${commit.message}`;
         function initializeBranchButtons() {
             const addBtn = document.getElementById('addBranchBtn');
             const removeBtn = document.getElementById('removeBranchBtn');
+            const syncBtn = document.getElementById('syncBranchesBtn');
             const branchSelector = document.getElementById('branchSelector');
 
             if (addBtn) {
@@ -8647,6 +8648,489 @@ Message: ${commit.message}`;
                 if (branchSelector && branchSelector.value === 'main') {
                     removeBtn.classList.add('hidden');
                 }
+            }
+
+            if (syncBtn) {
+                syncBtn.addEventListener('click', openBranchSyncModal);
+            }
+        }
+
+        // ---- Branch Sync modal -----------------------------------------
+
+        async function openBranchSyncModal() {
+            if (!connectedStorePath) {
+                showNotification('Please connect to a store first with /connect <path>', 'error');
+                return;
+            }
+
+            let modal = document.getElementById('branchSyncModal');
+            if (!modal) {
+                modal = document.createElement('div');
+                modal.id = 'branchSyncModal';
+                modal.className = 'branch-sync-modal';
+                modal.innerHTML = `
+                    <div class="branch-sync-modal-content">
+                        <div class="branch-sync-header">
+                            <div>
+                                <h2>Sync Branches</h2>
+                                <div class="branch-sync-subtitle" id="branchSyncSubtitle"></div>
+                            </div>
+                            <button class="branch-sync-close" id="branchSyncCloseBtn" title="Close">×</button>
+                        </div>
+                        <div class="branch-sync-body" id="branchSyncBody">
+                            <div class="branch-sync-empty">Loading branch status…</div>
+                        </div>
+                        <div class="branch-sync-footer">
+                            <span id="branchSyncFooterLeft">Counts are git commits between branches — one memory may land as multiple commits.</span>
+                            <span id="branchSyncFooterRight"></span>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal || e.target.id === 'branchSyncCloseBtn') {
+                        closeBranchSyncModal();
+                    }
+                });
+            }
+
+            modal.classList.add('show');
+            await refreshBranchSyncList();
+        }
+
+        function closeBranchSyncModal() {
+            const modal = document.getElementById('branchSyncModal');
+            if (modal) {
+                modal.classList.remove('show');
+            }
+            // Trigger a branches refresh so the selector reflects any changes
+            refreshStore().catch((err) => console.warn('post-sync refresh failed', err));
+        }
+
+        async function refreshBranchSyncList() {
+            const body = document.getElementById('branchSyncBody');
+            const subtitle = document.getElementById('branchSyncSubtitle');
+            const footerRight = document.getElementById('branchSyncFooterRight');
+            if (!body) return;
+
+            body.innerHTML = '<div class="branch-sync-empty">Loading branch status…</div>';
+
+            try {
+                const response = await fetch(
+                    `/api/branches-status?path=${encodeURIComponent(connectedStorePath)}`
+                );
+                if (!response.ok) {
+                    throw new Error(await response.text());
+                }
+                const data = await response.json();
+
+                if (subtitle) {
+                    subtitle.textContent = `Default: ${data.default} · On: ${data.current || '—'}`;
+                }
+                if (footerRight) {
+                    const syncable = (data.branches || []).filter(
+                        (b) => !b.is_default && b.ahead > 0
+                    ).length;
+                    footerRight.textContent = syncable
+                        ? `${syncable} branch${syncable === 1 ? '' : 'es'} with unpushed memories`
+                        : 'All branches are in sync with ' + data.default;
+                }
+
+                renderBranchSyncList(body, data);
+            } catch (err) {
+                body.innerHTML = `<div class="branch-sync-empty">Failed to load: ${escapeHtml(err.message || String(err))}</div>`;
+            }
+        }
+
+        function renderBranchSyncList(container, data) {
+            const branches = (data.branches || []).filter((b) => !b.is_default);
+            if (!branches.length) {
+                container.innerHTML = `<div class="branch-sync-empty">No non-default branches found. Create a branch with the + button.</div>`;
+                return;
+            }
+
+            // Sort: branches with unpushed work first, then synced / clean.
+            const rank = (b) => {
+                if (b.ahead > 0) return 0;
+                if (b.synced) return 1;
+                return 2;
+            };
+            branches.sort((a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name));
+
+            container.innerHTML = '';
+            branches.forEach((b) => {
+                const row = document.createElement('div');
+                row.className = 'branch-sync-row' + (b.is_current ? ' is-current' : '');
+                row.dataset.branch = b.name;
+
+                // "behind" direction is intentionally hidden for now — we may
+                // enable pull-from-default later. Only ahead/synced surfaces.
+                const badges = [];
+                if (b.synced) {
+                    badges.push(
+                        `<span class="branch-sync-badge synced"
+                               title="Already pushed to ${escapeHtml(data.default)} — no new commits since last sync">
+                             ✓ synced
+                         </span>`
+                    );
+                }
+                if (b.ahead > 0) {
+                    badges.push(
+                        `<button type="button" class="branch-sync-badge ahead is-clickable"
+                                 data-diff="ahead"
+                                 title="${b.ahead} git commit${b.ahead === 1 ? '' : 's'} on ${escapeHtml(b.name)} not yet on ${escapeHtml(data.default)}. Click to view the commits.">
+                             ↑ ${b.ahead} ahead
+                         </button>`
+                    );
+                }
+                if (!b.synced && b.ahead === 0) badges.push(`<span class="branch-sync-badge clean">in sync</span>`);
+
+                const lastDate = b.last_commit_date ? formatBranchDate(b.last_commit_date) : '';
+                const tags = [];
+                if (b.is_current) tags.push('<span class="branch-sync-row-tag current">current</span>');
+
+                const pushDisabled = b.ahead === 0 ? 'disabled' : '';
+                // Delete is only shown for non-default, non-current branches —
+                // the existing /api/delete-branch refuses to delete the current
+                // branch, and deleting the default would be destructive.
+                const canDelete = !b.is_default && !b.is_current;
+
+                row.innerHTML = `
+                    <div class="branch-sync-row-name">
+                        <div class="branch-sync-row-name-line">
+                            <span title="${escapeHtml(b.name)}">${escapeHtml(b.name)}</span>
+                            ${tags.join('')}
+                        </div>
+                        ${lastDate ? `<div class="branch-sync-row-meta">last commit ${lastDate}</div>` : ''}
+                    </div>
+                    <div class="branch-sync-badges">${badges.join('')}</div>
+                    <div class="branch-sync-actions">
+                        <button class="branch-sync-action" data-action="push" ${pushDisabled}
+                                title="Merge this branch into ${escapeHtml(data.default)}">
+                            Push to ${escapeHtml(data.default)}
+                        </button>
+                        ${canDelete ? `
+                            <button class="branch-sync-action branch-sync-action-delete"
+                                    data-action="delete"
+                                    title="Delete this memoir branch (does not affect your code branches)">
+                                Delete
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+
+                row.querySelectorAll('.branch-sync-action').forEach((btn) => {
+                    btn.addEventListener('click', () => {
+                        const action = btn.dataset.action;
+                        if (action === 'push') {
+                            performBranchSync(row, b.name, data.default, null);
+                        } else if (action === 'delete') {
+                            renderDeleteConfirm(row, b.name);
+                        }
+                    });
+                });
+
+                row.querySelectorAll('.branch-sync-badge.is-clickable').forEach((badge) => {
+                    badge.addEventListener('click', () => {
+                        // ahead = commits on b.name but not on default
+                        //   → range default..b.name
+                        // behind = commits on default but not on b.name
+                        //   → range b.name..default
+                        const direction = badge.dataset.diff;
+                        const [from, to] = direction === 'ahead'
+                            ? [data.default, b.name]
+                            : [b.name, data.default];
+                        showCommitRangeDiffModal(from, to);
+                    });
+                });
+
+                container.appendChild(row);
+            });
+        }
+
+        async function performBranchSync(row, source, target, strategy) {
+            // Disable all action buttons in this row during the call
+            const actionBtns = row.querySelectorAll('.branch-sync-action');
+            actionBtns.forEach((b) => b.classList.add('busy'));
+            actionBtns.forEach((b) => (b.disabled = true));
+
+            // Clear any stale conflict UI from a previous attempt
+            const staleConflict = row.querySelector('.branch-sync-conflict');
+            if (staleConflict) staleConflict.remove();
+
+            const payload = { path: connectedStorePath, source, target };
+            if (strategy) payload.strategy = strategy;
+
+            try {
+                const response = await fetch('/api/sync-branches', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    const arrow = source === target ? '' : ` (${source} → ${target})`;
+                    showNotification(`✅ Merged${arrow}`, 'success', 4000);
+                    await refreshBranchSyncList();
+                    return;
+                }
+
+                if (response.status === 409) {
+                    const result = await response.json();
+                    renderConflictPicker(row, source, target, result.conflicts || []);
+                    return;
+                }
+
+                const errText = await response.text();
+                throw new Error(errText || `HTTP ${response.status}`);
+            } catch (err) {
+                showNotification(`Sync failed: ${err.message || err}`, 'error', 6000);
+                actionBtns.forEach((b) => b.classList.remove('busy'));
+                // Restore disabled state based on original ahead/behind:
+                await refreshBranchSyncList();
+            }
+        }
+
+        function renderDeleteConfirm(row, branchName) {
+            // Remove any existing confirm panel from a previous click.
+            const existing = row.querySelector('.branch-sync-delete-confirm');
+            if (existing) existing.remove();
+
+            const panel = document.createElement('div');
+            panel.className = 'branch-sync-delete-confirm';
+            panel.innerHTML = `
+                <div class="branch-sync-delete-title">
+                    Delete memoir branch <code>${escapeHtml(branchName)}</code>?
+                </div>
+                <div class="branch-sync-delete-hint">
+                    This removes the branch ref from this memoir store only.
+                    It does <strong>not</strong> touch your project's code branches.
+                </div>
+                <div class="branch-sync-delete-actions">
+                    <button class="branch-sync-strategy-btn" data-confirm="cancel">Cancel</button>
+                    <button class="branch-sync-strategy-btn branch-sync-delete-yes" data-confirm="yes">
+                        Delete
+                    </button>
+                </div>
+            `;
+            panel.querySelector('[data-confirm="cancel"]').addEventListener('click', () => {
+                panel.remove();
+            });
+            panel.querySelector('[data-confirm="yes"]').addEventListener('click', () => {
+                performBranchDelete(row, branchName, panel);
+            });
+            row.appendChild(panel);
+        }
+
+        async function performBranchDelete(row, branchName, panel) {
+            const actionBtns = row.querySelectorAll('.branch-sync-action');
+            actionBtns.forEach((b) => (b.disabled = true));
+            panel.querySelectorAll('button').forEach((b) => (b.disabled = true));
+
+            try {
+                const response = await fetch('/api/delete-branch', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: connectedStorePath,
+                        branch: branchName,
+                        // force=true so we don't choke on "not fully merged" —
+                        // memoir semantics treat sync-marker as the source of
+                        // truth for "merged", not git ancestry.
+                        force: true,
+                    }),
+                });
+
+                if (!response.ok) {
+                    const err = await response.text();
+                    throw new Error(err || `HTTP ${response.status}`);
+                }
+
+                showNotification(`Deleted memoir branch '${branchName}'`, 'success', 3000);
+                await refreshBranchSyncList();
+            } catch (err) {
+                showNotification(`Delete failed: ${err.message || err}`, 'error', 6000);
+                actionBtns.forEach((b) => (b.disabled = false));
+                panel.remove();
+            }
+        }
+
+        function renderConflictPicker(row, source, target, conflicts) {
+            const existing = row.querySelector('.branch-sync-conflict');
+            if (existing) existing.remove();
+
+            const panel = document.createElement('div');
+            panel.className = 'branch-sync-conflict';
+            const keysHtml = conflicts.length
+                ? `<div class="branch-sync-conflict-keys">${conflicts.map(escapeHtml).join('<br>')}</div>`
+                : '';
+            panel.innerHTML = `
+                <div class="branch-sync-conflict-title">Merge has ${conflicts.length} conflict${conflicts.length === 1 ? '' : 's'} — pick a resolution strategy</div>
+                ${keysHtml}
+                <div class="branch-sync-strategy-picker">
+                    <button class="branch-sync-strategy-btn" data-strategy="skip">Skip conflicts (keep ${escapeHtml(target)})</button>
+                    <button class="branch-sync-strategy-btn" data-strategy="theirs">Take ${escapeHtml(source)}'s version</button>
+                    <button class="branch-sync-strategy-btn" data-strategy="ours">Keep ${escapeHtml(target)}'s version</button>
+                </div>
+            `;
+            panel.querySelectorAll('.branch-sync-strategy-btn').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    performBranchSync(row, source, target, btn.dataset.strategy);
+                });
+            });
+            row.appendChild(panel);
+
+            // Re-enable action buttons so the user can bail out by clicking elsewhere
+            row.querySelectorAll('.branch-sync-action').forEach((b) => {
+                b.classList.remove('busy');
+                b.disabled = false;
+            });
+        }
+
+        async function showCommitRangeDiffModal(fromRef, toRef) {
+            if (!connectedStorePath) {
+                showNotification('Not connected to a store', 'error');
+                return;
+            }
+
+            // Remove any previous instance of this modal.
+            const existing = document.getElementById('commitRangeDiffModal');
+            if (existing) existing.remove();
+
+            const modal = document.createElement('div');
+            modal.id = 'commitRangeDiffModal';
+            modal.className = 'commit-range-modal';
+            modal.innerHTML = `
+                <div class="commit-range-modal-content">
+                    <div class="commit-range-header">
+                        <div>
+                            <h2>Commits on <span class="commit-range-to"></span></h2>
+                            <div class="commit-range-subtitle">
+                                not yet on <span class="commit-range-from"></span>
+                            </div>
+                        </div>
+                        <button class="commit-range-close" title="Close">×</button>
+                    </div>
+                    <div class="commit-range-body">
+                        <div class="commit-range-empty">Loading commits…</div>
+                    </div>
+                    <div class="commit-range-footer">
+                        Each section is one commit with only the memories it introduced.
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            modal.querySelector('.commit-range-from').textContent = fromRef;
+            modal.querySelector('.commit-range-to').textContent = toRef;
+
+            const close = () => modal.remove();
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal || e.target.classList.contains('commit-range-close')) {
+                    close();
+                }
+            });
+
+            const body = modal.querySelector('.commit-range-body');
+
+            try {
+                const url = `/api/commit-range-diff?path=${encodeURIComponent(connectedStorePath)}`
+                    + `&from=${encodeURIComponent(fromRef)}`
+                    + `&to=${encodeURIComponent(toRef)}`;
+                const response = await fetch(url);
+                if (!response.ok) {
+                    const errText = await response.text();
+                    throw new Error(errText || `HTTP ${response.status}`);
+                }
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'Failed to load commits');
+
+                renderCommitRangeList(body, data.commits || []);
+            } catch (err) {
+                body.innerHTML = `<div class="commit-range-empty">Failed to load: ${escapeHtml(err.message || String(err))}</div>`;
+            }
+        }
+
+        function renderCommitRangeList(container, commits) {
+            if (!commits.length) {
+                container.innerHTML = `<div class="commit-range-empty">No commits in this range.</div>`;
+                return;
+            }
+            container.innerHTML = '';
+            // Show most-recent first (we fetched in chronological order so reverse).
+            commits.slice().reverse().forEach((c) => {
+                const when = c.timestamp
+                    ? formatBranchDate(new Date(c.timestamp * 1000).toISOString())
+                    : '';
+                const stats = c.stats || { added: 0, modified: 0, deleted: 0 };
+                const statsHtml = (stats.added || stats.modified || stats.deleted)
+                    ? `<span class="commit-range-stat added">+${stats.added || 0}</span>
+                       <span class="commit-range-stat modified">~${stats.modified || 0}</span>
+                       <span class="commit-range-stat deleted">-${stats.deleted || 0}</span>`
+                    : `<span class="commit-range-stat muted">no memory-level changes</span>`;
+
+                const section = document.createElement('div');
+                section.className = 'commit-range-section';
+                section.innerHTML = `
+                    <div class="commit-range-commit-header">
+                        <div class="commit-range-commit-meta">
+                            <code class="commit-range-hash">${escapeHtml(c.short_hash || '')}</code>
+                            <span class="commit-range-message">${escapeHtml(c.message || '')}</span>
+                        </div>
+                        <div class="commit-range-commit-sub">
+                            <span class="commit-range-author">${escapeHtml(c.author || '')}</span>
+                            ${when ? `<span class="commit-range-when">· ${escapeHtml(when)}</span>` : ''}
+                            <span class="commit-range-stats">${statsHtml}</span>
+                        </div>
+                    </div>
+                    <div class="commit-range-changes"></div>
+                `;
+                const changes = section.querySelector('.commit-range-changes');
+                if (!c.changes || c.changes.length === 0) {
+                    changes.innerHTML = '<div class="commit-range-nochange">No meaningful memory changes in this commit.</div>';
+                } else {
+                    c.changes.forEach((ch) => {
+                        const item = document.createElement('div');
+                        item.className = `commit-range-change ${ch.type}`;
+                        const icon = ch.type === 'added' ? '+'
+                            : ch.type === 'deleted' ? '−' : '~';
+                        let contentHtml = '';
+                        if (ch.old_content) {
+                            contentHtml += `<div class="commit-range-content old"><span class="commit-range-label">before</span>${escapeHtml(ch.old_content)}</div>`;
+                        }
+                        if (ch.new_content) {
+                            contentHtml += `<div class="commit-range-content new"><span class="commit-range-label">after</span>${escapeHtml(ch.new_content)}</div>`;
+                        }
+                        item.innerHTML = `
+                            <div class="commit-range-change-head">
+                                <span class="commit-range-change-icon">${icon}</span>
+                                <span class="commit-range-change-path">${escapeHtml(ch.path || '')}</span>
+                                <span class="commit-range-change-type">${escapeHtml(ch.type)}</span>
+                            </div>
+                            ${contentHtml}
+                        `;
+                        changes.appendChild(item);
+                    });
+                }
+                container.appendChild(section);
+            });
+        }
+
+        function formatBranchDate(iso) {
+            try {
+                const d = new Date(iso);
+                if (isNaN(d.getTime())) return iso;
+                const now = new Date();
+                const diffMs = now - d;
+                const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+                if (diffDays < 1) return 'today';
+                if (diffDays === 1) return 'yesterday';
+                if (diffDays < 7) return `${diffDays}d ago`;
+                if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+                return d.toISOString().slice(0, 10);
+            } catch {
+                return iso;
             }
         }
 

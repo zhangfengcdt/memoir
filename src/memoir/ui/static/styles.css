@@ -105,7 +105,8 @@ body {
 
 .timeline-header {
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    align-items: stretch;
     gap: 16px;
     margin-bottom: 32px;
     padding-bottom: 20px;
@@ -158,8 +159,8 @@ body {
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     backdrop-filter: blur(10px);
-    max-width: 200px;
-    width: 200px;
+    max-width: 260px;
+    width: 260px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -3324,4 +3325,663 @@ body {
     .stats-actions {
         justify-content: center;
     }
+}
+
+/* ===========================
+   Branch Sync Button + Modal
+   =========================== */
+
+.branch-btn-sync {
+    color: var(--accent-primary);
+}
+
+.branch-btn-sync:hover {
+    background: rgba(34, 211, 238, 0.1);
+    border-color: rgba(34, 211, 238, 0.3);
+    color: #67e8f9;
+}
+
+.branch-btn-sync svg {
+    width: 16px;
+    height: 16px;
+}
+
+.branch-sync-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 10000;
+    backdrop-filter: blur(4px);
+}
+
+.branch-sync-modal.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.branch-sync-modal-content {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    width: 90%;
+    max-width: 720px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+.branch-sync-header {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-secondary);
+}
+
+.branch-sync-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.branch-sync-header .branch-sync-subtitle {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-secondary);
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+.branch-sync-close {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 24px;
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+.branch-sync-close:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.branch-sync-body {
+    flex: 1;
+    padding: 16px 20px;
+    overflow-y: auto;
+}
+
+.branch-sync-empty {
+    padding: 24px;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.branch-sync-row {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    margin-bottom: 10px;
+    background: var(--bg-secondary);
+}
+
+.branch-sync-row.is-current {
+    border-color: rgba(34, 211, 238, 0.55);
+    background: linear-gradient(
+        90deg,
+        rgba(34, 211, 238, 0.1) 0%,
+        rgba(34, 211, 238, 0.03) 100%
+    );
+    box-shadow:
+        inset 3px 0 0 var(--accent-primary),
+        0 0 0 1px rgba(34, 211, 238, 0.15);
+}
+
+.branch-sync-row.is-current .branch-sync-row-name-line {
+    color: var(--accent-primary);
+    font-weight: 600;
+}
+
+.branch-sync-row-name {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.branch-sync-row-name-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.branch-sync-row-tag {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+}
+
+.branch-sync-row-tag.current {
+    background: rgba(34, 211, 238, 0.12);
+    color: var(--accent-primary);
+    border: 1px solid rgba(34, 211, 238, 0.3);
+}
+
+.branch-sync-row-tag.default {
+    background: rgba(16, 185, 129, 0.12);
+    color: var(--success);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.branch-sync-row-meta {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-family: 'Inter', sans-serif;
+}
+
+.branch-sync-badges {
+    display: flex;
+    gap: 6px;
+}
+
+.branch-sync-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+button.branch-sync-badge {
+    cursor: pointer;
+    background: inherit;
+    transition: filter 0.15s ease, transform 0.15s ease;
+}
+
+button.branch-sync-badge:hover {
+    filter: brightness(1.15);
+    transform: translateY(-1px);
+}
+
+button.branch-sync-badge:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+.branch-sync-badge.ahead {
+    background: rgba(16, 185, 129, 0.12);
+    color: var(--success);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.branch-sync-badge.behind {
+    background: rgba(249, 115, 22, 0.12);
+    color: #fb923c;
+    border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+.branch-sync-badge.clean {
+    background: var(--bg-glass-light);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+}
+
+.branch-sync-badge.synced {
+    background: rgba(16, 185, 129, 0.12);
+    color: var(--success);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.branch-sync-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.branch-sync-action {
+    background: var(--bg-glass-light);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: 'Inter', sans-serif;
+}
+
+.branch-sync-action:hover:not(:disabled) {
+    background: rgba(34, 211, 238, 0.1);
+    border-color: rgba(34, 211, 238, 0.3);
+    color: var(--accent-primary);
+}
+
+.branch-sync-action:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.branch-sync-action.busy {
+    opacity: 0.6;
+    cursor: progress;
+}
+
+.branch-sync-action-delete {
+    color: #fb923c;
+}
+
+.branch-sync-action-delete:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: var(--error);
+}
+
+.branch-sync-delete-confirm {
+    grid-column: 1 / -1;
+    margin-top: 8px;
+    padding: 10px 12px;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    background: rgba(239, 68, 68, 0.06);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.branch-sync-delete-title {
+    font-weight: 600;
+    color: var(--error);
+}
+
+.branch-sync-delete-title code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--error);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.branch-sync-delete-hint {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.branch-sync-delete-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.branch-sync-delete-yes {
+    color: var(--error);
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+.branch-sync-delete-yes:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.5);
+}
+
+.branch-sync-conflict {
+    grid-column: 1 / -1;
+    margin-top: 8px;
+    padding: 10px 12px;
+    border: 1px solid rgba(249, 115, 22, 0.3);
+    background: rgba(249, 115, 22, 0.08);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.branch-sync-conflict-title {
+    font-weight: 600;
+    color: #fb923c;
+}
+
+.branch-sync-conflict-keys {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-secondary);
+    max-height: 60px;
+    overflow-y: auto;
+}
+
+.branch-sync-strategy-picker {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.branch-sync-strategy-btn {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+}
+
+.branch-sync-strategy-btn:hover {
+    background: rgba(34, 211, 238, 0.1);
+    border-color: rgba(34, 211, 238, 0.3);
+}
+
+.branch-sync-footer {
+    padding: 12px 20px;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+/* ===========================
+   Commit-Range Diff Modal
+   =========================== */
+
+.commit-range-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+    z-index: 10001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.commit-range-modal-content {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    width: 92%;
+    max-width: 900px;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+.commit-range-header {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.commit-range-header h2 {
+    margin: 0;
+    font-size: 18px;
+    color: var(--text-primary);
+}
+
+.commit-range-header .commit-range-to,
+.commit-range-header .commit-range-from {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent-primary);
+}
+
+.commit-range-subtitle {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--text-secondary);
+}
+
+.commit-range-close {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 24px;
+    cursor: pointer;
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    transition: all 0.15s ease;
+}
+
+.commit-range-close:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+}
+
+.commit-range-body {
+    flex: 1;
+    padding: 16px 20px;
+    overflow-y: auto;
+}
+
+.commit-range-empty {
+    padding: 24px;
+    text-align: center;
+    color: var(--text-secondary);
+    font-size: 13px;
+}
+
+.commit-range-section {
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    margin-bottom: 14px;
+    background: var(--bg-secondary);
+    overflow: hidden;
+}
+
+.commit-range-commit-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    background: var(--bg-glass-light);
+}
+
+.commit-range-commit-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.commit-range-hash {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--accent-primary);
+    background: rgba(34, 211, 238, 0.1);
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.commit-range-message {
+    color: var(--text-primary);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.commit-range-commit-sub {
+    margin-top: 6px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.commit-range-stats {
+    margin-left: auto;
+    display: flex;
+    gap: 6px;
+}
+
+.commit-range-stat {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 999px;
+}
+
+.commit-range-stat.added {
+    color: var(--success);
+    background: rgba(16, 185, 129, 0.1);
+}
+
+.commit-range-stat.modified {
+    color: var(--accent-primary);
+    background: rgba(34, 211, 238, 0.1);
+}
+
+.commit-range-stat.deleted {
+    color: var(--error);
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.commit-range-stat.muted {
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px dashed var(--border-color);
+}
+
+.commit-range-changes {
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.commit-range-nochange {
+    padding: 12px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.commit-range-change {
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 12px;
+    background: var(--bg-primary);
+}
+
+.commit-range-change-head {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+}
+
+.commit-range-change-icon {
+    font-weight: 700;
+    width: 14px;
+    text-align: center;
+}
+
+.commit-range-change.added .commit-range-change-icon {
+    color: var(--success);
+}
+
+.commit-range-change.deleted .commit-range-change-icon {
+    color: var(--error);
+}
+
+.commit-range-change.modified .commit-range-change-icon {
+    color: var(--accent-primary);
+}
+
+.commit-range-change-path {
+    flex: 1;
+    color: var(--text-primary);
+    word-break: break-all;
+}
+
+.commit-range-change-type {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-secondary);
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: var(--bg-glass-light);
+    border: 1px solid var(--border-color);
+}
+
+.commit-range-content {
+    margin-top: 6px;
+    padding: 8px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.commit-range-content.old {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.commit-range-content.new {
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.commit-range-label {
+    display: inline-block;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    margin-right: 8px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    background: var(--bg-glass-light);
+}
+
+.commit-range-footer {
+    padding: 10px 20px;
+    border-top: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    font-size: 11px;
+    color: var(--text-secondary);
 }

@@ -377,6 +377,235 @@ class TestBranchServiceMergeWithData:
             assert theme.get("value") == "dark"
 
 
+class TestBranchServiceDefaultBranch:
+    """Test default-branch resolution (main → master → first)."""
+
+    def test_returns_main_when_present(self, branch_service_with_data):
+        """main is the preferred default when it exists."""
+        assert branch_service_with_data.get_default_branch() == "main"
+
+    def test_falls_back_to_master(self, branch_service_with_data, monkeypatch):
+        """If main is missing, master wins."""
+        fake_info = BranchInfoStub(branches=["master", "feature/x"], current="master")
+        monkeypatch.setattr(
+            branch_service_with_data, "list_branches", lambda: fake_info
+        )
+        assert branch_service_with_data.get_default_branch() == "master"
+
+    def test_falls_back_to_first_branch(self, branch_service_with_data, monkeypatch):
+        """Neither main nor master → first branch in the list."""
+        fake_info = BranchInfoStub(branches=["trunk", "feature/x"], current="trunk")
+        monkeypatch.setattr(
+            branch_service_with_data, "list_branches", lambda: fake_info
+        )
+        assert branch_service_with_data.get_default_branch() == "trunk"
+
+    def test_empty_repo_fallback(self, branch_service_with_data, monkeypatch):
+        """Empty branch list → 'main' as last-resort fallback."""
+        fake_info = BranchInfoStub(branches=[], current="")
+        monkeypatch.setattr(
+            branch_service_with_data, "list_branches", lambda: fake_info
+        )
+        assert branch_service_with_data.get_default_branch() == "main"
+
+
+class TestBranchServiceDivergence:
+    """Test get_divergence ahead/behind counting."""
+
+    @pytest.fixture
+    def service_with_diverged_branches(self, temp_dir):
+        """Make a store with main + feature, each with extra commits."""
+        store_service = StoreService(temp_dir)
+        store_service.create_store(temp_dir)
+
+        service = BranchService(temp_dir)
+        store = service._get_store()
+
+        # Initial commit on main
+        store.put(("default",), "preferences.theme", {"value": "light"})
+        store.commit("initial on main")
+
+        # feature branch off main, add one commit on feature
+        service.create_branch("feature")
+        service.checkout("feature")
+        store.put(("default",), "preferences.font", {"value": "Arial"})
+        store.commit("feature: add font")
+
+        # Back to main, add two commits on main
+        service.checkout("main")
+        store.put(("default",), "preferences.lang", {"value": "en"})
+        store.commit("main: add lang")
+        store.put(("default",), "preferences.locale", {"value": "US"})
+        store.commit("main: add locale")
+
+        return service
+
+    def test_same_branch_returns_zero(self, service_with_diverged_branches):
+        div = service_with_diverged_branches.get_divergence("main", base="main")
+        assert div["ahead"] == 0
+        assert div["behind"] == 0
+        assert div["branch"] == "main"
+        assert div["base"] == "main"
+
+    def test_feature_ahead_and_behind(self, service_with_diverged_branches):
+        """feature has commits main doesn't and vice versa — main has more."""
+        # Exact counts depend on how many git commits store.commit() produces
+        # internally; just assert the relative shape holds.
+        div = service_with_diverged_branches.get_divergence("feature", base="main")
+        assert div["ahead"] > 0, f"expected ahead>0, got {div}"
+        assert div["behind"] > 0, f"expected behind>0, got {div}"
+        assert (
+            div["behind"] > div["ahead"]
+        ), f"main had 2 extra commits vs feature's 1, got {div}"
+
+    def test_base_defaults_to_default_branch(self, service_with_diverged_branches):
+        """Omitting base → uses get_default_branch() which resolves to 'main'."""
+        div = service_with_diverged_branches.get_divergence("feature")
+        assert div["base"] == "main"
+        assert div["ahead"] > 0
+        assert div["behind"] > div["ahead"]
+
+    def test_nonexistent_branch_sets_error(self, service_with_diverged_branches):
+        div = service_with_diverged_branches.get_divergence(
+            "does-not-exist", base="main"
+        )
+        # git rev-list fails; we return zeros with an error string
+        assert div["ahead"] == 0
+        assert div["behind"] == 0
+        assert div.get("error")
+
+
+class TestBranchServiceBranchesStatus:
+    """Test the aggregated get_branches_status used by the UI."""
+
+    @pytest.fixture
+    def service_two_branches(self, temp_dir):
+        store_service = StoreService(temp_dir)
+        store_service.create_store(temp_dir)
+
+        service = BranchService(temp_dir)
+        store = service._get_store()
+
+        store.put(("default",), "a", {"v": 1})
+        store.commit("main c1")
+
+        service.create_branch("feature")
+        service.checkout("feature")
+        store.put(("default",), "b", {"v": 1})
+        store.commit("feature c1")
+
+        service.checkout("main")
+        return service
+
+    def test_shape(self, service_two_branches):
+        status = service_two_branches.get_branches_status()
+        assert status["default"] == "main"
+        assert status["current"] == "main"
+        names = [b["name"] for b in status["branches"]]
+        assert "main" in names
+        assert "feature" in names
+
+    def test_feature_is_ahead(self, service_two_branches):
+        status = service_two_branches.get_branches_status()
+        feature = next(b for b in status["branches"] if b["name"] == "feature")
+        assert feature["ahead"] > 0
+        assert feature["behind"] == 0
+        assert feature["is_default"] is False
+        assert feature["is_current"] is False
+
+    def test_default_row_has_zero_divergence(self, service_two_branches):
+        status = service_two_branches.get_branches_status()
+        main = next(b for b in status["branches"] if b["name"] == "main")
+        assert main["is_default"] is True
+        assert main["is_current"] is True
+        assert main["ahead"] == 0
+        assert main["behind"] == 0
+
+
+class TestBranchServiceSyncBranch:
+    """Test the compound sync_branch operation."""
+
+    @pytest.fixture
+    def service_syncable(self, temp_dir):
+        store_service = StoreService(temp_dir)
+        store_service.create_store(temp_dir)
+
+        service = BranchService(temp_dir)
+        store = service._get_store()
+
+        store.put(("default",), "shared", {"v": "main"})
+        store.commit("main initial")
+
+        service.create_branch("feature")
+        service.checkout("feature")
+        store.put(("default",), "only-on-feature", {"v": 1})
+        store.commit("feature work")
+
+        # Leave user on a third branch so we can prove restoration
+        service.create_branch("user-scratch")
+        service.checkout("user-scratch")
+
+        return service
+
+    def test_sync_restores_original_branch(self, service_syncable):
+        """After syncing feature→main, user ends up back on user-scratch."""
+        result = service_syncable.sync_branch("feature", "main")
+        assert result.success is True
+        assert result.target_branch == "main"
+        assert result.source_branch == "feature"
+        assert result.restored_branch == "user-scratch"
+
+        current, _ = service_syncable.get_current_branch()
+        assert current == "user-scratch"
+
+    def test_sync_applies_merge_on_target(self, service_syncable):
+        service_syncable.sync_branch("feature", "main")
+        # Check main has feature's key
+        service_syncable.checkout("main")
+        store = service_syncable._get_store()
+        assert store.get(("default",), "only-on-feature") == {"v": 1}
+
+    def test_sync_same_source_and_target_fails(self, service_syncable):
+        result = service_syncable.sync_branch("main", "main")
+        assert result.success is False
+        assert "same" in (result.error or "").lower()
+
+    def test_sync_missing_target_fails_gracefully(self, service_syncable):
+        result = service_syncable.sync_branch("feature", "does-not-exist")
+        assert result.success is False
+        # Make sure we didn't strand the user somewhere weird
+        current, _ = service_syncable.get_current_branch()
+        assert current == "user-scratch"
+
+    def test_sync_no_restore(self, service_syncable):
+        """restore=False leaves us on the target after a clean merge."""
+        result = service_syncable.sync_branch("feature", "main", restore=False)
+        assert result.success is True
+        assert result.restored_branch is None
+        current, _ = service_syncable.get_current_branch()
+        assert current == "main"
+
+
+class BranchInfoStub:
+    """Minimal stand-in for BranchInfo used in default-branch tests."""
+
+    def __init__(self, branches, current):
+        self.branches = branches
+        self.current = current
+
+
+@pytest.fixture
+def branch_service_with_data(temp_dir):
+    """Fixture used by default-branch tests — store with one commit on main."""
+    store_service = StoreService(temp_dir)
+    store_service.create_store(temp_dir)
+    service = BranchService(temp_dir)
+    store = service._get_store()
+    store.put(("default",), "a", {"v": 1})
+    store.commit("initial")
+    return service
+
+
 class TestBranchServiceDiff:
     """Test diff functionality."""
 

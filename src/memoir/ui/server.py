@@ -102,6 +102,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         elif parsed_path.path == "/api/current-branch":
             self._ensure_handlers_initialized()
             self.branch_handler.handle_current_branch_api(parsed_path)
+        elif parsed_path.path == "/api/branches-status":
+            self._ensure_handlers_initialized()
+            self.branch_handler.handle_branches_status_api(parsed_path)
         elif parsed_path.path == "/api/timeline":
             self.handle_timeline_get_api(parsed_path)
         elif parsed_path.path == "/api/location":
@@ -117,6 +120,8 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             self.memory_handler.handle_recall_api(parsed_path)
         elif parsed_path.path == "/api/diff":
             self.handle_diff_api(parsed_path)
+        elif parsed_path.path == "/api/commit-range-diff":
+            self.handle_commit_range_diff_api(parsed_path)
         elif parsed_path.path == "/api/statistics":
             self.handle_statistics_api(parsed_path)
         elif parsed_path.path == "/":
@@ -151,6 +156,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         elif parsed_path.path == "/api/merge-branch":
             self._ensure_handlers_initialized()
             self.branch_handler.handle_merge_branch_api()
+        elif parsed_path.path == "/api/sync-branches":
+            self._ensure_handlers_initialized()
+            self.branch_handler.handle_sync_branches_api()
         elif parsed_path.path == "/api/delete-branch":
             self._ensure_handlers_initialized()
             self.branch_handler.handle_delete_branch_api()
@@ -1582,6 +1590,231 @@ Answer:"""
             },
         }
 
+    @staticmethod
+    def _shortref(ref):
+        """Truncate only full 40-char commit hashes; leave branch names intact."""
+        if not ref:
+            return ref
+        if len(ref) == 40 and all(c in "0123456789abcdef" for c in ref.lower()):
+            return ref[:8]
+        return ref
+
+    def _kv_diffs_to_changes(self, kv_diffs):
+        """Convert a list of prollytree KvDiff objects to our UI change format.
+
+        Returns (changes, stats). Filters out empty/no-content diffs so the UI
+        stays clean.
+        """
+        self._ensure_handlers_initialized()
+        extract = self.utility_handler.extract_diff_content
+        changes = []
+        for kv_diff in kv_diffs:
+            key_str = (
+                kv_diff.key.decode("utf-8")
+                if isinstance(kv_diff.key, bytes)
+                else str(kv_diff.key)
+            )
+            # Strip namespace prefix (e.g. "default:path" → "path").
+            if ":" in key_str:
+                parts = key_str.split(":", 1)
+                if len(parts) == 2:
+                    key_str = parts[1]
+
+            op = kv_diff.operation
+            op_type = op.operation_type
+
+            if op_type == "Added":
+                new_content = extract(op.value)
+                if new_content and new_content.strip() and new_content != "No content":
+                    changes.append(
+                        {"path": key_str, "type": "added", "new_content": new_content}
+                    )
+            elif op_type == "Removed":
+                old_content = extract(op.value)
+                if old_content and old_content.strip() and old_content != "No content":
+                    changes.append(
+                        {"path": key_str, "type": "deleted", "old_content": old_content}
+                    )
+            elif op_type == "Modified":
+                old_content = extract(op.old_value)
+                new_content = extract(op.new_value)
+                if (
+                    old_content != new_content
+                    and old_content
+                    and new_content
+                    and old_content.strip()
+                    and new_content.strip()
+                ):
+                    changes.append(
+                        {
+                            "path": key_str,
+                            "type": "modified",
+                            "old_content": old_content,
+                            "new_content": new_content,
+                        }
+                    )
+
+        stats = {"added": 0, "modified": 0, "deleted": 0}
+        for c in changes:
+            if c["type"] in stats:
+                stats[c["type"]] += 1
+        return changes, stats
+
+    def _generate_commit_range_diff(self, store_path, from_ref, to_ref):
+        """Return per-commit diffs for the range from_ref..to_ref.
+
+        One entry per commit introduced to `to_ref` that is not reachable from
+        `from_ref`. Each entry includes that commit's metadata plus the key-level
+        changes it introduced (diff against its first parent).
+        """
+        self._ensure_handlers_initialized()
+        try:
+            store = ProllyTreeStore(
+                path=store_path,
+                enable_versioning=True,
+                auto_commit=False,
+                cache_size=10000,
+            )
+
+            if not hasattr(store.tree, "diff"):
+                return {
+                    "success": False,
+                    "error": "VersionedKvStore diff not available",
+                }
+
+            import subprocess
+
+            # Chronological order so the list reads top-to-bottom as they landed.
+            rev_list = subprocess.run(
+                [
+                    "git",
+                    "log",
+                    "--reverse",
+                    "--format=%H|%h|%s|%an|%ae|%at|%P",
+                    f"{from_ref}..{to_ref}",
+                ],
+                cwd=store_path,
+                capture_output=True,
+                text=True,
+            )
+
+            if rev_list.returncode != 0:
+                return {
+                    "success": False,
+                    "error": f"git log failed: {rev_list.stderr.strip() or 'unknown error'}",
+                }
+
+            commits_out = []
+            lines = [
+                line for line in rev_list.stdout.strip().split("\n") if line.strip()
+            ]
+
+            for line in lines:
+                parts = line.split("|")
+                if len(parts) < 7:
+                    continue
+                full_hash, short_hash, message, author, email, ts, parents_str = parts[
+                    :7
+                ]
+                parents = parents_str.strip().split() if parents_str.strip() else []
+                parent = parents[0] if parents else None
+
+                # Diff the commit against its first parent. For the initial
+                # commit (no parent), we skip the diff and just record the
+                # metadata — the memory-creation payload shows up in the first
+                # commit that has a parent.
+                changes: list = []
+                stats = {"added": 0, "modified": 0, "deleted": 0}
+                if parent:
+                    try:
+                        kv_diffs = store.tree.diff(parent, full_hash)
+                        changes, stats = self._kv_diffs_to_changes(kv_diffs)
+                    except Exception as e:
+                        print(f"  diff {parent[:8]}..{short_hash}: {e}")
+
+                commits_out.append(
+                    {
+                        "hash": full_hash,
+                        "short_hash": short_hash,
+                        "message": message,
+                        "author": author,
+                        "email": email,
+                        "timestamp": int(ts) if ts.isdigit() else 0,
+                        "changes": changes,
+                        "stats": stats,
+                    }
+                )
+
+            return {
+                "success": True,
+                "from": from_ref,
+                "to": to_ref,
+                "commits": commits_out,
+            }
+
+        except Exception as e:
+            import traceback
+
+            traceback.print_exc()
+            return {"success": False, "error": str(e)}
+
+    def handle_commit_range_diff_api(self, parsed_path):
+        """Return per-commit diffs for a given range: ?from=...&to=..."""
+        try:
+            query_params = parse_qs(parsed_path.query)
+            store_path = query_params.get("path", [""])[0]
+            from_ref = query_params.get("from", [None])[0]
+            to_ref = query_params.get("to", [None])[0]
+
+            if not store_path:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps({"success": False, "error": "path is required"}).encode()
+                )
+                return
+
+            if not from_ref or not to_ref:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps(
+                        {"success": False, "error": "from and to are required"}
+                    ).encode()
+                )
+                return
+
+            if not Path(store_path).exists():
+                self.send_response(404)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps(
+                        {"success": False, "error": "Store path does not exist"}
+                    ).encode()
+                )
+                return
+
+            response_data = self._generate_commit_range_diff(
+                store_path, from_ref, to_ref
+            )
+
+            status = 200 if response_data.get("success") else 500
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(response_data).encode())
+        except Exception as e:
+            import traceback
+
+            traceback.print_exc()
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode())
+
     def _generate_real_diff(self, store_path, commit1, commit2):
         """Generate real diff using VersionedKvStore's new diff functionality."""
         self._ensure_handlers_initialized()
@@ -1606,7 +1839,9 @@ Answer:"""
                 # Compare two specific commits
                 from_ref = commit1
                 to_ref = commit2
-                header = f"Comparing {commit1[:8]} → {commit2[:8]}"
+                header = (
+                    f"Comparing {self._shortref(commit1)} → {self._shortref(commit2)}"
+                )
             else:
                 # For default case, we need to check what commits are available
                 import subprocess
@@ -1626,12 +1861,12 @@ Answer:"""
                             # Compare the two most recent commits
                             from_ref = commits[1]  # Previous commit
                             to_ref = commits[0]  # Latest commit
-                            header = f"Changes: {commits[1][:8]} → {commits[0][:8]}"
+                            header = f"Changes: {self._shortref(commits[1])} → {self._shortref(commits[0])}"
                         elif len(commits) == 1:
                             # Only one commit, show all data as added (initial commit)
                             from_ref = None  # No previous commit
                             to_ref = commits[0]
-                            header = f"Initial commit: {commits[0][:8]}"
+                            header = f"Initial commit: {self._shortref(commits[0])}"
                         else:
                             # No commits
                             print("No commits found in repository")
@@ -2892,9 +3127,7 @@ def run_server(port: int = 0, on_ready=None, idle_timeout: int = 300):
         print("\nTo connect to a memory store, use the command in the UI:")
         print("  /connect /tmp/memoir_ui_store")
         if idle_timeout and idle_timeout > 0:
-            print(
-                f"\nServer will auto-stop after {idle_timeout}s of inactivity."
-            )
+            print(f"\nServer will auto-stop after {idle_timeout}s of inactivity.")
         print("Press Ctrl+C to stop the server")
 
         # Seed the activity timestamp so the watchdog measures from startup.
@@ -2907,14 +3140,10 @@ def run_server(port: int = 0, on_ready=None, idle_timeout: int = 300):
             interval = max(1.0, min(5.0, idle_timeout / 10.0))
             while not idle_stop_event.wait(interval):
                 if time.monotonic() - httpd.last_activity >= idle_timeout:
-                    print(
-                        f"\nServer idle for {idle_timeout}s — shutting down."
-                    )
+                    print(f"\nServer idle for {idle_timeout}s — shutting down.")
                     # serve_forever() is running on the main thread; shutdown()
                     # MUST be called from a different thread (this one).
-                    threading.Thread(
-                        target=httpd.shutdown, daemon=True
-                    ).start()
+                    threading.Thread(target=httpd.shutdown, daemon=True).start()
                     return
 
         watchdog_thread = None
