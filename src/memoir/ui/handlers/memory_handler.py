@@ -21,6 +21,189 @@ from memoir.taxonomy.loader import TaxonomyLoader
 class MemoryHandler(BaseAPIHandler):
     """Handler for memory operations."""
 
+    def handle_update_memory_api(self):
+        """Write exact content to an exact taxonomy key (bypasses classifier).
+
+        Used by the "Edit" flow in the memory-details popup. Unlike
+        /api/remember this does not run the LLM classifier — the caller
+        supplies the key they want to overwrite, and we just persist + commit.
+        """
+        try:
+            content_length = int(self.handler.headers["Content-Length"])
+            post_data = self.handler.rfile.read(content_length)
+            data = json.loads(post_data.decode("utf-8"))
+
+            store_path = data.get("path")
+            key = data.get("key")
+            content = data.get("content")
+            namespace = data.get("namespace") or "default"
+            # Source of the edit, set by the frontend so we can record it in
+            # the commit message. One of: "manual", "llm", "llm+manual".
+            edit_source = (data.get("edit_source") or "manual").strip().lower()
+            if edit_source not in ("manual", "llm", "llm+manual"):
+                edit_source = "manual"
+            instructions = (data.get("instructions") or "").strip()
+
+            if not store_path:
+                self.handler.send_error(400, "Missing 'path' parameter")
+                return
+            if not key:
+                self.handler.send_error(400, "Missing 'key' parameter")
+                return
+            if content is None:
+                self.handler.send_error(400, "Missing 'content' parameter")
+                return
+            if not Path(store_path).exists():
+                self.handler.send_error(404, f"Store path does not exist: {store_path}")
+                return
+
+            from memoir.services.memory_service import MemoryService
+
+            service = MemoryService(store_path)
+
+            # remember(path=key) bypasses the classifier entirely and commits
+            # directly — exactly what an edit flow needs.
+            import asyncio
+
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                result = loop.run_until_complete(
+                    service.remember(content, namespace=namespace, path=key)
+                )
+            finally:
+                loop.close()
+
+            if not result.success:
+                self.handler.send_error(500, result.error or "Failed to update memory")
+                return
+
+            # The store auto-commits with a generic "Store <key> in <ns>"
+            # message. Amend it so the history records *how* the edit was
+            # made (manual, LLM, or LLM+manual). Truncate the user-supplied
+            # instructions string so a long prompt can't blow up the message.
+            label = {
+                "manual": "Manual edit",
+                "llm": "LLM-assisted edit",
+                "llm+manual": "LLM-assisted edit (manually adjusted)",
+            }.get(edit_source, "Manual edit")
+
+            commit_message = f"{label}: {namespace}:{key}"
+            if edit_source in ("llm", "llm+manual") and instructions:
+                snippet = instructions.replace("\n", " ").strip()
+                if len(snippet) > 200:
+                    snippet = snippet[:197] + "..."
+                commit_message += f"\n\nInstructions: {snippet}"
+
+            amended_hash = result.commit_hash
+            try:
+                import subprocess
+
+                amend = subprocess.run(
+                    ["git", "commit", "--amend", "-m", commit_message],
+                    cwd=store_path,
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                if amend.returncode == 0:
+                    rev = subprocess.run(
+                        ["git", "rev-parse", "HEAD"],
+                        cwd=store_path,
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    if rev.returncode == 0 and rev.stdout.strip():
+                        amended_hash = rev.stdout.strip()
+            except Exception:
+                # Amend is a polish-only step. If it fails, we still wrote
+                # the data and committed it under the auto-generated message.
+                pass
+
+            payload = {
+                "success": True,
+                "key": result.key,
+                "namespace": result.namespace,
+                "full_key": f"{result.namespace}:{result.key}",
+                "commit_hash": amended_hash,
+                "commit_date": result.commit_date,
+                "edit_source": edit_source,
+                "commit_message": commit_message,
+                "message": f"Updated '{namespace}:{key}'",
+            }
+            self.handler.send_response(200)
+            self.handler.send_header("Content-Type", "application/json")
+            self.handler.send_header("Access-Control-Allow-Origin", "*")
+            self.handler.end_headers()
+            self.handler.wfile.write(json.dumps(payload).encode())
+
+        except Exception as e:
+            self.handler.send_error(500, f"Error updating memory: {e!s}")
+
+    def handle_rewrite_memory_api(self):
+        """Use the UI's LLM to rewrite memory content per natural-language instructions.
+
+        Returns the proposed new content without writing to the store. The
+        frontend loads this into the edit textarea and the user saves via
+        /api/update-memory if they're happy with it.
+        """
+        try:
+            content_length = int(self.handler.headers["Content-Length"])
+            post_data = self.handler.rfile.read(content_length)
+            data = json.loads(post_data.decode("utf-8"))
+
+            current_content = data.get("current_content", "") or ""
+            instructions = (data.get("instructions") or "").strip()
+            key = data.get("key") or ""
+
+            if not instructions:
+                self.handler.send_error(400, "Missing 'instructions' parameter")
+                return
+
+            from memoir.llm import default_ui_model, get_llm
+
+            try:
+                llm = get_llm(model=default_ui_model(), temperature=0.2)
+            except Exception as e:
+                self.handler.send_error(500, f"Error initializing LLM: {e!s}")
+                return
+
+            prompt = (
+                "You are rewriting a single memory entry for a memory store.\n"
+                f"Memory key: {key or '(unknown)'}\n"
+                "Current content:\n"
+                "---\n"
+                f"{current_content}\n"
+                "---\n"
+                "Rewrite instructions from the user:\n"
+                f"{instructions}\n\n"
+                "Return ONLY the new content as plain text — no preamble, no "
+                "markdown fences, no commentary. Preserve the original tone "
+                "and level of detail unless the instructions say otherwise."
+            )
+
+            try:
+                response = llm.invoke(prompt)
+                new_content = (response.content or "").strip()
+            except Exception as e:
+                self.handler.send_error(500, f"LLM rewrite failed: {e!s}")
+                return
+
+            if not new_content:
+                self.handler.send_error(500, "LLM returned empty content")
+                return
+
+            payload = {"success": True, "new_content": new_content}
+            self.handler.send_response(200)
+            self.handler.send_header("Content-Type", "application/json")
+            self.handler.send_header("Access-Control-Allow-Origin", "*")
+            self.handler.end_headers()
+            self.handler.wfile.write(json.dumps(payload).encode())
+
+        except Exception as e:
+            self.handler.send_error(500, f"Error rewriting memory: {e!s}")
+
     def handle_remember_api(self):
         """Handle /remember command to classify and store content."""
         try:

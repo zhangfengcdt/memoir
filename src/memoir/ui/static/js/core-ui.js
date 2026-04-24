@@ -4738,6 +4738,11 @@ ${result.valid ?
                                     📋 Summarize Keys
                                 </button>`;
                             })()}
+                            ${nodeInfo && nodeContent ? `
+                                <button class="node-edit-btn" id="nodeEditBtn">
+                                    ✏️ Edit
+                                </button>
+                            ` : ''}
                         </div>
                     </div>
                 </div>
@@ -4991,6 +4996,18 @@ ${result.valid ?
                 document.body.removeChild(popup);
             };
 
+            const editBtn = popup.querySelector('#nodeEditBtn');
+            if (editBtn) {
+                editBtn.onclick = () => {
+                    enterMemoryEditMode(popup, {
+                        namespace: nodeNamespace,
+                        key: nodeInfo && nodeInfo.path ? nodeInfo.path : (queryKey || ''),
+                        fullPath,
+                        currentContent: nodeContent,
+                    });
+                };
+            }
+
             // Close on background click
             popup.onclick = (e) => {
                 if (e.target === popup) {
@@ -5008,6 +5025,152 @@ ${result.valid ?
                 }
             };
             document.addEventListener('keydown', escapeHandler);
+        }
+
+        // ---- Memory edit mode (in-popup) ----------------------------------
+
+        function enterMemoryEditMode(popup, ctx) {
+            const contentSection = popup.querySelector('.node-content-section');
+            const actionsSection = popup.querySelector('.node-actions-section');
+            if (!contentSection) return;
+
+            const llmEnabled = !!(window.memoirConfig && window.memoirConfig.useLlm);
+
+            const editor = document.createElement('div');
+            editor.className = 'node-edit-mode';
+            editor.innerHTML = `
+                <div class="node-edit-label">Edit content for <code>${escapeHtml(ctx.fullPath)}</code></div>
+                <textarea class="node-edit-textarea" rows="8">${escapeHtml(ctx.currentContent || '')}</textarea>
+                ${llmEnabled ? `
+                    <div class="node-edit-ai">
+                        <div class="node-edit-ai-label">Or describe how to change it (uses an LLM):</div>
+                        <textarea class="node-edit-ai-instructions" rows="2"
+                                  placeholder="e.g. Make it more concise. / Add a note about the deadline. / Translate to French."></textarea>
+                        <button class="node-edit-ai-btn" type="button">✨ Rewrite with AI</button>
+                    </div>
+                ` : ''}
+                <div class="node-edit-actions">
+                    <button class="node-edit-cancel" type="button">Cancel</button>
+                    <button class="node-edit-save" type="button">Save</button>
+                </div>
+            `;
+
+            // Replace the read-only content with the editor.
+            const oldContent = contentSection.innerHTML;
+            contentSection.innerHTML = '';
+            contentSection.appendChild(editor);
+            // Hide the actions row while editing — Save/Cancel live inside the editor.
+            if (actionsSection) actionsSection.style.display = 'none';
+
+            const textarea = editor.querySelector('.node-edit-textarea');
+            const aiInstructions = editor.querySelector('.node-edit-ai-instructions');
+            const aiBtn = editor.querySelector('.node-edit-ai-btn');
+            const saveBtn = editor.querySelector('.node-edit-save');
+            const cancelBtn = editor.querySelector('.node-edit-cancel');
+
+            // Track LLM-rewrite state so the commit message can record HOW
+            // the content arrived: "manual" (no AI), "llm" (AI's output saved
+            // verbatim), or "llm+manual" (AI ran, then human adjusted it).
+            let lastAiOutput = null;
+            let lastInstructions = '';
+
+            cancelBtn.onclick = () => {
+                contentSection.innerHTML = oldContent;
+                if (actionsSection) actionsSection.style.display = '';
+            };
+
+            if (aiBtn) {
+                aiBtn.onclick = async () => {
+                    const instructions = (aiInstructions.value || '').trim();
+                    if (!instructions) {
+                        showNotification('Describe how to change the content first', 'warning');
+                        return;
+                    }
+                    aiBtn.disabled = true;
+                    aiBtn.textContent = '✨ Rewriting…';
+                    try {
+                        const res = await fetch('/api/rewrite-memory', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                current_content: textarea.value,
+                                instructions,
+                                key: ctx.fullPath,
+                            }),
+                        });
+                        if (!res.ok) {
+                            const err = await res.text();
+                            throw new Error(err || `HTTP ${res.status}`);
+                        }
+                        const data = await res.json();
+                        if (data && data.new_content) {
+                            textarea.value = data.new_content;
+                            lastAiOutput = data.new_content;
+                            lastInstructions = instructions;
+                            showNotification('Rewrite ready — review and click Save', 'success');
+                        } else {
+                            throw new Error(data.error || 'Empty response');
+                        }
+                    } catch (err) {
+                        showNotification(`Rewrite failed: ${err.message || err}`, 'error', 6000);
+                    } finally {
+                        aiBtn.disabled = false;
+                        aiBtn.textContent = '✨ Rewrite with AI';
+                    }
+                };
+            }
+
+            saveBtn.onclick = async () => {
+                const newContent = textarea.value;
+                if (newContent === ctx.currentContent) {
+                    showNotification('No changes to save', 'info');
+                    return;
+                }
+                let editSource = 'manual';
+                if (lastAiOutput !== null) {
+                    editSource = newContent === lastAiOutput ? 'llm' : 'llm+manual';
+                }
+                saveBtn.disabled = true;
+                cancelBtn.disabled = true;
+                saveBtn.textContent = 'Saving…';
+                try {
+                    const res = await fetch('/api/update-memory', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            path: connectedStorePath,
+                            namespace: ctx.namespace || 'default',
+                            key: ctx.key,
+                            content: newContent,
+                            edit_source: editSource,
+                            instructions: lastInstructions,
+                        }),
+                    });
+                    if (!res.ok) {
+                        const err = await res.text();
+                        throw new Error(err || `HTTP ${res.status}`);
+                    }
+                    const data = await res.json();
+                    showNotification(
+                        `Saved ${data.full_key || ctx.fullPath}`
+                            + (data.commit_hash ? ` (commit ${data.commit_hash.slice(0, 8)})` : ''),
+                        'success', 4000,
+                    );
+                    // Tear down the popup and refresh the left panel so the
+                    // new commit shows immediately.
+                    if (document.body.contains(popup)) document.body.removeChild(popup);
+                    try { await refreshStore(); } catch (_) { /* best-effort */ }
+                } catch (err) {
+                    showNotification(`Save failed: ${err.message || err}`, 'error', 6000);
+                    saveBtn.disabled = false;
+                    cancelBtn.disabled = false;
+                    saveBtn.textContent = 'Save';
+                }
+            };
+
+            // Focus the textarea so the user can start typing right away.
+            textarea.focus();
+            textarea.setSelectionRange(textarea.value.length, textarea.value.length);
         }
 
         async function showDiffModal(commit1, commit2, isMock = false) {

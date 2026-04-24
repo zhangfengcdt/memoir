@@ -145,6 +145,12 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         elif parsed_path.path == "/api/forget":
             self._ensure_handlers_initialized()
             self.memory_handler.handle_forget_api()
+        elif parsed_path.path == "/api/update-memory":
+            self._ensure_handlers_initialized()
+            self.memory_handler.handle_update_memory_api()
+        elif parsed_path.path == "/api/rewrite-memory":
+            self._ensure_handlers_initialized()
+            self.memory_handler.handle_rewrite_memory_api()
         elif parsed_path.path == "/api/answer":
             self.handle_answer_api()
         elif parsed_path.path == "/api/checkout":
