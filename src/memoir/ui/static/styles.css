@@ -800,17 +800,10 @@ body {
     position: relative;
 }
 
-/* Continuous Git tree background */
+/* Continuous Git tree background — intentionally hidden; the left-panel
+   timeline rail was removed to keep commits clean. */
 .git-tree::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 28px;
-    width: 4px;
-    height: 100%;
-    background: rgba(34, 211, 238, 0.6);
-    border-radius: 2px;
-    z-index: 0;
+    content: none;
 }
 
 
@@ -841,11 +834,7 @@ body {
 }
 
 .git-lines {
-    width: 60px;
-    height: 48px;
-    flex-shrink: 0;
-    margin-right: 16px;
-    position: relative;
+    display: none;
 }
 
 .commit-dot {
