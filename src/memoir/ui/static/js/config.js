@@ -22,9 +22,11 @@
     // exception — it re-reads the store without writing.
     // Note: /checkout persists the current-branch pointer in the repo, so
     // it counts as a write even when switching to an already-existing branch.
+    // /remember and /forget live under the LLM gate (below) instead of here —
+    // they're the primary content authoring commands and should follow the
+    // same enablement as /recall rather than be coupled to branch-write gating.
     const MUTATING_COMMANDS = new Set([
         '/connect', '/new', '/demo',
-        '/remember', '/forget',
         '/branch',  // create/delete subcommands mutate
         '/checkout', '/merge', '/time-travel',
     ]);
@@ -33,6 +35,7 @@
     const LLM_COMMANDS = new Set([
         '/recall', '/search', '/summarize',
         '/remember',  // classification step
+        '/forget',    // grouped with /remember for consistent authoring gate
     ]);
 
     // Return block info for a command, or null if it's allowed.
