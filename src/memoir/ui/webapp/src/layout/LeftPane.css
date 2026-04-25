@@ -53,6 +53,48 @@
   align-self: flex-start;
 }
 
+.leftpane-error p {
+  color: var(--danger);
+}
+
+.namespace-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.namespace-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0.55rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--fg-1);
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+  cursor: pointer;
+}
+
+.namespace-item:hover {
+  background: var(--bg-2);
+  color: var(--fg-0);
+}
+
+.namespace-name {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+}
+
+.namespace-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-3);
+}
+
 /* Collapsed rail */
 .leftpane-collapsed {
   width: 100%;

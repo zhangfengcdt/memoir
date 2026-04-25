@@ -17,6 +17,7 @@ class BranchHandler(BaseAPIHandler):
     def handle_branches_api(self, parsed_path):
         """Get list of branches in the store."""
         from memoir.services.branch_service import BranchService
+        from memoir.ui.schemas import BranchesResponse
 
         query_params = parse_qs(parsed_path.query)
         store_path = query_params.get("path", [None])[0]
@@ -33,17 +34,19 @@ class BranchHandler(BaseAPIHandler):
             service = BranchService(store_path)
             info = service.list_branches()
 
-            data = {
-                "success": True,
-                "branches": info.branches,
-                "current": info.current,
-            }
+            body = BranchesResponse(
+                success=True,
+                branches=info.branches,
+                current=info.current,
+            )
 
             self.handler.send_response(200)
             self.handler.send_header("Content-Type", "application/json")
             self.handler.send_header("Access-Control-Allow-Origin", "*")
             self.handler.end_headers()
-            self.handler.wfile.write(json.dumps(data, indent=2).encode())
+            self.handler.wfile.write(
+                json.dumps(body.model_dump(mode="json"), indent=2).encode()
+            )
 
         except Exception as e:
             self.handler.send_error(500, f"Error getting branches: {e!s}")
@@ -51,6 +54,7 @@ class BranchHandler(BaseAPIHandler):
     def handle_commits_api(self, parsed_path):
         """Get commit history for the store."""
         from memoir.services.branch_service import BranchService
+        from memoir.ui.schemas import CommitsResponse
 
         query_params = parse_qs(parsed_path.query)
         store_path = query_params.get("path", [None])[0]
@@ -69,17 +73,21 @@ class BranchHandler(BaseAPIHandler):
             service = BranchService(store_path)
             commits = service.get_commits(branch, limit=limit)
 
-            data = {
-                "success": True,
-                "commits": [c.to_dict() for c in commits],
-                "branch": branch,
-            }
+            body = CommitsResponse.model_validate(
+                {
+                    "success": True,
+                    "commits": [c.to_dict() for c in commits],
+                    "branch": branch,
+                }
+            )
 
             self.handler.send_response(200)
             self.handler.send_header("Content-Type", "application/json")
             self.handler.send_header("Access-Control-Allow-Origin", "*")
             self.handler.end_headers()
-            self.handler.wfile.write(json.dumps(data, indent=2).encode())
+            self.handler.wfile.write(
+                json.dumps(body.model_dump(mode="json"), indent=2).encode()
+            )
 
         except Exception as e:
             self.handler.send_error(500, f"Error getting commits: {e!s}")
@@ -87,6 +95,7 @@ class BranchHandler(BaseAPIHandler):
     def handle_current_branch_api(self, parsed_path):
         """Get the current branch of the store."""
         from memoir.services.branch_service import BranchService
+        from memoir.ui.schemas import CurrentBranchResponse
 
         query_params = parse_qs(parsed_path.query)
         store_path = query_params.get("path", [None])[0]
@@ -103,17 +112,19 @@ class BranchHandler(BaseAPIHandler):
             service = BranchService(store_path)
             branch, commit = service.get_current_branch()
 
-            data = {
-                "success": True,
-                "branch": branch,
-                "commit": commit,
-            }
+            body = CurrentBranchResponse(
+                success=True,
+                branch=branch,
+                commit=commit,
+            )
 
             self.handler.send_response(200)
             self.handler.send_header("Content-Type", "application/json")
             self.handler.send_header("Access-Control-Allow-Origin", "*")
             self.handler.end_headers()
-            self.handler.wfile.write(json.dumps(data, indent=2).encode())
+            self.handler.wfile.write(
+                json.dumps(body.model_dump(mode="json"), indent=2).encode()
+            )
 
         except Exception as e:
             self.handler.send_error(500, f"Error getting current branch: {e!s}")

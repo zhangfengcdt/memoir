@@ -38,3 +38,26 @@
   padding: 0.1rem 0.4rem;
   border-radius: var(--radius-sm);
 }
+
+.commandbar[data-status="error"] .commandbar-prompt {
+  color: var(--danger);
+}
+
+.commandbar[data-status="connected"] .commandbar-prompt {
+  color: var(--accent);
+}
+
+.commandbar-spinner {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--accent);
+  border-top-color: transparent;
+  animation: commandbar-spin 0.7s linear infinite;
+}
+
+@keyframes commandbar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

@@ -72,6 +72,21 @@
   white-space: nowrap;
 }
 
+.store-path[data-status="connected"] {
+  border-color: var(--accent);
+  color: var(--fg-0);
+}
+
+.store-path[data-status="connecting"] {
+  border-color: var(--warning);
+  color: var(--fg-0);
+}
+
+.store-path[data-status="error"] {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
 .topbar-right {
   display: flex;
   align-items: center;

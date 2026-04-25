@@ -1,3 +1,4 @@
+import { useStore } from "../state/storeSlice";
 import "./LeftPane.css";
 
 interface LeftPaneProps {
@@ -5,6 +6,9 @@ interface LeftPaneProps {
 }
 
 export default function LeftPane({ collapsed }: LeftPaneProps) {
+  const data = useStore((s) => s.data);
+  const status = useStore((s) => s.status);
+
   if (collapsed) {
     return (
       <aside className="leftpane leftpane-collapsed" aria-label="Navigation rail">
@@ -29,15 +33,64 @@ export default function LeftPane({ collapsed }: LeftPaneProps) {
       <div className="leftpane-section">
         <div className="leftpane-header">
           <span className="eyebrow">Outline</span>
-          <span className="leftpane-count">0</span>
+          <span className="leftpane-count">{data?.total_memories ?? 0}</span>
         </div>
-        <div className="leftpane-placeholder">
-          <p>Connect to a memory store to see its taxonomy.</p>
-          <code className="leftpane-hint">/connect &lt;path&gt;</code>
-        </div>
+
+        {data ? (
+          <NamespaceList namespaces={data.namespaces} />
+        ) : status === "connecting" ? (
+          <div className="leftpane-placeholder">
+            <p>Connecting…</p>
+          </div>
+        ) : status === "error" ? (
+          <div className="leftpane-placeholder leftpane-error">
+            <p>Connection failed. Try /connect &lt;path&gt; again.</p>
+          </div>
+        ) : (
+          <div className="leftpane-placeholder">
+            <p>Connect to a memory store to see its taxonomy.</p>
+            <code className="leftpane-hint">/connect &lt;path&gt;</code>
+          </div>
+        )}
       </div>
     </aside>
   );
+}
+
+function NamespaceList({ namespaces }: { namespaces: Record<string, unknown> }) {
+  const entries = Object.entries(namespaces);
+  if (entries.length === 0) {
+    return (
+      <div className="leftpane-placeholder">
+        <p>No namespaces yet. Run /remember to start capturing.</p>
+      </div>
+    );
+  }
+  return (
+    <ul className="namespace-list">
+      {entries.map(([ns, value]) => {
+        const count = Array.isArray(value) ? value.length : countLeaves(value);
+        return (
+          <li key={ns} className="namespace-item">
+            <span className="namespace-name">{ns}</span>
+            <span className="namespace-count">{count}</span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function countLeaves(node: unknown): number {
+  if (node == null) return 0;
+  if (Array.isArray(node)) return node.length;
+  if (typeof node === "object") {
+    return Object.values(node as Record<string, unknown>).reduce<number>(
+      (sum, v) => sum + countLeaves(v),
+      0,
+    );
+  }
+  return 1;
 }
 
 function RailIcon({ kind }: { kind: "commits" | "tree" | "graph" | "timeline" }) {

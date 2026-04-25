@@ -85,3 +85,135 @@
   gap: var(--space-2);
   margin-top: var(--space-2);
 }
+
+.empty-form {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.empty-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg-0);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--fg-0);
+  padding: 0.5rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}
+
+.empty-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+/* Connected view — shown above the history log when a store is loaded. */
+.connected-view {
+  max-width: 820px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-bottom: var(--space-8);
+}
+
+.connected-title {
+  color: var(--fg-0);
+  font-size: var(--text-xl);
+  font-family: var(--font-mono);
+  letter-spacing: var(--tracking-snug);
+  word-break: break-all;
+}
+
+.connected-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.connected-lead {
+  color: var(--fg-1);
+  line-height: var(--leading-relaxed);
+}
+
+.connected-lead code {
+  color: var(--accent);
+  background: var(--bg-1);
+  padding: 0.1rem 0.35rem;
+  border-radius: var(--radius-sm);
+}
+
+.connected-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+/* History log — transcript of commands + their output. */
+.history-log {
+  margin-top: var(--space-8);
+  padding-top: var(--space-6);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.history-log-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.history-entry {
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  border-left-width: 3px;
+}
+
+.history-entry.level-success {
+  border-left-color: var(--accent);
+}
+
+.history-entry.level-warning {
+  border-left-color: var(--warning);
+}
+
+.history-entry.level-error {
+  border-left-color: var(--danger);
+}
+
+.history-input {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+  margin-bottom: var(--space-2);
+}
+
+.history-lines {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-1);
+  white-space: pre-wrap;
+  line-height: var(--leading-relaxed);
+}
+
+.history-entry.level-error .history-lines {
+  color: var(--danger);
+}
+
+.history-entry.level-warning .history-lines {
+  color: var(--warning);
+}
