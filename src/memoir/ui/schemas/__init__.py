@@ -19,6 +19,7 @@ from .branches import BranchesResponse, CurrentBranchResponse
 from .commits import Commit, CommitsResponse
 from .diff import Change, ChangeStats, CommitDiff, RangeDiffResponse
 from .memory import Memory
+from .statistics import StatisticsBlock, StatisticsResponse
 from .store import StoreCommit, StoreResponse
 from .timeline import LocationResponse, Place, TimelineResponse
 
@@ -34,6 +35,8 @@ __all__ = [
     "Memory",
     "Place",
     "RangeDiffResponse",
+    "StatisticsBlock",
+    "StatisticsResponse",
     "StoreCommit",
     "StoreResponse",
     "TimelineResponse",

@@ -50,6 +50,27 @@ export interface CurrentBranchResponse {
   commit: string;
 }
 
+// --- /api/statistics -------------------------------------------------------
+export type StatsSection = Record<string, unknown>;
+
+export interface StatisticsBlock {
+  storage: StatsSection;
+  tree_structure: StatsSection;
+  versioning: StatsSection;
+  metadata: StatsSection;
+  performance: StatsSection;
+  taxonomy: StatsSection;
+  content: StatsSection;
+  system: StatsSection;
+}
+
+export interface StatisticsResponse {
+  success: boolean;
+  statistics: StatisticsBlock;
+  generated_at: string;
+  store_path: string;
+}
+
 // --- /api/timeline ---------------------------------------------------------
 export interface TimelineResponse {
   success: boolean;

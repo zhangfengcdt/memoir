@@ -226,6 +226,24 @@ register({
 });
 
 register({
+  name: "stats",
+  aliases: ["statistics"],
+  summary: "Open the statistics modal for the connected store",
+  usage: "/stats",
+  run() {
+    if (!useStore.getState().storePath) {
+      useStore.getState().pushHistory({
+        input: "/stats",
+        level: "warning",
+        lines: ["Connect a store first: /connect <path>"],
+      });
+      return;
+    }
+    useUI.getState().openStats();
+  },
+});
+
+register({
   name: "deselect",
   aliases: [],
   summary: "Clear commit selection",

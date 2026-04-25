@@ -6,6 +6,7 @@ import CommandBar from "./CommandBar";
 import MainCanvas from "./MainCanvas";
 import RightDrawer from "./RightDrawer";
 import ShortcutsOverlay from "../modals/ShortcutsOverlay";
+import StatsModal from "../modals/StatsModal";
 import LiveAnnouncer from "./LiveAnnouncer";
 import { useUI, VIEW_KEYS, isDrawerOpen } from "../state/uiSlice";
 import "./AppShell.css";
@@ -106,6 +107,7 @@ export default function AppShell() {
       <CommandBar />
 
       <ShortcutsOverlay />
+      <StatsModal />
       <LiveAnnouncer />
     </div>
   );

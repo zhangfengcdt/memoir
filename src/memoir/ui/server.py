@@ -2716,17 +2716,21 @@ Answer:"""
                 "memoir_version": "1.0.0",  # You might want to get this from a version file
             }
 
-            response_data = {
-                "success": True,
-                "statistics": stats,
-                "generated_at": self._get_current_timestamp(),
-                "store_path": store_path,
-            }
+            from memoir.ui.schemas import StatisticsResponse
+
+            body = StatisticsResponse.model_validate(
+                {
+                    "success": True,
+                    "statistics": stats,
+                    "generated_at": self._get_current_timestamp(),
+                    "store_path": store_path,
+                }
+            )
 
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            self.wfile.write(json.dumps(response_data).encode())
+            self.wfile.write(json.dumps(body.model_dump(mode="json")).encode())
 
         except Exception as e:
             error_msg = f"Error getting statistics: {e!s}"

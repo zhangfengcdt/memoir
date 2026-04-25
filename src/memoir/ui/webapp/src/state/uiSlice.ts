@@ -70,6 +70,7 @@ interface UISlice {
   leftCollapsed: boolean;
   drawerStack: DrawerPanel[];
   shortcutsOpen: boolean;
+  statsOpen: boolean;
 
   setActiveView: (view: ViewKey) => void;
   toggleLeft: () => void;
@@ -77,6 +78,9 @@ interface UISlice {
   openShortcuts: () => void;
   closeShortcuts: () => void;
   toggleShortcuts: () => void;
+  openStats: () => void;
+  closeStats: () => void;
+  toggleStats: () => void;
 
   /** Push a panel on top. If the top already has the same panel-kind and
    * the same identifying key, replace it instead — avoids breadcrumb
@@ -114,6 +118,7 @@ export const useUI = create<UISlice>((set) => ({
   leftCollapsed: initial.leftCollapsed,
   drawerStack: [],
   shortcutsOpen: false,
+  statsOpen: false,
 
   setActiveView(view) {
     set({ activeView: view });
@@ -140,6 +145,15 @@ export const useUI = create<UISlice>((set) => ({
   },
   toggleShortcuts() {
     set((s) => ({ shortcutsOpen: !s.shortcutsOpen }));
+  },
+  openStats() {
+    set({ statsOpen: true });
+  },
+  closeStats() {
+    set({ statsOpen: false });
+  },
+  toggleStats() {
+    set((s) => ({ statsOpen: !s.statsOpen }));
   },
 
   pushPanel(panel) {

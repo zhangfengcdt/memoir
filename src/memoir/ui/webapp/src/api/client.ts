@@ -5,6 +5,7 @@ import type {
   CurrentBranchResponse,
   LocationResponse,
   RangeDiffResponse,
+  StatisticsResponse,
   StoreResponse,
   TimelineResponse,
 } from "./types";
@@ -69,6 +70,9 @@ export const api = {
       branch: opts.branch ?? "HEAD",
       limit: String(opts.limit ?? 20),
     }),
+
+  statistics: (path: string) =>
+    getJSON<StatisticsResponse>("/api/statistics", { path }),
 
   /**
    * Timeline + location endpoints can 500 on stores that have no

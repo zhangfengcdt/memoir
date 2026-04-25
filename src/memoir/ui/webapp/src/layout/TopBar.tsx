@@ -9,6 +9,7 @@ export default function TopBar() {
   const leftCollapsed = useUI((s) => s.leftCollapsed);
   const onToggleLeft = useUI((s) => s.toggleLeft);
   const openShortcuts = useUI((s) => s.openShortcuts);
+  const openStats = useUI((s) => s.openStats);
 
   const branch = data?.current_branch ?? (status === "connected" ? "—" : "");
   const memoryCount = data?.total_memories;
@@ -80,6 +81,28 @@ export default function TopBar() {
             {memoryCount} mem
           </span>
         )}
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={openStats}
+          title="Statistics (/stats)"
+          aria-label="Open statistics"
+          disabled={!storePath}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <line x1="18" y1="20" x2="18" y2="10" />
+            <line x1="12" y1="20" x2="12" y2="4" />
+            <line x1="6" y1="20" x2="6" y2="14" />
+          </svg>
+        </button>
         <button
           className="btn btn-ghost btn-sm"
           onClick={openShortcuts}

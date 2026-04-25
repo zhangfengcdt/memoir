@@ -122,6 +122,18 @@ describe("drawer stack reducer", () => {
     expect(useUI.getState().shortcutsOpen).toBe(false);
   });
 
+  it("stats modal opens, toggles, and closes", () => {
+    expect(useUI.getState().statsOpen).toBe(false);
+    useUI.getState().openStats();
+    expect(useUI.getState().statsOpen).toBe(true);
+    useUI.getState().closeStats();
+    expect(useUI.getState().statsOpen).toBe(false);
+    useUI.getState().toggleStats();
+    expect(useUI.getState().statsOpen).toBe(true);
+    useUI.getState().toggleStats();
+    expect(useUI.getState().statsOpen).toBe(false);
+  });
+
   it("setActiveView and setLeftCollapsed update state synchronously", () => {
     useUI.getState().setActiveView("graph");
     expect(useUI.getState().activeView).toBe("graph");
