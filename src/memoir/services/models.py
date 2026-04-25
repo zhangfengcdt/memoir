@@ -234,6 +234,13 @@ class MergeResult:
     # Set by sync_branch when the original branch was restored after merging
     # into a different target. None for plain merge().
     restored_branch: str | None = None
+    # Populated by promote_branch (safe additive promotion). Lists the
+    # default-namespace keys that were inserted vs. updated on the target.
+    # Empty for plain merge() and sync_branch() callers.
+    added_keys: list[str] = field(default_factory=list)
+    updated_keys: list[str] = field(default_factory=list)
+    # True when the result describes a preview only — no writes happened.
+    dry_run: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -247,6 +254,9 @@ class MergeResult:
             "message": self.message,
             "error": self.error,
             "restored_branch": self.restored_branch,
+            "added_keys": list(self.added_keys),
+            "updated_keys": list(self.updated_keys),
+            "dry_run": self.dry_run,
         }
 
 

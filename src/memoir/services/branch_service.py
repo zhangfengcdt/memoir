@@ -9,6 +9,7 @@ import contextlib
 import logging
 from enum import Enum
 from pathlib import Path
+from typing import Any
 
 from prollytree import ConflictResolution
 
@@ -908,6 +909,231 @@ class BranchService(BaseService):
 
         merge_result.restored_branch = restored
         return merge_result
+
+    def _read_default_namespace(self) -> dict[str, Any]:
+        """
+        Return all values stored under the ``default`` namespace on the
+        currently checked-out branch as ``{key: decoded_value}``.
+
+        Walks ``store.tree.list_keys()`` and filters for the ``default:``
+        prefix, then strips the prefix to return the bare taxonomy paths
+        callers know (e.g. ``preferences.coding.style``). Used by
+        ``promote_branch`` to copy only default-namespace memories across
+        branches without touching system namespaces like ``codebase:onboard``.
+        """
+        store = self._get_store()
+        out: dict[str, Any] = {}
+        try:
+            raw_keys = (
+                store.tree.list_keys() if hasattr(store.tree, "list_keys") else []
+            )
+        except Exception as e:
+            logger.warning(f"_read_default_namespace: list_keys failed: {e}")
+            raw_keys = []
+        prefix = "default:"
+        for k in raw_keys:
+            full_key = k.decode("utf-8") if isinstance(k, bytes) else str(k)
+            if not full_key.startswith(prefix):
+                continue
+            bare_key = full_key[len(prefix) :]
+            value = store.get(("default",), bare_key)
+            if value is not None:
+                out[bare_key] = value
+        return out
+
+    def promote_branch(
+        self,
+        source: str,
+        target: str,
+        dry_run: bool = False,
+        restore: bool = True,
+    ) -> MergeResult:
+        """
+        Promote ``default``-namespace memories from ``source`` onto ``target``
+        as additive insert/update operations only.
+
+        Unlike ``merge()`` (which uses prollytree's native 3-way tree merge),
+        this method:
+
+          * touches **only** the ``default`` namespace — system namespaces
+            such as ``codebase:onboard`` and any custom user namespaces on
+            ``target`` are left untouched.
+          * never deletes — keys present on ``target`` but absent from
+            ``source`` are preserved.
+          * never overwrites with an identical value — unchanged keys are
+            skipped, so the resulting commit (if any) reflects the real diff.
+
+        This is the safe, predictable primitive behind ``/memoir-sync-branch``
+        and the UI's "Sync Branch" button.
+
+        Args:
+            source: Branch to read default-namespace memories from.
+            target: Branch to apply additions/updates to.
+            dry_run: If True, return ``added_keys``/``updated_keys`` without
+                writing or committing.
+            restore: If True, return to the caller's original branch after.
+
+        Returns:
+            ``MergeResult`` with ``added_keys``, ``updated_keys``, ``dry_run``,
+            ``commit_hash`` (None on dry-run / no-op), and ``restored_branch``.
+        """
+        if not Path(self.store_path).exists():
+            raise StoreNotFoundError(self.store_path)
+
+        if source == target:
+            return MergeResult(
+                success=False,
+                source_branch=source,
+                target_branch=target,
+                error="Source and target are the same branch",
+                dry_run=dry_run,
+            )
+
+        try:
+            original_branch, _ = self.get_current_branch()
+        except Exception as e:
+            return MergeResult(
+                success=False,
+                source_branch=source,
+                target_branch=target,
+                error=f"Could not read current branch: {e}",
+                dry_run=dry_run,
+            )
+
+        # Step 1: read default-namespace memories on the source branch.
+        if original_branch != source:
+            checkout_source = self.checkout(source)
+            if not checkout_source.success:
+                return MergeResult(
+                    success=False,
+                    source_branch=source,
+                    target_branch=target,
+                    error=checkout_source.error
+                    or f"Could not checkout source '{source}'",
+                    dry_run=dry_run,
+                )
+            # Drop the cached store so the next read re-loads from `source`.
+            self._store = None
+
+        try:
+            source_data = self._read_default_namespace()
+        except Exception as e:
+            self._restore_after_promote(original_branch, restore)
+            return MergeResult(
+                success=False,
+                source_branch=source,
+                target_branch=target,
+                error=f"Failed to read source branch '{source}': {e}",
+                dry_run=dry_run,
+            )
+
+        # Step 2: switch to target and compute the diff.
+        checkout_target = self.checkout(target)
+        if not checkout_target.success:
+            self._restore_after_promote(original_branch, restore)
+            return MergeResult(
+                success=False,
+                source_branch=source,
+                target_branch=target,
+                error=checkout_target.error or f"Could not checkout target '{target}'",
+                dry_run=dry_run,
+            )
+        # Fresh store handle so we read target's tree, not source's.
+        self._store = None
+        store = self._get_store()
+
+        added: list[str] = []
+        updated: list[str] = []
+        for key, src_value in source_data.items():
+            tgt_value = store.get(("default",), key)
+            if tgt_value is None:
+                added.append(key)
+            elif tgt_value != src_value:
+                updated.append(key)
+            # else: identical — no-op, skip.
+
+        if dry_run:
+            restored = self._restore_after_promote(original_branch, restore)
+            return MergeResult(
+                success=True,
+                source_branch=source,
+                target_branch=target,
+                added_keys=sorted(added),
+                updated_keys=sorted(updated),
+                dry_run=True,
+                restored_branch=restored,
+                message=(
+                    f"Dry-run: would add {len(added)} and update "
+                    f"{len(updated)} default-namespace keys on '{target}'"
+                ),
+            )
+
+        # Step 3: apply add/update batched into a single commit.
+        commit_hash: str | None = None
+        if added or updated:
+            saved_auto_commit = store.auto_commit
+            store.auto_commit = False
+            try:
+                for key in added + updated:
+                    store.put(("default",), key, source_data[key])
+                commit_msg = (
+                    f"Promote default-namespace memories from '{source}' "
+                    f"to '{target}' "
+                    f"({len(added)} added, {len(updated)} updated)"
+                )
+                commit_hash = store.commit(commit_msg)
+                if isinstance(commit_hash, bytes):
+                    commit_hash = commit_hash.hex()
+            except Exception as e:
+                store.auto_commit = saved_auto_commit
+                self._restore_after_promote(original_branch, restore)
+                return MergeResult(
+                    success=False,
+                    source_branch=source,
+                    target_branch=target,
+                    added_keys=sorted(added),
+                    updated_keys=sorted(updated),
+                    error=f"Failed to apply promotion on '{target}': {e}",
+                )
+            finally:
+                store.auto_commit = saved_auto_commit
+
+            # Mark source as synced so the unmerged-branch detector and the
+            # UI badge stop flagging it.
+            self._write_sync_marker(source)
+
+        restored = self._restore_after_promote(original_branch, restore)
+        return MergeResult(
+            success=True,
+            source_branch=source,
+            target_branch=target,
+            added_keys=sorted(added),
+            updated_keys=sorted(updated),
+            commit_hash=commit_hash,
+            restored_branch=restored,
+            message=(
+                f"Promoted {len(added)} added and {len(updated)} updated "
+                f"default-namespace keys from '{source}' to '{target}'"
+            ),
+        )
+
+    def _restore_after_promote(
+        self, original_branch: str | None, restore: bool
+    ) -> str | None:
+        """Return to ``original_branch`` and return its name if the checkout
+        succeeded; ``None`` if restore was disabled or the checkout failed."""
+        if not (restore and original_branch):
+            return None
+        # Always re-read with a fresh store.
+        self._store = None
+        try:
+            current, _ = self.get_current_branch()
+        except Exception:
+            current = None
+        if current == original_branch:
+            return original_branch
+        result = self.checkout(original_branch)
+        return original_branch if result.success else None
 
     def time_travel(
         self,

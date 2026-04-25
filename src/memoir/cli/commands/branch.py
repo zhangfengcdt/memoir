@@ -213,6 +213,174 @@ def merge(ctx: MemoirContext, source: str, into_branch: str, strategy: str):
         ctx.error(f"Merge failed: {e}", EXIT_GIT_FAILED)
 
 
+@click.command("sync-branch")
+@click.argument("source")
+@click.option(
+    "--into",
+    "into_branch",
+    default="main",
+    show_default=True,
+    help="Target branch to promote into",
+)
+@click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Show what would change without writing",
+)
+@click.option(
+    "--yes",
+    "yes",
+    is_flag=True,
+    help="Skip confirmation prompt (required for agents and non-interactive use)",
+)
+@click.option(
+    "--no-restore",
+    is_flag=True,
+    help="Stay on the target branch after promoting (default: return to original)",
+)
+@pass_context
+def sync_branch(
+    ctx: MemoirContext,
+    source: str,
+    into_branch: str,
+    dry_run: bool,
+    yes: bool,
+    no_restore: bool,
+):
+    """Safely promote a branch's default-namespace memories into another branch.
+
+    Reads every memory under the ``default`` namespace on SOURCE and applies
+    each as an insert (new key) or update (existing key) on the target branch.
+    System namespaces (``codebase:onboard``, etc.) and any keys present on the
+    target but absent from the source are LEFT UNTOUCHED — this command never
+    deletes.
+
+    Use ``--dry-run`` first to preview the diff. Without ``--yes``, the command
+    refuses to write so that nothing happens by accident.
+
+    \b
+    Examples:
+      memoir sync-branch feature/foo --dry-run
+      memoir sync-branch feature/foo --yes
+      memoir sync-branch feature/foo --into staging --yes
+
+    \b
+    JSON output includes: success, added_keys, updated_keys, dry_run,
+    commit_hash, restored_branch.
+    """
+    if not ctx.store_path:
+        ctx.error(
+            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
+        )
+
+    from memoir.services.branch_service import BranchService
+
+    service = BranchService(ctx.store_path)
+
+    # Always run a dry-run first so we have a preview to show / confirm against.
+    try:
+        preview = service.promote_branch(
+            source,
+            into_branch,
+            dry_run=True,
+            restore=not no_restore,
+        )
+    except Exception as e:
+        ctx.error(f"Sync-branch preview failed: {e}", EXIT_GIT_FAILED)
+        return
+
+    if not preview.success:
+        if ctx.json_output:
+            ctx.output(preview.to_dict())
+            return
+        ctx.error(preview.error or "Preview failed", EXIT_GIT_FAILED)
+        return
+
+    add_count = len(preview.added_keys)
+    upd_count = len(preview.updated_keys)
+    total = add_count + upd_count
+
+    # Dry-run mode: print the preview and exit.
+    if dry_run:
+        if ctx.json_output:
+            ctx.output(preview.to_dict())
+            return
+        click.echo(
+            f"Sync-branch '{source}' → '{into_branch}' (dry-run): "
+            f"{add_count} would be added, {upd_count} would be updated."
+        )
+        for key in preview.added_keys[:20]:
+            click.echo(click.style(f"  + default:{key}", fg="green"))
+        if add_count > 20:
+            click.echo(f"  ... and {add_count - 20} more additions")
+        for key in preview.updated_keys[:20]:
+            click.echo(click.style(f"  ~ default:{key}", fg="yellow"))
+        if upd_count > 20:
+            click.echo(f"  ... and {upd_count - 20} more updates")
+        if total == 0:
+            click.echo("  (nothing to promote)")
+        return
+
+    # Nothing to do — short-circuit so we don't spam an empty confirmation.
+    if total == 0:
+        if ctx.json_output:
+            ctx.output(preview.to_dict())
+            return
+        ctx.info(
+            f"'{source}' has no default-namespace changes to promote into "
+            f"'{into_branch}'."
+        )
+        return
+
+    # Apply path: gate behind --yes so agents must opt in explicitly, and
+    # interactive humans get a [y/N] prompt similar to `memoir forget`.
+    if not yes:
+        if ctx.json_output:
+            # Refuse silently in JSON mode — agents are expected to pass --yes.
+            payload = preview.to_dict()
+            payload["success"] = False
+            payload["error"] = (
+                "Refusing to apply without --yes. Re-run with --yes to confirm."
+            )
+            ctx.output(payload)
+            return
+        click.echo(
+            f"Promoting '{source}' → '{into_branch}': "
+            f"{add_count} new, {upd_count} updated default-namespace keys."
+        )
+        if not click.confirm("Apply these changes?", default=False):
+            ctx.info("Cancelled.")
+            return
+
+    try:
+        result = service.promote_branch(
+            source,
+            into_branch,
+            dry_run=False,
+            restore=not no_restore,
+        )
+    except Exception as e:
+        ctx.error(f"Sync-branch failed: {e}", EXIT_GIT_FAILED)
+        return
+
+    if ctx.json_output:
+        ctx.output(result.to_dict())
+        return
+
+    if result.success:
+        ctx.success(
+            f"Promoted '{source}' → '{into_branch}': "
+            f"{len(result.added_keys)} added, "
+            f"{len(result.updated_keys)} updated"
+        )
+        if result.commit_hash:
+            click.echo(f"  Commit: {result.commit_hash[:8]}")
+        if result.restored_branch:
+            click.echo(f"  Back on: {result.restored_branch}")
+    else:
+        ctx.error(result.error or "Sync-branch failed", EXIT_GIT_FAILED)
+
+
 @click.command("time-travel")
 @click.argument("target")
 @click.option("-b", "--branch", "branch_name", help="Name for the new branch")

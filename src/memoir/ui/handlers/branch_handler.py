@@ -325,8 +325,14 @@ class BranchHandler(BaseAPIHandler):
             self.handler.send_error(500, f"Error getting branches status: {e!s}")
 
     def handle_sync_branches_api(self):
-        """Merge `source` into `target` while preserving current branch."""
-        from memoir.services.branch_service import BranchService, MergeStrategy
+        """Promote `source`'s default-namespace memories into `target`.
+
+        Pass ``dry_run: true`` to get a preview (``added_keys`` / ``updated_keys``)
+        without writing. Without ``dry_run``, the request must include
+        ``confirm: true`` — the UI uses this to gate the actual write behind a
+        click-to-confirm panel, mirroring the delete-branch flow.
+        """
+        from memoir.services.branch_service import BranchService
 
         try:
             content_length = int(self.handler.headers["Content-Length"])
@@ -336,7 +342,8 @@ class BranchHandler(BaseAPIHandler):
             store_path = data.get("path")
             source = data.get("source")
             target = data.get("target")
-            strategy_raw = data.get("strategy", "skip")
+            dry_run = bool(data.get("dry_run", False))
+            confirm = bool(data.get("confirm", False))
 
             if not store_path:
                 self.handler.send_error(400, "Missing 'path' parameter")
@@ -354,17 +361,16 @@ class BranchHandler(BaseAPIHandler):
                 self.handler.send_error(404, f"Store path does not exist: {store_path}")
                 return
 
-            try:
-                strategy = MergeStrategy(strategy_raw)
-            except ValueError:
+            if not dry_run and not confirm:
                 self.handler.send_error(
                     400,
-                    f"Invalid strategy '{strategy_raw}'. Expected one of: ours, theirs, skip",
+                    "Refusing to apply without confirm=true. Send dry_run=true "
+                    "for a preview, or confirm=true to apply.",
                 )
                 return
 
             service = BranchService(store_path)
-            result = service.sync_branch(source, target, strategy=strategy)
+            result = service.promote_branch(source, target, dry_run=dry_run)
 
             if result.success:
                 payload = result.to_dict()
@@ -375,18 +381,7 @@ class BranchHandler(BaseAPIHandler):
                 self.handler.end_headers()
                 self.handler.wfile.write(json.dumps(payload, indent=2).encode())
             else:
-                # Conflict (unresolved) → 409 with the conflict list so the UI
-                # can prompt for a strategy and retry. Any other error → 500.
-                if result.conflicts:
-                    payload = result.to_dict()
-                    payload["strategy_required"] = True
-                    self.handler.send_response(409)
-                    self.handler.send_header("Content-Type", "application/json")
-                    self.handler.send_header("Access-Control-Allow-Origin", "*")
-                    self.handler.end_headers()
-                    self.handler.wfile.write(json.dumps(payload, indent=2).encode())
-                else:
-                    self.handler.send_error(500, result.error or "Sync failed")
+                self.handler.send_error(500, result.error or "Sync failed")
 
         except Exception as e:
             self.handler.send_error(500, f"Error syncing branches: {e!s}")

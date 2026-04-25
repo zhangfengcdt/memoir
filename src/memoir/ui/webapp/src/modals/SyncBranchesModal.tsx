@@ -40,6 +40,16 @@ export default function SyncBranchesModal() {
    * rather than ``window.confirm`` so the dialog is themed with the
    * rest of the modal and doesn't break flow. */
   const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
+  /** Preview-then-confirm state for merges. The merge button first runs a
+   * dry-run; on success we stash the preview here, which renders an inline
+   * confirm panel listing exactly which default-namespace keys would be
+   * added or updated. Apply only fires after the user clicks "Merge" on
+   * the confirm panel — mirroring the delete-confirm pattern. */
+  const [mergePreview, setMergePreview] = useState<{
+    branch: string;
+    added: string[];
+    updated: string[];
+  } | null>(null);
 
   const refresh = useCallback(async () => {
     if (!storePath) return;
@@ -83,19 +93,40 @@ export default function SyncBranchesModal() {
 
   const onMerge = async (branch: BranchStatus) => {
     if (!storePath || !data) return;
+    // Toggle: clicking Merge on a row that's already showing its preview
+    // panel collapses the panel without firing another dry-run.
+    if (mergePreview?.branch === branch.name) {
+      setMergePreview(null);
+      return;
+    }
     setBusyBranch(branch.name);
     setError(null);
     try {
-      const res = await api.syncBranch(storePath, branch.name, data.default);
-      if (res.conflicts && res.conflicts.length > 0) {
-        setError(
-          `Merge conflict on ${branch.name}: ${res.conflicts.length} key(s) need manual resolution.`,
-        );
-      }
-      // Always refresh — even on partial failure the ahead count may have moved.
+      const preview = await api.syncBranch(storePath, branch.name, data.default, {
+        dryRun: true,
+      });
+      setMergePreview({
+        branch: branch.name,
+        added: preview.added_keys ?? [],
+        updated: preview.updated_keys ?? [],
+      });
+    } catch (err) {
+      setError(err instanceof MemoirApiError ? err.message : String(err));
+    } finally {
+      setBusyBranch(null);
+    }
+  };
+
+  const onCancelMerge = () => setMergePreview(null);
+
+  const onConfirmMerge = async (branch: BranchStatus) => {
+    if (!storePath || !data) return;
+    setBusyBranch(branch.name);
+    setError(null);
+    try {
+      await api.syncBranch(storePath, branch.name, data.default, { confirm: true });
+      setMergePreview(null);
       await refresh();
-      // Also refresh the parent store so the rest of the UI sees the
-      // new commits in main.
       await useStore.getState().refresh();
     } catch (err) {
       setError(err instanceof MemoirApiError ? err.message : String(err));
@@ -215,7 +246,12 @@ export default function SyncBranchesModal() {
                 disabled={!writable || busyBranch !== null}
                 isBusy={busyBranch === branch.name}
                 isConfirmingDelete={confirmingDelete === branch.name}
+                mergePreview={
+                  mergePreview?.branch === branch.name ? mergePreview : null
+                }
                 onMerge={onMerge}
+                onConfirmMerge={onConfirmMerge}
+                onCancelMerge={onCancelMerge}
                 onDeleteClick={onDeleteClick}
                 onConfirmDelete={onConfirmDelete}
                 onCancelDelete={onCancelDelete}
@@ -246,7 +282,10 @@ interface BranchRowProps {
   disabled: boolean;
   isBusy: boolean;
   isConfirmingDelete: boolean;
+  mergePreview: { branch: string; added: string[]; updated: string[] } | null;
   onMerge: (b: BranchStatus) => void;
+  onConfirmMerge: (b: BranchStatus) => void;
+  onCancelMerge: () => void;
   onDeleteClick: (b: BranchStatus) => void;
   onConfirmDelete: (b: BranchStatus) => void;
   onCancelDelete: () => void;
@@ -258,7 +297,10 @@ function BranchRow({
   disabled,
   isBusy,
   isConfirmingDelete,
+  mergePreview,
   onMerge,
+  onConfirmMerge,
+  onCancelMerge,
   onDeleteClick,
   onConfirmDelete,
   onCancelDelete,
@@ -274,8 +316,9 @@ function BranchRow({
   const canMerge = !isDefault && !synced;
   const canDelete = !isDefault && !isCurrent;
 
+  const isPreviewingMerge = mergePreview !== null;
   return (
-    <li className={`sync-row${isCurrent ? " current" : ""}${isConfirmingDelete ? " confirming" : ""}`}>
+    <li className={`sync-row${isCurrent ? " current" : ""}${isConfirmingDelete || isPreviewingMerge ? " confirming" : ""}`}>
       <div className="sync-row-top">
         <div className="sync-row-main">
           <code className="sync-branch-name">{branch.name}</code>
@@ -332,6 +375,79 @@ function BranchRow({
           </button>
         </div>
       </div>
+
+      {mergePreview && (
+        <div className="sync-confirm" role="alertdialog" aria-label="Confirm merge">
+          <div className="sync-confirm-text">
+            <strong className="sync-confirm-title">
+              Merge <code>{branch.name}</code> → <code>{defaultBranch}</code>?
+            </strong>
+            <p className="sync-confirm-hint">
+              Will add <strong>{mergePreview.added.length}</strong> and update{" "}
+              <strong>{mergePreview.updated.length}</strong> default-namespace
+              memor{mergePreview.added.length + mergePreview.updated.length === 1
+                ? "y"
+                : "ies"}{" "}
+              on <code>{defaultBranch}</code>. Other namespaces and keys not on{" "}
+              <code>{branch.name}</code> are left untouched — this never deletes.
+            </p>
+            {(mergePreview.added.length > 0 || mergePreview.updated.length > 0) && (
+              <ul className="sync-confirm-keylist">
+                {mergePreview.added.slice(0, 5).map((k) => (
+                  <li key={`add-${k}`}>
+                    <span className="sync-confirm-key-add">+</span>{" "}
+                    <code>default:{k}</code>
+                  </li>
+                ))}
+                {mergePreview.added.length > 5 && (
+                  <li className="sync-confirm-key-more">
+                    … and {mergePreview.added.length - 5} more additions
+                  </li>
+                )}
+                {mergePreview.updated.slice(0, 5).map((k) => (
+                  <li key={`upd-${k}`}>
+                    <span className="sync-confirm-key-upd">~</span>{" "}
+                    <code>default:{k}</code>
+                  </li>
+                ))}
+                {mergePreview.updated.length > 5 && (
+                  <li className="sync-confirm-key-more">
+                    … and {mergePreview.updated.length - 5} more updates
+                  </li>
+                )}
+              </ul>
+            )}
+            {mergePreview.added.length === 0 && mergePreview.updated.length === 0 && (
+              <p className="sync-confirm-hint">
+                No default-namespace memories on <code>{branch.name}</code> differ
+                from <code>{defaultBranch}</code>. Nothing to merge.
+              </p>
+            )}
+          </div>
+          <div className="sync-confirm-actions">
+            <button
+              type="button"
+              className="sync-btn"
+              onClick={onCancelMerge}
+              autoFocus
+            >
+              {mergePreview.added.length === 0 && mergePreview.updated.length === 0
+                ? "Close"
+                : "Cancel"}
+            </button>
+            {(mergePreview.added.length > 0 || mergePreview.updated.length > 0) && (
+              <button
+                type="button"
+                className="sync-btn merge sync-confirm-yes"
+                onClick={() => onConfirmMerge(branch)}
+                disabled={disabled}
+              >
+                {isBusy ? "Merging…" : "Merge"}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {isConfirmingDelete && (
         <div className="sync-confirm" role="alertdialog" aria-label="Confirm delete">
