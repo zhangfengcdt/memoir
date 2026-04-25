@@ -31,7 +31,9 @@ function initial(): ConfigSlice {
   const params = new URL(window.location.href).searchParams;
   // The query string uses ``readonly=1`` for readonly mode; we flip
   // semantics to ``writable`` because every consumer asks "can I write?".
-  const readonly = parseFlag(params.get("readonly"), true);
+  // Default to ``writable`` (readonly=false) when the param is absent,
+  // matching the CLI's --readonly/--no-readonly default.
+  const readonly = parseFlag(params.get("readonly"), false);
   const useLLM = parseFlag(params.get("usellm"), false);
   return { writable: !readonly, useLLM };
 }

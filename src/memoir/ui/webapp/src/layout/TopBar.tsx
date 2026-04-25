@@ -43,9 +43,12 @@ export default function TopBar() {
           </svg>
         </button>
         <div className="topbar-brand">
-          <span className="brand-mark" aria-hidden="true">
-            ◆
-          </span>
+          <img
+            src="/memoir.png"
+            alt="Memoir"
+            className="brand-logo"
+            draggable={false}
+          />
           <span className="brand-name">Memoir</span>
         </div>
         <div className="topbar-store">

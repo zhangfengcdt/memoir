@@ -125,14 +125,20 @@
 
 .sync-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-3) var(--space-4);
   background: var(--bg-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+.sync-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
 }
 
 .sync-row:hover {
@@ -143,6 +149,82 @@
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent);
   background: var(--accent-dim);
+}
+
+.sync-row.confirming {
+  border-color: rgba(255, 184, 77, 0.6);
+  box-shadow: 0 0 0 1px rgba(255, 184, 77, 0.3);
+}
+
+/* Inline delete-confirm panel — slides in below the row, replacing
+ * the native ``window.confirm`` dialog. */
+.sync-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-1);
+  border: 1px solid rgba(255, 184, 77, 0.4);
+  border-radius: var(--radius-md);
+  animation: sync-confirm-slide 140ms var(--ease-out);
+}
+
+@keyframes sync-confirm-slide {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.sync-confirm-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.sync-confirm-title {
+  display: block;
+  color: var(--fg-0);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+
+.sync-confirm-title code {
+  font-family: var(--font-mono);
+  color: var(--accent);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  padding: 0.05rem 0.4rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.9em;
+}
+
+.sync-confirm-hint {
+  margin-top: 0.25rem;
+  color: var(--fg-2);
+  font-size: var(--text-xs);
+  line-height: var(--leading-relaxed);
+}
+
+.sync-confirm-actions {
+  display: flex;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+.sync-confirm-yes {
+  background: rgba(255, 184, 77, 0.15);
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.sync-confirm-yes:hover:not(:disabled) {
+  background: rgba(255, 184, 77, 0.25);
+  color: var(--warning);
 }
 
 .sync-row-main {

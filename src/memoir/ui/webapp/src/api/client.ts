@@ -260,10 +260,17 @@ export const api = {
       { path, branch, from },
     ),
 
-  deleteBranch: (path: string, branch: string) =>
+  /**
+   * Delete a memoir branch. Defaults to ``force: true`` because memoir's
+   * "merged" semantics use the sync marker, not git ancestry — so a
+   * branch can be sync'd into main and still appear "not fully merged"
+   * to git, which would otherwise block the delete.
+   */
+  deleteBranch: (path: string, branch: string, opts: { force?: boolean } = {}) =>
     postJSON<{ success: boolean; message?: string }>("/api/delete-branch", {
       path,
       branch,
+      force: opts.force ?? true,
     }),
 
   mergeBranch: (path: string, source: string) =>

@@ -128,7 +128,7 @@ export default function CommitList({ limit = 50 }: CommitListProps) {
               className="chip"
               title="Namespace filter is applied to the Tree view; commits show all changes."
             >
-              filter (tree only): {namespaceFilter}
+              filter: {namespaceFilter}
             </span>
           )}
           {selectedCount > 1 && (

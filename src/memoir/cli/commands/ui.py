@@ -29,8 +29,8 @@ from memoir.cli.main import (
 @click.option("--no-browser", is_flag=True, help="Don't open the browser automatically")
 @click.option(
     "--readonly/--no-readonly",
-    default=True,
-    help="Lock the connected store and disable mutating actions (default: True)",
+    default=False,
+    help="Lock the connected store and disable mutating actions (default: False)",
 )
 @click.option(
     "--usellm/--no-usellm",
@@ -72,9 +72,9 @@ def ui(
     OUTPUT: Starts an HTTP server on a free port (random by default) and opens
     a browser tab.
 
-    By default the UI opens in readonly mode (store URL is locked, mutating
-    actions are disabled) and with LLM features off (recall / summarize /
-    classify buttons disabled). Use --no-readonly and/or --usellm to enable.
+    By default the UI opens with edits enabled (writable) and LLM features off.
+    Pass --readonly to lock the store, or --usellm to enable LLM-driven
+    features (recall / summarize / classify, plus the natural-language input).
 
     \b
     Examples:

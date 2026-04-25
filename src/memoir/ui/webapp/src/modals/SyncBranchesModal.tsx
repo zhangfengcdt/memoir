@@ -35,6 +35,11 @@ export default function SyncBranchesModal() {
   /** Branch name currently performing an action (push/delete) — used to
    * disable both buttons on that row while the request is in flight. */
   const [busyBranch, setBusyBranch] = useState<string | null>(null);
+  /** Branch whose row is currently showing the inline delete-confirm
+   * panel. ``null`` = no confirm visible. v1 uses an inline panel
+   * rather than ``window.confirm`` so the dialog is themed with the
+   * rest of the modal and doesn't break flow. */
+  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!storePath) return;
@@ -99,16 +104,24 @@ export default function SyncBranchesModal() {
     }
   };
 
-  const onDelete = async (branch: BranchStatus) => {
+  // Step 1: clicking the row's Delete button reveals an inline confirm
+  // panel (no native dialog). Step 2: clicking "Delete" inside the
+  // panel actually fires the request.
+  const onDeleteClick = (branch: BranchStatus) => {
+    setConfirmingDelete((current) => (current === branch.name ? null : branch.name));
+  };
+
+  const onCancelDelete = () => setConfirmingDelete(null);
+
+  const onConfirmDelete = async (branch: BranchStatus) => {
     if (!storePath) return;
-    // Confirm before destructive action.
-    const ok = window.confirm(
-      `Delete branch "${branch.name}"? This is permanent and cannot be undone.`,
-    );
-    if (!ok) return;
+    setConfirmingDelete(null);
     setBusyBranch(branch.name);
     setError(null);
     try {
+      // ``force: true`` (the client default) — memoir's "merged" status
+      // is tracked via a sync marker, not git ancestry, so a perfectly
+      // sync'd branch can still look "not fully merged" to git.
       await api.deleteBranch(storePath, branch.name);
       await refresh();
       await useStore.getState().refresh();
@@ -201,8 +214,11 @@ export default function SyncBranchesModal() {
                 defaultBranch={data.default}
                 disabled={!writable || busyBranch !== null}
                 isBusy={busyBranch === branch.name}
+                isConfirmingDelete={confirmingDelete === branch.name}
                 onMerge={onMerge}
-                onDelete={onDelete}
+                onDeleteClick={onDeleteClick}
+                onConfirmDelete={onConfirmDelete}
+                onCancelDelete={onCancelDelete}
               />
             ))}
           </ul>
@@ -229,8 +245,11 @@ interface BranchRowProps {
   defaultBranch: string;
   disabled: boolean;
   isBusy: boolean;
+  isConfirmingDelete: boolean;
   onMerge: (b: BranchStatus) => void;
-  onDelete: (b: BranchStatus) => void;
+  onDeleteClick: (b: BranchStatus) => void;
+  onConfirmDelete: (b: BranchStatus) => void;
+  onCancelDelete: () => void;
 }
 
 function BranchRow({
@@ -238,8 +257,11 @@ function BranchRow({
   defaultBranch,
   disabled,
   isBusy,
+  isConfirmingDelete,
   onMerge,
-  onDelete,
+  onDeleteClick,
+  onConfirmDelete,
+  onCancelDelete,
 }: BranchRowProps) {
   const isDefault = branch.is_default;
   const isCurrent = branch.is_current;
@@ -253,61 +275,94 @@ function BranchRow({
   const canDelete = !isDefault && !isCurrent;
 
   return (
-    <li className={`sync-row${isCurrent ? " current" : ""}`}>
-      <div className="sync-row-main">
-        <code className="sync-branch-name">{branch.name}</code>
-        {isCurrent && <span className="sync-pill current">CURRENT</span>}
-        {isDefault && !isCurrent && <span className="sync-pill default">DEFAULT</span>}
-        <p className="sync-row-meta">
-          last commit {relativeTimeFromISO(branch.last_commit_date)}
-        </p>
-      </div>
-      <div className="sync-row-actions">
-        {synced ? (
-          <span className="sync-status synced">✓ synced</span>
-        ) : (
-          // Clicking the ahead pill opens the per-commit diff modal so
-          // users can see exactly what's about to be merged.
+    <li className={`sync-row${isCurrent ? " current" : ""}${isConfirmingDelete ? " confirming" : ""}`}>
+      <div className="sync-row-top">
+        <div className="sync-row-main">
+          <code className="sync-branch-name">{branch.name}</code>
+          {isCurrent && <span className="sync-pill current">CURRENT</span>}
+          {isDefault && !isCurrent && <span className="sync-pill default">DEFAULT</span>}
+          <p className="sync-row-meta">
+            last commit {relativeTimeFromISO(branch.last_commit_date)}
+          </p>
+        </div>
+        <div className="sync-row-actions">
+          {synced ? (
+            <span className="sync-status synced">✓ synced</span>
+          ) : (
+            // Clicking the ahead pill opens the per-commit diff modal so
+            // users can see exactly what's about to be merged.
+            <button
+              type="button"
+              className="sync-status ahead clickable"
+              onClick={() => openBranchCommits(branch.name)}
+              title={`See the ${branch.ahead} commit${branch.ahead === 1 ? "" : "s"} not yet on ${defaultBranch}`}
+            >
+              ↑ {branch.ahead} ahead
+            </button>
+          )}
           <button
             type="button"
-            className="sync-status ahead clickable"
-            onClick={() => openBranchCommits(branch.name)}
-            title={`See the ${branch.ahead} commit${branch.ahead === 1 ? "" : "s"} not yet on ${defaultBranch}`}
+            className="sync-btn merge"
+            onClick={() => onMerge(branch)}
+            disabled={!canMerge || disabled}
+            title={
+              !canMerge
+                ? isDefault
+                  ? "This is the default branch"
+                  : "Already merged into the default branch"
+                : `Merge ${branch.name} into ${defaultBranch}`
+            }
           >
-            ↑ {branch.ahead} ahead
+            {isBusy ? "Merging…" : `Merge into ${defaultBranch}`}
           </button>
-        )}
-        <button
-          type="button"
-          className="sync-btn merge"
-          onClick={() => onMerge(branch)}
-          disabled={!canMerge || disabled}
-          title={
-            !canMerge
-              ? isDefault
-                ? "This is the default branch"
-                : "Already merged into the default branch"
-              : `Merge ${branch.name} into ${defaultBranch}`
-          }
-        >
-          {isBusy ? "Merging…" : `Merge into ${defaultBranch}`}
-        </button>
-        <button
-          type="button"
-          className="sync-btn delete"
-          onClick={() => onDelete(branch)}
-          disabled={!canDelete || disabled}
-          title={
-            !canDelete
-              ? isCurrent
-                ? "Can't delete the current branch"
-                : "Can't delete the default branch"
-              : `Delete ${branch.name}`
-          }
-        >
-          {isBusy ? "…" : "Delete"}
-        </button>
+          <button
+            type="button"
+            className="sync-btn delete"
+            onClick={() => onDeleteClick(branch)}
+            disabled={!canDelete || disabled}
+            title={
+              !canDelete
+                ? isCurrent
+                  ? "Can't delete the current branch"
+                  : "Can't delete the default branch"
+                : `Delete ${branch.name}`
+            }
+          >
+            {isBusy ? "…" : "Delete"}
+          </button>
+        </div>
       </div>
+
+      {isConfirmingDelete && (
+        <div className="sync-confirm" role="alertdialog" aria-label="Confirm delete">
+          <div className="sync-confirm-text">
+            <strong className="sync-confirm-title">
+              Delete memoir branch <code>{branch.name}</code>?
+            </strong>
+            <p className="sync-confirm-hint">
+              This removes the branch ref from this memoir store only. It does{" "}
+              <strong>not</strong> touch your project's code branches.
+            </p>
+          </div>
+          <div className="sync-confirm-actions">
+            <button
+              type="button"
+              className="sync-btn"
+              onClick={onCancelDelete}
+              autoFocus
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="sync-btn delete sync-confirm-yes"
+              onClick={() => onConfirmDelete(branch)}
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      )}
     </li>
   );
 }

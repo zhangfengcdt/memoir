@@ -1,5 +1,10 @@
-import { useEffect } from "react";
-import { PanelGroup, Panel, PanelResizeHandle } from "react-resizable-panels";
+import { useEffect, useRef } from "react";
+import {
+  PanelGroup,
+  Panel,
+  PanelResizeHandle,
+  type ImperativePanelHandle,
+} from "react-resizable-panels";
 import TopBar from "./TopBar";
 import LeftPane from "./LeftPane";
 import CommandBar from "./CommandBar";
@@ -22,6 +27,22 @@ export default function AppShell() {
   const closeDrawer = useUI((s) => s.closeDrawer);
   const setActiveView = useUI((s) => s.setActiveView);
   const openShortcuts = useUI((s) => s.openShortcuts);
+  const setLeftCollapsed = useUI((s) => s.setLeftCollapsed);
+
+  // react-resizable-panels owns the actual width of each panel; just
+  // toggling our state changes content but won't change the size. We
+  // drive collapse/expand via the imperative handle so the panel
+  // genuinely shrinks to its collapsedSize and back.
+  const leftPanelRef = useRef<ImperativePanelHandle>(null);
+  useEffect(() => {
+    const panel = leftPanelRef.current;
+    if (!panel) return;
+    if (leftCollapsed && !panel.isCollapsed()) {
+      panel.collapse();
+    } else if (!leftCollapsed && panel.isCollapsed()) {
+      panel.expand();
+    }
+  }, [leftCollapsed]);
   // The command bar is the natural-language + slash-command input. We
   // hide it when the server was launched without ``--usellm`` because
   // the natural-language path needs the LLM and most slash commands
@@ -82,11 +103,16 @@ export default function AppShell() {
           <Panel
             id="left"
             order={1}
+            ref={leftPanelRef}
             defaultSize={22}
-            minSize={leftCollapsed ? 4 : 14}
+            minSize={14}
             maxSize={40}
             collapsible
             collapsedSize={4}
+            // Threshold below which the panel snaps fully closed — gives
+            // a satisfying "click into rail mode" feel when dragging.
+            onCollapse={() => setLeftCollapsed(true)}
+            onExpand={() => setLeftCollapsed(false)}
             className="pane"
           >
             <LeftPane />
