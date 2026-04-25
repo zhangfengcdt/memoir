@@ -76,20 +76,31 @@ export const api = {
   branchesStatus: (path: string) =>
     getJSON<BranchesStatusResponse>("/api/branches-status", { path }),
 
-  /** Merge ``source`` into ``target`` (default ``main``). Conflicts return
-   * 409 with a ``conflicts`` array; the client surfaces the message. */
+  /** Promote ``source``'s default-namespace memories into ``target``
+   * (default ``main``). Pass ``{ dryRun: true }`` for a preview that
+   * lists what would be added/updated without writing; pass
+   * ``{ confirm: true }`` to actually apply. The server refuses to write
+   * unless ``confirm`` is set, mirroring the delete-confirm flow. */
   syncBranch: (
     path: string,
     source: string,
     target: string,
-    strategy: "ours" | "theirs" | "skip" = "skip",
+    opts: { dryRun?: boolean; confirm?: boolean } = {},
   ) =>
     postJSON<{
       success: boolean;
       message?: string;
-      conflicts?: string[];
-      merged_count?: number;
-    }>("/api/sync-branches", { path, source, target, strategy }),
+      added_keys?: string[];
+      updated_keys?: string[];
+      dry_run?: boolean;
+      commit_hash?: string | null;
+    }>("/api/sync-branches", {
+      path,
+      source,
+      target,
+      ...(opts.dryRun ? { dry_run: true } : {}),
+      ...(opts.confirm ? { confirm: true } : {}),
+    }),
 
   currentBranch: (path: string) =>
     getJSON<CurrentBranchResponse>("/api/current-branch", { path }),
