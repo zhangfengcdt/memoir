@@ -63,6 +63,35 @@ Deep structural details (layouts, refactor history, per-file line counts) intent
 - **Errors at boundaries only.** Trust internal code and framework guarantees; validate at system boundaries (user input, external APIs).
 - **`StoreService.create_store()` takes a `path`.** `BranchService.checkout()` uses `create_if_missing`, not `create`.
 
+## Prompt harness (debugging plugin skills + hooks)
+
+The Claude Code plugin's LLM-driven hooks (today: `hooks/stop.sh` for auto-capture; more later) load their system prompts from `plugins/claude-code/hooks/prompts/*.tmpl` — those `.tmpl` files are the **single source of truth**, used by both production and the test harness. When changing a prompt, **run the harness against haiku before merging**.
+
+```bash
+# Full suite (5 cases for the Stop hook auto-capture prompt; ~60s, costs LLM tokens)
+plugins/claude-code/tests/prompt-harness/runner.py run --prompt stop_capture --model haiku
+
+# One case
+plugins/claude-code/tests/prompt-harness/runner.py case stop_capture/capture-going-forward-rule.yaml --model haiku
+
+# Diagnostic — paste a real "this should have captured but didn't" turn
+echo "=== Transcript ===
+[Human]
+<paste the user message>
+[Claude Code]
+<paste the response>" > /tmp/turn.txt
+plugins/claude-code/tests/prompt-harness/runner.py adhoc --prompt stop_capture --input /tmp/turn.txt --model haiku
+
+# Try a different model on the same cases
+plugins/claude-code/tests/prompt-harness/runner.py run --prompt stop_capture --model sonnet
+```
+
+`--model` is mandatory. Auth piggybacks on your existing `claude /login` (no API key). PyYAML required — easiest is `source venv/bin/activate` first.
+
+Every run drops `system.txt` (the assembled prompt actually sent), `input.txt`, `output.txt`, `command.sh` (replayable), and `result.json` per case under `/tmp/memoir-prompt-tests/<UTC-timestamp>/`. Read `summary.md` for pass/fail; open `output.txt` to see what the model actually emitted when something fails. Skill prompts (`skills/<name>/SKILL.md`) are evaluated by the orchestrating Claude rather than dispatched as system prompts to a model, so they are *not* covered by this harness — to test those, run the slash command in a real session and inspect behavior. The harness is plugin-prompt-only.
+
+When you add a new LLM-invoking hook: extract its system prompt to `plugins/claude-code/hooks/prompts/<name>.tmpl`, point the hook at it (mirror `stop.sh`'s `STOP_SYSTEM_PROMPT_TEMPLATE=$(cat …)` pattern), then add `cases/<name>/*.yaml` test cases. See `plugins/claude-code/tests/prompt-harness/README.md` for the assertion DSL.
+
 ## Reference
 
 - **Docs (primary):** https://zhangfengcdt.github.io/memoir/ — quickstart, CLI, UI, Claude Code plugin, architecture, API, examples.

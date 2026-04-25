@@ -1,0 +1,25 @@
+# Positive case: a "going forward" standing rule must produce >= 1 line.
+# Regression for the failure mode where the silent-default prompt swallowed
+# durable rules expressed AS feedback (see hooks/stop.sh ALWAYS-CAPTURE +
+# tightened EXCLUDE clause added on 2026-04-25).
+description: "'Going forward, always pytest' standing rule must capture at least one fact"
+prompt: stop_capture
+input: |
+  === Transcript of a conversation between a human and Claude Code ===
+  [Human]
+  From now on, for the memoir project, always use pytest — never unittest — for Python tests. Hard rule, applies to all future test files.
+  [Claude Code]
+  Got it — pytest only, never unittest, for memoir tests. Locked in.
+expect:
+  - kind: min_lines
+    value: 1
+  - kind: max_lines
+    value: 6
+  - kind: regex_each_line
+    value: "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+){1,3}\\t.+$"
+  - kind: any_path_prefix
+    value:
+      - preferences.coding
+      - preferences.tools
+      - workflow.coding
+      - context.project    # standards / stack / cicd are all reasonable for "always use pytest"

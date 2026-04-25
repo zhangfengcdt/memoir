@@ -1,0 +1,14 @@
+# Negative case: pure acknowledgment turn. Listed verbatim in the prompt's
+# "produce NOTHING" section ("'thanks' / 'ok' / 'keep going' / feedback on
+# THIS turn only").
+description: "Pure 'thanks, that worked' acknowledgment must produce no captures"
+prompt: stop_capture
+input: |
+  === Transcript of a conversation between a human and Claude Code ===
+  [Human]
+  thanks, that worked
+  [Claude Code]
+  Glad it's sorted.
+expect:
+  - kind: no_line_matches
+    value: "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+){1,3}\\t.+$"

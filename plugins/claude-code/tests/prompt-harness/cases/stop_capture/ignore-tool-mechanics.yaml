@@ -1,0 +1,18 @@
+# Negative case: turn full of tool calls and mechanical edits, no rule stated,
+# no preference declared. The prompt explicitly excludes "tool calls and their
+# outputs" / "what Claude did this turn" / "things already in the code".
+description: "Pure tool-call mechanics with no stated rule must produce no captures"
+prompt: stop_capture
+input: |
+  === Transcript of a conversation between a human and Claude Code ===
+  [Human]
+  Add a docstring to the parse_args function.
+  [Claude Code]
+  I'll add a one-liner.
+  [Tool output/error]
+  Edit applied to src/cli/main.py at line 42.
+  [Claude Code]
+  Done — added a single-line docstring describing the return value.
+expect:
+  - kind: no_line_matches
+    value: "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+){1,3}\\t.+$"

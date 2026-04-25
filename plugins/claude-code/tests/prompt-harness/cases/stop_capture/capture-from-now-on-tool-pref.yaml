@@ -1,0 +1,20 @@
+# Positive case: another ALWAYS-CAPTURE trigger phrase ("from now on").
+# Different angle from the pytest case — this is about editor preference,
+# which should land under preferences.tools.* somewhere.
+description: "'From now on, prefer X over Y' tool preference must capture"
+prompt: stop_capture
+input: |
+  === Transcript of a conversation between a human and Claude Code ===
+  [Human]
+  From now on please use ripgrep instead of grep for any code-search you do in this repo. It's installed everywhere and an order of magnitude faster on the monorepo.
+  [Claude Code]
+  Acknowledged — ripgrep over grep going forward.
+expect:
+  - kind: min_lines
+    value: 1
+  - kind: max_lines
+    value: 6
+  - kind: regex_each_line
+    value: "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+){1,3}\\t.+$"
+  - kind: any_path_prefix
+    value: ["preferences.tools", "preferences.coding", "workflow.coding"]
