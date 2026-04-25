@@ -36,6 +36,18 @@ def _git(store: str, *args: str) -> None:
     )
 
 
+def _force_main_default(path: str) -> None:
+    """Pin HEAD to ``refs/heads/main`` regardless of the host's
+    ``init.defaultBranch`` setting.
+
+    GitHub Actions runners default to ``master`` (older git config); local
+    macOS and modern Linux default to ``main``. Either way, ``create_store``
+    hasn't made any commits yet, so we can safely re-aim HEAD at ``main``
+    before our first commit creates the branch ref.
+    """
+    _git(path, "symbolic-ref", "HEAD", "refs/heads/main")
+
+
 @pytest.fixture
 def annotated_store():
     """Store with an explicit commit graph: initial → middle (tagged) → head.
@@ -47,6 +59,7 @@ def annotated_store():
     path = tempfile.mkdtemp(prefix="memoir_commits_test_")
     try:
         StoreService(path).create_store(path)
+        _force_main_default(path)
         _git(path, "commit", "--allow-empty", "-m", "initial")
         _git(path, "commit", "--allow-empty", "-m", "middle")
         _git(path, "tag", "v1.0")
@@ -127,6 +140,7 @@ def test_merge_commit_records_multiple_parents():
     path = tempfile.mkdtemp(prefix="memoir_merge_test_")
     try:
         StoreService(path).create_store(path)
+        _force_main_default(path)
 
         # Build: base -> A (main), base -> B (feature), merge(A, B)
         _git(path, "commit", "--allow-empty", "-m", "base")

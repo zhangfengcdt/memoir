@@ -3162,7 +3162,7 @@ class V2Handler(MemoryStoreHandler):
 
 
 def run_server(
-    port: int = 0, on_ready=None, idle_timeout: int = 300, use_v2: bool = False
+    port: int = 0, on_ready=None, idle_timeout: int = 300, use_v2: bool = True
 ):
     """Run the Memoir UI HTTP server.
 
@@ -3176,9 +3176,11 @@ def run_server(
     no HTTP request has arrived for that long. Pass ``0`` (or any non-positive
     value) to disable the watchdog and run indefinitely.
 
-    ``use_v2`` serves the React bundle under ``webapp/dist`` instead of the
-    legacy ``ui.html``. Raises :class:`FileNotFoundError` if the bundle is
-    missing (hint: run ``make ui-build``).
+    ``use_v2`` (default ``True``) serves the React bundle under
+    ``webapp/dist``. Pass ``False`` to fall back to the legacy single-file
+    ``ui.html`` (the CLI exposes this as ``memoir ui --legacy``). Raises
+    :class:`FileNotFoundError` if v2 is requested but the bundle is missing
+    (hint: run ``make ui-build``).
 
     Blocks until the server is shut down (Ctrl+C or the idle watchdog).
     """

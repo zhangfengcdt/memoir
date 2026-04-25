@@ -61,7 +61,11 @@ const PERSIST_KEY = "memoir:ui:v1";
 
 const persist = makeStorage<PersistedUI>(
   PERSIST_KEY,
-  { activeView: "commits", leftCollapsed: false, selectedNamespace: null },
+  // First-launch defaults: open on Commits, expanded pane, and pre-select
+  // the ``default`` namespace so the Tree view shows real data right away
+  // (the most common case is the user only ever has the ``default`` ns).
+  // Users can still pick "All namespaces" — that choice persists.
+  { activeView: "commits", leftCollapsed: false, selectedNamespace: "default" },
   (raw) => {
     if (!raw || typeof raw !== "object") return null;
     const obj = raw as Record<string, unknown>;

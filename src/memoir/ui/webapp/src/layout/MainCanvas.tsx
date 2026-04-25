@@ -32,6 +32,18 @@ export default function MainCanvas() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Defaults bias toward the ``default`` namespace, but a freshly-
+  // connected store may not have one (e.g., a codebase-only store with
+  // ``codebase:onboard`` only). Clear an orphaned filter so the user
+  // doesn't hit an empty Tree view with no idea why.
+  useEffect(() => {
+    if (!data) return;
+    const ns = useUI.getState().selectedNamespace;
+    if (ns && !(ns in data.namespaces)) {
+      useUI.getState().setSelectedNamespace(null);
+    }
+  }, [data]);
+
   const connected = Boolean(data);
 
   return (
