@@ -38,10 +38,20 @@ class ReusableTCPServer(socketserver.TCPServer):
     allow_reuse_address = True
 
 
+_UI_ROOT = Path(__file__).parent
+_WEBAPP_DIST = _UI_ROOT / "webapp" / "dist"
+
+
 class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
+    # Subclasses override these to switch between the legacy UI (ui.html
+    # at the module root) and the v2 React bundle (webapp/dist/index.html
+    # with SPA-style client-side routing).
+    serve_root: Path = _UI_ROOT
+    index_filename: str = "ui.html"
+    spa_fallback: bool = False
+
     def __init__(self, *args, **kwargs):
-        # Set the directory to serve from
-        super().__init__(*args, directory=str(Path(__file__).parent), **kwargs)
+        super().__init__(*args, directory=str(self.serve_root), **kwargs)
 
     def handle(self):
         # Bump the idle watchdog's last-activity timestamp on every request
@@ -125,12 +135,28 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         elif parsed_path.path == "/api/statistics":
             self.handle_statistics_api(parsed_path)
         elif parsed_path.path == "/":
-            # Serve the main UI HTML file
-            self.path = "/ui.html"
+            # Serve the main UI HTML file (ui.html for legacy, index.html for v2).
+            self.path = "/" + self.index_filename
             super().do_GET()
         else:
-            # Default file serving
+            # Default file serving. In v2 (spa_fallback=True) the bundled
+            # SPA may use client-side routing, so any path that doesn't
+            # match a real file and isn't an API/asset request falls back
+            # to index.html — the React router takes over from there.
+            if self.spa_fallback and not self._is_static_asset(parsed_path.path):
+                disk_path = self.serve_root / parsed_path.path.lstrip("/")
+                if not disk_path.exists():
+                    self.path = "/" + self.index_filename
             super().do_GET()
+
+    @staticmethod
+    def _is_static_asset(url_path: str) -> bool:
+        # Anything under /assets/ or with a file extension is a real file
+        # lookup; missing ones should 404, not fall back to index.html.
+        if url_path.startswith("/assets/"):
+            return True
+        tail = url_path.rsplit("/", 1)[-1]
+        return "." in tail
 
     def do_POST(self):
         parsed_path = urlparse(self.path)
@@ -3111,7 +3137,17 @@ Answer:"""
         return datetime.now().isoformat()
 
 
-def run_server(port: int = 0, on_ready=None, idle_timeout: int = 300):
+class V2Handler(MemoryStoreHandler):
+    """Handler that serves the v2 React bundle from webapp/dist."""
+
+    serve_root = _WEBAPP_DIST
+    index_filename = "index.html"
+    spa_fallback = True
+
+
+def run_server(
+    port: int = 0, on_ready=None, idle_timeout: int = 300, use_v2: bool = False
+):
     """Run the Memoir UI HTTP server.
 
     ``port=0`` (the default) asks the OS for a free ephemeral port; pass an
@@ -3124,10 +3160,26 @@ def run_server(port: int = 0, on_ready=None, idle_timeout: int = 300):
     no HTTP request has arrived for that long. Pass ``0`` (or any non-positive
     value) to disable the watchdog and run indefinitely.
 
+    ``use_v2`` serves the React bundle under ``webapp/dist`` instead of the
+    legacy ``ui.html``. Raises :class:`FileNotFoundError` if the bundle is
+    missing (hint: run ``make ui-build``).
+
     Blocks until the server is shut down (Ctrl+C or the idle watchdog).
     """
+    if use_v2:
+        index = _WEBAPP_DIST / "index.html"
+        if not index.is_file():
+            raise FileNotFoundError(
+                f"v2 bundle not found at {_WEBAPP_DIST}/index.html. "
+                f"Run 'make ui-build' (or 'cd src/memoir/ui/webapp && pnpm run build') "
+                f"to produce it, then retry."
+            )
+        handler_cls: type[MemoryStoreHandler] = V2Handler
+    else:
+        handler_cls = MemoryStoreHandler
+
     # Bind first; this raises OSError (EADDRINUSE) before we print anything.
-    with ReusableTCPServer(("", port), MemoryStoreHandler) as httpd:
+    with ReusableTCPServer(("", port), handler_cls) as httpd:
         bound_port = httpd.server_address[1]
         print(f"Starting Memoir UI server on http://localhost:{bound_port}")
         print(f"Open http://localhost:{bound_port} in your browser")

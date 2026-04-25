@@ -46,6 +46,13 @@ from memoir.cli.main import (
     help="Auto-stop the server after this many seconds of inactivity. "
     "Pass 0 to disable (run indefinitely).",
 )
+@click.option(
+    "--v2",
+    "use_v2",
+    is_flag=True,
+    help="Serve the v2 React bundle from src/memoir/ui/webapp/dist "
+    "(requires `make ui-build` to have been run).",
+)
 @pass_context
 def ui(
     ctx: MemoirContext,
@@ -55,6 +62,7 @@ def ui(
     readonly: bool,
     usellm: bool,
     idle_timeout: int,
+    use_v2: bool,
 ):
     """Launch the web UI to explore a memoir repo.
 
@@ -111,7 +119,14 @@ def ui(
     try:
         from memoir.ui.server import run_server
 
-        run_server(port=port, on_ready=_on_ready, idle_timeout=idle_timeout)
+        run_server(
+            port=port,
+            on_ready=_on_ready,
+            idle_timeout=idle_timeout,
+            use_v2=use_v2,
+        )
+    except FileNotFoundError as e:
+        ctx.error(str(e), EXIT_ERROR)
     except KeyboardInterrupt:
         ctx.info("UI server stopped.")
     except OSError as e:
