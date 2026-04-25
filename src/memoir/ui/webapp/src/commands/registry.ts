@@ -200,6 +200,47 @@ register({
   },
 });
 
+register({
+  name: "diff",
+  aliases: [],
+  summary: "Show a range diff between selected commits",
+  usage: "/diff [from] [to]",
+  run(args) {
+    let fromHash: string | undefined = args[0];
+    let toHash: string | undefined = args[1];
+
+    if (!fromHash || !toHash) {
+      // Derive endpoints from the current commit selection. Sorted
+      // alphabetically by hash — the direction doesn't matter semantically,
+      // the backend handles either order.
+      const selected = Array.from(useSelection.getState().selectedHashes);
+      if (selected.length < 2) {
+        useStore.getState().pushHistory({
+          input: "/diff",
+          level: "warning",
+          lines: [
+            "Need two commit hashes (or two selected commits).",
+            "Usage: /diff <from> <to>, or shift-click two commits first.",
+          ],
+        });
+        return;
+      }
+      [fromHash, toHash] = selected;
+    }
+
+    useUI.getState().pushPanel({
+      kind: "range-diff",
+      fromHash,
+      toHash,
+    });
+    useStore.getState().pushHistory({
+      input: `/diff ${fromHash.slice(0, 7)} ${toHash.slice(0, 7)}`,
+      level: "info",
+      lines: [`Showing diff ${fromHash.slice(0, 7)} → ${toHash.slice(0, 7)} in drawer.`],
+    });
+  },
+});
+
 // ------------------------------------------------------------------ parser
 export interface ParsedCommand {
   name: string;

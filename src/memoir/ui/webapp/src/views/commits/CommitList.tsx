@@ -3,6 +3,7 @@ import { api, MemoirApiError } from "../../api/client";
 import type { Commit } from "../../api/types";
 import { useStore } from "../../state/storeSlice";
 import { useSelection } from "../../state/selectionSlice";
+import { useUI } from "../../state/uiSlice";
 import CommitRow from "./CommitRow";
 import "./CommitList.css";
 
@@ -60,6 +61,11 @@ export default function CommitList({ limit = 50 }: CommitListProps) {
       sel.toggle(hash);
     } else {
       sel.pick(hash);
+      // Plain click also opens the commit in the drawer for quick inspection.
+      const commit = commits?.find((c) => c.hash === hash);
+      if (commit) {
+        useUI.getState().pushPanel({ kind: "commit-detail", commit });
+      }
     }
   };
 

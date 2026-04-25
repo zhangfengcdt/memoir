@@ -9,25 +9,86 @@
 
 .drawer-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: var(--space-4) var(--space-6);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   border-bottom: 1px solid var(--border);
   flex: 0 0 auto;
+  min-height: 54px;
 }
 
 .drawer-breadcrumb {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-1);
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+  min-width: 0;
 }
 
-.drawer-title {
+.breadcrumb-segment {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.breadcrumb-link,
+.breadcrumb-current {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--radius-sm);
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.breadcrumb-link {
+  color: var(--fg-2);
+  cursor: pointer;
+}
+
+.breadcrumb-link:hover {
   color: var(--fg-0);
-  font-weight: 600;
-  font-size: var(--text-base);
+  background: var(--bg-2);
 }
 
+.breadcrumb-current {
+  color: var(--fg-0);
+  background: var(--bg-2);
+}
+
+.breadcrumb-kind {
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+  text-transform: lowercase;
+}
+
+.breadcrumb-title {
+  font-family: var(--font-mono);
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.breadcrumb-sep {
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+  user-select: none;
+}
+
+.drawer-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.drawer-action,
 .drawer-close {
   display: inline-flex;
   align-items: center;
@@ -36,8 +97,11 @@
   height: 28px;
   border-radius: var(--radius-sm);
   color: var(--fg-2);
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
+.drawer-action:hover,
 .drawer-close:hover {
   background: var(--bg-2);
   color: var(--fg-0);
@@ -46,18 +110,4 @@
 .drawer-body {
   flex: 1 1 auto;
   overflow: auto;
-  padding: var(--space-6);
-  color: var(--fg-1);
-}
-
-.drawer-empty {
-  line-height: var(--leading-relaxed);
-  color: var(--fg-2);
-}
-
-.drawer-empty code {
-  color: var(--accent);
-  background: var(--bg-2);
-  padding: 0.1rem 0.35rem;
-  border-radius: var(--radius-sm);
 }

@@ -3,6 +3,7 @@ import type {
   BranchesResponse,
   CommitsResponse,
   CurrentBranchResponse,
+  RangeDiffResponse,
   StoreResponse,
 } from "./types";
 
@@ -66,4 +67,19 @@ export const api = {
       branch: opts.branch ?? "HEAD",
       limit: String(opts.limit ?? 20),
     }),
+
+  rangeDiff: async (
+    path: string,
+    fromRef: string,
+    toRef: string,
+  ): Promise<RangeDiffResponse> => {
+    // Server-side keys are `from`/`to`; we normalize to fromRef/toRef in the
+    // response so the rest of the codebase doesn't fight TS keywords.
+    const raw = await getJSON<Omit<RangeDiffResponse, "fromRef" | "toRef"> & {
+      from: string;
+      to: string;
+    }>("/api/commit-range-diff", { path, from: fromRef, to: toRef });
+    const { from, to, ...rest } = raw;
+    return { ...rest, fromRef: from, toRef: to };
+  },
 };

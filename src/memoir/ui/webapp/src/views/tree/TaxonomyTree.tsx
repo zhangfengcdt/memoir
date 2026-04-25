@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useStore } from "../../state/storeSlice";
 import { useMemorySelection } from "../../state/memorySelectionSlice";
+import { useUI } from "../../state/uiSlice";
 import { buildTaxonomy, walkTree } from "./buildTaxonomy";
 import type { Memory } from "../../api/types";
 import TreeNodeView from "./TreeNodeView";
@@ -47,15 +48,7 @@ export default function TaxonomyTree() {
   const onPickMemory = useCallback(
     (m: Memory) => {
       select(m);
-      // Temporary: until the drawer lands (Phase 5), log the content so
-      // the effect of clicking is visible somewhere.
-      useStore.getState().pushHistory({
-        input: `/select ${m.key}`,
-        level: "info",
-        lines: [
-          m.content ?? "(no textual content)",
-        ],
-      });
+      useUI.getState().pushPanel({ kind: "memory-detail", memory: m });
     },
     [select],
   );

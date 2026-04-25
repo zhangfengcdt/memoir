@@ -18,7 +18,6 @@ const VIEW_LABELS: Record<ViewKey, { label: string; shortcut: string }> = {
 export default function MainCanvas() {
   const active = useUI((s) => s.activeView);
   const setActive = useUI((s) => s.setActiveView);
-  const openDrawer = useUI((s) => s.openDrawer);
   const storePath = useStore((s) => s.storePath);
   const data = useStore((s) => s.data);
   const history = useStore((s) => s.history);
@@ -61,7 +60,7 @@ export default function MainCanvas() {
           ) : active === "tree" ? (
             <TaxonomyTree />
           ) : (
-            <PlaceholderView view={active} onOpenDrawer={openDrawer} />
+            <PlaceholderView view={active} />
           )
         ) : (
           <DisconnectedView />
@@ -110,13 +109,7 @@ function DisconnectedView() {
   );
 }
 
-function PlaceholderView({
-  view,
-  onOpenDrawer,
-}: {
-  view: ViewKey;
-  onOpenDrawer: () => void;
-}) {
+function PlaceholderView({ view }: { view: ViewKey }) {
   const data = useStore((s) => s.data);
   if (!data) return null;
   return (
@@ -131,12 +124,9 @@ function PlaceholderView({
       </div>
       <p className="connected-lead">
         The <code>{view}</code> view lands in a future phase. Switch to{" "}
-        <code>Commits</code> (⌘1) to see the rich list.
+        <code>Commits</code> (⌘1) or <code>Tree</code> (⌘2) to see the rich lists.
       </p>
       <div className="connected-actions">
-        <button className="btn btn-secondary btn-sm" onClick={onOpenDrawer}>
-          Preview drawer
-        </button>
         <button
           className="btn btn-ghost btn-sm"
           onClick={() => dispatch("/refresh")}

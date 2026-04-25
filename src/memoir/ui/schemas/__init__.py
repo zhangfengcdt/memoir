@@ -17,15 +17,20 @@ from __future__ import annotations
 
 from .branches import BranchesResponse, CurrentBranchResponse
 from .commits import Commit, CommitsResponse
+from .diff import Change, ChangeStats, CommitDiff, RangeDiffResponse
 from .memory import Memory
 from .store import StoreCommit, StoreResponse
 
 __all__ = [
     "BranchesResponse",
+    "Change",
+    "ChangeStats",
     "Commit",
+    "CommitDiff",
     "CommitsResponse",
     "CurrentBranchResponse",
     "Memory",
+    "RangeDiffResponse",
     "StoreCommit",
     "StoreResponse",
 ]

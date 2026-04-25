@@ -1,0 +1,329 @@
+.drawer-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  padding: var(--space-6);
+}
+
+.drawer-panel-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.drawer-panel-title {
+  color: var(--fg-0);
+  font-size: var(--text-lg);
+  letter-spacing: var(--tracking-snug);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.drawer-panel-title code {
+  font-family: var(--font-mono);
+  color: var(--accent);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  padding: 0.15rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+}
+
+.drawer-panel-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.drawer-panel-key {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--radius-sm);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drawer-panel-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.drawer-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.drawer-body-content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: var(--fg-1);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+}
+
+.content-line {
+  margin: 0;
+  word-break: break-word;
+}
+
+.drawer-empty-hint {
+  color: var(--fg-2);
+  font-size: var(--text-sm);
+  font-style: italic;
+}
+
+.drawer-error {
+  color: var(--danger);
+  font-size: var(--text-sm);
+}
+
+.drawer-json {
+  margin: 0;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  overflow: auto;
+  max-height: 320px;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-1);
+  line-height: 1.5;
+}
+
+.drawer-json code {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: inherit;
+}
+
+.drawer-kv-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-2) var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--fg-1);
+}
+
+.drawer-kv-grid > span:nth-child(odd) {
+  color: var(--fg-2);
+  font-size: var(--text-xs);
+  align-self: center;
+}
+
+.drawer-kv-grid code {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-0);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  padding: 0.05rem 0.35rem;
+  border-radius: var(--radius-sm);
+}
+
+.commit-message-full {
+  color: var(--fg-0);
+  font-size: var(--text-sm);
+  line-height: var(--leading-relaxed);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.commit-full-hash {
+  display: block;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--fg-0);
+  word-break: break-all;
+}
+
+.commit-exact-time {
+  color: var(--fg-3);
+  font-size: var(--text-xs);
+}
+
+/* Range-diff specifics */
+.diff-arrow {
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+}
+
+.diff-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--fg-1);
+  font-family: var(--font-mono);
+}
+
+.diff-sep {
+  color: var(--fg-3);
+}
+
+.diff-stat {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  padding: 0.05rem 0.4rem;
+  border-radius: var(--radius-sm);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+}
+
+.diff-stat.added {
+  color: var(--accent);
+  border-color: rgba(0, 214, 143, 0.3);
+}
+
+.diff-stat.modified {
+  color: var(--warning);
+  border-color: rgba(255, 184, 77, 0.3);
+}
+
+.diff-stat.deleted {
+  color: var(--danger);
+  border-color: rgba(255, 107, 107, 0.3);
+}
+
+.diff-commit-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.diff-commit {
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-0);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.diff-commit-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.diff-commit-hash {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--accent);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-sm);
+}
+
+.diff-commit-message {
+  color: var(--fg-0);
+  font-weight: 500;
+  font-size: var(--text-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff-commit-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+  font-family: var(--font-mono);
+}
+
+.diff-change-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.diff-change {
+  display: grid;
+  grid-template-columns: 1.2rem auto 1fr;
+  gap: var(--space-2);
+  padding: 0.3rem 0.5rem;
+  border-radius: var(--radius-sm);
+  align-items: start;
+  font-size: var(--text-xs);
+}
+
+.diff-change.type-added {
+  background: rgba(0, 214, 143, 0.06);
+}
+
+.diff-change.type-deleted {
+  background: rgba(255, 107, 107, 0.06);
+}
+
+.diff-change.type-modified {
+  background: rgba(255, 184, 77, 0.06);
+}
+
+.diff-change-sym {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  text-align: center;
+}
+
+.diff-change.type-added .diff-change-sym {
+  color: var(--accent);
+}
+
+.diff-change.type-deleted .diff-change-sym {
+  color: var(--danger);
+}
+
+.diff-change.type-modified .diff-change-sym {
+  color: var(--warning);
+}
+
+.diff-change-path {
+  font-family: var(--font-mono);
+  color: var(--fg-0);
+}
+
+.diff-change-inline {
+  grid-column: 2 / -1;
+  color: var(--fg-2);
+  font-size: var(--text-xs);
+  word-break: break-word;
+}
+
+.diff-inline-old {
+  color: var(--danger);
+  text-decoration: line-through;
+}
+
+.diff-inline-new {
+  color: var(--accent);
+}

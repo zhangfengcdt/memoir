@@ -1834,11 +1834,23 @@ Answer:"""
                 store_path, from_ref, to_ref
             )
 
-            status = 200 if response_data.get("success") else 500
+            # Successful payloads are shape-validated via the schema so
+            # drift in ``_generate_commit_range_diff`` surfaces as a 500
+            # with a clear error rather than as an unreadable UI state.
+            if response_data.get("success"):
+                from memoir.ui.schemas import RangeDiffResponse
+
+                body = RangeDiffResponse.from_legacy(response_data)
+                payload = body.to_legacy()
+                status = 200
+            else:
+                payload = response_data
+                status = 500
+
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            self.wfile.write(json.dumps(response_data).encode())
+            self.wfile.write(json.dumps(payload).encode())
         except Exception as e:
             import traceback
 

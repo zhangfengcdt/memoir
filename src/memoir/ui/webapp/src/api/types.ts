@@ -50,6 +50,43 @@ export interface CurrentBranchResponse {
   commit: string;
 }
 
+// --- /api/commit-range-diff -----------------------------------------------
+export type ChangeType = "added" | "deleted" | "modified";
+
+export interface Change {
+  path: string;
+  type: ChangeType;
+  old_content?: string | null;
+  new_content?: string | null;
+}
+
+export interface ChangeStats {
+  added: number;
+  modified: number;
+  deleted: number;
+}
+
+export interface CommitDiff {
+  hash: string;
+  short_hash: string;
+  message: string;
+  author: string;
+  email: string;
+  timestamp: number;
+  changes: Change[];
+  stats: ChangeStats;
+}
+
+// Wire-native keys are `from` and `to`; both are JS reserved-ish and
+// collide with TS keywords in destructuring. The client normalizes them
+// to `fromRef` / `toRef` before this shape ever hits UI code.
+export interface RangeDiffResponse {
+  success: boolean;
+  fromRef: string;
+  toRef: string;
+  commits: CommitDiff[];
+}
+
 // --- /api/commits ----------------------------------------------------------
 export interface Commit {
   hash: string;
