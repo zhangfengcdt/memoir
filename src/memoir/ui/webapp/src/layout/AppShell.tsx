@@ -10,6 +10,7 @@ import StatsModal from "../modals/StatsModal";
 import CommandReferenceModal from "../modals/CommandReferenceModal";
 import LiveAnnouncer from "./LiveAnnouncer";
 import { useUI, VISIBLE_VIEW_KEYS, isDrawerOpen } from "../state/uiSlice";
+import { useConfig } from "../state/configSlice";
 import "./AppShell.css";
 
 export default function AppShell() {
@@ -19,6 +20,11 @@ export default function AppShell() {
   const closeDrawer = useUI((s) => s.closeDrawer);
   const setActiveView = useUI((s) => s.setActiveView);
   const openShortcuts = useUI((s) => s.openShortcuts);
+  // The command bar is the natural-language + slash-command input. We
+  // hide it when the server was launched without ``--usellm`` because
+  // the natural-language path needs the LLM and most slash commands
+  // surface elsewhere (TopBar buttons, view tabs, autocomplete).
+  const useLLM = useConfig((s) => s.useLLM);
 
   // Global keyboard shortcuts — ⌘B / ⌘1..5 / Esc-closes-drawer.
   useEffect(() => {
@@ -108,7 +114,7 @@ export default function AppShell() {
         </PanelGroup>
       </div>
 
-      <CommandBar />
+      {useLLM && <CommandBar />}
 
       <ShortcutsOverlay />
       <StatsModal />

@@ -327,3 +327,438 @@
 .diff-inline-new {
   color: var(--accent);
 }
+
+/* ====================================================================
+ * Memory Store Diff (CommitDetail panel) — mirrors v1's diff popup.
+ * ==================================================================== */
+
+.diff-icon {
+  margin-right: var(--space-1);
+}
+
+.diff-comparing {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--fg-1);
+}
+
+.diff-comparing code {
+  color: var(--fg-0);
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+.diff-comparing .diff-arrow {
+  color: var(--accent);
+  margin: 0 var(--space-1);
+}
+
+.commit-tagline {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+  margin-top: var(--space-1);
+}
+
+.commit-tagline-hash {
+  font-family: var(--font-mono);
+  color: var(--accent);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  padding: 0.05rem 0.4rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+}
+
+.commit-tagline-msg {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--fg-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commit-tagline-meta {
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+/* Stat pills row (+1 additions / ~0 modifications / −0 deletions) */
+.diff-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.diff-stat-pill {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  padding: 0.4rem 0.85rem;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  font-weight: 500;
+}
+
+.diff-stat-pill.added {
+  background: rgba(0, 214, 143, 0.12);
+  color: var(--accent);
+  border-color: rgba(0, 214, 143, 0.3);
+}
+
+.diff-stat-pill.modified {
+  background: rgba(255, 184, 77, 0.12);
+  color: var(--warning);
+  border-color: rgba(255, 184, 77, 0.3);
+}
+
+.diff-stat-pill.deleted {
+  background: rgba(255, 107, 107, 0.12);
+  color: var(--danger);
+  border-color: rgba(255, 107, 107, 0.3);
+}
+
+/* Per-change cards */
+.diff-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.diff-card {
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-left: 3px solid transparent;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.diff-card.type-added {
+  border-left-color: var(--accent);
+}
+
+.diff-card.type-modified {
+  border-left-color: var(--warning);
+}
+
+.diff-card.type-deleted {
+  border-left-color: var(--danger);
+}
+
+.diff-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.diff-card-sym {
+  font-family: var(--font-mono);
+  font-size: var(--text-base);
+  font-weight: 700;
+  width: 1.2rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.diff-card.type-added .diff-card-sym {
+  color: var(--accent);
+}
+
+.diff-card.type-modified .diff-card-sym {
+  color: var(--warning);
+}
+
+.diff-card.type-deleted .diff-card-sym {
+  color: var(--danger);
+}
+
+.diff-card-path {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--font-mono);
+  color: var(--accent);
+  font-size: var(--text-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.diff-card-tag {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  padding: 0.1rem 0.5rem;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.diff-card-tag.tag-added {
+  background: rgba(0, 214, 143, 0.18);
+  color: var(--accent);
+}
+
+.diff-card-tag.tag-modified {
+  background: rgba(255, 184, 77, 0.18);
+  color: var(--warning);
+}
+
+.diff-card-tag.tag-deleted {
+  background: rgba(255, 107, 107, 0.18);
+  color: var(--danger);
+}
+
+.diff-card-copy {
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  padding: 0.15rem 0.55rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--fg-1);
+  background: var(--bg-1);
+  flex-shrink: 0;
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.diff-card-copy:hover {
+  background: var(--bg-3);
+  color: var(--fg-0);
+}
+
+.diff-card-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+}
+
+.diff-card-section + .diff-card-section {
+  padding-top: 0;
+}
+
+.diff-card-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  color: var(--fg-3);
+  text-transform: uppercase;
+}
+
+.diff-card-block {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--fg-0);
+  line-height: var(--leading-relaxed);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 220px;
+  overflow: auto;
+}
+
+.diff-card-block.after {
+  border-color: rgba(0, 214, 143, 0.4);
+  background: rgba(0, 214, 143, 0.05);
+}
+
+.diff-card-block.before {
+  border-color: rgba(255, 107, 107, 0.4);
+  background: rgba(255, 107, 107, 0.05);
+}
+
+/* ====================================================================
+ * Memory editor (MemoryDetail panel)
+ * ==================================================================== */
+
+.memory-kv-row {
+  display: grid;
+  grid-template-columns: 110px 1fr auto;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.memory-kv-row + .memory-kv-row {
+  margin-top: var(--space-2);
+}
+
+.memory-kv-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  color: var(--fg-3);
+  text-transform: uppercase;
+}
+
+.memory-kv-value {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--accent);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  padding: 0.3rem 0.55rem;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.memory-copy-btn {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  background: transparent;
+  flex-shrink: 0;
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.memory-copy-btn:hover {
+  background: var(--accent);
+  color: var(--bg-0);
+}
+
+.memory-edit-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  color: var(--fg-3);
+  text-transform: uppercase;
+}
+
+.memory-edit-label code {
+  font-family: var(--font-mono);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  color: var(--fg-1);
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-sm);
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: var(--text-xs);
+  margin-left: 0.3rem;
+}
+
+.memory-edit-textarea,
+.memory-rewrite-textarea {
+  width: 100%;
+  background: var(--bg-0);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  color: var(--fg-0);
+  line-height: var(--leading-relaxed);
+  resize: vertical;
+  outline: none;
+  transition: border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.memory-edit-textarea:focus,
+.memory-rewrite-textarea:focus {
+  border-color: var(--accent-hover);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.memory-rewrite-textarea {
+  border-color: var(--border-strong);
+}
+
+.memory-rewrite-textarea::placeholder {
+  color: var(--fg-3);
+}
+
+.memory-rewrite-actions {
+  display: flex;
+  margin-top: var(--space-2);
+}
+
+/* Purple-tinted "AI" button to match v1's tone */
+.memory-rewrite-btn {
+  font-size: var(--text-sm);
+  padding: 0.45rem 0.85rem;
+  border-radius: var(--radius-md);
+  background: rgba(124, 93, 255, 0.12);
+  color: #b0a3ff;
+  border: 1px solid rgba(124, 93, 255, 0.4);
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.memory-rewrite-btn:hover:not(:disabled) {
+  background: rgba(124, 93, 255, 0.22);
+  color: #d2c5ff;
+}
+
+.memory-rewrite-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.memory-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.memory-readonly-note {
+  flex: 1 1 auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--warning);
+}
+
+.memory-meta-footer {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-4);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.memory-meta-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.memory-meta-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  color: var(--fg-3);
+  text-transform: uppercase;
+}
+
+.memory-meta-value {
+  color: var(--fg-0);
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+}

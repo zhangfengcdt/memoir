@@ -41,7 +41,9 @@ export function drawerPanelTitle(panel: DrawerPanel): string {
     case "memory-detail":
       return panel.memory.path || panel.memory.key;
     case "commit-detail":
-      return panel.commit.short_hash;
+      // Reads as "diff @ 9c2a107" in the breadcrumb so users know the
+      // panel shows the commit's diff, not just metadata.
+      return `diff @ ${panel.commit.short_hash}`;
     case "range-diff":
       return `diff ${panel.fromHash.slice(0, 7)}…${panel.toHash.slice(0, 7)}`;
   }

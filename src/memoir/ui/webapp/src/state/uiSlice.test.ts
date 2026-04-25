@@ -161,7 +161,7 @@ describe("drawer stack reducer", () => {
     ).toBe("workflow.coding.style");
     expect(
       drawerPanelTitle({ kind: "commit-detail", commit: COMMIT_A }),
-    ).toBe(COMMIT_A.short_hash);
+    ).toBe(`diff @ ${COMMIT_A.short_hash}`);
     expect(
       drawerPanelTitle({
         kind: "range-diff",

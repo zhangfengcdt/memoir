@@ -149,6 +149,49 @@ export const api = {
       namespace,
     }),
 
+  /**
+   * Direct edit — bypasses the classifier and writes the supplied
+   * content at exactly ``key``. ``editSource`` annotates the commit
+   * message: "manual" (default), "llm" (the LLM rewrote it), or
+   * "llm+manual" (LLM rewrote, user tweaked the result).
+   */
+  updateMemory: (
+    path: string,
+    key: string,
+    content: string,
+    opts: {
+      namespace?: string;
+      editSource?: "manual" | "llm" | "llm+manual";
+      instructions?: string;
+    } = {},
+  ) =>
+    postJSON<{
+      success: boolean;
+      key: string;
+      namespace: string;
+      commit_hash?: string;
+      message?: string;
+    }>("/api/update-memory", {
+      path,
+      key,
+      content,
+      namespace: opts.namespace ?? "default",
+      edit_source: opts.editSource ?? "manual",
+      instructions: opts.instructions ?? "",
+    }),
+
+  /**
+   * Ask the LLM to rewrite content per natural-language instructions.
+   * Returns the proposed new content without writing — caller loads
+   * it into an editor and saves via ``updateMemory`` when ready.
+   */
+  rewriteMemory: (currentContent: string, instructions: string, key?: string) =>
+    postJSON<{ success: boolean; new_content: string }>("/api/rewrite-memory", {
+      current_content: currentContent,
+      instructions,
+      key: key ?? "",
+    }),
+
   forget: (path: string, key: string, namespace = "default") =>
     postJSON<{ success: boolean; key: string; message?: string }>(
       "/api/forget",

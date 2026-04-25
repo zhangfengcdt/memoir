@@ -8,6 +8,12 @@
   overflow: hidden;
 }
 
+/* When the command bar is hidden (no --usellm), let the body take its
+ * row so the views don't have a phantom gap at the bottom. */
+.app-shell:not(:has(.commandbar)) {
+  grid-template-rows: var(--topbar-height) 1fr;
+}
+
 .app-body {
   overflow: hidden;
   min-height: 0;
