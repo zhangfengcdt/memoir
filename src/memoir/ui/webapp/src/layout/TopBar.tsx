@@ -1,15 +1,13 @@
 import { useStore } from "../state/storeSlice";
+import { useUI } from "../state/uiSlice";
 import "./TopBar.css";
 
-interface TopBarProps {
-  onToggleLeft: () => void;
-  leftCollapsed: boolean;
-}
-
-export default function TopBar({ onToggleLeft, leftCollapsed }: TopBarProps) {
+export default function TopBar() {
   const storePath = useStore((s) => s.storePath);
   const status = useStore((s) => s.status);
   const data = useStore((s) => s.data);
+  const leftCollapsed = useUI((s) => s.leftCollapsed);
+  const onToggleLeft = useUI((s) => s.toggleLeft);
 
   const branch = data?.current_branch ?? (status === "connected" ? "—" : "");
   const memoryCount = data?.total_memories;

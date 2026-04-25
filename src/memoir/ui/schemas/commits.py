@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class Commit(BaseModel):
@@ -18,6 +18,10 @@ class Commit(BaseModel):
     # Unix seconds. Kept as int (not datetime) for wire stability; the UI
     # converts via new Date(timestamp * 1000).
     timestamp: int
+    # Tag names pointing at this commit (no ``refs/tags/`` prefix).
+    tags: list[str] = Field(default_factory=list)
+    # Branch-head names pointing at this commit (no ``refs/heads/`` prefix).
+    refs: list[str] = Field(default_factory=list)
 
 
 class CommitsResponse(BaseModel):

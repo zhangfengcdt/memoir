@@ -87,6 +87,7 @@ class BranchService(BaseService):
         self,
         branch: str = "HEAD",
         limit: int = 20,
+        annotate: bool = False,
     ) -> list[CommitInfo]:
         """
         Get commit history for the store.
@@ -94,6 +95,9 @@ class BranchService(BaseService):
         Args:
             branch: Branch or commit ref to get history for
             limit: Maximum number of commits to return
+            annotate: When true, populate ``tags`` and ``refs`` on each
+                ``CommitInfo`` via a single ``git show-ref`` call.
+                Default False preserves legacy behaviour.
 
         Returns:
             List of CommitInfo objects
@@ -133,11 +137,42 @@ class BranchService(BaseService):
                                 )
                             )
 
+            if annotate and commits:
+                refs_by_hash = self._collect_refs()
+                for c in commits:
+                    entries = refs_by_hash.get(c.hash, [])
+                    for ref in entries:
+                        if ref.startswith("refs/tags/"):
+                            c.tags.append(ref[len("refs/tags/") :])
+                        elif ref.startswith("refs/heads/"):
+                            c.refs.append(ref[len("refs/heads/") :])
+                        else:
+                            c.refs.append(ref)
+
             return commits
 
         except Exception as e:
             logger.error(f"Failed to get commits: {e}")
             raise GitOperationError(f"Failed to get commits: {e}")
+
+    def _collect_refs(self) -> dict[str, list[str]]:
+        """Map commit-hash → list of ref names (``refs/heads/...``,
+        ``refs/tags/...``) that point at it.
+
+        One ``git show-ref`` call — O(branches + tags), not O(commits).
+        Returns an empty dict if the repo has no refs yet.
+        """
+        result = self._run_git_command(["show-ref"], check=False)
+        out: dict[str, list[str]] = {}
+        if result.returncode != 0 or not result.stdout:
+            return out
+        for line in result.stdout.splitlines():
+            parts = line.split(maxsplit=1)
+            if len(parts) != 2:
+                continue
+            commit_hash, ref = parts
+            out.setdefault(commit_hash, []).append(ref)
+        return out
 
     def get_current_branch(self) -> tuple[str, str | None]:
         """

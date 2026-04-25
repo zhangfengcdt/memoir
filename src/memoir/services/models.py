@@ -172,6 +172,12 @@ class CommitInfo:
     email: str
     timestamp: int  # Unix timestamp
 
+    # Annotations filled in by the UI handler for the rich commit list.
+    # Empty for legacy callers — ``BranchService.get_commits`` only
+    # populates these when ``annotate=True``.
+    tags: list[str] = field(default_factory=list)
+    refs: list[str] = field(default_factory=list)
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
@@ -181,6 +187,8 @@ class CommitInfo:
             "author": self.author,
             "email": self.email,
             "timestamp": self.timestamp,
+            "tags": list(self.tags),
+            "refs": list(self.refs),
         }
 
 

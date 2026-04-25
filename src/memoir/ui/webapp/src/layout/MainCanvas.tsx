@@ -1,25 +1,23 @@
 import { useEffect, useState } from "react";
 import { useStore } from "../state/storeSlice";
+import { useUI, VIEW_KEYS, type ViewKey } from "../state/uiSlice";
 import { dispatch } from "../commands/registry";
+import CommitList from "../views/commits/CommitList";
 import type { HistoryEntry } from "../state/storeSlice";
 import "./MainCanvas.css";
 
-type ViewKey = "commits" | "tree" | "graph" | "timeline" | "places";
+const VIEW_LABELS: Record<ViewKey, { label: string; shortcut: string }> = {
+  commits: { label: "Commits", shortcut: "⌘1" },
+  tree: { label: "Tree", shortcut: "⌘2" },
+  graph: { label: "Graph", shortcut: "⌘3" },
+  timeline: { label: "Timeline", shortcut: "⌘4" },
+  places: { label: "Places", shortcut: "⌘5" },
+};
 
-interface MainCanvasProps {
-  onOpenDrawer: () => void;
-}
-
-const VIEWS: { key: ViewKey; label: string; shortcut: string }[] = [
-  { key: "commits", label: "Commits", shortcut: "⌘1" },
-  { key: "tree", label: "Tree", shortcut: "⌘2" },
-  { key: "graph", label: "Graph", shortcut: "⌘3" },
-  { key: "timeline", label: "Timeline", shortcut: "⌘4" },
-  { key: "places", label: "Places", shortcut: "⌘5" },
-];
-
-export default function MainCanvas({ onOpenDrawer }: MainCanvasProps) {
-  const [active, setActive] = useState<ViewKey>("commits");
+export default function MainCanvas() {
+  const active = useUI((s) => s.activeView);
+  const setActive = useUI((s) => s.setActiveView);
+  const openDrawer = useUI((s) => s.openDrawer);
   const storePath = useStore((s) => s.storePath);
   const data = useStore((s) => s.data);
   const history = useStore((s) => s.history);
@@ -38,23 +36,30 @@ export default function MainCanvas({ onOpenDrawer }: MainCanvasProps) {
   return (
     <section className="main-canvas">
       <nav className="view-tabs" role="tablist">
-        {VIEWS.map((v) => (
-          <button
-            key={v.key}
-            role="tab"
-            aria-selected={active === v.key}
-            className={`view-tab ${active === v.key ? "active" : ""}`}
-            onClick={() => setActive(v.key)}
-          >
-            <span>{v.label}</span>
-            <kbd className="view-tab-kbd">{v.shortcut}</kbd>
-          </button>
-        ))}
+        {VIEW_KEYS.map((key) => {
+          const meta = VIEW_LABELS[key];
+          return (
+            <button
+              key={key}
+              role="tab"
+              aria-selected={active === key}
+              className={`view-tab ${active === key ? "active" : ""}`}
+              onClick={() => setActive(key)}
+            >
+              <span>{meta.label}</span>
+              <kbd className="view-tab-kbd">{meta.shortcut}</kbd>
+            </button>
+          );
+        })}
       </nav>
 
       <div className="view-body">
         {connected ? (
-          <ConnectedView view={active} onOpenDrawer={onOpenDrawer} />
+          active === "commits" ? (
+            <CommitList />
+          ) : (
+            <PlaceholderView view={active} onOpenDrawer={openDrawer} />
+          )
         ) : (
           <DisconnectedView />
         )}
@@ -90,7 +95,11 @@ function DisconnectedView() {
           }}
           spellCheck={false}
         />
-        <button className="btn btn-primary" onClick={onConnect} disabled={!path.trim() || status === "connecting"}>
+        <button
+          className="btn btn-primary"
+          onClick={onConnect}
+          disabled={!path.trim() || status === "connecting"}
+        >
           Connect
         </button>
       </div>
@@ -98,7 +107,7 @@ function DisconnectedView() {
   );
 }
 
-function ConnectedView({
+function PlaceholderView({
   view,
   onOpenDrawer,
 }: {
@@ -107,9 +116,6 @@ function ConnectedView({
 }) {
   const data = useStore((s) => s.data);
   if (!data) return null;
-
-  // Phase 3/4/6 will replace these with the real Commits/Tree/Graph views.
-  // For now, render the raw JSON summary so the connection path is visible.
   return (
     <div className="connected-view">
       <span className="eyebrow">{view}</span>
@@ -121,8 +127,8 @@ function ConnectedView({
         <span className="chip">{data.branches.length} branches</span>
       </div>
       <p className="connected-lead">
-        The <code>{view}</code> view will render here in the next phase. For now, every
-        detail you'd see in a row lands in the side drawer.
+        The <code>{view}</code> view lands in a future phase. Switch to{" "}
+        <code>Commits</code> (⌘1) to see the rich list.
       </p>
       <div className="connected-actions">
         <button className="btn btn-secondary btn-sm" onClick={onOpenDrawer}>

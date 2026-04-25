@@ -1,10 +1,8 @@
+import { useUI } from "../state/uiSlice";
 import "./RightDrawer.css";
 
-interface RightDrawerProps {
-  onClose: () => void;
-}
-
-export default function RightDrawer({ onClose }: RightDrawerProps) {
+export default function RightDrawer() {
+  const onClose = useUI((s) => s.closeDrawer);
   return (
     <aside className="drawer" aria-label="Detail drawer">
       <header className="drawer-header">

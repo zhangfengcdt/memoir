@@ -1,4 +1,6 @@
 import { useStore } from "../state/storeSlice";
+import { useUI } from "../state/uiSlice";
+import { useSelection } from "../state/selectionSlice";
 
 export interface CommandDef {
   name: string;
@@ -135,6 +137,66 @@ register({
   usage: "/clear",
   run() {
     useStore.getState().clearHistory();
+  },
+});
+
+register({
+  name: "commits",
+  aliases: ["log"],
+  summary: "Switch to the Commits view",
+  usage: "/commits",
+  run() {
+    useUI.getState().setActiveView("commits");
+    useStore.getState().pushHistory({
+      input: "/commits",
+      level: "info",
+      lines: ["Switched to Commits view."],
+    });
+  },
+});
+
+register({
+  name: "tree",
+  aliases: [],
+  summary: "Switch to the Tree view",
+  usage: "/tree",
+  run() {
+    useUI.getState().setActiveView("tree");
+    useStore.getState().pushHistory({
+      input: "/tree",
+      level: "info",
+      lines: ["Switched to Tree view (placeholder until Phase 4)."],
+    });
+  },
+});
+
+register({
+  name: "graph",
+  aliases: [],
+  summary: "Switch to the Graph view",
+  usage: "/graph",
+  run() {
+    useUI.getState().setActiveView("graph");
+    useStore.getState().pushHistory({
+      input: "/graph",
+      level: "info",
+      lines: ["Switched to Graph view (placeholder until Phase 6)."],
+    });
+  },
+});
+
+register({
+  name: "deselect",
+  aliases: [],
+  summary: "Clear commit selection",
+  usage: "/deselect",
+  run() {
+    useSelection.getState().clear();
+    useStore.getState().pushHistory({
+      input: "/deselect",
+      level: "info",
+      lines: ["Selection cleared."],
+    });
   },
 });
 

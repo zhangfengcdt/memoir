@@ -1,0 +1,148 @@
+.commit-row {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid transparent;
+  border-left: 3px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+  background: transparent;
+}
+
+.commit-row:hover {
+  background: var(--bg-1);
+}
+
+.commit-row.selected {
+  background: var(--accent-dim);
+  border-color: transparent;
+  border-left-color: var(--accent);
+}
+
+.commit-row.primary {
+  outline: none;
+  background: var(--accent-dim);
+  border-left-color: var(--accent);
+}
+
+.commit-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Graph gutter — dot + connecting lines. */
+.commit-gutter {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding-top: 6px;
+}
+
+.commit-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--bg-0);
+  z-index: 1;
+  margin-top: 2px;
+}
+
+.commit-line {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 2px;
+  background: var(--border-strong);
+}
+
+.commit-line-top {
+  top: 0;
+  height: 10px;
+}
+
+.commit-line-bottom {
+  top: 18px;
+  bottom: 0;
+}
+
+.commit-line[data-hidden="true"] {
+  visibility: hidden;
+}
+
+.commit-row.selected .commit-dot,
+.commit-row.primary .commit-dot {
+  background: var(--accent-hover);
+  box-shadow: 0 0 0 3px var(--bg-0), 0 0 0 5px var(--accent-dim);
+}
+
+/* Main content column. */
+.commit-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.commit-top-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.commit-hash {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--accent);
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-sm);
+}
+
+.commit-message {
+  color: var(--fg-0);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.commit-meta-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+}
+
+.commit-author {
+  color: var(--fg-1);
+}
+
+.commit-dot-sep {
+  color: var(--fg-3);
+}
+
+.commit-time {
+  color: var(--fg-2);
+}
+
+.chip.tag {
+  background: rgba(255, 184, 77, 0.12);
+  color: var(--warning);
+  border-color: transparent;
+}
+
+.chip.accent.current {
+  background: var(--accent);
+  color: #05120c;
+}

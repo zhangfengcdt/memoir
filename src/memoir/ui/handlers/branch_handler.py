@@ -71,7 +71,7 @@ class BranchHandler(BaseAPIHandler):
 
         try:
             service = BranchService(store_path)
-            commits = service.get_commits(branch, limit=limit)
+            commits = service.get_commits(branch, limit=limit, annotate=True)
 
             body = CommitsResponse.model_validate(
                 {

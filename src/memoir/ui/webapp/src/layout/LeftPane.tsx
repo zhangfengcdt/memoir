@@ -1,29 +1,35 @@
 import { useStore } from "../state/storeSlice";
+import { useUI } from "../state/uiSlice";
+import type { ViewKey } from "../state/uiSlice";
 import "./LeftPane.css";
 
-interface LeftPaneProps {
-  collapsed: boolean;
-}
-
-export default function LeftPane({ collapsed }: LeftPaneProps) {
+export default function LeftPane() {
   const data = useStore((s) => s.data);
   const status = useStore((s) => s.status);
+  const collapsed = useUI((s) => s.leftCollapsed);
+  const activeView = useUI((s) => s.activeView);
+  const setActiveView = useUI((s) => s.setActiveView);
 
   if (collapsed) {
+    const rail: { key: ViewKey; title: string; icon: RailIconKind }[] = [
+      { key: "commits", title: "Commits (⌘1)", icon: "commits" },
+      { key: "tree", title: "Tree (⌘2)", icon: "tree" },
+      { key: "graph", title: "Graph (⌘3)", icon: "graph" },
+      { key: "timeline", title: "Timeline (⌘4)", icon: "timeline" },
+    ];
     return (
       <aside className="leftpane leftpane-collapsed" aria-label="Navigation rail">
-        <button className="rail-btn active" title="Commits">
-          <RailIcon kind="commits" />
-        </button>
-        <button className="rail-btn" title="Tree">
-          <RailIcon kind="tree" />
-        </button>
-        <button className="rail-btn" title="Graph">
-          <RailIcon kind="graph" />
-        </button>
-        <button className="rail-btn" title="Timeline">
-          <RailIcon kind="timeline" />
-        </button>
+        {rail.map((r) => (
+          <button
+            key={r.key}
+            className={`rail-btn${activeView === r.key ? " active" : ""}`}
+            title={r.title}
+            onClick={() => setActiveView(r.key)}
+            aria-label={r.title}
+          >
+            <RailIcon kind={r.icon} />
+          </button>
+        ))}
       </aside>
     );
   }
@@ -93,7 +99,9 @@ function countLeaves(node: unknown): number {
   return 1;
 }
 
-function RailIcon({ kind }: { kind: "commits" | "tree" | "graph" | "timeline" }) {
+type RailIconKind = "commits" | "tree" | "graph" | "timeline";
+
+function RailIcon({ kind }: { kind: RailIconKind }) {
   const common = {
     width: 18,
     height: 18,

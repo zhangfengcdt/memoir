@@ -49,6 +49,10 @@ export interface Commit {
   author: string;
   email: string;
   timestamp: number; // unix seconds
+  // Tag names pointing at this commit (no `refs/tags/` prefix).
+  tags: string[];
+  // Branch-head names pointing at this commit (no `refs/heads/` prefix).
+  refs: string[];
 }
 
 export interface CommitsResponse {
