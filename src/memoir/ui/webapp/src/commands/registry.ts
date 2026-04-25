@@ -186,6 +186,16 @@ register({
 });
 
 register({
+  name: "shortcuts",
+  aliases: ["keys"],
+  summary: "Show the keyboard shortcuts overlay",
+  usage: "/shortcuts",
+  run() {
+    useUI.getState().openShortcuts();
+  },
+});
+
+register({
   name: "deselect",
   aliases: [],
   summary: "Clear commit selection",

@@ -35,8 +35,8 @@ export default function MainCanvas() {
   const connected = Boolean(data);
 
   return (
-    <section className="main-canvas">
-      <nav className="view-tabs" role="tablist">
+    <main className="main-canvas" aria-label="Main content">
+      <nav className="view-tabs" role="tablist" aria-label="View tabs">
         {VIEW_KEYS.map((key) => {
           const meta = VIEW_LABELS[key];
           return (
@@ -54,7 +54,7 @@ export default function MainCanvas() {
         })}
       </nav>
 
-      <div className="view-body">
+      <div className="view-body" role="tabpanel" aria-label={`${active} view`}>
         {connected ? (
           active === "commits" ? (
             <CommitList />
@@ -70,7 +70,7 @@ export default function MainCanvas() {
         )}
         {history.length > 0 && <HistoryLog entries={history} />}
       </div>
-    </section>
+    </main>
   );
 }
 

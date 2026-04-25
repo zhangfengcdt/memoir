@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { Commit, Memory } from "../api/types";
+import { makeStorage } from "../lib/storage";
 
 /**
  * UI chrome state — view tabs, left pane collapse, drawer stack.
@@ -39,14 +40,43 @@ export function drawerPanelTitle(panel: DrawerPanel): string {
   }
 }
 
+/** Shape of the slice's persisted prefs. Drawer stack and shortcuts
+ * overlay are runtime-only. */
+interface PersistedUI {
+  activeView: ViewKey;
+  leftCollapsed: boolean;
+}
+
+const PERSIST_KEY = "memoir:ui:v1";
+
+const persist = makeStorage<PersistedUI>(
+  PERSIST_KEY,
+  { activeView: "commits", leftCollapsed: false },
+  (raw) => {
+    if (!raw || typeof raw !== "object") return null;
+    const obj = raw as Record<string, unknown>;
+    const view = obj.activeView;
+    const collapsed = obj.leftCollapsed;
+    if (typeof view !== "string" || !VIEW_KEYS.includes(view as ViewKey)) {
+      return null;
+    }
+    if (typeof collapsed !== "boolean") return null;
+    return { activeView: view as ViewKey, leftCollapsed: collapsed };
+  },
+);
+
 interface UISlice {
   activeView: ViewKey;
   leftCollapsed: boolean;
   drawerStack: DrawerPanel[];
+  shortcutsOpen: boolean;
 
   setActiveView: (view: ViewKey) => void;
   toggleLeft: () => void;
   setLeftCollapsed: (collapsed: boolean) => void;
+  openShortcuts: () => void;
+  closeShortcuts: () => void;
+  toggleShortcuts: () => void;
 
   /** Push a panel on top. If the top already has the same panel-kind and
    * the same identifying key, replace it instead — avoids breadcrumb
@@ -71,19 +101,45 @@ function panelIdentity(p: DrawerPanel): string {
   }
 }
 
+// Hydrate from localStorage at module load — once per session. Tests
+// can override by calling ``persist.clear()`` then reloading the module.
+const initial = persist.load();
+
+function persistFromState(s: { activeView: ViewKey; leftCollapsed: boolean }) {
+  persist.save({ activeView: s.activeView, leftCollapsed: s.leftCollapsed });
+}
+
 export const useUI = create<UISlice>((set) => ({
-  activeView: "commits",
-  leftCollapsed: false,
+  activeView: initial.activeView,
+  leftCollapsed: initial.leftCollapsed,
   drawerStack: [],
+  shortcutsOpen: false,
 
   setActiveView(view) {
     set({ activeView: view });
+    persistFromState({ activeView: view, leftCollapsed: useUI.getState().leftCollapsed });
   },
   toggleLeft() {
-    set((s) => ({ leftCollapsed: !s.leftCollapsed }));
+    set((s) => {
+      const next = !s.leftCollapsed;
+      persistFromState({ activeView: s.activeView, leftCollapsed: next });
+      return { leftCollapsed: next };
+    });
   },
   setLeftCollapsed(collapsed) {
-    set({ leftCollapsed: collapsed });
+    set((s) => {
+      persistFromState({ activeView: s.activeView, leftCollapsed: collapsed });
+      return { leftCollapsed: collapsed };
+    });
+  },
+  openShortcuts() {
+    set({ shortcutsOpen: true });
+  },
+  closeShortcuts() {
+    set({ shortcutsOpen: false });
+  },
+  toggleShortcuts() {
+    set((s) => ({ shortcutsOpen: !s.shortcutsOpen }));
   },
 
   pushPanel(panel) {

@@ -110,6 +110,27 @@ describe("drawer stack reducer", () => {
     expect(stack.map((p) => p.kind)).toEqual(["memory-detail"]);
   });
 
+  it("shortcuts overlay opens, toggles, and closes", () => {
+    expect(useUI.getState().shortcutsOpen).toBe(false);
+    useUI.getState().openShortcuts();
+    expect(useUI.getState().shortcutsOpen).toBe(true);
+    useUI.getState().closeShortcuts();
+    expect(useUI.getState().shortcutsOpen).toBe(false);
+    useUI.getState().toggleShortcuts();
+    expect(useUI.getState().shortcutsOpen).toBe(true);
+    useUI.getState().toggleShortcuts();
+    expect(useUI.getState().shortcutsOpen).toBe(false);
+  });
+
+  it("setActiveView and setLeftCollapsed update state synchronously", () => {
+    useUI.getState().setActiveView("graph");
+    expect(useUI.getState().activeView).toBe("graph");
+    useUI.getState().setLeftCollapsed(true);
+    expect(useUI.getState().leftCollapsed).toBe(true);
+    useUI.getState().toggleLeft();
+    expect(useUI.getState().leftCollapsed).toBe(false);
+  });
+
   it("drawerPanelTitle is kind-aware and compact", () => {
     expect(
       drawerPanelTitle({ kind: "memory-detail", memory: MEMORY }),

@@ -66,7 +66,7 @@ export default function CommandBar() {
   }
 
   return (
-    <footer className="commandbar" data-status={status}>
+    <footer className="commandbar" data-status={status} role="contentinfo">
       <span className="commandbar-prompt" aria-hidden="true">
         /
       </span>

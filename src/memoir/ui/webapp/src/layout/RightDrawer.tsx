@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { useUI, drawerPanelTitle, type DrawerPanel } from "../state/uiSlice";
 import MemoryDetail from "../drawers/MemoryDetail";
 import CommitDetail from "../drawers/CommitDetail";
@@ -9,6 +10,29 @@ export default function RightDrawer() {
   const closeDrawer = useUI((s) => s.closeDrawer);
   const gotoPanel = useUI((s) => s.gotoPanel);
   const popPanel = useUI((s) => s.popPanel);
+
+  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
+  const triggerRef = useRef<HTMLElement | null>(null);
+  const wasOpen = useRef(false);
+
+  // Snapshot the trigger element on first open, then focus the close
+  // button so keyboard users land somewhere actionable. On close,
+  // return focus to whatever opened the drawer (the Tree leaf or
+  // commit row that was clicked) so screen-reader / keyboard users
+  // don't lose their place.
+  const isOpen = stack.length > 0;
+  useEffect(() => {
+    if (isOpen && !wasOpen.current) {
+      triggerRef.current = document.activeElement as HTMLElement | null;
+      // Defer one frame so the button is mounted before we focus.
+      requestAnimationFrame(() => closeBtnRef.current?.focus());
+      wasOpen.current = true;
+    } else if (!isOpen && wasOpen.current) {
+      // Close: restore focus to the trigger.
+      triggerRef.current?.focus?.();
+      wasOpen.current = false;
+    }
+  }, [isOpen]);
 
   const top = stack[stack.length - 1];
   if (!top) return null;
@@ -73,6 +97,7 @@ export default function RightDrawer() {
             </button>
           )}
           <button
+            ref={closeBtnRef}
             type="button"
             className="drawer-close"
             onClick={closeDrawer}
