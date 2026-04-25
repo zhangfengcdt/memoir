@@ -3481,6 +3481,74 @@ body {
     cursor: progress;
 }
 
+/* Inline overwrite-confirmation panel — visually identical to the
+   "delete a branch" confirm in the Sync modal so the two destructive-ish
+   actions feel the same. */
+
+.node-edit-confirm {
+    margin-top: 10px;
+    padding: 10px 12px;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    background: rgba(239, 68, 68, 0.06);
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--text-primary);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.node-edit-confirm-title {
+    font-weight: 600;
+    color: var(--error);
+}
+
+.node-edit-confirm-title code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    background: rgba(239, 68, 68, 0.1);
+    color: var(--error);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.node-edit-confirm-hint {
+    font-size: 11px;
+    color: var(--text-secondary);
+}
+
+.node-edit-confirm-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.node-edit-confirm-cancel,
+.node-edit-confirm-yes {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    color: var(--text-primary);
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+}
+
+.node-edit-confirm-cancel:hover {
+    background: var(--bg-hover);
+}
+
+.node-edit-confirm-yes {
+    color: var(--error);
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+.node-edit-confirm-yes:hover {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.5);
+}
+
 .branch-btn-stats {
     color: var(--accent-secondary, #a78bfa);
 }

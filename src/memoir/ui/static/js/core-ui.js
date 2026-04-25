@@ -5120,16 +5120,13 @@ ${result.valid ?
                 };
             }
 
-            saveBtn.onclick = async () => {
-                const newContent = textarea.value;
-                if (newContent === ctx.currentContent) {
-                    showNotification('No changes to save', 'info');
-                    return;
-                }
-                let editSource = 'manual';
-                if (lastAiOutput !== null) {
-                    editSource = newContent === lastAiOutput ? 'llm' : 'llm+manual';
-                }
+            const sourceLabel = (src) => ({
+                manual: 'Manual edit',
+                llm: 'LLM-assisted edit',
+                'llm+manual': 'LLM-assisted edit (manually adjusted)',
+            }[src] || 'Manual edit');
+
+            const performActualSave = async (editSource, newContent) => {
                 saveBtn.disabled = true;
                 cancelBtn.disabled = true;
                 saveBtn.textContent = 'Saving…';
@@ -5166,6 +5163,50 @@ ${result.valid ?
                     cancelBtn.disabled = false;
                     saveBtn.textContent = 'Save';
                 }
+            };
+
+            saveBtn.onclick = () => {
+                const newContent = textarea.value;
+                if (newContent === ctx.currentContent) {
+                    showNotification('No changes to save', 'info');
+                    return;
+                }
+                let editSource = 'manual';
+                if (lastAiOutput !== null) {
+                    editSource = newContent === lastAiOutput ? 'llm' : 'llm+manual';
+                }
+
+                // Inline confirmation panel — same UI pattern as the
+                // delete-a-branch confirm in the Sync modal. Title + hint +
+                // Cancel/Confirm buttons, nothing flashy.
+                const existing = editor.querySelector('.node-edit-confirm');
+                if (existing) existing.remove();
+
+                const confirmPanel = document.createElement('div');
+                confirmPanel.className = 'node-edit-confirm';
+                confirmPanel.innerHTML = `
+                    <div class="node-edit-confirm-title">
+                        Overwrite memory <code>${escapeHtml(ctx.fullPath)}</code>?
+                    </div>
+                    <div class="node-edit-confirm-hint">
+                        This replaces the existing content (${escapeHtml(sourceLabel(editSource))})
+                        and pushes a new commit to the current branch.
+                    </div>
+                    <div class="node-edit-confirm-actions">
+                        <button class="node-edit-confirm-cancel" type="button" data-confirm="cancel">Cancel</button>
+                        <button class="node-edit-confirm-yes" type="button" data-confirm="yes">Save</button>
+                    </div>
+                `;
+
+                confirmPanel.querySelector('[data-confirm="cancel"]').onclick = () => {
+                    confirmPanel.remove();
+                };
+                confirmPanel.querySelector('[data-confirm="yes"]').onclick = () => {
+                    confirmPanel.remove();
+                    performActualSave(editSource, newContent);
+                };
+
+                editor.appendChild(confirmPanel);
             };
 
             // Focus the textarea so the user can start typing right away.
