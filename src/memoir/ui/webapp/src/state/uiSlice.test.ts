@@ -110,18 +110,6 @@ describe("drawer stack reducer", () => {
     expect(stack.map((p) => p.kind)).toEqual(["memory-detail"]);
   });
 
-  it("shortcuts overlay opens, toggles, and closes", () => {
-    expect(useUI.getState().shortcutsOpen).toBe(false);
-    useUI.getState().openShortcuts();
-    expect(useUI.getState().shortcutsOpen).toBe(true);
-    useUI.getState().closeShortcuts();
-    expect(useUI.getState().shortcutsOpen).toBe(false);
-    useUI.getState().toggleShortcuts();
-    expect(useUI.getState().shortcutsOpen).toBe(true);
-    useUI.getState().toggleShortcuts();
-    expect(useUI.getState().shortcutsOpen).toBe(false);
-  });
-
   it("stats modal opens, toggles, and closes", () => {
     expect(useUI.getState().statsOpen).toBe(false);
     useUI.getState().openStats();

@@ -10,7 +10,6 @@ import LeftPane from "./LeftPane";
 import CommandBar from "./CommandBar";
 import MainCanvas from "./MainCanvas";
 import RightDrawer from "./RightDrawer";
-import ShortcutsOverlay from "../modals/ShortcutsOverlay";
 import StatsModal from "../modals/StatsModal";
 import CommandReferenceModal from "../modals/CommandReferenceModal";
 import SyncBranchesModal from "../modals/SyncBranchesModal";
@@ -26,7 +25,6 @@ export default function AppShell() {
   const toggleLeft = useUI((s) => s.toggleLeft);
   const closeDrawer = useUI((s) => s.closeDrawer);
   const setActiveView = useUI((s) => s.setActiveView);
-  const openShortcuts = useUI((s) => s.openShortcuts);
   const setLeftCollapsed = useUI((s) => s.setLeftCollapsed);
 
   // react-resizable-panels owns the actual width of each panel; just
@@ -67,20 +65,6 @@ export default function AppShell() {
         }
         return;
       }
-      // ``?`` opens the shortcuts overlay, but only when focus is outside
-      // an editable element — otherwise the user is just typing text.
-      if (e.key === "?" && !e.metaKey && !e.ctrlKey && !e.altKey) {
-        const active = document.activeElement as HTMLElement | null;
-        const isEditable =
-          active?.tagName === "INPUT" ||
-          active?.tagName === "TEXTAREA" ||
-          (active && active.isContentEditable);
-        if (!isEditable) {
-          e.preventDefault();
-          openShortcuts();
-          return;
-        }
-      }
       if (e.key === "Escape" && useUI.getState().drawerStack.length > 0) {
         // Only close the drawer if no input is focused — otherwise Esc is
         // owned by the CommandBar (clears its buffer).
@@ -92,7 +76,7 @@ export default function AppShell() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [toggleLeft, closeDrawer, setActiveView, openShortcuts]);
+  }, [toggleLeft, closeDrawer, setActiveView]);
 
   return (
     <div className="app-shell">
@@ -144,7 +128,6 @@ export default function AppShell() {
 
       {useLLM && <CommandBar />}
 
-      <ShortcutsOverlay />
       <StatsModal />
       <CommandReferenceModal />
       <SyncBranchesModal />

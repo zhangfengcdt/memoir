@@ -289,18 +289,6 @@ register({
 });
 
 register({
-  name: "shortcuts",
-  aliases: ["keys"],
-  summary: "Show the keyboard shortcuts overlay",
-  usage: "/shortcuts",
-  category: "ui",
-  tags: [],
-  run() {
-    useUI.getState().openShortcuts();
-  },
-});
-
-register({
   name: "help",
   aliases: ["h", "?"],
   summary: "Open the command reference",

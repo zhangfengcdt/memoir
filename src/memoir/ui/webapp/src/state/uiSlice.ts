@@ -93,7 +93,6 @@ interface UISlice {
   activeView: ViewKey;
   leftCollapsed: boolean;
   drawerStack: DrawerPanel[];
-  shortcutsOpen: boolean;
   statsOpen: boolean;
   helpOpen: boolean;
   branchesOpen: boolean;
@@ -112,9 +111,6 @@ interface UISlice {
   toggleLeft: () => void;
   setLeftCollapsed: (collapsed: boolean) => void;
   setSelectedNamespace: (ns: string | null) => void;
-  openShortcuts: () => void;
-  closeShortcuts: () => void;
-  toggleShortcuts: () => void;
   openStats: () => void;
   closeStats: () => void;
   toggleStats: () => void;
@@ -172,7 +168,6 @@ export const useUI = create<UISlice>((set) => ({
   activeView: initial.activeView,
   leftCollapsed: initial.leftCollapsed,
   drawerStack: [],
-  shortcutsOpen: false,
   statsOpen: false,
   helpOpen: false,
   branchesOpen: false,
@@ -195,15 +190,6 @@ export const useUI = create<UISlice>((set) => ({
   setSelectedNamespace(ns) {
     set({ selectedNamespace: ns });
     persistFromState(snapshot(useUI.getState()));
-  },
-  openShortcuts() {
-    set({ shortcutsOpen: true });
-  },
-  closeShortcuts() {
-    set({ shortcutsOpen: false });
-  },
-  toggleShortcuts() {
-    set((s) => ({ shortcutsOpen: !s.shortcutsOpen }));
   },
   openStats() {
     set({ statsOpen: true });

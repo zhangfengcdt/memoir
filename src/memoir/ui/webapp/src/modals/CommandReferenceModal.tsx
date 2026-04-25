@@ -180,9 +180,7 @@ export default function CommandReferenceModal() {
         <footer className="cmdref-footer">
           <span>Type</span>
           <kbd>/help &lt;command&gt;</kbd>
-          <span>for a one-liner. Press</span>
-          <kbd>?</kbd>
-          <span>for keyboard shortcuts.</span>
+          <span>for a one-liner.</span>
         </footer>
       </div>
     </div>
