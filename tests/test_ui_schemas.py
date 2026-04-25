@@ -110,6 +110,48 @@ def test_store_response_matches_service(temp_store):
     assert "store_path" in dumped
 
 
+def test_store_response_with_memories_validates(temp_store):
+    """Populated store drift guard.
+
+    Insert memories with dotted taxonomy paths (the format the UI tree
+    view depends on), run the reader, and make sure the Pydantic schema
+    accepts the resulting payload. Catches changes in the reader that
+    would otherwise surface as runtime JSON errors in the browser.
+    """
+    import json as _json
+
+    from memoir.store.prolly_adapter import ProllyTreeStore
+
+    store = ProllyTreeStore(
+        path=temp_store,
+        enable_versioning=True,
+        auto_commit=True,
+        cache_size=1000,
+    )
+    samples = [
+        ("default:workflow.coding.style", "prefer async-first"),
+        ("default:workflow.coding.naming", "snake_case for Python"),
+        ("codebase:onboard:structure.cli", "Click-based CLI"),
+    ]
+    for key, content in samples:
+        store.tree.insert(
+            key.encode("utf-8"),
+            _json.dumps({"content": content}).encode("utf-8"),
+        )
+
+    data = StoreService(temp_store).read_store()
+    body = StoreResponse.model_validate(data)
+
+    assert body.total_memories >= len(samples)
+    paths = {m.path for m in body.memories}
+    assert "workflow.coding.style" in paths
+    assert "structure.cli" in paths
+    # Namespaces must be preserved verbatim (the v2 tree splits on them).
+    namespaces = {m.namespace for m in body.memories}
+    assert "default" in namespaces
+    assert "codebase:onboard" in namespaces
+
+
 def test_branches_response_rejects_extra_fields():
     """Schema drift guard: ``extra='forbid'`` catches unexpected keys."""
     with pytest.raises(ValidationError, match="unexpected_field"):

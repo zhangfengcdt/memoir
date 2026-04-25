@@ -1,0 +1,208 @@
+.tree-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.tree-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.tree-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+  font-family: var(--font-mono);
+}
+
+.tree-sep {
+  color: var(--fg-3);
+}
+
+.tree-empty {
+  padding: var(--space-8);
+  color: var(--fg-2);
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-1);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.tree-empty code {
+  color: var(--accent);
+  background: var(--bg-2);
+  padding: 0.1rem 0.35rem;
+  border-radius: var(--radius-sm);
+}
+
+.tree-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* Per-namespace section. */
+.tree-namespace {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-1);
+  overflow: hidden;
+}
+
+.tree-namespace-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-2);
+}
+
+.tree-namespace-name {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--accent);
+  letter-spacing: var(--tracking-snug);
+}
+
+.tree-namespace-count {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+}
+
+.tree-nodes,
+.tree-children,
+.tree-memories {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tree-nodes {
+  padding: var(--space-2) 0;
+}
+
+/* Expand/collapse row. */
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  color: var(--fg-1);
+  font-size: var(--text-sm);
+  text-align: left;
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+  cursor: pointer;
+}
+
+.tree-row:hover {
+  background: var(--bg-2);
+  color: var(--fg-0);
+}
+
+.tree-row[aria-expanded]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: var(--radius-sm);
+}
+
+.tree-caret {
+  width: 12px;
+  flex-shrink: 0;
+  color: var(--fg-3);
+  font-size: 0.7rem;
+  text-align: center;
+}
+
+.tree-row:hover .tree-caret {
+  color: var(--accent);
+}
+
+.tree-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-0);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-count {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-3);
+  padding: 0.05rem 0.35rem;
+  background: var(--bg-0);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+/* Leaf memory row. */
+.tree-leaf-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  padding: 0.3rem 0.5rem;
+  text-align: left;
+  font-size: var(--text-xs);
+  color: var(--fg-1);
+  border-left: 2px solid transparent;
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+  cursor: pointer;
+}
+
+.tree-leaf-row:hover {
+  background: var(--bg-2);
+  color: var(--fg-0);
+}
+
+.tree-leaf-row.selected {
+  background: var(--accent-dim);
+  color: var(--fg-0);
+  border-left-color: var(--accent);
+}
+
+.tree-leaf-dot {
+  width: 6px;
+  height: 6px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--fg-3);
+}
+
+.tree-leaf-row.selected .tree-leaf-dot {
+  background: var(--accent);
+}
+
+.tree-leaf-path {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  color: var(--fg-0);
+}
+
+.tree-leaf-preview {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--fg-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

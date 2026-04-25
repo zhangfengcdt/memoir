@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from .branches import BranchesResponse, CurrentBranchResponse
 from .commits import Commit, CommitsResponse
+from .memory import Memory
 from .store import StoreCommit, StoreResponse
 
 __all__ = [
@@ -24,6 +25,7 @@ __all__ = [
     "Commit",
     "CommitsResponse",
     "CurrentBranchResponse",
+    "Memory",
     "StoreCommit",
     "StoreResponse",
 ]

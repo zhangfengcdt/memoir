@@ -15,16 +15,25 @@ export interface StoreCommit {
   message: string;
 }
 
+// Pydantic: Memory (extra='allow')
+export interface Memory {
+  key: string;       // "namespace:path"
+  namespace: string; // e.g. "default", "codebase:onboard"
+  path: string;      // e.g. "workflow.coding.style"
+  content: string | null;
+  value: Record<string, unknown>;
+}
+
 export interface StoreResponse {
   store_path: string;
   branches: string[];
   current_branch: string;
   commits: StoreCommit[];
-  namespaces: Record<string, unknown>;
+  namespaces: Record<string, string[]>;
+  memories: Memory[];
   total_memories: number;
   // legacy extras preserved on the wire:
-  memories?: unknown[];
-  tree?: Record<string, unknown>;
+  tree?: Record<string, number>;
 }
 
 // --- /api/branches ---------------------------------------------------------

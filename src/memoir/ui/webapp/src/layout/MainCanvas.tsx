@@ -3,6 +3,7 @@ import { useStore } from "../state/storeSlice";
 import { useUI, VIEW_KEYS, type ViewKey } from "../state/uiSlice";
 import { dispatch } from "../commands/registry";
 import CommitList from "../views/commits/CommitList";
+import TaxonomyTree from "../views/tree/TaxonomyTree";
 import type { HistoryEntry } from "../state/storeSlice";
 import "./MainCanvas.css";
 
@@ -57,6 +58,8 @@ export default function MainCanvas() {
         {connected ? (
           active === "commits" ? (
             <CommitList />
+          ) : active === "tree" ? (
+            <TaxonomyTree />
           ) : (
             <PlaceholderView view={active} onOpenDrawer={openDrawer} />
           )
