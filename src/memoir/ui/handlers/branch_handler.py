@@ -344,6 +344,15 @@ class BranchHandler(BaseAPIHandler):
             target = data.get("target")
             dry_run = bool(data.get("dry_run", False))
             confirm = bool(data.get("confirm", False))
+            raw_excluded = data.get("excluded_keys") or []
+            if not isinstance(raw_excluded, list) or not all(
+                isinstance(k, str) for k in raw_excluded
+            ):
+                self.handler.send_error(
+                    400, "'excluded_keys' must be a list of strings"
+                )
+                return
+            excluded_keys = list(raw_excluded)
 
             if not store_path:
                 self.handler.send_error(400, "Missing 'path' parameter")
@@ -370,7 +379,9 @@ class BranchHandler(BaseAPIHandler):
                 return
 
             service = BranchService(store_path)
-            result = service.promote_branch(source, target, dry_run=dry_run)
+            result = service.promote_branch(
+                source, target, dry_run=dry_run, excluded_keys=excluded_keys
+            )
 
             if result.success:
                 payload = result.to_dict()

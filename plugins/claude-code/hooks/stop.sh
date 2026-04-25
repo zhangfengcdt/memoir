@@ -98,6 +98,15 @@ Output at least one line ONLY if you can honestly answer YES to all of:
 
 If any answer is no, unsure, or 'maybe' — DO NOT emit a line. Err strongly toward silence. A missed fact will be captured on a future turn when it actually matters; a bogus or trivial fact pollutes memory permanently and costs classifier quality for everyone.
 
+ALWAYS-CAPTURE TRIGGERS (override the silent default — if any of these fire, you SHOULD emit a line):
+  - Standing rules / going-forward instructions: 'from now on…', 'going forward…', 'always X', 'never X', 'we should/must…', 'make sure to…', 'every time…', 'whenever…'
+  - Stated preferences about how the user wants to work or how code should be written ('I prefer…', 'use X over Y', 'I like…', 'don't use…')
+  - Architectural / design / tooling decisions made this turn — capture the *why*, not just the *what*
+  - Project facts surfaced this turn that aren't already in the code or CLAUDE.md (stack choices, infra, branching, ownership, hard constraints)
+  - Non-obvious technical knowledge: invariants, gotchas, hidden constraints, performance characteristics, gotchas a future session would re-learn the hard way
+
+When a trigger fires, the four DURABLE checks above still apply — but treat them as a sanity filter, not a high bar. Standing rules and stated preferences pass by definition.
+
 Turns that should almost always produce NOTHING:
   - Routine Q&A (the user asked, you answered, neither party learned anything persistent)
   - Code reads / file exploration / 'show me X' requests
@@ -118,7 +127,7 @@ RULES:
 - Prefer paths shown in CATEGORIES/EXAMPLES; invent a new 3-level path under an existing top-level category only if nothing fits.
 - Each fact is ONE complete, self-contained statement. Third-person when about the human.
 - DURABLE only: preferences, project/tool choices, roles, decisions, architectural intent, constraints likely relevant across sessions.
-- EXCLUDE: ephemeral task state, today-only TODOs, tool-call mechanics, what Claude did this turn, things already in the code or git history, restatements of obvious facts, polite chit-chat, this-turn-only feedback.
+- EXCLUDE: ephemeral task state, today-only TODOs, tool-call mechanics, what Claude did this turn, things already in the code or git history, restatements of obvious facts, polite chit-chat, feedback that ONLY applies to this turn ('that worked', 'try again', 'a bit shorter please'). NOTE: a standing rule expressed AS feedback ('don't do X anymore', 'from now on do Y', 'we should always Z') is DURABLE — capture it. The test is whether the rule applies to future turns, not whether it was phrased as a correction.
 - NO preamble, NO explanation, NO bullets/numbering, NO 'no facts found' message — only the path<TAB>fact lines, or a completely empty response."
 
 FACTS_TSV=""
