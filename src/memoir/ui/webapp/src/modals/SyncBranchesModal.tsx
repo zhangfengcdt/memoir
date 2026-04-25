@@ -49,6 +49,7 @@ export default function SyncBranchesModal() {
     branch: string;
     added: string[];
     updated: string[];
+    excluded: Set<string>;
   } | null>(null);
 
   const refresh = useCallback(async () => {
@@ -109,6 +110,7 @@ export default function SyncBranchesModal() {
         branch: branch.name,
         added: preview.added_keys ?? [],
         updated: preview.updated_keys ?? [],
+        excluded: new Set<string>(),
       });
     } catch (err) {
       setError(err instanceof MemoirApiError ? err.message : String(err));
@@ -119,12 +121,28 @@ export default function SyncBranchesModal() {
 
   const onCancelMerge = () => setMergePreview(null);
 
+  const onToggleExcludeKey = (key: string) => {
+    setMergePreview((prev) => {
+      if (!prev) return prev;
+      const next = new Set(prev.excluded);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return { ...prev, excluded: next };
+    });
+  };
+
   const onConfirmMerge = async (branch: BranchStatus) => {
     if (!storePath || !data) return;
+    const excluded = mergePreview?.branch === branch.name
+      ? [...mergePreview.excluded]
+      : [];
     setBusyBranch(branch.name);
     setError(null);
     try {
-      await api.syncBranch(storePath, branch.name, data.default, { confirm: true });
+      await api.syncBranch(storePath, branch.name, data.default, {
+        confirm: true,
+        excludedKeys: excluded,
+      });
       setMergePreview(null);
       await refresh();
       await useStore.getState().refresh();
@@ -252,6 +270,7 @@ export default function SyncBranchesModal() {
                 onMerge={onMerge}
                 onConfirmMerge={onConfirmMerge}
                 onCancelMerge={onCancelMerge}
+                onToggleExcludeKey={onToggleExcludeKey}
                 onDeleteClick={onDeleteClick}
                 onConfirmDelete={onConfirmDelete}
                 onCancelDelete={onCancelDelete}
@@ -282,10 +301,16 @@ interface BranchRowProps {
   disabled: boolean;
   isBusy: boolean;
   isConfirmingDelete: boolean;
-  mergePreview: { branch: string; added: string[]; updated: string[] } | null;
+  mergePreview: {
+    branch: string;
+    added: string[];
+    updated: string[];
+    excluded: Set<string>;
+  } | null;
   onMerge: (b: BranchStatus) => void;
   onConfirmMerge: (b: BranchStatus) => void;
   onCancelMerge: () => void;
+  onToggleExcludeKey: (key: string) => void;
   onDeleteClick: (b: BranchStatus) => void;
   onConfirmDelete: (b: BranchStatus) => void;
   onCancelDelete: () => void;
@@ -301,6 +326,7 @@ function BranchRow({
   onMerge,
   onConfirmMerge,
   onCancelMerge,
+  onToggleExcludeKey,
   onDeleteClick,
   onConfirmDelete,
   onCancelDelete,
@@ -376,78 +402,121 @@ function BranchRow({
         </div>
       </div>
 
-      {mergePreview && (
-        <div className="sync-confirm" role="alertdialog" aria-label="Confirm merge">
-          <div className="sync-confirm-text">
-            <strong className="sync-confirm-title">
-              Merge <code>{branch.name}</code> → <code>{defaultBranch}</code>?
-            </strong>
-            <p className="sync-confirm-hint">
-              Will add <strong>{mergePreview.added.length}</strong> and update{" "}
-              <strong>{mergePreview.updated.length}</strong> default-namespace
-              memor{mergePreview.added.length + mergePreview.updated.length === 1
-                ? "y"
-                : "ies"}{" "}
-              on <code>{defaultBranch}</code>. Other namespaces and keys not on{" "}
-              <code>{branch.name}</code> are left untouched — this never deletes.
-            </p>
-            {(mergePreview.added.length > 0 || mergePreview.updated.length > 0) && (
-              <ul className="sync-confirm-keylist">
-                {mergePreview.added.slice(0, 5).map((k) => (
-                  <li key={`add-${k}`}>
-                    <span className="sync-confirm-key-add">+</span>{" "}
-                    <code>default:{k}</code>
-                  </li>
-                ))}
-                {mergePreview.added.length > 5 && (
-                  <li className="sync-confirm-key-more">
-                    … and {mergePreview.added.length - 5} more additions
-                  </li>
-                )}
-                {mergePreview.updated.slice(0, 5).map((k) => (
-                  <li key={`upd-${k}`}>
-                    <span className="sync-confirm-key-upd">~</span>{" "}
-                    <code>default:{k}</code>
-                  </li>
-                ))}
-                {mergePreview.updated.length > 5 && (
-                  <li className="sync-confirm-key-more">
-                    … and {mergePreview.updated.length - 5} more updates
-                  </li>
-                )}
-              </ul>
-            )}
-            {mergePreview.added.length === 0 && mergePreview.updated.length === 0 && (
-              <p className="sync-confirm-hint">
-                No default-namespace memories on <code>{branch.name}</code> differ
-                from <code>{defaultBranch}</code>. Nothing to merge.
-              </p>
-            )}
-          </div>
-          <div className="sync-confirm-actions">
-            <button
-              type="button"
-              className="sync-btn"
-              onClick={onCancelMerge}
-              autoFocus
-            >
-              {mergePreview.added.length === 0 && mergePreview.updated.length === 0
-                ? "Close"
-                : "Cancel"}
-            </button>
-            {(mergePreview.added.length > 0 || mergePreview.updated.length > 0) && (
+      {mergePreview && (() => {
+        const totalKeys = mergePreview.added.length + mergePreview.updated.length;
+        const remainingAdds = mergePreview.added.filter(
+          (k) => !mergePreview.excluded.has(k),
+        ).length;
+        const remainingUpdates = mergePreview.updated.filter(
+          (k) => !mergePreview.excluded.has(k),
+        ).length;
+        const remainingTotal = remainingAdds + remainingUpdates;
+        const hasAnyKeys = totalKeys > 0;
+        return (
+          <div className="sync-confirm" role="alertdialog" aria-label="Confirm merge">
+            <div className="sync-confirm-text">
+              <strong className="sync-confirm-title">
+                Merge <code>{branch.name}</code> → <code>{defaultBranch}</code>?
+              </strong>
+              {!hasAnyKeys && (
+                <p className="sync-confirm-hint">
+                  No default-namespace memories on <code>{branch.name}</code> differ
+                  from <code>{defaultBranch}</code>. Nothing to merge.
+                </p>
+              )}
+              {hasAnyKeys && remainingTotal > 0 && (
+                <p className="sync-confirm-hint">
+                  Will add <strong>{remainingAdds}</strong> and update{" "}
+                  <strong>{remainingUpdates}</strong> default-namespace
+                  memor{remainingTotal === 1 ? "y" : "ies"} on{" "}
+                  <code>{defaultBranch}</code>. Other namespaces and keys not on{" "}
+                  <code>{branch.name}</code> are left untouched — this never deletes.
+                </p>
+              )}
+              {hasAnyKeys && remainingTotal === 0 && (
+                <p className="sync-confirm-hint">
+                  All keys excluded — nothing left to merge from{" "}
+                  <code>{branch.name}</code>. Cancel or restore a key.
+                </p>
+              )}
+              {hasAnyKeys && (
+                <ul className="sync-confirm-keylist">
+                  {mergePreview.added.map((k) => {
+                    const isExcluded = mergePreview.excluded.has(k);
+                    return (
+                      <li
+                        key={`add-${k}`}
+                        className={`sync-confirm-key-row${isExcluded ? " excluded" : ""}`}
+                      >
+                        <span className="sync-confirm-key-add">+</span>{" "}
+                        <code>default:{k}</code>
+                        <button
+                          type="button"
+                          className="sync-confirm-key-remove"
+                          onClick={() => onToggleExcludeKey(k)}
+                          title={isExcluded ? "Include in merge" : "Exclude from merge"}
+                          aria-label={
+                            isExcluded
+                              ? `Include default:${k} in merge`
+                              : `Exclude default:${k} from merge`
+                          }
+                        >
+                          {isExcluded ? "+" : "×"}
+                        </button>
+                      </li>
+                    );
+                  })}
+                  {mergePreview.updated.map((k) => {
+                    const isExcluded = mergePreview.excluded.has(k);
+                    return (
+                      <li
+                        key={`upd-${k}`}
+                        className={`sync-confirm-key-row${isExcluded ? " excluded" : ""}`}
+                      >
+                        <span className="sync-confirm-key-upd">~</span>{" "}
+                        <code>default:{k}</code>
+                        <button
+                          type="button"
+                          className="sync-confirm-key-remove"
+                          onClick={() => onToggleExcludeKey(k)}
+                          title={isExcluded ? "Include in merge" : "Exclude from merge"}
+                          aria-label={
+                            isExcluded
+                              ? `Include default:${k} in merge`
+                              : `Exclude default:${k} from merge`
+                          }
+                        >
+                          {isExcluded ? "+" : "×"}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+            <div className="sync-confirm-actions">
               <button
                 type="button"
-                className="sync-btn merge sync-confirm-yes"
-                onClick={() => onConfirmMerge(branch)}
-                disabled={disabled}
+                className="sync-btn"
+                onClick={onCancelMerge}
+                autoFocus
               >
-                {isBusy ? "Merging…" : "Merge"}
+                {!hasAnyKeys ? "Close" : "Cancel"}
               </button>
-            )}
+              {hasAnyKeys && (
+                <button
+                  type="button"
+                  className="sync-btn merge sync-confirm-yes"
+                  onClick={() => onConfirmMerge(branch)}
+                  disabled={disabled || remainingTotal === 0}
+                >
+                  {isBusy ? "Merging…" : "Merge"}
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {isConfirmingDelete && (
         <div className="sync-confirm" role="alertdialog" aria-label="Confirm delete">

@@ -9133,31 +9133,65 @@ Message: ${commit.message}`;
                 return;
             }
 
-            const previewKeys = [];
-            added.slice(0, 5).forEach((k) => {
-                previewKeys.push(`<div class="branch-sync-conflict-keys">+ default:${escapeHtml(k)}</div>`);
-            });
-            if (added.length > 5) {
-                previewKeys.push(`<div class="branch-sync-conflict-keys">… and ${added.length - 5} more additions</div>`);
-            }
-            updated.slice(0, 5).forEach((k) => {
-                previewKeys.push(`<div class="branch-sync-conflict-keys">~ default:${escapeHtml(k)}</div>`);
-            });
-            if (updated.length > 5) {
-                previewKeys.push(`<div class="branch-sync-conflict-keys">… and ${updated.length - 5} more updates</div>`);
-            }
+            const excludedKeys = new Set();
+
+            const renderKeyRow = (k, kind) => {
+                const marker = kind === 'add' ? '+' : '~';
+                return `
+                    <div class="branch-sync-merge-key" data-key="${escapeHtml(k)}" data-kind="${kind}">
+                        <span class="branch-sync-merge-key-marker">${marker}</span>
+                        <span class="branch-sync-merge-key-text">default:${escapeHtml(k)}</span>
+                        <button class="branch-sync-merge-key-remove"
+                                type="button"
+                                title="Exclude this key from the merge"
+                                aria-label="Exclude default:${escapeHtml(k)} from the merge">×</button>
+                    </div>
+                `;
+            };
+
+            const keyRows = [
+                ...added.map((k) => renderKeyRow(k, 'add')),
+                ...updated.map((k) => renderKeyRow(k, 'update')),
+            ].join('');
+
+            const updateSummary = () => {
+                const remainingAdds = added.filter((k) => !excludedKeys.has(k)).length;
+                const remainingUpdates = updated.filter((k) => !excludedKeys.has(k)).length;
+                const remainingTotal = remainingAdds + remainingUpdates;
+                const summaryEl = panel.querySelector('[data-merge-summary]');
+                if (summaryEl) {
+                    if (remainingTotal === 0) {
+                        summaryEl.innerHTML = `
+                            All keys excluded — nothing left to merge from
+                            <code>${escapeHtml(source)}</code>. Cancel or restore a key.
+                        `;
+                    } else {
+                        summaryEl.innerHTML = `
+                            Will add <strong>${remainingAdds}</strong> and update
+                            <strong>${remainingUpdates}</strong>
+                            default-namespace memor${remainingTotal === 1 ? 'y' : 'ies'} on
+                            <code>${escapeHtml(target)}</code>. Other namespaces and keys not on
+                            <code>${escapeHtml(source)}</code> are left untouched — this never deletes.
+                        `;
+                    }
+                }
+                const mergeBtn = panel.querySelector('[data-confirm="yes"]');
+                if (mergeBtn) mergeBtn.disabled = remainingTotal === 0;
+            };
 
             panel.innerHTML = `
                 <div class="branch-sync-delete-title">
                     Merge <code>${escapeHtml(source)}</code> → <code>${escapeHtml(target)}</code>?
                 </div>
-                <div class="branch-sync-delete-hint">
+                <div class="branch-sync-delete-hint" data-merge-summary>
                     Will add <strong>${added.length}</strong> and update <strong>${updated.length}</strong>
                     default-namespace memor${total === 1 ? 'y' : 'ies'} on
                     <code>${escapeHtml(target)}</code>. Other namespaces and keys not on
                     <code>${escapeHtml(source)}</code> are left untouched — this never deletes.
                 </div>
-                ${previewKeys.join('')}
+                <div class="branch-sync-merge-keys" data-merge-keys>
+                    ${keyRows}
+                </div>
                 <div class="branch-sync-delete-actions">
                     <button class="branch-sync-strategy-btn" data-confirm="cancel">Cancel</button>
                     <button class="branch-sync-strategy-btn branch-sync-delete-yes" data-confirm="yes">
@@ -9165,15 +9199,26 @@ Message: ${commit.message}`;
                     </button>
                 </div>
             `;
+
+            panel.querySelectorAll('.branch-sync-merge-key-remove').forEach((btn) => {
+                btn.addEventListener('click', (event) => {
+                    const keyEl = event.currentTarget.closest('.branch-sync-merge-key');
+                    if (!keyEl) return;
+                    excludedKeys.add(keyEl.dataset.key);
+                    keyEl.remove();
+                    updateSummary();
+                });
+            });
+
             panel.querySelector('[data-confirm="cancel"]').addEventListener('click', () => {
                 panel.remove();
             });
             panel.querySelector('[data-confirm="yes"]').addEventListener('click', () => {
-                performBranchSync(row, source, target, panel);
+                performBranchSync(row, source, target, panel, [...excludedKeys]);
             });
         }
 
-        async function performBranchSync(row, source, target, panel) {
+        async function performBranchSync(row, source, target, panel, excludedKeys = []) {
             // Disable all action buttons in this row during the call
             const actionBtns = row.querySelectorAll('.branch-sync-action');
             actionBtns.forEach((b) => b.classList.add('busy'));
@@ -9191,6 +9236,7 @@ Message: ${commit.message}`;
                         source,
                         target,
                         confirm: true,
+                        excluded_keys: excludedKeys,
                     }),
                 });
 

@@ -249,6 +249,62 @@
   text-overflow: ellipsis;
 }
 
+.sync-confirm-key-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0.1rem 0.2rem;
+  border-radius: 4px;
+}
+
+.sync-confirm-key-row > code {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sync-confirm-key-row.excluded > code,
+.sync-confirm-key-row.excluded > .sync-confirm-key-add,
+.sync-confirm-key-row.excluded > .sync-confirm-key-upd {
+  text-decoration: line-through;
+  opacity: 0.55;
+}
+
+.sync-confirm-key-remove {
+  flex: 0 0 auto;
+  width: 1.2rem;
+  height: 1.2rem;
+  line-height: 1;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-2);
+  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sync-confirm-key-remove:hover {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+  color: var(--error, #ef4444);
+}
+
+.sync-confirm-key-row.excluded .sync-confirm-key-remove {
+  color: var(--success, #5fbf60);
+}
+
+.sync-confirm-key-row.excluded .sync-confirm-key-remove:hover {
+  background: rgba(95, 191, 96, 0.12);
+  border-color: rgba(95, 191, 96, 0.3);
+  color: var(--success, #5fbf60);
+}
+
 .sync-confirm-keylist code {
   font-family: var(--font-mono);
   color: var(--fg-0);

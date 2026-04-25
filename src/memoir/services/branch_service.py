@@ -947,6 +947,7 @@ class BranchService(BaseService):
         target: str,
         dry_run: bool = False,
         restore: bool = True,
+        excluded_keys: list[str] | None = None,
     ) -> MergeResult:
         """
         Promote ``default``-namespace memories from ``source`` onto ``target``
@@ -972,6 +973,10 @@ class BranchService(BaseService):
             dry_run: If True, return ``added_keys``/``updated_keys`` without
                 writing or committing.
             restore: If True, return to the caller's original branch after.
+            excluded_keys: Optional list of source keys to skip. They are
+                filtered out of ``source_data`` before the diff is computed,
+                so they appear in neither ``added_keys`` nor ``updated_keys``
+                and are never written to ``target``.
 
         Returns:
             ``MergeResult`` with ``added_keys``, ``updated_keys``, ``dry_run``,
@@ -1026,6 +1031,12 @@ class BranchService(BaseService):
                 error=f"Failed to read source branch '{source}': {e}",
                 dry_run=dry_run,
             )
+
+        if excluded_keys:
+            excluded_set = set(excluded_keys)
+            source_data = {
+                k: v for k, v in source_data.items() if k not in excluded_set
+            }
 
         # Step 2: switch to target and compute the diff.
         checkout_target = self.checkout(target)
