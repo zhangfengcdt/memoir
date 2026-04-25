@@ -119,7 +119,7 @@ Use only when the question is explicitly about change between two points, or cro
 - Otherwise → drill-down: `summarize --depth 1` → pick L1 → descend → `get`.
 - Escalate to `blame` only for provenance questions.
 - Escalate to `diff` only for cross-commit/branch questions.
-- **Never** invoke `memoir recall` — it's the legacy LLM-bundled path, slower and redundant when you can do the picking directly.
+- **Never** invoke `memoir recall` — it's the LLM-bundled path, slower and redundant when you can do the picking directly.
 - **Defer to `memoir-onboard` when the question is about the repo itself** ("what does this project do", "give me a codebase overview", "onboard me here"). That skill owns the `codebase:onboard` namespace and is the right entry point for structural / codebase-shaped questions; memory-recall is for user-captured facts in `default`.
 
 ## Output format
