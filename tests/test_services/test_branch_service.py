@@ -586,6 +586,148 @@ class TestBranchServiceSyncBranch:
         assert current == "main"
 
 
+class TestBranchServicePromoteBranch:
+    """Test the safe additive promote_branch operation.
+
+    The three guarantees:
+      1. Only the ``default`` namespace is touched.
+      2. Only inserts and updates — never deletions.
+      3. ``dry_run=True`` previews without writing.
+    """
+
+    @pytest.fixture
+    def service_with_namespaces(self, temp_dir):
+        store_service = StoreService(temp_dir)
+        store_service.create_store(temp_dir)
+
+        service = BranchService(temp_dir)
+        store = service._get_store()
+
+        # main: has a default key, an onboard key (should NOT be touched), and
+        # a default key that the source will leave alone (no-delete guarantee).
+        store.put(("default",), "shared", {"v": "main"})
+        store.put(("default",), "only-on-main", {"v": "main-keep"})
+        store.put(("codebase", "onboard"), "_meta.last_onboard.commit", "abc123")
+        store.put(("codebase", "onboard"), "_meta.last_onboard.date", "2026-04-25")
+        store.commit("main initial")
+
+        # feature: branches from main, then adds two new default keys, updates
+        # `shared`, and adds an onboard key (which must also NOT propagate).
+        service.create_branch("feature")
+        service.checkout("feature")
+        # Re-init store handle so puts land on the feature branch tree.
+        service._store = None
+        store = service._get_store()
+        store.put(("default",), "shared", {"v": "feature"})
+        store.put(("default",), "added-1", {"v": 1})
+        store.put(("default",), "added-2", {"v": 2})
+        store.put(("codebase", "onboard"), "feature-only-onboard", "should-not-leak")
+        store.commit("feature work")
+
+        # Leave the caller on yet another branch so we can prove restoration.
+        service.create_branch("scratch")
+        service.checkout("scratch")
+        service._store = None
+
+        return service
+
+    def test_promote_dry_run_lists_changes_without_writing(
+        self, service_with_namespaces
+    ):
+        result = service_with_namespaces.promote_branch("feature", "main", dry_run=True)
+        assert result.success is True
+        assert result.dry_run is True
+        assert result.commit_hash is None
+        assert sorted(result.added_keys) == ["added-1", "added-2"]
+        assert sorted(result.updated_keys) == ["shared"]
+        # Caller stayed on scratch.
+        assert result.restored_branch == "scratch"
+
+        # main is unchanged: still has only-on-main, shared still says "main".
+        service_with_namespaces.checkout("main")
+        service_with_namespaces._store = None
+        store = service_with_namespaces._get_store()
+        assert store.get(("default",), "shared") == {"v": "main"}
+        assert store.get(("default",), "added-1") is None
+        assert store.get(("default",), "added-2") is None
+        assert store.get(("default",), "only-on-main") == {"v": "main-keep"}
+
+    def test_promote_only_touches_default_namespace(self, service_with_namespaces):
+        """Even though feature has a codebase:onboard key, promotion must not
+        copy it to main. main's existing onboard keys must survive untouched."""
+        service_with_namespaces.promote_branch("feature", "main", dry_run=False)
+
+        service_with_namespaces.checkout("main")
+        service_with_namespaces._store = None
+        store = service_with_namespaces._get_store()
+
+        # main retains its original onboard keys.
+        assert (
+            store.get(("codebase", "onboard"), "_meta.last_onboard.commit") == "abc123"
+        )
+        assert (
+            store.get(("codebase", "onboard"), "_meta.last_onboard.date")
+            == "2026-04-25"
+        )
+        # feature's onboard-only key must NOT have leaked into main.
+        assert store.get(("codebase", "onboard"), "feature-only-onboard") is None
+
+    def test_promote_never_deletes_target_only_keys(self, service_with_namespaces):
+        """Keys present on main but absent from feature must survive."""
+        service_with_namespaces.promote_branch("feature", "main", dry_run=False)
+
+        service_with_namespaces.checkout("main")
+        service_with_namespaces._store = None
+        store = service_with_namespaces._get_store()
+
+        # Even though `only-on-main` doesn't exist on feature, it stays on main.
+        assert store.get(("default",), "only-on-main") == {"v": "main-keep"}
+
+    def test_promote_applies_adds_and_updates(self, service_with_namespaces):
+        result = service_with_namespaces.promote_branch(
+            "feature", "main", dry_run=False
+        )
+        assert result.success is True
+        assert result.dry_run is False
+        assert sorted(result.added_keys) == ["added-1", "added-2"]
+        assert sorted(result.updated_keys) == ["shared"]
+        assert result.commit_hash is not None
+
+        service_with_namespaces.checkout("main")
+        service_with_namespaces._store = None
+        store = service_with_namespaces._get_store()
+        assert store.get(("default",), "added-1") == {"v": 1}
+        assert store.get(("default",), "added-2") == {"v": 2}
+        assert store.get(("default",), "shared") == {"v": "feature"}
+
+    def test_promote_restores_original_branch(self, service_with_namespaces):
+        result = service_with_namespaces.promote_branch(
+            "feature", "main", dry_run=False
+        )
+        assert result.restored_branch == "scratch"
+        current, _ = service_with_namespaces.get_current_branch()
+        assert current == "scratch"
+
+    def test_promote_same_source_and_target_fails(self, service_with_namespaces):
+        result = service_with_namespaces.promote_branch("main", "main")
+        assert result.success is False
+        assert "same" in (result.error or "").lower()
+
+    def test_promote_no_changes_does_not_create_commit(self, service_with_namespaces):
+        # First promotion applies changes; a second one should be a no-op.
+        service_with_namespaces.promote_branch("feature", "main", dry_run=False)
+        service_with_namespaces._store = None
+
+        result = service_with_namespaces.promote_branch(
+            "feature", "main", dry_run=False
+        )
+        assert result.success is True
+        assert result.added_keys == []
+        assert result.updated_keys == []
+        # No commit created when there's nothing to apply.
+        assert result.commit_hash is None
+
+
 class BranchInfoStub:
     """Minimal stand-in for BranchInfo used in default-branch tests."""
 

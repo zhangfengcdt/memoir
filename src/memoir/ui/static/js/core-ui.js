@@ -9042,7 +9042,7 @@ Message: ${commit.message}`;
                     btn.addEventListener('click', () => {
                         const action = btn.dataset.action;
                         if (action === 'push') {
-                            performBranchSync(row, b.name, data.default, null);
+                            renderSyncConfirm(row, b.name, data.default);
                         } else if (action === 'delete') {
                             renderDeleteConfirm(row, b.name);
                         }
@@ -9067,37 +9067,145 @@ Message: ${commit.message}`;
             });
         }
 
-        async function performBranchSync(row, source, target, strategy) {
+        async function renderSyncConfirm(row, source, target) {
+            // Remove any existing panel from a previous click.
+            const existing = row.querySelector('.branch-sync-confirm');
+            if (existing) existing.remove();
+            const staleConflict = row.querySelector('.branch-sync-conflict');
+            if (staleConflict) staleConflict.remove();
+            const staleDelete = row.querySelector('.branch-sync-delete-confirm');
+            if (staleDelete) staleDelete.remove();
+
+            // Show a "loading preview" panel while the dry-run is in flight.
+            const panel = document.createElement('div');
+            panel.className = 'branch-sync-confirm';
+            panel.innerHTML = `
+                <div class="branch-sync-delete-title">
+                    Preview merge <code>${escapeHtml(source)}</code> → <code>${escapeHtml(target)}</code>…
+                </div>
+                <div class="branch-sync-delete-hint">Computing diff…</div>
+            `;
+            row.appendChild(panel);
+
+            let preview;
+            try {
+                const response = await fetch('/api/sync-branches', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        path: connectedStorePath,
+                        source,
+                        target,
+                        dry_run: true,
+                    }),
+                });
+                if (!response.ok) {
+                    const err = await response.text();
+                    throw new Error(err || `HTTP ${response.status}`);
+                }
+                preview = await response.json();
+            } catch (err) {
+                panel.remove();
+                showNotification(`Preview failed: ${err.message || err}`, 'error', 6000);
+                return;
+            }
+
+            const added = preview.added_keys || [];
+            const updated = preview.updated_keys || [];
+            const total = added.length + updated.length;
+
+            if (total === 0) {
+                panel.innerHTML = `
+                    <div class="branch-sync-delete-title">
+                        Nothing to merge from <code>${escapeHtml(source)}</code>.
+                    </div>
+                    <div class="branch-sync-delete-hint">
+                        No default-namespace memories on <code>${escapeHtml(source)}</code>
+                        differ from <code>${escapeHtml(target)}</code>.
+                    </div>
+                    <div class="branch-sync-delete-actions">
+                        <button class="branch-sync-strategy-btn" data-confirm="cancel">Close</button>
+                    </div>
+                `;
+                panel.querySelector('[data-confirm="cancel"]').addEventListener('click', () => {
+                    panel.remove();
+                });
+                return;
+            }
+
+            const previewKeys = [];
+            added.slice(0, 5).forEach((k) => {
+                previewKeys.push(`<div class="branch-sync-conflict-keys">+ default:${escapeHtml(k)}</div>`);
+            });
+            if (added.length > 5) {
+                previewKeys.push(`<div class="branch-sync-conflict-keys">… and ${added.length - 5} more additions</div>`);
+            }
+            updated.slice(0, 5).forEach((k) => {
+                previewKeys.push(`<div class="branch-sync-conflict-keys">~ default:${escapeHtml(k)}</div>`);
+            });
+            if (updated.length > 5) {
+                previewKeys.push(`<div class="branch-sync-conflict-keys">… and ${updated.length - 5} more updates</div>`);
+            }
+
+            panel.innerHTML = `
+                <div class="branch-sync-delete-title">
+                    Merge <code>${escapeHtml(source)}</code> → <code>${escapeHtml(target)}</code>?
+                </div>
+                <div class="branch-sync-delete-hint">
+                    Will add <strong>${added.length}</strong> and update <strong>${updated.length}</strong>
+                    default-namespace memor${total === 1 ? 'y' : 'ies'} on
+                    <code>${escapeHtml(target)}</code>. Other namespaces and keys not on
+                    <code>${escapeHtml(source)}</code> are left untouched — this never deletes.
+                </div>
+                ${previewKeys.join('')}
+                <div class="branch-sync-delete-actions">
+                    <button class="branch-sync-strategy-btn" data-confirm="cancel">Cancel</button>
+                    <button class="branch-sync-strategy-btn branch-sync-delete-yes" data-confirm="yes">
+                        Merge
+                    </button>
+                </div>
+            `;
+            panel.querySelector('[data-confirm="cancel"]').addEventListener('click', () => {
+                panel.remove();
+            });
+            panel.querySelector('[data-confirm="yes"]').addEventListener('click', () => {
+                performBranchSync(row, source, target, panel);
+            });
+        }
+
+        async function performBranchSync(row, source, target, panel) {
             // Disable all action buttons in this row during the call
             const actionBtns = row.querySelectorAll('.branch-sync-action');
             actionBtns.forEach((b) => b.classList.add('busy'));
             actionBtns.forEach((b) => (b.disabled = true));
-
-            // Clear any stale conflict UI from a previous attempt
-            const staleConflict = row.querySelector('.branch-sync-conflict');
-            if (staleConflict) staleConflict.remove();
-
-            const payload = { path: connectedStorePath, source, target };
-            if (strategy) payload.strategy = strategy;
+            if (panel) {
+                panel.querySelectorAll('button').forEach((b) => (b.disabled = true));
+            }
 
             try {
                 const response = await fetch('/api/sync-branches', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
+                    body: JSON.stringify({
+                        path: connectedStorePath,
+                        source,
+                        target,
+                        confirm: true,
+                    }),
                 });
 
                 if (response.ok) {
                     const result = await response.json();
+                    const added = (result.added_keys || []).length;
+                    const updated = (result.updated_keys || []).length;
                     const arrow = source === target ? '' : ` (${source} → ${target})`;
-                    showNotification(`✅ Merged${arrow}`, 'success', 4000);
+                    showNotification(
+                        `✅ Merged${arrow}: ${added} added, ${updated} updated`,
+                        'success',
+                        4000,
+                    );
+                    if (panel) panel.remove();
                     await refreshBranchSyncList();
-                    return;
-                }
-
-                if (response.status === 409) {
-                    const result = await response.json();
-                    renderConflictPicker(row, source, target, result.conflicts || []);
                     return;
                 }
 
@@ -9106,7 +9214,9 @@ Message: ${commit.message}`;
             } catch (err) {
                 showNotification(`Sync failed: ${err.message || err}`, 'error', 6000);
                 actionBtns.forEach((b) => b.classList.remove('busy'));
-                // Restore disabled state based on original ahead/behind:
+                if (panel) {
+                    panel.querySelectorAll('button').forEach((b) => (b.disabled = false));
+                }
                 await refreshBranchSyncList();
             }
         }
