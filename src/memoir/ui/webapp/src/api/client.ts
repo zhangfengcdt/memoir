@@ -3,8 +3,10 @@ import type {
   BranchesResponse,
   CommitsResponse,
   CurrentBranchResponse,
+  LocationResponse,
   RangeDiffResponse,
   StoreResponse,
+  TimelineResponse,
 } from "./types";
 
 /**
@@ -67,6 +69,40 @@ export const api = {
       branch: opts.branch ?? "HEAD",
       limit: String(opts.limit ?? 20),
     }),
+
+  /**
+   * Timeline + location endpoints can 500 on stores that have no
+   * memento data initialised. Treat that as an empty-state rather than
+   * a hard error so the UI can render its empty state cleanly. Real
+   * structural errors (4xx, network failures) still raise.
+   */
+  timeline: async (path: string): Promise<TimelineResponse> => {
+    try {
+      return await getJSON<TimelineResponse>("/api/timeline", { path });
+    } catch (err) {
+      if (err instanceof MemoirApiError && err.status >= 500) {
+        return {
+          success: true,
+          summary: null,
+          timeline_data: {},
+          start_date: null,
+          end_date: null,
+        };
+      }
+      throw err;
+    }
+  },
+
+  locations: async (path: string): Promise<LocationResponse> => {
+    try {
+      return await getJSON<LocationResponse>("/api/location", { path });
+    } catch (err) {
+      if (err instanceof MemoirApiError && err.status >= 500) {
+        return { success: true, summary: null, location_data: {} };
+      }
+      throw err;
+    }
+  },
 
   rangeDiff: async (
     path: string,

@@ -50,6 +50,29 @@ export interface CurrentBranchResponse {
   commit: string;
 }
 
+// --- /api/timeline ---------------------------------------------------------
+export interface TimelineResponse {
+  success: boolean;
+  summary: string | null;
+  /** YYYYMMDD → event text */
+  timeline_data: Record<string, string>;
+  start_date: string | null;
+  end_date: string | null;
+}
+
+// --- /api/location ---------------------------------------------------------
+export interface Place {
+  name: string;
+  content: string;
+}
+
+export interface LocationResponse {
+  success: boolean;
+  summary: string | null;
+  /** slug → place */
+  location_data: Record<string, Place>;
+}
+
 // --- /api/commit-range-diff -----------------------------------------------
 export type ChangeType = "added" | "deleted" | "modified";
 

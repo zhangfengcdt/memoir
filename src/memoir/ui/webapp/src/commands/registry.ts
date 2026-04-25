@@ -186,6 +186,36 @@ register({
 });
 
 register({
+  name: "timeline",
+  aliases: [],
+  summary: "Switch to the Timeline view",
+  usage: "/timeline",
+  run() {
+    useUI.getState().setActiveView("timeline");
+    useStore.getState().pushHistory({
+      input: "/timeline",
+      level: "info",
+      lines: ["Switched to Timeline view."],
+    });
+  },
+});
+
+register({
+  name: "places",
+  aliases: ["locations"],
+  summary: "Switch to the Places view",
+  usage: "/places",
+  run() {
+    useUI.getState().setActiveView("places");
+    useStore.getState().pushHistory({
+      input: "/places",
+      level: "info",
+      lines: ["Switched to Places view."],
+    });
+  },
+});
+
+register({
   name: "shortcuts",
   aliases: ["keys"],
   summary: "Show the keyboard shortcuts overlay",

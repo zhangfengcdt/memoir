@@ -5,6 +5,8 @@ import { dispatch } from "../commands/registry";
 import CommitList from "../views/commits/CommitList";
 import TaxonomyTree from "../views/tree/TaxonomyTree";
 import CommitGraph from "../views/graph/CommitGraph";
+import TimelineView from "../views/timeline/TimelineView";
+import PlacesView from "../views/places/PlacesView";
 import type { HistoryEntry } from "../state/storeSlice";
 import "./MainCanvas.css";
 
@@ -56,15 +58,7 @@ export default function MainCanvas() {
 
       <div className="view-body" role="tabpanel" aria-label={`${active} view`}>
         {connected ? (
-          active === "commits" ? (
-            <CommitList />
-          ) : active === "tree" ? (
-            <TaxonomyTree />
-          ) : active === "graph" ? (
-            <CommitGraph />
-          ) : (
-            <PlaceholderView view={active} />
-          )
+          <ViewBody view={active} />
         ) : (
           <DisconnectedView />
         )}
@@ -72,6 +66,21 @@ export default function MainCanvas() {
       </div>
     </main>
   );
+}
+
+function ViewBody({ view }: { view: ViewKey }) {
+  switch (view) {
+    case "commits":
+      return <CommitList />;
+    case "tree":
+      return <TaxonomyTree />;
+    case "graph":
+      return <CommitGraph />;
+    case "timeline":
+      return <TimelineView />;
+    case "places":
+      return <PlacesView />;
+  }
 }
 
 function DisconnectedView() {
@@ -106,35 +115,6 @@ function DisconnectedView() {
           disabled={!path.trim() || status === "connecting"}
         >
           Connect
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function PlaceholderView({ view }: { view: ViewKey }) {
-  const data = useStore((s) => s.data);
-  if (!data) return null;
-  return (
-    <div className="connected-view">
-      <span className="eyebrow">{view}</span>
-      <h2 className="connected-title">{data.store_path}</h2>
-      <div className="connected-meta">
-        <span className="chip accent">branch: {data.current_branch}</span>
-        <span className="chip">{data.total_memories} memories</span>
-        <span className="chip">{data.commits.length} commits</span>
-        <span className="chip">{data.branches.length} branches</span>
-      </div>
-      <p className="connected-lead">
-        The <code>{view}</code> view lands in a future phase. Switch to{" "}
-        <code>Commits</code> (⌘1) or <code>Tree</code> (⌘2) to see the rich lists.
-      </p>
-      <div className="connected-actions">
-        <button
-          className="btn btn-ghost btn-sm"
-          onClick={() => dispatch("/refresh")}
-        >
-          Refresh
         </button>
       </div>
     </div>
