@@ -1,0 +1,68 @@
+/* Ported verbatim from memoir-website/src/styles/tokens.css */
+:root {
+  /* Surface */
+  --bg-0: #0a0d12;
+  --bg-1: #10141c;
+  --bg-2: #161b26;
+  --bg-3: #1d2330;
+
+  /* Text */
+  --fg-0: #f3f5f9;
+  --fg-1: #a8b0bf;
+  --fg-2: #6b7384;
+  --fg-3: #4a5263;
+
+  /* Accent */
+  --accent: #00d68f;
+  --accent-hover: #00ebaa;
+  --accent-dim: rgba(0, 214, 143, 0.15);
+  --accent-glow: rgba(0, 214, 143, 0.35);
+
+  /* Semantic */
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+  --danger: #ff6b6b;
+  --warning: #ffb84d;
+
+  /* Radius */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  /* Shadow */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.5);
+
+  /* Spacing scale (4px base) */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-24: 6rem;
+  --space-32: 8rem;
+
+  /* Layout */
+  --container-width: 1200px;
+  --container-narrow: 880px;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --duration-fast: 120ms;
+  --duration-med: 220ms;
+
+  /* App-specific layout tokens (new — not in website) */
+  --topbar-height: 56px;
+  --commandbar-height: 60px;
+  --leftpane-min: 240px;
+  --leftpane-default: 320px;
+  --leftpane-collapsed: 48px;
+  --drawer-min: 380px;
+  --drawer-default: 440px;
+  --drawer-max: 560px;
+}

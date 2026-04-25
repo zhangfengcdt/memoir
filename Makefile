@@ -1,4 +1,4 @@
-.PHONY: help install install-dev clean test test-cov lint format type-check security benchmark docs docs-live docs-clean pre-commit build publish release-check release-test check-versions
+.PHONY: help install install-dev clean test test-cov lint format type-check security benchmark docs docs-live docs-clean pre-commit build publish release-check release-test check-versions ui-install ui-dev ui-build ui-clean
 
 # Default target
 help:
@@ -23,6 +23,12 @@ help:
 	@echo "  release-test    Build + upload to TestPyPI (requires ~/.pypirc testpypi entry)"
 	@echo "  check-versions  Verify version consistency across package + plugin manifests"
 	@echo "  ci              Run full CI pipeline locally"
+	@echo ""
+	@echo "Web UI (v2 — src/memoir/ui/webapp):"
+	@echo "  ui-install      pnpm install the webapp dependencies"
+	@echo "  ui-dev          Run Vite dev server (proxies /api to python server on :9090)"
+	@echo "  ui-build        Build the webapp into src/memoir/ui/webapp/dist"
+	@echo "  ui-clean        Remove webapp build artifacts"
 
 install:
 	pip install -e .
@@ -98,10 +104,12 @@ build:
 publish: build
 	twine upload dist/*
 
-release-check: build
+release-check: ui-build build
 	twine check dist/*
 	@echo "Verifying data files present in wheel:"
-	@unzip -l dist/*.whl | grep -E '(ui\.html|static/|taxonomy/data)' || (echo "ERROR: data files missing from wheel" && exit 1)
+	@unzip -l dist/*.whl | grep -E '(ui\.html|static/|taxonomy/data)' || (echo "ERROR: legacy data files missing from wheel" && exit 1)
+	@unzip -l dist/*.whl | grep -E 'webapp/dist/index\.html' || (echo "ERROR: webapp bundle missing from wheel — did ui-build run?" && exit 1)
+	@unzip -l dist/*.whl | grep -qE 'webapp/src/' && (echo "ERROR: webapp sources leaked into wheel" && exit 1) || true
 	@echo "✓ release-check passed"
 
 release-test: build
@@ -126,6 +134,22 @@ setup: clean install-dev pre-commit
 	@echo "  make test       - Run tests"
 	@echo "  make benchmark  - Run classifier benchmark"
 	@echo "  make ci         - Run full CI pipeline"
+
+# Web UI (v2) targets — src/memoir/ui/webapp
+ui-install:
+	cd src/memoir/ui/webapp && pnpm install
+
+ui-dev:
+	@echo "Starting Vite dev server on :5173 (proxies /api to :9090)"
+	cd src/memoir/ui/webapp && pnpm run dev
+
+ui-build:
+	cd src/memoir/ui/webapp && pnpm run build
+	@echo "✓ Webapp built at src/memoir/ui/webapp/dist"
+
+ui-clean:
+	rm -rf src/memoir/ui/webapp/dist
+	rm -rf src/memoir/ui/webapp/node_modules
 
 # Performance testing
 perf: benchmark

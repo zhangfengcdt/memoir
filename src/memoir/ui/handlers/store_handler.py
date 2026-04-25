@@ -16,6 +16,7 @@ class StoreHandler(BaseAPIHandler):
     def handle_store_api(self, parsed_path):
         """Handle API requests for memory store data."""
         from memoir.services.store_service import StoreService
+        from memoir.ui.schemas import StoreResponse
 
         query_params = parse_qs(parsed_path.query)
         store_path = query_params.get("path", [None])[0]
@@ -31,7 +32,11 @@ class StoreHandler(BaseAPIHandler):
         try:
             service = StoreService(store_path)
             data = service.read_store()
-            self.send_json_response(data)
+            # Round-trip through the schema to enforce required fields, then
+            # emit the validated dict (which keeps any extra legacy keys —
+            # ``extra='allow'`` on the model — so the old UI keeps working).
+            body = StoreResponse.model_validate(data)
+            self.send_json_response(body.model_dump(mode="json"))
         except Exception as e:
             self.send_error_response(str(e))
 

@@ -29,8 +29,8 @@ from memoir.cli.main import (
 @click.option("--no-browser", is_flag=True, help="Don't open the browser automatically")
 @click.option(
     "--readonly/--no-readonly",
-    default=True,
-    help="Lock the connected store and disable mutating actions (default: True)",
+    default=False,
+    help="Lock the connected store and disable mutating actions (default: False)",
 )
 @click.option(
     "--usellm/--no-usellm",
@@ -46,6 +46,23 @@ from memoir.cli.main import (
     help="Auto-stop the server after this many seconds of inactivity. "
     "Pass 0 to disable (run indefinitely).",
 )
+@click.option(
+    "--legacy",
+    "use_legacy",
+    is_flag=True,
+    help="Serve the legacy single-file UI (src/memoir/ui/ui.html) instead "
+    "of the new React bundle. Use this if you hit a regression in v2 — "
+    "report at https://github.com/zhangfengcdt/memoir/issues.",
+)
+# Hidden alias — older docs/scripts pass --v2. The flag is now a no-op
+# because v2 is the default; we accept it for backward compatibility.
+@click.option(
+    "--v2",
+    "use_v2_alias",
+    is_flag=True,
+    hidden=True,
+    help="(deprecated) v2 is now the default; this flag is a no-op.",
+)
 @pass_context
 def ui(
     ctx: MemoirContext,
@@ -55,6 +72,8 @@ def ui(
     readonly: bool,
     usellm: bool,
     idle_timeout: int,
+    use_legacy: bool,
+    use_v2_alias: bool,  # noqa: ARG001 — kept for backward compat
 ):
     """Launch the web UI to explore a memoir repo.
 
@@ -64,18 +83,19 @@ def ui(
     OUTPUT: Starts an HTTP server on a free port (random by default) and opens
     a browser tab.
 
-    By default the UI opens in readonly mode (store URL is locked, mutating
-    actions are disabled) and with LLM features off (recall / summarize /
-    classify buttons disabled). Use --no-readonly and/or --usellm to enable.
+    By default the UI opens with edits enabled (writable) and LLM features off.
+    Pass --readonly to lock the store, or --usellm to enable LLM-driven
+    features (recall / summarize / classify, plus the natural-language input).
 
     \b
     Examples:
-      memoir ui                                   # Readonly, no LLM (default)
-      memoir ui /tmp/my-store                     # Open a store readonly
-      memoir ui /tmp/my-store --no-readonly       # Allow mutations
-      memoir ui /tmp/my-store --usellm            # Readonly + LLM recall/summarize
-      memoir ui /tmp/my-store --no-readonly --usellm   # Full interactive mode
+      memoir ui                                   # Writable, no LLM (default)
+      memoir ui /tmp/my-store                     # Open a store, writable
+      memoir ui /tmp/my-store --readonly          # Lock the store
+      memoir ui /tmp/my-store --usellm            # + LLM recall/summarize/rewrite
+      memoir ui /tmp/my-store --usellm --readonly # Full LLM, no edits
       memoir ui ~/memories --port 9090            # Pin to port 9090
+      memoir ui ~/memories --legacy               # Open the legacy single-file UI
     """
     target = path or ctx.store_path
     resolved: str | None = None
@@ -111,7 +131,15 @@ def ui(
     try:
         from memoir.ui.server import run_server
 
-        run_server(port=port, on_ready=_on_ready, idle_timeout=idle_timeout)
+        # v2 is the default; --legacy opts back to the single-file UI.
+        run_server(
+            port=port,
+            on_ready=_on_ready,
+            idle_timeout=idle_timeout,
+            use_v2=not use_legacy,
+        )
+    except FileNotFoundError as e:
+        ctx.error(str(e), EXIT_ERROR)
     except KeyboardInterrupt:
         ctx.info("UI server stopped.")
     except OSError as e:

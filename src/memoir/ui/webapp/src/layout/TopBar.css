@@ -1,0 +1,111 @@
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: var(--topbar-height);
+  padding: 0 var(--space-6);
+  background: var(--bg-0);
+  border-bottom: 1px solid var(--border);
+  z-index: 10;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.topbar-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  color: var(--fg-2);
+  transition: color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.topbar-toggle:hover {
+  background: var(--bg-2);
+  color: var(--fg-0);
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-right: var(--space-4);
+  border-right: 1px solid var(--border);
+  margin-right: var(--space-2);
+}
+
+.brand-logo {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  background: var(--bg-2);
+  /* Tiny inset shadow keeps the logo from disappearing into the bar
+   * background — the source PNG has no transparent margin. */
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+  user-select: none;
+}
+
+.brand-name {
+  color: var(--fg-0);
+  font-weight: 600;
+  letter-spacing: var(--tracking-snug);
+}
+
+.topbar-store {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.store-path {
+  font-size: var(--text-xs);
+  color: var(--fg-1);
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-sm);
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.store-path[data-status="connected"] {
+  border-color: var(--accent);
+  color: var(--fg-0);
+}
+
+.store-path[data-status="connecting"] {
+  border-color: var(--warning);
+  color: var(--fg-0);
+}
+
+.store-path[data-status="error"] {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.topbar-spinning {
+  animation: topbar-spin 0.9s linear infinite;
+  transform-origin: center;
+}
+
+@keyframes topbar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
