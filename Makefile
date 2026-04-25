@@ -107,7 +107,7 @@ publish: build
 release-check: ui-build build
 	twine check dist/*
 	@echo "Verifying data files present in wheel:"
-	@unzip -l dist/*.whl | grep -E '(ui\.html|static/|taxonomy/data)' || (echo "ERROR: legacy data files missing from wheel" && exit 1)
+	@unzip -l dist/*.whl | grep -E 'taxonomy/data' || (echo "ERROR: taxonomy data files missing from wheel" && exit 1)
 	@unzip -l dist/*.whl | grep -E 'webapp/dist/index\.html' || (echo "ERROR: webapp bundle missing from wheel — did ui-build run?" && exit 1)
 	@unzip -l dist/*.whl | grep -qE 'webapp/src/' && (echo "ERROR: webapp sources leaked into wheel" && exit 1) || true
 	@echo "✓ release-check passed"

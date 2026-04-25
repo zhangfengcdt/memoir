@@ -95,10 +95,10 @@ path = "src/memoir/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 # hatchling picks up all files under src/memoir by default, including
-# non-Python assets (ui/ui.html, ui/static/**, taxonomy/data/**).
-# For the v2 webapp we ship only the built `dist/` bundle — never the
-# React sources, node_modules, or build configs. The dist/ folder is
-# git-ignored, so we force-include it via `artifacts`.
+# non-Python assets (taxonomy/data/**). For the React webapp we ship only
+# the built `dist/` bundle — never the React sources, node_modules, or
+# build configs. The dist/ folder is git-ignored, so we force-include it
+# via `artifacts`.
 packages = ["src/memoir"]
 artifacts = [
     "src/memoir/ui/webapp/dist/**",

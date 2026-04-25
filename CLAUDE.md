@@ -50,7 +50,7 @@ pytest tests/ -k "test_function_name"
 - `src/memoir/core/` — `ProllyTreeMemoryStoreManager` (drop-in LangMem replacement), `ProfileMemento`, `TimelineMemento`.
 - `src/memoir/services/` — `StoreService`, `MemoryService`, `BranchService`, `CryptoService` (reusable business logic).
 - `src/memoir/cli/` — Click CLI (`memoir` entry point). Supports `--json` and the agent env vars `MEMOIR_STORE`, `MEMOIR_JSON`.
-- `src/memoir/ui/` — web UI (server + D3.js explorer). Modular handlers under `ui/handlers/`, JS modules under `ui/static/js/`.
+- `src/memoir/ui/` — web UI (Python HTTP server + React/Vite SPA). Handlers under `ui/handlers/`, frontend source under `ui/webapp/src/`, built bundle at `ui/webapp/dist/`.
 - `plugins/claude-code/` — Claude Code plugin: slash commands, skills, hooks.
 - `tests/` — unit + integration + versioning + CLI tests. Run with `pytest`.
 

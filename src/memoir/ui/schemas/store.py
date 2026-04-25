@@ -23,13 +23,11 @@ class StoreResponse(BaseModel):
 
     Unlike most other endpoints this one does not carry a top-level
     ``success`` flag for historical reasons; errors are signalled via HTTP
-    status codes instead. That's intentional and not normalised here — the
-    change would break the existing legacy UI.
+    status codes instead.
     """
 
-    # The legacy handler emits a transitional ``tree`` key (cross-namespace
-    # prefix → count map) the reader builds for the old UI. We don't use it
-    # in v2 but keep ``extra='allow'`` so the shape stays flexible.
+    # ``extra='allow'`` keeps the shape flexible — the reader still builds a
+    # cross-namespace prefix → count tree that not every consumer needs.
     model_config = ConfigDict(extra="allow")
 
     store_path: str

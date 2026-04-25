@@ -2,17 +2,14 @@ import { describe, expect, it } from "vitest";
 import { listCommands } from "./registry";
 
 /**
- * Parity inventory of v1 (legacy ``core-ui.js``) commands.
+ * Frozen parity inventory of the original command set the React webapp
+ * shipped against. Each entry is ``[name]`` (no aliases) or
+ * ``[name, ...aliases]``. The test asserts every entry resolves to some
+ * registered command — placeholder or real — so accidental removals are
+ * caught.
  *
- * Sourced verbatim from ``availableCommands`` in
- * ``src/memoir/ui/static/js/core-ui.js`` (~line 7180). Each entry below
- * lists either ``[name]`` for a v1 command without aliases, or
- * ``[name, ...aliases]``. The test asserts that every name and every
- * alias resolves to *some* registered v2 command — placeholder or real.
- *
- * If you remove a command from v1 or add one, update this list and run
- * the test. If you add a *new* v2 command (no v1 counterpart), no
- * change here is needed.
+ * The legacy single-file UI that originally seeded this list has been
+ * removed; this remains the locked baseline of public commands.
  */
 const V1_COMMANDS: string[][] = [
   ["connect", "con", "conn"],

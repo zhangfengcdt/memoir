@@ -6,7 +6,6 @@ Simple HTTP server to serve the Memoir UI and handle memory store data.
 import http.server
 import json
 import socketserver
-import subprocess
 import sys
 import threading
 import time
@@ -38,17 +37,15 @@ class ReusableTCPServer(socketserver.TCPServer):
     allow_reuse_address = True
 
 
-_UI_ROOT = Path(__file__).parent
-_WEBAPP_DIST = _UI_ROOT / "webapp" / "dist"
+_WEBAPP_DIST = Path(__file__).parent / "webapp" / "dist"
 
 
 class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
-    # Subclasses override these to switch between the legacy UI (ui.html
-    # at the module root) and the v2 React bundle (webapp/dist/index.html
-    # with SPA-style client-side routing).
-    serve_root: Path = _UI_ROOT
-    index_filename: str = "ui.html"
-    spa_fallback: bool = False
+    """Serves the React webapp bundle from webapp/dist with SPA-style routing."""
+
+    serve_root: Path = _WEBAPP_DIST
+    index_filename: str = "index.html"
+    spa_fallback: bool = True
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=str(self.serve_root), **kwargs)
@@ -135,14 +132,12 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         elif parsed_path.path == "/api/statistics":
             self.handle_statistics_api(parsed_path)
         elif parsed_path.path == "/":
-            # Serve the main UI HTML file (ui.html for legacy, index.html for v2).
             self.path = "/" + self.index_filename
             super().do_GET()
         else:
-            # Default file serving. In v2 (spa_fallback=True) the bundled
-            # SPA may use client-side routing, so any path that doesn't
-            # match a real file and isn't an API/asset request falls back
-            # to index.html — the React router takes over from there.
+            # The React SPA uses client-side routing, so any URL that doesn't
+            # match a real file under webapp/dist (and isn't an API/asset
+            # request) falls back to index.html — the React router takes over.
             if self.spa_fallback and not self._is_static_asset(parsed_path.path):
                 disk_path = self.serve_root / parsed_path.path.lstrip("/")
                 if not disk_path.exists():
@@ -2153,501 +2148,6 @@ Answer:"""
                 },
             }
 
-    def _legacy_get_prollytree_diff_between_commits(self, store_path, commit1, commit2):
-        """Get diff between two commits using ProllyTree's native diff."""
-        try:
-            import subprocess
-
-            changes = []
-
-            # Get the tree root hashes from git for both commits
-            # The root hash should be stored in a file or as part of the commit
-
-            # Method 1: Try to get root hash from the commit message or a special file
-            # First, let's check what files exist at each commit
-            result1 = subprocess.run(
-                ["git", "ls-tree", "-r", "--name-only", commit1],
-                cwd=store_path,
-                capture_output=True,
-                text=True,
-            )
-
-            result2 = subprocess.run(
-                ["git", "ls-tree", "-r", "--name-only", commit2],
-                cwd=store_path,
-                capture_output=True,
-                text=True,
-            )
-
-            if result1.returncode == 0 and result2.returncode == 0:
-                files1 = (
-                    set(result1.stdout.strip().split("\n")) if result1.stdout else set()
-                )
-                files2 = (
-                    set(result2.stdout.strip().split("\n")) if result2.stdout else set()
-                )
-
-                # Try to get tree data by examining the actual data files
-                # Get all JSON files that represent the actual memory data
-                data_files1 = [
-                    f
-                    for f in files1
-                    if f.endswith(".json") and not ("config" in f or "metadata" in f)
-                ]
-                data_files2 = [
-                    f
-                    for f in files2
-                    if f.endswith(".json") and not ("config" in f or "metadata" in f)
-                ]
-
-                # Build data dictionaries from the files
-                data1 = {}
-                for file in data_files1:
-                    result = subprocess.run(
-                        ["git", "show", f"{commit1}:{file}"],
-                        cwd=store_path,
-                        capture_output=True,
-                        text=True,
-                    )
-                    if result.returncode == 0:
-                        try:
-                            # Convert file path to memory key
-                            key = file.replace(".json", "").replace("/", ":")
-                            data1[key] = result.stdout
-                        except Exception:
-                            pass
-
-                data2 = {}
-                for file in data_files2:
-                    result = subprocess.run(
-                        ["git", "show", f"{commit2}:{file}"],
-                        cwd=store_path,
-                        capture_output=True,
-                        text=True,
-                    )
-                    if result.returncode == 0:
-                        try:
-                            # Convert file path to memory key
-                            key = file.replace(".json", "").replace("/", ":")
-                            data2[key] = result.stdout
-                        except Exception:
-                            pass
-
-                print(
-                    f"📊 Commit1 has {len(data1)} memory keys, Commit2 has {len(data2)} memory keys"
-                )
-
-                # Compare the data
-                keys1_set = set(data1.keys())
-                keys2_set = set(data2.keys())
-
-                added_keys = keys2_set - keys1_set
-                removed_keys = keys1_set - keys2_set
-                common_keys = keys1_set & keys2_set
-
-                print(
-                    f"📈 Added: {len(added_keys)}, Removed: {len(removed_keys)}, Common: {len(common_keys)}"
-                )
-
-                # Process added keys
-                for key in added_keys:
-                    try:
-                        self._ensure_handlers_initialized()
-                        content = self.utility_handler.parse_memory_content(data2[key])
-                        if content:  # Only add if there's actual content
-                            self._ensure_handlers_initialized()
-                            changes.append(
-                                {
-                                    "path": self.utility_handler.format_key_as_path(
-                                        key
-                                    ),
-                                    "type": "added",
-                                    "new_content": content,
-                                }
-                            )
-                    except Exception as e:
-                        print(f"Error processing added key {key}: {e}")
-
-                # Process removed keys
-                for key in removed_keys:
-                    try:
-                        self._ensure_handlers_initialized()
-                        content = self.utility_handler.parse_memory_content(data1[key])
-                        if content:  # Only add if there's actual content
-                            changes.append(
-                                {
-                                    "path": self.utility_handler.format_key_as_path(
-                                        key
-                                    ),
-                                    "type": "deleted",
-                                    "old_content": content,
-                                }
-                            )
-                    except Exception as e:
-                        print(f"Error processing removed key {key}: {e}")
-
-                # Process potentially modified keys
-                for key in common_keys:
-                    try:
-                        if data1[key] != data2[key]:
-                            self._ensure_handlers_initialized()
-                            old_content = self.utility_handler.parse_memory_content(
-                                data1[key]
-                            )
-                            self._ensure_handlers_initialized()
-                            new_content = self.utility_handler.parse_memory_content(
-                                data2[key]
-                            )
-                            if (
-                                old_content != new_content
-                            ):  # Only add if content actually changed
-                                changes.append(
-                                    {
-                                        "path": self.utility_handler.format_key_as_path(
-                                            key
-                                        ),
-                                        "type": "modified",
-                                        "old_content": old_content,
-                                        "new_content": new_content,
-                                    }
-                                )
-                    except Exception as e:
-                        print(f"Error processing modified key {key}: {e}")
-
-                # Filter out non-memory changes (like config files)
-                memory_changes = [
-                    c
-                    for c in changes
-                    if not any(
-                        skip in c["path"] for skip in ["config", "metadata", "mapping"]
-                    )
-                ]
-
-                if memory_changes:
-                    print(
-                        f"✨ Returning {len(memory_changes)} memory changes (filtered from {len(changes)} total)"
-                    )
-                    return memory_changes
-                elif changes:
-                    print(
-                        f"⚠️ Only found config/metadata changes, returning all {len(changes)} changes"
-                    )
-                    return changes
-
-            print("⚠️ No changes found, falling back to git diff")
-            return self._get_git_diff_between_commits(store_path, commit1, commit2)
-
-        except Exception:
-            import traceback
-
-            traceback.print_exc()
-            # Fallback to git-based diff
-            return self._get_git_diff_between_commits(store_path, commit1, commit2)
-
-    def _get_prollytree_initial_commit(self, store_path, commit):
-        """Get all content from the initial commit using ProllyTree."""
-        try:
-            import subprocess
-
-            from prollytree import VersionedKvStore
-
-            store = VersionedKvStore(store_path)
-
-            # Save current branch
-            result = subprocess.run(
-                ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                cwd=store_path,
-                capture_output=True,
-                text=True,
-            )
-            current_branch = result.stdout.strip() if result.returncode == 0 else "main"
-
-            changes = []
-
-            try:
-                # Checkout to the commit
-                subprocess.run(
-                    ["git", "checkout", commit], cwd=store_path, capture_output=True
-                )
-
-                # Get all keys
-                all_keys = store.list_keys()
-
-                for key in all_keys:
-                    try:
-                        key_str = (
-                            key.decode("utf-8") if isinstance(key, bytes) else str(key)
-                        )
-                        value = store.get(key)
-                        if value:
-                            self._ensure_handlers_initialized()
-                            content = self.utility_handler.parse_prollytree_value(value)
-                            changes.append(
-                                {
-                                    "path": self.utility_handler.format_key_as_path(
-                                        key_str
-                                    ),
-                                    "type": "added",
-                                    "new_content": content,
-                                }
-                            )
-                    except Exception:
-                        pass
-
-            finally:
-                # Restore original branch
-                subprocess.run(
-                    ["git", "checkout", current_branch],
-                    cwd=store_path,
-                    capture_output=True,
-                )
-
-            return changes
-
-        except Exception as e:
-            print(f"Error getting ProllyTree initial commit: {e}")
-            # Fallback to git-based diff
-            return self._get_git_diff_from_empty(store_path, commit)
-
-    def _get_git_diff_between_commits(self, store_path, commit1, commit2):
-        """Get diff between two specific commits."""
-
-        try:
-            # Get list of changed files between commits
-            result = subprocess.run(
-                ["git", "diff", "--name-status", f"{commit1}..{commit2}"],
-                cwd=store_path,
-                capture_output=True,
-                text=True,
-            )
-
-            changes = []
-            if result.returncode == 0 and result.stdout:
-                for line in result.stdout.strip().split("\n"):
-                    if line:
-                        parts = line.split("\t", 1)
-                        if len(parts) >= 2:
-                            status, filename = parts[0], parts[1]
-
-                            # Convert git status to our format
-                            if status == "A":
-                                change_type = "added"
-                            elif status == "D":
-                                change_type = "deleted"
-                            elif status == "M":
-                                change_type = "modified"
-                            else:
-                                change_type = "modified"  # fallback
-
-                            # Try to get file content for the changes
-                            old_content, new_content = (
-                                self._get_file_content_at_commits(
-                                    store_path, filename, commit1, commit2, change_type
-                                )
-                            )
-
-                            change = {
-                                "path": filename.replace(".json", "").replace("/", "."),
-                                "type": change_type,
-                            }
-
-                            if old_content is not None:
-                                change["old_content"] = old_content
-                            if new_content is not None:
-                                change["new_content"] = new_content
-
-                            changes.append(change)
-
-            return changes
-
-        except Exception as e:
-            print(f"Error getting git diff between commits: {e}")
-            return []
-
-    def _get_git_diff_working_vs_commit(self, store_path, commit):
-        """Get diff between working directory and a specific commit."""
-
-        try:
-            # Get list of changed files between working directory and commit
-            result = subprocess.run(
-                ["git", "diff", "--name-status", commit],
-                cwd=store_path,
-                capture_output=True,
-                text=True,
-            )
-
-            changes = []
-            if result.returncode == 0 and result.stdout:
-                for line in result.stdout.strip().split("\n"):
-                    if line:
-                        parts = line.split("\t", 1)
-                        if len(parts) >= 2:
-                            status, filename = parts[0], parts[1]
-
-                            # Convert git status to our format
-                            if status == "A":
-                                change_type = "added"
-                            elif status == "D":
-                                change_type = "deleted"
-                            elif status == "M":
-                                change_type = "modified"
-                            else:
-                                change_type = "modified"
-
-                            # Get file content for the changes
-                            old_content, new_content = (
-                                self._get_file_content_working_vs_commit(
-                                    store_path, filename, commit, change_type
-                                )
-                            )
-
-                            change = {
-                                "path": filename.replace(".json", "").replace("/", "."),
-                                "type": change_type,
-                            }
-
-                            if old_content is not None:
-                                change["old_content"] = old_content
-                            if new_content is not None:
-                                change["new_content"] = new_content
-
-                            changes.append(change)
-
-            return changes
-
-        except Exception as e:
-            print(f"Error getting git diff working vs commit: {e}")
-            return []
-
-    def _get_git_diff_from_empty(self, store_path, commit):
-        """Get diff from empty tree to a specific commit (for initial commit)."""
-
-        try:
-            # Get list of all files in the commit (everything is added)
-            result = subprocess.run(
-                ["git", "diff-tree", "--name-only", "--no-commit-id", commit],
-                cwd=store_path,
-                capture_output=True,
-                text=True,
-            )
-
-            changes = []
-            if result.returncode == 0 and result.stdout:
-                for filename in result.stdout.strip().split("\n"):
-                    if filename:
-                        # Get content for the added file
-                        new_content = None
-                        try:
-                            content_result = subprocess.run(
-                                ["git", "show", f"{commit}:{filename}"],
-                                cwd=store_path,
-                                capture_output=True,
-                                text=True,
-                            )
-                            if content_result.returncode == 0:
-                                self._ensure_handlers_initialized()
-                                new_content = self.utility_handler.parse_memory_content(
-                                    content_result.stdout
-                                )
-                        except Exception:
-                            pass
-
-                        change = {
-                            "path": filename.replace(".json", "").replace("/", "."),
-                            "type": "added",
-                        }
-
-                        if new_content is not None:
-                            change["new_content"] = new_content
-
-                        changes.append(change)
-
-            return changes
-
-        except Exception as e:
-            print(f"Error getting git diff from empty: {e}")
-            return []
-
-    def _get_file_content_at_commits(
-        self, store_path, filename, commit1, commit2, change_type
-    ):
-        """Get file content at specific commits."""
-
-        old_content = None
-        new_content = None
-
-        try:
-            if change_type != "added":
-                # Get old content from commit1
-                result = subprocess.run(
-                    ["git", "show", f"{commit1}:{filename}"],
-                    cwd=store_path,
-                    capture_output=True,
-                    text=True,
-                )
-                if result.returncode == 0:
-                    self._ensure_handlers_initialized()
-                    old_content = self.utility_handler.parse_memory_content(
-                        result.stdout
-                    )
-
-            if change_type != "deleted":
-                # Get new content from commit2
-                result = subprocess.run(
-                    ["git", "show", f"{commit2}:{filename}"],
-                    cwd=store_path,
-                    capture_output=True,
-                    text=True,
-                )
-                if result.returncode == 0:
-                    self._ensure_handlers_initialized()
-                    new_content = self.utility_handler.parse_memory_content(
-                        result.stdout
-                    )
-
-        except Exception as e:
-            print(f"Error getting file content at commits: {e}")
-
-        return old_content, new_content
-
-    def _get_file_content_working_vs_commit(
-        self, store_path, filename, commit, change_type
-    ):
-        """Get file content comparing working directory vs commit."""
-
-        old_content = None
-        new_content = None
-
-        try:
-            if change_type != "added":
-                # Get old content from commit
-                result = subprocess.run(
-                    ["git", "show", f"{commit}:{filename}"],
-                    cwd=store_path,
-                    capture_output=True,
-                    text=True,
-                )
-                if result.returncode == 0:
-                    self._ensure_handlers_initialized()
-                    old_content = self.utility_handler.parse_memory_content(
-                        result.stdout
-                    )
-
-            if change_type != "deleted":
-                # Get current content from working directory
-                file_path = Path(store_path) / filename
-                if file_path.exists():
-                    with open(file_path) as f:
-                        self._ensure_handlers_initialized()
-                        new_content = self.utility_handler.parse_memory_content(
-                            f.read()
-                        )
-
-        except Exception as e:
-            print(f"Error getting file content working vs commit: {e}")
-
-        return old_content, new_content
-
     def handle_statistics_api(self, parsed_path):
         """Handle statistics API requests."""
         try:
@@ -3153,17 +2653,7 @@ Answer:"""
         return datetime.now().isoformat()
 
 
-class V2Handler(MemoryStoreHandler):
-    """Handler that serves the v2 React bundle from webapp/dist."""
-
-    serve_root = _WEBAPP_DIST
-    index_filename = "index.html"
-    spa_fallback = True
-
-
-def run_server(
-    port: int = 0, on_ready=None, idle_timeout: int = 300, use_v2: bool = True
-):
+def run_server(port: int = 0, on_ready=None, idle_timeout: int = 300):
     """Run the Memoir UI HTTP server.
 
     ``port=0`` (the default) asks the OS for a free ephemeral port; pass an
@@ -3176,28 +2666,20 @@ def run_server(
     no HTTP request has arrived for that long. Pass ``0`` (or any non-positive
     value) to disable the watchdog and run indefinitely.
 
-    ``use_v2`` (default ``True``) serves the React bundle under
-    ``webapp/dist``. Pass ``False`` to fall back to the legacy single-file
-    ``ui.html`` (the CLI exposes this as ``memoir ui --legacy``). Raises
-    :class:`FileNotFoundError` if v2 is requested but the bundle is missing
-    (hint: run ``make ui-build``).
-
-    Blocks until the server is shut down (Ctrl+C or the idle watchdog).
+    Raises :class:`FileNotFoundError` if the webapp bundle hasn't been built
+    yet (hint: run ``make ui-build``). Blocks until the server is shut down
+    (Ctrl+C or the idle watchdog).
     """
-    if use_v2:
-        index = _WEBAPP_DIST / "index.html"
-        if not index.is_file():
-            raise FileNotFoundError(
-                f"v2 bundle not found at {_WEBAPP_DIST}/index.html. "
-                f"Run 'make ui-build' (or 'cd src/memoir/ui/webapp && pnpm run build') "
-                f"to produce it, then retry."
-            )
-        handler_cls: type[MemoryStoreHandler] = V2Handler
-    else:
-        handler_cls = MemoryStoreHandler
+    index = _WEBAPP_DIST / "index.html"
+    if not index.is_file():
+        raise FileNotFoundError(
+            f"webapp bundle not found at {_WEBAPP_DIST}/index.html. "
+            f"Run 'make ui-build' (or 'cd src/memoir/ui/webapp && pnpm run build') "
+            f"to produce it, then retry."
+        )
 
     # Bind first; this raises OSError (EADDRINUSE) before we print anything.
-    with ReusableTCPServer(("", port), handler_cls) as httpd:
+    with ReusableTCPServer(("", port), MemoryStoreHandler) as httpd:
         bound_port = httpd.server_address[1]
         print(f"Starting Memoir UI server on http://localhost:{bound_port}")
         print(f"Open http://localhost:{bound_port} in your browser")

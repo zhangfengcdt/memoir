@@ -46,23 +46,6 @@ from memoir.cli.main import (
     help="Auto-stop the server after this many seconds of inactivity. "
     "Pass 0 to disable (run indefinitely).",
 )
-@click.option(
-    "--legacy",
-    "use_legacy",
-    is_flag=True,
-    help="Serve the legacy single-file UI (src/memoir/ui/ui.html) instead "
-    "of the new React bundle. Use this if you hit a regression in v2 — "
-    "report at https://github.com/zhangfengcdt/memoir/issues.",
-)
-# Hidden alias — older docs/scripts pass --v2. The flag is now a no-op
-# because v2 is the default; we accept it for backward compatibility.
-@click.option(
-    "--v2",
-    "use_v2_alias",
-    is_flag=True,
-    hidden=True,
-    help="(deprecated) v2 is now the default; this flag is a no-op.",
-)
 @pass_context
 def ui(
     ctx: MemoirContext,
@@ -72,8 +55,6 @@ def ui(
     readonly: bool,
     usellm: bool,
     idle_timeout: int,
-    use_legacy: bool,
-    use_v2_alias: bool,  # noqa: ARG001 — kept for backward compat
 ):
     """Launch the web UI to explore a memoir repo.
 
@@ -95,7 +76,6 @@ def ui(
       memoir ui /tmp/my-store --usellm            # + LLM recall/summarize/rewrite
       memoir ui /tmp/my-store --usellm --readonly # Full LLM, no edits
       memoir ui ~/memories --port 9090            # Pin to port 9090
-      memoir ui ~/memories --legacy               # Open the legacy single-file UI
     """
     target = path or ctx.store_path
     resolved: str | None = None
@@ -131,13 +111,7 @@ def ui(
     try:
         from memoir.ui.server import run_server
 
-        # v2 is the default; --legacy opts back to the single-file UI.
-        run_server(
-            port=port,
-            on_ready=_on_ready,
-            idle_timeout=idle_timeout,
-            use_v2=not use_legacy,
-        )
+        run_server(port=port, on_ready=_on_ready, idle_timeout=idle_timeout)
     except FileNotFoundError as e:
         ctx.error(str(e), EXIT_ERROR)
     except KeyboardInterrupt:

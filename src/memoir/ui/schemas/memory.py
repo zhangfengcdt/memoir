@@ -16,8 +16,8 @@ class Memory(BaseModel):
     timestamp) without another round-trip.
     """
 
-    # Unknown fields accepted so legacy extras don't break the UI — we'll
-    # tighten to ``extra='forbid'`` once the reader is fully typed.
+    # Unknown fields accepted so the reader can add metadata without a
+    # schema bump; tighten to ``extra='forbid'`` once it's fully typed.
     model_config = ConfigDict(extra="allow")
 
     # Full key as stored on the wire (``namespace:path``). Acts as the
