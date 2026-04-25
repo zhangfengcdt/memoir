@@ -92,3 +92,14 @@
   align-items: center;
   gap: var(--space-1);
 }
+
+.topbar-spinning {
+  animation: topbar-spin 0.9s linear infinite;
+  transform-origin: center;
+}
+
+@keyframes topbar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

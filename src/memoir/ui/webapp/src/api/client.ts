@@ -1,6 +1,7 @@
 import type {
   ApiError,
   BranchesResponse,
+  BranchesStatusResponse,
   CommitsResponse,
   CurrentBranchResponse,
   LocationResponse,
@@ -71,6 +72,24 @@ export const api = {
   store: (path: string) => getJSON<StoreResponse>("/api/store", { path }),
 
   branches: (path: string) => getJSON<BranchesResponse>("/api/branches", { path }),
+
+  branchesStatus: (path: string) =>
+    getJSON<BranchesStatusResponse>("/api/branches-status", { path }),
+
+  /** Merge ``source`` into ``target`` (default ``main``). Conflicts return
+   * 409 with a ``conflicts`` array; the client surfaces the message. */
+  syncBranch: (
+    path: string,
+    source: string,
+    target: string,
+    strategy: "ours" | "theirs" | "skip" = "skip",
+  ) =>
+    postJSON<{
+      success: boolean;
+      message?: string;
+      conflicts?: string[];
+      merged_count?: number;
+    }>("/api/sync-branches", { path, source, target, strategy }),
 
   currentBranch: (path: string) =>
     getJSON<CurrentBranchResponse>("/api/current-branch", { path }),

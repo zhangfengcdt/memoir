@@ -65,7 +65,14 @@ export default function LeftPane() {
 }
 
 function NamespaceList({ namespaces }: { namespaces: Record<string, unknown> }) {
-  const entries = Object.entries(namespaces);
+  // ``default`` always pinned to the top (right under "All namespaces"),
+  // then everything else alphabetically. Backend insertion order isn't
+  // stable, so we explicitly sort.
+  const entries = Object.entries(namespaces).sort(([a], [b]) => {
+    if (a === "default") return -1;
+    if (b === "default") return 1;
+    return a.localeCompare(b);
+  });
   const selected = useUI((s) => s.selectedNamespace);
   const setSelected = useUI((s) => s.setSelectedNamespace);
 

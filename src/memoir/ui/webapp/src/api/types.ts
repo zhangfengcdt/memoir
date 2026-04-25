@@ -43,6 +43,24 @@ export interface BranchesResponse {
   current: string;
 }
 
+// --- /api/branches-status --------------------------------------------------
+export interface BranchStatus {
+  name: string;
+  is_default: boolean;
+  is_current: boolean;
+  ahead: number;
+  behind: number;
+  last_commit_date: string | null;
+  synced: boolean;
+}
+
+export interface BranchesStatusResponse {
+  success: boolean;
+  default: string;
+  current: string;
+  branches: BranchStatus[];
+}
+
 // --- /api/current-branch ---------------------------------------------------
 export interface CurrentBranchResponse {
   success: boolean;

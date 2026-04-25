@@ -15,7 +15,12 @@ ported as the views that consume them land.
 
 from __future__ import annotations
 
-from .branches import BranchesResponse, CurrentBranchResponse
+from .branches import (
+    BranchesResponse,
+    BranchesStatusResponse,
+    BranchStatus,
+    CurrentBranchResponse,
+)
 from .commits import Commit, CommitsResponse
 from .diff import Change, ChangeStats, CommitDiff, RangeDiffResponse
 from .memory import Memory
@@ -24,7 +29,9 @@ from .store import StoreCommit, StoreResponse
 from .timeline import LocationResponse, Place, TimelineResponse
 
 __all__ = [
+    "BranchStatus",
     "BranchesResponse",
+    "BranchesStatusResponse",
     "Change",
     "ChangeStats",
     "Commit",

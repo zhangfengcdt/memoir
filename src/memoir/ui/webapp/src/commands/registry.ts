@@ -709,27 +709,15 @@ register({
 register({
   name: "branches",
   aliases: [],
-  summary: "List branches in the connected store",
+  summary: "Open the Sync Branches modal",
   usage: "/branches",
   category: "core",
   tags: ["readonly"],
-  async run() {
-    const input = "/branches";
-    const path = requireStorePath(input);
-    if (!path) return;
-    try {
-      const res = await api.branches(path);
-      useStore.getState().pushHistory({
-        input,
-        level: "info",
-        lines: [
-          `current  ${res.current}`,
-          `branches ${res.branches.join(", ")}`,
-        ],
-      });
-    } catch (err) {
-      pushError(input, err);
-    }
+  longDescription:
+    "Lists every local branch with its ahead-count vs the default branch, and offers Merge / Delete actions per row.",
+  run() {
+    if (!requireStorePath("/branches")) return;
+    useUI.getState().openBranches();
   },
 });
 

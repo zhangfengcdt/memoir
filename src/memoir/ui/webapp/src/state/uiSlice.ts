@@ -88,6 +88,10 @@ interface UISlice {
   shortcutsOpen: boolean;
   statsOpen: boolean;
   helpOpen: boolean;
+  branchesOpen: boolean;
+  /** Name of the branch whose unmerged commits are shown in the
+   * BranchCommitsModal. ``null`` = modal closed. */
+  branchCommitsTarget: string | null;
   /** Namespace filter for the right-hand views.
    *  ``null`` means "All namespaces". Persists across reloads. */
   selectedNamespace: string | null;
@@ -105,6 +109,11 @@ interface UISlice {
   openHelp: () => void;
   closeHelp: () => void;
   toggleHelp: () => void;
+  openBranches: () => void;
+  closeBranches: () => void;
+  toggleBranches: () => void;
+  openBranchCommits: (branch: string) => void;
+  closeBranchCommits: () => void;
 
   /** Push a panel on top. If the top already has the same panel-kind and
    * the same identifying key, replace it instead — avoids breadcrumb
@@ -152,6 +161,8 @@ export const useUI = create<UISlice>((set) => ({
   shortcutsOpen: false,
   statsOpen: false,
   helpOpen: false,
+  branchesOpen: false,
+  branchCommitsTarget: null,
   selectedNamespace: initial.selectedNamespace,
 
   setActiveView(view) {
@@ -196,6 +207,21 @@ export const useUI = create<UISlice>((set) => ({
   },
   toggleHelp() {
     set((s) => ({ helpOpen: !s.helpOpen }));
+  },
+  openBranches() {
+    set({ branchesOpen: true });
+  },
+  closeBranches() {
+    set({ branchesOpen: false });
+  },
+  toggleBranches() {
+    set((s) => ({ branchesOpen: !s.branchesOpen }));
+  },
+  openBranchCommits(branch) {
+    set({ branchCommitsTarget: branch });
+  },
+  closeBranchCommits() {
+    set({ branchCommitsTarget: null });
   },
 
   pushPanel(panel) {

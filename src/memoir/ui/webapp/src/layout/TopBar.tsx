@@ -10,6 +10,11 @@ export default function TopBar() {
   const onToggleLeft = useUI((s) => s.toggleLeft);
   const openShortcuts = useUI((s) => s.openShortcuts);
   const openStats = useUI((s) => s.openStats);
+  const openBranches = useUI((s) => s.openBranches);
+  const isRefreshing = useStore((s) => s.status === "connecting");
+  const refresh = () => {
+    void useStore.getState().refresh();
+  };
 
   const branch = data?.current_branch ?? (status === "connected" ? "—" : "");
   const memoryCount = data?.total_memories;
@@ -81,6 +86,53 @@ export default function TopBar() {
             {memoryCount} mem
           </span>
         )}
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={refresh}
+          title="Refresh store (/refresh)"
+          aria-label="Refresh store"
+          disabled={!storePath || isRefreshing}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={isRefreshing ? "topbar-spinning" : undefined}
+          >
+            <polyline points="23 4 23 10 17 10" />
+            <polyline points="1 20 1 14 7 14" />
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+          </svg>
+        </button>
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={openBranches}
+          title="Sync branches (/branches)"
+          aria-label="Open branch management"
+          disabled={!storePath}
+        >
+          {/* Two-arrow sync icon — top arrow goes right, bottom goes left */}
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="17 1 21 5 17 9" />
+            <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+            <polyline points="7 23 3 19 7 15" />
+            <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+          </svg>
+        </button>
         <button
           className="btn btn-ghost btn-sm"
           onClick={openStats}

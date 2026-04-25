@@ -8,6 +8,8 @@ import RightDrawer from "./RightDrawer";
 import ShortcutsOverlay from "../modals/ShortcutsOverlay";
 import StatsModal from "../modals/StatsModal";
 import CommandReferenceModal from "../modals/CommandReferenceModal";
+import SyncBranchesModal from "../modals/SyncBranchesModal";
+import BranchCommitsModal from "../modals/BranchCommitsModal";
 import LiveAnnouncer from "./LiveAnnouncer";
 import { useUI, VISIBLE_VIEW_KEYS, isDrawerOpen } from "../state/uiSlice";
 import { useConfig } from "../state/configSlice";
@@ -119,6 +121,8 @@ export default function AppShell() {
       <ShortcutsOverlay />
       <StatsModal />
       <CommandReferenceModal />
+      <SyncBranchesModal />
+      <BranchCommitsModal />
       <LiveAnnouncer />
     </div>
   );
