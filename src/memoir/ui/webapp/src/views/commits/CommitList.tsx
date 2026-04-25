@@ -22,6 +22,9 @@ export default function CommitList({ limit = 50 }: CommitListProps) {
   const storePath = useStore((s) => s.storePath);
   const connected = useStore((s) => s.status === "connected");
   const currentBranch = useStore((s) => s.data?.current_branch ?? null);
+  // Bumps every time storeSlice.refresh() succeeds — so a Refresh
+  // click (manual or auto-poll) re-runs our /api/commits fetch too.
+  const revision = useStore((s) => s.revision);
 
   const [commits, setCommits] = useState<Commit[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -54,7 +57,7 @@ export default function CommitList({ limit = 50 }: CommitListProps) {
     return () => {
       cancelled = true;
     };
-  }, [storePath, connected, limit]);
+  }, [storePath, connected, limit, revision]);
 
   const orderedHashes = useMemo(
     () => (commits ? commits.map((c) => c.hash) : []),

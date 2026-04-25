@@ -1,0 +1,103 @@
+.view-toolbar {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: auto; /* push to right edge of the tab row */
+  padding-right: var(--space-2);
+}
+
+.view-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  color: var(--fg-2);
+  background: transparent;
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.view-toolbar-btn:hover:not(:disabled) {
+  background: var(--bg-2);
+  color: var(--fg-0);
+}
+
+.view-toolbar-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.view-toolbar-spinning {
+  animation: view-toolbar-spin 0.9s linear infinite;
+  transform-origin: center;
+}
+
+@keyframes view-toolbar-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Auto-refresh toggle */
+.view-toolbar-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 30px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--fg-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  transition: border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    background var(--duration-fast) var(--ease-out);
+}
+
+.view-toolbar-toggle:hover:not(:disabled) {
+  border-color: var(--fg-2);
+  color: var(--fg-0);
+}
+
+.view-toolbar-toggle.active {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.view-toolbar-toggle:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.view-toolbar-led {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--fg-3);
+  flex-shrink: 0;
+}
+
+.view-toolbar-toggle.active .view-toolbar-led.on {
+  background: var(--accent);
+  box-shadow: 0 0 0 0 var(--accent);
+  animation: view-toolbar-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes view-toolbar-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 214, 143, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(0, 214, 143, 0);
+  }
+}
+
+.view-toolbar-toggle-label {
+  letter-spacing: 0.04em;
+}

@@ -26,6 +26,10 @@ export const VIEW_KEYS: ViewKey[] = [
  * we don't have to delete the work. */
 export const VISIBLE_VIEW_KEYS: ViewKey[] = ["commits", "tree", "graph"];
 
+/** Polling interval in ms when ``autoRefresh`` is on. Three seconds is
+ * the same cadence the legacy UI's auto-poll used. */
+export const AUTO_REFRESH_MS = 3000;
+
 /**
  * A single slide-in panel on the drawer stack. The drawer shows the
  * top-most panel; the breadcrumb lists everything below so users can
@@ -96,6 +100,10 @@ interface UISlice {
   /** Name of the branch whose unmerged commits are shown in the
    * BranchCommitsModal. ``null`` = modal closed. */
   branchCommitsTarget: string | null;
+  /** When true, the active view re-fetches every ``AUTO_REFRESH_MS``.
+   * Session-only — not persisted, since polling has a real cost and
+   * silently surviving reloads would surprise users. */
+  autoRefresh: boolean;
   /** Namespace filter for the right-hand views.
    *  ``null`` means "All namespaces". Persists across reloads. */
   selectedNamespace: string | null;
@@ -118,6 +126,8 @@ interface UISlice {
   toggleBranches: () => void;
   openBranchCommits: (branch: string) => void;
   closeBranchCommits: () => void;
+  setAutoRefresh: (on: boolean) => void;
+  toggleAutoRefresh: () => void;
 
   /** Push a panel on top. If the top already has the same panel-kind and
    * the same identifying key, replace it instead — avoids breadcrumb
@@ -167,6 +177,7 @@ export const useUI = create<UISlice>((set) => ({
   helpOpen: false,
   branchesOpen: false,
   branchCommitsTarget: null,
+  autoRefresh: false,
   selectedNamespace: initial.selectedNamespace,
 
   setActiveView(view) {
@@ -226,6 +237,12 @@ export const useUI = create<UISlice>((set) => ({
   },
   closeBranchCommits() {
     set({ branchCommitsTarget: null });
+  },
+  setAutoRefresh(on) {
+    set({ autoRefresh: on });
+  },
+  toggleAutoRefresh() {
+    set((s) => ({ autoRefresh: !s.autoRefresh }));
   },
 
   pushPanel(panel) {

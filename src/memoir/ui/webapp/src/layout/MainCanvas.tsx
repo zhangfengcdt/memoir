@@ -7,6 +7,7 @@ import TaxonomyTree from "../views/tree/TaxonomyTree";
 import TaxonomyGraph from "../views/graph/TaxonomyGraph";
 import TimelineView from "../views/timeline/TimelineView";
 import PlacesView from "../views/places/PlacesView";
+import ViewToolbar from "./ViewToolbar";
 import "./MainCanvas.css";
 
 const VIEW_LABELS: Record<ViewKey, { label: string; shortcut: string }> = {
@@ -64,6 +65,7 @@ export default function MainCanvas() {
             </button>
           );
         })}
+        <ViewToolbar />
       </nav>
 
       <div className="view-body" role="tabpanel" aria-label={`${active} view`}>
