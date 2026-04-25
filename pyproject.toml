@@ -96,7 +96,25 @@ path = "src/memoir/__init__.py"
 [tool.hatch.build.targets.wheel]
 # hatchling picks up all files under src/memoir by default, including
 # non-Python assets (ui/ui.html, ui/static/**, taxonomy/data/**).
+# For the v2 webapp we ship only the built `dist/` bundle — never the
+# React sources, node_modules, or build configs. The dist/ folder is
+# git-ignored, so we force-include it via `artifacts`.
 packages = ["src/memoir"]
+artifacts = [
+    "src/memoir/ui/webapp/dist/**",
+]
+exclude = [
+    "src/memoir/ui/webapp/node_modules",
+    "src/memoir/ui/webapp/src",
+    "src/memoir/ui/webapp/package.json",
+    "src/memoir/ui/webapp/pnpm-lock.yaml",
+    "src/memoir/ui/webapp/package-lock.json",
+    "src/memoir/ui/webapp/tsconfig.json",
+    "src/memoir/ui/webapp/tsconfig.tsbuildinfo",
+    "src/memoir/ui/webapp/vite.config.ts",
+    "src/memoir/ui/webapp/index.html",
+    "src/memoir/ui/webapp/.gitignore",
+]
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -105,6 +123,10 @@ include = [
     "LICENSE",
     "pyproject.toml",
     "CHANGELOG.md",
+]
+exclude = [
+    "src/memoir/ui/webapp/node_modules",
+    "src/memoir/ui/webapp/dist",
 ]
 
 [tool.pytest.ini_options]

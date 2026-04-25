@@ -1,0 +1,33 @@
+{
+  "name": "memoir-webapp",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Memoir web UI (v2) — Vite + React + TypeScript frontend bundled into the memoir-ai Python wheel.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b --noEmit",
+    "lint": "eslint src --ext .ts,.tsx",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "d3": "^7.9.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-resizable-panels": "^2.1.7",
+    "zustand": "^5.0.2"
+  },
+  "devDependencies": {
+    "@testing-library/react": "^16.1.0",
+    "@types/d3": "^7.4.3",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^25.0.1",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.11",
+    "vitest": "^2.1.8"
+  }
+}
