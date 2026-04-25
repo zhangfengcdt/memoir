@@ -4,6 +4,7 @@ import { useUI, VIEW_KEYS, type ViewKey } from "../state/uiSlice";
 import { dispatch } from "../commands/registry";
 import CommitList from "../views/commits/CommitList";
 import TaxonomyTree from "../views/tree/TaxonomyTree";
+import CommitGraph from "../views/graph/CommitGraph";
 import type { HistoryEntry } from "../state/storeSlice";
 import "./MainCanvas.css";
 
@@ -59,6 +60,8 @@ export default function MainCanvas() {
             <CommitList />
           ) : active === "tree" ? (
             <TaxonomyTree />
+          ) : active === "graph" ? (
+            <CommitGraph />
           ) : (
             <PlaceholderView view={active} />
           )

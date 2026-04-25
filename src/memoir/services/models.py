@@ -172,6 +172,11 @@ class CommitInfo:
     email: str
     timestamp: int  # Unix timestamp
 
+    # Full parent hashes. Ordered as git orders them — first is the
+    # canonical ``HEAD~`` ancestor, subsequent ones are merge parents.
+    # Empty for the initial commit.
+    parents: list[str] = field(default_factory=list)
+
     # Annotations filled in by the UI handler for the rich commit list.
     # Empty for legacy callers — ``BranchService.get_commits`` only
     # populates these when ``annotate=True``.
@@ -187,6 +192,7 @@ class CommitInfo:
             "author": self.author,
             "email": self.email,
             "timestamp": self.timestamp,
+            "parents": list(self.parents),
             "tags": list(self.tags),
             "refs": list(self.refs),
         }

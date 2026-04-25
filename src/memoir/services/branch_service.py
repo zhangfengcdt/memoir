@@ -110,12 +110,15 @@ class BranchService(BaseService):
             raise StoreNotFoundError(self.store_path)
 
         try:
+            # %P adds space-separated parent hashes; empty for root commit.
+            # We place it last so any pipe characters in the subject still
+            # land in ``parts[2]`` (we cap that column via maxsplit below).
             result = self._run_git_command(
                 [
                     "log",
                     branch,
                     f"-{limit}",
-                    "--pretty=format:%H|%h|%s|%an|%ae|%at",
+                    "--pretty=format:%H|%h|%s|%an|%ae|%at|%P",
                 ],
                 check=False,
             )
@@ -125,7 +128,24 @@ class BranchService(BaseService):
                 for line in result.stdout.strip().split("\n"):
                     if line:
                         parts = line.split("|")
-                        if len(parts) >= 6:
+                        if len(parts) >= 7:
+                            parents_str = parts[6].strip()
+                            parents = parents_str.split() if parents_str else []
+                            commits.append(
+                                CommitInfo(
+                                    hash=parts[0],
+                                    short_hash=parts[1],
+                                    message=parts[2],
+                                    author=parts[3],
+                                    email=parts[4],
+                                    timestamp=int(parts[5]),
+                                    parents=parents,
+                                )
+                            )
+                        elif len(parts) >= 6:
+                            # Backwards compatibility for the rare case where
+                            # %P expands to an empty string at the end and the
+                            # trailing pipe gets stripped by git's output.
                             commits.append(
                                 CommitInfo(
                                     hash=parts[0],

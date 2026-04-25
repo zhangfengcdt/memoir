@@ -180,7 +180,7 @@ register({
     useStore.getState().pushHistory({
       input: "/graph",
       level: "info",
-      lines: ["Switched to Graph view (placeholder until Phase 6)."],
+      lines: ["Switched to Graph view. Drag to pan, scroll to zoom."],
     });
   },
 });

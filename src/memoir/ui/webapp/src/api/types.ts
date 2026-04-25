@@ -95,6 +95,9 @@ export interface Commit {
   author: string;
   email: string;
   timestamp: number; // unix seconds
+  // Full parent hashes. First = canonical ancestor; more than one means
+  // this was a merge commit. Empty for the initial commit.
+  parents: string[];
   // Tag names pointing at this commit (no `refs/tags/` prefix).
   tags: string[];
   // Branch-head names pointing at this commit (no `refs/heads/` prefix).

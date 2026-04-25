@@ -18,6 +18,9 @@ class Commit(BaseModel):
     # Unix seconds. Kept as int (not datetime) for wire stability; the UI
     # converts via new Date(timestamp * 1000).
     timestamp: int
+    # Full parent hashes. First = canonical ancestor; more than one means
+    # this was a merge commit. Empty for the initial commit.
+    parents: list[str] = Field(default_factory=list)
     # Tag names pointing at this commit (no ``refs/tags/`` prefix).
     tags: list[str] = Field(default_factory=list)
     # Branch-head names pointing at this commit (no ``refs/heads/`` prefix).

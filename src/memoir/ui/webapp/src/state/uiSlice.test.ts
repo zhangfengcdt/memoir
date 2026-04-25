@@ -30,6 +30,7 @@ const COMMIT_A: Commit = {
   author: "t",
   email: "t@t",
   timestamp: 0,
+  parents: [],
   tags: [],
   refs: [],
 };
