@@ -85,7 +85,7 @@ export const api = {
     path: string,
     source: string,
     target: string,
-    opts: { dryRun?: boolean; confirm?: boolean } = {},
+    opts: { dryRun?: boolean; confirm?: boolean; excludedKeys?: string[] } = {},
   ) =>
     postJSON<{
       success: boolean;
@@ -100,6 +100,9 @@ export const api = {
       target,
       ...(opts.dryRun ? { dry_run: true } : {}),
       ...(opts.confirm ? { confirm: true } : {}),
+      ...(opts.excludedKeys && opts.excludedKeys.length > 0
+        ? { excluded_keys: opts.excludedKeys }
+        : {}),
     }),
 
   currentBranch: (path: string) =>
