@@ -1,0 +1,151 @@
+.autocomplete {
+  position: absolute;
+  /* Sit just above the floating pill. The pill takes the full height
+   * of the commandbar so 100% + small gap places the dropdown right
+   * over its top edge. */
+  bottom: calc(100% - var(--space-2));
+  left: var(--space-4);
+  right: var(--space-4);
+  max-height: 50vh;
+  background: var(--bg-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 50;
+  animation: autocomplete-pop 100ms var(--ease-out);
+}
+
+@keyframes autocomplete-pop {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.autocomplete-list {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-1);
+  overflow: auto;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.autocomplete-row {
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid transparent;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  transition: background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
+}
+
+.autocomplete-row:hover,
+.autocomplete-row.active {
+  background: var(--bg-2);
+  border-left-color: var(--accent);
+}
+
+.autocomplete-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.autocomplete-usage {
+  font-family: var(--font-mono);
+  color: var(--accent);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.autocomplete-tags {
+  display: inline-flex;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.autocomplete-tag {
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  padding: 0.05rem 0.35rem;
+  border-radius: var(--radius-sm);
+}
+
+.autocomplete-tag.tag-readonly {
+  background: rgba(255, 107, 107, 0.12);
+  color: var(--danger);
+}
+
+.autocomplete-tag.tag-mutating {
+  background: rgba(255, 184, 77, 0.12);
+  color: var(--warning);
+}
+
+.autocomplete-tag.tag-llm {
+  background: rgba(94, 71, 211, 0.18);
+  color: #b0a3ff;
+}
+
+.autocomplete-tag.tag-selection {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.autocomplete-summary {
+  color: var(--fg-1);
+  font-size: var(--text-xs);
+  line-height: var(--leading-relaxed);
+}
+
+.autocomplete-aliases {
+  color: var(--fg-3);
+  font-size: 0.65rem;
+}
+
+.autocomplete-aliases code {
+  font-family: var(--font-mono);
+  color: var(--fg-2);
+}
+
+.autocomplete-footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0.4rem var(--space-3);
+  border-top: 1px solid var(--border);
+  font-size: 0.65rem;
+  color: var(--fg-3);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.autocomplete-footer kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  padding: 0 0.3rem;
+  margin-right: 0.15rem;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  color: var(--fg-1);
+  font-size: 0.6rem;
+}

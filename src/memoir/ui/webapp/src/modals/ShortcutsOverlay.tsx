@@ -19,8 +19,6 @@ const GROUPS: Group[] = [
       { keys: ["⌘", "1"], description: "Switch to Commits view" },
       { keys: ["⌘", "2"], description: "Switch to Tree view" },
       { keys: ["⌘", "3"], description: "Switch to Graph view" },
-      { keys: ["⌘", "4"], description: "Switch to Timeline view" },
-      { keys: ["⌘", "5"], description: "Switch to Places view" },
       { keys: ["⌘", "B"], description: "Collapse / expand the left pane" },
     ],
   },

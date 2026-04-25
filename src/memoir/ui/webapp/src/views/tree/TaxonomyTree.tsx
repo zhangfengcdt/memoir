@@ -8,9 +8,20 @@ import TreeNodeView from "./TreeNodeView";
 import "./TaxonomyTree.css";
 
 export default function TaxonomyTree() {
-  const memories = useStore((s) => s.data?.memories ?? []);
+  const allMemories = useStore((s) => s.data?.memories ?? []);
   const selected = useMemorySelection((s) => s.selected);
   const select = useMemorySelection((s) => s.select);
+  const selectedNamespace = useUI((s) => s.selectedNamespace);
+
+  // When the user has clicked a namespace in the LeftPane, hide the
+  // others. Null = "All namespaces" (the default).
+  const memories = useMemo(
+    () =>
+      selectedNamespace
+        ? allMemories.filter((m) => m.namespace === selectedNamespace)
+        : allMemories,
+    [allMemories, selectedNamespace],
+  );
 
   const namespaces = useMemo(() => buildTaxonomy(memories), [memories]);
 
@@ -54,6 +65,19 @@ export default function TaxonomyTree() {
   );
 
   if (memories.length === 0) {
+    if (selectedNamespace) {
+      return (
+        <div className="tree-empty">
+          <p>
+            No memories under <code>{selectedNamespace}</code>.
+          </p>
+          <p>
+            Click <strong>All namespaces</strong> in the left pane to clear the
+            filter, or run <code>/remember</code> to capture one.
+          </p>
+        </div>
+      );
+    }
     return (
       <div className="tree-empty">
         <p>No memories to taxonomise yet.</p>
@@ -68,13 +92,20 @@ export default function TaxonomyTree() {
   return (
     <div className="tree-wrapper">
       <div className="tree-header">
-        <span className="eyebrow">Taxonomy</span>
         <div className="tree-summary">
           <span>{memories.length} memories</span>
           <span className="tree-sep" aria-hidden="true">
             ·
           </span>
           <span>{namespaces.length} namespace{namespaces.length === 1 ? "" : "s"}</span>
+          {selectedNamespace && (
+            <>
+              <span className="tree-sep" aria-hidden="true">
+                ·
+              </span>
+              <span className="chip accent">filter: {selectedNamespace}</span>
+            </>
+          )}
           {selected && (
             <>
               <span className="tree-sep" aria-hidden="true">

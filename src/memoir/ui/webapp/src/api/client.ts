@@ -40,7 +40,19 @@ async function getJSON<T>(path: string, params: Record<string, string>): Promise
     method: "GET",
     headers: { Accept: "application/json" },
   });
+  return parseResponse<T>(res, url);
+}
 
+async function postJSON<T>(path: string, body: unknown): Promise<T> {
+  const res = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(body),
+  });
+  return parseResponse<T>(res, path);
+}
+
+async function parseResponse<T>(res: Response, url: string): Promise<T> {
   if (!res.ok) {
     // Backend sometimes returns JSON error bodies, sometimes plain text.
     let detail = res.statusText;
@@ -52,7 +64,6 @@ async function getJSON<T>(path: string, params: Record<string, string>): Promise
     }
     throw new MemoirApiError(res.status, url, detail);
   }
-
   return (await res.json()) as T;
 }
 
@@ -122,4 +133,80 @@ export const api = {
     const { from, to, ...rest } = raw;
     return { ...rest, fromRef: from, toRef: to };
   },
+
+  // ---------------- Memory ops ----------------
+
+  newStore: (path: string) =>
+    postJSON<{ success: boolean; path?: string; message?: string }>(
+      "/api/new",
+      { path },
+    ),
+
+  remember: (path: string, content: string, namespace = "default") =>
+    postJSON<Record<string, unknown>>("/api/remember", {
+      path,
+      content,
+      namespace,
+    }),
+
+  forget: (path: string, key: string, namespace = "default") =>
+    postJSON<{ success: boolean; key: string; message?: string }>(
+      "/api/forget",
+      { path, key, namespace },
+    ),
+
+  recall: (path: string, query: string, mode: "single" | "tiered" = "single") =>
+    getJSON<Record<string, unknown>>("/api/recall", { path, query, mode }),
+
+  summarize: (
+    path: string,
+    opts: { type?: string; pattern?: string } = {},
+  ) =>
+    getJSON<Record<string, unknown>>("/api/summarize", {
+      path,
+      ...(opts.type ? { type: opts.type } : {}),
+      ...(opts.pattern ? { pattern: opts.pattern } : {}),
+    }),
+
+  // ---------------- Crypto ----------------
+
+  proof: (path: string, key: string, namespace = "default") =>
+    getJSON<Record<string, unknown>>("/api/proof", { path, key, namespace }),
+
+  verify: (path: string, key: string, proof: string, namespace = "default") =>
+    getJSON<Record<string, unknown>>("/api/verify", {
+      path,
+      key,
+      proof,
+      namespace,
+    }),
+
+  blame: (path: string, key: string, namespace = "default") =>
+    getJSON<Record<string, unknown>>("/api/blame", { path, key, namespace }),
+
+  // ---------------- Branch ops ----------------
+
+  checkout: (path: string, target: string, createBranch?: string) =>
+    postJSON<{ success: boolean; message: string; current_branch: string }>(
+      "/api/checkout",
+      { path, target, create_branch: createBranch },
+    ),
+
+  createBranch: (path: string, branch: string, from = "HEAD") =>
+    postJSON<{ success: boolean; message: string; branch: string }>(
+      "/api/create-branch",
+      { path, branch, from },
+    ),
+
+  deleteBranch: (path: string, branch: string) =>
+    postJSON<{ success: boolean; message?: string }>("/api/delete-branch", {
+      path,
+      branch,
+    }),
+
+  mergeBranch: (path: string, source: string) =>
+    postJSON<{ success: boolean; message?: string; conflict?: boolean }>(
+      "/api/merge-branch",
+      { path, source },
+    ),
 };

@@ -58,7 +58,7 @@
 
   /* App-specific layout tokens (new — not in website) */
   --topbar-height: 56px;
-  --commandbar-height: 44px;
+  --commandbar-height: 60px;
   --leftpane-min: 240px;
   --leftpane-default: 320px;
   --leftpane-collapsed: 48px;

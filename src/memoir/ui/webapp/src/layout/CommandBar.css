@@ -1,17 +1,42 @@
 .commandbar {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
   height: var(--commandbar-height);
-  padding: 0 var(--space-6);
+  padding: var(--space-2) var(--space-4);
   background: var(--bg-1);
   border-top: 1px solid var(--border);
+  position: relative; /* anchor for the autocomplete dropdown */
 }
 
-.commandbar-prompt {
-  color: var(--accent);
-  font-family: var(--font-mono);
-  font-weight: 600;
+/* The floating pill that holds the input + accessories. Visually
+ * matches v1's input "card" — rounded, bordered, subtly raised. */
+.commandbar-pill {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 100%;
+  padding: 0 var(--space-3) 0 var(--space-4);
+  background: var(--bg-0);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  transition: border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.commandbar-pill:hover {
+  border-color: var(--fg-3);
+}
+
+.commandbar-pill:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+/* Subtle accent tint when the user is typing a slash command — gives a
+ * visual cue that autocomplete is engaged. */
+.commandbar-pill[data-focus="command"]:focus-within {
+  border-color: var(--accent);
 }
 
 .commandbar-input {
@@ -23,6 +48,8 @@
   color: var(--fg-0);
   font-family: var(--font-mono);
   font-size: var(--text-sm);
+  height: 100%;
+  padding: 0;
 }
 
 .commandbar-input::placeholder {
@@ -37,14 +64,33 @@
   border: 1px solid var(--border);
   padding: 0.1rem 0.4rem;
   border-radius: var(--radius-sm);
+  flex-shrink: 0;
 }
 
-.commandbar[data-status="error"] .commandbar-prompt {
-  color: var(--danger);
+.commandbar-help {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: var(--fg-2);
+  flex-shrink: 0;
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 
-.commandbar[data-status="connected"] .commandbar-prompt {
+.commandbar-help:hover {
+  background: var(--bg-2);
   color: var(--accent);
+}
+
+.commandbar[data-status="error"] .commandbar-pill {
+  border-color: var(--danger);
+}
+
+.commandbar[data-status="connecting"] .commandbar-pill {
+  border-color: var(--warning);
 }
 
 .commandbar-spinner {
@@ -53,6 +99,7 @@
   border-radius: 50%;
   border: 2px solid var(--accent);
   border-top-color: transparent;
+  flex-shrink: 0;
   animation: commandbar-spin 0.7s linear infinite;
 }
 

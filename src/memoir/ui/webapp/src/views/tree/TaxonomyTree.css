@@ -112,10 +112,45 @@
   color: var(--fg-0);
 }
 
-.tree-row[aria-expanded]:focus-visible {
+.tree-row:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: -2px;
   border-radius: var(--radius-sm);
+}
+
+/* Terminal rows hold a memory at exactly this path (no children).
+ * They behave like leaves — click opens the detail drawer. */
+.tree-row.terminal {
+  border-left: 2px solid transparent;
+}
+
+.tree-row.terminal .tree-caret {
+  color: var(--accent);
+}
+
+.tree-row.terminal:hover .tree-caret {
+  color: var(--accent-hover);
+}
+
+.tree-row.terminal.selected {
+  background: var(--accent-dim);
+  border-left-color: var(--accent);
+}
+
+.tree-row.terminal.selected .tree-name,
+.tree-row.terminal.selected .tree-caret {
+  color: var(--accent);
+}
+
+.tree-row-preview {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--fg-2);
+  font-size: var(--text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-left: var(--space-2);
 }
 
 .tree-caret {

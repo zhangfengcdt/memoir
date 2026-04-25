@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
 import { useStore } from "../state/storeSlice";
-import { useUI, VIEW_KEYS, type ViewKey } from "../state/uiSlice";
+import { useUI, VISIBLE_VIEW_KEYS, type ViewKey } from "../state/uiSlice";
 import { dispatch } from "../commands/registry";
 import CommitList from "../views/commits/CommitList";
 import TaxonomyTree from "../views/tree/TaxonomyTree";
-import CommitGraph from "../views/graph/CommitGraph";
+import TaxonomyGraph from "../views/graph/TaxonomyGraph";
 import TimelineView from "../views/timeline/TimelineView";
 import PlacesView from "../views/places/PlacesView";
-import type { HistoryEntry } from "../state/storeSlice";
 import "./MainCanvas.css";
 
 const VIEW_LABELS: Record<ViewKey, { label: string; shortcut: string }> = {
@@ -23,7 +22,6 @@ export default function MainCanvas() {
   const setActive = useUI((s) => s.setActiveView);
   const storePath = useStore((s) => s.storePath);
   const data = useStore((s) => s.data);
-  const history = useStore((s) => s.history);
   const status = useStore((s) => s.status);
 
   // Auto-connect on first mount when the CLI passed ?store=<path>.
@@ -39,7 +37,7 @@ export default function MainCanvas() {
   return (
     <main className="main-canvas" aria-label="Main content">
       <nav className="view-tabs" role="tablist" aria-label="View tabs">
-        {VIEW_KEYS.map((key) => {
+        {VISIBLE_VIEW_KEYS.map((key) => {
           const meta = VIEW_LABELS[key];
           return (
             <button
@@ -62,7 +60,6 @@ export default function MainCanvas() {
         ) : (
           <DisconnectedView />
         )}
-        {history.length > 0 && <HistoryLog entries={history} />}
       </div>
     </main>
   );
@@ -75,7 +72,7 @@ function ViewBody({ view }: { view: ViewKey }) {
     case "tree":
       return <TaxonomyTree />;
     case "graph":
-      return <CommitGraph />;
+      return <TaxonomyGraph />;
     case "timeline":
       return <TimelineView />;
     case "places":
@@ -121,32 +118,3 @@ function DisconnectedView() {
   );
 }
 
-function HistoryLog({ entries }: { entries: HistoryEntry[] }) {
-  // Show newest at bottom. Slice to last 30 to avoid DOM bloat in long sessions.
-  const recent = entries.slice(-30);
-  return (
-    <div className="history-log" aria-label="Command history">
-      <div className="history-log-header">
-        <span className="eyebrow">History</span>
-        <button
-          className="btn btn-ghost btn-sm"
-          onClick={() => useStore.getState().clearHistory()}
-        >
-          Clear
-        </button>
-      </div>
-      <ol className="history-list">
-        {recent.map((e) => (
-          <li key={e.id} className={`history-entry level-${e.level}`}>
-            <code className="history-input">{e.input}</code>
-            <div className="history-lines">
-              {e.lines.map((l, i) => (
-                <div key={i}>{l}</div>
-              ))}
-            </div>
-          </li>
-        ))}
-      </ol>
-    </div>
-  );
-}

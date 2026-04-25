@@ -7,8 +7,9 @@ import MainCanvas from "./MainCanvas";
 import RightDrawer from "./RightDrawer";
 import ShortcutsOverlay from "../modals/ShortcutsOverlay";
 import StatsModal from "../modals/StatsModal";
+import CommandReferenceModal from "../modals/CommandReferenceModal";
 import LiveAnnouncer from "./LiveAnnouncer";
-import { useUI, VIEW_KEYS, isDrawerOpen } from "../state/uiSlice";
+import { useUI, VISIBLE_VIEW_KEYS, isDrawerOpen } from "../state/uiSlice";
 import "./AppShell.css";
 
 export default function AppShell() {
@@ -28,10 +29,13 @@ export default function AppShell() {
         toggleLeft();
         return;
       }
-      if (mod && /^[1-5]$/.test(e.key)) {
-        e.preventDefault();
+      if (mod && /^[1-9]$/.test(e.key)) {
         const idx = parseInt(e.key, 10) - 1;
-        setActiveView(VIEW_KEYS[idx]);
+        const target = VISIBLE_VIEW_KEYS[idx];
+        if (target) {
+          e.preventDefault();
+          setActiveView(target);
+        }
         return;
       }
       // ``?`` opens the shortcuts overlay, but only when focus is outside
@@ -108,6 +112,7 @@ export default function AppShell() {
 
       <ShortcutsOverlay />
       <StatsModal />
+      <CommandReferenceModal />
       <LiveAnnouncer />
     </div>
   );

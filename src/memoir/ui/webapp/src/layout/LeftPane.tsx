@@ -11,11 +11,12 @@ export default function LeftPane() {
   const setActiveView = useUI((s) => s.setActiveView);
 
   if (collapsed) {
+    // Match the visible tab bar — timeline + places are hidden for now
+    // and live behind slash commands only.
     const rail: { key: ViewKey; title: string; icon: RailIconKind }[] = [
       { key: "commits", title: "Commits (⌘1)", icon: "commits" },
       { key: "tree", title: "Tree (⌘2)", icon: "tree" },
       { key: "graph", title: "Graph (⌘3)", icon: "graph" },
-      { key: "timeline", title: "Timeline (⌘4)", icon: "timeline" },
     ];
     return (
       <aside className="leftpane leftpane-collapsed" aria-label="Navigation rail">
@@ -65,6 +66,14 @@ export default function LeftPane() {
 
 function NamespaceList({ namespaces }: { namespaces: Record<string, unknown> }) {
   const entries = Object.entries(namespaces);
+  const selected = useUI((s) => s.selectedNamespace);
+  const setSelected = useUI((s) => s.setSelectedNamespace);
+
+  const totalCount = entries.reduce(
+    (sum, [, v]) => sum + (Array.isArray(v) ? v.length : countLeaves(v)),
+    0,
+  );
+
   if (entries.length === 0) {
     return (
       <div className="leftpane-placeholder">
@@ -73,13 +82,40 @@ function NamespaceList({ namespaces }: { namespaces: Record<string, unknown> }) 
     );
   }
   return (
-    <ul className="namespace-list">
+    <ul className="namespace-list" role="listbox" aria-label="Namespaces filter">
+      <li>
+        <button
+          type="button"
+          role="option"
+          aria-selected={selected === null}
+          className={`namespace-item${selected === null ? " selected" : ""}`}
+          onClick={() => setSelected(null)}
+          title="Show data from all namespaces"
+        >
+          <span className="namespace-name">All namespaces</span>
+          <span className="namespace-count">{totalCount}</span>
+        </button>
+      </li>
       {entries.map(([ns, value]) => {
         const count = Array.isArray(value) ? value.length : countLeaves(value);
+        const isSelected = selected === ns;
         return (
-          <li key={ns} className="namespace-item">
-            <span className="namespace-name">{ns}</span>
-            <span className="namespace-count">{count}</span>
+          <li key={ns}>
+            <button
+              type="button"
+              role="option"
+              aria-selected={isSelected}
+              className={`namespace-item${isSelected ? " selected" : ""}`}
+              onClick={() => setSelected(isSelected ? null : ns)}
+              title={
+                isSelected
+                  ? `Click again to clear; currently filtering to ${ns}`
+                  : `Filter views to ${ns}`
+              }
+            >
+              <span className="namespace-name">{ns}</span>
+              <span className="namespace-count">{count}</span>
+            </button>
           </li>
         );
       })}

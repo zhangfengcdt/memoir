@@ -70,13 +70,19 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 100%;
   padding: 0.4rem 0.55rem;
+  border: 0;
+  border-left: 2px solid transparent;
   border-radius: var(--radius-sm);
+  background: transparent;
   font-size: var(--text-sm);
   color: var(--fg-1);
-  transition: background var(--duration-fast) var(--ease-out),
-    color var(--duration-fast) var(--ease-out);
+  text-align: left;
   cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out);
 }
 
 .namespace-item:hover {
@@ -84,15 +90,35 @@
   color: var(--fg-0);
 }
 
+.namespace-item.selected {
+  background: var(--accent-dim);
+  color: var(--fg-0);
+  border-left-color: var(--accent);
+}
+
+.namespace-item.selected .namespace-name {
+  color: var(--accent);
+}
+
+.namespace-item.selected .namespace-count {
+  color: var(--accent);
+}
+
 .namespace-name {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .namespace-count {
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   color: var(--fg-3);
+  flex-shrink: 0;
 }
 
 /* Collapsed rail */

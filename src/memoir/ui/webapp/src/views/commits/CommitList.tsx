@@ -4,6 +4,13 @@ import type { Commit } from "../../api/types";
 import { useStore } from "../../state/storeSlice";
 import { useSelection } from "../../state/selectionSlice";
 import { useUI } from "../../state/uiSlice";
+
+/**
+ * Namespace filtering for the commits list requires per-commit
+ * "namespaces touched" data the backend doesn't currently return on
+ * ``/api/commits``. Until that lands, commits show in full and we
+ * surface a small note in the header so users aren't surprised.
+ */
 import CommitRow from "./CommitRow";
 import "./CommitList.css";
 
@@ -22,6 +29,7 @@ export default function CommitList({ limit = 50 }: CommitListProps) {
 
   const primary = useSelection((s) => s.primary);
   const selectedHashes = useSelection((s) => s.selectedHashes);
+  const namespaceFilter = useUI((s) => s.selectedNamespace);
 
   useEffect(() => {
     let cancelled = false;
@@ -113,9 +121,16 @@ export default function CommitList({ limit = 50 }: CommitListProps) {
   return (
     <div className="commit-list-wrapper">
       <div className="commit-list-header">
-        <span className="eyebrow">Commits</span>
         <div className="commit-list-meta">
           <span>{commits.length} shown</span>
+          {namespaceFilter && (
+            <span
+              className="chip"
+              title="Namespace filter is applied to the Tree view; commits show all changes."
+            >
+              filter (tree only): {namespaceFilter}
+            </span>
+          )}
           {selectedCount > 1 && (
             <span className="chip accent">
               {selectedCount} selected — range-diff ready

@@ -11,6 +11,8 @@ import { makeStorage } from "../lib/storage";
  */
 export type ViewKey = "commits" | "tree" | "graph" | "timeline" | "places";
 
+/** All views the app can switch to. Slash commands like ``/timeline``
+ * still set these; only the visible tab list narrows them. */
 export const VIEW_KEYS: ViewKey[] = [
   "commits",
   "tree",
@@ -18,6 +20,11 @@ export const VIEW_KEYS: ViewKey[] = [
   "timeline",
   "places",
 ];
+
+/** Subset rendered in the tab bar and the collapsed-rail. Timeline and
+ * Places are deferred for a later phase — their views still compile so
+ * we don't have to delete the work. */
+export const VISIBLE_VIEW_KEYS: ViewKey[] = ["commits", "tree", "graph"];
 
 /**
  * A single slide-in panel on the drawer stack. The drawer shows the
@@ -45,23 +52,30 @@ export function drawerPanelTitle(panel: DrawerPanel): string {
 interface PersistedUI {
   activeView: ViewKey;
   leftCollapsed: boolean;
+  selectedNamespace: string | null;
 }
 
 const PERSIST_KEY = "memoir:ui:v1";
 
 const persist = makeStorage<PersistedUI>(
   PERSIST_KEY,
-  { activeView: "commits", leftCollapsed: false },
+  { activeView: "commits", leftCollapsed: false, selectedNamespace: null },
   (raw) => {
     if (!raw || typeof raw !== "object") return null;
     const obj = raw as Record<string, unknown>;
     const view = obj.activeView;
     const collapsed = obj.leftCollapsed;
+    const ns = obj.selectedNamespace;
     if (typeof view !== "string" || !VIEW_KEYS.includes(view as ViewKey)) {
       return null;
     }
     if (typeof collapsed !== "boolean") return null;
-    return { activeView: view as ViewKey, leftCollapsed: collapsed };
+    if (ns !== null && typeof ns !== "string") return null;
+    return {
+      activeView: view as ViewKey,
+      leftCollapsed: collapsed,
+      selectedNamespace: ns,
+    };
   },
 );
 
@@ -71,16 +85,24 @@ interface UISlice {
   drawerStack: DrawerPanel[];
   shortcutsOpen: boolean;
   statsOpen: boolean;
+  helpOpen: boolean;
+  /** Namespace filter for the right-hand views.
+   *  ``null`` means "All namespaces". Persists across reloads. */
+  selectedNamespace: string | null;
 
   setActiveView: (view: ViewKey) => void;
   toggleLeft: () => void;
   setLeftCollapsed: (collapsed: boolean) => void;
+  setSelectedNamespace: (ns: string | null) => void;
   openShortcuts: () => void;
   closeShortcuts: () => void;
   toggleShortcuts: () => void;
   openStats: () => void;
   closeStats: () => void;
   toggleStats: () => void;
+  openHelp: () => void;
+  closeHelp: () => void;
+  toggleHelp: () => void;
 
   /** Push a panel on top. If the top already has the same panel-kind and
    * the same identifying key, replace it instead — avoids breadcrumb
@@ -109,8 +131,16 @@ function panelIdentity(p: DrawerPanel): string {
 // can override by calling ``persist.clear()`` then reloading the module.
 const initial = persist.load();
 
-function persistFromState(s: { activeView: ViewKey; leftCollapsed: boolean }) {
-  persist.save({ activeView: s.activeView, leftCollapsed: s.leftCollapsed });
+function persistFromState(s: PersistedUI) {
+  persist.save(s);
+}
+
+function snapshot(state: UISlice): PersistedUI {
+  return {
+    activeView: state.activeView,
+    leftCollapsed: state.leftCollapsed,
+    selectedNamespace: state.selectedNamespace,
+  };
 }
 
 export const useUI = create<UISlice>((set) => ({
@@ -119,23 +149,24 @@ export const useUI = create<UISlice>((set) => ({
   drawerStack: [],
   shortcutsOpen: false,
   statsOpen: false,
+  helpOpen: false,
+  selectedNamespace: initial.selectedNamespace,
 
   setActiveView(view) {
     set({ activeView: view });
-    persistFromState({ activeView: view, leftCollapsed: useUI.getState().leftCollapsed });
+    persistFromState(snapshot(useUI.getState()));
   },
   toggleLeft() {
-    set((s) => {
-      const next = !s.leftCollapsed;
-      persistFromState({ activeView: s.activeView, leftCollapsed: next });
-      return { leftCollapsed: next };
-    });
+    set((s) => ({ leftCollapsed: !s.leftCollapsed }));
+    persistFromState(snapshot(useUI.getState()));
   },
   setLeftCollapsed(collapsed) {
-    set((s) => {
-      persistFromState({ activeView: s.activeView, leftCollapsed: collapsed });
-      return { leftCollapsed: collapsed };
-    });
+    set({ leftCollapsed: collapsed });
+    persistFromState(snapshot(useUI.getState()));
+  },
+  setSelectedNamespace(ns) {
+    set({ selectedNamespace: ns });
+    persistFromState(snapshot(useUI.getState()));
   },
   openShortcuts() {
     set({ shortcutsOpen: true });
@@ -154,6 +185,15 @@ export const useUI = create<UISlice>((set) => ({
   },
   toggleStats() {
     set((s) => ({ statsOpen: !s.statsOpen }));
+  },
+  openHelp() {
+    set({ helpOpen: true });
+  },
+  closeHelp() {
+    set({ helpOpen: false });
+  },
+  toggleHelp() {
+    set((s) => ({ helpOpen: !s.helpOpen }));
   },
 
   pushPanel(panel) {
