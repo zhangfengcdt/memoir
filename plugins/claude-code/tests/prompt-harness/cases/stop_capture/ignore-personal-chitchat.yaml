@@ -1,0 +1,17 @@
+# Negative case: small-talk content with no software-engineering durable
+# value. The prompt is explicitly framed for software-development work; it
+# should not capture lifestyle facts even if they're durable in some other
+# sense. Guards against Haiku over-eagerly recording everything.
+description: "Personal small-talk (food, weekend) must produce no captures"
+prompt: stop_capture
+input: |
+  === Transcript of a conversation between a human and Claude Code ===
+  [Human]
+  Quick aside before we get back to code: had a great lunch at the new
+  ramen place on 4th Street. Gonna head out hiking this weekend if the
+  weather holds. Anyway — back to the API work.
+  [Claude Code]
+  Sounds good. Ready when you are on the API.
+expect:
+  - kind: no_line_matches
+    value: "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+){1,3}\\t.+$"

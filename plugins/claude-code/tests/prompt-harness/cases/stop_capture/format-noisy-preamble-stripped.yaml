@@ -1,0 +1,23 @@
+# Regression for the assertion-design lesson on 2026-04-25: Haiku sometimes
+# emits a preamble line like "(no durable facts)" or "I don't see any rules
+# here." despite the prompt forbidding it. stop.sh:153 silently drops these
+# (no tab → no path → filter rejects), so the production behavior is fine.
+# This case verifies the harness's no_line_matches assertion correctly
+# tolerates such preamble while still asserting no *valid capture line* is
+# present. The input is a long, ambiguous mid-session pivot — exactly the
+# shape that historically triggered "I'm not sure" preambles.
+description: "Long ambiguous turn with no rule must not produce a valid capture line (preamble allowed)"
+prompt: stop_capture
+input: |
+  === Transcript of a conversation between a human and Claude Code ===
+  [Human]
+  We've been going back and forth on the cache eviction policy. I'm
+  honestly not sure yet — LRU is what we've been doing but the access
+  pattern is bursty so LFU might be better. Let me think about it more
+  and we'll revisit. For now keep doing whatever the existing code does.
+  [Claude Code]
+  Sounds good — leaving the existing eviction policy in place pending
+  your decision.
+expect:
+  - kind: no_line_matches
+    value: "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+){1,3}\\t.+$"

@@ -11,12 +11,10 @@ input: |
   [Claude Code]
   Got it — pytest only, never unittest, for memoir tests. Locked in.
 expect:
-  - kind: min_lines
+  - kind: min_valid_capture_lines
     value: 1
   - kind: max_lines
     value: 6
-  - kind: regex_each_line
-    value: "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+){1,3}\\t.+$"
   - kind: any_path_prefix
     value:
       - preferences.coding

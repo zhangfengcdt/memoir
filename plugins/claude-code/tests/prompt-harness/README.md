@@ -93,12 +93,17 @@ expect:
 
 ## How taxonomy block injection works
 
-The Stop-hook prompt has a `${TAXONOMY_BLOCK}` placeholder that production fills in at SessionStart from `memoir taxonomy prompt-snippet`. The harness does the same:
+The Stop-hook prompt has a `${TAXONOMY_BLOCK}` placeholder that production fills in at SessionStart from `memoir taxonomy prompt-snippet`. The harness does the same — but uses an isolated temp store by default so test runs are reproducible and never touch the user's real `~/.memoir/`.
 
-- Pass `--store /path/to/memoir/store` and the harness will run `memoir -s <store> taxonomy prompt-snippet` to populate it.
-- Without `--store`, falls back to the same hardcoded category sheet `stop.sh` uses when no taxonomy is loaded.
+Resolution order (first match wins):
 
-The artifact `<run>/<prompt>/<case>/system.txt` shows you exactly which block was used; `summary.json` records the source.
+1. **`--store /path/to/memoir/store`** — explicit override. Use this when diagnosing a failure tied to a real store's loaded taxonomies.
+2. **`$MEMOIR_STORE`** env var — same as #1, just env-driven.
+3. **Default**: `/tmp/memoir-prompt-tests/_store/` — bootstrapped on first use via `memoir new --taxonomy-builtin --no-connect`. Idempotent across runs. The taxonomy block then comes from `memoir -s <temp-store> taxonomy prompt-snippet`. This is the **builtin taxonomy** memoir ships — the same shape every fresh memoir install starts with.
+
+The hardcoded category sheet (the same fallback `stop.sh` uses when no store has been initialised) only fires if `memoir` itself is not on `PATH`.
+
+`summary.json[i].notes` records which source was used per case (e.g. `"taxonomy: memoir-cli: /tmp/memoir-prompt-tests/_store"`); `<run>/<prompt>/<case>/system.txt` shows the exact assembled prompt.
 
 ## Costs
 

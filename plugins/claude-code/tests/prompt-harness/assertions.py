@@ -17,12 +17,23 @@ Kinds:
                          given prefixes (value: list[str] of dotted prefixes,
                          line is split on first \\t)
   no_path_prefix:        no line's path field starts with any of the prefixes
+  min_valid_capture_lines:
+                         at least ``value`` lines match the production
+                         capture-line regex (path<TAB>fact, path with 3 dotted
+                         lowercase segments). Tolerates chatter lines that
+                         don't match — production's stop.sh filter drops those.
 """
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+
+# Production's stop.sh:153 regex for valid capture lines. Lines matching this
+# get written to memoir; non-matching lines (preamble, "got it", etc.) are
+# silently dropped. The harness uses the same shape so positive-case
+# assertions reflect what production actually persists.
+_PRODUCTION_CAPTURE_RE = r"^[a-z][a-z0-9_]*(\.[a-z0-9_]+){1,3}\t.+$"
 
 
 @dataclass
@@ -113,6 +124,20 @@ def _eval_one(output: str, spec: dict) -> AssertionResult:
             f"no line matched {value!r}"
             if ok
             else f"{len(bad)} line(s) matched {value!r}: {bad[:3]!r}",
+        )
+
+    if kind == "min_valid_capture_lines":
+        pattern = re.compile(_PRODUCTION_CAPTURE_RE)
+        valid = [ln for ln in lines if pattern.match(ln)]
+        ok = len(valid) >= int(value)
+        return AssertionResult(
+            kind, value, ok,
+            f"got {len(valid)} valid capture line(s), need >= {value}"
+            + (
+                ""
+                if ok
+                else f"; saw {n} total lines (chatter dropped by prod filter)"
+            ),
         )
 
     if kind == "no_line_contains":

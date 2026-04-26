@@ -1,0 +1,26 @@
+# Positive case: standing rule expressed AS a correction ("stop doing X, do
+# Y instead"). The exact failure mode that prompted the EXCLUDE-clause
+# tightening earlier this session — feedback that ONLY applies to this turn
+# is ephemeral, but a rule expressed AS feedback is durable. Must capture.
+description: "'Stop doing X, use Y instead' standing rule must capture"
+prompt: stop_capture
+input: |
+  === Transcript of a conversation between a human and Claude Code ===
+  [Human]
+  Stop adding console.log statements when you debug. Use the project's
+  logger module instead — that's the standard for this codebase, and
+  console.logs leak into production builds.
+  [Claude Code]
+  Got it — logger module, not console.log.
+expect:
+  - kind: min_valid_capture_lines
+    value: 1
+  - kind: max_lines
+    value: 6
+  - kind: any_path_prefix
+    value:
+      - preferences.coding
+      - workflow.coding
+      - debugging.practices
+      - debugging.techniques
+      - context.project

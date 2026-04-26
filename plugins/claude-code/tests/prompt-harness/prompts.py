@@ -8,6 +8,7 @@ they get extracted.
 
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 from dataclasses import dataclass
@@ -18,6 +19,12 @@ from pathlib import Path
 # So the plugin root is two parents up.
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent.parent
 PROMPTS_DIR = PLUGIN_ROOT / "hooks" / "prompts"
+CACHE_FILENAME = "plugin-stop-taxonomy-prompt-cache"
+
+# Fresh, isolated memoir store for harness runs. Init is idempotent — only
+# happens the first time. Living under /tmp keeps it out of the user's real
+# ~/.memoir/, so test runs never pollute or depend on production state.
+TMP_STORE_DIR = Path("/tmp/memoir-prompt-tests/_store")
 
 
 # Hard-coded fallback used by stop.sh when the store has no taxonomy snippet
@@ -52,27 +59,91 @@ def list_prompts() -> list[str]:
     return sorted(p.stem for p in PROMPTS_DIR.glob("*.tmpl"))
 
 
+def _ensure_temp_store() -> str | None:
+    """Initialise an isolated memoir store under TMP_STORE_DIR with the builtin
+    taxonomy. Idempotent — only runs ``memoir new`` the first time. Returns the
+    store path on success, or None if memoir CLI is unavailable / init fails.
+    """
+    if (TMP_STORE_DIR / ".git").is_dir():
+        return str(TMP_STORE_DIR)
+    if not shutil.which("memoir"):
+        return None
+    TMP_STORE_DIR.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        res = subprocess.run(
+            [
+                "memoir", "new", str(TMP_STORE_DIR),
+                "--taxonomy-builtin", "--no-connect",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if res.returncode == 0 and (TMP_STORE_DIR / ".git").is_dir():
+            return str(TMP_STORE_DIR)
+    except (subprocess.SubprocessError, OSError):
+        pass
+    return None
+
+
+def _resolve_store(store: str | None) -> str | None:
+    """Resolve which memoir store the harness should use for the taxonomy.
+
+    Priority:
+      1. ``store`` arg (explicit override — most often a real store you want
+         to test against, e.g. for diagnosing prod-specific failures).
+      2. $MEMOIR_STORE env var.
+      3. A fresh, isolated temp store under ``/tmp/memoir-prompt-tests/_store/``
+         with the builtin taxonomy — this is the default so test runs are
+         reproducible and don't depend on the user's real ~/.memoir/ state.
+    Returns None only if memoir CLI isn't installed at all.
+    """
+    if store and (Path(store) / ".git").is_dir():
+        return store
+    env_store = os.environ.get("MEMOIR_STORE")
+    if env_store and (Path(env_store) / ".git").is_dir():
+        return env_store
+    return _ensure_temp_store()
+
+
 def _load_taxonomy_block(store: str | None) -> tuple[str, str]:
     """Return ``(block, source_label)``.
 
-    Tries `memoir taxonomy prompt-snippet` against ``store`` if provided and
-    the CLI is on PATH; falls back to the hardcoded category sheet otherwise.
-    Mirrors the logic in hooks/common.sh::write_stop_prompt_cache + stop.sh's
-    fallback.
+    Mirrors the production order of preference in ``hooks/stop.sh`` +
+    ``hooks/common.sh::read_stop_prompt_cache``:
+
+      1. Cached snippet at ``<store>/.git/plugin-stop-taxonomy-prompt-cache``
+         (this is what the live Stop hook reads — exact production parity).
+      2. Fresh ``memoir -s <store> taxonomy prompt-snippet`` if the cache
+         is missing/empty but the CLI is available.
+      3. Hardcoded fallback (same one ``stop.sh`` ships).
+
+    The store itself is auto-resolved via ``_resolve_store`` so users don't
+    have to remember ``--store`` for the common case.
     """
-    if store and shutil.which("memoir"):
-        try:
-            res = subprocess.run(
-                ["memoir", "-s", store, "taxonomy", "prompt-snippet"],
-                capture_output=True,
-                text=True,
-                timeout=15,
-            )
-            snippet = (res.stdout or "").strip()
-            if snippet:
-                return snippet, f"store: {store}"
-        except (subprocess.SubprocessError, OSError):
-            pass
+    resolved = _resolve_store(store)
+
+    if resolved:
+        cache = Path(resolved) / ".git" / CACHE_FILENAME
+        if cache.is_file():
+            text = cache.read_text().strip()
+            if text:
+                return text, f"cache: {cache}"
+
+        if shutil.which("memoir"):
+            try:
+                res = subprocess.run(
+                    ["memoir", "-s", resolved, "taxonomy", "prompt-snippet"],
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                )
+                snippet = (res.stdout or "").strip()
+                if snippet:
+                    return snippet, f"memoir-cli: {resolved}"
+            except (subprocess.SubprocessError, OSError):
+                pass
+
     return _TAXONOMY_FALLBACK, "fallback"
 
 

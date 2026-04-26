@@ -1,0 +1,24 @@
+# Regression for the prompt fix on 2026-04-25: Haiku used to invent path
+# segments like "search-tool" or "ci-cd" — looks reasonable, fails the
+# downstream regex (^[a-z0-9_]+$ per segment), gets silently dropped by
+# stop.sh. The fix added an explicit "NO hyphens; use search_tool not
+# search-tool" rule + the production regex inline. This case feeds Haiku
+# input rich in hyphenated tool names to verify it now produces underscores.
+description: "Hyphen-rich input must still produce hyphen-free path segments"
+prompt: stop_capture
+input: |
+  === Transcript of a conversation between a human and Claude Code ===
+  [Human]
+  Going forward, please use ripgrep (the rg command, sometimes called
+  search-tool internally) instead of grep. Same goes for fd-find over
+  classic find. And for our CI-CD pipeline we standardise on GitHub
+  Actions, not GitLab CI.
+  [Claude Code]
+  Noted: ripgrep over grep, fd-find over find, GitHub Actions for CI.
+expect:
+  - kind: min_valid_capture_lines
+    value: 1
+  - kind: max_lines
+    value: 6
+  - kind: no_line_matches
+    value: "^[^\\t]*-[^\\t]*\\t"  # no hyphen anywhere in the path field
