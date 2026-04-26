@@ -99,6 +99,20 @@
   gap: var(--space-1);
 }
 
+.topbar-edition {
+  font-size: var(--text-xs);
+  font-weight: 500;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--fg-2);
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  padding: 0.18rem 0.5rem;
+  border-radius: var(--radius-sm);
+  user-select: none;
+  margin-right: var(--space-2);
+}
+
 .topbar-spinning {
   animation: topbar-spin 0.9s linear infinite;
   transform-origin: center;

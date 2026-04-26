@@ -62,6 +62,13 @@ export default function TopBar() {
       </div>
 
       <div className="topbar-right">
+        <span
+          className="topbar-edition"
+          title="Memoir Community Version"
+          aria-label="Memoir Community Version"
+        >
+          Community Version
+        </span>
         {branch && (
           <button className="btn btn-ghost btn-sm" title="Current branch">
             <svg
