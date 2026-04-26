@@ -1135,6 +1135,50 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#session-context-injection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Session context injection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#codebase-snapshot-codebaseonboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Codebase snapshot (codebase:onboard)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#per-branch-turn-metrics-metricsturnbranch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-branch turn metrics (metrics.turn.&lt;branch&gt;)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment variables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#manifest" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1737,6 +1781,50 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#session-context-injection" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Session context injection
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#codebase-snapshot-codebaseonboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Codebase snapshot (codebase:onboard)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#per-branch-turn-metrics-metricsturnbranch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Per-branch turn metrics (metrics.turn.&lt;branch&gt;)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment variables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#manifest" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2003,13 +2091,199 @@
 <li><strong>Namespaces split along read/write paths.</strong> <code>memory-recall</code> works against <code>default</code> (user-captured facts, written by the <code>Stop</code> hook or <code>/memoir-remember</code>). <code>memoir-onboard</code> works against <code>codebase:onboard</code> (repo snapshot, written by <code>/memoir-onboard</code>, replayed by the <code>SessionStart</code> hook). Two namespaces, two lifecycles, no overlap.</li>
 </ul>
 <p>The admin surface — <code>/memoir-ui</code>, <code>/memoir-status</code>, <code>/memoir-taxonomy</code>, <code>/memoir-unmerged</code>, <code>/memoir-sync-branch</code> — sits outside this lifecycle: it's explicit user invocation, not hook-driven.</p>
+<h2 id="session-context-injection">Session context injection<a class="headerlink" href="#session-context-injection" title="Permanent link">&para;</a></h2>
+<p><code>SessionStart</code> writes a single JSON object to stdout that Claude Code reads as the session preamble: <code>{"systemMessage": ..., "hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": ...}}</code>. The <code>additionalContext</code> block is assembled in order from up to four parts, each conditional on having something to say. Every part comes from raw <code>memoir get</code>/<code>summarize</code> calls — no LLM is invoked at session start.</p>
+<table>
+<thead>
+<tr>
+<th>Block</th>
+<th>Source</th>
+<th>Always on?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Store summary</td>
+<td><code>memoir status</code> + <code>memoir summarize taxonomy</code></td>
+<td>Yes — branch, user-memory count, namespace counts.</td>
+</tr>
+<tr>
+<td>Default-namespace keys</td>
+<td><code>memoir summarize --keys "*" -n default</code></td>
+<td>Yes (when default has keys). Capped at 200, grouped by L1 prefix.</td>
+</tr>
+<tr>
+<td>Unmerged-branch detector</td>
+<td><code>git for-each-ref</code> on <code>refs/heads/memoir/*</code></td>
+<td>Only when the <strong>code branch is <code>main</code></strong>. Mid-flight on a feature branch, other branches' unmerged work is noise.</td>
+</tr>
+<tr>
+<td>Codebase snapshot</td>
+<td><code>memoir summarize --keys "*" -n codebase:onboard</code> + batched <code>get</code></td>
+<td>Default on (<code>MEMOIR_ONBOARD_INJECT=1</code>). See <a href="#codebase-snapshot-codebaseonboard">Codebase snapshot</a> below.</td>
+</tr>
+</tbody>
+</table>
+<p>The status line itself follows the same conditional shape: <code>[memoir] &lt;branch&gt; · &lt;N&gt; memories [· capture disabled] [· N branches unmerged] [· concurrent session warning]</code>.</p>
+<p>Shape of the default-keys block:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a># default namespace keys
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>(12 keys, grouped by L1 prefix)
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>knowledge (7):
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>  - knowledge.technical.branching
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>  - knowledge.technical.merge
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>  ...
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>preferences (1):
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>  - preferences.communication.tone
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>metrics (1):
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>  - metrics.turn.main
+</span></code></pre></div>
+<p>This is just the index — agents <code>memoir get &lt;key&gt;</code> the ones they care about, paying for content only on demand.</p>
+<h2 id="codebase-snapshot-codebaseonboard">Codebase snapshot (<code>codebase:onboard</code>)<a class="headerlink" href="#codebase-snapshot-codebaseonboard" title="Permanent link">&para;</a></h2>
+<p>A persistent, high-level repo overview written by <code>/memoir-onboard</code> and replayed by <code>SessionStart</code> so fresh sessions start warm with a structured map of the codebase.</p>
+<p><strong>Layout.</strong> Keys live in the <code>codebase:onboard</code> namespace, grouped by L1 root:</p>
+<table>
+<thead>
+<tr>
+<th>Root</th>
+<th>What it captures</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>goal.primary</code> / <code>goal.non_goals</code></td>
+<td>What the project is and isn't.</td>
+</tr>
+<tr>
+<td><code>structure.entrypoints</code></td>
+<td>CLIs, servers, main functions.</td>
+</tr>
+<tr>
+<td><code>structure.modules.&lt;fs_path&gt;</code></td>
+<td>One key per major module (<code>src_memoir_cli</code>, <code>plugins_claude_code</code>, …). 1–3 line role summary.</td>
+</tr>
+<tr>
+<td><code>test.strategy</code></td>
+<td>Test layout + how to run.</td>
+</tr>
+<tr>
+<td><code>debug.common</code></td>
+<td>How to reproduce common failure modes.</td>
+</tr>
+<tr>
+<td><code>deploy.targets</code></td>
+<td>How the code ships (CI workflows, packaging).</td>
+</tr>
+<tr>
+<td><code>document.sources</code></td>
+<td>Where canonical docs live.</td>
+</tr>
+<tr>
+<td><code>rules.*</code></td>
+<td>Project rules beyond CLAUDE.md, one key per rule.</td>
+</tr>
+<tr>
+<td><code>lessons.*</code></td>
+<td>Hard-won facts from prior incidents, one key per lesson.</td>
+</tr>
+<tr>
+<td><code>references.*</code></td>
+<td>External links / upstream conventions.</td>
+</tr>
+<tr>
+<td><code>_meta.last_onboard.{commit,date,memoir_commit,mode}</code></td>
+<td>Staleness anchors.</td>
+</tr>
+</tbody>
+</table>
+<p>Each value is ≤ ~500 chars; the SessionStart compact view takes the first sentence and caps a root's joined children at 140 chars.</p>
+<p><strong>Refresh paths.</strong> <code>/memoir-onboard</code> probes <code>_meta.last_onboard.commit</code> and picks one of three:</p>
+<ul>
+<li><strong>cold</strong> — no prior snapshot. Full scan: <code>ls -d */</code>, skim <code>CLAUDE.md</code> / <code>README*</code> / <code>pyproject.toml</code> / <code>Makefile</code> / <code>.github/workflows/*.yml</code>, <code>git log --oneline -20</code>. Write every <code>goal.*</code> / <code>structure.modules.*</code> / <code>rules.*</code> / <code>lessons.*</code> / <code>references.*</code> key with <code>memoir remember -p &lt;path&gt; -n codebase:onboard</code> (the <code>-p</code> flag bypasses the LLM classifier — fast and deterministic).</li>
+<li><strong>warm</strong> — code HEAD has moved. <code>git log --stat &lt;last_sha&gt;..HEAD</code> enumerates changed paths; only the affected <code>structure.modules.*</code> keys and any new lessons are rewritten. Typically 1–5 keys per pass.</li>
+<li><strong>meta-only</strong> — code HEAD unchanged. Bumps <code>_meta.last_onboard.date</code> so the staleness indicator renders fresh; no narrative keys touched.</li>
+</ul>
+<p><code>--force</code> always uses the cold path.</p>
+<p><strong>Branch behavior.</strong> The snapshot lives in the <code>codebase:onboard</code> namespace, <strong>not <code>default</code></strong> — <code>BranchService.promote_branch</code> only carries the default namespace, so <code>codebase:onboard</code> stays per-branch. This is intentional: a feature branch can carry its own structural notes without leaking them to <code>main</code> until the user explicitly chooses to.</p>
+<p><strong>Staleness.</strong> <code>SessionStart</code> flags the snapshot <code>stale="true"</code> when <code>_meta.last_onboard.date</code> is more than 30 days old, and appends a <code>(snapshot is stale — run /memoir-onboard to refresh)</code> hint. <code>/memoir-sync-branch</code> calls <code>update_onboard_meta_after_sync</code> on the merged branch so the meta keys stay truthful even when the user hasn't re-run <code>/memoir-onboard</code>.</p>
+<h2 id="per-branch-turn-metrics-metricsturnbranch">Per-branch turn metrics (<code>metrics.turn.&lt;branch&gt;</code>)<a class="headerlink" href="#per-branch-turn-metrics-metricsturnbranch" title="Permanent link">&para;</a></h2>
+<p>The <code>Stop</code> hook accumulates per-turn statistics into one key per branch in the <code>default</code> namespace, alongside auto-captured memories.</p>
+<p><strong>Key shape:</strong> <code>metrics.turn.&lt;branch&gt;</code> — for example <code>metrics.turn.main</code>, <code>metrics.turn.feature/x</code>. Branch names with <code>/</code> are kept literal (memoir's <code>remember -p</code> accepts arbitrary path strings).</p>
+<p><strong>Value shape:</strong></p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">&quot;schema_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">&quot;tokens&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">&quot;llms&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">&quot;turns_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="nt">&quot;total_output_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">198432</span><span class="p">,</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="nt">&quot;total_tool_input_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">24561</span><span class="p">,</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">  </span><span class="nt">&quot;total_tool_result_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">884201</span><span class="p">,</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">  </span><span class="nt">&quot;total_tool_calls&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">187</span><span class="p">,</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">  </span><span class="nt">&quot;total_tool_errors&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">  </span><span class="nt">&quot;total_repeated_tool_calls&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">  </span><span class="nt">&quot;total_latency_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1845300</span><span class="p">,</span>
+</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">  </span><span class="nt">&quot;latency_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">31</span>
+</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>Each turn the hook reads the existing accumulator, folds in deltas computed by <code>collect-metrics.sh</code>, and writes it back via <code>merge-metrics.py</code>. <code>tokens</code> and <code>llms</code> are reserved <code>null</code> until Claude Code exposes per-turn usage to hooks; today the proxies are char-count and tool-count fields. <code>latency_samples</code> only ticks for turns whose transcript line carries a user-message timestamp.</p>
+<p><strong>Toggles &amp; failure mode.</strong> <code>MEMOIR_NO_METRICS=1</code> disables the metrics path independently of <code>MEMOIR_NO_CAPTURE</code> — either can fail without affecting the other. The whole block is wrapped in <code>2&gt;/dev/null || true</code>, matching the rest of the Stop hook's fail-silent design.</p>
+<p><strong>Branch identity &amp; merge.</strong> Source-branch identity lives in the key fragment, not the value — so <code>BranchService.promote_branch</code> (default-namespace only) carries <code>metrics.turn.feature/x</code> to <code>main</code> automatically when the user runs <code>/memoir-sync-branch feature/x</code>. After promotion, <code>main</code> retains its own <code>metrics.turn.main</code> untouched; <code>metrics.turn.feature/x</code> rides along, preserving the per-source-branch view.</p>
+<p><strong>UI surface.</strong> The <code>/memoir-ui</code> Statistics modal grows two conditional tabs after Overview:</p>
+<ul>
+<li><strong>Codebase</strong> — renders <code>codebase:onboard</code> keys grouped by L1 prefix, first sentence per child, with a header showing <code>last_onboard &lt;commit&gt; · &lt;date&gt; · &lt;mode&gt;</code>. Same compact rendering shape as the SessionStart inject.</li>
+<li><strong>Metrics</strong> — table view with rows = branches and columns = accumulator fields (<code>Turns</code>, <code>Calls</code>, <code>Errors</code>, <code>Avg latency (ms)</code>, <code>Output chars</code>, …). Three bar charts below show avg-latency / output-chars / tool-result-chars distributions across branches.</li>
+</ul>
+<p>Both tabs only appear when their data exists. Both fetch via raw <code>GET /api/onboard</code> and <code>GET /api/metrics</code> — no LLM.</p>
+<h2 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
+<p>All optional. Set in your shell or per-project <code>.envrc</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Default</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MEMOIR_STORE</code></td>
+<td><code>~/.memoir/memoir_&lt;hash&gt;</code></td>
+<td>Override the per-project store path.</td>
+</tr>
+<tr>
+<td><code>MEMOIR_NO_CAPTURE</code></td>
+<td>unset</td>
+<td><code>1</code> disables <code>Stop</code>-hook auto-capture (haiku classification + memory writes). Metrics still record.</td>
+</tr>
+<tr>
+<td><code>MEMOIR_NO_METRICS</code></td>
+<td>unset</td>
+<td><code>1</code> disables the per-branch turn-metrics accumulator. Auto-capture still runs.</td>
+</tr>
+<tr>
+<td><code>MEMOIR_ONBOARD_INJECT</code></td>
+<td><code>1</code></td>
+<td><code>0</code> suppresses the <code>codebase:onboard</code> block in <code>SessionStart</code>'s <code>additionalContext</code>.</td>
+</tr>
+<tr>
+<td><code>MEMOIR_LLM_MODEL</code></td>
+<td><code>haiku</code></td>
+<td>Model used for the <code>Stop</code> hook's fact extractor. Override only if you've validated alignment with the prompt-test harness.</td>
+</tr>
+<tr>
+<td><code>MEMOIR_MAX_RESULT_CHARS</code></td>
+<td><code>1000</code></td>
+<td>Per-tool-result truncation in <code>parse-transcript.sh</code>.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="manifest">Manifest<a class="headerlink" href="#manifest" title="Permanent link">&para;</a></h2>
 <p><code>plugins/claude-code/.claude-plugin/plugin.json</code>:</p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">{</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;memoir&quot;</span><span class="p">,</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span><span class="p">,</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Git-versioned, taxonomy-structured memory for Claude Code — recall by path, branch to isolate, time-travel to audit.&quot;</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="p">}</span>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;memoir&quot;</span><span class="p">,</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span><span class="p">,</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Git-versioned, taxonomy-structured memory for Claude Code — recall by path, branch to isolate, time-travel to audit.&quot;</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">}</span>
 </span></code></pre></div>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
