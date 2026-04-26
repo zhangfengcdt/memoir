@@ -103,14 +103,16 @@ else
   CALLS=$(printf '%s' "$RESULT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["total_tool_calls"])')
   ERRS=$(printf '%s' "$RESULT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["total_tool_errors"])')
   TOKENS=$(printf '%s' "$RESULT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["tokens"])')
+  LLMS=$(printf '%s' "$RESULT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["llms"])')
   SCHEMA=$(printf '%s' "$RESULT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["schema_version"])')
-  BRANCH_VAL=$(printf '%s' "$RESULT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["branch"])')
-  assert "first turn: turns_count=1"     "1"           "$TURNS"
-  assert "first turn: total_tool_calls=1" "1"          "$CALLS"
-  assert "first turn: total_tool_errors=0" "0"         "$ERRS"
-  assert "first turn: tokens=null"        "None"       "$TOKENS"
-  assert "first turn: schema_version=1"   "1"          "$SCHEMA"
-  assert "first turn: branch field set"   "$BRANCH"    "$BRANCH_VAL"
+  HAS_BRANCH=$(printf '%s' "$RESULT" | python3 -c 'import json,sys; d=json.load(sys.stdin); print("yes" if "branch" in d else "no")')
+  assert "first turn: turns_count=1"        "1"      "$TURNS"
+  assert "first turn: total_tool_calls=1"   "1"      "$CALLS"
+  assert "first turn: total_tool_errors=0"  "0"      "$ERRS"
+  assert "first turn: tokens=null"          "None"   "$TOKENS"
+  assert "first turn: llms=null"            "None"   "$LLMS"
+  assert "first turn: schema_version=1"     "1"      "$SCHEMA"
+  assert "first turn: no branch field"      "no"     "$HAS_BRANCH"
 fi
 
 rm -f "$TRANSCRIPT"

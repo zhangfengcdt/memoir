@@ -3,14 +3,13 @@
 
 Usage: merge-metrics.py <prev_json> <delta_json>
 
-Reads `MEMOIR_BRANCH` from env to populate the `branch` field on first write.
 Emits the merged accumulator JSON on stdout. Exits 0 with empty output if
-inputs are unparseable — the Stop hook is fail-silent.
+inputs are unparseable — the Stop hook is fail-silent. Branch identity is
+encoded in the storage key (`metrics.turn.<branch>`), not in the value.
 """
 from __future__ import annotations
 
 import json
-import os
 import sys
 
 SCHEMA_VERSION = 1
@@ -28,30 +27,27 @@ COUNTER_FIELDS = (
 )
 
 
-def _empty_accumulator(branch: str) -> dict:
+def _empty_accumulator() -> dict:
     acc = {
         "schema_version": SCHEMA_VERSION,
-        "branch": branch,
-        "first_turn_at": None,
-        "last_turn_at": None,
         "tokens": None,
-        "model": None,
+        "llms": None,
     }
     for field in COUNTER_FIELDS:
         acc[field] = 0
     return acc
 
 
-def _coerce_prev(raw: str, branch: str) -> dict:
+def _coerce_prev(raw: str) -> dict:
     if not raw:
-        return _empty_accumulator(branch)
+        return _empty_accumulator()
     try:
         prev = json.loads(raw)
     except (TypeError, ValueError):
-        return _empty_accumulator(branch)
+        return _empty_accumulator()
     if not isinstance(prev, dict) or not prev:
-        return _empty_accumulator(branch)
-    base = _empty_accumulator(branch)
+        return _empty_accumulator()
+    base = _empty_accumulator()
     for k, v in prev.items():
         base[k] = v
     return base
@@ -72,12 +68,10 @@ def _merge(prev: dict, delta: dict) -> dict:
         out["total_latency_ms"] = int(prev.get("total_latency_ms", 0)) + int(latency)
         out["latency_samples"] = int(prev.get("latency_samples", 0)) + 1
 
-    started = delta.get("turn_started_at")
-    ended = delta.get("turn_ended_at")
-    if not out.get("first_turn_at"):
-        out["first_turn_at"] = started or ended
-    if ended:
-        out["last_turn_at"] = ended
+    out.pop("first_turn_at", None)
+    out.pop("last_turn_at", None)
+    out.pop("branch", None)
+    out.pop("model", None)
 
     return out
 
@@ -85,9 +79,8 @@ def _merge(prev: dict, delta: dict) -> dict:
 def main(argv: list[str]) -> int:
     if len(argv) < 3:
         return 0
-    branch = os.environ.get("MEMOIR_BRANCH", "unknown")
     try:
-        prev = _coerce_prev(argv[1], branch)
+        prev = _coerce_prev(argv[1])
         delta = json.loads(argv[2]) if argv[2] else {}
     except (TypeError, ValueError):
         return 0

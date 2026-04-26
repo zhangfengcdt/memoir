@@ -39,14 +39,12 @@ def _run_collect(transcript_path: str) -> dict:
     return json.loads(out) if out else {}
 
 
-def _run_merge(prev: str, delta: str, branch: str = "test") -> dict:
-    env = {**os.environ, "MEMOIR_BRANCH": branch}
+def _run_merge(prev: str, delta: str) -> dict:
     proc = subprocess.run(
         ["python3", str(MERGE), prev, delta],
         capture_output=True,
         text=True,
         check=False,
-        env=env,
     )
     out = proc.stdout.strip()
     return json.loads(out) if out else {}
@@ -94,7 +92,6 @@ def test_single_turn_basic_counters() -> None:
         assert d["tool_errors_count"] == 0
         assert d["assistant_messages_count"] == 1
         assert d["text_blocks_count"] == 1
-        assert d["turn_started_at"] == "2026-04-26T08:00:00Z"
         assert d["latency_ms"] is not None and d["latency_ms"] >= 1000
     finally:
         os.unlink(path)
@@ -140,7 +137,6 @@ def test_missing_timestamp_yields_null_latency() -> None:
     ])
     try:
         d = _run_collect(path)
-        assert d["turn_started_at"] is None
         assert d["latency_ms"] is None
     finally:
         os.unlink(path)
@@ -160,7 +156,7 @@ def test_isMeta_user_is_skipped_for_anchor() -> None:
     ])
     try:
         d = _run_collect(path)
-        assert d["turn_started_at"] == "2026-04-26T08:00:00Z"
+        assert d["latency_ms"] is not None
         assert d["text_blocks_count"] == 1
     finally:
         os.unlink(path)
@@ -171,70 +167,77 @@ def test_merger_initializes_from_empty_prev() -> None:
         "output_chars": 100,
         "tool_calls_count": 2,
         "latency_ms": 1500,
-        "turn_started_at": "2026-04-26T08:00:00Z",
-        "turn_ended_at": "2026-04-26T08:00:01Z",
     })
-    merged = _run_merge("", delta, branch="main")
+    merged = _run_merge("", delta)
     assert merged["schema_version"] == 1
-    assert merged["branch"] == "main"
     assert merged["turns_count"] == 1
     assert merged["total_output_chars"] == 100
     assert merged["total_tool_calls"] == 2
     assert merged["total_latency_ms"] == 1500
     assert merged["latency_samples"] == 1
-    assert merged["first_turn_at"] == "2026-04-26T08:00:00Z"
     assert merged["tokens"] is None
-    assert merged["model"] is None
+    assert merged["llms"] is None
+    assert "first_turn_at" not in merged
+    assert "last_turn_at" not in merged
+    assert "branch" not in merged
 
 
 def test_merger_accumulates() -> None:
     prev = json.dumps({
         "schema_version": 1,
-        "branch": "main",
         "turns_count": 1,
         "total_output_chars": 100,
         "total_tool_calls": 2,
         "total_latency_ms": 1500,
         "latency_samples": 1,
-        "first_turn_at": "2026-04-26T08:00:00Z",
-        "last_turn_at": "2026-04-26T08:00:01Z",
     })
     delta = json.dumps({
         "output_chars": 50,
         "tool_calls_count": 1,
         "tool_errors_count": 1,
         "latency_ms": 800,
-        "turn_started_at": "2026-04-26T08:01:00Z",
-        "turn_ended_at": "2026-04-26T08:01:01Z",
     })
-    merged = _run_merge(prev, delta, branch="main")
+    merged = _run_merge(prev, delta)
     assert merged["turns_count"] == 2
     assert merged["total_output_chars"] == 150
     assert merged["total_tool_calls"] == 3
     assert merged["total_tool_errors"] == 1
     assert merged["total_latency_ms"] == 2300
     assert merged["latency_samples"] == 2
-    # first_turn_at preserved, last_turn_at updated
-    assert merged["first_turn_at"] == "2026-04-26T08:00:00Z"
-    assert merged["last_turn_at"] == "2026-04-26T08:01:01Z"
 
 
 def test_merger_skips_latency_when_null() -> None:
     prev = json.dumps({
         "schema_version": 1,
-        "branch": "main",
         "turns_count": 1,
         "total_latency_ms": 1000,
         "latency_samples": 1,
     })
-    delta = json.dumps({"output_chars": 5, "latency_ms": None, "turn_ended_at": "2026-04-26T08:02Z"})
-    merged = _run_merge(prev, delta, branch="main")
+    delta = json.dumps({"output_chars": 5, "latency_ms": None})
+    merged = _run_merge(prev, delta)
     assert merged["total_latency_ms"] == 1000
     assert merged["latency_samples"] == 1
     assert merged["turns_count"] == 2
 
 
+def test_merger_strips_legacy_fields() -> None:
+    """If a stale accumulator has first_turn_at / last_turn_at / branch
+    from older schemas, the next merge should drop them."""
+    prev = json.dumps({
+        "schema_version": 1,
+        "branch": "main",
+        "turns_count": 1,
+        "first_turn_at": "2026-04-26T08:00:00Z",
+        "last_turn_at": "2026-04-26T08:00:01Z",
+    })
+    delta = json.dumps({"output_chars": 5})
+    merged = _run_merge(prev, delta)
+    assert "first_turn_at" not in merged
+    assert "last_turn_at" not in merged
+    assert "branch" not in merged
+
+
 def test_merger_handles_garbage_prev_gracefully() -> None:
-    merged = _run_merge("not json", json.dumps({"output_chars": 1}), branch="x")
+    merged = _run_merge("not json", json.dumps({"output_chars": 1}))
     assert merged["turns_count"] == 1
-    assert merged["branch"] == "x"
+    assert merged["total_output_chars"] == 1

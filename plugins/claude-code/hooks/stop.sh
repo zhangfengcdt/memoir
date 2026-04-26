@@ -59,7 +59,7 @@ if [ "${MEMOIR_NO_METRICS:-}" != "1" ]; then
     MKEY="metrics.turn.${BRANCH_RAW}"
     PREV=$(memoir_json get "$MKEY" 2>/dev/null \
       | python3 -c "import json,sys; d=json.loads(sys.stdin.read() or '{}'); items=d.get('items') or [{}]; v=items[0].get('value') or {}; c=v.get('content'); print(c if isinstance(c,str) else '')" 2>/dev/null)
-    MERGED=$(MEMOIR_BRANCH="$BRANCH_RAW" python3 "$SCRIPT_DIR/merge-metrics.py" "$PREV" "$DELTA" 2>/dev/null || true)
+    MERGED=$(python3 "$SCRIPT_DIR/merge-metrics.py" "$PREV" "$DELTA" 2>/dev/null || true)
     if [ -n "$MERGED" ]; then
       memoir_json remember "$MERGED" -p "$MKEY" >/dev/null 2>&1 || true
     fi

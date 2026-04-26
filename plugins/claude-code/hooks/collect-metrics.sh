@@ -19,7 +19,7 @@ fi
 
 python3 - "$TRANSCRIPT_PATH" <<'PY'
 import json, sys, time
-from datetime import datetime, timezone
+from datetime import datetime
 
 transcript_path = sys.argv[1]
 
@@ -138,20 +138,12 @@ for obj in turn:
 repeated_tool_calls = len(tool_call_signatures) - len(set(tool_call_signatures))
 
 started_at_ts = parse_ts(turn[0].get("timestamp"))
-ended_at_ts = time.time()
-
 if started_at_ts is not None:
-    latency_ms = int(round((ended_at_ts - started_at_ts) * 1000))
-    turn_started_at = datetime.fromtimestamp(started_at_ts, tz=timezone.utc).isoformat().replace("+00:00", "Z")
+    latency_ms = int(round((time.time() - started_at_ts) * 1000))
 else:
     latency_ms = None
-    turn_started_at = None
-
-turn_ended_at = datetime.fromtimestamp(ended_at_ts, tz=timezone.utc).isoformat().replace("+00:00", "Z")
 
 delta = {
-    "turn_started_at": turn_started_at,
-    "turn_ended_at": turn_ended_at,
     "latency_ms": latency_ms,
     "output_chars": output_chars,
     "tool_input_chars": tool_input_chars,
