@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTaxonomy, walkTree } from "./buildTaxonomy";
+import { buildTaxonomy, splitTaxonomyPath, walkTree } from "./buildTaxonomy";
 import type { Memory } from "../../api/types";
 
 const mem = (namespace: string, path: string, content = "…"): Memory => ({
@@ -99,5 +99,58 @@ describe("buildTaxonomy", () => {
     const a = root.children[0];
     expect(a.children[0].name).toBe("<empty>");
     expect(a.children[0].children[0].name).toBe("b");
+  });
+
+  it("does not split dots inside a branch-like segment (containing /)", () => {
+    // metrics.turn.<branch> keys can carry branch names with dots, e.g.
+    // metrics.turn.feature/metric.codebase.stas — the third segment must
+    // stay intact instead of expanding into a 5-deep tree.
+    const result = buildTaxonomy([
+      mem("default", "metrics.turn.feature/metric.codebase.stas"),
+      mem("default", "metrics.turn.main"),
+    ]);
+    const metrics = result[0].root.children.find((c) => c.name === "metrics")!;
+    const turn = metrics.children.find((c) => c.name === "turn")!;
+    const childNames = turn.children.map((c) => c.name).sort();
+    expect(childNames).toEqual([
+      "feature/metric.codebase.stas",
+      "main",
+    ]);
+    const featureNode = turn.children.find(
+      (c) => c.name === "feature/metric.codebase.stas",
+    )!;
+    expect(featureNode.fullPath).toBe(
+      "metrics.turn.feature/metric.codebase.stas",
+    );
+    expect(featureNode.children).toHaveLength(0);
+  });
+});
+
+describe("splitTaxonomyPath", () => {
+  it("splits plain dotted paths on every dot", () => {
+    expect(splitTaxonomyPath("workflow.coding.style")).toEqual([
+      "workflow",
+      "coding",
+      "style",
+    ]);
+  });
+
+  it("keeps a slash-bearing leaf intact even when it contains dots", () => {
+    expect(
+      splitTaxonomyPath("metrics.turn.feature/metric.codebase.stas"),
+    ).toEqual(["metrics", "turn", "feature/metric.codebase.stas"]);
+  });
+
+  it("does not affect a slash-bearing segment that has no trailing dots", () => {
+    expect(splitTaxonomyPath("metrics.turn.feature/x")).toEqual([
+      "metrics",
+      "turn",
+      "feature/x",
+    ]);
+  });
+
+  it("only fuses from the first slash-bearing segment onward", () => {
+    // Hypothetical: an L1 with a slash. Everything from there is one leaf.
+    expect(splitTaxonomyPath("a/b.c.d")).toEqual(["a/b.c.d"]);
   });
 });

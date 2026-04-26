@@ -5,6 +5,8 @@ import type {
   CommitsResponse,
   CurrentBranchResponse,
   LocationResponse,
+  MetricsResponse,
+  OnboardResponse,
   RangeDiffResponse,
   StatisticsResponse,
   StoreResponse,
@@ -117,6 +119,12 @@ export const api = {
 
   statistics: (path: string) =>
     getJSON<StatisticsResponse>("/api/statistics", { path }),
+
+  onboard: (path: string) =>
+    getJSON<OnboardResponse>("/api/onboard", { path }),
+
+  metrics: (path: string) =>
+    getJSON<MetricsResponse>("/api/metrics", { path }),
 
   /**
    * Timeline + location endpoints can 500 on stores that have no

@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { api, MemoirApiError } from "../api/client";
 import type {
+  MetricsItem,
+  MetricsResponse,
+  OnboardItem,
+  OnboardResponse,
   StatisticsBlock,
   StatisticsResponse,
   StatsSection,
@@ -10,8 +14,9 @@ import { useUI } from "../state/uiSlice";
 import "./StatsModal.css";
 
 type SectionKey = keyof StatisticsBlock;
+type TabKey = SectionKey | "overview" | "onboard" | "metrics";
 
-const SECTIONS: { key: SectionKey | "overview"; label: string }[] = [
+const BASE_SECTIONS: { key: TabKey; label: string }[] = [
   { key: "overview", label: "Overview" },
   { key: "storage", label: "Storage" },
   { key: "tree_structure", label: "Tree" },
@@ -29,19 +34,26 @@ export default function StatsModal() {
   const storePath = useStore((s) => s.storePath);
 
   const [data, setData] = useState<StatisticsResponse | null>(null);
+  const [onboardData, setOnboardData] = useState<OnboardResponse | null>(null);
+  const [metricsData, setMetricsData] = useState<MetricsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<SectionKey | "overview">("overview");
+  const [tab, setTab] = useState<TabKey>("overview");
 
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const previousActive = useRef<HTMLElement | null>(null);
 
-  // Fetch when modal opens; abandon when it closes.
+  // Fetch when modal opens; abandon when it closes. Onboard + metrics fetch
+  // in parallel with the main statistics call so the dialog renders without
+  // a second loading flash. Both surface as empty-state on failure rather
+  // than blocking the rest of the modal — they're optional add-ons.
   useEffect(() => {
     if (!open || !storePath) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setOnboardData(null);
+    setMetricsData(null);
     api
       .statistics(storePath)
       .then((res) => {
@@ -53,6 +65,22 @@ export default function StatsModal() {
         if (cancelled) return;
         setError(err instanceof MemoirApiError ? err.message : String(err));
         setLoading(false);
+      });
+    api
+      .onboard(storePath)
+      .then((res) => {
+        if (!cancelled) setOnboardData(res);
+      })
+      .catch(() => {
+        /* optional — keep tab hidden on failure */
+      });
+    api
+      .metrics(storePath)
+      .then((res) => {
+        if (!cancelled) setMetricsData(res);
+      })
+      .catch(() => {
+        /* optional — keep tab hidden on failure */
       });
     return () => {
       cancelled = true;
@@ -80,6 +108,25 @@ export default function StatsModal() {
   }, [open, close]);
 
   if (!open) return null;
+
+  // Build the dynamic tab list: insert Onboard / Metrics tabs right after
+  // Overview when their respective namespace has data. Skipped silently when
+  // empty so the modal stays clean on stores that haven't run /memoir-onboard
+  // or accumulated any per-branch metrics yet.
+  const onboardItems = onboardData?.items ?? [];
+  const metricsItems = metricsData?.items ?? [];
+  const sections: { key: TabKey; label: string }[] = [];
+  for (const s of BASE_SECTIONS) {
+    sections.push(s);
+    if (s.key === "overview") {
+      if (onboardItems.length > 0) {
+        sections.push({ key: "onboard", label: "Codebase" });
+      }
+      if (metricsItems.length > 0) {
+        sections.push({ key: "metrics", label: "Metrics" });
+      }
+    }
+  }
 
   return (
     <div
@@ -131,7 +178,7 @@ export default function StatsModal() {
         </header>
 
         <nav className="stats-tabs" role="tablist" aria-label="Statistics sections">
-          {SECTIONS.map((s) => (
+          {sections.map((s) => (
             <button
               key={s.key}
               role="tab"
@@ -150,7 +197,9 @@ export default function StatsModal() {
           {data && tab === "overview" && (
             <OverviewPanel block={data.statistics} storePath={data.store_path} />
           )}
-          {data && tab !== "overview" && (
+          {tab === "onboard" && <OnboardPanel items={onboardItems} />}
+          {tab === "metrics" && <MetricsPanel items={metricsItems} />}
+          {data && tab !== "overview" && tab !== "onboard" && tab !== "metrics" && (
             <SectionPanel section={data.statistics[tab]} title={tab} />
           )}
         </div>
@@ -301,6 +350,188 @@ function BarDistribution({
       </ul>
     </section>
   );
+}
+
+function OnboardPanel({ items }: { items: OnboardItem[] }) {
+  // Mirror render_codebase_onboard_compact in the SessionStart hook: split
+  // _meta.* off as a header, then group the rest by L1 prefix and render
+  // each child as `<key>: <first-sentence>`. No LLM, no truncation beyond
+  // what the writer already enforced (≤500 chars per stored value).
+  const meta: Record<string, string> = {};
+  const groups: Record<string, OnboardItem[]> = {};
+  for (const it of items) {
+    if (it.key.startsWith("_meta.")) {
+      meta[it.key] = String(it.value ?? "");
+      continue;
+    }
+    const root = it.key.split(".", 1)[0];
+    (groups[root] = groups[root] || []).push(it);
+  }
+
+  const lastCommit = (meta["_meta.last_onboard.commit"] ?? "").slice(0, 7) || "?";
+  const lastDate = meta["_meta.last_onboard.date"] ?? "";
+  const mode = meta["_meta.last_onboard.mode"] ?? "?";
+
+  // Preferred ordering matches the SessionStart compact view.
+  const PREFERRED = [
+    "goal",
+    "structure",
+    "test",
+    "debug",
+    "deploy",
+    "rules",
+    "lessons",
+    "references",
+    "document",
+  ];
+  const ordered: string[] = [];
+  const seen = new Set<string>();
+  for (const r of PREFERRED) {
+    if (groups[r]) {
+      ordered.push(r);
+      seen.add(r);
+    }
+  }
+  for (const r of Object.keys(groups).sort()) {
+    if (!seen.has(r)) ordered.push(r);
+  }
+
+  return (
+    <div className="stats-section stats-onboard">
+      <div className="stats-row">
+        <span className="stats-row-label">Last onboard</span>
+        <span className="stats-row-value">
+          <code>{lastCommit}</code> · {lastDate || "(no date)"} · {mode}
+        </span>
+      </div>
+      {ordered.map((root) => (
+        <section key={root} className="stats-bars">
+          <h4 className="stats-bars-title">
+            {prettyLabel(root)} <span className="stats-row-empty">({groups[root].length})</span>
+          </h4>
+          <ul className="stats-bars-list">
+            {groups[root]
+              .slice()
+              .sort((a, b) => a.key.localeCompare(b.key))
+              .map((it) => (
+                <li key={it.key} className="stats-bar-row">
+                  <code className="stats-bar-label" title={it.key}>
+                    {it.key}
+                  </code>
+                  <span className="stats-bar-value">{firstSentence(String(it.value ?? ""))}</span>
+                </li>
+              ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
+
+function MetricsPanel({ items }: { items: MetricsItem[] }) {
+  // Tabular: rows are branches, columns are individual accumulator fields.
+  // Column order is fixed and matches the schema written by merge-metrics.py.
+  // schema_version / tokens / llms are intentionally omitted — constant or
+  // null today, so they'd be visual noise across rows.
+  const COLUMNS: { key: string; label: string; derive?: (v: Record<string, unknown>) => unknown }[] = [
+    { key: "turns_count", label: "Turns" },
+    { key: "total_tool_calls", label: "Calls" },
+    { key: "total_tool_errors", label: "Errors" },
+    { key: "total_repeated_tool_calls", label: "Repeats" },
+    {
+      key: "avg_latency_ms",
+      label: "Avg latency (ms)",
+      derive: (v) => {
+        const total = v.total_latency_ms;
+        const samples = v.latency_samples;
+        if (typeof total === "number" && typeof samples === "number" && samples > 0) {
+          return Math.round(total / samples);
+        }
+        return null;
+      },
+    },
+    { key: "total_output_chars", label: "Output chars" },
+    { key: "total_tool_input_chars", label: "Tool input chars" },
+    { key: "total_tool_result_chars", label: "Tool result chars" },
+  ];
+
+  const rows = items.map((it) => ({
+    branch: it.branch ?? it.key,
+    value: (it.value && typeof it.value === "object" ? it.value : {}) as Record<string, unknown>,
+  }));
+
+  // Build branch→value distributions for the three charts. Filter out
+  // branches that don't have a usable number for that specific metric so
+  // missing data doesn't render as a zero bar (which would imply the branch
+  // had zero latency, not "no samples").
+  const avgLatencyDist: Record<string, number> = {};
+  const outputCharsDist: Record<string, number> = {};
+  const toolResultCharsDist: Record<string, number> = {};
+  for (const row of rows) {
+    const total = row.value.total_latency_ms;
+    const samples = row.value.latency_samples;
+    if (typeof total === "number" && typeof samples === "number" && samples > 0) {
+      avgLatencyDist[row.branch] = Math.round(total / samples);
+    }
+    if (typeof row.value.total_output_chars === "number") {
+      outputCharsDist[row.branch] = row.value.total_output_chars;
+    }
+    if (typeof row.value.total_tool_result_chars === "number") {
+      toolResultCharsDist[row.branch] = row.value.total_tool_result_chars;
+    }
+  }
+
+  return (
+    <div className="stats-section">
+      <div className="stats-metrics-table-wrap">
+        <table className="stats-metrics-table">
+          <thead>
+            <tr>
+              <th className="stats-metrics-branch">Branch</th>
+              {COLUMNS.map((c) => (
+                <th key={c.key}>{c.label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr key={row.branch}>
+                <td className="stats-metrics-branch">
+                  <code>{row.branch}</code>
+                </td>
+                {COLUMNS.map((c) => {
+                  const raw = c.derive ? c.derive(row.value) : row.value[c.key];
+                  return (
+                    <td key={c.key} className="stats-metrics-num">
+                      {typeof raw === "number" ? raw.toLocaleString() : "—"}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {Object.keys(avgLatencyDist).length > 0 && (
+        <BarDistribution title="Avg latency (ms) per branch" dist={avgLatencyDist} />
+      )}
+      {Object.keys(outputCharsDist).length > 0 && (
+        <BarDistribution title="Output chars per branch" dist={outputCharsDist} />
+      )}
+      {Object.keys(toolResultCharsDist).length > 0 && (
+        <BarDistribution title="Tool result chars per branch" dist={toolResultCharsDist} />
+      )}
+    </div>
+  );
+}
+
+function firstSentence(s: string, maxLen = 140): string {
+  const trimmed = s.trim().replace(/\s+/g, " ");
+  const m = /^(.+?[.!?])(\s|$)/.exec(trimmed);
+  let out = m ? m[1] : trimmed;
+  if (out.length > maxLen) out = out.slice(0, maxLen - 1).trimEnd() + "…";
+  return out;
 }
 
 // ---------- helpers ----------

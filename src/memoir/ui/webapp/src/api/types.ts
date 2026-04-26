@@ -89,6 +89,34 @@ export interface StatisticsResponse {
   store_path: string;
 }
 
+// --- /api/onboard ----------------------------------------------------------
+// Raw read of the codebase:onboard namespace. No LLM. The UI groups items
+// by L1 prefix (root before the first dot) for the Stats > Onboard tab.
+export interface OnboardItem {
+  key: string;
+  value: unknown;
+}
+
+export interface OnboardResponse {
+  success: boolean;
+  items: OnboardItem[];
+}
+
+// --- /api/metrics ----------------------------------------------------------
+// All `metrics.*` keys in the default namespace on the current branch.
+// `branch` is parsed out of the key fragment for `metrics.turn.<branch>` —
+// null for any other shape so future metrics roots can ride along.
+export interface MetricsItem {
+  key: string;
+  branch: string | null;
+  value: Record<string, unknown> | unknown;
+}
+
+export interface MetricsResponse {
+  success: boolean;
+  items: MetricsItem[];
+}
+
 // --- /api/timeline ---------------------------------------------------------
 export interface TimelineResponse {
   success: boolean;
