@@ -59,6 +59,31 @@ export function buildTaxonomy(memories: Memory[]): NamespaceTree[] {
   return result;
 }
 
+/**
+ * Split a memoir taxonomy path into hierarchy segments.
+ *
+ * Plain dotted paths (``workflow.coding.style``) split on every dot.
+ *
+ * Branch-bearing keys like ``metrics.turn.feature/x.y`` would otherwise
+ * over-split: the third segment is a branch name that may legitimately
+ * contain dots (`feature/foo.bar`), so once we see a segment containing
+ * ``/`` we treat it and everything after it as one leaf — branch names
+ * are not taxonomy levels.
+ */
+export function splitTaxonomyPath(path: string): string[] {
+  const raw = path.split(".");
+  const out: string[] = [];
+  for (let i = 0; i < raw.length; i++) {
+    const seg = raw[i];
+    if (seg.includes("/") && i < raw.length - 1) {
+      out.push(raw.slice(i).join("."));
+      return out;
+    }
+    out.push(seg);
+  }
+  return out;
+}
+
 function buildOneTree(memories: Memory[]): TreeNode {
   const root: TreeNode = {
     name: "",
@@ -69,9 +94,9 @@ function buildOneTree(memories: Memory[]): TreeNode {
   };
 
   for (const mem of memories) {
-    const segments = mem.path
-      .split(".")
-      .map((s) => (s.length === 0 ? "<empty>" : s));
+    const segments = splitTaxonomyPath(mem.path).map((s) =>
+      s.length === 0 ? "<empty>" : s,
+    );
     let cursor = root;
     for (let i = 0; i < segments.length; i++) {
       const seg = segments[i];

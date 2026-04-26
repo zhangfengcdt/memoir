@@ -318,3 +318,105 @@
   color: var(--fg-2);
   text-align: right;
 }
+
+/* Onboard staleness badge — inline with the "Last onboard" header value.
+   Warning hue, but readable; the icon + text combo doubles as a tooltip
+   trigger explaining how to refresh. */
+.stats-onboard-stale {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: var(--space-3);
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--warning, #d4a017);
+  border-radius: var(--radius-sm);
+  color: var(--warning, #d4a017);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.stats-onboard-stale code {
+  color: inherit;
+}
+
+/* Codebase (onboard) tab — wider key column than the BarDistribution
+   default since module/lesson paths can be long. Two-column layout (no
+   middle bar-track), key cell allowed to wrap if it would otherwise be
+   ellipsised. Scoped to .stats-onboard so the global .stats-bar-row used
+   by Tree / category bar charts keeps its tighter label width. */
+.stats-onboard .stats-bar-row {
+  grid-template-columns: minmax(280px, 380px) 1fr;
+  align-items: start;
+}
+
+.stats-onboard .stats-bar-label {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+
+.stats-onboard .stats-bar-value {
+  text-align: left;
+  color: var(--fg-1);
+  white-space: normal;
+  line-height: 1.5;
+}
+
+/* Metrics tab — branch × accumulator-field table. Wider than the modal
+   on small screens, so the wrapper handles horizontal scroll. */
+.stats-metrics-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.stats-metrics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.stats-metrics-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-1);
+  color: var(--fg-2);
+  font-weight: 500;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-wide);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.stats-metrics-table thead th.stats-metrics-branch {
+  text-align: left;
+}
+
+.stats-metrics-table tbody td {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.stats-metrics-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.stats-metrics-table tbody tr:hover {
+  background: var(--bg-1);
+}
+
+.stats-metrics-table td.stats-metrics-branch {
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  color: var(--fg-0);
+}
+
+.stats-metrics-table td.stats-metrics-num {
+  font-family: var(--font-mono);
+  text-align: right;
+  color: var(--fg-1);
+  font-variant-numeric: tabular-nums;
+}
