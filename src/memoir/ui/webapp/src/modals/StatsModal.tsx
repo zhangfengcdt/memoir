@@ -197,7 +197,13 @@ export default function StatsModal() {
           {data && tab === "overview" && (
             <OverviewPanel block={data.statistics} storePath={data.store_path} />
           )}
-          {tab === "onboard" && <OnboardPanel items={onboardItems} />}
+          {tab === "onboard" && (
+            <OnboardPanel
+              items={onboardItems}
+              currentCodeCommit={onboardData?.current_code_commit ?? null}
+              currentCodeBranch={onboardData?.current_code_branch ?? null}
+            />
+          )}
           {tab === "metrics" && <MetricsPanel items={metricsItems} />}
           {data && tab !== "overview" && tab !== "onboard" && tab !== "metrics" && (
             <SectionPanel section={data.statistics[tab]} title={tab} />
@@ -352,7 +358,15 @@ function BarDistribution({
   );
 }
 
-function OnboardPanel({ items }: { items: OnboardItem[] }) {
+function OnboardPanel({
+  items,
+  currentCodeCommit,
+  currentCodeBranch,
+}: {
+  items: OnboardItem[];
+  currentCodeCommit: string | null;
+  currentCodeBranch: string | null;
+}) {
   // Mirror render_codebase_onboard_compact in the SessionStart hook: split
   // _meta.* off as a header, then group the rest by L1 prefix and render
   // each child as `<key>: <first-sentence>`. No LLM, no truncation beyond
@@ -368,9 +382,17 @@ function OnboardPanel({ items }: { items: OnboardItem[] }) {
     (groups[root] = groups[root] || []).push(it);
   }
 
-  const lastCommit = (meta["_meta.last_onboard.commit"] ?? "").slice(0, 7) || "?";
+  const fullSnapshotCommit = meta["_meta.last_onboard.commit"] ?? "";
+  const lastCommit = fullSnapshotCommit.slice(0, 7) || "?";
   const lastDate = meta["_meta.last_onboard.date"] ?? "";
   const mode = meta["_meta.last_onboard.mode"] ?? "?";
+
+  // "Out of sync" when we know both commits and they differ. We compare on
+  // the full SHAs (not the 7-char displayed prefix) to avoid false positives
+  // from the rare prefix collision.
+  const outOfSync =
+    fullSnapshotCommit && currentCodeCommit && fullSnapshotCommit !== currentCodeCommit;
+  const currentShort = currentCodeCommit ? currentCodeCommit.slice(0, 7) : "";
 
   // Preferred ordering matches the SessionStart compact view.
   const PREFERRED = [
@@ -402,6 +424,39 @@ function OnboardPanel({ items }: { items: OnboardItem[] }) {
         <span className="stats-row-label">Last onboard</span>
         <span className="stats-row-value">
           <code>{lastCommit}</code> · {lastDate || "(no date)"} · {mode}
+          {outOfSync && (
+            <span
+              className="stats-onboard-stale"
+              title={`Code repo is at ${currentCodeCommit}${
+                currentCodeBranch ? ` on ${currentCodeBranch}` : ""
+              } — run /memoir-onboard to refresh the snapshot.`}
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              <span>
+                out of sync — code is at <code>{currentShort}</code>
+                {currentCodeBranch && (
+                  <>
+                    {" on "}
+                    <code>{currentCodeBranch}</code>
+                  </>
+                )}
+              </span>
+            </span>
+          )}
         </span>
       </div>
       {ordered.map((root) => (

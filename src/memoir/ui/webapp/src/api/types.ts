@@ -100,6 +100,13 @@ export interface OnboardItem {
 export interface OnboardResponse {
   success: boolean;
   items: OnboardItem[];
+  /** Best-effort path to the code repo this snapshot was taken against.
+   * Null if the server couldn't resolve it. */
+  code_repo_path?: string | null;
+  /** Current `git rev-parse HEAD` of the code repo. Null on failure. */
+  current_code_commit?: string | null;
+  /** Current code branch name. Null on failure. */
+  current_code_branch?: string | null;
 }
 
 // --- /api/metrics ----------------------------------------------------------

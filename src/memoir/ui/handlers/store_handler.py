@@ -6,10 +6,77 @@ Delegates to StoreService for business logic.
 
 import asyncio
 import json
+import subprocess
 from pathlib import Path
 from urllib.parse import parse_qs
 
 from .api_handler import BaseAPIHandler
+
+
+def _resolve_code_repo_path(store_path: str, items: list[dict]) -> str | None:
+    """Pick the on-disk path of the code repo this memoir store was created
+    against, so we can compare its HEAD to the snapshot's stamped commit.
+
+    Tries (in order):
+      1. `_meta.last_onboard.code_repo_path` from the snapshot (future-proof —
+         the /memoir-onboard skill is the right place to start writing this).
+      2. Reverse-derive from the store slug under `~/.memoir/<slug>` —
+         convention is the absolute path with `/` and `.` replaced by `-`.
+
+    Returns None if neither yields a directory that's actually a git repo.
+    """
+    for item in items:
+        if item.get("key") == "_meta.last_onboard.code_repo_path":
+            stored = item.get("value")
+            if isinstance(stored, str) and stored:
+                p = Path(stored)
+                if p.is_dir() and (p / ".git").exists():
+                    return str(p)
+                # Stored path no longer valid — fall through to slug-derive.
+                break
+
+    home = Path.home() / ".memoir"
+    try:
+        store_p = Path(store_path).resolve()
+    except OSError:
+        return None
+    try:
+        rel = store_p.relative_to(home.resolve())
+    except ValueError:
+        return None
+    slug = str(rel)
+    if not slug.startswith("-"):
+        return None
+    candidate = Path("/" + slug[1:].replace("-", "/"))
+    if candidate.is_dir() and (candidate / ".git").exists():
+        return str(candidate)
+    return None
+
+
+def _git_head_info(repo_path: str) -> tuple[str | None, str | None]:
+    """Return (full_commit_sha, branch_name) for a git repo, or (None, None)
+    if either lookup fails. We don't raise — the indicator is best-effort.
+    """
+    try:
+        sha = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        branch = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None, None
+    sha_out = sha.stdout.strip() if sha.returncode == 0 else None
+    branch_out = branch.stdout.strip() if branch.returncode == 0 else None
+    return sha_out, branch_out
 
 
 def _extract_content(value: object) -> object:
@@ -100,7 +167,25 @@ class StoreHandler(BaseAPIHandler):
                 {"key": key, "value": _extract_content(data)}
                 for key, data in sorted(results, key=lambda kv: kv[0])
             ]
-            self.send_json_response({"success": True, "items": items})
+
+            # Best-effort live HEAD lookup so the UI can render an
+            # "out of sync" indicator when the user's code branch has
+            # advanced past the snapshot's stamped commit. Failures are
+            # swallowed — the indicator is purely advisory.
+            code_repo_path = _resolve_code_repo_path(store_path, items)
+            current_code_commit, current_code_branch = (
+                _git_head_info(code_repo_path) if code_repo_path else (None, None)
+            )
+
+            self.send_json_response(
+                {
+                    "success": True,
+                    "items": items,
+                    "code_repo_path": code_repo_path,
+                    "current_code_commit": current_code_commit,
+                    "current_code_branch": current_code_branch,
+                }
+            )
         except Exception as e:
             self.send_error_response(str(e))
 

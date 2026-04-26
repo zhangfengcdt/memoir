@@ -319,6 +319,26 @@
   text-align: right;
 }
 
+/* Onboard staleness badge — inline with the "Last onboard" header value.
+   Warning hue, but readable; the icon + text combo doubles as a tooltip
+   trigger explaining how to refresh. */
+.stats-onboard-stale {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: var(--space-3);
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--warning, #d4a017);
+  border-radius: var(--radius-sm);
+  color: var(--warning, #d4a017);
+  font-size: var(--text-xs);
+  white-space: nowrap;
+}
+
+.stats-onboard-stale code {
+  color: inherit;
+}
+
 /* Codebase (onboard) tab — wider key column than the BarDistribution
    default since module/lesson paths can be long. Two-column layout (no
    middle bar-track), key cell allowed to wrap if it would otherwise be
