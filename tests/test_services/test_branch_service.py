@@ -727,6 +727,60 @@ class TestBranchServicePromoteBranch:
         # No commit created when there's nothing to apply.
         assert result.commit_hash is None
 
+    def test_promote_carries_metrics_keys_with_branch_in_path(self, temp_dir):
+        """The Stop hook writes per-branch turn metrics under
+        `metrics.turn.<branch>` in the default namespace. Promotion must
+        carry those keys to the target so the source branch's stats land on
+        main alongside its memories — preserving source-branch identity via
+        the key fragment itself (no special-case merge logic)."""
+        store_service = StoreService(temp_dir)
+        store_service.create_store(temp_dir)
+        service = BranchService(temp_dir)
+        store = service._get_store()
+
+        # main has its own running accumulator.
+        store.put(
+            ("default",),
+            "metrics.turn.main",
+            {"branch": "main", "turns_count": 5, "total_output_chars": 100},
+        )
+        store.commit("main initial")
+
+        # feature/x branches and accumulates its own metrics.
+        service.create_branch("feature/x")
+        service.checkout("feature/x")
+        service._store = None
+        store = service._get_store()
+        store.put(
+            ("default",),
+            "metrics.turn.feature/x",
+            {"branch": "feature/x", "turns_count": 3, "total_output_chars": 42},
+        )
+        store.commit("feature/x metrics")
+
+        result = service.promote_branch("feature/x", "main", dry_run=False)
+        assert result.success is True
+        assert "metrics.turn.feature/x" in result.added_keys
+
+        service.checkout("main")
+        service._store = None
+        store = service._get_store()
+
+        # main retains its own metrics key untouched.
+        main_metrics = store.get(("default",), "metrics.turn.main")
+        assert main_metrics == {
+            "branch": "main",
+            "turns_count": 5,
+            "total_output_chars": 100,
+        }
+        # feature/x's metrics key rode along, preserving source-branch identity.
+        feature_metrics = store.get(("default",), "metrics.turn.feature/x")
+        assert feature_metrics == {
+            "branch": "feature/x",
+            "turns_count": 3,
+            "total_output_chars": 42,
+        }
+
 
 class BranchInfoStub:
     """Minimal stand-in for BranchInfo used in default-branch tests."""

@@ -4,7 +4,10 @@
 # the correct taxonomy path and creates a git commit. Runs async so it never
 # blocks the user's next turn.
 #
-# Escape hatch: MEMOIR_NO_CAPTURE=1 disables this hook per-session.
+# Escape hatches:
+#   MEMOIR_NO_CAPTURE=1  disables auto-capture of memory-worthy facts.
+#   MEMOIR_NO_METRICS=1  disables per-branch turn-statistics accumulation.
+# Both are independent — either path can fail without affecting the other.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
@@ -16,7 +19,7 @@ if [ "$STOP_HOOK_ACTIVE" = "true" ]; then
   exit 0
 fi
 
-if [ -z "$MEMOIR_CMD" ] || [ "${MEMOIR_NO_CAPTURE:-}" = "1" ]; then
+if [ -z "$MEMOIR_CMD" ]; then
   echo '{}'
   exit 0
 fi
@@ -36,6 +39,34 @@ auto_match_memoir_branch || true
 
 TRANSCRIPT_PATH=$(_json_val "$INPUT" "transcript_path" "")
 if [ -z "$TRANSCRIPT_PATH" ] || [ ! -f "$TRANSCRIPT_PATH" ]; then
+  echo '{}'
+  exit 0
+fi
+
+# Per-branch turn-statistics accumulator. Reads the existing
+# `metrics.turn.<branch>` key (if any), folds in this turn's deltas, writes
+# back. Independent of the capture path below — runs even when
+# MEMOIR_NO_CAPTURE=1, fails silently on its own. Branches are part of the
+# key, so promotions carry source-branch identity.
+if [ "${MEMOIR_NO_METRICS:-}" != "1" ]; then
+  DELTA=$("$SCRIPT_DIR/collect-metrics.sh" "$TRANSCRIPT_PATH" 2>/dev/null || true)
+  if [ -n "$DELTA" ]; then
+    BRANCH_RAW=$(memoir_json status 2>/dev/null \
+      | python3 -c "import json,sys; d=json.loads(sys.stdin.read() or '{}'); print(d.get('branch','unknown'))" 2>/dev/null)
+    if [ -z "$BRANCH_RAW" ]; then
+      BRANCH_RAW="unknown"
+    fi
+    MKEY="metrics.turn.${BRANCH_RAW}"
+    PREV=$(memoir_json get "$MKEY" 2>/dev/null \
+      | python3 -c "import json,sys; d=json.loads(sys.stdin.read() or '{}'); items=d.get('items') or [{}]; v=items[0].get('value') or {}; c=v.get('content'); print(c if isinstance(c,str) else '')" 2>/dev/null)
+    MERGED=$(python3 "$SCRIPT_DIR/merge-metrics.py" "$PREV" "$DELTA" 2>/dev/null || true)
+    if [ -n "$MERGED" ]; then
+      memoir_json remember "$MERGED" -p "$MKEY" >/dev/null 2>&1 || true
+    fi
+  fi
+fi
+
+if [ "${MEMOIR_NO_CAPTURE:-}" = "1" ]; then
   echo '{}'
   exit 0
 fi
