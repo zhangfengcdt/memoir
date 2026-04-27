@@ -22,7 +22,37 @@ bash -c 'source "${CLAUDE_PLUGIN_ROOT}/hooks/common.sh" >/dev/null 2>&1; in_git_
 
 Store: !`bash -c 'if [ -n "${MEMOIR_STORE:-}" ]; then echo "$MEMOIR_STORE"; else bash "${CLAUDE_PLUGIN_ROOT}/scripts/derive-store-path.sh"; fi'`
 
-Use this path for every memoir invocation below. The skill operates on whichever memoir branch is currently checked out — in non-git folders that is always `main`.
+**Bind this to `STORE_PATH` at the top of every bash block before invoking memoir**, e.g.
+
+```bash
+STORE_PATH="${MEMOIR_STORE:-$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/derive-store-path.sh")}"
+```
+
+Then use `$STORE_PATH` everywhere below. **Do not** rely on memoir's connected default (`~/.config/memoir/config.json`) — it is frequently stale and can point at a different per-project store from a previous plugin version, which is the #1 cause of writes silently landing in the wrong store. Always verify with the confirmation check below before doing real work.
+
+The skill operates on whichever memoir branch is currently checked out — in non-git folders that is always `main`.
+
+## CRITICAL: how to invoke memoir from this skill
+
+**`memoir -s <STORE_PATH> <subcommand>` alone is not enough.** Memoir's prollytree backend reads cwd for git operations even when `-s` is passed. From a non-git cwd (or some forked-session cwds even inside a git project), writes silently fail with `Not in a git repository`, and the failure mode is that captures land in memoir's connected default store instead.
+
+Wrap **every** memoir call — both branches A and B, both reads and writes — in a subshell that cd's into the store first:
+
+```bash
+( cd "$STORE_PATH" && memoir -s "$STORE_PATH" remember "$VALUE" -p <path> -n <namespace> )
+( cd "$STORE_PATH" && memoir --json -s "$STORE_PATH" get <key> -n <namespace> )
+```
+
+The subshell parens prevent your agent cwd from drifting. If you simplify back to plain `memoir -s ...`, results are non-deterministic across cwds.
+
+### Confirmation check (run this once before any write)
+
+```bash
+( cd "$STORE_PATH" && memoir --json -s "$STORE_PATH" status \
+  | python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('path',''))" )
+```
+
+The printed path **must** equal `$STORE_PATH`. If it doesn't, stop and report the mismatch — do not write. This catches both the connected-default trap and any subtle environment drift.
 
 ---
 
@@ -65,7 +95,7 @@ If the command prints anything, stop and report: "Concurrent session detected �
 ### Step 1 — probe existing state
 
 ```bash
-memoir --json -s <STORE_PATH> get _meta.last_onboard.commit _meta.last_onboard.date -n codebase:onboard
+( cd "$STORE_PATH" && memoir --json -s "$STORE_PATH" get _meta.last_onboard.commit _meta.last_onboard.date -n codebase:onboard )
 ```
 
 Three outcomes:
@@ -85,14 +115,14 @@ Gather, then write. Gather with (bounded) reads:
 3. Entry points: search for `[project.scripts]` in pyproject, `main()` in conventional files, CLI command registrations.
 4. `git log --oneline -20` and `git log --stat -5` for recent change patterns (informs lessons / rules).
 
-Write with per-key `remember -p` calls (the `-p` flag skips LLM classification — fast and deterministic):
+Write with per-key `remember -p` calls (the `-p` flag skips LLM classification — fast and deterministic). Wrap **every** invocation in `( cd "$STORE_PATH" && memoir -s "$STORE_PATH" ... )` — even from a git-tracked project this is the safe default, because some Claude Code subprocess cwds (e.g. forked `claude -p` sessions) land in non-git subpaths where memoir's prollytree backend would otherwise fail with `Not in a git repository`:
 
 ```bash
-memoir -s <STORE_PATH> remember "<short summary>" -p goal.primary       -n codebase:onboard
-memoir -s <STORE_PATH> remember "<...>"            -p goal.non_goals    -n codebase:onboard
-memoir -s <STORE_PATH> remember "<...>"            -p structure.entrypoints -n codebase:onboard
-memoir -s <STORE_PATH> remember "<1-3 lines>"      -p structure.modules.<fs_path> -n codebase:onboard
-# ... one `remember -p` per key you populate
+( cd "$STORE_PATH" && memoir -s "$STORE_PATH" remember "<short summary>" -p goal.primary           -n codebase:onboard )
+( cd "$STORE_PATH" && memoir -s "$STORE_PATH" remember "<...>"            -p goal.non_goals        -n codebase:onboard )
+( cd "$STORE_PATH" && memoir -s "$STORE_PATH" remember "<...>"            -p structure.entrypoints -n codebase:onboard )
+( cd "$STORE_PATH" && memoir -s "$STORE_PATH" remember "<1-3 lines>"      -p structure.modules.<fs_path> -n codebase:onboard )
+# ... one wrapped `remember -p` per key you populate
 ```
 
 Populate at least: `goal.primary`, `structure.modules.*` for each top-level module, `test.strategy`, and any `rules.*` / `lessons.*` that are obvious from CLAUDE.md or recent commits. Skip a category if you truly have nothing concrete to say — empty keys are worse than missing ones.
@@ -101,12 +131,12 @@ Then stamp the meta:
 
 ```bash
 CODE_SHA=$(git rev-parse HEAD)
-MEMOIR_SHA=$(memoir --json -s <STORE_PATH> status | python3 -c "import json,sys; print(json.loads(sys.stdin.read() or '{}').get('commit_hash',''))")
+MEMOIR_SHA=$( ( cd "$STORE_PATH" && memoir --json -s "$STORE_PATH" status ) | python3 -c "import json,sys; print(json.loads(sys.stdin.read() or '{}').get('commit_hash',''))")
 DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-memoir -s <STORE_PATH> remember "$CODE_SHA"   -p _meta.last_onboard.commit         -n codebase:onboard
-memoir -s <STORE_PATH> remember "$DATE"       -p _meta.last_onboard.date           -n codebase:onboard
-memoir -s <STORE_PATH> remember "$MEMOIR_SHA" -p _meta.last_onboard.memoir_commit  -n codebase:onboard
-memoir -s <STORE_PATH> remember "cold"        -p _meta.last_onboard.mode           -n codebase:onboard
+( cd "$STORE_PATH" && memoir -s "$STORE_PATH" remember "$CODE_SHA"   -p _meta.last_onboard.commit         -n codebase:onboard )
+( cd "$STORE_PATH" && memoir -s "$STORE_PATH" remember "$DATE"       -p _meta.last_onboard.date           -n codebase:onboard )
+( cd "$STORE_PATH" && memoir -s "$STORE_PATH" remember "$MEMOIR_SHA" -p _meta.last_onboard.memoir_commit  -n codebase:onboard )
+( cd "$STORE_PATH" && memoir -s "$STORE_PATH" remember "cold"        -p _meta.last_onboard.mode           -n codebase:onboard )
 ```
 
 ### Step 2b — warm path
@@ -131,6 +161,8 @@ Code HEAD hasn't moved since the last onboarding pass. Only bump `_meta.last_onb
 # Branch B: project:onboard (non-git folder)
 
 Use this branch when `in_git_repo` is false. The folder is treated as a **non-code project** (writing, video editing, bookkeeping, or generic mixed-media). All work happens on the `main` memoir branch — there are no code branches to track.
+
+The "CRITICAL: how to invoke memoir from this skill" rule at the top of this file applies to every `memoir` call below. Run the confirmation check (`memoir status` → path == `$STORE_PATH`) before doing any writes.
 
 ## Namespace layout (`project:onboard`)
 
@@ -175,7 +207,7 @@ bash -c 'source "${CLAUDE_PLUGIN_ROOT}/hooks/common.sh" >/dev/null 2>&1; concurr
 ### Step 1 — probe existing state
 
 ```bash
-memoir --json -s <STORE_PATH> get _meta.last_onboard.snapshot_hash _meta.last_onboard.date -n project:onboard
+( cd "$STORE_PATH" && memoir --json -s "$STORE_PATH" get _meta.last_onboard.snapshot_hash _meta.last_onboard.date -n project:onboard )
 ```
 
 Three outcomes:
@@ -185,8 +217,8 @@ Three outcomes:
 - Both `found: true` AND snapshot hash matches → **meta-only path** (bump date, nothing else).
 
 ```bash
-CURRENT_HASH=$(python3 ${CLAUDE_PLUGIN_ROOT}/skills/memoir-onboard/extractors.py snapshot-hash <root>)
-STORED_HASH=$(memoir --json -s <STORE_PATH> get _meta.last_onboard.snapshot_hash -n project:onboard \
+CURRENT_HASH=$(python3 ${CLAUDE_PLUGIN_ROOT}/skills/memoir-onboard/extractors.py snapshot-hash "$ROOT")
+STORED_HASH=$( ( cd "$STORE_PATH" && memoir --json -s "$STORE_PATH" get _meta.last_onboard.snapshot_hash -n project:onboard ) \
   | python3 -c "import json,sys; print(json.loads(sys.stdin.read())['items'][0].get('value',{}).get('content',''))")
 ```
 
@@ -211,29 +243,37 @@ OVERVIEW=$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['overview'
 TREE=$(python3 ${CLAUDE_PLUGIN_ROOT}/skills/memoir-onboard/extractors.py tree "$ROOT")
 FILE_COUNT=$(python3 -c "import json,sys; print(len(json.loads(sys.argv[1])['files']))" "$WALK_JSON")
 
-memoir -s <STORE_PATH> remember "$OVERVIEW" -p summary.overview     -n project:onboard
-memoir -s <STORE_PATH> remember "$SHAPE"    -p structure.shape      -n project:onboard
-memoir -s <STORE_PATH> remember "$TREE"     -p structure.tree       -n project:onboard
-# For each entry in WALK_JSON.files:
-#   sanitized=$(python3 -c "from importlib.util import spec_from_file_location, module_from_spec; ...")
-#   meta_blob=$(python3 -c "import json,sys; e=json.loads(sys.argv[1]); print('\n'.join(f'{k}={v}' for k,v in e.items()))" "<file-entry-json>")
-#   summary_blob=$(python3 ${CLAUDE_PLUGIN_ROOT}/skills/memoir-onboard/extractors.py extract "<path>")
-#   memoir -s <STORE> remember "$meta_blob"    -p files.${sanitized}.meta    -n project:onboard
-#   memoir -s <STORE> remember "$summary_blob" -p files.${sanitized}.summary -n project:onboard
-```
+# Every memoir write below is wrapped in `( cd "$STORE_PATH" && ... )` —
+# without this the prollytree backend reads cwd for git ops and the writes
+# silently land in memoir's connected default store. See "CRITICAL: how to
+# invoke memoir from this skill" at the top of Branch B.
+( cd "$STORE_PATH" && memoir -s "$STORE_PATH" remember "$OVERVIEW" -p summary.overview     -n project:onboard )
+( cd "$STORE_PATH" && memoir -s "$STORE_PATH" remember "$SHAPE"    -p structure.shape      -n project:onboard )
+( cd "$STORE_PATH" && memoir -s "$STORE_PATH" remember "$TREE"     -p structure.tree       -n project:onboard )
 
-In practice, drive the per-file loop with a small bash `while`-read over `WALK_JSON.files`. Use the same `_` substitution rule for `<sanitized_path>` (`/` → `_`, `.` → `_`) — this matches the `extractors.sanitize_path()` helper.
+# For each entry in WALK_JSON.files, drive the loop with bash. Sanitize each
+# relative path with `/` → `_` and `.` → `_` (matches extractors.sanitize_path).
+python3 -c "import json,sys; print('\n'.join(e['path'] for e in json.loads(sys.argv[1])['files']))" "$WALK_JSON" \
+  | while IFS= read -r rel; do
+      sanitized=$(printf '%s' "$rel" | tr '/.' '__')
+      meta_blob=$(python3 -c "import json,sys; files=json.loads(sys.argv[1])['files']; e=next(f for f in files if f['path']==sys.argv[2]); print('\n'.join(f'{k}={v}' for k,v in sorted(e.items())))" "$WALK_JSON" "$rel")
+      summary_blob=$(python3 ${CLAUDE_PLUGIN_ROOT}/skills/memoir-onboard/extractors.py extract "$ROOT/$rel")
+      ( cd "$STORE_PATH" && memoir -s "$STORE_PATH" remember "$meta_blob"    -p "files.${sanitized}.meta"    -n project:onboard ) >/dev/null
+      ( cd "$STORE_PATH" && memoir -s "$STORE_PATH" remember "$summary_blob" -p "files.${sanitized}.summary" -n project:onboard ) >/dev/null
+    done
+```
 
 7. Stamp meta:
 
 ```bash
 DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-MEMOIR_SHA=$(memoir --json -s <STORE_PATH> status | python3 -c "import json,sys; print(json.loads(sys.stdin.read() or '{}').get('commit_hash',''))")
-memoir -s <STORE_PATH> remember "$DATE"           -p _meta.last_onboard.date           -n project:onboard
-memoir -s <STORE_PATH> remember "cold"            -p _meta.last_onboard.mode           -n project:onboard
-memoir -s <STORE_PATH> remember "$SNAPSHOT_HASH"  -p _meta.last_onboard.snapshot_hash  -n project:onboard
-memoir -s <STORE_PATH> remember "$MEMOIR_SHA"     -p _meta.last_onboard.memoir_commit  -n project:onboard
-memoir -s <STORE_PATH> remember "$FILE_COUNT"     -p _meta.last_onboard.file_count     -n project:onboard
+MEMOIR_SHA=$( ( cd "$STORE_PATH" && memoir --json -s "$STORE_PATH" status ) \
+  | python3 -c "import json,sys; print(json.loads(sys.stdin.read() or '{}').get('commit_hash',''))")
+( cd "$STORE_PATH" && memoir -s "$STORE_PATH" remember "$DATE"           -p _meta.last_onboard.date           -n project:onboard )
+( cd "$STORE_PATH" && memoir -s "$STORE_PATH" remember "cold"            -p _meta.last_onboard.mode           -n project:onboard )
+( cd "$STORE_PATH" && memoir -s "$STORE_PATH" remember "$SNAPSHOT_HASH"  -p _meta.last_onboard.snapshot_hash  -n project:onboard )
+( cd "$STORE_PATH" && memoir -s "$STORE_PATH" remember "$MEMOIR_SHA"     -p _meta.last_onboard.memoir_commit  -n project:onboard )
+( cd "$STORE_PATH" && memoir -s "$STORE_PATH" remember "$FILE_COUNT"     -p _meta.last_onboard.file_count     -n project:onboard )
 ```
 
 ### Step 2b — warm path
@@ -244,16 +284,16 @@ Emit `[mode=project-onboard-warm]` as the first line of your reply.
 2. Fetch every existing `files.*.meta` key (one batched `memoir get`):
 
 ```bash
-EXISTING_KEYS=$(memoir --json -s <STORE_PATH> summarize --keys "files.*.meta" -n project:onboard \
+EXISTING_KEYS=$( ( cd "$STORE_PATH" && memoir --json -s "$STORE_PATH" summarize --keys "files.*.meta" -n project:onboard ) \
   | python3 -c "import json,sys; print('\n'.join(json.loads(sys.stdin.read())['matching_keys'].get('project:onboard', [])))")
 ```
 
-3. Diff path-by-path against the new walk:
+3. Diff path-by-path against the new walk. **Same wrapper rule as cold path**: every `memoir remember` and `memoir forget` runs as `( cd "$STORE_PATH" && memoir -s "$STORE_PATH" ... )`.
    - **added** (in walk, not in store) → run `extract <path>`, write `files.<san>.meta` and `files.<san>.summary`.
    - **deleted** (in store, not in walk) → `memoir forget` both `files.<san>.meta` and `files.<san>.summary`.
    - **modified** (same path, different `(size, mtime_ns)`) → re-run `extract <path>`, write both keys.
    - **unchanged** → skip.
-4. If any class is non-empty, refresh `summary.overview`, `structure.tree`, `structure.totals`, `structure.shape`.
+4. If any class is non-empty, refresh `summary.overview`, `structure.tree`, `structure.totals`, `structure.shape` (each via the same wrapped `memoir remember`).
 5. Re-stamp meta with `mode=warm` and the new `snapshot_hash`.
 
 Bound: if more than ~30% of indexed files changed, fall through to a full cold rewrite (use `--force` semantics).

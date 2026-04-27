@@ -109,6 +109,18 @@ export interface OnboardResponse {
   current_code_branch?: string | null;
 }
 
+// --- /api/project-onboard --------------------------------------------------
+// Raw read of the project:onboard namespace (the non-git counterpart of
+// codebase:onboard). Same item shape as OnboardItem; no code-repo fields,
+// since non-git folders have no code commit/branch to compare against.
+// Staleness is signaled via _meta.last_onboard.snapshot_hash + date.
+export type ProjectOnboardItem = OnboardItem;
+
+export interface ProjectOnboardResponse {
+  success: boolean;
+  items: ProjectOnboardItem[];
+}
+
 // --- /api/metrics ----------------------------------------------------------
 // All `metrics.*` keys in the default namespace on the current branch.
 // `branch` is parsed out of the key fragment for `metrics.turn.<branch>` —

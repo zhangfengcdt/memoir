@@ -5,6 +5,8 @@ import type {
   MetricsResponse,
   OnboardItem,
   OnboardResponse,
+  ProjectOnboardItem,
+  ProjectOnboardResponse,
   StatisticsBlock,
   StatisticsResponse,
   StatsSection,
@@ -14,7 +16,7 @@ import { useUI } from "../state/uiSlice";
 import "./StatsModal.css";
 
 type SectionKey = keyof StatisticsBlock;
-type TabKey = SectionKey | "overview" | "onboard" | "metrics";
+type TabKey = SectionKey | "overview" | "onboard" | "project" | "metrics";
 
 const BASE_SECTIONS: { key: TabKey; label: string }[] = [
   { key: "overview", label: "Overview" },
@@ -35,6 +37,8 @@ export default function StatsModal() {
 
   const [data, setData] = useState<StatisticsResponse | null>(null);
   const [onboardData, setOnboardData] = useState<OnboardResponse | null>(null);
+  const [projectOnboardData, setProjectOnboardData] =
+    useState<ProjectOnboardResponse | null>(null);
   const [metricsData, setMetricsData] = useState<MetricsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +57,7 @@ export default function StatsModal() {
     setLoading(true);
     setError(null);
     setOnboardData(null);
+    setProjectOnboardData(null);
     setMetricsData(null);
     api
       .statistics(storePath)
@@ -70,6 +75,14 @@ export default function StatsModal() {
       .onboard(storePath)
       .then((res) => {
         if (!cancelled) setOnboardData(res);
+      })
+      .catch(() => {
+        /* optional — keep tab hidden on failure */
+      });
+    api
+      .projectOnboard(storePath)
+      .then((res) => {
+        if (!cancelled) setProjectOnboardData(res);
       })
       .catch(() => {
         /* optional — keep tab hidden on failure */
@@ -109,11 +122,15 @@ export default function StatsModal() {
 
   if (!open) return null;
 
-  // Build the dynamic tab list: insert Onboard / Metrics tabs right after
-  // Overview when their respective namespace has data. Skipped silently when
-  // empty so the modal stays clean on stores that haven't run /memoir-onboard
-  // or accumulated any per-branch metrics yet.
+  // Build the dynamic tab list: insert Codebase / Project / Metrics tabs right
+  // after Overview when their respective namespace has data. Skipped silently
+  // when empty so the modal stays clean on stores that haven't run
+  // /memoir-onboard or accumulated any per-branch metrics yet. Codebase and
+  // Project are mutually exclusive in normal use (a store is either git-mode
+  // or non-git-mode for the project), but the UI doesn't enforce that — both
+  // tabs can appear if both namespaces happen to be populated.
   const onboardItems = onboardData?.items ?? [];
+  const projectOnboardItems = projectOnboardData?.items ?? [];
   const metricsItems = metricsData?.items ?? [];
   const sections: { key: TabKey; label: string }[] = [];
   for (const s of BASE_SECTIONS) {
@@ -121,6 +138,9 @@ export default function StatsModal() {
     if (s.key === "overview") {
       if (onboardItems.length > 0) {
         sections.push({ key: "onboard", label: "Codebase" });
+      }
+      if (projectOnboardItems.length > 0) {
+        sections.push({ key: "project", label: "Project" });
       }
       if (metricsItems.length > 0) {
         sections.push({ key: "metrics", label: "Metrics" });
@@ -204,10 +224,15 @@ export default function StatsModal() {
               currentCodeBranch={onboardData?.current_code_branch ?? null}
             />
           )}
+          {tab === "project" && <ProjectOnboardPanel items={projectOnboardItems} />}
           {tab === "metrics" && <MetricsPanel items={metricsItems} />}
-          {data && tab !== "overview" && tab !== "onboard" && tab !== "metrics" && (
-            <SectionPanel section={data.statistics[tab]} title={tab} />
-          )}
+          {data &&
+            tab !== "overview" &&
+            tab !== "onboard" &&
+            tab !== "project" &&
+            tab !== "metrics" && (
+              <SectionPanel section={data.statistics[tab]} title={tab} />
+            )}
         </div>
       </div>
     </div>
@@ -482,6 +507,134 @@ function OnboardPanel({
           </ul>
         </section>
       ))}
+    </div>
+  );
+}
+
+function ProjectOnboardPanel({ items }: { items: ProjectOnboardItem[] }) {
+  // Mirror render_project_onboard_compact (the bash/Python version in
+  // hooks/common.sh) but rendered as React: split _meta.* off as a header,
+  // suppress the files.* root (hundreds of per-file keys would explode the
+  // body — we surface the aggregate file_count instead), then group the rest
+  // by L1 prefix. Identity field is snapshot_hash, not a code SHA, since
+  // non-git folders have no code commit to anchor to.
+  const meta: Record<string, string> = {};
+  const groups: Record<string, ProjectOnboardItem[]> = {};
+  for (const it of items) {
+    if (it.key.startsWith("_meta.")) {
+      meta[it.key] = String(it.value ?? "");
+      continue;
+    }
+    const root = it.key.split(".", 1)[0];
+    // Suppress files.* — too many keys to render usefully here. The aggregate
+    // count surfaces in the header row from _meta.last_onboard.file_count.
+    if (root === "files") continue;
+    (groups[root] = groups[root] || []).push(it);
+  }
+
+  const fullSnapshotHash = meta["_meta.last_onboard.snapshot_hash"] ?? "";
+  const lastHash = fullSnapshotHash.slice(0, 7) || "?";
+  const lastDate = meta["_meta.last_onboard.date"] ?? "";
+  const mode = meta["_meta.last_onboard.mode"] ?? "?";
+  const fileCount = meta["_meta.last_onboard.file_count"] ?? "";
+
+  // Stale signal: > 30 days since last onboard. project:onboard has no code
+  // SHA to compare against, so age is the only out-of-date hint we render.
+  const stale = (() => {
+    if (!lastDate) return false;
+    const t = Date.parse(lastDate);
+    if (Number.isNaN(t)) return false;
+    const ageMs = Date.now() - t;
+    return ageMs > 30 * 24 * 60 * 60 * 1000;
+  })();
+
+  // Preferred ordering matches the SessionStart project:onboard compact view.
+  const PREFERRED = ["summary", "structure"];
+  const ordered: string[] = [];
+  const seen = new Set<string>();
+  for (const r of PREFERRED) {
+    if (groups[r]) {
+      ordered.push(r);
+      seen.add(r);
+    }
+  }
+  for (const r of Object.keys(groups).sort()) {
+    if (!seen.has(r)) ordered.push(r);
+  }
+
+  // structure.tree is multi-line ASCII art — render it in a <pre> instead of
+  // first-sentence-truncated like the rest, so the user sees the actual tree.
+  const treeKey = "structure.tree";
+  const treeItem = items.find((it) => it.key === treeKey);
+  const treeText = treeItem ? String(treeItem.value ?? "") : "";
+
+  return (
+    <div className="stats-section stats-onboard">
+      <div className="stats-row">
+        <span className="stats-row-label">Last onboard</span>
+        <span className="stats-row-value">
+          <code>{lastHash}</code> · {lastDate || "(no date)"} · {mode}
+          {stale && (
+            <span
+              className="stats-onboard-stale"
+              title="Snapshot is more than 30 days old — run /memoir-onboard to refresh."
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              <span>stale — run /memoir-onboard to refresh</span>
+            </span>
+          )}
+        </span>
+      </div>
+      {fileCount && (
+        <div className="stats-row">
+          <span className="stats-row-label">Files indexed</span>
+          <span className="stats-row-value">{fileCount}</span>
+        </div>
+      )}
+      {ordered.map((root) => (
+        <section key={root} className="stats-bars">
+          <h4 className="stats-bars-title">
+            {prettyLabel(root)}{" "}
+            <span className="stats-row-empty">({groups[root].length})</span>
+          </h4>
+          <ul className="stats-bars-list">
+            {groups[root]
+              .slice()
+              .sort((a, b) => a.key.localeCompare(b.key))
+              .filter((it) => it.key !== treeKey)
+              .map((it) => (
+                <li key={it.key} className="stats-bar-row">
+                  <code className="stats-bar-label" title={it.key}>
+                    {it.key}
+                  </code>
+                  <span className="stats-bar-value">
+                    {firstSentence(String(it.value ?? ""))}
+                  </span>
+                </li>
+              ))}
+          </ul>
+        </section>
+      ))}
+      {treeText && (
+        <section className="stats-bars">
+          <h4 className="stats-bars-title">{treeKey}</h4>
+          <pre className="stats-onboard-tree">{treeText}</pre>
+        </section>
+      )}
     </div>
   );
 }
