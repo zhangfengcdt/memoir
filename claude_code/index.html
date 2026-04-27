@@ -1157,6 +1157,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#non-git-folders-projectonboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-git folders (project:onboard)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#per-branch-turn-metrics-metricsturnbranch" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1803,6 +1814,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#non-git-folders-projectonboard" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Non-git folders (project:onboard)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#per-branch-turn-metrics-metricsturnbranch" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2206,24 +2228,154 @@
 <p><code>--force</code> always uses the cold path.</p>
 <p><strong>Branch behavior.</strong> The snapshot lives in the <code>codebase:onboard</code> namespace, <strong>not <code>default</code></strong> — <code>BranchService.promote_branch</code> only carries the default namespace, so <code>codebase:onboard</code> stays per-branch. This is intentional: a feature branch can carry its own structural notes without leaking them to <code>main</code> until the user explicitly chooses to.</p>
 <p><strong>Staleness.</strong> <code>SessionStart</code> flags the snapshot <code>stale="true"</code> when <code>_meta.last_onboard.date</code> is more than 30 days old, and appends a <code>(snapshot is stale — run /memoir-onboard to refresh)</code> hint. <code>/memoir-sync-branch</code> calls <code>update_onboard_meta_after_sync</code> on the merged branch so the meta keys stay truthful even when the user hasn't re-run <code>/memoir-onboard</code>.</p>
+<h2 id="non-git-folders-projectonboard">Non-git folders (<code>project:onboard</code>)<a class="headerlink" href="#non-git-folders-projectonboard" title="Permanent link">&para;</a></h2>
+<p>The plugin treats non-git folders as a first-class case rather than a degraded git mode. This is the home for running Claude Code over <strong>non-code projects</strong> — writing (drafts, manuscripts, research notes), video editing (clips, transcripts, project files), bookkeeping (statements, receipts, spreadsheets), and similar mixed-media folders.</p>
+<p><strong>Contract.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Surface</th>
+<th>Git folder</th>
+<th>Non-git folder</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Branches</td>
+<td>Auto-tracks code branch</td>
+<td>Locked to <code>main</code></td>
+</tr>
+<tr>
+<td>Status line</td>
+<td><code>[memoir] &lt;branch&gt; · N memories</code></td>
+<td><code>[memoir] main · N memories</code></td>
+</tr>
+<tr>
+<td>Stop auto-capture</td>
+<td>Captures to current memoir branch</td>
+<td>Captures to <code>main</code></td>
+</tr>
+<tr>
+<td><code>/memoir-sync-branch</code>, <code>/memoir-unmerged</code></td>
+<td>Operate normally</td>
+<td>Short-circuit with "non-git folder: only <code>main</code> exists"</td>
+</tr>
+<tr>
+<td><code>/memoir-onboard</code></td>
+<td><code>codebase:onboard</code> cold/warm based on <strong>code SHA</strong></td>
+<td><code>project:onboard</code> cold/warm based on <strong>filesystem snapshot hash</strong></td>
+</tr>
+<tr>
+<td><code>SessionStart</code> injection</td>
+<td>Renders <code>codebase:onboard</code> block</td>
+<td>Renders <code>project:onboard</code> block</td>
+</tr>
+<tr>
+<td>Stats / <code>memoir log</code>, <code>graph</code>, <code>tree</code></td>
+<td>Identical</td>
+<td>Identical</td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>project:onboard</code> namespace layout.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>summary.overview</code></td>
+<td>2–4 sentences auto-composed by a deterministic shape detector (writing / bookkeeping / video-editing / mixed).</td>
+</tr>
+<tr>
+<td><code>structure.shape</code></td>
+<td>One of <code>writing-shape</code>, <code>bookkeeping-shape</code>, <code>video-editing-shape</code>, <code>mixed</code>.</td>
+</tr>
+<tr>
+<td><code>structure.tree</code></td>
+<td>Pruned directory tree (depth ≤ 3).</td>
+</tr>
+<tr>
+<td><code>structure.totals</code></td>
+<td>JSON: <code>{file_count, dir_count, total_bytes, kind_histogram}</code>.</td>
+</tr>
+<tr>
+<td><code>files.&lt;sanitized_path&gt;.meta</code></td>
+<td><code>{size, mtime, ext, kind}</code> per file (<code>/</code> and <code>.</code> → <code>_</code> for the path segment).</td>
+</tr>
+<tr>
+<td><code>files.&lt;sanitized_path&gt;.summary</code></td>
+<td>Structured <code>key=value</code> blob from a per-kind extractor. Always begins with <code>kind=…</code>.</td>
+</tr>
+<tr>
+<td><code>_meta.last_onboard.{date,mode,snapshot_hash,memoir_commit,file_count}</code></td>
+<td>Refresh anchors.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Deterministic extractors — no LLM at index time.</strong> The skill runs <code>plugins/claude-code/skills/memoir-onboard/extractors.py</code> (stdlib-only Python) once per file. One function per <code>kind</code>, all bounded:</p>
+<ul>
+<li>prose / markdown — frontmatter <code>title:</code> → first H1 → first non-empty line; first 50 / last 20 words; word count; top non-stopword terms.</li>
+<li>csv / tsv — sniffed delimiter, columns, 16-row sample, streamed row count, numeric columns. Adds <code>shape=ledger</code> when columns include date+amount+category-like patterns.</li>
+<li>office-zip (<code>.docx</code>, <code>.pptx</code>, <code>.xlsx</code>, <code>.epub</code>) — stdlib <code>zipfile</code> + <code>xml.etree</code> reads <code>docProps/core.xml</code>, sheet names, slide count, paragraph count, EPUB manifest.</li>
+<li>pdf — metadata-only at v1 (file size, magic bytes, version). Real text extraction is a tool entry.</li>
+<li>video-project (<code>.fcpxml</code>, <code>.kdenlive</code>, <code>.prproj</code>, <code>.aep</code>) — XML parse for project name, clip count, duration; binary <code>.aep</code> is metadata-only.</li>
+<li>json / yaml — top-level keys, max depth, item count.</li>
+<li>srt / vtt — first cue, last cue, cue count, total duration.</li>
+<li>image / audio / video — extension-derived <code>kind</code> plus stdlib-cheap header parses (PNG dimensions from IHDR, WAV duration, etc.). Anything that needs a real codec stays metadata-only.</li>
+</ul>
+<p>Files larger than 50 MB get metadata-only treatment regardless of kind, so raw video and audio never enter the snapshot.</p>
+<p><strong>Cold / warm / meta-only paths.</strong> Same shape as <code>codebase:onboard</code>, but keyed off a <strong>filesystem snapshot hash</strong> (sha256 over sorted <code>(path, size, mtime_ns)</code> tuples) instead of a code SHA:</p>
+<ul>
+<li><strong>cold</strong> — no prior snapshot. Walk → run every extractor → write <code>files.*</code> keys, <code>summary.overview</code>, <code>structure.tree</code>, <code>structure.totals</code>, <code>structure.shape</code> → stamp <code>_meta.*</code>.</li>
+<li><strong>warm</strong> — snapshot hash differs. Diff path-by-path: added → run extractor + write; deleted → <code>memoir forget</code>; modified → re-run extractor + write; unchanged → skip. Refresh aggregate keys and re-stamp meta. Falls through to a full cold rewrite when more than ~30% of files changed.</li>
+<li><strong>meta-only</strong> — snapshot hash unchanged. Bump <code>_meta.last_onboard.date</code> only.</li>
+</ul>
+<p><strong>Pluggable tool registry.</strong> v1 ships with <strong>zero tool entries</strong> — every cold and warm pass is free, offline, and stdlib-only. To add an external tool (e.g. Whisper for audio transcription, ExifTool for images, a vision LLM for image captioning), drop a YAML or JSON config:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># ~/.memoir/onboard-tools.yaml          (user-global)</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># &lt;project&gt;/.memoir/onboard-tools.yaml  (project-local; merged after global)</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nt">audio</span><span class="p">:</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">whisper</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;whisper</span><span class="nv"> </span><span class="s">{path}</span><span class="nv"> </span><span class="s">--output-format</span><span class="nv"> </span><span class="s">json&quot;</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">timeout_s</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="nt">image</span><span class="p">:</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">claude-vision</span>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;vision-caption.sh</span><span class="nv"> </span><span class="s">{path}&quot;</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="nt">timeout_s</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span>
+</span></code></pre></div>
+<p>Per <code>kind</code>, the stdlib extractor always runs first; configured tools then run and merge their JSON output under <code>extractor.&lt;tool_name&gt;.&lt;field&gt;</code> keys, so the consumer LLM can tell deterministic fields apart from tool-derived ones via the <code>extractor.stdlib.fields=[…]</code> provenance line. Results are cached at <code>&lt;store&gt;/.git/plugin-extractor-cache/&lt;sha256-of-file-content&gt;.&lt;tool&gt;.json</code> so warm-mode reuses tool output when file content is unchanged. Failures are silent — tool errors and timeouts are logged to <code>/tmp/memoir-hook.log</code>; the blob is emitted with stdlib fields only.</p>
+<p><strong>Excludes.</strong> Default exclusion globs cover OS / editor cruft (<code>.DS_Store</code>, <code>~$*</code>), code build artifacts (<code>node_modules</code>, <code>__pycache__</code>, <code>dist</code>, <code>.venv</code>), and video / audio editor caches (<code>Adobe Premiere Pro Auto-Save/</code>, <code>*.fcpcache/</code>, <code>Render Files/</code>). Add project-local entries via <code>.memoir/onboard-excludes.txt</code> (gitignore syntax, one glob per line).</p>
+<p><strong>Store-mode drift guardrail (warning-only).</strong> A folder that flips between non-git and git states (running <code>git init</code> on an existing project, or <code>rm -rf .git</code>-ing a tracked folder) keeps the same store path — they share <code>~/.memoir/&lt;slug&gt;</code>. The plugin records the mode at first store creation in <code>&lt;store&gt;/.git/plugin-store-mode</code>. Subsequent SessionStarts compare the marker to the current state; on mismatch, it surfaces a one-block warning alongside the normal status line:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>[memoir] note: store mode drift
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>  This store was created in `non-git` mode; the project directory is now `git`.
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>  Captures continue, but branch auto-matching and the SessionStart onboard
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>  injection now use the new mode — earlier non-git-mode data may be on a
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>  different memoir branch (run `memoir branch list` to inspect).
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>  To suppress: `memoir checkout main` and update the marker with
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>  `echo git &gt; &lt;store&gt;/.git/plugin-store-mode`.
+</span></code></pre></div>
+<p>Captures keep working through the warning — it's informational, not enforced. The marker is auto-backfilled the first time an old (pre-guardrail) store is observed, so no warning fires for stores that pre-date this feature.</p>
 <h2 id="per-branch-turn-metrics-metricsturnbranch">Per-branch turn metrics (<code>metrics.turn.&lt;branch&gt;</code>)<a class="headerlink" href="#per-branch-turn-metrics-metricsturnbranch" title="Permanent link">&para;</a></h2>
 <p>The <code>Stop</code> hook accumulates per-turn statistics into one key per branch in the <code>default</code> namespace, alongside auto-captured memories.</p>
 <p><strong>Key shape:</strong> <code>metrics.turn.&lt;branch&gt;</code> — for example <code>metrics.turn.main</code>, <code>metrics.turn.feature/x</code>. Branch names with <code>/</code> are kept literal (memoir's <code>remember -p</code> accepts arbitrary path strings).</p>
 <p><strong>Value shape:</strong></p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="p">{</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">&quot;schema_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">&quot;tokens&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">&quot;llms&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">&quot;turns_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">  </span><span class="nt">&quot;total_output_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">198432</span><span class="p">,</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">  </span><span class="nt">&quot;total_tool_input_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">24561</span><span class="p">,</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">  </span><span class="nt">&quot;total_tool_result_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">884201</span><span class="p">,</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">  </span><span class="nt">&quot;total_tool_calls&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">187</span><span class="p">,</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">  </span><span class="nt">&quot;total_tool_errors&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span>
-</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="w">  </span><span class="nt">&quot;total_repeated_tool_calls&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
-</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="w">  </span><span class="nt">&quot;total_latency_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1845300</span><span class="p">,</span>
-</span><span id="__span-2-13"><a id="__codelineno-2-13" name="__codelineno-2-13" href="#__codelineno-2-13"></a><span class="w">  </span><span class="nt">&quot;latency_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">31</span>
-</span><span id="__span-2-14"><a id="__codelineno-2-14" name="__codelineno-2-14" href="#__codelineno-2-14"></a><span class="p">}</span>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">&quot;schema_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">&quot;tokens&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">&quot;llms&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="nt">&quot;turns_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">&quot;total_output_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">198432</span><span class="p">,</span>
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span><span class="nt">&quot;total_tool_input_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">24561</span><span class="p">,</span>
+</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">  </span><span class="nt">&quot;total_tool_result_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">884201</span><span class="p">,</span>
+</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">  </span><span class="nt">&quot;total_tool_calls&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">187</span><span class="p">,</span>
+</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">  </span><span class="nt">&quot;total_tool_errors&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span>
+</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">  </span><span class="nt">&quot;total_repeated_tool_calls&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
+</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">  </span><span class="nt">&quot;total_latency_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1845300</span><span class="p">,</span>
+</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">  </span><span class="nt">&quot;latency_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">31</span>
+</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>Each turn the hook reads the existing accumulator, folds in deltas computed by <code>collect-metrics.sh</code>, and writes it back via <code>merge-metrics.py</code>. <code>tokens</code> and <code>llms</code> are reserved <code>null</code> until Claude Code exposes per-turn usage to hooks; today the proxies are char-count and tool-count fields. <code>latency_samples</code> only ticks for turns whose transcript line carries a user-message timestamp.</p>
 <p><strong>Toggles &amp; failure mode.</strong> <code>MEMOIR_NO_METRICS=1</code> disables the metrics path independently of <code>MEMOIR_NO_CAPTURE</code> — either can fail without affecting the other. The whole block is wrapped in <code>2&gt;/dev/null || true</code>, matching the rest of the Stop hook's fail-silent design.</p>
@@ -2279,11 +2431,11 @@
 </table>
 <h2 id="manifest">Manifest<a class="headerlink" href="#manifest" title="Permanent link">&para;</a></h2>
 <p><code>plugins/claude-code/.claude-plugin/plugin.json</code>:</p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="p">{</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;memoir&quot;</span><span class="p">,</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span><span class="p">,</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Git-versioned, taxonomy-structured memory for Claude Code — recall by path, branch to isolate, time-travel to audit.&quot;</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="p">}</span>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;memoir&quot;</span><span class="p">,</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span><span class="p">,</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Git-versioned, taxonomy-structured memory for Claude Code — recall by path, branch to isolate, time-travel to audit.&quot;</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="p">}</span>
 </span></code></pre></div>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
