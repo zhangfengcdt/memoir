@@ -1,5 +1,6 @@
 import type {
   ApiError,
+  BlameResponse,
   BranchesResponse,
   BranchesStatusResponse,
   CommitsResponse,
@@ -270,7 +271,7 @@ export const api = {
     }),
 
   blame: (path: string, key: string, namespace = "default") =>
-    getJSON<Record<string, unknown>>("/api/blame", { path, key, namespace }),
+    getJSON<BlameResponse>("/api/blame", { path, key, namespace }),
 
   // ---------------- Branch ops ----------------
 

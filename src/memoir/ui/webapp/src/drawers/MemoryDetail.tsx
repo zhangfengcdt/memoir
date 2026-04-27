@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import type { Memory } from "../api/types";
+import type { BlameEntry, Memory } from "../api/types";
 import { api, MemoirApiError } from "../api/client";
 import { useStore } from "../state/storeSlice";
 import { useConfig } from "../state/configSlice";
+import { relativeTimeFromISO } from "../lib/time";
 import "./DrawerPanels.css";
 
 interface MemoryDetailProps {
@@ -234,8 +235,93 @@ export default function MemoryDetail({ memory }: MemoryDetailProps) {
           <span className="memory-meta-value">{connections}</span>
         </div>
       </section>
+
+      {/* Commit history for this key — git-blame-style. Refetches when the
+       * user picks a different memory; not auto-refreshed on save (the
+       * Commits tab is the live picture). */}
+      <HistorySection memory={memory} />
     </div>
   );
+}
+
+function HistorySection({ memory }: { memory: Memory }) {
+  const storePath = useStore((s) => s.storePath);
+  const [entries, setEntries] = useState<BlameEntry[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!storePath) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    api
+      .blame(storePath, memory.path, memory.namespace)
+      .then((res) => {
+        if (cancelled) return;
+        setEntries(res.entries);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err instanceof MemoirApiError ? err.message : String(err));
+        setEntries([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [storePath, memory.key, memory.namespace, memory.path]);
+
+  return (
+    <section className="drawer-panel-section memory-history">
+      <div className="memory-history-header">
+        <span className="memory-meta-label">History</span>
+        {entries && entries.length > 0 && (
+          <span className="memory-history-count">{entries.length}</span>
+        )}
+      </div>
+      {loading && <p className="memory-history-empty">Loading…</p>}
+      {!loading && error && <p className="drawer-error">{error}</p>}
+      {!loading && !error && entries && entries.length === 0 && (
+        <p className="memory-history-empty">No commit history yet.</p>
+      )}
+      {!loading && !error && entries && entries.length > 0 && (
+        <ul className="memory-history-list">
+          {entries.map((entry, idx) => (
+            <li key={`${entry.commit}-${idx}`} className="memory-history-row">
+              <code className="memory-history-sha" title={entry.commit}>
+                {entry.commit}
+              </code>
+              <span className="memory-history-message" title={entry.message}>
+                {entry.message || "(no message)"}
+              </span>
+              <span
+                className="memory-history-meta"
+                title={`${entry.author}${entry.date ? ` · ${entry.date}` : ""}`}
+              >
+                {shortAuthor(entry.author)}
+                {entry.date && (
+                  <>
+                    {" · "}
+                    {relativeTimeFromISO(entry.date)}
+                  </>
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+// "Name <email>" → "Name". Falls back to the raw string when there's no name.
+function shortAuthor(author: string): string {
+  const lt = author.indexOf("<");
+  if (lt > 0) return author.slice(0, lt).trim();
+  return author;
 }
 
 function computeTaxonomyMeta(

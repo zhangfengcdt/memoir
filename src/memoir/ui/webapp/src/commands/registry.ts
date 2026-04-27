@@ -670,17 +670,12 @@ register({
     if (!path) return;
     try {
       const res = await api.blame(path, key, namespace);
-      const r = res as Record<string, unknown>;
-      const history = r.history;
-      const lines: string[] = [];
-      if (Array.isArray(history)) {
-        for (const entry of history.slice(0, 12)) {
-          const e = entry as Record<string, unknown>;
-          lines.push(
-            `${(e.short_hash ?? "").toString().padEnd(8)} ${e.author ?? ""}  ${(e.message ?? "").toString().slice(0, 60)}`,
-          );
-        }
-      }
+      const lines = res.entries
+        .slice(0, 12)
+        .map(
+          (e) =>
+            `${e.commit.padEnd(8)} ${e.author}  ${e.message.slice(0, 60)}`,
+        );
       useStore.getState().pushHistory({
         input,
         level: "info",

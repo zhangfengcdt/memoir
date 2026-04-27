@@ -218,3 +218,19 @@ export interface CommitsResponse {
   commits: Commit[];
   branch: string;
 }
+
+// --- /api/blame ------------------------------------------------------------
+// Pydantic-shaped via BlameEntry.to_dict() in services/models.py.
+export interface BlameEntry {
+  commit: string; // 8-char short SHA, "unknown" if missing
+  author: string; // "Name <email>" or "Unknown"
+  date: string; // ISO 8601, may be empty
+  message: string;
+}
+
+export interface BlameResponse {
+  success: boolean;
+  key: string;
+  namespace: string;
+  entries: BlameEntry[];
+}
