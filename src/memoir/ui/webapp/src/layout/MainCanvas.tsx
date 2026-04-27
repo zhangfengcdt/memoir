@@ -12,10 +12,44 @@ import "./MainCanvas.css";
 
 const VIEW_LABELS: Record<ViewKey, { label: string; shortcut: string }> = {
   commits: { label: "Commits", shortcut: "⌘1" },
-  tree: { label: "Tree", shortcut: "⌘2" },
-  graph: { label: "Graph", shortcut: "⌘3" },
+  tree: { label: "Outline", shortcut: "⌘2" },
+  graph: { label: "Map", shortcut: "⌘3" },
   timeline: { label: "Timeline", shortcut: "⌘4" },
   places: { label: "Places", shortcut: "⌘5" },
+};
+
+// Octicon-style inline icons. Sized via currentColor so they inherit tab color.
+const VIEW_ICONS: Record<ViewKey, JSX.Element> = {
+  commits: (
+    <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M11.93 8.5a4.002 4.002 0 0 1-7.86 0H.75a.75.75 0 0 1 0-1.5h3.32a4.002 4.002 0 0 1 7.86 0h3.32a.75.75 0 0 1 0 1.5Zm-1.43-.75a2.5 2.5 0 1 0-5 0 2.5 2.5 0 0 0 5 0Z"
+      />
+    </svg>
+  ),
+  tree: (
+    <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M2 4a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm3.75-1.5a.75.75 0 0 0 0 1.5h9.5a.75.75 0 0 0 0-1.5h-9.5Zm0 5a.75.75 0 0 0 0 1.5h9.5a.75.75 0 0 0 0-1.5h-9.5Zm0 5a.75.75 0 0 0 0 1.5h9.5a.75.75 0 0 0 0-1.5h-9.5ZM2 9a1 1 0 1 1 0-2 1 1 0 0 1 0 2Zm1 4a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"
+      />
+    </svg>
+  ),
+  graph: (
+    <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M5 3.25a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0Zm0 9.5a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0ZM2.5 9.25a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0Zm9-1.5a.75.75 0 1 1 1.5 0 .75.75 0 0 1-1.5 0Z"
+      />
+      <path
+        fill="currentColor"
+        d="M5.75 2a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5ZM3.25 8a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5ZM12.25 6.5a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5ZM5.75 11a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5Zm.93-7.86 4.79 3.99-.96 1.15-4.79-3.99.96-1.15Zm.07 9.49 4.5-3.75.96 1.15-4.5 3.75-.96-1.15ZM4.21 9.86l3.5 1.5-.59 1.38-3.5-1.5.59-1.38Z"
+      />
+    </svg>
+  ),
+  timeline: <></>,
+  places: <></>,
 };
 
 export default function MainCanvas() {
@@ -52,6 +86,7 @@ export default function MainCanvas() {
       <nav className="view-tabs" role="tablist" aria-label="View tabs">
         {VISIBLE_VIEW_KEYS.map((key) => {
           const meta = VIEW_LABELS[key];
+          const count = tabCount(key, data);
           return (
             <Fragment key={key}>
               <button
@@ -59,9 +94,11 @@ export default function MainCanvas() {
                 aria-selected={active === key}
                 className={`view-tab ${active === key ? "active" : ""}`}
                 onClick={() => setActive(key)}
+                title={`${meta.label} (${meta.shortcut})`}
               >
-                <span>{meta.label}</span>
-                <kbd className="view-tab-kbd">{meta.shortcut}</kbd>
+                <span className="view-tab-icon">{VIEW_ICONS[key]}</span>
+                <span className="view-tab-label">{meta.label}</span>
+                {count !== null && <span className="view-tab-count">{count}</span>}
               </button>
               {key === "graph" && <ViewToolbar />}
             </Fragment>
@@ -78,6 +115,22 @@ export default function MainCanvas() {
       </div>
     </main>
   );
+}
+
+function tabCount(
+  key: ViewKey,
+  data: ReturnType<typeof useStore.getState>["data"],
+): number | null {
+  if (!data) return null;
+  switch (key) {
+    case "commits":
+      return data.commits.length;
+    case "tree":
+    case "graph":
+      return data.total_memories;
+    default:
+      return null;
+  }
 }
 
 function ViewBody({ view }: { view: ViewKey }) {
