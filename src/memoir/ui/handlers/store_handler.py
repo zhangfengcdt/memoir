@@ -189,6 +189,48 @@ class StoreHandler(BaseAPIHandler):
         except Exception as e:
             self.send_error_response(str(e))
 
+    def handle_project_onboard_api(self, parsed_path):
+        """Return the project:onboard namespace as raw key/value pairs.
+
+        Mirrors handle_onboard_api but reads the non-git counterpart namespace
+        populated by /memoir-onboard for non-git folders. No git-HEAD lookup —
+        non-git projects have no code commit to compare against; staleness is
+        signaled instead by the writer-side ``_meta.last_onboard.snapshot_hash``
+        which the UI surfaces in the header.
+        """
+        from memoir.store.prolly_adapter import ProllyTreeStore
+
+        query_params = parse_qs(parsed_path.query)
+        store_path = query_params.get("path", [None])[0]
+        if not store_path:
+            self.send_error_response("Missing 'path' parameter", 400)
+            return
+        if not Path(store_path).exists():
+            self.send_error_response(f"Store path does not exist: {store_path}", 404)
+            return
+
+        try:
+            store = ProllyTreeStore(
+                path=store_path,
+                enable_versioning=True,
+                auto_commit=False,
+                cache_size=10000,
+            )
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                results = loop.run_until_complete(store.asearch("project:onboard", ""))
+            finally:
+                loop.close()
+
+            items = [
+                {"key": key, "value": _extract_content(data)}
+                for key, data in sorted(results, key=lambda kv: kv[0])
+            ]
+            self.send_json_response({"success": True, "items": items})
+        except Exception as e:
+            self.send_error_response(str(e))
+
     def handle_metrics_api(self, parsed_path):
         """Return all `metrics.*` keys in the default namespace on the
         current branch. Each value is the parsed accumulator JSON.

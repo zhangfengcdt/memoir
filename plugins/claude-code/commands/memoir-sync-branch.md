@@ -18,6 +18,14 @@ This command runs in **two phases**:
 
 !`bash -c '
 STORE="${MEMOIR_STORE:-$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/derive-store-path.sh")}"
+
+# Non-git folders are locked to main — there are no code branches to follow,
+# so there is nothing to promote. Short-circuit cleanly.
+if ! git rev-parse --show-toplevel >/dev/null 2>&1; then
+  echo "non-git folder: only \`main\` exists, nothing to sync."
+  exit 0
+fi
+
 ARGS=$ARGUMENTS
 TARGET=""
 APPLY=0

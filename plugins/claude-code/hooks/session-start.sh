@@ -60,10 +60,11 @@ USER_MEMORIES="$TOTAL_MEMORIES"
 if [ -n "$SUMMARY_JSON" ]; then
   USER_MEMORIES=$(python3 -c "
 import json, sys
+SCAFFOLDING = {'codebase:onboard', 'project:onboard'}
 try:
     obj = json.loads(sys.argv[1])
     ns = obj.get('namespaces', {}) or {}
-    print(sum(v for k, v in ns.items() if not k.startswith('taxonomy:') and k != 'codebase:onboard'))
+    print(sum(v for k, v in ns.items() if not k.startswith('taxonomy:') and k not in SCAFFOLDING))
 except Exception:
     print(sys.argv[2])
 " "$SUMMARY_JSON" "$TOTAL_MEMORIES" 2>/dev/null || echo "$TOTAL_MEMORIES")
@@ -128,10 +129,11 @@ context=""
 if [ "$USER_MEMORIES" != "0" ] && [ -n "$SUMMARY_JSON" ]; then
   ns_list=$(python3 -c "
 import json, sys
+SCAFFOLDING = {'codebase:onboard', 'project:onboard'}
 try:
     obj = json.loads(sys.argv[1])
     ns = obj.get('namespaces', {}) or {}
-    user_ns = {k: v for k, v in ns.items() if not k.startswith('taxonomy:') and k != 'codebase:onboard'}
+    user_ns = {k: v for k, v in ns.items() if not k.startswith('taxonomy:') and k not in SCAFFOLDING}
     if not user_ns:
         sys.exit(0)
     lines = [f'- {k}: {v} memor' + ('y' if v == 1 else 'ies') for k, v in sorted(user_ns.items())]
@@ -173,18 +175,30 @@ if [ -n "$unmerged" ]; then
   fi
 fi
 
-# Inject the codebase:onboard snapshot so fresh sessions start with a high-level
-# map of the repo (structure, goals, rules, lessons). Gated on
-# MEMOIR_ONBOARD_INJECT (default=1) so a user who finds the block noisy can
-# opt out with MEMOIR_ONBOARD_INJECT=0. If the namespace is empty, emit a
-# one-line hint nudging the user to populate it via /memoir-onboard.
+# Inject the onboard snapshot so fresh sessions start with a high-level map of
+# the project. Two flavors share the same injection slot:
+#   - git folder      → codebase:onboard (code-shape: modules, goals, rules,
+#                       lessons), populated by /memoir-onboard's cold/warm path
+#                       on the code SHA.
+#   - non-git folder  → project:onboard (file-shape: summary, structure tree,
+#                       per-file blobs), populated by /memoir-onboard's
+#                       project-onboard path on a filesystem snapshot hash.
+# Gated on MEMOIR_ONBOARD_INJECT (default=1) so a user who finds the block
+# noisy can opt out with MEMOIR_ONBOARD_INJECT=0. If the namespace is empty,
+# emit a one-line hint nudging the user to populate it via /memoir-onboard.
 if [ "${MEMOIR_ONBOARD_INJECT:-1}" = "1" ]; then
-  onboard_block=$(render_codebase_onboard_compact 2>/dev/null || true)
+  if in_git_repo; then
+    onboard_namespace="codebase:onboard"
+    onboard_block=$(render_codebase_onboard_compact 2>/dev/null || true)
+  else
+    onboard_namespace="project:onboard"
+    onboard_block=$(render_project_onboard_compact 2>/dev/null || true)
+  fi
   if [ -z "$onboard_block" ]; then
     # No snapshot yet — only surface the hint if some user memories already
     # exist (brand-new store gets no extra noise on first launch).
     if [ "$USER_MEMORIES" != "0" ]; then
-      onboard_block="# codebase:onboard snapshot"$'\n'
+      onboard_block="# ${onboard_namespace} snapshot"$'\n'
       onboard_block+="(none yet — run /memoir-onboard to generate one; future sessions will auto-inject it here)"
     fi
   fi
@@ -193,6 +207,22 @@ if [ "${MEMOIR_ONBOARD_INJECT:-1}" = "1" ]; then
       context="${context}"$'\n\n'"${onboard_block}"
     else
       context="$onboard_block"
+    fi
+  fi
+fi
+
+# Surface the store-mode drift warning (one block, informational only).
+# Captures still proceed; the user decides whether to act. Detection runs in
+# `ensure_store` for existing stores; brand-new stores set the marker without
+# triggering the warning. The warning lives alongside the normal status line
+# and onboard injection so the user sees it during routine SessionStart.
+if [ "${MEMOIR_STORE_MODE_MISMATCH:-0}" = "1" ]; then
+  drift_block=$(render_store_mode_drift_warning 2>/dev/null || true)
+  if [ -n "$drift_block" ]; then
+    if [ -n "$context" ]; then
+      context="${context}"$'\n\n'"${drift_block}"
+    else
+      context="$drift_block"
     fi
   fi
 fi

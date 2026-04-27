@@ -22,6 +22,12 @@ set -euo pipefail
 # If no arg given, prefer the git root (matches common.sh behavior) so that
 # slash commands and the memory-recall skill resolve to the same store
 # regardless of which subdirectory pwd happens to be in.
+#
+# Non-git folder fallback uses absolute `pwd`. Renaming or moving the folder
+# relocates the store. (Trade-off: store-identity is the absolute path. We
+# considered a `.memoir/` marker file at the project root for stable identity
+# across renames, but kept the path-keyed scheme for symmetry with the git
+# case.)
 if [ -n "${1:-}" ]; then
   PROJECT_DIR="$1"
 else

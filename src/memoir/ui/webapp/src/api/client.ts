@@ -7,6 +7,7 @@ import type {
   LocationResponse,
   MetricsResponse,
   OnboardResponse,
+  ProjectOnboardResponse,
   RangeDiffResponse,
   StatisticsResponse,
   StoreResponse,
@@ -122,6 +123,9 @@ export const api = {
 
   onboard: (path: string) =>
     getJSON<OnboardResponse>("/api/onboard", { path }),
+
+  projectOnboard: (path: string) =>
+    getJSON<ProjectOnboardResponse>("/api/project-onboard", { path }),
 
   metrics: (path: string) =>
     getJSON<MetricsResponse>("/api/metrics", { path }),

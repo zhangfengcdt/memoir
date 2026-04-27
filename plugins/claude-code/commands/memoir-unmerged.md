@@ -7,6 +7,13 @@ List memoir branches that have captured memories not yet promoted to main. Same 
 
 !`bash -c '
 STORE="${MEMOIR_STORE:-$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/derive-store-path.sh")}"
+
+# Non-git folders never grow non-main branches via the plugin. Short-circuit.
+if ! git rev-parse --show-toplevel >/dev/null 2>&1; then
+  echo "non-git folder: only \`main\` exists. Nothing to do."
+  exit 0
+fi
+
 THIRTY_DAYS_AGO=$(( $(date +%s) - 30*86400 ))
 CURRENT=$(memoir --json -s "$STORE" status | python3 -c "import json,sys;print(json.loads(sys.stdin.read() or \"{}\").get(\"branch\",\"\"))")
 BRANCHES=$(memoir --json -s "$STORE" branch | python3 -c "

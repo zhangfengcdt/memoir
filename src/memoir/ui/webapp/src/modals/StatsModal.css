@@ -372,6 +372,23 @@
   line-height: 1.5;
 }
 
+/* Project (project:onboard) tab — `structure.tree` is multi-line ASCII art,
+   so render it in a code block that preserves whitespace and scrolls
+   horizontally if a deeply-nested folder produces a wide line. */
+.stats-onboard-tree {
+  margin: 0;
+  padding: var(--space-3);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: 1.5;
+  white-space: pre;
+  overflow-x: auto;
+  color: var(--fg-1);
+}
+
 /* Metrics tab — branch × accumulator-field table. Wider than the modal
    on small screens, so the wrapper handles horizontal scroll. */
 .stats-metrics-table-wrap {

@@ -183,6 +183,86 @@ Each value is ≤ ~500 chars; the SessionStart compact view takes the first sent
 
 **Staleness.** `SessionStart` flags the snapshot `stale="true"` when `_meta.last_onboard.date` is more than 30 days old, and appends a `(snapshot is stale — run /memoir-onboard to refresh)` hint. `/memoir-sync-branch` calls `update_onboard_meta_after_sync` on the merged branch so the meta keys stay truthful even when the user hasn't re-run `/memoir-onboard`.
 
+## Non-git folders (`project:onboard`)
+
+The plugin treats non-git folders as a first-class case rather than a degraded git mode. This is the home for running Claude Code over **non-code projects** — writing (drafts, manuscripts, research notes), video editing (clips, transcripts, project files), bookkeeping (statements, receipts, spreadsheets), and similar mixed-media folders.
+
+**Contract.**
+
+| Surface | Git folder | Non-git folder |
+|---|---|---|
+| Branches | Auto-tracks code branch | Locked to `main` |
+| Status line | `[memoir] <branch> · N memories` | `[memoir] main · N memories` |
+| Stop auto-capture | Captures to current memoir branch | Captures to `main` |
+| `/memoir-sync-branch`, `/memoir-unmerged` | Operate normally | Short-circuit with "non-git folder: only `main` exists" |
+| `/memoir-onboard` | `codebase:onboard` cold/warm based on **code SHA** | `project:onboard` cold/warm based on **filesystem snapshot hash** |
+| `SessionStart` injection | Renders `codebase:onboard` block | Renders `project:onboard` block |
+| Stats / `memoir log`, `graph`, `tree` | Identical | Identical |
+
+**`project:onboard` namespace layout.**
+
+| Key | Contents |
+|---|---|
+| `summary.overview` | 2–4 sentences auto-composed by a deterministic shape detector (writing / bookkeeping / video-editing / mixed). |
+| `structure.shape` | One of `writing-shape`, `bookkeeping-shape`, `video-editing-shape`, `mixed`. |
+| `structure.tree` | Pruned directory tree (depth ≤ 3). |
+| `structure.totals` | JSON: `{file_count, dir_count, total_bytes, kind_histogram}`. |
+| `files.<sanitized_path>.meta` | `{size, mtime, ext, kind}` per file (`/` and `.` → `_` for the path segment). |
+| `files.<sanitized_path>.summary` | Structured `key=value` blob from a per-kind extractor. Always begins with `kind=…`. |
+| `_meta.last_onboard.{date,mode,snapshot_hash,memoir_commit,file_count}` | Refresh anchors. |
+
+**Deterministic extractors — no LLM at index time.** The skill runs `plugins/claude-code/skills/memoir-onboard/extractors.py` (stdlib-only Python) once per file. One function per `kind`, all bounded:
+
+- prose / markdown — frontmatter `title:` → first H1 → first non-empty line; first 50 / last 20 words; word count; top non-stopword terms.
+- csv / tsv — sniffed delimiter, columns, 16-row sample, streamed row count, numeric columns. Adds `shape=ledger` when columns include date+amount+category-like patterns.
+- office-zip (`.docx`, `.pptx`, `.xlsx`, `.epub`) — stdlib `zipfile` + `xml.etree` reads `docProps/core.xml`, sheet names, slide count, paragraph count, EPUB manifest.
+- pdf — metadata-only at v1 (file size, magic bytes, version). Real text extraction is a tool entry.
+- video-project (`.fcpxml`, `.kdenlive`, `.prproj`, `.aep`) — XML parse for project name, clip count, duration; binary `.aep` is metadata-only.
+- json / yaml — top-level keys, max depth, item count.
+- srt / vtt — first cue, last cue, cue count, total duration.
+- image / audio / video — extension-derived `kind` plus stdlib-cheap header parses (PNG dimensions from IHDR, WAV duration, etc.). Anything that needs a real codec stays metadata-only.
+
+Files larger than 50 MB get metadata-only treatment regardless of kind, so raw video and audio never enter the snapshot.
+
+**Cold / warm / meta-only paths.** Same shape as `codebase:onboard`, but keyed off a **filesystem snapshot hash** (sha256 over sorted `(path, size, mtime_ns)` tuples) instead of a code SHA:
+
+- **cold** — no prior snapshot. Walk → run every extractor → write `files.*` keys, `summary.overview`, `structure.tree`, `structure.totals`, `structure.shape` → stamp `_meta.*`.
+- **warm** — snapshot hash differs. Diff path-by-path: added → run extractor + write; deleted → `memoir forget`; modified → re-run extractor + write; unchanged → skip. Refresh aggregate keys and re-stamp meta. Falls through to a full cold rewrite when more than ~30% of files changed.
+- **meta-only** — snapshot hash unchanged. Bump `_meta.last_onboard.date` only.
+
+**Pluggable tool registry.** v1 ships with **zero tool entries** — every cold and warm pass is free, offline, and stdlib-only. To add an external tool (e.g. Whisper for audio transcription, ExifTool for images, a vision LLM for image captioning), drop a YAML or JSON config:
+
+```yaml
+# ~/.memoir/onboard-tools.yaml          (user-global)
+# <project>/.memoir/onboard-tools.yaml  (project-local; merged after global)
+audio:
+  - name: whisper
+    command: "whisper {path} --output-format json"
+    timeout_s: 60
+image:
+  - name: claude-vision
+    command: "vision-caption.sh {path}"
+    timeout_s: 30
+```
+
+Per `kind`, the stdlib extractor always runs first; configured tools then run and merge their JSON output under `extractor.<tool_name>.<field>` keys, so the consumer LLM can tell deterministic fields apart from tool-derived ones via the `extractor.stdlib.fields=[…]` provenance line. Results are cached at `<store>/.git/plugin-extractor-cache/<sha256-of-file-content>.<tool>.json` so warm-mode reuses tool output when file content is unchanged. Failures are silent — tool errors and timeouts are logged to `/tmp/memoir-hook.log`; the blob is emitted with stdlib fields only.
+
+**Excludes.** Default exclusion globs cover OS / editor cruft (`.DS_Store`, `~$*`), code build artifacts (`node_modules`, `__pycache__`, `dist`, `.venv`), and video / audio editor caches (`Adobe Premiere Pro Auto-Save/`, `*.fcpcache/`, `Render Files/`). Add project-local entries via `.memoir/onboard-excludes.txt` (gitignore syntax, one glob per line).
+
+**Store-mode drift guardrail (warning-only).** A folder that flips between non-git and git states (running `git init` on an existing project, or `rm -rf .git`-ing a tracked folder) keeps the same store path — they share `~/.memoir/<slug>`. The plugin records the mode at first store creation in `<store>/.git/plugin-store-mode`. Subsequent SessionStarts compare the marker to the current state; on mismatch, it surfaces a one-block warning alongside the normal status line:
+
+```
+[memoir] note: store mode drift
+  This store was created in `non-git` mode; the project directory is now `git`.
+  Captures continue, but branch auto-matching and the SessionStart onboard
+  injection now use the new mode — earlier non-git-mode data may be on a
+  different memoir branch (run `memoir branch list` to inspect).
+  To suppress: `memoir checkout main` and update the marker with
+  `echo git > <store>/.git/plugin-store-mode`.
+```
+
+Captures keep working through the warning — it's informational, not enforced. The marker is auto-backfilled the first time an old (pre-guardrail) store is observed, so no warning fires for stores that pre-date this feature.
+
 ## Per-branch turn metrics (`metrics.turn.<branch>`)
 
 The `Stop` hook accumulates per-turn statistics into one key per branch in the `default` namespace, alongside auto-captured memories.

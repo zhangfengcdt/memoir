@@ -94,6 +94,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         elif parsed_path.path == "/api/onboard":
             self._ensure_handlers_initialized()
             self.store_handler.handle_onboard_api(parsed_path)
+        elif parsed_path.path == "/api/project-onboard":
+            self._ensure_handlers_initialized()
+            self.store_handler.handle_project_onboard_api(parsed_path)
         elif parsed_path.path == "/api/metrics":
             self._ensure_handlers_initialized()
             self.store_handler.handle_metrics_api(parsed_path)
