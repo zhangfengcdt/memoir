@@ -28,7 +28,7 @@ auto_match_memoir_branch || true
 
 # Read state AFTER the potential auto-switch so the status hint reflects reality.
 STATUS_JSON=$(memoir_json status || true)
-BRANCH=$(_json_val "$STATUS_JSON" "branch" "main")
+BRANCH=$(_json_val "$STATUS_JSON" "branch" "${MEMOIR_PRIMARY_BRANCH:-main}")
 CODE_BRANCH=$(code_git_branch)
 
 # Display: collapse to `<branch>` when code and memoir agree (the default

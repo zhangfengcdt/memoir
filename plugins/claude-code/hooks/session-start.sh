@@ -37,14 +37,15 @@ if [ "${MEMOIR_STORE_WAS_CREATED:-0}" = "1" ]; then
   load_custom_taxonomy_files >/dev/null 2>&1 || true
 fi
 
-# Auto-match memoir branch to current code branch (creates from main if
-# missing; honors sticky opt-out). Failures are non-fatal — we just end
-# up on whatever memoir branch was already current.
+# Auto-match memoir branch to current code branch (creates from the store's
+# primary branch — defaults to "main", overridable via memoir.primaryBranch
+# config — if missing; honors sticky opt-out). Failures are non-fatal — we
+# just end up on whatever memoir branch was already current.
 auto_match_memoir_branch || true
 
 # Pull status JSON — contains branch, memory_count (total).
 STATUS_JSON=$(memoir_json status || true)
-BRANCH=$(_json_val "$STATUS_JSON" "branch" "main")
+BRANCH=$(_json_val "$STATUS_JSON" "branch" "${MEMOIR_PRIMARY_BRANCH:-main}")
 TOTAL_MEMORIES=$(_json_val "$STATUS_JSON" "memory_count" "0")
 
 # Compute *user-facing* memory count by subtracting entries in memoir's
@@ -84,17 +85,19 @@ else
   DISPLAY_BRANCH="${BRANCH}"
 fi
 
-# Unmerged-branch detector: surface any memoir branches ahead of main so the
-# user notices captured knowledge that hasn't been promoted. Stateless —
-# scans all branches each SessionStart. Filters to ≤30d active + not ignored.
-# Computed early so it can feed both the status line and additionalContext.
+# Unmerged-branch detector: surface any memoir branches ahead of the store's
+# primary branch so the user notices captured knowledge that hasn't been
+# promoted. Stateless — scans all branches each SessionStart. Filters to ≤30d
+# active + not ignored. Computed early so it can feed both the status line
+# and additionalContext.
 #
-# Gated on code branch == main: while the user is mid-flight on a feature
-# branch, other branches' unmerged work is noise. main is the natural sync
-# point, so we only nag there. (An empty CODE_BRANCH — no code repo — also
-# skips; users without a code repo can invoke /memoir-unmerged manually.)
+# Gated on code branch == primary branch: while the user is mid-flight on a
+# feature branch, other branches' unmerged work is noise. The primary branch
+# is the natural sync point, so we only nag there. (An empty CODE_BRANCH — no
+# code repo — also skips; users without a code repo can invoke
+# /memoir-unmerged manually.)
 unmerged=""
-if [ "$CODE_BRANCH" = "main" ]; then
+if [ "$CODE_BRANCH" = "${MEMOIR_PRIMARY_BRANCH:-main}" ]; then
   unmerged=$(list_unmerged_memoir_branches 2>/dev/null || true)
 fi
 

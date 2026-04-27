@@ -410,6 +410,71 @@ class TestBranchServiceDefaultBranch:
         assert branch_service_with_data.get_default_branch() == "main"
 
 
+class TestBranchServicePrimaryBranch:
+    """Test the user-designated primary branch override.
+
+    Backwards-compat invariant: when no override is set, every assertion
+    in TestBranchServiceDefaultBranch must still hold. The tests below add
+    behavior on top — they never replace it.
+    """
+
+    def test_default_branch_unchanged_when_config_unset(self, branch_service_with_data):
+        """No memoir.primaryBranch config → resolves to 'main' as before."""
+        assert branch_service_with_data.get_primary_branch_config() is None
+        assert branch_service_with_data.get_default_branch() == "main"
+
+    def test_get_primary_branch_config_returns_value(self, branch_service_with_data):
+        """Once set, the raw config value is returned by get_primary_branch_config."""
+        # Create the branch first so set_primary_branch's existence check passes.
+        branch_service_with_data.create_branch("master")
+        branch_service_with_data.set_primary_branch("master")
+        assert branch_service_with_data.get_primary_branch_config() == "master"
+
+    def test_default_branch_honors_memoir_primary_config(
+        self, branch_service_with_data
+    ):
+        """When config is set AND the branch exists, it wins over main/master fallback."""
+        branch_service_with_data.create_branch("custom-primary")
+        branch_service_with_data.set_primary_branch("custom-primary")
+        assert branch_service_with_data.get_default_branch() == "custom-primary"
+
+    def test_default_branch_falls_back_when_config_branch_missing(
+        self, branch_service_with_data, monkeypatch
+    ):
+        """Config points at a deleted branch → falls through to main/master/first."""
+        # Stage 1: write config pointing at a branch that exists.
+        branch_service_with_data.create_branch("ephemeral")
+        branch_service_with_data.set_primary_branch("ephemeral")
+        assert branch_service_with_data.get_default_branch() == "ephemeral"
+
+        # Stage 2: simulate the branch being deleted by stubbing list_branches
+        # to omit it. The config still points at "ephemeral", but
+        # get_default_branch must fall through to the existing chain.
+        fake_info = BranchInfoStub(branches=["main"], current="main")
+        monkeypatch.setattr(
+            branch_service_with_data, "list_branches", lambda: fake_info
+        )
+        assert branch_service_with_data.get_default_branch() == "main"
+
+    def test_set_primary_branch_validates_existence(self, branch_service_with_data):
+        """Refuses to set config to a non-existent branch."""
+        with pytest.raises(ValueError, match="does not exist"):
+            branch_service_with_data.set_primary_branch("nope-not-a-branch")
+        # Config must remain unset after the failed attempt.
+        assert branch_service_with_data.get_primary_branch_config() is None
+
+    def test_set_primary_branch_unset_clears_config(self, branch_service_with_data):
+        """Passing an empty string removes the config so resolution falls through."""
+        branch_service_with_data.create_branch("master")
+        branch_service_with_data.set_primary_branch("master")
+        assert branch_service_with_data.get_primary_branch_config() == "master"
+
+        branch_service_with_data.set_primary_branch("")
+        assert branch_service_with_data.get_primary_branch_config() is None
+        # And get_default_branch resolves back via the existing chain.
+        assert branch_service_with_data.get_default_branch() == "main"
+
+
 class TestBranchServiceDivergence:
     """Test get_divergence ahead/behind counting."""
 

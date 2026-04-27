@@ -35,6 +35,20 @@ from memoir.cli.main import (
     type=click.Path(exists=True),
     help="External taxonomy markdown file(s) to load",
 )
+@click.option(
+    "--initial-branch",
+    "initial_branch",
+    default=None,
+    metavar="NAME",
+    help=(
+        "Name of the store's primary branch (e.g. 'master', 'single'). "
+        "When set, the initial commit lands on a branch with this name and "
+        "git config memoir.primaryBranch is recorded so all future memoir "
+        "operations route to it. When omitted, git's default-branch behavior "
+        "applies (typically 'main') and no override is recorded — preserves "
+        "current behavior for users who don't care."
+    ),
+)
 @pass_context
 def new(
     ctx: MemoirContext,
@@ -42,6 +56,7 @@ def new(
     connect: bool,
     taxonomy_builtin: bool,
     taxonomy_paths: tuple,
+    initial_branch: str | None,
 ):
     """Create a new memory store.
 
@@ -55,12 +70,17 @@ def new(
       --taxonomy-builtin loads the builtin taxonomy (~215 examples)
       -t/--taxonomy loads external markdown taxonomy files
 
+    Use --initial-branch to designate a custom primary branch name (e.g.
+    'master' for stores you'll sync alongside repos that still use master
+    as the default).
+
     \b
     Examples:
       memoir new /tmp/my-agent-memory
       memoir new ~/memories --no-connect
       memoir new ~/memories --taxonomy-builtin
       memoir new ~/memories --taxonomy-builtin -t custom.md
+      memoir new ~/memories --initial-branch master
 
     \b
     JSON output includes: path, success, taxonomy_loaded
@@ -68,7 +88,7 @@ def new(
     from memoir.services.store_service import StoreService
 
     service = StoreService()
-    result = service.create_store(path)
+    result = service.create_store(path, initial_branch=initial_branch)
 
     if not result.success:
         ctx.error(result.error or "Failed to create store", EXIT_GIT_FAILED)
@@ -93,6 +113,54 @@ def new(
             ctx.info(f"Loaded taxonomy: {taxonomy_result}")
         except Exception as e:
             ctx.warn(f"Failed to initialize taxonomy: {e}")
+
+    # If the caller asked for a custom primary branch, enforce it AFTER any
+    # taxonomy / VersionedKvStore initialization has run. The prollytree
+    # Rust binding creates its own "main" branch on first commit, ignoring
+    # our `git init -b <name>` because it goes straight at the git object
+    # store via gix. So the only reliable way to land users on a custom
+    # primary is to detect the actual current branch post-initialization
+    # and rename it to the requested name.
+    if initial_branch:
+        import subprocess as _sp
+
+        try:
+            # Find the actual branch the store landed on. Use symbolic-ref
+            # so we work even on a store with zero commits.
+            head_res = _sp.run(
+                ["git", "symbolic-ref", "--short", "HEAD"],
+                cwd=result.path,
+                capture_output=True,
+                text=True,
+            )
+            current = head_res.stdout.strip() if head_res.returncode == 0 else ""
+            if current and current != initial_branch:
+                # Rename the branch in place. If a commit already exists
+                # the rename works directly; if not, symbolic-ref needs to
+                # be updated explicitly (git branch -m on an unborn branch
+                # is a no-op for the ref but `git symbolic-ref HEAD
+                # refs/heads/<name>` covers it).
+                rename = _sp.run(
+                    ["git", "branch", "-m", current, initial_branch],
+                    cwd=result.path,
+                    capture_output=True,
+                    text=True,
+                )
+                if rename.returncode != 0:
+                    # Unborn-branch case: just retarget HEAD.
+                    _sp.run(
+                        [
+                            "git",
+                            "symbolic-ref",
+                            "HEAD",
+                            f"refs/heads/{initial_branch}",
+                        ],
+                        cwd=result.path,
+                        check=False,
+                        capture_output=True,
+                    )
+        except Exception as e:
+            ctx.warn(f"Failed to enforce initial branch '{initial_branch}': {e}")
 
     if connect:
         save_default_store(result.path)
@@ -194,6 +262,10 @@ def status(ctx: MemoirContext):
         )
         if info.branch:
             click.echo(f"Branch: {info.branch}")
+        # Surface primary-branch only when designated — keeps the default
+        # output identical to pre-feature for stores that didn't opt in.
+        if info.primary_branch:
+            click.echo(f"Primary: {info.primary_branch}")
         if info.commit_count is not None:
             click.echo(f"Commits: {info.commit_count}")
         if info.memory_count is not None:

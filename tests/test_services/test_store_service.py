@@ -72,6 +72,65 @@ class TestStoreServiceCreation:
         # May succeed (reinitialize) or fail gracefully
         assert result is not None
 
+    def test_create_store_with_initial_branch_master(self, temp_dir):
+        """`--initial-branch master` lands the initial commit on master and
+        records memoir.primaryBranch=master in the store's git config."""
+        import subprocess
+
+        shutil.rmtree(temp_dir)
+
+        service = StoreService()
+        result = service.create_store(temp_dir, initial_branch="master")
+        assert result.success is True
+
+        # HEAD should point at refs/heads/master, not main. We use
+        # `symbolic-ref` instead of `rev-parse --abbrev-ref` because
+        # an empty memoir store may have no initial commit yet (empty
+        # `data/` dir doesn't trigger one), and rev-parse on an unborn
+        # branch returns non-zero. symbolic-ref reads the HEAD file
+        # directly and works pre-commit.
+        head = subprocess.run(
+            ["git", "symbolic-ref", "HEAD"],
+            cwd=temp_dir,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        assert head.stdout.strip() == "refs/heads/master"
+
+        # memoir.primaryBranch must be persisted so downstream callers
+        # (BranchService.get_default_branch, plugin hooks) route to master.
+        cfg = subprocess.run(
+            ["git", "config", "--get", "memoir.primaryBranch"],
+            cwd=temp_dir,
+            capture_output=True,
+            text=True,
+        )
+        assert cfg.returncode == 0
+        assert cfg.stdout.strip() == "master"
+
+    def test_create_store_default_branch_writes_no_config(self, temp_dir):
+        """Backwards-compat invariant: omitting --initial-branch must NOT
+        write memoir.primaryBranch. Stores predating this feature, and
+        users who never opt in, should be functionally identical."""
+        import subprocess
+
+        shutil.rmtree(temp_dir)
+
+        service = StoreService()
+        result = service.create_store(temp_dir)
+        assert result.success is True
+
+        cfg = subprocess.run(
+            ["git", "config", "--get", "memoir.primaryBranch"],
+            cwd=temp_dir,
+            capture_output=True,
+            text=True,
+        )
+        # `git config --get` exits non-zero when the key is absent.
+        assert cfg.returncode != 0
+        assert cfg.stdout.strip() == ""
+
 
 class TestStoreServiceStatus:
     """Test store status functionality."""

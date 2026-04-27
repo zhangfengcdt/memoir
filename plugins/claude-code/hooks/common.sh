@@ -256,6 +256,27 @@ render_store_mode_drift_warning() {
 EOF
 }
 
+# cache_primary_branch — read the store's designated primary branch from
+# `<store>/.git/config` (set by `memoir new --initial-branch <name>` or
+# `memoir branch --set-primary <name>`) and export it as
+# MEMOIR_PRIMARY_BRANCH so every hook + slash command can use the same
+# value without re-running git config on each call. Defaults to "main"
+# when the config key is absent — backwards-compat invariant for stores
+# that haven't designated a custom primary.
+#
+# Called from ensure_store after the store is known to exist; safe to
+# re-run, idempotent, never raises.
+cache_primary_branch() {
+  if [ -d "$MEMOIR_STORE_PATH/.git" ]; then
+    MEMOIR_PRIMARY_BRANCH="$(git -C "$MEMOIR_STORE_PATH" config --get memoir.primaryBranch 2>/dev/null || echo main)"
+  else
+    MEMOIR_PRIMARY_BRANCH="main"
+  fi
+  # Empty config value (unlikely but possible) collapses to main.
+  [ -z "$MEMOIR_PRIMARY_BRANCH" ] && MEMOIR_PRIMARY_BRANCH="main"
+  export MEMOIR_PRIMARY_BRANCH
+}
+
 # ensure_store — create the store directory with builtin taxonomy if missing.
 # Safe to call on every SessionStart. Sets MEMOIR_STORE_WAS_CREATED=1 as a
 # side effect when this call actually created the store (vs. finding one
@@ -305,6 +326,11 @@ ensure_store() {
     # Existing store: backfill the marker if missing, set mismatch flags otherwise.
     detect_store_mode_drift
   fi
+  # Cache the user-designated primary branch (defaults to "main") so every
+  # downstream call site reads $MEMOIR_PRIMARY_BRANCH instead of a hardcoded
+  # literal. Backwards-compat: stores without `memoir.primaryBranch` set get
+  # exactly "main", which is what every existing call site assumed before.
+  cache_primary_branch
   return 0
 }
 
@@ -470,12 +496,14 @@ except Exception:
 
 # auto_match_memoir_branch — if auto-match isn't sticky-disabled and the
 # current code branch differs from the checked-out memoir branch, create
-# the memoir branch (forked from main) if needed and check it out.
+# the memoir branch (forked from the store's primary branch — see
+# $MEMOIR_PRIMARY_BRANCH, default "main") if needed and check it out.
 # Emits nothing on stdout (all output routed to /dev/null); returns 0 on
 # success, non-zero if memoir is missing or the operations failed.
 auto_match_memoir_branch() {
   [ -z "$MEMOIR_CMD" ] && return 1
-  local code_branch sticky current
+  local code_branch sticky current primary
+  primary="${MEMOIR_PRIMARY_BRANCH:-main}"
   code_branch=$(code_git_branch)
   [ -z "$code_branch" ] && return 0          # no code branch (detached or non-git)
   sticky=$(sticky_branch)
@@ -495,23 +523,25 @@ auto_match_memoir_branch() {
   # Already on the matching branch — nothing to do.
   [ "$current" = "$code_branch" ] && return 0
 
-  # Need to switch. Create from main first if the branch doesn't exist.
+  # Need to switch. Create from primary first if the branch doesn't exist.
   if ! branch_exists_in_memoir "$code_branch"; then
-    "${MEMOIR_CMD_ARGV[@]}" -s "$MEMOIR_STORE_PATH" branch "$code_branch" --from main >/dev/null 2>&1 || return 1
+    "${MEMOIR_CMD_ARGV[@]}" -s "$MEMOIR_STORE_PATH" branch "$code_branch" --from "$primary" >/dev/null 2>&1 || return 1
   fi
   "${MEMOIR_CMD_ARGV[@]}" -s "$MEMOIR_STORE_PATH" checkout "$code_branch" >/dev/null 2>&1 || return 1
   return 0
 }
 
 # list_unmerged_memoir_branches — emit one line per memoir branch (other than
-# main and the currently-checked-out one) that is ahead of main by ≥1 commit
-# AND whose last commit is within the last 30 days AND isn't in the ignore
-# file. Each line is: "<branch-name>\t<ahead-count>".
+# the store's primary branch — see $MEMOIR_PRIMARY_BRANCH — and the currently
+# checked-out one) that is ahead of primary by ≥1 commit AND whose last commit
+# is within the last 30 days AND isn't in the ignore file. Each line is:
+# "<branch-name>\t<ahead-count>".
 list_unmerged_memoir_branches() {
   [ -z "$MEMOIR_CMD" ] && return 1
   [ ! -d "$MEMOIR_STORE_PATH/.git" ] && return 1
 
-  local current all_branches thirty_days_ago
+  local current all_branches thirty_days_ago primary
+  primary="${MEMOIR_PRIMARY_BRANCH:-main}"
   current=$(memoir_json status 2>/dev/null | python3 -c "import json,sys; print(json.loads(sys.stdin.read() or '{}').get('branch',''))" 2>/dev/null)
   all_branches=$(memoir_json branch 2>/dev/null | python3 -c "
 import json, sys
@@ -527,7 +557,7 @@ except Exception:
 
   while IFS= read -r b; do
     [ -z "$b" ] && continue
-    [ "$b" = "main" ] && continue
+    [ "$b" = "$primary" ] && continue
     [ "$b" = "$current" ] && continue
     is_branch_ignored "$b" && continue
     # If the corresponding code branch is gone (deleted locally and absent
@@ -536,17 +566,18 @@ except Exception:
     # /memoir-sync-branch explicitly.
     code_branch_exists "$b" || continue
 
-    # Memoir's merge rewrites patches on main (not a normal two-parent merge
-    # commit), so we can't use git graph, diff, or cherry to detect "already
-    # merged". Instead, compare the branch's last-commit timestamp against a
-    # sync-marker timestamp recorded by /memoir-sync-branch.
+    # Memoir's merge rewrites patches on the primary branch (not a normal
+    # two-parent merge commit), so we can't use git graph, diff, or cherry
+    # to detect "already merged". Instead, compare the branch's last-commit
+    # timestamp against a sync-marker timestamp recorded by
+    # /memoir-sync-branch.
     #
     # Considered merged if: marker exists AND marker_ts >= last_commit_ts.
     # If the user captures more on the branch after syncing, the branch's
     # last-commit timestamp advances past the marker, and it resurfaces as
     # unmerged — which is the right behavior.
     local ahead last_ts marker_ts
-    ahead=$(git -C "$MEMOIR_STORE_PATH" rev-list --count "main..$b" 2>/dev/null || echo 0)
+    ahead=$(git -C "$MEMOIR_STORE_PATH" rev-list --count "${primary}..$b" 2>/dev/null || echo 0)
     [ "$ahead" = "0" ] && continue
     last_ts=$(git -C "$MEMOIR_STORE_PATH" log -1 --format=%ct "$b" 2>/dev/null || echo 0)
     [ "$last_ts" -lt "$thirty_days_ago" ] && continue
@@ -982,3 +1013,18 @@ update_onboard_meta_after_sync() {
   fi
   return 0
 }
+
+# --- top-level setup ---
+#
+# Populate $MEMOIR_PRIMARY_BRANCH on every hook that sources this file, not
+# just SessionStart. UserPromptSubmit and Stop don't run ensure_store (the
+# store is presumed to exist by then), so without this top-level call they
+# would see an unset $MEMOIR_PRIMARY_BRANCH and fall back to the literal
+# "main" — which is wrong for stores that designated a custom primary.
+#
+# Skipped silently when the store doesn't exist yet (first run before
+# ensure_store finishes). cache_primary_branch is idempotent, so calling
+# it again from inside ensure_store after store creation is harmless.
+if [ -d "$MEMOIR_STORE_PATH/.git" ]; then
+  cache_primary_branch
+fi

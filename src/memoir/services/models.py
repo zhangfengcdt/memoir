@@ -348,10 +348,21 @@ class StoreInfo:
     commit_count: int = 0
     memory_count: int = 0
     namespaces: list[str] = field(default_factory=list)
+    # Designated primary branch (the value of ``git config memoir.primaryBranch``).
+    # ``None`` when unset — preserves backwards-compat for stores that never
+    # opted in. Consumers should treat ``None`` as "use the runtime resolution
+    # chain in BranchService.get_default_branch()".
+    primary_branch: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        """Convert to dictionary for JSON serialization."""
-        return {
+        """Convert to dictionary for JSON serialization.
+
+        ``primary_branch`` is omitted from the output when ``None`` so that
+        consumers parsing the schema don't see a new key on stores that
+        haven't designated a primary branch — keeps the response identical
+        to the pre-feature shape for the default case.
+        """
+        out: dict[str, Any] = {
             "path": self.path,
             "exists": self.exists,
             "initialized": self.initialized,
@@ -360,6 +371,9 @@ class StoreInfo:
             "memory_count": self.memory_count,
             "namespaces": self.namespaces,
         }
+        if self.primary_branch is not None:
+            out["primary_branch"] = self.primary_branch
+        return out
 
 
 @dataclass

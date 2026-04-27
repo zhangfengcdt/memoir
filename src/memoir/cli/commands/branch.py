@@ -21,6 +21,21 @@ from memoir.cli.main import (
 @click.option("-d", "--delete", "delete_branch", is_flag=True, help="Delete a branch")
 @click.option("-D", "--force-delete", is_flag=True, help="Force delete a branch")
 @click.option("--from", "from_ref", help="Create branch from this ref")
+@click.option(
+    "--set-primary",
+    "set_primary",
+    metavar="NAME",
+    default=None,
+    help=(
+        "Designate NAME as the store's primary branch. The named branch must "
+        "already exist; this only writes the configuration, it does not rename "
+        "anything. To rename, run `git -C <store> branch -m old new` then "
+        "`memoir branch --set-primary new`. Note: switching the primary on a "
+        "store with multiple branches changes the semantics of "
+        "`<primary>..<branch>` ahead-counts — branches previously merged to "
+        "main may resurface as unmerged vs the new primary."
+    ),
+)
 @pass_context
 def branch(
     ctx: MemoirContext,
@@ -28,18 +43,24 @@ def branch(
     delete_branch: bool,
     force_delete: bool,
     from_ref: str,
+    set_primary: str | None,
 ):
     """List, create, or delete branches.
 
     Without arguments, lists all branches.
     With a name, creates a new branch.
 
+    Use --set-primary to designate an existing branch as the store's primary
+    branch (used as the default sync target, fork base, and unmerged-branch
+    detection baseline).
+
     \b
     Examples:
-      memoir branch              # List branches
-      memoir branch experiment   # Create 'experiment' branch
-      memoir branch -d old-test  # Delete 'old-test' branch
+      memoir branch                      # List branches
+      memoir branch experiment           # Create 'experiment' branch
+      memoir branch -d old-test          # Delete 'old-test' branch
       memoir branch feature --from main
+      memoir branch --set-primary master # Designate master as primary
     """
     if not ctx.store_path:
         ctx.error(
@@ -51,6 +72,18 @@ def branch(
     service = BranchService(ctx.store_path)
 
     try:
+        if set_primary is not None:
+            try:
+                service.set_primary_branch(set_primary)
+            except ValueError as ve:
+                ctx.error(str(ve), EXIT_NOT_FOUND)
+                return
+            if ctx.json_output:
+                ctx.output({"success": True, "primary_branch": set_primary})
+            else:
+                ctx.success(f"Set primary branch: {set_primary}")
+            return
+
         if delete_branch or force_delete:
             if not name:
                 ctx.error("Branch name required for deletion", EXIT_ERROR)
@@ -218,9 +251,13 @@ def merge(ctx: MemoirContext, source: str, into_branch: str, strategy: str):
 @click.option(
     "--into",
     "into_branch",
-    default="main",
-    show_default=True,
-    help="Target branch to promote into",
+    default=None,
+    metavar="NAME",
+    help=(
+        "Target branch to promote into. Defaults to the store's primary "
+        "branch (memoir.primaryBranch config; falls back to 'main', then "
+        "'master', then the first branch). Pass --into <name> to override."
+    ),
 )
 @click.option(
     "--dry-run",
@@ -276,6 +313,14 @@ def sync_branch(
     from memoir.services.branch_service import BranchService
 
     service = BranchService(ctx.store_path)
+
+    # Resolve --into at runtime so that a store with a custom primary branch
+    # (e.g. set via `memoir branch --set-primary master`) routes there
+    # instead of the literal string "main". When the caller passed --into
+    # explicitly, we honor it verbatim — the resolution chain only kicks in
+    # when --into is unset.
+    if into_branch is None:
+        into_branch = service.get_default_branch()
 
     # Always run a dry-run first so we have a preview to show / confirm against.
     try:

@@ -38,15 +38,28 @@ class StoreService(BaseService):
             self.store_path = None
             self._store = None
 
-    def create_store(self, path: str) -> CreateStoreResult:
+    def create_store(
+        self,
+        path: str,
+        initial_branch: str | None = None,
+    ) -> CreateStoreResult:
         """
         Create a new memory store with git repository.
 
         Args:
-            path: Path where to create the store
+            path: Path where to create the store.
+            initial_branch: Optional name for the store's primary branch
+                (e.g. ``"master"``, ``"single"``). When set, the initial
+                commit lands on a branch with this name AND
+                ``git config memoir.primaryBranch <name>`` is written so
+                downstream code (BranchService.get_default_branch, plugin
+                hooks, sync target resolution) routes to it. When ``None``,
+                git's own default-branch behavior takes over and no
+                ``memoir.primaryBranch`` config is written — backwards-compat
+                for stores that don't care.
 
         Returns:
-            CreateStoreResult with success status
+            CreateStoreResult with success status.
         """
         try:
             # Validate and normalize the path
@@ -80,11 +93,19 @@ class StoreService(BaseService):
                     error=f"Directory not writable: {store_path} - {e}",
                 )
 
-            # Initialize git repository
+            # Initialize git repository. When the caller supplied an
+            # initial_branch, pass it via `git init -b <name>` so the
+            # initial commit lands on that branch directly. We could
+            # alternatively `git init` then `git branch -m`, but -b is
+            # supported on every git release we target (>=2.28) and avoids
+            # the rename round-trip entirely.
             git_path = store_path / ".git"
             if not git_path.exists():
+                git_init_cmd: list[str] = ["git", "init"]
+                if initial_branch:
+                    git_init_cmd.extend(["-b", initial_branch])
                 subprocess.run(
-                    ["git", "init"],
+                    git_init_cmd,
                     cwd=store_path,
                     check=True,
                     capture_output=True,
@@ -120,6 +141,20 @@ class StoreService(BaseService):
                 commit_message = "Initial commit created"
             else:
                 commit_message = "Repository already initialized"
+
+            # Persist the primary-branch designation so all downstream
+            # code paths route to the chosen name. We write the config
+            # only when the caller explicitly asked for a custom name —
+            # leaving the default unset for `memoir new <path>` (no flag)
+            # preserves the backwards-compat invariant that an unset
+            # config is functionally identical to the pre-feature state.
+            if initial_branch:
+                subprocess.run(
+                    ["git", "config", "memoir.primaryBranch", initial_branch],
+                    cwd=store_path,
+                    check=True,
+                    capture_output=True,
+                )
 
             # Update store_path for future operations
             self.store_path = str(store_path)
@@ -294,6 +329,27 @@ class StoreService(BaseService):
                 except Exception as e:
                     logger.warning(f"Error getting store details: {e}")
 
+            # Surface the user-designated primary branch when one is set
+            # in `git config memoir.primaryBranch`. Stays None for stores
+            # that haven't opted in — to_dict() omits the key entirely in
+            # that case so the JSON shape is identical to pre-feature
+            # responses.
+            primary_branch: str | None = None
+            if initialized:
+                try:
+                    pb_result = subprocess.run(
+                        ["git", "config", "--get", "memoir.primaryBranch"],
+                        cwd=self.store_path,
+                        capture_output=True,
+                        text=True,
+                    )
+                    if pb_result.returncode == 0:
+                        value = pb_result.stdout.strip()
+                        if value:
+                            primary_branch = value
+                except Exception as e:
+                    logger.debug(f"primary_branch lookup failed: {e}")
+
             return StoreInfo(
                 path=self.store_path,
                 exists=exists,
@@ -302,6 +358,7 @@ class StoreService(BaseService):
                 commit_count=commit_count,
                 memory_count=memory_count,
                 namespaces=namespaces,
+                primary_branch=primary_branch,
             )
 
         except Exception as e:

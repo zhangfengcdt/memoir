@@ -528,7 +528,7 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         self,
         namespace: str,
         source_branch: str,
-        target_branch: str = "main",
+        target_branch: str | None = None,
         strategy: str = "ours",
     ) -> dict[str, Any]:
         """
@@ -537,7 +537,15 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         Args:
             namespace: User namespace
             source_branch: Source branch to merge from
-            target_branch: Target branch to merge into
+            target_branch: Target branch to merge into. Defaults to ``None``,
+                which means "fall back to the store's primary branch" (a.k.a.
+                ``main`` for stores that haven't designated a custom primary
+                branch via ``memoir new --initial-branch`` or
+                ``memoir branch --set-primary``). The fallback to ``"main"``
+                is kept inline because this stub does not have direct access
+                to a ``BranchService`` instance — real callers route through
+                ``BranchService.merge()`` (via ``memoir merge``) which
+                resolves the primary branch via ``get_default_branch()``.
             strategy: Merge strategy ("ours", "theirs", "union")
 
         Returns:
@@ -545,6 +553,9 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
         """
         if not self.enable_versioning:
             raise ValueError("Merging requires versioning to be enabled")
+
+        if target_branch is None:
+            target_branch = "main"
 
         # Implementation would handle branch merging
         merge_result = {"merged": 0, "conflicts": [], "strategy": strategy}

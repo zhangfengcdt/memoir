@@ -626,21 +626,112 @@ class BranchService(BaseService):
                 error=str(e),
             )
 
+    # ------------------------------------------------------------------
+    # Primary-branch designation
+    #
+    # The "primary branch" is the branch a store treats as its default sync
+    # target / fork base / unmerged-detection baseline. By default it is
+    # "main" (resolved at runtime via the chain in get_default_branch). A
+    # user can designate a different name (e.g. "master", "single") via
+    # ``memoir new --initial-branch <name>`` or
+    # ``memoir branch --set-primary <name>``; both paths persist the choice
+    # in the store's own ``.git/config`` under ``[memoir] primaryBranch``.
+    #
+    # When the config key is absent, every code path here resolves
+    # identically to the pre-feature behavior — backwards-compat by
+    # construction.
+    # ------------------------------------------------------------------
+
+    _PRIMARY_BRANCH_CONFIG_KEY = "memoir.primaryBranch"
+
+    def get_primary_branch_config(self) -> str | None:
+        """
+        Return the configured primary branch name, or ``None`` if unset.
+
+        This is the *raw* config value — it is NOT validated against the
+        live branch list. Use ``get_default_branch()`` for the resolved
+        primary-branch name (which falls through to ``main``/``master``/
+        first when the configured branch has been deleted).
+        """
+        try:
+            result = self._run_git_command(
+                ["config", "--get", self._PRIMARY_BRANCH_CONFIG_KEY],
+                check=False,
+            )
+        except Exception as e:
+            logger.debug(f"get_primary_branch_config: git config read failed: {e}")
+            return None
+        if result.returncode != 0:
+            return None
+        value = result.stdout.strip()
+        return value or None
+
+    def set_primary_branch(self, name: str) -> None:
+        """
+        Designate ``name`` as the store's primary branch.
+
+        Validates that the named branch exists in the store before writing
+        the config. Raises ``ValueError`` if the branch does not exist.
+
+        The change is persisted to the store's ``.git/config`` under
+        ``[memoir] primaryBranch = <name>``. To unset, pass an empty string;
+        the config key is removed and resolution falls back to the
+        ``main``/``master``/first chain.
+        """
+        if not isinstance(name, str):
+            raise TypeError(
+                f"primary branch name must be str, got {type(name).__name__}"
+            )
+
+        if name == "":
+            # Unset: remove the config key so resolution falls through.
+            self._run_git_command(
+                ["config", "--unset", self._PRIMARY_BRANCH_CONFIG_KEY],
+                check=False,
+            )
+            return
+
+        # Validate the branch actually exists. Refuse to point the config
+        # at a non-existent branch — that would silently break callers that
+        # take the config value at face value.
+        info = self.list_branches()
+        if name not in info.branches:
+            raise ValueError(
+                f"branch {name!r} does not exist in store; "
+                f"create it first or pass an existing branch name"
+            )
+
+        self._run_git_command(
+            ["config", self._PRIMARY_BRANCH_CONFIG_KEY, name],
+            check=True,
+        )
+
     def get_default_branch(self) -> str:
         """
-        Return the repository's default branch.
+        Return the repository's default (a.k.a. "primary") branch.
 
         Resolves in order:
-          1. "main" if it exists.
-          2. "master" if it exists.
-          3. The first branch returned by list_branches().
-          4. "main" as a last-resort empty-repo fallback.
+          1. ``git config memoir.primaryBranch`` if non-empty AND that
+             branch currently exists in the store.
+          2. ``"main"`` if it exists.
+          3. ``"master"`` if it exists.
+          4. The first branch returned by ``list_branches()``.
+          5. ``"main"`` as a last-resort empty-repo fallback.
+
+        Step 1's existence guard is critical: it protects against config
+        pointing at a deleted branch (e.g. user ``git branch -D``-ed the
+        primary) — falls through cleanly instead of returning a name no
+        downstream caller can act on.
         """
         try:
             info = self.list_branches()
         except Exception as e:
             logger.warning(f"get_default_branch: list_branches failed: {e}")
             return "main"
+
+        configured = self.get_primary_branch_config()
+        if configured and configured in info.branches:
+            return configured
 
         if "main" in info.branches:
             return "main"
