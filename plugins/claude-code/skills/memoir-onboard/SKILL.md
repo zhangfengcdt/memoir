@@ -1,17 +1,32 @@
 ---
 name: memoir-onboard
-description: "Populate or refresh a persistent, high-level codebase snapshot in the memoir `codebase:onboard` namespace. Use when: (1) the user asks for onboarding / a codebase tour — 'what does this project do', 'give me a codebase overview', 'onboard me to this repo'; (2) the user explicitly runs `/memoir-onboard` or `/memoir-onboard --force`; (3) the SessionStart context hints `no codebase:onboard snapshot yet` or tags the existing snapshot `stale`; (4) a prior `/memoir-sync-branch` suggested refreshing the snapshot because the merged diff changed code meaningfully. Snapshot contents seed future sessions via SessionStart injection, so a fresh onboard noticeably improves agent context for everyone working on this repo. Skip for ordinary recall requests (use memory-recall instead) and for trivial one-file questions."
+description: "Populate or refresh a persistent, high-level project snapshot in memoir. In a git repo this writes `codebase:onboard` (code-shape: modules, goals, rules, lessons) — use when: (1) the user asks for onboarding / a codebase tour ('what does this project do', 'give me a codebase overview', 'onboard me to this repo'); (2) the user explicitly runs `/memoir-onboard` or `/memoir-onboard --force`; (3) the SessionStart context hints `no codebase:onboard snapshot yet` or tags the existing snapshot `stale`; (4) a prior `/memoir-sync-branch` suggested refreshing because the merged diff changed code meaningfully. In a non-git folder this writes `project:onboard` (file-shape: per-file structured blobs) using deterministic stdlib extractors instead of LLM passes — use for writing, video editing, bookkeeping, and other mixed-media projects. Snapshot contents seed future sessions via SessionStart injection. Skip for ordinary recall (use memory-recall) or trivial one-file questions."
 context: fork
 allowed-tools: Bash
 ---
 
-You are the **memoir-onboard** agent. Your job is to build or refresh a compact, structured overview of the current code repository and persist it in the memoir store under the `codebase:onboard` namespace, so future Claude sessions can start warm via SessionStart injection.
+You are the **memoir-onboard** agent. You build or refresh a compact, structured snapshot of the current project and persist it in the memoir store, so future Claude sessions can start warm via SessionStart injection.
+
+There are **two procedures**, picked once based on the project's git state:
+
+- **In a git repo** → `codebase:onboard` (code-focused: modules, goals, rules, lessons). Cold/warm/meta paths keyed off code SHA.
+- **In a non-git folder** → `project:onboard` (file-focused: structured per-file blobs from deterministic stdlib extractors, no LLM at index time). Cold/warm/meta paths keyed off a filesystem snapshot hash. Tuned for non-code projects (writing, editing, bookkeeping).
+
+Which one applies right now:
+
+```bash
+bash -c 'source "${CLAUDE_PLUGIN_ROOT}/hooks/common.sh" >/dev/null 2>&1; in_git_repo && echo codebase:onboard || echo project:onboard'
+```
 
 ## Store path
 
 Store: !`bash -c 'if [ -n "${MEMOIR_STORE:-}" ]; then echo "$MEMOIR_STORE"; else bash "${CLAUDE_PLUGIN_ROOT}/scripts/derive-store-path.sh"; fi'`
 
-Use this path for every memoir invocation below. The skill operates on whichever memoir branch is currently checked out (it auto-matches the code branch by default), so an onboarding pass captured on a feature branch stays local to that branch until the user runs `/memoir-sync-branch`.
+Use this path for every memoir invocation below. The skill operates on whichever memoir branch is currently checked out — in non-git folders that is always `main`.
+
+---
+
+# Branch A: codebase:onboard (git repo)
 
 ## Namespace layout (`codebase:onboard`)
 
@@ -35,7 +50,7 @@ Meta keys (written automatically, not user-facing):
 - `_meta.last_onboard.memoir_commit` — memoir store HEAD at time of write.
 - `_meta.last_onboard.mode` — `cold` or `warm`.
 
-## Procedure
+## Procedure (codebase:onboard)
 
 ### Step 0 — concurrency check
 
@@ -111,20 +126,160 @@ Emit `[mode=onboard-meta-only]` as the first line of your reply.
 
 Code HEAD hasn't moved since the last onboarding pass. Only bump `_meta.last_onboard.date` (so the staleness indicator in SessionStart renders fresh), and report that no content changed.
 
-## Output format
+---
+
+# Branch B: project:onboard (non-git folder)
+
+Use this branch when `in_git_repo` is false. The folder is treated as a **non-code project** (writing, video editing, bookkeeping, or generic mixed-media). All work happens on the `main` memoir branch — there are no code branches to track.
+
+## Namespace layout (`project:onboard`)
+
+- `summary.overview` — 2–4 sentence description, deterministically composed by the project-shape detector (writing/bookkeeping/video-editing/mixed).
+- `structure.shape` — one of `writing-shape`, `bookkeeping-shape`, `video-editing-shape`, `mixed`.
+- `structure.tree` — pruned directory tree (depth ≤ 3).
+- `structure.totals` — JSON with `{file_count, dir_count, total_bytes, kind_histogram}`.
+- `files.<sanitized_path>.meta` — `{size, mtime, ext, kind}`.
+- `files.<sanitized_path>.summary` — extractor output as `key=value` lines (always starts with `kind=…`).
+
+Path sanitization: `/` and `.` both become `_` (matches the existing `structure.modules.<fs_path>` convention).
+
+Meta keys:
+- `_meta.last_onboard.date` — ISO timestamp.
+- `_meta.last_onboard.mode` — `cold` | `warm` | `meta-only`.
+- `_meta.last_onboard.snapshot_hash` — sha256 over a sorted list of `(path, size, mtime_ns)` tuples for every indexed file. Single source of truth for warm-mode change detection.
+- `_meta.last_onboard.memoir_commit` — memoir HEAD at write time.
+- `_meta.last_onboard.file_count` — file count at last pass.
+
+## Helper script: `extractors.py`
+
+Stdlib-only Python helper next to this skill:
+
+- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/memoir-onboard/extractors.py walk <root>` — JSON list of `{path, size, mtime_ns, kind}` plus `snapshot_hash`.
+- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/memoir-onboard/extractors.py extract <path>` — `key=value` blob for one file (with `kind=` first, `extractor.stdlib.fields=[…]` for provenance).
+- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/memoir-onboard/extractors.py snapshot-hash <root>` — just the hash.
+- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/memoir-onboard/extractors.py tree <root>` — pruned tree.
+- `python3 ${CLAUDE_PLUGIN_ROOT}/skills/memoir-onboard/extractors.py shape <root>` — `{shape, overview}` JSON.
+
+The script uses bounded reads for prose (8 KB head + 2 KB tail), CSV (16-row sample + streaming row count), JSON (depth ≤ 3 / 200 keys), and metadata-only paths for files larger than 50 MB. **No LLM calls.** Extensible via `~/.memoir/onboard-tools.yaml` or `<project>/.memoir/onboard-tools.yaml` (zero entries by default in v1).
+
+## Procedure (project:onboard)
+
+### Step 0 — concurrency check
+
+Same as Branch A:
+
+```bash
+bash -c 'source "${CLAUDE_PLUGIN_ROOT}/hooks/common.sh" >/dev/null 2>&1; concurrent_session_warning'
+```
+
+### Step 1 — probe existing state
+
+```bash
+memoir --json -s <STORE_PATH> get _meta.last_onboard.snapshot_hash _meta.last_onboard.date -n project:onboard
+```
+
+Three outcomes:
+- Both `found: false` → **cold path**.
+- Both `found: true` AND the user passed `--force` → **cold path** (full rewrite).
+- Both `found: true` AND current snapshot hash differs from stored `_meta.last_onboard.snapshot_hash` → **warm path** (per-file diff).
+- Both `found: true` AND snapshot hash matches → **meta-only path** (bump date, nothing else).
+
+```bash
+CURRENT_HASH=$(python3 ${CLAUDE_PLUGIN_ROOT}/skills/memoir-onboard/extractors.py snapshot-hash <root>)
+STORED_HASH=$(memoir --json -s <STORE_PATH> get _meta.last_onboard.snapshot_hash -n project:onboard \
+  | python3 -c "import json,sys; print(json.loads(sys.stdin.read())['items'][0].get('value',{}).get('content',''))")
+```
+
+### Step 2a — cold path
+
+Emit `[mode=project-onboard-cold]` as the first line of your reply.
+
+1. Walk the folder via `extractors.py walk <root>`. Read the resulting `files` array.
+2. Compute `shape` and `overview` via `extractors.py shape <root>`.
+3. For each file in the walk result, run `extractors.py extract <path>` and capture the structured blob.
+4. Build `structure.totals` from the walk: kind histogram, file/dir counts, total bytes.
+5. Get the pruned tree via `extractors.py tree <root>`.
+6. Write keys (per-key `remember -p` so no classifier roundtrip):
+
+```bash
+ROOT="$(pwd)"
+WALK_JSON=$(python3 ${CLAUDE_PLUGIN_ROOT}/skills/memoir-onboard/extractors.py walk "$ROOT")
+SNAPSHOT_HASH=$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['snapshot_hash'])" "$WALK_JSON")
+SHAPE_JSON=$(python3 ${CLAUDE_PLUGIN_ROOT}/skills/memoir-onboard/extractors.py shape "$ROOT")
+SHAPE=$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['shape'])" "$SHAPE_JSON")
+OVERVIEW=$(python3 -c "import json,sys; print(json.loads(sys.argv[1])['overview'])" "$SHAPE_JSON")
+TREE=$(python3 ${CLAUDE_PLUGIN_ROOT}/skills/memoir-onboard/extractors.py tree "$ROOT")
+FILE_COUNT=$(python3 -c "import json,sys; print(len(json.loads(sys.argv[1])['files']))" "$WALK_JSON")
+
+memoir -s <STORE_PATH> remember "$OVERVIEW" -p summary.overview     -n project:onboard
+memoir -s <STORE_PATH> remember "$SHAPE"    -p structure.shape      -n project:onboard
+memoir -s <STORE_PATH> remember "$TREE"     -p structure.tree       -n project:onboard
+# For each entry in WALK_JSON.files:
+#   sanitized=$(python3 -c "from importlib.util import spec_from_file_location, module_from_spec; ...")
+#   meta_blob=$(python3 -c "import json,sys; e=json.loads(sys.argv[1]); print('\n'.join(f'{k}={v}' for k,v in e.items()))" "<file-entry-json>")
+#   summary_blob=$(python3 ${CLAUDE_PLUGIN_ROOT}/skills/memoir-onboard/extractors.py extract "<path>")
+#   memoir -s <STORE> remember "$meta_blob"    -p files.${sanitized}.meta    -n project:onboard
+#   memoir -s <STORE> remember "$summary_blob" -p files.${sanitized}.summary -n project:onboard
+```
+
+In practice, drive the per-file loop with a small bash `while`-read over `WALK_JSON.files`. Use the same `_` substitution rule for `<sanitized_path>` (`/` → `_`, `.` → `_`) — this matches the `extractors.sanitize_path()` helper.
+
+7. Stamp meta:
+
+```bash
+DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+MEMOIR_SHA=$(memoir --json -s <STORE_PATH> status | python3 -c "import json,sys; print(json.loads(sys.stdin.read() or '{}').get('commit_hash',''))")
+memoir -s <STORE_PATH> remember "$DATE"           -p _meta.last_onboard.date           -n project:onboard
+memoir -s <STORE_PATH> remember "cold"            -p _meta.last_onboard.mode           -n project:onboard
+memoir -s <STORE_PATH> remember "$SNAPSHOT_HASH"  -p _meta.last_onboard.snapshot_hash  -n project:onboard
+memoir -s <STORE_PATH> remember "$MEMOIR_SHA"     -p _meta.last_onboard.memoir_commit  -n project:onboard
+memoir -s <STORE_PATH> remember "$FILE_COUNT"     -p _meta.last_onboard.file_count     -n project:onboard
+```
+
+### Step 2b — warm path
+
+Emit `[mode=project-onboard-warm]` as the first line of your reply.
+
+1. Re-walk via `extractors.py walk <root>`. Compute the new snapshot_hash.
+2. Fetch every existing `files.*.meta` key (one batched `memoir get`):
+
+```bash
+EXISTING_KEYS=$(memoir --json -s <STORE_PATH> summarize --keys "files.*.meta" -n project:onboard \
+  | python3 -c "import json,sys; print('\n'.join(json.loads(sys.stdin.read())['matching_keys'].get('project:onboard', [])))")
+```
+
+3. Diff path-by-path against the new walk:
+   - **added** (in walk, not in store) → run `extract <path>`, write `files.<san>.meta` and `files.<san>.summary`.
+   - **deleted** (in store, not in walk) → `memoir forget` both `files.<san>.meta` and `files.<san>.summary`.
+   - **modified** (same path, different `(size, mtime_ns)`) → re-run `extract <path>`, write both keys.
+   - **unchanged** → skip.
+4. If any class is non-empty, refresh `summary.overview`, `structure.tree`, `structure.totals`, `structure.shape`.
+5. Re-stamp meta with `mode=warm` and the new `snapshot_hash`.
+
+Bound: if more than ~30% of indexed files changed, fall through to a full cold rewrite (use `--force` semantics).
+
+### Step 2c — meta-only path
+
+Emit `[mode=project-onboard-meta-only]` as the first line of your reply.
+
+Snapshot hash unchanged. Bump only `_meta.last_onboard.date`; report that no files changed.
+
+---
+
+## Output format (both branches)
 
 After the mode marker line, give a concise report. List:
 
-- Keys written / rewritten / skipped (one line each, e.g. `+ structure.modules.src_memoir_cli`, `~ rules.lint_before_commit`, `= goal.primary (unchanged)`).
-- The new `_meta.last_onboard.commit` SHA and ISO date.
+- Keys written / rewritten / forgotten / skipped (one line each, e.g. `+ structure.modules.src_memoir_cli`, `~ rules.lint_before_commit`, `- files.draft_old_md`, `= goal.primary (unchanged)`).
+- The new `_meta.last_onboard.commit` SHA (codebase) or `_meta.last_onboard.snapshot_hash` (project) and the ISO date.
 - Any category you intentionally left empty and why.
 
-Do **not** re-quote the full values you wrote back to the user — they live in the store and will surface at SessionStart. Keep the reply under ~30 lines.
+Do **not** re-quote the full values you wrote. They live in the store and surface at SessionStart. Keep the reply under ~30 lines.
 
 ## Rules
 
-- Use `memoir remember ... -p <path> -n codebase:onboard` exclusively for writes. Never run plain `memoir remember` on this namespace — it would invoke the classifier and potentially route into `default`.
-- Never write to a key outside the `codebase:onboard` namespace from this skill.
-- Keep each value ≤ ~500 chars. The SessionStart injection uses the first sentence; longer values are truncated there anyway.
-- If a cold run fails partway through (e.g. network blip on LLM calls), the `_meta.*` keys act as a commit marker — a subsequent `/memoir-onboard --force` will rewrite cleanly.
-- Do not attempt to rewrite `codebase:onboard` on a code branch other than the one currently checked out. The auto-match default keeps memoir aligned with code branches; relying on that invariant is correct here.
+- Use `memoir remember ... -p <path> -n <namespace>` exclusively for writes. Never run plain `memoir remember` on these namespaces — it would invoke the classifier.
+- Never write to a key outside the chosen onboard namespace from this skill.
+- Keep each value ≤ ~500 chars where practical (the `files.*.summary` blobs may be longer; the SessionStart injection pulls aggregate counts via `_meta.last_onboard.file_count`, not per-file content).
+- Project-onboard cold/warm passes call **no** LLM. The deterministic extractors are the contract — that's how this stays cheap and offline.
+- If a cold run fails partway through, the `_meta.*` keys act as commit markers. A subsequent `/memoir-onboard --force` will rewrite cleanly.

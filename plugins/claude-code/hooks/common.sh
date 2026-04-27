@@ -37,12 +37,21 @@ export MEMOIR_LLM_MODEL="${MEMOIR_LLM_MODEL:-claude-haiku-4-5}"
 
 # Project directory: git root preferred (CLAUDE_PROJECT_DIR may point to a subdir
 # inside forked `claude -p` sessions, which would otherwise create sibling stores).
+# Empty `_GIT_ROOT` is intentional and load-bearing for non-git folders — see
+# `in_git_repo` below; `code_git_branch`, `code_branch_exists`, and
+# `auto_match_memoir_branch` all guard on it staying empty.
 _GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo "")"
 if [ -n "$_GIT_ROOT" ]; then
   _PROJECT_DIR="$_GIT_ROOT"
 else
   _PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 fi
+
+# in_git_repo — 0 if the project root is inside a git working tree, else 1.
+# Single-source check that callers (skill, hooks, commands) reuse instead of
+# re-running `git rev-parse`. Non-git folders are a first-class case: only the
+# `main` memoir branch is supported, /memoir-onboard switches to project:onboard.
+in_git_repo() { [ -n "$_GIT_ROOT" ]; }
 
 # Resolve store path: MEMOIR_STORE env wins, else derive from project dir.
 SCRIPT_PARENT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -125,13 +134,20 @@ _json_encode_str() {
   return 0
 }
 
-# memoir_json <subcommand> [args...]
-# Run memoir with --json and the resolved store path prepended. Silent on failure.
+# Subshell cd to the store path before every memoir invocation. Memoir's
+# write operations exercise the store's git backend, which requires the
+# process cwd to be inside a git working tree. In a git-tracked project
+# the user's cwd already satisfies that; in a non-git folder it does not,
+# and writes silently fail with "Not in a git repository". The store
+# directory itself IS a git repo, so cd-ing there before each call works
+# uniformly for both modes. Subshell isolation prevents the caller's cwd
+# from drifting.
 memoir_json() {
   if [ -z "$MEMOIR_CMD" ]; then
     return 1
   fi
-  "${MEMOIR_CMD_ARGV[@]}" --json -s "$MEMOIR_STORE_PATH" "$@" 2>/dev/null
+  ( cd "$MEMOIR_STORE_PATH" 2>/dev/null \
+    && "${MEMOIR_CMD_ARGV[@]}" --json -s "$MEMOIR_STORE_PATH" "$@" ) 2>/dev/null
 }
 
 # memoir_plain <subcommand> [args...]
@@ -141,7 +157,8 @@ memoir_plain() {
   if [ -z "$MEMOIR_CMD" ]; then
     return 1
   fi
-  "${MEMOIR_CMD_ARGV[@]}" -s "$MEMOIR_STORE_PATH" "$@" 2>/dev/null
+  ( cd "$MEMOIR_STORE_PATH" 2>/dev/null \
+    && "${MEMOIR_CMD_ARGV[@]}" -s "$MEMOIR_STORE_PATH" "$@" ) 2>/dev/null
 }
 
 # code_git_branch — current git branch of the user's project repo (not memoir's
@@ -172,6 +189,73 @@ code_branch_exists() {
   git -C "$_GIT_ROOT" show-ref --verify --quiet "refs/heads/$name" 2>/dev/null
 }
 
+# --- store-mode drift guardrail (warning-only) ---
+#
+# A store keyed on `pwd` (non-git mode) and a store keyed on the same path that
+# later acquires `.git/` resolve to the SAME `~/.memoir/<slug>/`. After a
+# `git init` the auto-match logic starts running and (with default
+# `init.defaultBranch=master` configs) silently forks a second memoir branch,
+# splitting captures with no signal. The guardrail is warning-only: detect the
+# transition via a side-car marker, surface a one-block message at SessionStart,
+# never refuse writes.
+
+_store_mode_file() { printf '%s' "$MEMOIR_STORE_PATH/.git/plugin-store-mode"; }
+
+# current_repo_mode — emit "git" or "non-git" based on the project dir.
+current_repo_mode() {
+  if in_git_repo; then
+    printf 'git'
+  else
+    printf 'non-git'
+  fi
+}
+
+# write_store_mode_marker — record the mode at first store creation. Idempotent:
+# overwrites with the current mode (callers should only invoke right after a
+# successful `memoir new`).
+write_store_mode_marker() {
+  [ ! -d "$MEMOIR_STORE_PATH/.git" ] && return 0
+  current_repo_mode > "$(_store_mode_file)" 2>/dev/null || true
+}
+
+# detect_store_mode_drift — sets MEMOIR_STORE_MODE_MISMATCH=1 plus
+# MEMOIR_STORE_MODE_RECORDED / MEMOIR_STORE_MODE_CURRENT when the recorded marker
+# disagrees with the current state. Backfills the marker on first observation
+# against an old store (no warning fired in that case). Never blocks; callers
+# decide what to do with the flag.
+detect_store_mode_drift() {
+  MEMOIR_STORE_MODE_MISMATCH=0
+  [ ! -d "$MEMOIR_STORE_PATH/.git" ] && return 0
+  local f recorded current
+  f=$(_store_mode_file)
+  current=$(current_repo_mode)
+  if [ ! -f "$f" ]; then
+    printf '%s' "$current" > "$f" 2>/dev/null || true
+    return 0
+  fi
+  recorded=$(head -n1 "$f" 2>/dev/null || echo "")
+  if [ -n "$recorded" ] && [ "$recorded" != "$current" ]; then
+    MEMOIR_STORE_MODE_MISMATCH=1
+    MEMOIR_STORE_MODE_RECORDED="$recorded"
+    MEMOIR_STORE_MODE_CURRENT="$current"
+  fi
+}
+
+# render_store_mode_drift_warning — one compact block for SessionStart. Captures
+# still proceed, so the message is informational, not an error.
+render_store_mode_drift_warning() {
+  cat <<EOF
+[memoir] note: store mode drift
+  This store was created in \`$MEMOIR_STORE_MODE_RECORDED\` mode; the project
+  directory is now \`$MEMOIR_STORE_MODE_CURRENT\`. Captures continue, but
+  branch auto-matching and the SessionStart onboard injection now use the
+  new mode — earlier $MEMOIR_STORE_MODE_RECORDED-mode data may be on a
+  different memoir branch (run \`memoir branch list\` to inspect).
+  To suppress: \`memoir checkout main\` and update the marker with
+  \`echo $MEMOIR_STORE_MODE_CURRENT > $MEMOIR_STORE_PATH/.git/plugin-store-mode\`.
+EOF
+}
+
 # ensure_store — create the store directory with builtin taxonomy if missing.
 # Safe to call on every SessionStart. Sets MEMOIR_STORE_WAS_CREATED=1 as a
 # side effect when this call actually created the store (vs. finding one
@@ -187,8 +271,39 @@ ensure_store() {
     # --no-connect because the plugin manages store selection via MEMOIR_STORE
     # env rather than memoir's global config file — we don't want to clobber
     # what a user may have set for CLI use outside the plugin.
-    "${MEMOIR_CMD_ARGV[@]}" new "$MEMOIR_STORE_PATH" --taxonomy-builtin --no-connect >/dev/null 2>&1 || return 1
+    #
+    # `memoir new` writes both the store git repo AND the builtin taxonomy.
+    # The taxonomy install runs against the store's git backend, which only
+    # works when the calling process's cwd is itself inside a git working
+    # tree. In a git-tracked project the user's cwd already satisfies that;
+    # in a non-git folder it does not, and the taxonomy load fails ("Not in
+    # a git repository") leaving an unusable store.
+    #
+    # Workaround: run `memoir new` from a throwaway git-init'd scratch dir
+    # so the operation always has a valid cwd, regardless of where the
+    # user invoked Claude Code from. After this step the store itself is a
+    # git repo, so all subsequent memoir calls work via `memoir_json` /
+    # `memoir_plain`, which cd into the store.
+    local _scratch_dir
+    _scratch_dir=$(mktemp -d -t memoir-scratch.XXXXXX 2>/dev/null || echo "")
+    if [ -n "$_scratch_dir" ]; then
+      git init -q "$_scratch_dir" 2>/dev/null || true
+      ( cd "$_scratch_dir" \
+        && "${MEMOIR_CMD_ARGV[@]}" new "$MEMOIR_STORE_PATH" --taxonomy-builtin --no-connect ) >/dev/null 2>&1
+      local _rc=$?
+      rm -rf "$_scratch_dir"
+      [ "$_rc" -ne 0 ] && return 1
+    else
+      # mktemp failed — fall back to running from current cwd. May produce a
+      # store without a fully loaded taxonomy in non-git folders, but the
+      # store itself will be created so subsequent ops can recover.
+      "${MEMOIR_CMD_ARGV[@]}" new "$MEMOIR_STORE_PATH" --taxonomy-builtin --no-connect >/dev/null 2>&1 || return 1
+    fi
     MEMOIR_STORE_WAS_CREATED=1
+    write_store_mode_marker
+  else
+    # Existing store: backfill the marker if missing, set mismatch flags otherwise.
+    detect_store_mode_drift
   fi
   return 0
 }
@@ -659,44 +774,83 @@ for l1 in sorted(groups.keys()):
 " "$keys_json" 2>/dev/null || true
 }
 
-# --- codebase:onboard rendering & meta update ---
+# --- onboard rendering & meta update ---
 
-# render_codebase_onboard_compact — emit a compact block summarizing the
-# codebase:onboard namespace for SessionStart injection. One line per non-_meta
-# top-level root, joined from the first sentence of each child key, capped at
-# ~140 chars per line. Empty output (nothing printed) when the namespace is
-# empty or the CLI is unavailable — callers treat that as "no snapshot yet".
+# render_onboard_compact <namespace> — emit a compact block summarizing the
+# given onboard namespace (`codebase:onboard` or `project:onboard`) for
+# SessionStart injection. One line per non-_meta top-level root, joined from
+# the first sentence of each child key, capped at ~140 chars per line. Empty
+# output (nothing printed) when the namespace is empty or the CLI is
+# unavailable — callers treat that as "no snapshot yet".
 #
 # If the last_onboard date is > 30 days old, the header is tagged stale="true"
 # and a trailing refresh hint is appended.
-render_codebase_onboard_compact() {
+#
+# Per-namespace differences (header label, preferred-root ordering, identity
+# field, suppressed roots) are encoded in the embedded Python; the bash side
+# only forwards the namespace.
+render_onboard_compact() {
+  local namespace="$1"
+  [ -z "$namespace" ] && return 0
   [ -z "$MEMOIR_CMD" ] && return 0
   [ ! -d "$MEMOIR_STORE_PATH/.git" ] && return 0
 
   local keys_json all_keys
-  keys_json=$(memoir_json summarize --keys "*" -n codebase:onboard 2>/dev/null || true)
+  keys_json=$(memoir_json summarize --keys "*" -n "$namespace" 2>/dev/null || true)
   [ -z "$keys_json" ] && return 0
   all_keys=$(python3 -c "
 import json, sys
 try:
     obj = json.loads(sys.argv[1])
-    keys = obj.get('matching_keys', {}).get('codebase:onboard', []) or []
+    keys = obj.get('matching_keys', {}).get(sys.argv[2], []) or []
     print('\n'.join(keys))
 except Exception:
     pass
-" "$keys_json" 2>/dev/null || true)
+" "$keys_json" "$namespace" 2>/dev/null || true)
   [ -z "$all_keys" ] && return 0
 
   # Batch-fetch every key in one `get` call. Keys are space-separated args.
   local keys_args values_json
   keys_args=$(printf '%s' "$all_keys" | tr '\n' ' ')
   # shellcheck disable=SC2086
-  values_json=$("${MEMOIR_CMD_ARGV[@]}" --json -s "$MEMOIR_STORE_PATH" get $keys_args -n codebase:onboard 2>/dev/null || true)
+  values_json=$("${MEMOIR_CMD_ARGV[@]}" --json -s "$MEMOIR_STORE_PATH" get $keys_args -n "$namespace" 2>/dev/null || true)
   [ -z "$values_json" ] && return 0
 
   python3 -c "
 import json, re, sys
 from datetime import datetime, timezone
+
+namespace = sys.argv[2]
+
+# Per-namespace render config. Keep this map small — the differences are
+# header label, preferred-root ordering, the identity field rendered in the
+# header, and which L1 roots to suppress (for project:onboard, files.* would
+# explode the body).
+CONFIG = {
+    'codebase:onboard': {
+        'title': '# codebase:onboard snapshot',
+        'tag': 'codebase-onboard',
+        'preferred_roots': ['goal', 'structure', 'test', 'debug', 'deploy', 'rules', 'lessons', 'references', 'document'],
+        'suppressed_roots': set(),
+        'identity_meta_key': '_meta.last_onboard.commit',
+        'identity_attr': 'last_onboard',
+        'identity_format': 'sha7',
+    },
+    'project:onboard': {
+        'title': '# project:onboard snapshot',
+        'tag': 'project-onboard',
+        'preferred_roots': ['summary', 'structure'],
+        # files.* is hundreds of per-file keys — surface the aggregate count
+        # from _meta instead of dumping every leaf.
+        'suppressed_roots': {'files'},
+        'identity_meta_key': '_meta.last_onboard.snapshot_hash',
+        'identity_attr': 'last_onboard',
+        'identity_format': 'sha7',
+    },
+}
+cfg = CONFIG.get(namespace)
+if cfg is None:
+    sys.exit(0)
 
 try:
     obj = json.loads(sys.argv[1])
@@ -720,9 +874,13 @@ for it in items:
         meta[key] = content
         continue
     root = key.split('.', 1)[0]
+    if root in cfg['suppressed_roots']:
+        continue
     roots.setdefault(root, []).append((key, content))
 
-if not roots:
+# project:onboard may have only suppressed roots populated; still render the
+# header + trailing aggregate so the user sees the snapshot exists.
+if not roots and not meta:
     sys.exit(0)
 
 def first_sentence(s, maxlen=60):
@@ -733,7 +891,11 @@ def first_sentence(s, maxlen=60):
         first = first[:maxlen - 1].rstrip() + '…'
     return first
 
-commit = (meta.get('_meta.last_onboard.commit', '') or '')[:7] or '?'
+ident_raw = meta.get(cfg['identity_meta_key'], '') or ''
+if cfg['identity_format'] == 'sha7':
+    ident = ident_raw[:7] if ident_raw else '?'
+else:
+    ident = ident_raw or '?'
 date_iso = meta.get('_meta.last_onboard.date', '')
 mode = meta.get('_meta.last_onboard.mode', '') or '?'
 age_str = '?'
@@ -754,14 +916,14 @@ if date_iso:
     except Exception:
         pass
 
-header_attrs = [f'last_onboard=\"{age_str} @ {commit}\"', f'mode=\"{mode}\"']
+header_attrs = [f'{cfg[\"identity_attr\"]}=\"{age_str} @ {ident}\"', f'mode=\"{mode}\"']
 if stale:
     header_attrs.append('stale=\"true\"')
 
-print('# codebase:onboard snapshot')
-print(f'<codebase-onboard {\" \".join(header_attrs)}>')
+print(cfg['title'])
+print(f'<{cfg[\"tag\"]} {\" \".join(header_attrs)}>')
 
-preferred = ['goal', 'structure', 'test', 'debug', 'deploy', 'rules', 'lessons', 'references', 'document']
+preferred = cfg['preferred_roots']
 seen = set()
 ordered = [r for r in preferred if r in roots]
 seen.update(ordered)
@@ -775,10 +937,27 @@ for root in ordered:
         body = body[:139].rstrip() + '…'
     print(f'{root}: {body}')
 
-print('</codebase-onboard>')
+# project:onboard aggregate line: shows file_count when files.* was suppressed.
+if 'files' in cfg['suppressed_roots']:
+    file_count = meta.get('_meta.last_onboard.file_count', '')
+    if file_count:
+        print(f'files: {file_count} indexed (run /memoir-onboard for per-file detail)')
+
+print(f'</{cfg[\"tag\"]}>')
 if stale:
     print('(snapshot is stale — run /memoir-onboard to refresh)')
-" "$values_json" 2>/dev/null || true
+" "$values_json" "$namespace" 2>/dev/null || true
+}
+
+# render_codebase_onboard_compact — backward-compat wrapper. Existing callers
+# that don't know about project:onboard keep working unchanged.
+render_codebase_onboard_compact() {
+  render_onboard_compact codebase:onboard
+}
+
+# render_project_onboard_compact — non-git folders' counterpart.
+render_project_onboard_compact() {
+  render_onboard_compact project:onboard
 }
 
 # update_onboard_meta_after_sync <code_sha> [memoir_sha]
