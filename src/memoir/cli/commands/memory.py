@@ -26,25 +26,31 @@ from memoir.cli.main import (
 @click.option(
     "-p",
     "--path",
-    default=None,
+    "paths",
+    multiple=True,
     help=(
         "Pre-classified taxonomy path (e.g. 'preferences.coding.languages'). "
         "When given, skips memoir's LLM classifier entirely and stores at this "
-        "path directly. Use for bulk imports or when the caller has already "
-        "classified the content (e.g. plugins that pre-classify via `claude -p`)."
+        "path directly. Pass -p multiple times to write the same content to "
+        "several paths in one call; each blob's `related_keys` field will list "
+        "the other sibling paths (excluding self). Use for bulk imports or when "
+        "the caller has already classified the content."
     ),
 )
 @pass_context
-def remember(ctx: MemoirContext, content: str, namespace: str, path: str):
+def remember(ctx: MemoirContext, content: str, namespace: str, paths: tuple):
     """Store content in memory with intelligent classification.
 
     INPUT: Any text content (facts, preferences, events, notes).
-    OUTPUT: Semantic path where memory was stored (e.g., user.preferences.theme).
+    OUTPUT: Semantic path(s) where memory was stored (e.g., user.preferences.theme).
 
     Content is automatically classified into hierarchical paths using LLM
     and stored with git versioning. Each store creates a commit.
 
     Pass --path/-p to skip classification and store directly at a known path.
+    Pass -p multiple times to store the same content under several paths in
+    one write; each blob will carry a `related_keys` field listing the
+    sibling paths.
 
     \b
     Examples:
@@ -52,9 +58,11 @@ def remember(ctx: MemoirContext, content: str, namespace: str, path: str):
       memoir remember "Meeting at 3pm tomorrow" -n calendar
       memoir remember "API key is abc123" -n secrets
       memoir remember "Uses 4-space indentation" -p preferences.coding.style
+      memoir remember "Feng prefers TDD and terminal CLIs" \\
+          -p preferences.coding.methodology -p preferences.tooling.terminal
 
     \b
-    JSON output includes: key, confidence, reasoning, commit_hash
+    JSON output includes: key, keys, confidence, reasoning, commit_hash
     """
     if not ctx.store_path:
         ctx.error(
@@ -64,15 +72,19 @@ def remember(ctx: MemoirContext, content: str, namespace: str, path: str):
     from memoir.services.memory_service import MemoryService
 
     service = MemoryService(ctx.store_path)
+    paths_list = list(paths) if paths else None
 
     try:
-        result = asyncio.run(service.remember(content, namespace, path=path))
+        result = asyncio.run(service.remember(content, namespace, paths=paths_list))
 
         if ctx.json_output:
             ctx.output(result.to_dict())
         else:
             if result.success:
                 click.echo(click.style("✓ ", fg="green") + f"Stored at: {result.key}")
+                if len(result.keys) > 1:
+                    siblings = ", ".join(result.keys[1:])
+                    click.echo(f"  Also saved under: {siblings}")
                 if result.reasoning and ctx.verbose:
                     click.echo(f"  Reasoning: {result.reasoning}")
                 if result.confidence:

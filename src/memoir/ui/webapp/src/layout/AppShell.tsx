@@ -17,6 +17,7 @@ import BranchCommitsModal from "../modals/BranchCommitsModal";
 import LiveAnnouncer from "./LiveAnnouncer";
 import { useUI, VISIBLE_VIEW_KEYS, isDrawerOpen } from "../state/uiSlice";
 import { useConfig } from "../state/configSlice";
+import { useMemorySelection } from "../state/memorySelectionSlice";
 import "./AppShell.css";
 
 export default function AppShell() {
@@ -65,12 +66,18 @@ export default function AppShell() {
         }
         return;
       }
-      if (e.key === "Escape" && useUI.getState().drawerStack.length > 0) {
-        // Only close the drawer if no input is focused — otherwise Esc is
-        // owned by the CommandBar (clears its buffer).
+      if (e.key === "Escape") {
+        // Only act on Esc if no input is focused — Esc inside an input is
+        // owned by that input (e.g., CommandBar clears its buffer).
         const active = document.activeElement as HTMLElement | null;
-        if (active?.tagName !== "INPUT" && active?.tagName !== "TEXTAREA") {
+        if (active?.tagName === "INPUT" || active?.tagName === "TEXTAREA") return;
+        // Esc cascade: pop drawer first; if nothing in the drawer stack,
+        // clear any memory selection (so the graph highlight + Outline
+        // selected row both reset).
+        if (useUI.getState().drawerStack.length > 0) {
           closeDrawer();
+        } else if (useMemorySelection.getState().selected) {
+          useMemorySelection.getState().clear();
         }
       }
     };

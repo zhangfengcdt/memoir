@@ -3,6 +3,8 @@ import type { BlameEntry, Memory } from "../api/types";
 import { api, MemoirApiError } from "../api/client";
 import { useStore } from "../state/storeSlice";
 import { useConfig } from "../state/configSlice";
+import { useMemorySelection } from "../state/memorySelectionSlice";
+import { useUI } from "../state/uiSlice";
 import { relativeTimeFromISO } from "../lib/time";
 import "./DrawerPanels.css";
 
@@ -240,8 +242,68 @@ export default function MemoryDetail({ memory }: MemoryDetailProps) {
        * user picks a different memory; not auto-refreshed on save (the
        * Commits tab is the live picture). */}
       <HistorySection memory={memory} />
+
+      {/* Related keys — sibling paths this content was co-saved under. Empty
+       * for single-key memories. Each chip navigates the drawer to that key
+       * via the same path the graph uses. */}
+      <RelatedKeysSection memory={memory} />
     </div>
   );
+}
+
+function RelatedKeysSection({ memory }: { memory: Memory }) {
+  const allMemories = useStore((s) => s.data?.memories ?? []);
+  const select = useMemorySelection((s) => s.select);
+  const pushPanel = useUI((s) => s.pushPanel);
+
+  const related = useMemo(() => normalizeRelatedKeys(memory.value), [memory.value]);
+
+  if (related.length === 0) return null;
+
+  // Resolve each related path against the loaded memories so we can light
+  // up dead chips when the linked memory isn't in the current view (e.g.,
+  // namespace filter excludes it).
+  const resolved = related.map((path) => ({
+    path,
+    target: allMemories.find(
+      (m) => m.namespace === memory.namespace && m.path === path,
+    ),
+  }));
+
+  const onChipClick = (target: Memory) => {
+    select(target);
+    pushPanel({ kind: "memory-detail", memory: target });
+  };
+
+  return (
+    <section className="drawer-panel-section memory-related-keys">
+      <div className="memory-related-keys-header">
+        <span className="memory-meta-label">Related keys</span>
+        <span className="memory-history-count">{related.length}</span>
+      </div>
+      <ul className="memory-related-keys-list">
+        {resolved.map(({ path, target }) => (
+          <li key={path}>
+            <button
+              type="button"
+              className="memory-related-key-chip"
+              disabled={!target}
+              onClick={target ? () => onChipClick(target) : undefined}
+              title={target ? path : `${path} (not loaded in current view)`}
+            >
+              {path}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function normalizeRelatedKeys(value: Record<string, unknown>): string[] {
+  const raw = value?.related_keys;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((k): k is string => typeof k === "string" && k.length > 0);
 }
 
 function HistorySection({ memory }: { memory: Memory }) {

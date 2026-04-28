@@ -105,31 +105,34 @@ class MemoryService(BaseService):
         content: str,
         namespace: str = "default",
         path: str | None = None,
+        paths: list[str] | None = None,
     ) -> RememberResult:
         """
         Classify and store content in memory.
 
         This implements the 5-step pipeline:
         1. Store initialization
-        2. Classification & path generation  (skipped when `path` is provided)
+        2. Classification & path generation  (skipped when `path`/`paths` are provided)
         3. Memory storage
-        4. Timeline processing                (skipped when `path` is provided)
-        5. Location processing                (skipped when `path` is provided)
+        4. Timeline processing                (skipped when `path`/`paths` are provided)
+        5. Location processing                (skipped when `path`/`paths` are provided)
 
         Args:
             content: The content to store
             namespace: Namespace for organization
-            path: Optional pre-classified taxonomy path (e.g. "preferences.coding.languages").
-                When provided, the LLM classifier is bypassed entirely — no LLM call
-                is made and the content is stored directly at the given path. Use this
-                when the caller has already determined the path (e.g. plugin pre-classifies
-                with `claude -p` to avoid memoir's internal LLM auth path) or for bulk
-                imports from structured data.
+            path: Optional pre-classified taxonomy path. Single-key shortcut for
+                `paths=[path]`; kept for backward compatibility with existing callers.
+            paths: Optional list of pre-classified taxonomy paths. When provided,
+                the LLM classifier is bypassed and the content is stored at every
+                listed path; each blob's ``related_keys`` field lists the *other*
+                sibling paths from the same write. Pre-existing ``related_keys``
+                on a target path are merged in (a path-provided write does not
+                clobber siblings recorded by an earlier multi-key call).
 
         Returns:
-            RememberResult with classification info and commit details. When `path`
-            is provided, confidence is reported as 1.0 and reasoning notes that the
-            caller supplied the path.
+            RememberResult with classification info and commit details. When
+            `path`/`paths` are provided, confidence is reported as 1.0 and
+            reasoning notes that the caller supplied the path(s).
         """
         if not Path(self.store_path).exists():
             raise StoreNotFoundError(self.store_path)
@@ -151,16 +154,33 @@ class MemoryService(BaseService):
         timeline_events = None
         location_events = None
 
-        if path:
-            # Caller provided the path — skip the entire LLM classification chain.
+        # Normalize the path-provided shorthand: ``paths`` wins; otherwise lift
+        # ``path`` into a one-element list. Empty list = no path provided.
+        provided_paths: list[str] = []
+        if paths:
+            # Preserve order, drop dupes (first occurrence wins).
+            seen: set[str] = set()
+            for p in paths:
+                if p and p not in seen:
+                    seen.add(p)
+                    provided_paths.append(p)
+        elif path:
+            provided_paths = [path]
+
+        if provided_paths:
+            # Caller provided the path(s) — skip the entire LLM classification chain.
             # Big latency win when invoked from a plugin that has already done its
             # own classification (e.g. via `claude -p`), since memoir's classifier
             # otherwise fires several sequential LLM calls (classify, decide-action,
             # extract-metadata, etc.).
-            key = path
-            keys = [path]
+            keys = provided_paths
+            key = keys[0]
             confidence = 1.0
-            reasoning = f"Path provided by caller; classifier skipped: {path}"
+            reasoning = (
+                f"Path provided by caller; classifier skipped: {keys}"
+                if len(keys) > 1
+                else f"Path provided by caller; classifier skipped: {key}"
+            )
         else:
             try:
                 classifier = self._get_classifier()
@@ -225,10 +245,32 @@ class MemoryService(BaseService):
             "timestamp": time.time(),
         }
 
-        # Store under all classified paths
+        # Store under all classified paths. Each blob carries `related_keys`
+        # listing the *other* sibling paths from this write (excludes self).
+        # On path-provided writes (caller supplied paths), pre-existing
+        # related_keys at each target are merged in so an earlier multi-key
+        # write isn't clobbered by a single-path edit.
+        path_provided = bool(provided_paths)
         for storage_key in keys:
+            siblings = [k for k in keys if k != storage_key]
+            related_keys = list(siblings)
+            if path_provided:
+                try:
+                    existing = store.get(namespace_tuple, storage_key)
+                except Exception:
+                    existing = None
+                if isinstance(existing, dict):
+                    prior = existing.get("related_keys")
+                    if isinstance(prior, list):
+                        # Union, preserving the new siblings' order first.
+                        seen_rel: set[str] = set(related_keys)
+                        for k in prior:
+                            if isinstance(k, str) and k not in seen_rel:
+                                seen_rel.add(k)
+                                related_keys.append(k)
             memory_item_copy = memory_item.copy()
             memory_item_copy["key"] = storage_key
+            memory_item_copy["related_keys"] = related_keys
             store.put(namespace_tuple, storage_key, memory_item_copy)
 
         # Get commit information

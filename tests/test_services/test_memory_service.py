@@ -164,6 +164,69 @@ class TestMemoryServiceRemember:
             # Expected if no LLM
             pass
 
+    @pytest.mark.asyncio
+    async def test_remember_multi_path_writes_related_keys(self, memory_service):
+        """Multi-path remember stores blobs at every path with cross-references."""
+        result = await memory_service.remember(
+            "Feng prefers TDD and terminal CLIs",
+            paths=["preferences.coding.methodology", "preferences.tooling.terminal"],
+        )
+        assert result.success
+        assert result.keys == [
+            "preferences.coding.methodology",
+            "preferences.tooling.terminal",
+        ]
+
+        get_a = memory_service.get(["preferences.coding.methodology"], "default")
+        get_b = memory_service.get(["preferences.tooling.terminal"], "default")
+        blob_a = get_a.items[0]["value"]
+        blob_b = get_b.items[0]["value"]
+
+        assert blob_a["related_keys"] == ["preferences.tooling.terminal"]
+        assert blob_b["related_keys"] == ["preferences.coding.methodology"]
+        # Same content at both paths.
+        assert (
+            blob_a["content"]
+            == blob_b["content"]
+            == "Feng prefers TDD and terminal CLIs"
+        )
+
+    @pytest.mark.asyncio
+    async def test_remember_single_path_has_empty_related_keys(self, memory_service):
+        """Single-path remember writes related_keys as an empty list, not missing."""
+        result = await memory_service.remember(
+            "single fact", paths=["context.project.foo"]
+        )
+        assert result.success
+        get_res = memory_service.get(["context.project.foo"], "default")
+        blob = get_res.items[0]["value"]
+        assert blob["related_keys"] == []
+
+    @pytest.mark.asyncio
+    async def test_remember_path_alias_still_works(self, memory_service):
+        """Backcompat: the old `path=` keyword still writes a single-path blob."""
+        result = await memory_service.remember(
+            "legacy single-path call", path="context.project.bar"
+        )
+        assert result.success
+        assert result.key == "context.project.bar"
+        assert result.keys == ["context.project.bar"]
+
+    @pytest.mark.asyncio
+    async def test_remember_edit_preserves_related_keys(self, memory_service):
+        """Editing one path of a multi-key memory keeps the sibling reference."""
+        await memory_service.remember(
+            "v1",
+            paths=["preferences.coding.methodology", "preferences.tooling.terminal"],
+        )
+        # Subsequent path-only write to one key should not clobber siblings.
+        await memory_service.remember("v2", paths=["preferences.coding.methodology"])
+
+        get_a = memory_service.get(["preferences.coding.methodology"], "default")
+        blob_a = get_a.items[0]["value"]
+        assert blob_a["content"] == "v2"
+        assert "preferences.tooling.terminal" in blob_a["related_keys"]
+
 
 class TestMemoryServiceEdgeCases:
     """Test edge cases and error handling."""

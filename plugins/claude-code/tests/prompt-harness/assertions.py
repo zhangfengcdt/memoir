@@ -29,11 +29,18 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-# Production's stop.sh:153 regex for valid capture lines. Lines matching this
+# Production's stop.sh regex for valid capture lines. Lines matching this
 # get written to memoir; non-matching lines (preamble, "got it", etc.) are
 # silently dropped. The harness uses the same shape so positive-case
 # assertions reflect what production actually persists.
-_PRODUCTION_CAPTURE_RE = r"^[a-z][a-z0-9_]*(\.[a-z0-9_]+){1,3}\t.+$"
+#
+# Column 1 may now be a single taxonomy path *or* a comma-separated list of
+# paths (no spaces) — multi-path lines write the same fact under each path
+# with cross-references stored in `related_keys`.
+_PRODUCTION_CAPTURE_RE = (
+    r"^[a-z][a-z0-9_]*(\.[a-z0-9_]+){1,3}"
+    r"(,[a-z][a-z0-9_]*(\.[a-z0-9_]+){1,3})*\t.+$"
+)
 
 
 @dataclass

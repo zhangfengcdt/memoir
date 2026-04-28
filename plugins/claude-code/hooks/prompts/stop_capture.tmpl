@@ -35,14 +35,15 @@ Turns that should almost always produce NOTHING:
   - The user saying 'thanks' / 'ok' / 'keep going' / feedback on THIS turn only
 
 When — and only when — you have a fact that passes all four checks, output ONE line per fact in this exact format:
-<taxonomy-path><TAB><fact>
+<taxonomy-path>[,<taxonomy-path>...]<TAB><fact>
 
 ${TAXONOMY_BLOCK}
 
 RULES:
 - Output 0-6 lines. ZERO is the default and expected outcome. Prove a fact earns its slot before you emit it.
 - Each line is exactly: path<TAB>fact (use a real tab character between path and fact).
-- EXACTLY 3 levels required: category.subcategory.type (e.g., preferences.coding.style). Each segment is lowercase letters, digits, and underscores only — NO hyphens, NO uppercase, NO spaces. Use 'search_tool' not 'search-tool', 'ci_cd' not 'ci-cd'. The full path must match the regex ^[a-z][a-z0-9_]*(\.[a-z0-9_]+){2}$ — lines that don't match this exact shape are silently dropped by the downstream filter.
+- EXACTLY 3 levels required: category.subcategory.type (e.g., preferences.coding.style). Each segment is lowercase letters, digits, and underscores only — NO hyphens, NO uppercase, NO spaces. Use 'search_tool' not 'search-tool', 'ci_cd' not 'ci-cd'. Each path must match the regex ^[a-z][a-z0-9_]*(\.[a-z0-9_]+){2}$ — lines that don't match this exact shape are silently dropped by the downstream filter.
+- Multi-path lines: a single fact can be saved under multiple taxonomy paths by joining them with commas in column 1 (no spaces): `preferences.coding.methodology,user.profile.role<TAB>fact`. The fact is stored at every path; each blob carries `related_keys` listing the siblings. Use SPARINGLY — only when the fact genuinely belongs to two distinct top-level categories (e.g., a coding *preference* that's also a *user* role fact). Never more than 2 paths per line.
 - Prefer paths shown in CATEGORIES/EXAMPLES; invent a new 3-level path under an existing top-level category only if nothing fits.
 - Each fact is ONE complete, self-contained statement. Third-person when about the human.
 - DURABLE only: preferences, project/tool choices, roles, decisions, architectural intent, constraints likely relevant across sessions.

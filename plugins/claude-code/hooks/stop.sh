@@ -132,25 +132,33 @@ if [ -z "$FACTS_TSV" ]; then
   exit 0
 fi
 
-# For each `<path><TAB><fact>` line, store with --path to bypass memoir's
-# classifier LLM chain. The line-format check guards against haiku going
-# rogue (returning preamble, missing tabs, etc.).
-printf '%s\n' "$FACTS_TSV" | while IFS=$'\t' read -r path fact; do
+# For each `<path>[,<path>...]<TAB><fact>` line, store with --path to bypass
+# memoir's classifier LLM chain. The line-format check guards against haiku
+# going rogue (returning preamble, missing tabs, etc.). Comma-separated paths
+# in column 1 mean: write the same fact to each path in one call; each blob's
+# `related_keys` field records the siblings (handled by memoir-side, not here).
+printf '%s\n' "$FACTS_TSV" | while IFS=$'\t' read -r paths fact; do
   # Strip whitespace from both fields.
-  path=$(printf '%s' "$path" | sed -E 's/^[[:space:]]+//;s/[[:space:]]+$//')
+  paths=$(printf '%s' "$paths" | sed -E 's/^[[:space:]]+//;s/[[:space:]]+$//')
   fact=$(printf '%s' "$fact" | sed -E 's/^[[:space:]]+//;s/[[:space:]]+$//')
 
-  # Skip lines without a real classification (no tab → entire line in $path,
+  # Skip lines without a real classification (no tab → entire line in $paths,
   # $fact empty) or that are too short / look like preamble.
-  if [ -z "$path" ] || [ -z "$fact" ] || [ "${#fact}" -lt 8 ]; then
+  if [ -z "$paths" ] || [ -z "$fact" ] || [ "${#fact}" -lt 8 ]; then
     continue
   fi
-  # Path must look like a taxonomy path: 2+ dots, no spaces, lowercase-ish.
-  if ! printf '%s' "$path" | grep -qE '^[a-z][a-z0-9_]*(\.[a-z0-9_]+){1,3}$'; then
+  # Column 1 must be one or more comma-separated taxonomy paths.
+  if ! printf '%s' "$paths" | grep -qE '^[a-z][a-z0-9_]*(\.[a-z0-9_]+){1,3}(,[a-z][a-z0-9_]*(\.[a-z0-9_]+){1,3})*$'; then
     continue
   fi
 
-  memoir_json remember "$fact" -p "$path" >/dev/null 2>&1 || true
+  # Build `-p p1 -p p2 ...` argv from the comma-separated path list.
+  PATH_ARGS=()
+  IFS=',' read -ra PATH_LIST <<< "$paths"
+  for p in "${PATH_LIST[@]}"; do
+    PATH_ARGS+=("-p" "$p")
+  done
+  memoir_json remember "$fact" "${PATH_ARGS[@]}" >/dev/null 2>&1 || true
 done
 
 # Refresh the statusline cache so the count ticks up after this turn's

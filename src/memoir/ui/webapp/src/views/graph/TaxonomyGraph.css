@@ -131,6 +131,40 @@
   stroke-linejoin: round;
 }
 
+/* ----- Selection-driven highlight & dashed virtual links ----------
+ * Triggered when the user picks a memory (in the drawer or by clicking
+ * a node). The selected node + its `related_keys` siblings stay full
+ * brightness; everything else dims so the related cluster reads as
+ * figure-on-ground. Dashed accent lines connect the selected node to
+ * each sibling. */
+.tx-node {
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.tx-node.tx-node-dimmed {
+  opacity: 0.3;
+}
+
+.tx-node.tx-node-selected .tx-node-circle {
+  stroke: var(--accent);
+  stroke-width: 3;
+  filter: drop-shadow(0 0 8px var(--accent));
+}
+
+.tx-node.tx-node-related .tx-node-circle {
+  stroke: var(--accent);
+  stroke-width: 2;
+  filter: drop-shadow(0 0 5px var(--accent));
+}
+
+.tx-virtual-link {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+  stroke-opacity: 0.85;
+  pointer-events: none;
+}
+
 /* Tooltip */
 .tx-tooltip {
   position: absolute;
