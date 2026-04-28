@@ -1,6 +1,6 @@
 # Memoir Classifier Theory & Architecture
 
-## Executive Summary
+## Summary
 
 The Memoir project implements two distinct classifier approaches for mapping memories to semantic taxonomy paths:
 
@@ -158,6 +158,8 @@ Example:
 → topics.technology.artificial_intelligence (TOPICS category)
 ```
 
+When the classifier emits multiple paths, the storage layer writes the **same content blob** to each path and records the *other* paths in a per-blob `related_keys` field. This turns multi-label classification into navigable cross-references rather than duplicated-but-isolated copies. See [Storage Coupling: Sibling Backlinks](#storage-coupling-sibling-backlinks) below for the materialization rules and edit semantics.
+
 ##### Stage 3: Specialized Event Extraction
 
 **Profile Updates**:
@@ -252,6 +254,61 @@ Path validation hierarchy:
 5. Apply domain-specific fallbacks
 ```
 
+## Storage Coupling: Sibling Backlinks
+
+Classification produces *paths*; storage produces *blobs*. The translation between the two carries one detail not captured by the classifier alone: when content is multi-labeled, the resulting blobs need to know about each other so a future reader landing on any one path can discover the rest of the cluster.
+
+### The Stored Blob Shape
+
+Every memory blob in Memoir carries a fixed set of fields. Multi-path classification adds `related_keys`:
+
+```python
+{
+    "content": str,            # The text of the memory
+    "key": str,                # The taxonomy path this blob is stored under
+    "namespace": str,          # Default: "default"
+    "confidence": float,       # 0.0-1.0
+    "timestamp": float,        # Unix epoch seconds
+    "related_keys": list[str], # Other paths from the same write (excludes self)
+}
+```
+
+For a multi-label classification emitting paths `[A, B]`, the writer produces two blobs:
+
+- Blob at `A`: `related_keys = ["B"]`
+- Blob at `B`: `related_keys = ["A"]`
+
+For a single-label classification emitting `[A]`: `related_keys = []`. The empty-list default keeps the schema uniform and makes the absence of siblings explicit rather than implicit.
+
+### Edit Preservation Semantics
+
+A common pitfall in cross-referenced stores is that an edit on one path silently breaks the other paths' references. Memoir avoids this by treating direct-path writes as **fetch-then-merge** rather than full overwrites.
+
+When a write is *path-provided* (the classifier is bypassed, e.g., from the UI's edit drawer or a CLI `-p` invocation):
+
+1. Read the existing blob at each target path, if any.
+2. Carry forward its `related_keys` array (union with any new siblings supplied by the current write).
+3. Replace `content`, `confidence`, and `timestamp` with the new values.
+4. Persist the merged blob.
+
+Classifier-driven writes overwrite cleanly because `related_keys` is recomputed from the fresh classification output — the prior cluster is, by intent, being replaced by a new one.
+
+This split lets users edit a single member of a multi-key cluster without disturbing the cluster's topology, while still allowing the classifier to re-cluster a memory when it re-runs over evolved content.
+
+### Schema Evolution
+
+The `related_keys` field is additive to the existing blob shape. ProllyTree stores values as JSON-serialized bytes, so:
+
+- Old readers seeing new blobs ignore unknown fields (Python `dict` access by key, Pydantic `extra="allow"` on the wire model).
+- New readers seeing old blobs default missing `related_keys` to `[]` via `dict.get`.
+- No version bump or migration is required. Existing single-key memories read with `related_keys: []` until they are next rewritten.
+
+### Plugin Integration: Pre-Classified Multi-Path Writes
+
+The Claude Code plugin's auto-capture Stop hook bypasses the in-process classifier for latency reasons — a single Haiku call extracts `<path>[,<path>...]<TAB><fact>` lines from a turn transcript, which the hook then forwards to `memoir remember` with the corresponding `-p` flags. The same `related_keys` materialization rules apply: the storage layer doesn't care whether the path list arrived from the in-process classifier or from a plugin's pre-classification pass.
+
+Comma-joined paths in column 1 of the Stop-hook output (e.g., `preferences.coding.methodology,user.profile.role<TAB>...`) translate to a single multi-key write, producing the same cross-referenced blob structure that the IntelligentClassifier would produce for an identical multi-label decision.
+
 ## Comparative Analysis
 
 ### SemanticClassifier vs IntelligentClassifier
@@ -261,6 +318,7 @@ Path validation hierarchy:
 | **Primary Use Case** | High-performance classification | Comprehensive memory processing |
 | **Classification Speed** | 1-5ms (cached), 100-500ms (uncached) | 200-1000ms (always uses LLM) |
 | **Multi-Label Support** | No (single path) | Yes (max 2 paths, different categories) |
+| **Sibling Backlinks** | N/A (single path) | Yes (`related_keys` cross-references survive single-key edits) |
 | **Memory Filtering** | No | Yes (worthiness detection) |
 | **Event Extraction** | No | Yes (profile, timeline, location) |
 | **Dynamic Expansion** | Via AdvancedTaxonomyInterface | Built-in with confidence thresholds |
@@ -338,30 +396,6 @@ results = classifier.batch_classify(memories, shared_context)
 - **Progressive Matching**: O(path_depth) for validation
 - **Domain Defaults**: Pre-computed fallbacks per category
 - **Early Termination**: Stop at first valid match
-
-## Future Enhancements
-
-### Planned Improvements
-
-1. **Hybrid Classification**: Combine both classifiers for optimal performance
-   - Use SemanticClassifier for initial fast classification
-   - Fall back to IntelligentClassifier for low-confidence cases
-
-2. **Embedding-Based Pre-filtering**:
-   - Use embeddings to narrow taxonomy search space
-   - Reduce LLM prompt size for large taxonomies
-
-3. **Adaptive Thresholds**:
-   - Learn optimal confidence thresholds per category
-   - Adjust based on classification success rates
-
-4. **Streaming Classification**:
-   - Process content in chunks for long documents
-   - Maintain context across chunks
-
-5. **Multi-Model Ensemble**:
-   - Use multiple LLMs for consensus
-   - Combine fast local models with powerful cloud models
 
 ## Conclusion
 

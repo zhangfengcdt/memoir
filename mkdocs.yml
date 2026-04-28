@@ -96,6 +96,7 @@ nav:
       - Classifier: theory/classifier.md
       - Search: theory/search.md
       - Memento: theory/memento.md
+      - Related Work: theory/related-work.md
   - CLI: cli.md
   - UI: ui.md
   - Claude Code: claude_code.md

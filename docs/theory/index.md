@@ -9,6 +9,7 @@ These documents provide comprehensive explanations of the algorithms, design dec
 - [Classifier](classifier.md)
 - [Search](search.md)
 - [Memento](memento.md)
+- [Related Work](related-work.md)
 
 ## Overview
 
@@ -33,6 +34,9 @@ Comprehensive examination of the memento pattern implementation for ProfileMemen
 - **ProfileMemento**: Identity and biographical information with replacement semantics
 - **TimelineMemento**: Chronological event organization by date
 - **LocationMemento**: Spatial memory management with geographic normalization
+
+### Related Work
+Pointers to the academic and industry research that grounds Memoir's design — hierarchical text classification, agent memory architectures, episodic/semantic memory frameworks, and content-addressed storage. Use this page when situating Memoir against MemGPT, A-MEM, CoALA, Generative Agents, and related lines of work.
 
 ## Key Insights
 

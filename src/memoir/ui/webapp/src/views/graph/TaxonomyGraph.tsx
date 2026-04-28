@@ -55,28 +55,86 @@ export default function TaxonomyGraph() {
   const virtualLinkLayerRef = useRef<d3.Selection<SVGGElement, unknown, null, undefined> | null>(null);
   const virtualLinkSelRef = useRef<d3.Selection<SVGLineElement, GraphLink, SVGGElement, unknown> | null>(null);
 
-  // Bidirectional related-key set for the currently-selected memory.
-  // Keys are qualifiedPath strings (`namespace:path`) so they match GraphNode.id.
-  const relatedSet = useMemo(() => {
-    if (!selected) return new Set<string>();
-    const ids = new Set<string>();
-    // Outbound: edges from selected → siblings recorded on selected itself.
-    const out = selected.value?.related_keys;
-    if (Array.isArray(out)) {
-      for (const k of out) {
-        if (typeof k === "string") ids.add(`${selected.namespace}:${k}`);
-      }
-    }
-    // Inbound: any other memory that names selected.path in its related_keys.
+  // Highlight neighborhood of the currently-selected memory:
+  //   - directRelated: selected's own related_keys, in + out (dashed lines).
+  //   - relatedSet: directRelated ∪ each ancestor's related_keys (accent ring;
+  //     no dashed line — the dashed lines stay reserved for direct edges).
+  //   - ancestorSet: selected's taxonomy parents ∪ each relatedSet member's
+  //     parents (subtle neutral ring).
+  // Splitting paths on "." mirrors how the graph itself builds nodes, so a
+  // literal "/" inside a segment is preserved.
+  const { directRelated, relatedSet, ancestorSet } = useMemo(() => {
+    const empty = {
+      directRelated: new Set<string>(),
+      relatedSet: new Set<string>(),
+      ancestorSet: new Set<string>(),
+    };
+    if (!selected) return empty;
+    const ns = selected.namespace;
+    const idOf = (path: string) => `${ns}:${path}`;
+    const memByPath = new Map<string, Memory>();
     for (const m of allMemories) {
-      if (m.namespace !== selected.namespace) continue;
-      if (m.path === selected.path) continue;
-      const incoming = m.value?.related_keys;
-      if (Array.isArray(incoming) && incoming.includes(selected.path)) {
-        ids.add(`${m.namespace}:${m.path}`);
-      }
+      if (m.namespace === ns) memByPath.set(m.path, m);
     }
-    return ids;
+    const ancestorsOfPath = (path: string): string[] => {
+      const out: string[] = [];
+      const segments = path.split(".");
+      for (let i = 1; i < segments.length; i++) {
+        out.push(segments.slice(0, i).join("."));
+      }
+      return out;
+    };
+    const readRelated = (m: Memory | undefined): string[] => {
+      const raw = m?.value?.related_keys;
+      if (!Array.isArray(raw)) return [];
+      return raw.filter(
+        (k): k is string => typeof k === "string" && k.length > 0,
+      );
+    };
+
+    // 1) Direct edges off the selected node (out + in scan).
+    const direct = new Set<string>();
+    for (const k of readRelated(selected)) direct.add(idOf(k));
+    for (const m of allMemories) {
+      if (m.namespace !== ns || m.path === selected.path) continue;
+      if (readRelated(m).includes(selected.path)) direct.add(idOf(m.path));
+    }
+
+    // 2) Selected's ancestor chain.
+    const ancestors = new Set<string>();
+    for (const a of ancestorsOfPath(selected.path)) ancestors.add(idOf(a));
+
+    // 3) Each direct sibling's ancestor chain (so the lineage of every
+    //    saved-together neighbor is also context, not dimmed).
+    for (const id of Array.from(direct)) {
+      const path = id.slice(ns.length + 1);
+      for (const a of ancestorsOfPath(path)) ancestors.add(idOf(a));
+    }
+
+    // 4) Each ancestor's own related_keys (when a memory lives exactly at
+    //    that ancestor path). These join the cluster without a dashed line.
+    const related = new Set<string>(direct);
+    for (const id of Array.from(ancestors)) {
+      const path = id.slice(ns.length + 1);
+      const mem = memByPath.get(path);
+      for (const k of readRelated(mem)) related.add(idOf(k));
+    }
+
+    // 5) Final hop: the ancestors of those just-added related entries —
+    //    so a 2-hop sibling's parents stay un-dimmed too. Bounded by depth,
+    //    so no runaway.
+    for (const id of Array.from(related)) {
+      const path = id.slice(ns.length + 1);
+      for (const a of ancestorsOfPath(path)) ancestors.add(idOf(a));
+    }
+
+    // Selected itself is its own bucket — drop from the supporting sets.
+    const selfId = idOf(selected.path);
+    direct.delete(selfId);
+    related.delete(selfId);
+    ancestors.delete(selfId);
+
+    return { directRelated: direct, relatedSet: related, ancestorSet: ancestors };
   }, [selected, allMemories]);
 
   const selectedId = selected ? `${selected.namespace}:${selected.path}` : null;
@@ -278,26 +336,37 @@ export default function TaxonomyGraph() {
     nodeSel
       .classed("tx-node-selected", (d) => selectedId === d.id)
       .classed("tx-node-related", (d) => relatedSet.has(d.id))
+      // Ancestor ring is skipped on nodes that already qualify for the
+      // (louder) selected/related rings, so each node lands in exactly one
+      // visual bucket.
+      .classed(
+        "tx-node-ancestor",
+        (d) =>
+          ancestorSet.has(d.id) &&
+          d.id !== selectedId &&
+          !relatedSet.has(d.id),
+      )
       .classed(
         "tx-node-dimmed",
         (d) =>
           selectedId !== null &&
           d.id !== selectedId &&
-          !relatedSet.has(d.id),
+          !relatedSet.has(d.id) &&
+          !ancestorSet.has(d.id),
       );
 
-    // Build virtual-link data: one edge from selected node → each
-    // currently-rendered related node. Cross-namespace targets that
-    // aren't in `nodes` are silently skipped.
+    // Build virtual-link data: one edge from selected node → each direct
+    // sibling (the saved-together pair). Transitive cluster members that
+    // joined via ancestor expansion get the accent ring but no dashed line.
     let vData: GraphLink[] = [];
-    if (selectedId && relatedSet.size > 0) {
+    if (selectedId && directRelated.size > 0) {
       const byId = new Map<string, GraphNode>();
       nodeSel.each(function (d) {
         byId.set(d.id, d);
       });
       const src = byId.get(selectedId);
       if (src) {
-        for (const targetId of relatedSet) {
+        for (const targetId of directRelated) {
           const tgt = byId.get(targetId);
           if (tgt) vData.push({ source: src, target: tgt });
         }
@@ -319,7 +388,7 @@ export default function TaxonomyGraph() {
       .attr("y1", (d) => (d.source as GraphNode).y ?? 0)
       .attr("x2", (d) => (d.target as GraphNode).x ?? 0)
       .attr("y2", (d) => (d.target as GraphNode).y ?? 0);
-  }, [selectedId, relatedSet, nodes]);
+  }, [selectedId, directRelated, relatedSet, ancestorSet, nodes]);
 
   if (!connected) return null;
 

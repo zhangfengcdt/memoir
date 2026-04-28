@@ -1,6 +1,6 @@
 # Memoir Memento Theory & Architecture
 
-## Executive Summary
+## Summary
 
 The Memoir Memento module implements specialized memory collections that organize memories around specific dimensions of human experience:
 
@@ -585,35 +585,6 @@ The dimensional separation enables:
 - **O(1)** access to profile facts via direct paths
 - **O(log n)** timeline navigation via date ordering
 - **O(k)** location retrieval where k = events at location
-
-## Future Enhancements
-
-### Planned Improvements
-
-1. **RelationshipMemento**:
-   - Track social connections
-   - Relationship evolution over time
-   - Social network analysis
-
-2. **EmotionMemento**:
-   - Emotional state tracking
-   - Mood patterns
-   - Sentiment evolution
-
-3. **Cross-Memento Indexing**:
-   - Automatic correlation detection
-   - Multi-dimensional queries
-   - Unified memory graph
-
-4. **Smart Summarization**:
-   - Context-aware narratives
-   - Personalized summary styles
-   - Progressive detail levels
-
-5. **Memory Compression**:
-   - Automatic event consolidation
-   - Semantic deduplication
-   - Hierarchical summarization
 
 ## Conclusion
 

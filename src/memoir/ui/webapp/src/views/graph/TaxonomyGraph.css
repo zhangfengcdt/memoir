@@ -157,6 +157,14 @@
   filter: drop-shadow(0 0 5px var(--accent));
 }
 
+/* Ancestors and 2-hop cluster context — neutral ring, no halo. Reads as
+ * "structural lineage", clearly distinct from the accent-colored direct
+ * related siblings. */
+.tx-node.tx-node-ancestor .tx-node-circle {
+  stroke: var(--fg-2);
+  stroke-width: 2;
+}
+
 .tx-virtual-link {
   stroke: var(--accent);
   stroke-width: 1.5;

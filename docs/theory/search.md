@@ -1,6 +1,6 @@
 # Memoir Search Theory & Architecture
 
-## Executive Summary
+## Summary
 
 Memoir exposes three retrieval pipelines that share the same taxonomy-structured store:
 
@@ -482,40 +482,6 @@ namespace = ("user", "alice")
 # Conversion
 namespace_tuple = tuple(namespace.split(":"))
 ```
-
-## Future Enhancements
-
-### Planned Improvements
-
-1. **Embedding-Enhanced Search**:
-   - Combine path selection with embedding similarity
-   - Use embeddings for query expansion
-   - Cache embeddings for frequent queries
-
-2. **Learning from Feedback**:
-   - Track click-through rates on results
-   - Adjust path selection based on usage
-   - Personalized relevance models
-
-3. **Query Understanding Pipeline**:
-   - Intent classification (lookup vs exploration)
-   - Entity extraction from queries
-   - Query rewriting and expansion
-
-4. **Advanced Ranking**:
-   - Temporal decay for recency
-   - Personalized ranking models
-   - Confidence-weighted scoring
-
-5. **Federated Search**:
-   - Search across multiple memory stores
-   - Cross-user memory search (with permissions)
-   - Integration with external knowledge bases
-
-6. **Search Analytics**:
-   - Query performance metrics
-   - Popular search patterns
-   - Failed query analysis
 
 ## Theoretical Foundation
 
