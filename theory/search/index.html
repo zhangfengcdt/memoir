@@ -777,6 +777,8 @@
       
         
       
+        
+      
     
     
     
@@ -929,10 +931,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#executive-summary" class="md-nav__link">
+  <a href="#summary" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Executive Summary
+        Summary
       
     </span>
   </a>
@@ -1478,34 +1480,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#future-enhancements" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Future Enhancements
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Future Enhancements">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#planned-improvements" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Planned Improvements
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#theoretical-foundation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1590,6 +1564,34 @@
     
   
     Memento
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../related-work/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Related Work
   
 
     
@@ -2170,10 +2172,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#executive-summary" class="md-nav__link">
+  <a href="#summary" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Executive Summary
+        Summary
       
     </span>
   </a>
@@ -2719,34 +2721,6 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#future-enhancements" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Future Enhancements
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Future Enhancements">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#planned-improvements" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Planned Improvements
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
   <a href="#theoretical-foundation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2833,7 +2807,7 @@
 
 
 <h1 id="memoir-search-theory-architecture">Memoir Search Theory &amp; Architecture<a class="headerlink" href="#memoir-search-theory-architecture" title="Permanent link">&para;</a></h1>
-<h2 id="executive-summary">Executive Summary<a class="headerlink" href="#executive-summary" title="Permanent link">&para;</a></h2>
+<h2 id="summary">Summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h2>
 <p>Memoir exposes three retrieval pipelines that share the same taxonomy-structured store:</p>
 <ul>
 <li>
@@ -3380,54 +3354,6 @@
 </span><span id="__span-15-7"><a id="__codelineno-15-7" name="__codelineno-15-7" href="#__codelineno-15-7"></a><span class="c1"># Conversion</span>
 </span><span id="__span-15-8"><a id="__codelineno-15-8" name="__codelineno-15-8" href="#__codelineno-15-8"></a><span class="n">namespace_tuple</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">namespace</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;:&quot;</span><span class="p">))</span>
 </span></code></pre></div></p>
-<h2 id="future-enhancements">Future Enhancements<a class="headerlink" href="#future-enhancements" title="Permanent link">&para;</a></h2>
-<h3 id="planned-improvements">Planned Improvements<a class="headerlink" href="#planned-improvements" title="Permanent link">&para;</a></h3>
-<ol>
-<li><strong>Embedding-Enhanced Search</strong>:</li>
-<li>Combine path selection with embedding similarity</li>
-<li>Use embeddings for query expansion</li>
-<li>
-<p>Cache embeddings for frequent queries</p>
-</li>
-<li>
-<p><strong>Learning from Feedback</strong>:</p>
-</li>
-<li>Track click-through rates on results</li>
-<li>Adjust path selection based on usage</li>
-<li>
-<p>Personalized relevance models</p>
-</li>
-<li>
-<p><strong>Query Understanding Pipeline</strong>:</p>
-</li>
-<li>Intent classification (lookup vs exploration)</li>
-<li>Entity extraction from queries</li>
-<li>
-<p>Query rewriting and expansion</p>
-</li>
-<li>
-<p><strong>Advanced Ranking</strong>:</p>
-</li>
-<li>Temporal decay for recency</li>
-<li>Personalized ranking models</li>
-<li>
-<p>Confidence-weighted scoring</p>
-</li>
-<li>
-<p><strong>Federated Search</strong>:</p>
-</li>
-<li>Search across multiple memory stores</li>
-<li>Cross-user memory search (with permissions)</li>
-<li>
-<p>Integration with external knowledge bases</p>
-</li>
-<li>
-<p><strong>Search Analytics</strong>:</p>
-</li>
-<li>Query performance metrics</li>
-<li>Popular search patterns</li>
-<li>Failed query analysis</li>
-</ol>
 <h2 id="theoretical-foundation">Theoretical Foundation<a class="headerlink" href="#theoretical-foundation" title="Permanent link">&para;</a></h2>
 <h3 id="information-retrieval-theory">Information Retrieval Theory<a class="headerlink" href="#information-retrieval-theory" title="Permanent link">&para;</a></h3>
 <p>The search engine implements concepts from:</p>
