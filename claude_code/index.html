@@ -1975,43 +1975,28 @@
 </thead>
 <tbody>
 <tr>
-<td><code>/memoir-remember &lt;fact&gt;</code></td>
-<td>Capture a memory. <code>-p &lt;path&gt;</code> skips classification.</td>
-</tr>
-<tr>
-<td><code>/memory-recall &lt;query&gt;</code></td>
-<td>Recall from prior sessions (delegates to the <code>memory-recall</code> skill).</td>
-</tr>
-<tr>
-<td><code>/memoir-forget &lt;key&gt;</code></td>
-<td>Delete a memory. Always <code>--force</code> for non-interactive use.</td>
-</tr>
-<tr>
-<td><code>/memoir-status</code></td>
-<td>Branch, commit count, memory count, namespaces.</td>
-</tr>
-<tr>
-<td><code>/memoir-taxonomy</code></td>
-<td>Loaded categories + per-namespace distribution.</td>
-</tr>
-<tr>
-<td><code>/memoir-ui</code></td>
-<td>Launch or re-open the web UI (readonly, LLM off by default).</td>
-</tr>
-<tr>
-<td><code>/memoir-onboard [--force]</code></td>
+<td><code>/memoir:onboard [--force]</code></td>
 <td>Populate or refresh the <code>codebase:onboard</code> snapshot.</td>
 </tr>
 <tr>
-<td><code>/memoir-unmerged</code></td>
-<td>List memoir branches ahead of <code>main</code>.</td>
+<td><code>/memoir:remember &lt;fact&gt;</code></td>
+<td>Capture a memory. <code>-p &lt;path&gt;</code> skips classification.</td>
 </tr>
 <tr>
-<td><code>/memoir-sync-branch &lt;name&gt;</code></td>
-<td>Merge a branch into <code>main</code> without switching.</td>
+<td><code>/memoir:recall &lt;query&gt;</code></td>
+<td>Recall from prior sessions (delegates to the <code>memory-recall</code> skill).</td>
+</tr>
+<tr>
+<td><code>/memoir:status</code></td>
+<td>Branch, commit count, memory count, namespaces.</td>
+</tr>
+<tr>
+<td><code>/memoir:ui</code></td>
+<td>Launch or re-open the web UI (readonly, LLM off by default).</td>
 </tr>
 </tbody>
 </table>
+<p>Admin operations (<code>forget</code>, <code>taxonomy</code>, <code>unmerged</code>, <code>sync-branch</code>) are available via the <code>memoir</code> CLI directly — they were dropped from the slash-command surface to keep the in-session UX focused on the five everyday actions.</p>
 <h2 id="skills">Skills<a class="headerlink" href="#skills" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2039,7 +2024,7 @@
 <p>By design:</p>
 <ul>
 <li><strong>Reads are auto-triggered via skills.</strong> The agent pulls context when it thinks it might need to, without the user asking.</li>
-<li><strong>Writes and deletes are explicit slash commands.</strong> <code>/memoir-remember</code> and <code>/memoir-forget</code> stay as commands — not skills — because the <code>Stop</code> hook already handles auto-capture, and deletion is kept explicit for safety.</li>
+<li><strong>Writes are an explicit slash command.</strong> <code>/memoir:remember</code> stays as a command — not a skill — because the <code>Stop</code> hook already handles auto-capture; this command is the manual escape hatch. Deletion (<code>memoir forget</code>) lives on the CLI rather than as a slash command, kept explicit for safety.</li>
 </ul>
 <h2 id="lifecycle-hooks">Lifecycle hooks<a class="headerlink" href="#lifecycle-hooks" title="Permanent link">&para;</a></h2>
 <p>Configured in <code>plugins/claude-code/hooks/hooks.json</code>:</p>
@@ -2100,7 +2085,7 @@
 </tr>
 <tr>
 <td><code>memoir-ui-ctl.sh</code></td>
-<td><code>start</code> / <code>stop</code> / <code>status</code> for the web UI, with pidfile bookkeeping so repeated <code>/memoir-ui</code> calls reuse the same server.</td>
+<td><code>start</code> / <code>stop</code> / <code>status</code> for the web UI, with pidfile bookkeeping so repeated <code>/memoir:ui</code> calls reuse the same server.</td>
 </tr>
 <tr>
 <td><code>statusline.sh</code></td>
@@ -2140,9 +2125,9 @@
 <p>Two properties to notice:</p>
 <ul>
 <li><strong>Reads happen eagerly, writes happen lazily.</strong> Every prompt passes through <code>UserPromptSubmit</code> (step 2) and potentially fires <code>memory-recall</code> (step 3) — the agent pulls context without the user asking. Auto-capture is deferred to <code>Stop</code> (step 4), which is async so it never blocks the turn.</li>
-<li><strong>Namespaces split along read/write paths.</strong> <code>memory-recall</code> works against <code>default</code> (user-captured facts, written by the <code>Stop</code> hook or <code>/memoir-remember</code>). <code>memoir-onboard</code> works against <code>codebase:onboard</code> (repo snapshot, written by <code>/memoir-onboard</code>, replayed by the <code>SessionStart</code> hook). Two namespaces, two lifecycles, no overlap.</li>
+<li><strong>Namespaces split along read/write paths.</strong> <code>memory-recall</code> works against <code>default</code> (user-captured facts, written by the <code>Stop</code> hook or <code>/memoir:remember</code>). <code>memoir-onboard</code> works against <code>codebase:onboard</code> (repo snapshot, written by <code>/memoir:onboard</code>, replayed by the <code>SessionStart</code> hook). Two namespaces, two lifecycles, no overlap.</li>
 </ul>
-<p>The admin surface — <code>/memoir-ui</code>, <code>/memoir-status</code>, <code>/memoir-taxonomy</code>, <code>/memoir-unmerged</code>, <code>/memoir-sync-branch</code> — sits outside this lifecycle: it's explicit user invocation, not hook-driven.</p>
+<p>The admin surface — <code>/memoir:ui</code>, <code>/memoir:status</code> (slash commands), plus <code>memoir taxonomy</code>, <code>memoir unmerged</code>, and <code>memoir sync-branch</code> (CLI) — sits outside this lifecycle: it's explicit user invocation, not hook-driven.</p>
 <h2 id="session-context-injection">Session context injection<a class="headerlink" href="#session-context-injection" title="Permanent link">&para;</a></h2>
 <p><code>SessionStart</code> writes a single JSON object to stdout that Claude Code reads as the session preamble: <code>{"systemMessage": ..., "hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": ...}}</code>. The <code>additionalContext</code> block is assembled in order from up to four parts, each conditional on having something to say. Every part comes from raw <code>memoir get</code>/<code>summarize</code> calls — no LLM is invoked at session start.</p>
 <table>
@@ -2192,7 +2177,7 @@
 </span></code></pre></div>
 <p>This is just the index — agents <code>memoir get &lt;key&gt;</code> the ones they care about, paying for content only on demand.</p>
 <h2 id="codebase-snapshot-codebaseonboard">Codebase snapshot (<code>codebase:onboard</code>)<a class="headerlink" href="#codebase-snapshot-codebaseonboard" title="Permanent link">&para;</a></h2>
-<p>A persistent, high-level repo overview written by <code>/memoir-onboard</code> and replayed by <code>SessionStart</code> so fresh sessions start warm with a structured map of the codebase.</p>
+<p>A persistent, high-level repo overview written by <code>/memoir:onboard</code> and replayed by <code>SessionStart</code> so fresh sessions start warm with a structured map of the codebase.</p>
 <p><strong>Layout.</strong> Keys live in the <code>codebase:onboard</code> namespace, grouped by L1 root:</p>
 <table>
 <thead>
@@ -2249,7 +2234,7 @@
 </tbody>
 </table>
 <p>Each value is ≤ ~500 chars; the SessionStart compact view takes the first sentence and caps a root's joined children at 140 chars.</p>
-<p><strong>Refresh paths.</strong> <code>/memoir-onboard</code> probes <code>_meta.last_onboard.commit</code> and picks one of three:</p>
+<p><strong>Refresh paths.</strong> <code>/memoir:onboard</code> probes <code>_meta.last_onboard.commit</code> and picks one of three:</p>
 <ul>
 <li><strong>cold</strong> — no prior snapshot. Full scan: <code>ls -d */</code>, skim <code>CLAUDE.md</code> / <code>README*</code> / <code>pyproject.toml</code> / <code>Makefile</code> / <code>.github/workflows/*.yml</code>, <code>git log --oneline -20</code>. Write every <code>goal.*</code> / <code>structure.modules.*</code> / <code>rules.*</code> / <code>lessons.*</code> / <code>references.*</code> key with <code>memoir remember -p &lt;path&gt; -n codebase:onboard</code> (the <code>-p</code> flag bypasses the LLM classifier — fast and deterministic).</li>
 <li><strong>warm</strong> — code HEAD has moved. <code>git log --stat &lt;last_sha&gt;..HEAD</code> enumerates changed paths; only the affected <code>structure.modules.*</code> keys and any new lessons are rewritten. Typically 1–5 keys per pass.</li>
@@ -2257,7 +2242,7 @@
 </ul>
 <p><code>--force</code> always uses the cold path.</p>
 <p><strong>Branch behavior.</strong> The snapshot lives in the <code>codebase:onboard</code> namespace, <strong>not <code>default</code></strong> — <code>BranchService.promote_branch</code> only carries the default namespace, so <code>codebase:onboard</code> stays per-branch. This is intentional: a feature branch can carry its own structural notes without leaking them to <code>main</code> until the user explicitly chooses to.</p>
-<p><strong>Staleness.</strong> <code>SessionStart</code> flags the snapshot <code>stale="true"</code> when <code>_meta.last_onboard.date</code> is more than 30 days old, and appends a <code>(snapshot is stale — run /memoir-onboard to refresh)</code> hint. <code>/memoir-sync-branch</code> calls <code>update_onboard_meta_after_sync</code> on the merged branch so the meta keys stay truthful even when the user hasn't re-run <code>/memoir-onboard</code>.</p>
+<p><strong>Staleness.</strong> <code>SessionStart</code> flags the snapshot <code>stale="true"</code> when <code>_meta.last_onboard.date</code> is more than 30 days old, and appends a <code>(snapshot is stale — run /memoir:onboard to refresh)</code> hint. <code>memoir sync-branch</code> calls <code>update_onboard_meta_after_sync</code> on the merged branch so the meta keys stay truthful even when the user hasn't re-run <code>/memoir:onboard</code>.</p>
 <h2 id="non-git-folders-projectonboard">Non-git folders (<code>project:onboard</code>)<a class="headerlink" href="#non-git-folders-projectonboard" title="Permanent link">&para;</a></h2>
 <p>The plugin treats non-git folders as a first-class case rather than a degraded git mode. This is the home for running Claude Code over <strong>non-code projects</strong> — writing (drafts, manuscripts, research notes), video editing (clips, transcripts, project files), bookkeeping (statements, receipts, spreadsheets), and similar mixed-media folders.</p>
 <p><strong>Contract.</strong></p>
@@ -2286,12 +2271,12 @@
 <td>Captures to <code>main</code></td>
 </tr>
 <tr>
-<td><code>/memoir-sync-branch</code>, <code>/memoir-unmerged</code></td>
+<td><code>memoir sync-branch</code>, <code>memoir unmerged</code> (CLI)</td>
 <td>Operate normally</td>
 <td>Short-circuit with "non-git folder: only <code>main</code> exists"</td>
 </tr>
 <tr>
-<td><code>/memoir-onboard</code></td>
+<td><code>/memoir:onboard</code></td>
 <td><code>codebase:onboard</code> cold/warm based on <strong>code SHA</strong></td>
 <td><code>project:onboard</code> cold/warm based on <strong>filesystem snapshot hash</strong></td>
 </tr>
@@ -2409,8 +2394,8 @@
 </span></code></pre></div>
 <p>Each turn the hook reads the existing accumulator, folds in deltas computed by <code>collect-metrics.sh</code>, and writes it back via <code>merge-metrics.py</code>. <code>tokens</code> and <code>llms</code> are reserved <code>null</code> until Claude Code exposes per-turn usage to hooks; today the proxies are char-count and tool-count fields. <code>latency_samples</code> only ticks for turns whose transcript line carries a user-message timestamp.</p>
 <p><strong>Toggles &amp; failure mode.</strong> <code>MEMOIR_NO_METRICS=1</code> disables the metrics path independently of <code>MEMOIR_NO_CAPTURE</code> — either can fail without affecting the other. The whole block is wrapped in <code>2&gt;/dev/null || true</code>, matching the rest of the Stop hook's fail-silent design.</p>
-<p><strong>Branch identity &amp; merge.</strong> Source-branch identity lives in the key fragment, not the value — so <code>BranchService.promote_branch</code> (default-namespace only) carries <code>metrics.turn.feature/x</code> to <code>main</code> automatically when the user runs <code>/memoir-sync-branch feature/x</code>. After promotion, <code>main</code> retains its own <code>metrics.turn.main</code> untouched; <code>metrics.turn.feature/x</code> rides along, preserving the per-source-branch view.</p>
-<p><strong>UI surface.</strong> The <code>/memoir-ui</code> Statistics modal grows two conditional tabs after Overview:</p>
+<p><strong>Branch identity &amp; merge.</strong> Source-branch identity lives in the key fragment, not the value — so <code>BranchService.promote_branch</code> (default-namespace only) carries <code>metrics.turn.feature/x</code> to <code>main</code> automatically when the user runs <code>memoir sync-branch feature/x</code>. After promotion, <code>main</code> retains its own <code>metrics.turn.main</code> untouched; <code>metrics.turn.feature/x</code> rides along, preserving the per-source-branch view.</p>
+<p><strong>UI surface.</strong> The <code>/memoir:ui</code> Statistics modal grows two conditional tabs after Overview:</p>
 <ul>
 <li><strong>Codebase</strong> — renders <code>codebase:onboard</code> keys grouped by L1 prefix, first sentence per child, with a header showing <code>last_onboard &lt;commit&gt; · &lt;date&gt; · &lt;mode&gt;</code>. Same compact rendering shape as the SessionStart inject.</li>
 <li><strong>Metrics</strong> — table view with rows = branches and columns = accumulator fields (<code>Turns</code>, <code>Calls</code>, <code>Errors</code>, <code>Avg latency (ms)</code>, <code>Output chars</code>, …). Three bar charts below show avg-latency / output-chars / tool-result-chars distributions across branches.</li>
