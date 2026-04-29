@@ -50,7 +50,7 @@ fi
 # in_git_repo — 0 if the project root is inside a git working tree, else 1.
 # Single-source check that callers (skill, hooks, commands) reuse instead of
 # re-running `git rev-parse`. Non-git folders are a first-class case: only the
-# `main` memoir branch is supported, /memoir-onboard switches to project:onboard.
+# `main` memoir branch is supported, /memoir:onboard switches to project:onboard.
 in_git_repo() { [ -n "$_GIT_ROOT" ]; }
 
 # Resolve store path: MEMOIR_STORE env wins, else derive from project dir.
@@ -941,11 +941,11 @@ for root in ordered:
 if 'files' in cfg['suppressed_roots']:
     file_count = meta.get('_meta.last_onboard.file_count', '')
     if file_count:
-        print(f'files: {file_count} indexed (run /memoir-onboard for per-file detail)')
+        print(f'files: {file_count} indexed (run /memoir:onboard for per-file detail)')
 
 print(f'</{cfg[\"tag\"]}>')
 if stale:
-    print('(snapshot is stale — run /memoir-onboard to refresh)')
+    print('(snapshot is stale — run /memoir:onboard to refresh)')
 " "$values_json" "$namespace" 2>/dev/null || true
 }
 
@@ -964,7 +964,7 @@ render_project_onboard_compact() {
 # Deterministic post-sync bump of the _meta.last_onboard.* keys on the
 # currently-checked-out memoir branch. No LLM work. Called by
 # /memoir-sync-branch after the merge step so the metadata stays truthful
-# even when the user hasn't re-run /memoir-onboard yet; the narrative keys
+# even when the user hasn't re-run /memoir:onboard yet; the narrative keys
 # (structure.*, goal.*, …) are left alone.
 #
 # A missing code_sha is a no-op; a missing memoir_sha skips just that key.

@@ -50,7 +50,7 @@ TOTAL_MEMORIES=$(_json_val "$STATUS_JSON" "memory_count" "0")
 # Compute *user-facing* memory count by subtracting entries in memoir's
 # internal scaffolding namespaces — `taxonomy:v1:*` (classification hints
 # installed by `memoir new --taxonomy-builtin`) and `codebase:onboard`
-# (agent-generated repo snapshot written by /memoir-onboard). Both are
+# (agent-generated repo snapshot written by /memoir:onboard). Both are
 # machinery, not user captures; counting them inflates the status-line
 # number away from what the user has actually remembered.
 # `summarize taxonomy --json` returns a per-namespace count map; we sum the
@@ -178,14 +178,14 @@ fi
 # Inject the onboard snapshot so fresh sessions start with a high-level map of
 # the project. Two flavors share the same injection slot:
 #   - git folder      → codebase:onboard (code-shape: modules, goals, rules,
-#                       lessons), populated by /memoir-onboard's cold/warm path
+#                       lessons), populated by /memoir:onboard's cold/warm path
 #                       on the code SHA.
 #   - non-git folder  → project:onboard (file-shape: summary, structure tree,
-#                       per-file blobs), populated by /memoir-onboard's
+#                       per-file blobs), populated by /memoir:onboard's
 #                       project-onboard path on a filesystem snapshot hash.
 # Gated on MEMOIR_ONBOARD_INJECT (default=1) so a user who finds the block
 # noisy can opt out with MEMOIR_ONBOARD_INJECT=0. If the namespace is empty,
-# emit a one-line hint nudging the user to populate it via /memoir-onboard.
+# emit a one-line hint nudging the user to populate it via /memoir:onboard.
 if [ "${MEMOIR_ONBOARD_INJECT:-1}" = "1" ]; then
   if in_git_repo; then
     onboard_namespace="codebase:onboard"
@@ -199,7 +199,7 @@ if [ "${MEMOIR_ONBOARD_INJECT:-1}" = "1" ]; then
     # exist (brand-new store gets no extra noise on first launch).
     if [ "$USER_MEMORIES" != "0" ]; then
       onboard_block="# ${onboard_namespace} snapshot"$'\n'
-      onboard_block+="(none yet — run /memoir-onboard to generate one; future sessions will auto-inject it here)"
+      onboard_block+="(none yet — run /memoir:onboard to generate one; future sessions will auto-inject it here)"
     fi
   fi
   if [ -n "$onboard_block" ]; then

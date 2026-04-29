@@ -93,7 +93,7 @@ fi
 # (CATEGORIES / EXAMPLES / RULES). The CATEGORIES + EXAMPLES blocks come from
 # the store's persisted taxonomy (`taxonomy:v1:*`), cached at SessionStart —
 # so auto-capture classifies against the same taxonomy as explicit
-# `/memoir-remember "fact"` (without -p). Falls back to a hardcoded hint
+# `/memoir:remember "fact"` (without -p). Falls back to a hardcoded hint
 # sheet if the store has no taxonomy loaded.
 TAXONOMY_BLOCK=$(read_stop_prompt_cache)
 if [ -z "$TAXONOMY_BLOCK" ]; then

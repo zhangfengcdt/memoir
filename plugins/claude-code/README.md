@@ -29,7 +29,7 @@ LLM calls inherit Claude Code's auth automatically (`MEMOIR_LLM_BACKEND=claude-c
 
 | Component | Role |
 |---|---|
-| **Slash commands** | `/memoir-onboard`, `/memoir-remember`, `/memory-recall`, `/memoir-status`, `/memoir-ui`. (Admin operations like sync-branch, unmerged, taxonomy, and forget are available via the `memoir` CLI.) |
+| **Slash commands** | `/memoir:onboard`, `/memoir:remember`, `/memoir:recall`, `/memoir:status`, `/memoir:ui`. (Admin operations like sync-branch, unmerged, taxonomy, and forget are available via the `memoir` CLI.) |
 | **Skills** | `memory-recall` (user facts, auto-triggered, runs in a forked context) and `memoir-onboard` (maintains the `codebase:onboard` snapshot). |
 | **Lifecycle hooks** | `SessionStart` (inject status + taxonomy + unmerged-branch suggestions), `UserPromptSubmit` (surface matching hints), `Stop` (async auto-capture of durable facts), `SessionEnd` (cleanup). |
 | **Status line** | `[memoir] <branch> · N memories`, with warnings for concurrent sessions or sticky-branch mode. |
@@ -56,4 +56,4 @@ The plugin does not ship an `.mcp.json` — MCP is opt-in. See the [Claude Code 
 
 - [Claude Code plugin guide](https://zhangfengcdt.github.io/memoir/claude_code/) — hooks, auto-capture internals, sticky branches, concurrent sessions, per-command reference.
 - [CLI reference](https://zhangfengcdt.github.io/memoir/cli/) — every `memoir` command and flag.
-- [UI](https://zhangfengcdt.github.io/memoir/ui/) — the visual explorer launched by `/memoir-ui`.
+- [UI](https://zhangfengcdt.github.io/memoir/ui/) — the visual explorer launched by `/memoir:ui`.
