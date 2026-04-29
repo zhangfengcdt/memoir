@@ -1917,7 +1917,7 @@ requires-dist = [
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.0.0" },
     { name = "playwright", marker = "extra == 'dev'", specifier = ">=1.55.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.0.0" },
-    { name = "prollytree", specifier = ">=0.3.2" },
+    { name = "prollytree", specifier = ">=0.3.3" },
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pymdown-extensions", marker = "extra == 'docs'", specifier = ">=10.7.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=7.0.0" },
@@ -2530,14 +2530,14 @@ wheels = [
 
 [[package]]
 name = "prollytree"
-version = "0.3.2"
+version = "0.3.3"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/8e/b3/9edb76028e10b6b166d1e928abcd98b0d029852f76dc6c40d2cb7b466b6e/prollytree-0.3.2.tar.gz", hash = "sha256:3b84f3219e4c485a603317e5f252bfa7b26cbbe011be5be97df907c2ed2bf3f1", size = 308235 }
+sdist = { url = "https://files.pythonhosted.org/packages/9e/49/8a489f606dc662f9e52c932e6180a67d79626b720310cd0872c140cee6ac/prollytree-0.3.3.tar.gz", hash = "sha256:d197bdf45994ed011070508b96a13b965e7d5ad2194bc5191116727234f47de7", size = 341967 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2f/31/da5553e9ba7c6eb360d3156123d6df03f5ea9770a68f8016d62b3c7631b9/prollytree-0.3.2-cp38-abi3-macosx_11_0_arm64.whl", hash = "sha256:9b5f4d2b7c49d23af170c27f5094a6ce5248cf95f47ab6441c063b231606d437", size = 5143917 },
-    { url = "https://files.pythonhosted.org/packages/cf/57/3c09704fcf251accf53ac5f657d8a85db79ac2fb50fdd899341f84e28a11/prollytree-0.3.2-cp38-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:78375604aee568ca20fa4f7b99bcb3b637ee1b9659c85ac1c485b22ac68d3156", size = 5651935 },
-    { url = "https://files.pythonhosted.org/packages/52/d0/428c6bcea20fcf1b43d7ed74fc153d9d983f3487f7a5ce4ae641cfaa50ac/prollytree-0.3.2-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:4e17d712434d51e79229f4faa4b1b82d72333ec2bbc0f22be7dd42b786dbf392", size = 5873319 },
-    { url = "https://files.pythonhosted.org/packages/39/d9/d074e5ef83d616caa2394576b0c70bcf10a2cc4aabaf63beee489de8ea10/prollytree-0.3.2-cp38-abi3-win_amd64.whl", hash = "sha256:d7e196138ec10490e84d0ee83c939215d3d6877d646f0f9b2a1248cebc5edc4b", size = 5236413 },
+    { url = "https://files.pythonhosted.org/packages/be/ea/964071420c21895f416b63b42c7adbcb1bcf49140dd25b34b47fb482e010/prollytree-0.3.3-cp38-abi3-macosx_11_0_arm64.whl", hash = "sha256:4469b61f4baed12c569ec1735c2c4555d3252f39e6998e93f5d9e84a4e06fede", size = 5285119 },
+    { url = "https://files.pythonhosted.org/packages/a4/88/fd3846aa1724e334b21a16f21d5524abb7175adbe5ace6f33c029d407ae9/prollytree-0.3.3-cp38-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:8a7055a637557cb45bbf5ad18710e5f542250aed03b0538accfba65b242a23c4", size = 5792974 },
+    { url = "https://files.pythonhosted.org/packages/8c/7f/add562b0bf69d70d4eea0aace52cd4ab5e7e86a3dc27b52cb2dae151de43/prollytree-0.3.3-cp38-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:81fadbd92a83fd7addbf63a0b10d34899b9be5e40f53bb2e065146597c0d5062", size = 6252202 },
+    { url = "https://files.pythonhosted.org/packages/ea/57/b730baac76acb173890f2cfb6f37f93a69de39c80cdf8bf8b4322e487a32/prollytree-0.3.3-cp38-abi3-win_amd64.whl", hash = "sha256:3689bbd03b12b10b69341ccf060c221bfa7ba65e66bdf57c7b0f7efa9a4757a0", size = 5376860 },
 ]
 
 [[package]]
