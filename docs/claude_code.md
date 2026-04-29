@@ -30,15 +30,13 @@ Each project gets its own memoir store under `~/.memoir/memoir_<hash>/`, derived
 
 | Command | Purpose |
 |---|---|
+| `/memoir-onboard [--force]` | Populate or refresh the `codebase:onboard` snapshot. |
 | `/memoir-remember <fact>` | Capture a memory. `-p <path>` skips classification. |
 | `/memory-recall <query>` | Recall from prior sessions (delegates to the `memory-recall` skill). |
-| `/memoir-forget <key>` | Delete a memory. Always `--force` for non-interactive use. |
 | `/memoir-status` | Branch, commit count, memory count, namespaces. |
-| `/memoir-taxonomy` | Loaded categories + per-namespace distribution. |
 | `/memoir-ui` | Launch or re-open the web UI (readonly, LLM off by default). |
-| `/memoir-onboard [--force]` | Populate or refresh the `codebase:onboard` snapshot. |
-| `/memoir-unmerged` | List memoir branches ahead of `main`. |
-| `/memoir-sync-branch <name>` | Merge a branch into `main` without switching. |
+
+Admin operations (`forget`, `taxonomy`, `unmerged`, `sync-branch`) are available via the `memoir` CLI directly — they were dropped from the slash-command surface to keep the in-session UX focused on the five everyday actions.
 
 ## Skills
 
@@ -54,7 +52,7 @@ The split is deliberate: **recall owns user-captured facts; onboard owns codebas
 By design:
 
 - **Reads are auto-triggered via skills.** The agent pulls context when it thinks it might need to, without the user asking.
-- **Writes and deletes are explicit slash commands.** `/memoir-remember` and `/memoir-forget` stay as commands — not skills — because the `Stop` hook already handles auto-capture, and deletion is kept explicit for safety.
+- **Writes are an explicit slash command.** `/memoir-remember` stays as a command — not a skill — because the `Stop` hook already handles auto-capture; this command is the manual escape hatch. Deletion (`memoir forget`) lives on the CLI rather than as a slash command, kept explicit for safety.
 
 ## Lifecycle hooks
 
@@ -116,7 +114,7 @@ Two properties to notice:
 - **Reads happen eagerly, writes happen lazily.** Every prompt passes through `UserPromptSubmit` (step 2) and potentially fires `memory-recall` (step 3) — the agent pulls context without the user asking. Auto-capture is deferred to `Stop` (step 4), which is async so it never blocks the turn.
 - **Namespaces split along read/write paths.** `memory-recall` works against `default` (user-captured facts, written by the `Stop` hook or `/memoir-remember`). `memoir-onboard` works against `codebase:onboard` (repo snapshot, written by `/memoir-onboard`, replayed by the `SessionStart` hook). Two namespaces, two lifecycles, no overlap.
 
-The admin surface — `/memoir-ui`, `/memoir-status`, `/memoir-taxonomy`, `/memoir-unmerged`, `/memoir-sync-branch` — sits outside this lifecycle: it's explicit user invocation, not hook-driven.
+The admin surface — `/memoir-ui`, `/memoir-status` (slash commands), plus `memoir taxonomy`, `memoir unmerged`, and `memoir sync-branch` (CLI) — sits outside this lifecycle: it's explicit user invocation, not hook-driven.
 
 ## Session context injection
 
@@ -181,7 +179,7 @@ Each value is ≤ ~500 chars; the SessionStart compact view takes the first sent
 
 **Branch behavior.** The snapshot lives in the `codebase:onboard` namespace, **not `default`** — `BranchService.promote_branch` only carries the default namespace, so `codebase:onboard` stays per-branch. This is intentional: a feature branch can carry its own structural notes without leaking them to `main` until the user explicitly chooses to.
 
-**Staleness.** `SessionStart` flags the snapshot `stale="true"` when `_meta.last_onboard.date` is more than 30 days old, and appends a `(snapshot is stale — run /memoir-onboard to refresh)` hint. `/memoir-sync-branch` calls `update_onboard_meta_after_sync` on the merged branch so the meta keys stay truthful even when the user hasn't re-run `/memoir-onboard`.
+**Staleness.** `SessionStart` flags the snapshot `stale="true"` when `_meta.last_onboard.date` is more than 30 days old, and appends a `(snapshot is stale — run /memoir-onboard to refresh)` hint. `memoir sync-branch` calls `update_onboard_meta_after_sync` on the merged branch so the meta keys stay truthful even when the user hasn't re-run `/memoir-onboard`.
 
 ## Non-git folders (`project:onboard`)
 
@@ -194,7 +192,7 @@ The plugin treats non-git folders as a first-class case rather than a degraded g
 | Branches | Auto-tracks code branch | Locked to `main` |
 | Status line | `[memoir] <branch> · N memories` | `[memoir] main · N memories` |
 | Stop auto-capture | Captures to current memoir branch | Captures to `main` |
-| `/memoir-sync-branch`, `/memoir-unmerged` | Operate normally | Short-circuit with "non-git folder: only `main` exists" |
+| `memoir sync-branch`, `memoir unmerged` (CLI) | Operate normally | Short-circuit with "non-git folder: only `main` exists" |
 | `/memoir-onboard` | `codebase:onboard` cold/warm based on **code SHA** | `project:onboard` cold/warm based on **filesystem snapshot hash** |
 | `SessionStart` injection | Renders `codebase:onboard` block | Renders `project:onboard` block |
 | Stats / `memoir log`, `graph`, `tree` | Identical | Identical |
@@ -292,7 +290,7 @@ Each turn the hook reads the existing accumulator, folds in deltas computed by `
 
 **Toggles & failure mode.** `MEMOIR_NO_METRICS=1` disables the metrics path independently of `MEMOIR_NO_CAPTURE` — either can fail without affecting the other. The whole block is wrapped in `2>/dev/null || true`, matching the rest of the Stop hook's fail-silent design.
 
-**Branch identity & merge.** Source-branch identity lives in the key fragment, not the value — so `BranchService.promote_branch` (default-namespace only) carries `metrics.turn.feature/x` to `main` automatically when the user runs `/memoir-sync-branch feature/x`. After promotion, `main` retains its own `metrics.turn.main` untouched; `metrics.turn.feature/x` rides along, preserving the per-source-branch view.
+**Branch identity & merge.** Source-branch identity lives in the key fragment, not the value — so `BranchService.promote_branch` (default-namespace only) carries `metrics.turn.feature/x` to `main` automatically when the user runs `memoir sync-branch feature/x`. After promotion, `main` retains its own `metrics.turn.main` untouched; `metrics.turn.feature/x` rides along, preserving the per-source-branch view.
 
 **UI surface.** The `/memoir-ui` Statistics modal grows two conditional tabs after Overview:
 
