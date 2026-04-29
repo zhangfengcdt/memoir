@@ -141,7 +141,7 @@ export default function BranchCommitsModal() {
         </div>
 
         <footer className="branchcommits-footer">
-          Each section is one commit with only the memories it introduced.
+          Each section is one commit. Only additions and updates are shown — deletions don't sync to main.
         </footer>
       </div>
     </div>
@@ -149,6 +149,9 @@ export default function BranchCommitsModal() {
 }
 
 function CommitSection({ commit }: { commit: CommitDiff }) {
+  // sync-branch is add/update only — deletions never reach main, so hide them
+  // from this preview to keep it aligned with what an actual merge would carry.
+  const syncableChanges = commit.changes.filter((c) => c.type !== "deleted");
   return (
     <li className="branchcommits-section">
       <header className="branchcommits-commit-head">
@@ -159,21 +162,21 @@ function CommitSection({ commit }: { commit: CommitDiff }) {
         <div className="branchcommits-commit-stats">
           <span className="diff-stat added">+{commit.stats.added}</span>
           <span className="diff-stat modified">~{commit.stats.modified}</span>
-          <span className="diff-stat deleted">−{commit.stats.deleted}</span>
         </div>
       </header>
       <p className="branchcommits-commit-meta">
         {commit.author} · {relativeTime(commit.timestamp)}
       </p>
-      {commit.changes.length > 0 ? (
+      {syncableChanges.length > 0 ? (
         <ul className="diff-cards">
-          {commit.changes.map((change, i) => (
+          {syncableChanges.map((change, i) => (
             <ChangeCard key={`${change.path}-${i}`} change={change} />
           ))}
         </ul>
       ) : (
         <p className="drawer-empty-hint">
-          No key-level changes — this commit may carry only metadata.
+          No additions or updates — this commit only deletes keys, which won't
+          merge to main.
         </p>
       )}
     </li>
