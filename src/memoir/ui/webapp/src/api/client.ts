@@ -3,6 +3,7 @@ import type {
   BlameResponse,
   BranchesResponse,
   BranchesStatusResponse,
+  BranchMergePreviewResponse,
   CommitsResponse,
   CurrentBranchResponse,
   LocationResponse,
@@ -179,6 +180,20 @@ export const api = {
     const { from, to, ...rest } = raw;
     return { ...rest, fromRef: from, toRef: to };
   },
+
+  /** Flat-by-key preview of what ``promote_branch(to → from)`` would carry,
+   * with BEFORE/AFTER content. Same semantics as the merge confirmation
+   * panel — added/modified only, default namespace only, deletions skipped. */
+  branchMergePreview: (
+    path: string,
+    fromRef: string,
+    toRef: string,
+  ): Promise<BranchMergePreviewResponse> =>
+    getJSON<BranchMergePreviewResponse>("/api/branch-merge-preview", {
+      path,
+      from: fromRef,
+      to: toRef,
+    }),
 
   // ---------------- Memory ops ----------------
 

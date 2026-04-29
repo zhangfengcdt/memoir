@@ -1,45 +1,50 @@
 import { useEffect, useRef, useState } from "react";
 import { api, MemoirApiError } from "../api/client";
-import type { Change, CommitDiff, RangeDiffResponse } from "../api/types";
+import type { BranchMergePreviewResponse } from "../api/types";
 import { useStore } from "../state/storeSlice";
 import { useUI } from "../state/uiSlice";
-import { relativeTime } from "../lib/time";
 import "../drawers/DrawerPanels.css";
 import "./BranchCommitsModal.css";
 
 /**
- * "Commits on <branch> · not yet on <default>" modal — opened by
- * clicking the ↑N-ahead pill on a branch row in SyncBranchesModal.
+ * "Memories on <branch> · not yet on <default>" modal — opened by clicking
+ * the ↑ ahead pill on a branch row in SyncBranchesModal.
  *
- * Reuses /api/commit-range-diff (default..branch) and the same change-card
- * styles as the CommitDetail drawer so the visual language stays
- * consistent across diff views.
+ * Renders the same flat-by-key view that the merge confirmation panel
+ * shows: just the add/update operations ``promote_branch`` would carry,
+ * with BEFORE/AFTER content. No per-commit grouping (intermediate values
+ * don't reach main, so showing them was misleading); no deletions
+ * (``promote_branch`` is add/update-only).
  */
 export default function BranchCommitsModal() {
   const branch = useUI((s) => s.branchCommitsTarget);
   const close = useUI((s) => s.closeBranchCommits);
   const storePath = useStore((s) => s.storePath);
   const data = useStore((s) => s.data);
+  const refreshStore = useStore((s) => s.refresh);
   const defaultBranch = data?.branches.find((b) => b === "main") ?? data?.current_branch ?? "main";
+  const currentBranch = data?.current_branch ?? null;
 
   const dialogRef = useRef<HTMLDivElement | null>(null);
   const previousActive = useRef<HTMLElement | null>(null);
 
-  const [diff, setDiff] = useState<RangeDiffResponse | null>(null);
+  const [preview, setPreview] = useState<BranchMergePreviewResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Bumped after each successful revert so the preview effect re-fetches.
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!branch || !storePath) return;
     let cancelled = false;
     setLoading(true);
     setError(null);
-    setDiff(null);
+    setPreview(null);
     api
-      .rangeDiff(storePath, defaultBranch, branch)
+      .branchMergePreview(storePath, defaultBranch, branch)
       .then((res) => {
         if (cancelled) return;
-        setDiff(res);
+        setPreview(res);
         setLoading(false);
       })
       .catch((err: unknown) => {
@@ -50,7 +55,12 @@ export default function BranchCommitsModal() {
     return () => {
       cancelled = true;
     };
-  }, [branch, storePath, defaultBranch]);
+  }, [branch, storePath, defaultBranch, refreshKey]);
+
+  const onReverted = () => {
+    setRefreshKey((k) => k + 1);
+    void refreshStore();
+  };
 
   // Focus management.
   useEffect(() => {
@@ -72,9 +82,9 @@ export default function BranchCommitsModal() {
 
   if (!branch) return null;
 
-  // The range-diff response orders commits old → new (chronological).
-  // Reverse so the most recent commit is at the top — matches v1's layout.
-  const commits = diff ? [...diff.commits].reverse() : [];
+  const totalChanges = preview
+    ? preview.added.length + preview.modified.length
+    : 0;
 
   return (
     <div
@@ -95,10 +105,17 @@ export default function BranchCommitsModal() {
         <header className="branchcommits-header">
           <div>
             <h2 id="branchcommits-title" className="branchcommits-title">
-              Commits on <code>{branch}</code>
+              Memories on <code>{branch}</code>
             </h2>
             <p className="branchcommits-subtitle">
               not yet on <code>{defaultBranch}</code>
+              {preview && totalChanges > 0 && (
+                <>
+                  {" · "}
+                  <span className="diff-stat added">+{preview.added.length}</span>{" "}
+                  <span className="diff-stat modified">~{preview.modified.length}</span>
+                </>
+              )}
             </p>
           </div>
           <button
@@ -124,88 +141,166 @@ export default function BranchCommitsModal() {
         </header>
 
         <div className="branchcommits-body">
-          {loading && <p className="drawer-empty-hint">Loading commits…</p>}
+          {loading && <p className="drawer-empty-hint">Loading preview…</p>}
           {error && <p className="drawer-error">Failed: {error}</p>}
-          {diff && commits.length === 0 && (
+          {preview && totalChanges === 0 && (
             <p className="drawer-empty-hint">
-              No commits on this branch are missing from <code>{defaultBranch}</code>.
+              No default-namespace memories on <code>{branch}</code> differ from{" "}
+              <code>{defaultBranch}</code>. Nothing would merge.
             </p>
           )}
-          {commits.length > 0 && (
-            <ul className="branchcommits-list">
-              {commits.map((c) => (
-                <CommitSection key={c.hash} commit={c} />
+          {preview && totalChanges > 0 && storePath && (
+            <ul className="diff-cards">
+              {preview.added.map((item) => (
+                <ChangeCard
+                  key={`add-${item.path}`}
+                  type="added"
+                  path={item.path}
+                  newContent={item.new_content}
+                  storePath={storePath}
+                  viewedBranch={branch}
+                  currentBranch={currentBranch}
+                  onReverted={onReverted}
+                />
+              ))}
+              {preview.modified.map((item) => (
+                <ChangeCard
+                  key={`mod-${item.path}`}
+                  type="modified"
+                  path={item.path}
+                  oldContent={item.old_content}
+                  newContent={item.new_content}
+                  storePath={storePath}
+                  viewedBranch={branch}
+                  currentBranch={currentBranch}
+                  onReverted={onReverted}
+                />
               ))}
             </ul>
           )}
         </div>
 
         <footer className="branchcommits-footer">
-          Each section is one commit. Only additions and updates are shown — deletions don't sync to main.
+          Same view as the merge confirmation panel — only the add/update
+          operations that would land on <code>{defaultBranch}</code>.
         </footer>
       </div>
     </div>
   );
 }
 
-function CommitSection({ commit }: { commit: CommitDiff }) {
-  // sync-branch is add/update only — deletions never reach main, so hide them
-  // from this preview to keep it aligned with what an actual merge would carry.
-  const syncableChanges = commit.changes.filter((c) => c.type !== "deleted");
-  return (
-    <li className="branchcommits-section">
-      <header className="branchcommits-commit-head">
-        <code className="branchcommits-commit-hash">{commit.short_hash}</code>
-        <span className="branchcommits-commit-msg" title={commit.message}>
-          {commit.message}
-        </span>
-        <div className="branchcommits-commit-stats">
-          <span className="diff-stat added">+{commit.stats.added}</span>
-          <span className="diff-stat modified">~{commit.stats.modified}</span>
-        </div>
-      </header>
-      <p className="branchcommits-commit-meta">
-        {commit.author} · {relativeTime(commit.timestamp)}
-      </p>
-      {syncableChanges.length > 0 ? (
-        <ul className="diff-cards">
-          {syncableChanges.map((change, i) => (
-            <ChangeCard key={`${change.path}-${i}`} change={change} />
-          ))}
-        </ul>
-      ) : (
-        <p className="drawer-empty-hint">
-          No additions or updates — this commit only deletes keys, which won't
-          merge to main.
-        </p>
-      )}
-    </li>
-  );
+interface ChangeCardProps {
+  type: "added" | "modified";
+  path: string;
+  oldContent?: string;
+  newContent: string;
+  storePath: string;
+  viewedBranch: string;
+  currentBranch: string | null;
+  onReverted: () => void;
 }
 
-function ChangeCard({ change }: { change: Change }) {
-  const symbol = change.type === "added" ? "+" : change.type === "deleted" ? "−" : "~";
+function ChangeCard({
+  type,
+  path,
+  oldContent,
+  newContent,
+  storePath,
+  viewedBranch,
+  currentBranch,
+  onReverted,
+}: ChangeCardProps) {
+  const symbol = type === "added" ? "+" : "~";
+  // Revert mutates the store's HEAD branch. Only enable when the user is
+  // already on the branch they're viewing — cross-branch writes would
+  // require server-side checkout/restore, which v1 doesn't do.
+  const canRevert = currentBranch === viewedBranch;
+  const [confirmState, setConfirmState] = useState<"idle" | "confirm" | "loading">(
+    "idle",
+  );
+  const [error, setError] = useState<string | null>(null);
+
+  // Auto-revert the confirmation prompt after 10s of inaction so the user
+  // doesn't accidentally confirm a stale intent later.
+  useEffect(() => {
+    if (confirmState !== "confirm") return;
+    const t = window.setTimeout(() => setConfirmState("idle"), 10_000);
+    return () => window.clearTimeout(t);
+  }, [confirmState]);
+
+  const onRevertClick = async () => {
+    if (confirmState === "idle") {
+      setConfirmState("confirm");
+      return;
+    }
+    if (confirmState !== "confirm") return;
+    setConfirmState("loading");
+    setError(null);
+    try {
+      if (type === "added") {
+        // Reverting an add = delete the key.
+        await api.forget(storePath, path, "default");
+      } else if (oldContent != null) {
+        // Reverting a modify = restore the BEFORE content.
+        await api.updateMemory(storePath, path, oldContent, {
+          namespace: "default",
+          editSource: "manual",
+        });
+      } else {
+        throw new Error("Cannot revert: no previous content available");
+      }
+      onReverted();
+    } catch (err) {
+      setError(err instanceof MemoirApiError ? err.message : String(err));
+      setConfirmState("idle");
+    }
+  };
+
+  const revertLabel =
+    confirmState === "loading"
+      ? "Reverting…"
+      : confirmState === "confirm"
+        ? "Confirm revert"
+        : "Revert";
+  const revertTitle = !canRevert
+    ? `Switch to ${viewedBranch} to revert (currently on ${currentBranch ?? "unknown"})`
+    : confirmState === "confirm"
+      ? type === "added"
+        ? `Click again to delete ${path} from ${viewedBranch}`
+        : `Click again to restore the BEFORE content of ${path}`
+      : `Revert this ${type} on ${viewedBranch}`;
+
   return (
-    <li className={`diff-card type-${change.type}`}>
+    <li className={`diff-card type-${type}`}>
       <header className="diff-card-header">
         <span className="diff-card-sym" aria-hidden="true">
           {symbol}
         </span>
-        <code className="diff-card-path">{change.path}</code>
-        <span className={`diff-card-tag tag-${change.type}`}>{change.type.toUpperCase()}</span>
+        <code className="diff-card-path">{path}</code>
+        <span className={`diff-card-tag tag-${type}`}>{type.toUpperCase()}</span>
+        <button
+          type="button"
+          className={`diff-card-revert${confirmState === "confirm" ? " is-confirm" : ""}`}
+          disabled={!canRevert || confirmState === "loading"}
+          onClick={onRevertClick}
+          title={revertTitle}
+        >
+          {revertLabel}
+        </button>
       </header>
-      {(change.type === "modified" || change.type === "deleted") && change.old_content && (
+      {type === "modified" && oldContent && (
         <div className="diff-card-section">
           <span className="diff-card-label">BEFORE:</span>
-          <div className="diff-card-block before">{change.old_content}</div>
+          <div className="diff-card-block before">{oldContent}</div>
         </div>
       )}
-      {(change.type === "modified" || change.type === "added") && change.new_content && (
+      {newContent && (
         <div className="diff-card-section">
           <span className="diff-card-label">AFTER:</span>
-          <div className="diff-card-block after">{change.new_content}</div>
+          <div className="diff-card-block after">{newContent}</div>
         </div>
       )}
+      {error && <div className="diff-card-revert-error">Revert failed: {error}</div>}
     </li>
   );
 }
