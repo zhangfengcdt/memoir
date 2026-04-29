@@ -42,8 +42,8 @@ categories retained and marked `[general]` where coding relevance is secondary.
 
 ## Machine-written namespaces (reserved, not in the taxonomy)
 
-- `codebase:onboard` — populated by `/memoir-onboard` in a git repo, injected at SessionStart.
-- `project:onboard` — populated by `/memoir-onboard` in a non-git folder; mirrors `codebase:onboard` for non-code projects (writing, editing, bookkeeping). File-shape index built by deterministic extractors, not LLM calls.
+- `codebase:onboard` — populated by `/memoir:onboard` in a git repo, injected at SessionStart.
+- `project:onboard` — populated by `/memoir:onboard` in a non-git folder; mirrors `codebase:onboard` for non-code projects (writing, editing, bookkeeping). File-shape index built by deterministic extractors, not LLM calls.
 - `taxonomy:v1:*` — classifier bookkeeping; internal.
 - `automemory.*` — reserved for auto-memory mirror hooks (optional plugin feature).
 

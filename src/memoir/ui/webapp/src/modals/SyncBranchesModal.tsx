@@ -187,7 +187,11 @@ export default function SyncBranchesModal() {
     if (a.is_default !== b.is_default) return a.is_default ? -1 : 1;
     return a.name.localeCompare(b.name);
   });
-  const aheadCount = branches.filter((b) => !b.is_default && b.ahead > 0).length;
+  // Commit-based for all rows — matches what the per-row pill shows now
+  // that the popup no longer pre-computes a precise key count.
+  const aheadCount = branches.filter(
+    (b) => !b.is_default && !b.synced && b.ahead > 0,
+  ).length;
 
   return (
     <div
@@ -280,12 +284,13 @@ export default function SyncBranchesModal() {
 
         <footer className="sync-footer">
           <span>
-            Counts are git commits between branches — one memory may land as
-            multiple commits.
+            "↑ ahead" means the branch has memories not yet on main. Click it
+            to see exactly which default-namespace memories would merge.
           </span>
           {data && (
             <span>
-              {aheadCount} branch{aheadCount === 1 ? "" : "es"} with unmerged commits
+              {aheadCount} branch{aheadCount === 1 ? "" : "es"} ahead of{" "}
+              {data.default}
             </span>
           )}
         </footer>
@@ -332,13 +337,19 @@ function BranchRow({
 }: BranchRowProps) {
   const isDefault = branch.is_default;
   const isCurrent = branch.is_current;
+  // Commit-based sync detection for all rows. The popup intentionally does
+  // not compute a precise default-namespace key count up front — that costs
+  // ~200ms per branch in checkout overhead. The exact add/update list is
+  // shown in the merge confirmation panel after the user clicks Merge
+  // (``previewMerge`` runs the dry-run there).
   const synced = branch.synced || branch.ahead === 0;
   const openBranchCommits = useUI((s) => s.openBranchCommits);
 
-  // Merge into main is only meaningful for non-default branches that
-  // actually have commits to contribute. Delete is forbidden for the
-  // current branch (you can't delete the branch you're standing on).
-  const canMerge = !isDefault && !synced;
+  // Merge into main is gated to the current branch — promote_branch reads
+  // from whatever HEAD points at, and we don't want users merging a branch
+  // they aren't currently on. Delete is forbidden for the current branch
+  // (you can't delete the branch you're standing on).
+  const canMerge = !isDefault && !synced && isCurrent;
   const canDelete = !isDefault && !isCurrent;
 
   const isPreviewingMerge = mergePreview !== null;
@@ -357,15 +368,21 @@ function BranchRow({
           {synced ? (
             <span className="sync-status synced">✓ synced</span>
           ) : (
-            // Clicking the ahead pill opens the per-commit diff modal so
-            // users can see exactly what's about to be merged.
+            // No precise count rendered up-front — clicking the pill opens
+            // the per-commit diff modal (default-namespace only), and clicking
+            // Merge runs ``previewMerge`` which produces the exact add/update
+            // list in the confirmation panel.
             <button
               type="button"
               className="sync-status ahead clickable"
               onClick={() => openBranchCommits(branch.name)}
-              title={`See the ${branch.ahead} commit${branch.ahead === 1 ? "" : "s"} not yet on ${defaultBranch}`}
+              title={
+                isCurrent
+                  ? `Inspect default-namespace memories not yet on ${defaultBranch}`
+                  : `Inspect commits on ${branch.name} not yet on ${defaultBranch}. Switch to this branch to merge it.`
+              }
             >
-              ↑ {branch.ahead} ahead
+              ↑ ahead
             </button>
           )}
           <button
@@ -377,7 +394,9 @@ function BranchRow({
               !canMerge
                 ? isDefault
                   ? "This is the default branch"
-                  : "Already merged into the default branch"
+                  : !isCurrent
+                    ? `Switch to ${branch.name} first to merge it into ${defaultBranch}`
+                    : "Already merged into the default branch"
                 : `Merge ${branch.name} into ${defaultBranch}`
             }
           >

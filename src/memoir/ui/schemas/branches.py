@@ -35,6 +35,10 @@ class BranchStatus(BaseModel):
     is_current: bool
     ahead: int
     behind: int
+    # Number of default-namespace keys that would sync to the default branch
+    # (additions + modifications, no deletions). This is what the UI's "N ahead"
+    # pill should display — what would actually merge, not raw commit count.
+    keys_ahead: int = 0
     # ``BranchService`` writes the date as ISO 8601 when available; ``None``
     # for empty branches.
     last_commit_date: str | None = None

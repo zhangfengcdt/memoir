@@ -19,7 +19,7 @@ def _resolve_code_repo_path(store_path: str, items: list[dict]) -> str | None:
 
     Tries (in order):
       1. `_meta.last_onboard.code_repo_path` from the snapshot (future-proof —
-         the /memoir-onboard skill is the right place to start writing this).
+         the /memoir:onboard skill is the right place to start writing this).
       2. Reverse-derive from the store slug under `~/.memoir/<slug>` —
          convention is the absolute path with `/` and `.` replaced by `-`.
 
@@ -134,7 +134,7 @@ class StoreHandler(BaseAPIHandler):
         """Return the codebase:onboard namespace as raw key/value pairs.
 
         No LLM. The UI renders the same compact view that SessionStart
-        injects, so the structure is whatever the /memoir-onboard skill
+        injects, so the structure is whatever the /memoir:onboard skill
         wrote — top-level roots like ``goal``, ``structure``, ``rules``,
         ``lessons``, ``_meta``.
         """
@@ -193,7 +193,7 @@ class StoreHandler(BaseAPIHandler):
         """Return the project:onboard namespace as raw key/value pairs.
 
         Mirrors handle_onboard_api but reads the non-git counterpart namespace
-        populated by /memoir-onboard for non-git folders. No git-HEAD lookup —
+        populated by /memoir:onboard for non-git folders. No git-HEAD lookup —
         non-git projects have no code commit to compare against; staleness is
         signaled instead by the writer-side ``_meta.last_onboard.snapshot_hash``
         which the UI surfaces in the header.

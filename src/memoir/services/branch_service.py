@@ -706,6 +706,47 @@ class BranchService(BaseService):
             out["error"] = str(e)
         return out
 
+    def _batch_branch_tips(self) -> dict[str, dict[str, object]]:
+        """Return ``{branch_name: {"iso": str|None, "unix": int|None}}`` for
+        every local branch in a single ``git for-each-ref`` call.
+
+        ``get_branches_status`` calls this once and looks up per-branch
+        timestamps from the dict instead of forking ``git log -1`` per branch
+        per format — replaces 2N subprocesses with 1.
+        """
+        try:
+            result = self._run_git_command(
+                [
+                    "for-each-ref",
+                    "--format=%(refname:short)|%(committerdate:iso8601)|%(committerdate:unix)",
+                    "refs/heads/",
+                ],
+                check=False,
+            )
+            if result.returncode != 0:
+                return {}
+            tips: dict[str, dict[str, object]] = {}
+            for line in result.stdout.splitlines():
+                line = line.strip()
+                if not line:
+                    continue
+                parts = line.split("|", 2)
+                if len(parts) < 3:
+                    continue
+                name, iso, unix_str = parts
+                try:
+                    unix_val: int | None = int(unix_str) if unix_str else None
+                except ValueError:
+                    unix_val = None
+                tips[name] = {
+                    "iso": iso if iso else None,
+                    "unix": unix_val,
+                }
+            return tips
+        except Exception as e:
+            logger.warning(f"_batch_branch_tips failed: {e}")
+            return {}
+
     def _get_branch_last_commit_iso(self, branch: str) -> str | None:
         """Return ISO timestamp of the tip commit of `branch`, or None."""
         try:
@@ -780,6 +821,10 @@ class BranchService(BaseService):
         """
         info = self.list_branches()  # raises StoreNotFoundError / GitOperationError
         default = self.get_default_branch()
+        # One subprocess instead of 2N: pre-fetch all branch tip timestamps
+        # so the per-branch loop reads from memory instead of forking
+        # ``git log -1`` twice per branch.
+        tips = self._batch_branch_tips()
 
         branches: list[dict] = []
         for name in info.branches:
@@ -787,15 +832,27 @@ class BranchService(BaseService):
             ahead = div["ahead"]
             synced = False
 
+            tip = tips.get(name, {})
+            tip_ts = tip.get("unix")
+            tip_iso = tip.get("iso")
+
             # Treat ahead as 0 when a sync marker was written after the branch
             # tip's last commit. ProllyTree's merge creates a single-parent
             # commit on the target, so git ancestry still shows the source as
             # "ahead" even after a successful push — the marker disambiguates.
             marker_ts = self._read_sync_marker(name)
-            tip_ts = self._get_branch_last_commit_unix(name)
             if marker_ts is not None and tip_ts is not None and marker_ts >= tip_ts:
                 synced = True
                 ahead = 0
+
+            # ``keys_ahead`` is intentionally NOT computed here. A precise
+            # default-namespace key count would require running
+            # ``promote_branch(dry_run=True)``, which costs ~200ms per branch
+            # in checkout overhead. The popup doesn't need this number — the
+            # exact count already appears in the merge confirmation panel
+            # (which runs ``previewMerge`` on click), and the pill itself
+            # only needs to convey "synced" vs "not synced". Field is kept
+            # for backwards compat with clients but always 0.
 
             branches.append(
                 {
@@ -804,7 +861,8 @@ class BranchService(BaseService):
                     "is_current": name == info.current,
                     "ahead": ahead,
                     "behind": div["behind"],
-                    "last_commit_date": self._get_branch_last_commit_iso(name),
+                    "keys_ahead": 0,
+                    "last_commit_date": tip_iso,
                     "synced": synced,
                 }
             )
@@ -971,6 +1029,113 @@ class BranchService(BaseService):
             if value is not None:
                 out[bare_key] = value
         return out
+
+    def preview_default_namespace_diff(
+        self,
+        source: str,
+        target: str,
+    ) -> dict:
+        """
+        Return what ``promote_branch(source → target)`` would actually carry,
+        with the **values** (not just key names). Same checkout dance as
+        ``promote_branch(dry_run=True)`` but captures the raw stored values
+        so callers can render BEFORE/AFTER content.
+
+        Used by ``/api/branch-merge-preview`` to back the BranchCommitsModal,
+        which wants a flat-by-key view consistent with the merge confirmation
+        panel — no per-commit grouping, no deletions, just the net add/update
+        operations.
+
+        Returns:
+            ``{"success": bool, "added": {path: raw_value},
+              "modified": {path: (old_raw, new_raw)},
+              "error": str | None, "restored_branch": str | None}``
+        """
+        if not Path(self.store_path).exists():
+            raise StoreNotFoundError(self.store_path)
+
+        if source == target:
+            return {
+                "success": False,
+                "added": {},
+                "modified": {},
+                "error": "Source and target are the same branch",
+                "restored_branch": None,
+            }
+
+        try:
+            original_branch, _ = self.get_current_branch()
+        except Exception as e:
+            return {
+                "success": False,
+                "added": {},
+                "modified": {},
+                "error": f"Could not read current branch: {e}",
+                "restored_branch": None,
+            }
+
+        # Read source values.
+        if original_branch != source:
+            checkout_source = self.checkout(source)
+            if not checkout_source.success:
+                return {
+                    "success": False,
+                    "added": {},
+                    "modified": {},
+                    "error": checkout_source.error
+                    or f"Could not checkout source '{source}'",
+                    "restored_branch": original_branch,
+                }
+            self._store = None
+        self._reset_working_tree_to_head()
+        self._store = None
+
+        try:
+            source_data = self._read_default_namespace()
+        except Exception as e:
+            self._restore_after_promote(original_branch, True)
+            return {
+                "success": False,
+                "added": {},
+                "modified": {},
+                "error": f"Failed to read source branch '{source}': {e}",
+                "restored_branch": original_branch,
+            }
+
+        # Switch to target and read its values for the keys present on source.
+        checkout_target = self.checkout(target)
+        if not checkout_target.success:
+            self._restore_after_promote(original_branch, True)
+            return {
+                "success": False,
+                "added": {},
+                "modified": {},
+                "error": checkout_target.error
+                or f"Could not checkout target '{target}'",
+                "restored_branch": original_branch,
+            }
+        self._reset_working_tree_to_head()
+        self._store = None
+        store = self._get_store()
+
+        added: dict[str, Any] = {}
+        modified: dict[str, tuple] = {}
+        for key, src_value in source_data.items():
+            tgt_value = store.get(("default",), key)
+            if tgt_value is None:
+                added[key] = src_value
+            elif tgt_value != src_value:
+                modified[key] = (tgt_value, src_value)
+            # else: identical — no-op.
+
+        restored = self._restore_after_promote(original_branch, True)
+        return {
+            "success": True,
+            "added": added,
+            "modified": modified,
+            "error": None,
+            "restored_branch": restored,
+        }
 
     def promote_branch(
         self,

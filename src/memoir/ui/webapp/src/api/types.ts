@@ -50,6 +50,11 @@ export interface BranchStatus {
   is_current: boolean;
   ahead: number;
   behind: number;
+  /** Number of default-namespace keys (additions + modifications) that would
+   * sync to the default branch via promote_branch. This is the count the
+   * "↑ N ahead" pill displays — reflects what would actually merge, not
+   * the raw commit count. Servers older than this field default to 0. */
+  keys_ahead?: number;
   last_commit_date: string | null;
   synced: boolean;
 }
@@ -194,6 +199,30 @@ export interface RangeDiffResponse {
   fromRef: string;
   toRef: string;
   commits: CommitDiff[];
+}
+
+// --- /api/branch-merge-preview --------------------------------------------
+// Flat-by-key view of what ``promote_branch(to → from)`` would carry.
+// Backs BranchCommitsModal — renders the same add/update operations the
+// merge confirmation panel shows, plus BEFORE/AFTER content.
+export interface MergePreviewAdded {
+  path: string;
+  new_content: string;
+}
+
+export interface MergePreviewModified {
+  path: string;
+  old_content: string;
+  new_content: string;
+}
+
+export interface BranchMergePreviewResponse {
+  success: boolean;
+  from: string;
+  to: string;
+  added: MergePreviewAdded[];
+  modified: MergePreviewModified[];
+  error?: string;
 }
 
 // --- /api/commits ----------------------------------------------------------

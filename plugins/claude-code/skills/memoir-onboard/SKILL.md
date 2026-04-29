@@ -1,6 +1,6 @@
 ---
 name: memoir-onboard
-description: "Populate or refresh a persistent, high-level project snapshot in memoir. In a git repo this writes `codebase:onboard` (code-shape: modules, goals, rules, lessons) — use when: (1) the user asks for onboarding / a codebase tour ('what does this project do', 'give me a codebase overview', 'onboard me to this repo'); (2) the user explicitly runs `/memoir-onboard` or `/memoir-onboard --force`; (3) the SessionStart context hints `no codebase:onboard snapshot yet` or tags the existing snapshot `stale`; (4) a prior `/memoir-sync-branch` suggested refreshing because the merged diff changed code meaningfully. In a non-git folder this writes `project:onboard` (file-shape: per-file structured blobs) using deterministic stdlib extractors instead of LLM passes — use for writing, video editing, bookkeeping, and other mixed-media projects. Snapshot contents seed future sessions via SessionStart injection. Skip for ordinary recall (use memory-recall) or trivial one-file questions."
+description: "Populate or refresh a persistent, high-level project snapshot in memoir. In a git repo this writes `codebase:onboard` (code-shape: modules, goals, rules, lessons) — use when: (1) the user asks for onboarding / a codebase tour ('what does this project do', 'give me a codebase overview', 'onboard me to this repo'); (2) the user explicitly runs `/memoir:onboard` or `/memoir:onboard --force`; (3) the SessionStart context hints `no codebase:onboard snapshot yet` or tags the existing snapshot `stale`; (4) a prior `/memoir-sync-branch` suggested refreshing because the merged diff changed code meaningfully. In a non-git folder this writes `project:onboard` (file-shape: per-file structured blobs) using deterministic stdlib extractors instead of LLM passes — use for writing, video editing, bookkeeping, and other mixed-media projects. Snapshot contents seed future sessions via SessionStart injection. Skip for ordinary recall (use memory-recall) or trivial one-file questions."
 context: fork
 allowed-tools: Bash
 ---
@@ -90,7 +90,7 @@ Refuse to run if another Claude session is actively onboarding this store (two s
 bash -c 'source "${CLAUDE_PLUGIN_ROOT}/hooks/common.sh" >/dev/null 2>&1; concurrent_session_warning'
 ```
 
-If the command prints anything, stop and report: "Concurrent session detected — run /memoir-onboard after the other session finishes, or set a distinct MEMOIR_STORE."
+If the command prints anything, stop and report: "Concurrent session detected — run /memoir:onboard after the other session finishes, or set a distinct MEMOIR_STORE."
 
 ### Step 1 — probe existing state
 
@@ -322,4 +322,4 @@ Do **not** re-quote the full values you wrote. They live in the store and surfac
 - Never write to a key outside the chosen onboard namespace from this skill.
 - Keep each value ≤ ~500 chars where practical (the `files.*.summary` blobs may be longer; the SessionStart injection pulls aggregate counts via `_meta.last_onboard.file_count`, not per-file content).
 - Project-onboard cold/warm passes call **no** LLM. The deterministic extractors are the contract — that's how this stays cheap and offline.
-- If a cold run fails partway through, the `_meta.*` keys act as commit markers. A subsequent `/memoir-onboard --force` will rewrite cleanly.
+- If a cold run fails partway through, the `_meta.*` keys act as commit markers. A subsequent `/memoir:onboard --force` will rewrite cleanly.

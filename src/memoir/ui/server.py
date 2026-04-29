@@ -138,6 +138,8 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_diff_api(parsed_path)
         elif parsed_path.path == "/api/commit-range-diff":
             self.handle_commit_range_diff_api(parsed_path)
+        elif parsed_path.path == "/api/branch-merge-preview":
+            self.handle_branch_merge_preview_api(parsed_path)
         elif parsed_path.path == "/api/statistics":
             self.handle_statistics_api(parsed_path)
         elif parsed_path.path == "/":
@@ -1636,11 +1638,13 @@ Answer:"""
             return ref[:8]
         return ref
 
-    def _kv_diffs_to_changes(self, kv_diffs):
+    def _kv_diffs_to_changes(self, kv_diffs, namespace_filter=None):
         """Convert a list of prollytree KvDiff objects to our UI change format.
 
         Returns (changes, stats). Filters out empty/no-content diffs so the UI
-        stays clean.
+        stays clean. When ``namespace_filter`` is set (e.g. ``"default"``),
+        diffs from other namespaces are skipped — used by the branch-commits
+        view, which mirrors ``promote_branch``'s default-namespace-only scope.
         """
         self._ensure_handlers_initialized()
         extract = self.utility_handler.extract_diff_content
@@ -1652,10 +1656,13 @@ Answer:"""
                 else str(kv_diff.key)
             )
             # Strip namespace prefix (e.g. "default:path" → "path").
+            ns = None
             if ":" in key_str:
                 parts = key_str.split(":", 1)
                 if len(parts) == 2:
-                    key_str = parts[1]
+                    ns, key_str = parts[0], parts[1]
+            if namespace_filter is not None and ns != namespace_filter:
+                continue
 
             op = kv_diff.operation
             op_type = op.operation_type
@@ -1765,7 +1772,12 @@ Answer:"""
                 if parent:
                     try:
                         kv_diffs = store.tree.diff(parent, full_hash)
-                        changes, stats = self._kv_diffs_to_changes(kv_diffs)
+                        # Branch-commits view only shows what would actually
+                        # sync via promote_branch — that's default-namespace
+                        # only, no system or custom namespaces.
+                        changes, stats = self._kv_diffs_to_changes(
+                            kv_diffs, namespace_filter="default"
+                        )
                     except Exception as e:
                         print(f"  diff {parent[:8]}..{short_hash}: {e}")
 
@@ -1852,6 +1864,102 @@ Answer:"""
                 status = 500
 
             self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(payload).encode())
+        except Exception as e:
+            import traceback
+
+            traceback.print_exc()
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode())
+
+    def handle_branch_merge_preview_api(self, parsed_path):
+        """Return the flat-by-key preview of what ``promote_branch(to → from)``
+        would carry, with content. Used by BranchCommitsModal so the inspect
+        view matches what the merge confirmation panel shows.
+
+        Query params:
+          - path: store path
+          - from: target branch (default branch)
+          - to: source branch (the one being inspected)
+        """
+        try:
+            query_params = parse_qs(parsed_path.query)
+            store_path = query_params.get("path", [""])[0]
+            from_ref = query_params.get("from", [None])[0]
+            to_ref = query_params.get("to", [None])[0]
+
+            if not store_path or not from_ref or not to_ref:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps(
+                        {
+                            "success": False,
+                            "error": "path, from, to are all required",
+                        }
+                    ).encode()
+                )
+                return
+
+            if not Path(store_path).exists():
+                self.send_response(404)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps(
+                        {"success": False, "error": "Store path does not exist"}
+                    ).encode()
+                )
+                return
+
+            from memoir.services.branch_service import BranchService
+
+            self._ensure_handlers_initialized()
+            extract = self.utility_handler.extract_memory_content
+
+            service = BranchService(store_path)
+            result = service.preview_default_namespace_diff(
+                source=to_ref, target=from_ref
+            )
+
+            if not result.get("success"):
+                self.send_response(500)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps(result).encode())
+                return
+
+            added_out = []
+            for path, raw_value in result["added"].items():
+                added_out.append(
+                    {
+                        "path": path,
+                        "new_content": extract(raw_value) or "",
+                    }
+                )
+            modified_out = []
+            for path, (old_raw, new_raw) in result["modified"].items():
+                modified_out.append(
+                    {
+                        "path": path,
+                        "old_content": extract(old_raw) or "",
+                        "new_content": extract(new_raw) or "",
+                    }
+                )
+
+            payload = {
+                "success": True,
+                "from": from_ref,
+                "to": to_ref,
+                "added": sorted(added_out, key=lambda x: x["path"]),
+                "modified": sorted(modified_out, key=lambda x: x["path"]),
+            }
+            self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps(payload).encode())

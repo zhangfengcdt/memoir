@@ -96,7 +96,7 @@ Typing `/stats` in the command input opens the **Memory Store Statistics** panel
 | Tab | What it shows |
 |---|---|
 | **Overview** | Top-line counts: total memories, commits, branches, namespaces. |
-| **Codebase** | The `codebase:onboard` snapshot — goals, structure, modules — when the store was populated via `/memoir-onboard`. |
+| **Codebase** | The `codebase:onboard` snapshot — goals, structure, modules — when the store was populated via `/memoir:onboard`. |
 | **Tree Structure** | Depth, branching factor, and leaf counts at each level of the taxonomy tree. |
 | **Version Control** | Commits per branch, merge history, HEADs, recent activity. |
 | **Performance** | Classification and search latencies, cache hit rates. |

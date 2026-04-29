@@ -29,12 +29,12 @@ LLM calls inherit Claude Code's auth automatically (`MEMOIR_LLM_BACKEND=claude-c
 
 | Component | Role |
 |---|---|
-| **Slash commands** | `/memoir-status`, `/memoir-taxonomy`, `/memoir-remember`, `/memoir-forget`, `/memoir-sync-branch`, `/memoir-unmerged`, `/memoir-onboard`, `/memoir-ui`, `/memory-recall`. |
+| **Slash commands** | `/memoir:onboard`, `/memoir:remember`, `/memoir:recall`, `/memoir:status`, `/memoir:ui`. (Admin operations like sync-branch, unmerged, taxonomy, and forget are available via the `memoir` CLI.) |
 | **Skills** | `memory-recall` (user facts, auto-triggered, runs in a forked context) and `memoir-onboard` (maintains the `codebase:onboard` snapshot). |
 | **Lifecycle hooks** | `SessionStart` (inject status + taxonomy + unmerged-branch suggestions), `UserPromptSubmit` (surface matching hints), `Stop` (async auto-capture of durable facts), `SessionEnd` (cleanup). |
 | **Status line** | `[memoir] <branch> · N memories`, with warnings for concurrent sessions or sticky-branch mode. |
 
-Memory branches auto-track code branches — switching to `feature/x` forks a memoir branch from `main` so you inherit all prior captures but keep new ones isolated until you promote them with `/memoir-sync-branch`. For deeper git operations (branch, checkout, merge, time-travel, blame, proof, verify, diff, get, keys), use the `memoir` CLI directly.
+Memory branches auto-track code branches — switching to `feature/x` forks a memoir branch from `main` so you inherit all prior captures but keep new ones isolated until you promote them with `memoir sync-branch`. For deeper git operations (branch, checkout, merge, time-travel, blame, proof, verify, diff, get, keys), use the `memoir` CLI directly.
 
 Disable per-turn auto-capture with `MEMOIR_NO_CAPTURE=1`.
 
@@ -56,4 +56,4 @@ The plugin does not ship an `.mcp.json` — MCP is opt-in. See the [Claude Code 
 
 - [Claude Code plugin guide](https://zhangfengcdt.github.io/memoir/claude_code/) — hooks, auto-capture internals, sticky branches, concurrent sessions, per-command reference.
 - [CLI reference](https://zhangfengcdt.github.io/memoir/cli/) — every `memoir` command and flag.
-- [UI](https://zhangfengcdt.github.io/memoir/ui/) — the visual explorer launched by `/memoir-ui`.
+- [UI](https://zhangfengcdt.github.io/memoir/ui/) — the visual explorer launched by `/memoir:ui`.
