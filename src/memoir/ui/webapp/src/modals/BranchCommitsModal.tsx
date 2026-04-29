@@ -179,11 +179,6 @@ export default function BranchCommitsModal() {
             </ul>
           )}
         </div>
-
-        <footer className="branchcommits-footer">
-          Same view as the merge confirmation panel — only the add/update
-          operations that would land on <code>{defaultBranch}</code>.
-        </footer>
       </div>
     </div>
   );

@@ -284,12 +284,13 @@ export default function SyncBranchesModal() {
 
         <footer className="sync-footer">
           <span>
-            Counts are git commits between branches — one memory may land as
-            multiple commits.
+            "↑ ahead" means the branch has memories not yet on main. Click it
+            to see exactly which default-namespace memories would merge.
           </span>
           {data && (
             <span>
-              {aheadCount} branch{aheadCount === 1 ? "" : "es"} with unmerged commits
+              {aheadCount} branch{aheadCount === 1 ? "" : "es"} ahead of{" "}
+              {data.default}
             </span>
           )}
         </footer>
