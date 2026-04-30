@@ -1076,6 +1076,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="memoir recall — semantic search (in-engine)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#picking-the-llm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Picking the LLM
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -1727,6 +1744,23 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="memoir recall — semantic search (in-engine)">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#picking-the-llm" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Picking the LLM
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
         
           <li class="md-nav__item">
@@ -1902,47 +1936,69 @@
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>memoir<span class="w"> </span>--json<span class="w"> </span>recall<span class="w"> </span><span class="s2">&quot;testing setup&quot;</span><span class="w"> </span>--mode<span class="w"> </span>single<span class="w">  </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;.timing_ms&#39;</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>memoir<span class="w"> </span>--json<span class="w"> </span>recall<span class="w"> </span><span class="s2">&quot;testing setup&quot;</span><span class="w"> </span>--mode<span class="w"> </span>tiered<span class="w">  </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span><span class="s1">&#39;.timing_ms&#39;</span>
 </span></code></pre></div>
+<h4 id="picking-the-llm">Picking the LLM<a class="headerlink" href="#picking-the-llm" title="Permanent link">&para;</a></h4>
+<p>Both <code>recall</code> and <code>remember</code> accept a <code>--model</code> flag. Resolution order:</p>
+<ol>
+<li><code>--model &lt;name&gt;</code> flag (highest priority)</li>
+<li><code>MEMOIR_LLM_MODEL</code> env var</li>
+<li><code>claude-haiku-4-5</code> default</li>
+</ol>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Default — Anthropic Haiku, requires ANTHROPIC_API_KEY</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>memoir<span class="w"> </span>recall<span class="w"> </span><span class="s2">&quot;what&#39;s my testing setup?&quot;</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Per-call override</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>memoir<span class="w"> </span>recall<span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="w">   </span>--model<span class="w"> </span>gpt-4o-mini<span class="w">      </span><span class="c1"># needs OPENAI_API_KEY</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>memoir<span class="w"> </span>remember<span class="w"> </span><span class="s2">&quot;...&quot;</span><span class="w"> </span>--model<span class="w"> </span>claude-sonnet-4-5
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="c1"># Shell-wide override</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="nb">export</span><span class="w"> </span><span class="nv">MEMOIR_LLM_MODEL</span><span class="o">=</span>gpt-4o-mini
+</span></code></pre></div>
+<p>The <code>[litellm]</code> extra is required for any LLM-backed command:
+<code>pip install 'memoir-ai[litellm]'</code>. Without it, <code>recall</code> and
+auto-classifying <code>remember</code> (no <code>-p</code>) raise <code>ImportError</code> at runtime.
+Direct-path operations (<code>remember -p &lt;path&gt;</code>, <code>get</code>, <code>forget</code>,
+<code>branch</code>, <code>checkout</code>, …) work either way.</p>
 <h3 id="memoir-get-direct-lookup-by-taxonomy-path"><code>memoir get</code> — direct lookup by taxonomy path<a class="headerlink" href="#memoir-get-direct-lookup-by-taxonomy-path" title="Permanent link">&para;</a></h3>
 <p>No LLM, no search. Pass one or more exact keys; missing keys come back as <code>found: false</code> so you can batch speculative candidates without branching. Latency is typically &lt;10ms.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Single lookup</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>memoir<span class="w"> </span>get<span class="w"> </span>preferences.coding.style
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># Batched lookup in one call</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>memoir<span class="w"> </span>get<span class="w"> </span>preferences.coding.style<span class="w"> </span>profile.professional.skills
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="c1"># Scope to a namespace, JSON output</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>memoir<span class="w"> </span>--json<span class="w"> </span>get<span class="w"> </span>preferences.coding.style<span class="w"> </span>-n<span class="w"> </span>default
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Single lookup</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>memoir<span class="w"> </span>get<span class="w"> </span>preferences.coding.style
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Batched lookup in one call</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>memoir<span class="w"> </span>get<span class="w"> </span>preferences.coding.style<span class="w"> </span>profile.professional.skills
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c1"># Scope to a namespace, JSON output</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>memoir<span class="w"> </span>--json<span class="w"> </span>get<span class="w"> </span>preferences.coding.style<span class="w"> </span>-n<span class="w"> </span>default
 </span></code></pre></div>
 <p>This is the primitive an outer-LLM caller-driven flow uses once it has narrowed to exact keys. From the CLI it's also the fastest way to read a known memory.</p>
 <h3 id="memoir-summarize-taxonomy-surveys"><code>memoir summarize</code> — taxonomy surveys<a class="headerlink" href="#memoir-summarize-taxonomy-surveys" title="Permanent link">&para;</a></h3>
 <p>Pure-compute taxonomy inspection. The building blocks behind the caller-driven <code>[mode=drill]</code> / <code>[mode=flat]</code> / <code>[mode=get]</code> patterns are directly usable from the shell when you want to understand the layout of a store without invoking any LLM.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Full store breakdown</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>memoir<span class="w"> </span>summarize
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Taxonomy-only view, scoped to one namespace</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>memoir<span class="w"> </span>summarize<span class="w"> </span>taxonomy<span class="w"> </span>-n<span class="w"> </span>default
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c1"># Keys matching a glob</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>memoir<span class="w"> </span>summarize<span class="w"> </span>--keys<span class="w"> </span><span class="s2">&quot;preferences.*&quot;</span>
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>
-</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="c1"># Top-level prefix histogram (L1 survey)</span>
-</span><span id="__span-6-11"><a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a>memoir<span class="w"> </span>summarize<span class="w"> </span>--depth<span class="w"> </span><span class="m">1</span>
-</span><span id="__span-6-12"><a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a>
-</span><span id="__span-6-13"><a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="c1"># Glob + depth: L2 breakdown under preferences.*</span>
-</span><span id="__span-6-14"><a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a>memoir<span class="w"> </span>summarize<span class="w"> </span>--keys<span class="w"> </span><span class="s2">&quot;preferences.*&quot;</span><span class="w"> </span>--depth<span class="w"> </span><span class="m">2</span>
-</span><span id="__span-6-15"><a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a>
-</span><span id="__span-6-16"><a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a><span class="c1"># JSON for scripting</span>
-</span><span id="__span-6-17"><a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a>memoir<span class="w"> </span>--json<span class="w"> </span>summarize<span class="w"> </span>--depth<span class="w"> </span><span class="m">1</span><span class="w"> </span>-n<span class="w"> </span>default
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Full store breakdown</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>memoir<span class="w"> </span>summarize
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># Taxonomy-only view, scoped to one namespace</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>memoir<span class="w"> </span>summarize<span class="w"> </span>taxonomy<span class="w"> </span>-n<span class="w"> </span>default
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c1"># Keys matching a glob</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>memoir<span class="w"> </span>summarize<span class="w"> </span>--keys<span class="w"> </span><span class="s2">&quot;preferences.*&quot;</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="c1"># Top-level prefix histogram (L1 survey)</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>memoir<span class="w"> </span>summarize<span class="w"> </span>--depth<span class="w"> </span><span class="m">1</span>
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="c1"># Glob + depth: L2 breakdown under preferences.*</span>
+</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a>memoir<span class="w"> </span>summarize<span class="w"> </span>--keys<span class="w"> </span><span class="s2">&quot;preferences.*&quot;</span><span class="w"> </span>--depth<span class="w"> </span><span class="m">2</span>
+</span><span id="__span-7-15"><a id="__codelineno-7-15" name="__codelineno-7-15" href="#__codelineno-7-15"></a>
+</span><span id="__span-7-16"><a id="__codelineno-7-16" name="__codelineno-7-16" href="#__codelineno-7-16"></a><span class="c1"># JSON for scripting</span>
+</span><span id="__span-7-17"><a id="__codelineno-7-17" name="__codelineno-7-17" href="#__codelineno-7-17"></a>memoir<span class="w"> </span>--json<span class="w"> </span>summarize<span class="w"> </span>--depth<span class="w"> </span><span class="m">1</span><span class="w"> </span>-n<span class="w"> </span>default
 </span></code></pre></div>
 <p>A shell-only drill-down — mirror of the skill's <code>[mode=drill]</code> — is just three calls:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>memoir<span class="w"> </span>--json<span class="w"> </span>summarize<span class="w"> </span>--depth<span class="w"> </span><span class="m">1</span><span class="w"> </span>-n<span class="w"> </span>default
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="c1"># → pick L1 prefixes from prefix_counts</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>memoir<span class="w"> </span>--json<span class="w"> </span>summarize<span class="w"> </span>--keys<span class="w"> </span><span class="s2">&quot;preferences.*&quot;</span><span class="w"> </span>-n<span class="w"> </span>default
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="c1"># → pick 3-7 exact keys from matching_keys</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>memoir<span class="w"> </span>--json<span class="w"> </span>get<span class="w"> </span>preferences.coding.style<span class="w"> </span>preferences.tools.editor
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="c1"># → stored values, &lt;10ms</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>memoir<span class="w"> </span>--json<span class="w"> </span>summarize<span class="w"> </span>--depth<span class="w"> </span><span class="m">1</span><span class="w"> </span>-n<span class="w"> </span>default
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="c1"># → pick L1 prefixes from prefix_counts</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a>memoir<span class="w"> </span>--json<span class="w"> </span>summarize<span class="w"> </span>--keys<span class="w"> </span><span class="s2">&quot;preferences.*&quot;</span><span class="w"> </span>-n<span class="w"> </span>default
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="c1"># → pick 3-7 exact keys from matching_keys</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>memoir<span class="w"> </span>--json<span class="w"> </span>get<span class="w"> </span>preferences.coding.style<span class="w"> </span>preferences.tools.editor
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="c1"># → stored values, &lt;10ms</span>
 </span></code></pre></div>
 <h3 id="when-to-reach-for-which-cli-command">When to reach for which CLI command<a class="headerlink" href="#when-to-reach-for-which-cli-command" title="Permanent link">&para;</a></h3>
 <ul>

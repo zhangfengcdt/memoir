@@ -685,6 +685,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Optional Dependencies">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#llm-features-recall-auto-classification-in-remember" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LLM features (recall, auto-classification in remember)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other-extras" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Other extras
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1702,6 +1730,34 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="Optional Dependencies">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#llm-features-recall-auto-classification-in-remember" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LLM features (recall, auto-classification in remember)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#other-extras" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Other extras
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -1808,31 +1864,37 @@
 </span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>make<span class="w"> </span>pre-commit
 </span></code></pre></div>
 <h2 id="optional-dependencies">Optional Dependencies<a class="headerlink" href="#optional-dependencies" title="Permanent link">&para;</a></h2>
-<p><strong>LLM Providers</strong> (choose one or more):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># OpenAI GPT models</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>pip<span class="w"> </span>install<span class="w"> </span>langchain-openai
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1"># Anthropic Claude models</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>pip<span class="w"> </span>install<span class="w"> </span>langchain-anthropic
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="c1"># Local LLMs via Ollama</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>pip<span class="w"> </span>install<span class="w"> </span>langchain-ollama
+<h3 id="llm-features-recall-auto-classification-in-remember">LLM features (<code>recall</code>, auto-classification in <code>remember</code>)<a class="headerlink" href="#llm-features-recall-auto-classification-in-remember" title="Permanent link">&para;</a></h3>
+<p>These commands route through <code>memoir.llm.get_llm()</code>, which uses
+<a href="https://docs.litellm.ai/"><code>litellm</code></a> to talk to any provider. Install
+the <code>[litellm]</code> extra to enable them:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;memoir-ai[litellm]&#39;</span>
 </span></code></pre></div>
-<p><strong>Additional Features</strong>:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># For LOCOMO dataset evaluation</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>pip<span class="w"> </span>install<span class="w"> </span>rich
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="c1"># For performance benchmarking</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>pip<span class="w"> </span>install<span class="w"> </span>pytest-benchmark
+<p>Without this extra, <code>memoir new</code>, <code>connect</code>, <code>get</code>, <code>forget</code>, <code>branch</code>,
+<code>checkout</code>, and <code>remember -p &lt;path&gt;</code> (with an explicit path) all work —
+only the LLM-backed code paths raise <code>ImportError</code> at runtime.</p>
+<h3 id="other-extras">Other extras<a class="headerlink" href="#other-extras" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;memoir-ai[tui]&#39;</span><span class="w">         </span><span class="c1"># Terminal UI (textual-based)</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;memoir-ai[langmem]&#39;</span><span class="w">     </span><span class="c1"># ProllyTreeMemoryStoreManager (LangMem drop-in)</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">&#39;memoir-ai[all]&#39;</span><span class="w">         </span><span class="c1"># tui + langmem + litellm</span>
 </span></code></pre></div>
 <h2 id="environment-setup">Environment Setup<a class="headerlink" href="#environment-setup" title="Permanent link">&para;</a></h2>
-<p>Set up your environment variables:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># For OpenAI</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">OPENAI_API_KEY</span><span class="o">=</span><span class="s2">&quot;your-openai-api-key&quot;</span>
+<p>Memoir's CLI defaults to <strong>Anthropic Claude (<code>claude-haiku-4-5</code>)</strong> for
+LLM-backed commands as of v0.1.6. Set the corresponding key:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Default — Anthropic (Haiku)</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ANTHROPIC_API_KEY</span><span class="o">=</span><span class="s2">&quot;your-anthropic-api-key&quot;</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># For Anthropic</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ANTHROPIC_API_KEY</span><span class="o">=</span><span class="s2">&quot;your-anthropic-api-key&quot;</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># OR if you want to keep using OpenAI (memoir&#39;s default before v0.1.6)</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="nb">export</span><span class="w"> </span><span class="nv">OPENAI_API_KEY</span><span class="o">=</span><span class="s2">&quot;your-openai-api-key&quot;</span>
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="nb">export</span><span class="w"> </span><span class="nv">MEMOIR_LLM_MODEL</span><span class="o">=</span><span class="s2">&quot;gpt-4o-mini&quot;</span><span class="w">   </span><span class="c1"># or pass --model gpt-4o-mini per call</span>
 </span></code></pre></div>
+<p>Resolution order for the model used by <code>recall</code> / <code>remember</code> (no <code>-p</code>):</p>
+<ol>
+<li><code>--model &lt;name&gt;</code> flag on the command (highest priority)</li>
+<li><code>MEMOIR_LLM_MODEL</code> env var</li>
+<li><code>claude-haiku-4-5</code> default</li>
+</ol>
+<p>The same env var also drives the UI's default model (<code>memoir ui --usellm</code>).</p>
 <h2 id="verification">Verification<a class="headerlink" href="#verification" title="Permanent link">&para;</a></h2>
 <p>Test your installation:</p>
 <div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">memoir</span>
