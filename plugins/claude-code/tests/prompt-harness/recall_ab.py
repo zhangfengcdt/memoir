@@ -173,11 +173,14 @@ def run_recall_ab_case(
     (artifact_dir / "input.txt").write_text(prompt)
 
     # Stream-json output, allow Skill tool so the model CAN invoke it.
+    # ``--output-format stream-json`` requires ``--verbose`` per claude -p's
+    # validation. Without it, claude exits 1 before emitting any events.
     cmd = [
         "claude", "-p",
         "--model", model,
         "--no-session-persistence",
         "--no-chrome",
+        "--verbose",
         "--output-format", "stream-json",
         "--input-format", "text",
         "--allowed-tools", "Skill",
