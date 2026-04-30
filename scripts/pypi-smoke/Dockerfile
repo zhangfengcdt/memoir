@@ -2,6 +2,7 @@ FROM python:3.11-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git curl ca-certificates \
+    chromium fonts-liberation \
     && rm -rf /var/lib/apt/lists/*
 
 ARG MEMOIR_VERSION

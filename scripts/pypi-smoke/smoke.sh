@@ -218,6 +218,7 @@ run_case "cli-branch-isolation"         case_cli_branch_isolation
 
 # UI tests share one server; bring it up once.
 echo
+ui_screenshots=()  # list of "name|absolute_path" — embedded into summary.md if produced
 if start_ui; then
   run_case "ui-server-binds"        case_ui_server_binds
   run_case "ui-html-react-root"     case_ui_html_react_root
@@ -225,6 +226,29 @@ if start_ui; then
   run_case "ui-api-current-branch"  case_ui_api_current_branch
   run_case "ui-api-statistics"      case_ui_api_statistics
   run_case "ui-api-commits"         case_ui_api_commits
+
+  # Headless screenshots — best-effort, do not fail the run if chromium hiccups.
+  # Saved into the same dir as the markdown summary (bind-mounted from the
+  # host in CI), so the workflow can pick them up as artifacts too.
+  if [[ -n "$SUMMARY_FILE" ]] && command -v chromium >/dev/null 2>&1; then
+    shot_dir="$(dirname "$SUMMARY_FILE")"
+    capture_screenshot() {
+      local name="$1" url="$2" path="${shot_dir}/${1}.png"
+      chromium --headless=new --no-sandbox --disable-gpu --hide-scrollbars \
+        --window-size=1280,900 --virtual-time-budget=8000 \
+        --screenshot="$path" "$url" >/dev/null 2>&1 || true
+      if [[ -s "$path" ]]; then
+        ui_screenshots+=("${name}|${path}")
+        echo "  [shot] ${name} → $(stat -c%s "$path" 2>/dev/null || echo ?) bytes"
+      else
+        echo "  [shot] ${name} → SKIPPED (chromium produced no image)"
+      fi
+    }
+    echo
+    echo "== UI Screenshots =="
+    capture_screenshot "ui-landing"  "http://127.0.0.1:9090/?store=${STORE}&readonly=0&usellm=0"
+    capture_screenshot "ui-welcome"  "http://127.0.0.1:9090/"
+  fi
 else
   results+=("FAIL|ui-server-startup|0.00|UI failed to bind; remaining UI tests skipped")
   fail_count+=1
@@ -290,6 +314,21 @@ if [[ -n "$SUMMARY_FILE" ]]; then
         if [[ "$status" == "FAIL" ]]; then
           echo "- **\`${name}\`** — ${reason}"
         fi
+      done
+    fi
+    if (( ${#ui_screenshots[@]} > 0 )); then
+      echo
+      echo "### UI Screenshots"
+      echo
+      for s in "${ui_screenshots[@]}"; do
+        IFS='|' read -r shot_name shot_path <<<"$s"
+        echo "**\`${shot_name}\`**"
+        echo
+        # Inline as base64 data URI so the image renders in the run summary
+        # without needing an external host. Raw PNGs are also uploaded as
+        # workflow artifacts for full-size download.
+        echo "![${shot_name}](data:image/png;base64,$(base64 -w 0 "$shot_path"))"
+        echo
       done
     fi
   } > "$SUMMARY_FILE"
