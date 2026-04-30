@@ -320,16 +320,15 @@ if [[ -n "$SUMMARY_FILE" ]]; then
       echo
       echo "### UI Screenshots"
       echo
+      echo "Captured by headless Chromium against the running UI server:"
+      echo
       for s in "${ui_screenshots[@]}"; do
         IFS='|' read -r shot_name shot_path <<<"$s"
-        echo "**\`${shot_name}\`**"
-        echo
-        # Inline as base64 data URI so the image renders in the run summary
-        # without needing an external host. Raw PNGs are also uploaded as
-        # workflow artifacts for full-size download.
-        echo "![${shot_name}](data:image/png;base64,$(base64 -w 0 "$shot_path"))"
-        echo
+        size=$(stat -c%s "$shot_path" 2>/dev/null || echo "?")
+        echo "- **\`${shot_name}\`** ($(numfmt --to=iec --suffix=B "$size" 2>/dev/null || echo "${size}B"))"
       done
+      echo
+      echo "_Download the raw PNGs from the workflow's **Artifacts** section (linked below)._"
     fi
   } > "$SUMMARY_FILE"
 fi

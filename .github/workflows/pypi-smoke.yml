@@ -50,6 +50,7 @@ jobs:
           fi
 
       - name: Upload UI screenshots
+        id: shots
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -57,3 +58,11 @@ jobs:
           path: /tmp/smoke-out/*.png
           if-no-files-found: ignore
           retention-days: 30
+
+      - name: Append artifact link to summary
+        if: always() && steps.shots.outputs.artifact-url != ''
+        run: |
+          {
+            echo ""
+            echo "📥 [Download \`ui-screenshots-${{ inputs.version }}.zip\`](${{ steps.shots.outputs.artifact-url }})"
+          } >> "$GITHUB_STEP_SUMMARY"
