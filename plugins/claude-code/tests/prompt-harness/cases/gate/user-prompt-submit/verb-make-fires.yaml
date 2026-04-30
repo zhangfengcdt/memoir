@@ -1,0 +1,11 @@
+kind: gate
+hook: user-prompt-submit
+description: "Verb 'make' (added in trigger expansion) fires the recall block"
+env:
+  USER_MEMORIES: "3"
+  MEMOIR_CMD: "memoir"
+prompt: "Make the LSP diagnostics surface in the right drawer instead of the toolbar."
+expect:
+  - kind: recall_block_emitted
+  - kind: exit_code_is
+    value: 0

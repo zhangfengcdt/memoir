@@ -107,4 +107,89 @@ The hardcoded category sheet (the same fallback `stop.sh` uses when no store has
 
 ## Costs
 
-Each case costs LLM tokens. The harness is **opt-in** — never run automatically by hooks or CI. Run it manually when you change a prompt or want to diagnose a failure.
+Each `run` / `case` / `adhoc` invocation costs LLM tokens. The harness is **opt-in** — never run automatically by hooks or CI. Run it manually when you change a prompt or want to diagnose a failure. (`gate` mode is free — see below.)
+
+---
+
+## Gate mode (deterministic, no LLM)
+
+The plugin's shell hooks make decisions before any LLM call — e.g. `user-prompt-submit.sh` decides whether to inject a "recall before acting" hint into the next turn's context. Gate cases pin those decisions with deterministic regression tests:
+
+```bash
+# Run all gate cases (sub-second per case; safe to run on every commit).
+./runner.py gate --hook user-prompt-submit
+
+# Run a single gate case via the existing case command — kind is auto-detected.
+./runner.py case gate/user-prompt-submit/verb-add-fires.yaml
+```
+
+A gate case invokes the named hook script (`hooks/<name>.sh`) with synthetic JSON stdin (`{"prompt": "..."}`), captures its stdout, parses the JSON, and asserts on the parsed result. No `claude -p`, no network. Each case runs against a fresh per-case temp store under `/tmp/memoir-prompt-tests/_gate-store/` so there's no leakage between cases.
+
+### Gate case schema
+
+```yaml
+kind: gate
+hook: user-prompt-submit          # → hooks/user-prompt-submit.sh
+description: "Verb 'add' in a 40+ char prompt fires the recall block"
+env:                              # exported before running the hook
+  USER_MEMORIES: "5"              # written into the statusline-cache file
+  MEMOIR_CMD: "memoir"
+prompt: "Please add a Stripe webhook handler to the billing service."
+expect:
+  - kind: parsed_ok
+  - kind: recall_block_emitted
+  - kind: system_message_contains
+    value: "memory available"
+  - kind: exit_code_is
+    value: 0
+```
+
+`USER_MEMORIES` is special-cased: it isn't an env var the hook reads — it's the count from `<store>/.git/plugin-statusline-cache`. The harness writes it there on your behalf so the hook's real read path exercises.
+
+### Gate assertion kinds
+
+| Kind | Meaning |
+|---|---|
+| `parsed_ok` | Hook stdout was a valid JSON object |
+| `recall_block_emitted` | `hookSpecificOutput.additionalContext` contained the production "memoir — recall before acting" header |
+| `recall_block_absent` | The recall block was NOT emitted |
+| `additional_context_contains` | Substring check on `additionalContext` (case sensitive). `value: str` |
+| `system_message_contains` | Substring check on `systemMessage`. `value: str` |
+| `exit_code_is` | Hook exit code matches. `value: int` |
+
+### Adding a new hook to gate-test
+
+1. Drop cases under `cases/gate/<hook-name>/*.yaml` (any depth — discovery is recursive).
+2. Use `kind: gate` and `hook: <name>` (must match `hooks/<name>.sh`).
+3. Run `./runner.py gate --hook <name>` to execute just that hook's cases.
+
+---
+
+## Recall A/B mode (LLM, run on demand)
+
+Measures whether the recall-trigger hook is earning its tokens by running the same labeled prompts through three system-prompt configurations:
+
+| Arm | System prompt | Hook block prepended | What it tests |
+|---|---|---|---|
+| `with_hook` | skill description | ✅ yes (production) | Today's recall rate |
+| `prose_only` | skill description | ❌ no | Can the model decide on its own? |
+| `bare` | (no skill description) | ❌ no | Sanity baseline |
+
+```bash
+./runner.py recall-ab --model haiku
+```
+
+Output: `<run>/recall_ab/summary.md` with a per-arm precision/recall/F1 table; per-arm raw stream-json under `<run>/recall_ab/<case>/<arm>/events.jsonl`.
+
+### Recall A/B case schema
+
+```yaml
+prompt: "Refactor the auth middleware to share state with the rate limiter."
+should_fire: true
+```
+
+`should_fire` is the human ground truth — used to compute aggregate precision/recall/F1, NOT a per-case assertion. Cases live flat under `cases/recall_ab/*.yaml`.
+
+**Cost:** ~3 arms × 1–2s × N cases. Three sample cases ship; expand to ~30 for a representative corpus before drawing conclusions.
+
+**Caveat:** the `claude -p --output-format stream-json` event parser in `recall_ab.py` is best-effort. Run one case manually first and inspect `events.jsonl` + `tool_calls.json` to confirm the parser caught the Skill tool call as expected before trusting aggregate numbers.

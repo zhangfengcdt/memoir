@@ -65,16 +65,41 @@ fi
 # Classify the prompt. Short/trivial prompts don't warrant a strong recall
 # nudge — we keep the status line quiet so Claude doesn't spin up the skill
 # on every "ok" or "thanks". Non-trivial prompts (longer, or mentioning
-# design/implementation/refactor verbs) get an additionalContext block
-# that actively instructs a recall pass before answering.
+# design/implementation/refactor verbs, or self-referential nouns about the
+# memory system, or showing structural signals like questions / code blocks
+# / file paths) get an additionalContext block that actively instructs a
+# recall pass before answering.
 #
-# The verb list is deliberately broad: it catches the "describe what to do"
-# prompts where Claude historically defaulted to executing without checking
-# memory first — the failure mode this hook is meant to fix.
+# Operating principle: lean toward recall. False positives waste a ~500ms
+# recall call. False negatives mean Claude gives advice that conflicts with
+# stored prefs — expensive (wasted reasoning, user has to correct).
+#
+# The harness at tests/prompt-harness/cases/gate/user-prompt-submit/ pins
+# this behavior with deterministic regression tests; tune triggers there
+# before changing the regexes here.
+
+# Pure-ack short-circuit: a one-liner like "ok thanks" should never invoke
+# recall regardless of length. Catches the case where a 40+ char filler
+# ("sounds good let me know when you're done") accidentally satisfies the
+# gate. Anchored ^…$, case-insensitive, optional trailing dot.
+ack_short_circuit=
+if printf '%s' "$PROMPT" | grep -qiE '^[[:space:]]*(ok|okay|sure|yes|no|thanks|thank[[:space:]]+you|got[[:space:]]+it|sounds[[:space:]]+good|nice|cool|great|awesome|perfect)\.?[[:space:]]*$'; then
+  ack_short_circuit=1
+fi
+
 prompt_len=${#PROMPT}
 context=""
-if [ "$USER_MEMORIES" -gt 0 ] && [ "$prompt_len" -ge 40 ]; then
-  if printf '%s' "$PROMPT" | grep -qiE '\b(add|build|implement|refactor|redesign|design|create|write|set\s+up|wire\s+up|integrate|migrate|rewrite|extract|extend|plumb|hook\s+up|ship|scaffold|optimize|fix|debug|review|architect|model|schema|API|service|feature|module|system|pipeline|workflow)\b'; then
+if [ -z "$ack_short_circuit" ] && [ "$USER_MEMORIES" -gt 0 ] && [ "$prompt_len" -ge 40 ]; then
+  # Verbs and domain nouns combined into one alternation. Verbs cover the
+  # "describe what to do" failure mode; nouns (memoir/recall/harness/hook/
+  # prompt) catch self-referential prompts about the memory system itself
+  # where prior context is almost certainly load-bearing.
+  if printf '%s' "$PROMPT" | grep -qiE '\b(add|build|implement|refactor|redesign|design|create|write|set\s+up|wire\s+up|integrate|migrate|rewrite|extract|extend|plumb|hook\s+up|ship|scaffold|optimize|fix|debug|review|architect|model|schema|API|service|feature|module|system|pipeline|workflow|make|move|replace|convert|swap|remove|clean\s+up|transform|investigate|explore|figure\s+out|plan|decide|choose|pick|compare|walk\s+me\s+through|take\s+a\s+stab|help\s+me|memoir|recall|harness|hook|prompt)\b' \
+     || printf '%s' "$PROMPT" | grep -qiE '^(how|why|what|where|when|should|can|could|would|is\s+it|are\s+we|do\s+I)\b.*\?' \
+     || printf '%s' "$PROMPT" | grep -qF '```' \
+     || printf '%s' "$PROMPT" | grep -qE '\b(def|function|class|import|export)\s+' \
+     || printf '%s' "$PROMPT" | grep -qE '\.(py|js|ts|tsx|scala|java|go|rs|rb|md)(\b|$)' \
+     || printf '%s' "$PROMPT" | grep -qE '[A-Za-z0-9_~.-]+/[A-Za-z0-9_.-]+'; then
     context="# memoir — recall before acting
 
 The user's prompt describes work to do (implementation, design, refactor, or similar). Before starting, invoke the \`memoir:memory-recall\` skill to fetch any prior preferences, architectural decisions, coding conventions, or constraints that should shape the approach.

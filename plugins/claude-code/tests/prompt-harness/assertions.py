@@ -195,3 +195,103 @@ def _eval_one(output: str, spec: dict) -> AssertionResult:
 def evaluate(output: str, specs: list[dict]) -> list[AssertionResult]:
     """Run each assertion against ``output`` in order; return all results."""
     return [_eval_one(output, s) for s in specs]
+
+
+# --- gate-mode assertions ---------------------------------------------------
+#
+# These run against a parsed ``GateResult`` from gate.py rather than raw
+# stdout. Kept separate from ``_eval_one`` (which is string-output only)
+# so the existing LLM-mode assertions stay unaffected and the two modes
+# don't share an awkward dispatch.
+#
+# Kinds:
+#   recall_block_emitted: hookSpecificOutput.additionalContext contains
+#                         the production "memoir — recall before acting" header
+#   recall_block_absent:  the additionalContext is absent or doesn't carry
+#                         the recall block
+#   additional_context_contains: substring check on additionalContext (case
+#                                sensitive). value: str
+#   system_message_contains:     substring check on systemMessage. value: str
+#   exit_code_is:                hook exit code matches. value: int
+#   parsed_ok:                   stdout was valid JSON object
+
+
+def _eval_one_gate(result: object, spec: dict) -> AssertionResult:
+    # Local import to avoid a hard dep cycle if gate.py grows imports later.
+    from gate import GateResult  # noqa: WPS433
+    if not isinstance(result, GateResult):
+        return AssertionResult(
+            spec.get("kind", "<missing>"),
+            spec.get("value"),
+            False,
+            f"gate assertion needs a GateResult, got {type(result).__name__}",
+        )
+
+    kind = spec.get("kind")
+    value = spec.get("value")
+
+    if kind == "recall_block_emitted":
+        ok = result.recall_block_emitted
+        return AssertionResult(
+            kind, value, ok,
+            "recall block was emitted"
+            if ok
+            else "recall block NOT emitted (additionalContext missing or doesn't carry the header)",
+        )
+
+    if kind == "recall_block_absent":
+        ok = not result.recall_block_emitted
+        return AssertionResult(
+            kind, value, ok,
+            "no recall block emitted"
+            if ok
+            else "recall block was emitted but the case expected it absent",
+        )
+
+    if kind == "additional_context_contains":
+        s = str(value)
+        ctx = result.additional_context or ""
+        ok = s in ctx
+        return AssertionResult(
+            kind, value, ok,
+            f"additionalContext contained {s!r}"
+            if ok
+            else f"additionalContext did NOT contain {s!r} (got {ctx[:80]!r}…)",
+        )
+
+    if kind == "system_message_contains":
+        s = str(value)
+        msg = result.system_message or ""
+        ok = s in msg
+        return AssertionResult(
+            kind, value, ok,
+            f"systemMessage contained {s!r}"
+            if ok
+            else f"systemMessage did NOT contain {s!r} (got {msg!r})",
+        )
+
+    if kind == "exit_code_is":
+        ok = result.exit_code == int(value)
+        return AssertionResult(
+            kind, value, ok,
+            f"exit_code was {result.exit_code}",
+        )
+
+    if kind == "parsed_ok":
+        ok = result.parsed_ok
+        return AssertionResult(
+            kind, value, ok,
+            "stdout parsed as JSON object"
+            if ok
+            else f"stdout did NOT parse: {result.parse_error!r}",
+        )
+
+    return AssertionResult(
+        kind or "<missing>", value, False,
+        f"unknown gate assertion kind: {kind!r}",
+    )
+
+
+def evaluate_gate(result: object, specs: list[dict]) -> list[AssertionResult]:
+    """Run each gate assertion against a ``GateResult`` in order."""
+    return [_eval_one_gate(result, s) for s in specs]

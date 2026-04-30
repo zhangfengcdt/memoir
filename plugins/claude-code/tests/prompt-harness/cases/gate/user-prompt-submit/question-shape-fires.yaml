@@ -1,0 +1,9 @@
+kind: gate
+hook: user-prompt-submit
+description: "Question-shaped prompt (starts with 'How', ends with '?') fires"
+env:
+  USER_MEMORIES: "5"
+  MEMOIR_CMD: "memoir"
+prompt: "How should we structure the new permission middleware in this codebase?"
+expect:
+  - kind: recall_block_emitted

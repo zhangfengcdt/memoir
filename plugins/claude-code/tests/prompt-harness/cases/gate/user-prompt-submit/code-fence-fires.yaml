@@ -1,0 +1,14 @@
+kind: gate
+hook: user-prompt-submit
+description: "Triple-backtick code fence fires (almost always a task)"
+env:
+  USER_MEMORIES: "5"
+  MEMOIR_CMD: "memoir"
+prompt: |
+  I keep getting an error from this snippet, any ideas?
+  ```
+  result = obj.something()
+  print(result.value)
+  ```
+expect:
+  - kind: recall_block_emitted

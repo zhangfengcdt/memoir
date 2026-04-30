@@ -1,0 +1,9 @@
+kind: gate
+hook: user-prompt-submit
+description: "Capitalized verb 'Refactor' matches case-insensitively"
+env:
+  USER_MEMORIES: "5"
+  MEMOIR_CMD: "memoir"
+prompt: "Refactor the auth middleware to share state with the rate limiter."
+expect:
+  - kind: recall_block_emitted

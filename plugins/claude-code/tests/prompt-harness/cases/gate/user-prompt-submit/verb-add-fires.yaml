@@ -1,0 +1,14 @@
+kind: gate
+hook: user-prompt-submit
+description: "Verb 'add' in a 40+ char prompt fires the recall block"
+env:
+  USER_MEMORIES: "5"
+  MEMOIR_CMD: "memoir"
+prompt: "Please add a Stripe webhook handler to the billing service."
+expect:
+  - kind: parsed_ok
+  - kind: recall_block_emitted
+  - kind: system_message_contains
+    value: "memory available"
+  - kind: exit_code_is
+    value: 0

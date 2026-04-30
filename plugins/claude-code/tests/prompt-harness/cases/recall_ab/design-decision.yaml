@@ -1,0 +1,2 @@
+prompt: "How should I structure the new permission middleware? Should it live next to auth or in its own module?"
+should_fire: true
