@@ -174,17 +174,20 @@ case_cli_branch_isolation() {
 # `remember` without -p triggers the IntelligentClassifier (LLM call).
 # We don't assert *which* path Haiku picks (it's non-deterministic), only
 # that the round-trip succeeds and produces a syntactically valid dotted key.
+# stderr is captured separately so memoir's warnings/log lines don't poison
+# the JSON parse on stdout.
 case_cli_remember_no_path() {
-  local out
-  out=$(memoir --json remember "I prefer dark mode for IDEs and 2-space indents" 2>&1) \
-    || { echo "remember (no -p) exited non-zero: $out"; return 1; }
+  local out err=/tmp/memoir-llm-remember.err
+  out=$(memoir --json remember --model claude-haiku-4-5 \
+        "I prefer dark mode for IDEs and 2-space indents" 2>"$err") \
+    || { echo "remember (no -p) exited non-zero. stderr:"; cat "$err"; echo "stdout: $out"; return 1; }
   echo "$out" | python3 -c '
 import json, re, sys
 d = json.load(sys.stdin)
 assert d.get("success") is True, f"success not true: {d}"
 key = d.get("key") or ""
 assert re.match(r"^[a-z][a-z0-9._-]+$", key), f"key not a dotted path: {key!r}"
-' || { echo "JSON shape unexpected: $out"; return 1; }
+' || { echo "JSON shape unexpected. stdout: $out"; echo "stderr:"; cat "$err"; return 1; }
 }
 
 # `recall` calls the IntelligentSearchEngine (LLM call). We rely on the prior
@@ -192,9 +195,9 @@ assert re.match(r"^[a-z][a-z0-9._-]+$", key), f"key not a dotted path: {key!r}"
 # preferences.coding.style; recall("tabs") should surface either that path
 # or a memory whose content mentions "tabs" — tolerating ranking variance.
 case_cli_recall_finds_stored() {
-  local out
-  out=$(memoir --json recall "tabs" 2>&1) \
-    || { echo "recall exited non-zero: $out"; return 1; }
+  local out err=/tmp/memoir-llm-recall.err
+  out=$(memoir --json recall --model claude-haiku-4-5 "tabs" 2>"$err") \
+    || { echo "recall exited non-zero. stderr:"; cat "$err"; echo "stdout: $out"; return 1; }
   echo "$out" | python3 -c '
 import json, sys
 d = json.load(sys.stdin)
@@ -205,7 +208,7 @@ def matches(m):
     return (m.get("path") == "preferences.coding.style"
             or "tabs" in str(m.get("content","")).lower())
 assert any(matches(m) for m in mems), f"no memory matched: {mems}"
-' || { echo "JSON shape or content unexpected: $out"; return 1; }
+' || { echo "JSON shape or content unexpected. stdout: $out"; echo "stderr:"; cat "$err"; return 1; }
 }
 
 # --- UI ---
