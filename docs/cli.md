@@ -87,6 +87,32 @@ memoir --json recall "testing setup" --mode single  | jq '.timing_ms'
 memoir --json recall "testing setup" --mode tiered  | jq '.timing_ms'
 ```
 
+#### Picking the LLM
+
+Both `recall` and `remember` accept a `--model` flag. Resolution order:
+
+1. `--model <name>` flag (highest priority)
+2. `MEMOIR_LLM_MODEL` env var
+3. `claude-haiku-4-5` default
+
+```bash
+# Default — Anthropic Haiku, requires ANTHROPIC_API_KEY
+memoir recall "what's my testing setup?"
+
+# Per-call override
+memoir recall "..."   --model gpt-4o-mini      # needs OPENAI_API_KEY
+memoir remember "..." --model claude-sonnet-4-5
+
+# Shell-wide override
+export MEMOIR_LLM_MODEL=gpt-4o-mini
+```
+
+The `[litellm]` extra is required for any LLM-backed command:
+`pip install 'memoir-ai[litellm]'`. Without it, `recall` and
+auto-classifying `remember` (no `-p`) raise `ImportError` at runtime.
+Direct-path operations (`remember -p <path>`, `get`, `forget`,
+`branch`, `checkout`, …) work either way.
+
 ### `memoir get` — direct lookup by taxonomy path
 
 No LLM, no search. Pass one or more exact keys; missing keys come back as `found: false` so you can batch speculative candidates without branching. Latency is typically <10ms.

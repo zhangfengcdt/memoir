@@ -186,7 +186,15 @@ import json, re, sys
 d = json.load(sys.stdin)
 assert d.get("success") is True, f"success not true: {d}"
 key = d.get("key") or ""
+reasoning = d.get("reasoning") or ""
+# Must be a taxonomy-style dotted path...
 assert re.match(r"^[a-z][a-z0-9._-]+$", key), f"key not a dotted path: {key!r}"
+# ...and NOT memoir`s timestamp fallback (memory.<unix>) which fires when
+# the LLM classifier ImportError`d or threw. The fallback also reports
+# success: true, so we have to reject it explicitly to actually test the
+# LLM round-trip.
+assert not key.startswith("memory."), f"got timestamp fallback (LLM did not run): key={key!r}, reasoning={reasoning!r}"
+assert "Fallback to timestamp" not in reasoning, f"LLM did not run: {reasoning!r}"
 ' || { echo "JSON shape unexpected. stdout: $out"; echo "stderr:"; cat "$err"; return 1; }
 }
 

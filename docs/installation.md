@@ -33,40 +33,49 @@ make pre-commit
 
 ## Optional Dependencies
 
-**LLM Providers** (choose one or more):
+### LLM features (`recall`, auto-classification in `remember`)
+
+These commands route through `memoir.llm.get_llm()`, which uses
+[`litellm`](https://docs.litellm.ai/) to talk to any provider. Install
+the `[litellm]` extra to enable them:
 
 ```bash
-# OpenAI GPT models
-pip install langchain-openai
-
-# Anthropic Claude models
-pip install langchain-anthropic
-
-# Local LLMs via Ollama
-pip install langchain-ollama
+pip install 'memoir-ai[litellm]'
 ```
 
-**Additional Features**:
+Without this extra, `memoir new`, `connect`, `get`, `forget`, `branch`,
+`checkout`, and `remember -p <path>` (with an explicit path) all work —
+only the LLM-backed code paths raise `ImportError` at runtime.
+
+### Other extras
 
 ```bash
-# For LOCOMO dataset evaluation
-pip install rich
-
-# For performance benchmarking
-pip install pytest-benchmark
+pip install 'memoir-ai[tui]'         # Terminal UI (textual-based)
+pip install 'memoir-ai[langmem]'     # ProllyTreeMemoryStoreManager (LangMem drop-in)
+pip install 'memoir-ai[all]'         # tui + langmem + litellm
 ```
 
 ## Environment Setup
 
-Set up your environment variables:
+Memoir's CLI defaults to **Anthropic Claude (`claude-haiku-4-5`)** for
+LLM-backed commands as of v0.1.6. Set the corresponding key:
 
 ```bash
-# For OpenAI
-export OPENAI_API_KEY="your-openai-api-key"
-
-# For Anthropic
+# Default — Anthropic (Haiku)
 export ANTHROPIC_API_KEY="your-anthropic-api-key"
+
+# OR if you want to keep using OpenAI (memoir's default before v0.1.6)
+export OPENAI_API_KEY="your-openai-api-key"
+export MEMOIR_LLM_MODEL="gpt-4o-mini"   # or pass --model gpt-4o-mini per call
 ```
+
+Resolution order for the model used by `recall` / `remember` (no `-p`):
+
+1. `--model <name>` flag on the command (highest priority)
+2. `MEMOIR_LLM_MODEL` env var
+3. `claude-haiku-4-5` default
+
+The same env var also drives the UI's default model (`memoir ui --usellm`).
 
 ## Verification
 

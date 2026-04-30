@@ -4,7 +4,15 @@ This guide will help you get started with Memoir in just a few minutes.
 
 ## Installation
 
-Install Memoir using pip:
+For LLM-backed commands (`recall`, auto-classification in `remember`),
+install with the `[litellm]` extra:
+
+```bash
+pip install 'memoir-ai[litellm]'
+```
+
+If you only need direct-path operations (`remember -p <path>`, `get`,
+`forget`, `branch`, `checkout`, etc.) you can skip the extra:
 
 ```bash
 pip install memoir-ai
@@ -16,26 +24,73 @@ For development installation with all dependencies:
 pip install -e ".[dev]"
 ```
 
-## Basic Setup
+## CLI quick start
 
-1. **Set up your LLM** (using OpenAI as an example):
+The CLI is the fastest path. Memoir's CLI defaults to Anthropic
+**`claude-haiku-4-5`** as of v0.1.6 — set your key first:
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-…"
+```
+
+Then create a store and round-trip a memory:
+
+```bash
+# 1. Create + connect
+memoir new ~/.memoir/notes
+memoir connect ~/.memoir/notes
+
+# 2. Store with an explicit path (offline, no LLM call)
+memoir remember "Feng prefers tabs and 2-space indents" \
+    -p preferences.coding.style
+
+# 3. Store with auto-classification (LLM picks the path; needs key + [litellm])
+memoir remember "I work in Pacific time"
+
+# 4. Read back by path (offline)
+memoir get preferences.coding.style
+
+# 5. Semantic search (LLM-backed)
+memoir recall "what does Feng prefer?"
+```
+
+### Picking a different model
+
+The default is Haiku. Override per call:
+
+```bash
+memoir recall "..."   --model gpt-4o-mini   # needs OPENAI_API_KEY
+memoir remember "..." --model claude-sonnet-4-5
+```
+
+…or set globally for the shell:
+
+```bash
+export MEMOIR_LLM_MODEL=gpt-4o-mini
+export OPENAI_API_KEY=sk-…
+```
+
+Resolution order: `--model` flag → `MEMOIR_LLM_MODEL` → `claude-haiku-4-5`.
+
+## Python API
+
+For programmatic use, set up the LLM directly via memoir's helpers:
 
 ```python
 import os
-from langchain_openai import ChatOpenAI
+from memoir.llm import get_llm
 
-# Set your OpenAI API key
-os.environ["OPENAI_API_KEY"] = "your-api-key-here"
+os.environ["ANTHROPIC_API_KEY"] = "your-api-key-here"
 
-# Create LLM instance
-llm = ChatOpenAI(
-    model="gpt-4o-mini",
-    temperature=0,
-    max_tokens=500
-)
+# memoir.llm.get_llm() routes through litellm — needs the [litellm] extra.
+llm = get_llm(model="claude-haiku-4-5", temperature=0)
 ```
 
-2. **Initialize the memory system components**:
+If you prefer a langchain wrapper directly (or any other client), you
+can pass it in too — memoir's classifier and search engine accept any
+LLM with a `.invoke()` method.
+
+### Initialize the memory system components
 
 ```python
 from memoir.store.prolly_adapter import ProllyTreeStore
