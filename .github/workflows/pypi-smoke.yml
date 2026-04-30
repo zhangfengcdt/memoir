@@ -17,6 +17,10 @@ on:
 jobs:
   smoke:
     name: Smoke-test memoir-ai==${{ inputs.version }}
+    # Repo owner only. workflow_dispatch already requires Write access, but
+    # this guard keeps the gate working if collaborators are added later —
+    # other actors trigger a run that is immediately skipped, no secret use.
+    if: github.actor == github.repository_owner
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
