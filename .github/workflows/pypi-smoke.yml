@@ -1,0 +1,36 @@
+name: PyPI Smoke Test
+
+# Run the clean-machine smoke test against a published memoir-ai version
+# on PyPI. Manual trigger only — invoke after a release to verify the
+# published wheel installs and runs end-to-end (CLI + UI server + key
+# API endpoints) on a fresh box. No human eyeballing of the UI is
+# required; assertions are fully automated.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'memoir-ai version on PyPI to smoke-test (e.g. 0.1.4)'
+        required: true
+        type: string
+
+jobs:
+  smoke:
+    name: Smoke-test memoir-ai==${{ inputs.version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build smoke-test image
+        run: |
+          docker build \
+            --build-arg "MEMOIR_VERSION=${{ inputs.version }}" \
+            -t "memoir-pypi-smoke:${{ inputs.version }}" \
+            scripts/pypi-smoke
+
+      - name: Run smoke test (headless)
+        run: |
+          docker run --rm \
+            -e MEMOIR_SMOKE_HEADLESS=1 \
+            "memoir-pypi-smoke:${{ inputs.version }}"

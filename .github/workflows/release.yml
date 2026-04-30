@@ -57,10 +57,29 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+          cache-dependency-path: 'src/memoir/ui/webapp/pnpm-lock.yaml'
+
       - name: Install build tooling
         run: |
           python -m pip install --upgrade pip
           pip install build twine
+
+      - name: Build webapp (React bundle shipped in wheel)
+        working-directory: src/memoir/ui/webapp
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm run build
+          test -f dist/index.html || (echo "ERROR: pnpm build did not produce dist/index.html" && exit 1)
 
       - name: Build sdist and wheel
         run: python -m build
@@ -74,7 +93,12 @@ jobs:
           unzip -l dist/*.whl
           echo "---"
           echo "Verifying data files present in wheel:"
-          unzip -l dist/*.whl | grep -E '(ui\.html|static/|taxonomy/data)' || (echo "ERROR: data files missing from wheel" && exit 1)
+          unzip -l dist/*.whl | grep -qE 'memoir/ui/webapp/dist/index\.html' \
+            || (echo "ERROR: webapp bundle missing from wheel — did ui-build run?" && exit 1)
+          unzip -l dist/*.whl | grep -qE 'memoir/taxonomy/data/' \
+            || (echo "ERROR: taxonomy data missing from wheel" && exit 1)
+          ! unzip -l dist/*.whl | grep -qE 'memoir/ui/webapp/src/' \
+            || (echo "ERROR: webapp sources leaked into wheel" && exit 1)
 
       - name: Upload distribution artifacts
         uses: actions/upload-artifact@v4
