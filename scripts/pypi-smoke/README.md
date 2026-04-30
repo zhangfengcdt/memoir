@@ -52,9 +52,10 @@ pass/fail with timing. Cases are grouped into:
   a reason and the rest of the suite still passes. Model: memoir's
   default `claude-haiku-4-5`. Cost: a few cents per run.
 
-  These cases require the `[litellm]` extra. The Docker image already
-  installs `memoir-ai[litellm]==<version>` so this is wired up
-  automatically. The `cli-remember-no-path-uses-llm` assertion now also
+  These cases need `litellm`. v0.1.7 promoted it to a default dependency;
+  the harness still installs `memoir-ai[litellm]==<version>` (a no-op in
+  v0.1.7+, required for v0.1.5 / v0.1.6) so the same image can smoke any
+  recent version. The `cli-remember-no-path-uses-llm` assertion now also
   rejects memoir's `memory.<unix-timestamp>` fallback path so the test
   fails (rather than spuriously passing) if the LLM round-trip didn't
   actually run.

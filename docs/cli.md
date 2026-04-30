@@ -107,11 +107,9 @@ memoir remember "..." --model claude-sonnet-4-5
 export MEMOIR_LLM_MODEL=gpt-4o-mini
 ```
 
-The `[litellm]` extra is required for any LLM-backed command:
-`pip install 'memoir-ai[litellm]'`. Without it, `recall` and
-auto-classifying `remember` (no `-p`) raise `ImportError` at runtime.
-Direct-path operations (`remember -p <path>`, `get`, `forget`,
-`branch`, `checkout`, …) work either way.
+As of v0.1.7, `litellm` is a default dependency, so `pip install
+memoir-ai` enables both LLM-backed and direct-path commands. (Prior
+to v0.1.7 you had to add the `[litellm]` extra explicitly.)
 
 ### `memoir get` — direct lookup by taxonomy path
 

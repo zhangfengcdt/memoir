@@ -8,10 +8,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 ARG MEMOIR_VERSION
 ENV MEMOIR_VERSION=${MEMOIR_VERSION}
 
-# Install with the [litellm] extra so LLM-backed CLI commands (recall,
-# remember without -p) can actually run. Without this extra, memoir's LLM
-# code path raises ImportError at runtime — which IS the documented behavior,
-# but a meaningful end-to-end smoke needs LLM features wired up.
+# [litellm] is a no-op extra in v0.1.7+ (litellm is a default dep) but
+# required for v0.1.5 / v0.1.6 to enable the LLM code path. Keeping it on
+# the install line lets the same harness smoke any of those versions.
 RUN pip install --no-cache-dir "memoir-ai[litellm]==${MEMOIR_VERSION}"
 
 # Sane defaults for git inside the container (memoir stores are git repos)

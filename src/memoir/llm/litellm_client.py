@@ -102,9 +102,12 @@ class LiteLLMWrapper:
             # Suppress litellm's verbose logging
             litellm.suppress_debug_info = True
         except ImportError as e:
+            # litellm is a default dependency as of v0.1.7. Reaching this
+            # branch means the user explicitly removed it (or installed an
+            # older memoir-ai without the [litellm] extra).
             raise ImportError(
-                "litellm is required for LLM-backed classification and search. "
-                "Install with: pip install 'memoir-ai[litellm]'"
+                "litellm is required for LLM-backed classification and "
+                "search. Reinstall with: pip install --upgrade litellm"
             ) from e
 
     def _supports_prompt_cache(self) -> bool:

@@ -4,21 +4,15 @@ This guide will help you get started with Memoir in just a few minutes.
 
 ## Installation
 
-For LLM-backed commands (`recall`, auto-classification in `remember`),
-install with the `[litellm]` extra:
-
-```bash
-pip install 'memoir-ai[litellm]'
-```
-
-If you only need direct-path operations (`remember -p <path>`, `get`,
-`forget`, `branch`, `checkout`, etc.) you can skip the extra:
-
 ```bash
 pip install memoir-ai
 ```
 
-For development installation with all dependencies:
+That's it. As of v0.1.7, `litellm` is a default dependency, so both
+direct-path and LLM-backed commands work out of the box. (Prior to
+v0.1.7 you had to add the `[litellm]` extra explicitly.)
+
+For development:
 
 ```bash
 pip install -e ".[dev]"
@@ -44,7 +38,7 @@ memoir connect ~/.memoir/notes
 memoir remember "Feng prefers tabs and 2-space indents" \
     -p preferences.coding.style
 
-# 3. Store with auto-classification (LLM picks the path; needs key + [litellm])
+# 3. Store with auto-classification (LLM picks the path; needs API key)
 memoir remember "I work in Pacific time"
 
 # 4. Read back by path (offline)
@@ -82,7 +76,7 @@ from memoir.llm import get_llm
 
 os.environ["ANTHROPIC_API_KEY"] = "your-api-key-here"
 
-# memoir.llm.get_llm() routes through litellm — needs the [litellm] extra.
+# memoir.llm.get_llm() routes through litellm (a default dep as of v0.1.7).
 llm = get_llm(model="claude-haiku-4-5", temperature=0)
 ```
 

@@ -33,19 +33,16 @@ make pre-commit
 
 ## Optional Dependencies
 
-### LLM features (`recall`, auto-classification in `remember`)
+As of **v0.1.7**, [`litellm`](https://docs.litellm.ai/) (the LLM router
+used by `recall` and auto-classification in `remember`) is a **default
+dependency** — `pip install memoir-ai` is enough for both LLM-backed
+and direct-path commands.
 
-These commands route through `memoir.llm.get_llm()`, which uses
-[`litellm`](https://docs.litellm.ai/) to talk to any provider. Install
-the `[litellm]` extra to enable them:
-
-```bash
-pip install 'memoir-ai[litellm]'
-```
-
-Without this extra, `memoir new`, `connect`, `get`, `forget`, `branch`,
-`checkout`, and `remember -p <path>` (with an explicit path) all work —
-only the LLM-backed code paths raise `ImportError` at runtime.
+If you don't need LLM features and want to trim the install footprint,
+`pip uninstall litellm` after install — memoir's other features
+(`-p` paths, `get`, `forget`, `branch`, `checkout`, etc.) keep working
+because the import is lazy. The `[litellm]` extra is preserved as a
+no-op alias for backward-compat scripts.
 
 ### Other extras
 
