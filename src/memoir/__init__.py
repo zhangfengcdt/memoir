@@ -3,7 +3,7 @@ LangMem-ProllyTree Integration
 High-performance semantic memory system for AI agents.
 """
 
-__version__ = "0.1.4"  # Single source of truth; read by hatch + release workflow (keep on one line)
+__version__ = "0.1.5"  # Single source of truth; read by hatch + release workflow (keep on one line)
 
 from .classifier.semantic import (
     ClassificationResult,
