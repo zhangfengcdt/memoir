@@ -82,7 +82,11 @@ jobs:
           test -f dist/index.html || (echo "ERROR: pnpm build did not produce dist/index.html" && exit 1)
 
       - name: Build sdist and wheel
-        run: python -m build
+        # Pass both flags so each is built from the source tree independently.
+        # Plain `python -m build` chains "build sdist → build wheel from sdist",
+        # but the sdist excludes the React webapp dist/ (it's a build artifact),
+        # so the chained wheel ends up without the bundle. See pyproject.toml.
+        run: python -m build --sdist --wheel
 
       - name: Validate packages with twine
         run: twine check dist/*
