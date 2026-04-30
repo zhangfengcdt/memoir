@@ -31,6 +31,38 @@ jobs:
 
       - name: Run smoke test (headless)
         run: |
+          mkdir -p /tmp/smoke-out
           docker run --rm \
             -e MEMOIR_SMOKE_HEADLESS=1 \
+            -e MEMOIR_SMOKE_SUMMARY_FILE=/smoke-out/summary.md \
+            -v /tmp/smoke-out:/smoke-out \
             "memoir-pypi-smoke:${{ inputs.version }}"
+
+      - name: Publish summary to job summary
+        if: always()
+        run: |
+          if [[ -f /tmp/smoke-out/summary.md ]]; then
+            cat /tmp/smoke-out/summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## ⚠️ PyPI Smoke Test — memoir-ai ${{ inputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Smoke script did not produce a summary file (likely failed before reaching the runner)." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload UI screenshots
+        id: shots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-screenshots-${{ inputs.version }}
+          path: /tmp/smoke-out/*.png
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Append artifact link to summary
+        if: always() && steps.shots.outputs.artifact-url != ''
+        run: |
+          {
+            echo ""
+            echo "📥 [Download \`ui-screenshots-${{ inputs.version }}.zip\`](${{ steps.shots.outputs.artifact-url }})"
+          } >> "$GITHUB_STEP_SUMMARY"
