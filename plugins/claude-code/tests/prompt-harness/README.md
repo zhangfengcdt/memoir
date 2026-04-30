@@ -1,13 +1,53 @@
 # Prompt test harness
 
-Runs the Claude Code plugin's LLM prompts against canned test cases (or an ad-hoc input) and saves every conversation to a temp folder so you can inspect what the model actually did.
+Two modes, one entry point:
 
-Loads the **same** prompt templates the plugin uses in production (`hooks/prompts/*.tmpl`) — no duplicated copies that could drift. Calls the LLM via `claude -p`, which uses your Claude Code OAuth login (no API key needed).
+- **Gate mode** — deterministic. Pins the shell-level decisions in `hooks/*.sh` (e.g. "does this prompt trigger a recall hint?"). No LLM, no network, no tokens. ~2s per case. Safe to run on every commit.
+- **LLM mode** (`run` / `case` / `adhoc`) — calls `claude -p` against canned cases for the LLM-driven prompts (today: `stop_capture` for auto-capture). Costs tokens. Run when you change a prompt or diagnose a failure.
+- **Recall A/B mode** — three-arm comparison to measure whether the recall-trigger hook is earning its tokens. Costs tokens. Run on demand.
+
+Loads the **same** prompt templates the plugin uses in production (`hooks/prompts/*.tmpl`) — no duplicated copies that could drift.
 
 ## Requirements
 
-- `claude` CLI on `$PATH` (Claude Code) — already logged in (`claude /login`).
-- Python 3.10+ with **PyYAML** (`python3 -m pip install pyyaml`). If you have the memoir repo's venv set up (`make install-dev`), it's already there — invoke as `<venv>/bin/python3 runner.py …`.
+- `claude` CLI on `$PATH` (Claude Code) — already logged in (`claude /login`). **Only needed for LLM mode and recall-ab mode.** Gate mode runs without it.
+- Python 3.10+ with **PyYAML** (`python3 -m pip install pyyaml`). If you have the memoir repo's venv set up (`make install-dev`), it's already there — `source venv/bin/activate` first.
+
+## Run the tests yourself
+
+```bash
+# From repo root, with the venv active.
+source venv/bin/activate
+
+# 1. The gate harness for the recall-trigger hook (this PR's main deliverable).
+#    13 cases, ~25s total, no LLM, no tokens.
+python3 plugins/claude-code/tests/prompt-harness/runner.py gate \
+  --hook user-prompt-submit
+
+# 2. The full Python pytest suite (regression check — make sure nothing else broke).
+make test
+
+# 3. Lint (style + version-consistency check; CI gates on this).
+make lint
+
+# 4. (Optional) The full CI pipeline locally before opening a PR.
+make ci
+
+# 5. (Optional, costs tokens) The existing LLM harness for stop_capture.
+python3 plugins/claude-code/tests/prompt-harness/runner.py run \
+  --prompt stop_capture --model haiku
+
+# 6. (Optional, costs tokens) The recall A/B comparison.
+#    Currently 3 sample cases; expand to ~30 for meaningful F1 numbers.
+python3 plugins/claude-code/tests/prompt-harness/runner.py recall-ab \
+  --model haiku
+```
+
+**Expected output for #1:** `[PASS]` for all 13 gate cases, run directory printed at the bottom (artifacts under `/tmp/memoir-prompt-tests/<UTC-timestamp>/gate/`).
+
+**Expected output for #2:** `337 passed, 9 skipped` (count may grow over time).
+
+If a gate case fails, open `<run-dir>/gate/<case>/output.txt` to see what the hook actually emitted vs. what the assertions expected.
 
 ## Quickstart
 
