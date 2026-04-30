@@ -1,0 +1,6 @@
+# Recall A/B labeled prompt. The harness runs each case through three arms
+# (with_hook, prose_only, bare) and records whether the model called
+# memoir:memory-recall. ``should_fire`` is the human ground truth — used to
+# compute per-arm precision/recall/F1, NOT a per-case pass/fail assertion.
+prompt: "Refactor the auth middleware to share state with the rate limiter."
+should_fire: true

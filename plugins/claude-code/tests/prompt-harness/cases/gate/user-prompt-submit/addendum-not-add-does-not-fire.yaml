@@ -1,0 +1,13 @@
+kind: gate
+hook: user-prompt-submit
+description: "'addendum' does not fire on 'add' (word-boundary regression)"
+env:
+  USER_MEMORIES: "5"
+  MEMOIR_CMD: "memoir"
+# 'add' inside 'addendum' must not match the verb regex thanks to \b
+# anchors. Any future regex change that drops word boundaries would
+# regress here. This prompt is intentionally vague — no other verb,
+# noun, structural trigger should fire either.
+prompt: "An addendum to the previous note: pricing is finalized for now."
+expect:
+  - kind: recall_block_absent

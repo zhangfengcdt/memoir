@@ -1,0 +1,9 @@
+kind: gate
+hook: user-prompt-submit
+description: "Domain noun 'recall' fires"
+env:
+  USER_MEMORIES: "5"
+  MEMOIR_CMD: "memoir"
+prompt: "Talk me through what happens when recall is invoked from a fork-context skill."
+expect:
+  - kind: recall_block_emitted

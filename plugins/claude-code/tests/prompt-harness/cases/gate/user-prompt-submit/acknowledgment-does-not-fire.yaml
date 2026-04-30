@@ -1,0 +1,13 @@
+kind: gate
+hook: user-prompt-submit
+description: "Pure ack 'sounds good' does not fire (caught by ack short-circuit + length gate)"
+env:
+  USER_MEMORIES: "5"
+  MEMOIR_CMD: "memoir"
+# Pure single-token acks are caught by either (a) the explicit ack
+# short-circuit, or (b) the length gate. This case pins the property
+# that an ack alone never triggers recall — regardless of which path
+# enforces it.
+prompt: "sounds good"
+expect:
+  - kind: recall_block_absent

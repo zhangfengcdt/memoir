@@ -68,8 +68,13 @@ Deep structural details (layouts, refactor history, per-file line counts) intent
 
 The Claude Code plugin's LLM-driven hooks (today: `hooks/stop.sh` for auto-capture; more later) load their system prompts from `plugins/claude-code/hooks/prompts/*.tmpl` — those `.tmpl` files are the **single source of truth**, used by both production and the test harness. When changing a prompt, **run the harness against haiku before merging**.
 
+The harness has two modes: **gate** (deterministic shell-hook tests, no LLM, sub-second per case — pins the recall-trigger gate in `hooks/user-prompt-submit.sh`) and **LLM mode** (`run` / `case` / `adhoc` against `claude -p` for prompt templates).
+
 ```bash
-# Full suite (5 cases for the Stop hook auto-capture prompt; ~60s, costs LLM tokens)
+# Gate mode — no LLM cost, run on every commit.
+plugins/claude-code/tests/prompt-harness/runner.py gate --hook user-prompt-submit
+
+# Full LLM suite (5 cases for the Stop hook auto-capture prompt; ~60s, costs LLM tokens)
 plugins/claude-code/tests/prompt-harness/runner.py run --prompt stop_capture --model haiku
 
 # One case

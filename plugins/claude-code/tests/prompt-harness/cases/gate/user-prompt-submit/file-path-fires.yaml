@@ -1,0 +1,9 @@
+kind: gate
+hook: user-prompt-submit
+description: "Prompt mentioning a file extension fires"
+env:
+  USER_MEMORIES: "5"
+  MEMOIR_CMD: "memoir"
+prompt: "I'm staring at branch_service.py and I'm not sure where the divergence call should live."
+expect:
+  - kind: recall_block_emitted

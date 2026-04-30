@@ -1,13 +1,53 @@
 # Prompt test harness
 
-Runs the Claude Code plugin's LLM prompts against canned test cases (or an ad-hoc input) and saves every conversation to a temp folder so you can inspect what the model actually did.
+Two modes, one entry point:
 
-Loads the **same** prompt templates the plugin uses in production (`hooks/prompts/*.tmpl`) — no duplicated copies that could drift. Calls the LLM via `claude -p`, which uses your Claude Code OAuth login (no API key needed).
+- **Gate mode** — deterministic. Pins the shell-level decisions in `hooks/*.sh` (e.g. "does this prompt trigger a recall hint?"). No LLM, no network, no tokens. ~2s per case. Safe to run on every commit.
+- **LLM mode** (`run` / `case` / `adhoc`) — calls `claude -p` against canned cases for the LLM-driven prompts (today: `stop_capture` for auto-capture). Costs tokens. Run when you change a prompt or diagnose a failure.
+- **Recall A/B mode** — three-arm comparison to measure whether the recall-trigger hook is earning its tokens. Costs tokens. Run on demand.
+
+Loads the **same** prompt templates the plugin uses in production (`hooks/prompts/*.tmpl`) — no duplicated copies that could drift.
 
 ## Requirements
 
-- `claude` CLI on `$PATH` (Claude Code) — already logged in (`claude /login`).
-- Python 3.10+ with **PyYAML** (`python3 -m pip install pyyaml`). If you have the memoir repo's venv set up (`make install-dev`), it's already there — invoke as `<venv>/bin/python3 runner.py …`.
+- `claude` CLI on `$PATH` (Claude Code) — already logged in (`claude /login`). **Only needed for LLM mode and recall-ab mode.** Gate mode runs without it.
+- Python 3.10+ with **PyYAML** (`python3 -m pip install pyyaml`). If you have the memoir repo's venv set up (`make install-dev`), it's already there — `source venv/bin/activate` first.
+
+## Run the tests yourself
+
+```bash
+# From repo root, with the venv active.
+source venv/bin/activate
+
+# 1. The gate harness for the recall-trigger hook (this PR's main deliverable).
+#    13 cases, ~25s total, no LLM, no tokens.
+python3 plugins/claude-code/tests/prompt-harness/runner.py gate \
+  --hook user-prompt-submit
+
+# 2. The full Python pytest suite (regression check — make sure nothing else broke).
+make test
+
+# 3. Lint (style + version-consistency check; CI gates on this).
+make lint
+
+# 4. (Optional) The full CI pipeline locally before opening a PR.
+make ci
+
+# 5. (Optional, costs tokens) The existing LLM harness for stop_capture.
+python3 plugins/claude-code/tests/prompt-harness/runner.py run \
+  --prompt stop_capture --model haiku
+
+# 6. (Optional, costs tokens) The recall A/B comparison.
+#    Currently 3 sample cases; expand to ~30 for meaningful F1 numbers.
+python3 plugins/claude-code/tests/prompt-harness/runner.py recall-ab \
+  --model haiku
+```
+
+**Expected output for #1:** `[PASS]` for all 13 gate cases, run directory printed at the bottom (artifacts under `/tmp/memoir-prompt-tests/<UTC-timestamp>/gate/`).
+
+**Expected output for #2:** `337 passed, 9 skipped` (count may grow over time).
+
+If a gate case fails, open `<run-dir>/gate/<case>/output.txt` to see what the hook actually emitted vs. what the assertions expected.
 
 ## Quickstart
 
@@ -107,4 +147,89 @@ The hardcoded category sheet (the same fallback `stop.sh` uses when no store has
 
 ## Costs
 
-Each case costs LLM tokens. The harness is **opt-in** — never run automatically by hooks or CI. Run it manually when you change a prompt or want to diagnose a failure.
+Each `run` / `case` / `adhoc` invocation costs LLM tokens. The harness is **opt-in** — never run automatically by hooks or CI. Run it manually when you change a prompt or want to diagnose a failure. (`gate` mode is free — see below.)
+
+---
+
+## Gate mode (deterministic, no LLM)
+
+The plugin's shell hooks make decisions before any LLM call — e.g. `user-prompt-submit.sh` decides whether to inject a "recall before acting" hint into the next turn's context. Gate cases pin those decisions with deterministic regression tests:
+
+```bash
+# Run all gate cases (sub-second per case; safe to run on every commit).
+./runner.py gate --hook user-prompt-submit
+
+# Run a single gate case via the existing case command — kind is auto-detected.
+./runner.py case gate/user-prompt-submit/verb-add-fires.yaml
+```
+
+A gate case invokes the named hook script (`hooks/<name>.sh`) with synthetic JSON stdin (`{"prompt": "..."}`), captures its stdout, parses the JSON, and asserts on the parsed result. No `claude -p`, no network. Each case runs against a fresh per-case temp store under `/tmp/memoir-prompt-tests/_gate-store/` so there's no leakage between cases.
+
+### Gate case schema
+
+```yaml
+kind: gate
+hook: user-prompt-submit          # → hooks/user-prompt-submit.sh
+description: "Verb 'add' in a 40+ char prompt fires the recall block"
+env:                              # exported before running the hook
+  USER_MEMORIES: "5"              # written into the statusline-cache file
+  MEMOIR_CMD: "memoir"
+prompt: "Please add a Stripe webhook handler to the billing service."
+expect:
+  - kind: parsed_ok
+  - kind: recall_block_emitted
+  - kind: system_message_contains
+    value: "memory available"
+  - kind: exit_code_is
+    value: 0
+```
+
+`USER_MEMORIES` is special-cased: it isn't an env var the hook reads — it's the count from `<store>/.git/plugin-statusline-cache`. The harness writes it there on your behalf so the hook's real read path exercises.
+
+### Gate assertion kinds
+
+| Kind | Meaning |
+|---|---|
+| `parsed_ok` | Hook stdout was a valid JSON object |
+| `recall_block_emitted` | `hookSpecificOutput.additionalContext` contained the production "memoir — recall before acting" header |
+| `recall_block_absent` | The recall block was NOT emitted |
+| `additional_context_contains` | Substring check on `additionalContext` (case sensitive). `value: str` |
+| `system_message_contains` | Substring check on `systemMessage`. `value: str` |
+| `exit_code_is` | Hook exit code matches. `value: int` |
+
+### Adding a new hook to gate-test
+
+1. Drop cases under `cases/gate/<hook-name>/*.yaml` (any depth — discovery is recursive).
+2. Use `kind: gate` and `hook: <name>` (must match `hooks/<name>.sh`).
+3. Run `./runner.py gate --hook <name>` to execute just that hook's cases.
+
+---
+
+## Recall A/B mode (LLM, run on demand)
+
+Measures whether the recall-trigger hook is earning its tokens by running the same labeled prompts through three system-prompt configurations:
+
+| Arm | System prompt | Hook block prepended | What it tests |
+|---|---|---|---|
+| `with_hook` | skill description | ✅ yes (production) | Today's recall rate |
+| `prose_only` | skill description | ❌ no | Can the model decide on its own? |
+| `bare` | (no skill description) | ❌ no | Sanity baseline |
+
+```bash
+./runner.py recall-ab --model haiku
+```
+
+Output: `<run>/recall_ab/summary.md` with a per-arm precision/recall/F1 table; per-arm raw stream-json under `<run>/recall_ab/<case>/<arm>/events.jsonl`.
+
+### Recall A/B case schema
+
+```yaml
+prompt: "Refactor the auth middleware to share state with the rate limiter."
+should_fire: true
+```
+
+`should_fire` is the human ground truth — used to compute aggregate precision/recall/F1, NOT a per-case assertion. Cases live flat under `cases/recall_ab/*.yaml`.
+
+**Cost:** ~3 arms × 1–2s × N cases. Three sample cases ship; expand to ~30 for a representative corpus before drawing conclusions.
+
+**Caveat:** the `claude -p --output-format stream-json` event parser in `recall_ab.py` is best-effort. Run one case manually first and inspect `events.jsonl` + `tool_calls.json` to confirm the parser caught the Skill tool call as expected before trusting aggregate numbers.
