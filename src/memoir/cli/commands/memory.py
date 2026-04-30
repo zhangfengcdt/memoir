@@ -37,8 +37,21 @@ from memoir.cli.main import (
         "the caller has already classified the content."
     ),
 )
+@click.option(
+    "--model",
+    "model",
+    default=None,
+    help=(
+        "LLM model to use for classification (e.g. 'claude-haiku-4-5', "
+        "'gpt-4o-mini'). Resolution order: this flag → MEMOIR_LLM_MODEL env "
+        "var → 'claude-haiku-4-5' default. Ignored when -p is given (no LLM "
+        "call)."
+    ),
+)
 @pass_context
-def remember(ctx: MemoirContext, content: str, namespace: str, paths: tuple):
+def remember(
+    ctx: MemoirContext, content: str, namespace: str, paths: tuple, model: str | None
+):
     """Store content in memory with intelligent classification.
 
     INPUT: Any text content (facts, preferences, events, notes).
@@ -60,6 +73,7 @@ def remember(ctx: MemoirContext, content: str, namespace: str, paths: tuple):
       memoir remember "Uses 4-space indentation" -p preferences.coding.style
       memoir remember "Feng prefers TDD and terminal CLIs" \\
           -p preferences.coding.methodology -p preferences.tooling.terminal
+      memoir remember "..." --model claude-haiku-4-5
 
     \b
     JSON output includes: key, keys, confidence, reasoning, commit_hash
@@ -71,7 +85,7 @@ def remember(ctx: MemoirContext, content: str, namespace: str, paths: tuple):
 
     from memoir.services.memory_service import MemoryService
 
-    service = MemoryService(ctx.store_path)
+    service = MemoryService(ctx.store_path, llm_model=model)
     paths_list = list(paths) if paths else None
 
     try:
@@ -113,6 +127,16 @@ def remember(ctx: MemoirContext, content: str, namespace: str, paths: tuple):
     show_default=True,
     help="Search mode: 'single' (one LLM call) or 'tiered' (multi-stage drill-down).",
 )
+@click.option(
+    "--model",
+    "model",
+    default=None,
+    help=(
+        "LLM model to use for semantic search (e.g. 'claude-haiku-4-5', "
+        "'gpt-4o-mini'). Resolution order: this flag → MEMOIR_LLM_MODEL env "
+        "var → 'claude-haiku-4-5' default."
+    ),
+)
 @pass_context
 def recall(
     ctx: MemoirContext,
@@ -121,6 +145,7 @@ def recall(
     limit: int,
     threshold: float,
     mode: str,
+    model: str | None,
 ):
     """Search memories using semantic query.
 
@@ -136,6 +161,7 @@ def recall(
       memoir recall "meeting notes" -n calendar -l 5
       memoir recall "programming languages" --threshold 0.5
       memoir recall "testing setup" --mode tiered
+      memoir recall "..." --model gpt-4o-mini
 
     \b
     JSON output includes: memories[{path, content, score}], timing_ms
@@ -147,7 +173,7 @@ def recall(
 
     from memoir.services.memory_service import MemoryService
 
-    service = MemoryService(ctx.store_path)
+    service = MemoryService(ctx.store_path, llm_model=model)
 
     try:
         result = asyncio.run(

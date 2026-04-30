@@ -7,6 +7,7 @@ to be shared by CLI, TUI, SDK, and HTTP handlers.
 
 import asyncio
 import logging
+import os
 import time
 from datetime import datetime
 from pathlib import Path
@@ -31,15 +32,22 @@ class MemoryService(BaseService):
     for remember and intelligent search for recall.
     """
 
-    def __init__(self, store_path: str, llm_model: str = "gpt-4o-mini"):
+    def __init__(self, store_path: str, llm_model: str | None = None):
         """
         Initialize memory service.
 
         Args:
             store_path: Path to the memory store directory
-            llm_model: LLM model to use for classification and search
+            llm_model: LLM model to use for classification and search.
+                Resolution order when None: MEMOIR_LLM_MODEL env var →
+                "claude-haiku-4-5" default. Matches the UI default exposed
+                by ``memoir.llm.default_ui_model`` so CLI and UI agree.
+                Set MEMOIR_LLM_MODEL=gpt-4o-mini (with OPENAI_API_KEY) for
+                the previous OpenAI-based behavior.
         """
         super().__init__(store_path)
+        if llm_model is None:
+            llm_model = os.environ.get("MEMOIR_LLM_MODEL", "claude-haiku-4-5")
         self.llm_model = llm_model
         self._classifier = None
         self._search_engine = None
