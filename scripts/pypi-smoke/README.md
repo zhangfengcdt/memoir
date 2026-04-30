@@ -29,20 +29,29 @@ container with port `9090` forwarded to the host.
 
 ## What gets checked
 
-**Automated (in-container):**
+The harness runs ~18 small named test cases and reports per-case
+pass/fail with timing. Cases are grouped into:
 
-- `memoir --version` matches the requested version
-- `memoir new` / `memoir connect` succeed
-- `memoir remember "test fact" -p preferences.coding.style` writes
-- `memoir get preferences.coding.style` reads back the same content
-- `memoir branch` lists `main`
-- `memoir status` exits cleanly
-- `memoir ui --no-browser --port 9090 --idle-timeout 0` starts the server
-- `GET /` returns HTML with the React root `<div id="root">`
-- `GET /api/branches?store=/tmp/store` returns non-empty JSON
-- `GET /api/current-branch?store=/tmp/store` returns 200
+- **Install / version** — `memoir` on PATH, `--version` matches the
+  requested release.
+- **Store** — `memoir new` creates a git repo, `connect` persists, status
+  + `--json` output is valid JSON.
+- **Memory** — write three memories with explicit paths, read each back,
+  `forget` removes a key, `get` on a missing key exits non-zero.
+- **Branch** — create a branch, list it, switch to it, write a memory
+  there, switch back to main, confirm the feature-branch memory does
+  *not* leak.
+- **UI** — server binds on :9090, `/` serves HTML with the React root,
+  and four read-only API endpoints respond with sane JSON
+  (`/api/branches`, `/api/current-branch`, `/api/statistics`,
+  `/api/commits`).
 
-If any of these fail, the script exits non-zero and prints `FAIL: …`.
+Each case is independent: a failure prints its own diagnostic and the
+runner keeps going so you see the full picture, then exits non-zero at
+the end if anything failed.
+
+The script also captures the test environment (memoir version, Python,
+OS, arch, git) and prints it before the results.
 
 **Manual (you, in your host browser) — once the script prints `OK`:**
 
@@ -62,11 +71,14 @@ A manual GitHub Actions workflow (`PyPI Smoke Test`) does the same thing
 without the human step. Trigger from the Actions tab or via CLI:
 
 ```bash
-gh workflow run pypi-smoke.yml -f version=0.1.4
+gh workflow run pypi-smoke.yml -f version=0.1.5
 ```
 
 The workflow builds the same image, runs the container with
-`MEMOIR_SMOKE_HEADLESS=1`, and the run goes red if any assertion fails.
+`MEMOIR_SMOKE_HEADLESS=1` plus `MEMOIR_SMOKE_SUMMARY_FILE` pointed at a
+bind-mounted host path, and appends the resulting markdown to
+`GITHUB_STEP_SUMMARY` — so the run page shows a per-case results table
+plus the test environment, regardless of pass or fail.
 
 ## Out of scope
 

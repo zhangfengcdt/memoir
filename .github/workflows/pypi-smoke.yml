@@ -31,6 +31,20 @@ jobs:
 
       - name: Run smoke test (headless)
         run: |
+          mkdir -p /tmp/smoke-out
           docker run --rm \
             -e MEMOIR_SMOKE_HEADLESS=1 \
+            -e MEMOIR_SMOKE_SUMMARY_FILE=/smoke-out/summary.md \
+            -v /tmp/smoke-out:/smoke-out \
             "memoir-pypi-smoke:${{ inputs.version }}"
+
+      - name: Publish summary to job summary
+        if: always()
+        run: |
+          if [[ -f /tmp/smoke-out/summary.md ]]; then
+            cat /tmp/smoke-out/summary.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## ⚠️ PyPI Smoke Test — memoir-ai ${{ inputs.version }}" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Smoke script did not produce a summary file (likely failed before reaching the runner)." >> "$GITHUB_STEP_SUMMARY"
+          fi
