@@ -30,11 +30,16 @@ jobs:
             scripts/pypi-smoke
 
       - name: Run smoke test (headless)
+        env:
+          # Empty string when the secret isn't configured — smoke.sh handles
+          # that by skipping the LLM cases and keeping the rest green.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           mkdir -p /tmp/smoke-out
           docker run --rm \
             -e MEMOIR_SMOKE_HEADLESS=1 \
             -e MEMOIR_SMOKE_SUMMARY_FILE=/smoke-out/summary.md \
+            -e ANTHROPIC_API_KEY \
             -v /tmp/smoke-out:/smoke-out \
             "memoir-pypi-smoke:${{ inputs.version }}"
 

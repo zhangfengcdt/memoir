@@ -19,4 +19,9 @@ docker build \
   -t "memoir-pypi-smoke:${VERSION}" \
   "${HERE}"
 
-docker run --rm -it -p 9090:9090 "memoir-pypi-smoke:${VERSION}"
+# Forward ANTHROPIC_API_KEY from the host environment into the container so
+# LLM-backed cases can run. If unset, the container picks up an empty string
+# and the smoke script gracefully skips those cases.
+docker run --rm -it -p 9090:9090 \
+  -e "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}" \
+  "memoir-pypi-smoke:${VERSION}"

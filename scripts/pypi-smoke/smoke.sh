@@ -30,6 +30,11 @@ env_os=$(. /etc/os-release 2>/dev/null && echo "$PRETTY_NAME" || uname -sr)
 env_arch=$(uname -m)
 env_git=$(git --version 2>&1 | sed 's/^git version //')
 env_pip_pkg=$(pip show memoir-ai 2>/dev/null | awk -F': ' '/^Version:/{print $2}')
+if [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
+  env_llm="yes (model: ${MEMOIR_LLM_MODEL:-claude-haiku-4-5})"
+else
+  env_llm="no — LLM cases will be skipped"
+fi
 
 echo "== Environment =="
 env_kv "memoir-ai"     "${env_pip_pkg:-not installed} (cli: ${env_memoir})"
@@ -38,14 +43,15 @@ env_kv "OS"            "$env_os"
 env_kv "Architecture"  "$env_arch"
 env_kv "git"           "$env_git"
 env_kv "Install source" "PyPI (memoir-ai==${MEMOIR_VERSION})"
+env_kv "LLM key"       "$env_llm"
 echo
 
 # ---------------------------------------------------------------------------
 # Test runner
 # ---------------------------------------------------------------------------
 
-declare -i pass_count=0 fail_count=0
-declare -a results=()        # "PASS|name|elapsed|" or "FAIL|name|elapsed|reason"
+declare -i pass_count=0 fail_count=0 skip_count=0
+declare -a results=()        # "PASS|name|elapsed|" or "FAIL|name|elapsed|reason" or "SKIP|name|0.00|reason"
 
 run_case() {
   local name="$1"; shift
@@ -71,6 +77,14 @@ run_case() {
     results+=("FAIL|${name}|${elapsed}|${reason}")
     fail_count+=1
   fi
+}
+
+skip_case() {
+  local name="$1"; shift
+  local reason="$1"; shift
+  printf "  [SKIP] %-40s %s\n" "$name" "$reason"
+  results+=("SKIP|${name}|0.00|${reason}")
+  skip_count+=1
 }
 
 # ---------------------------------------------------------------------------
@@ -155,6 +169,45 @@ case_cli_branch_isolation() {
   fi
 }
 
+# --- LLM-backed CLI cases (gated on ANTHROPIC_API_KEY) ---
+
+# `remember` without -p triggers the IntelligentClassifier (LLM call).
+# We don't assert *which* path Haiku picks (it's non-deterministic), only
+# that the round-trip succeeds and produces a syntactically valid dotted key.
+case_cli_remember_no_path() {
+  local out
+  out=$(memoir --json remember "I prefer dark mode for IDEs and 2-space indents" 2>&1) \
+    || { echo "remember (no -p) exited non-zero: $out"; return 1; }
+  echo "$out" | python3 -c '
+import json, re, sys
+d = json.load(sys.stdin)
+assert d.get("success") is True, f"success not true: {d}"
+key = d.get("key") or ""
+assert re.match(r"^[a-z][a-z0-9._-]+$", key), f"key not a dotted path: {key!r}"
+' || { echo "JSON shape unexpected: $out"; return 1; }
+}
+
+# `recall` calls the IntelligentSearchEngine (LLM call). We rely on the prior
+# `cli-remember-three-keys` case having stored "feng prefers tabs" at
+# preferences.coding.style; recall("tabs") should surface either that path
+# or a memory whose content mentions "tabs" — tolerating ranking variance.
+case_cli_recall_finds_stored() {
+  local out
+  out=$(memoir --json recall "tabs" 2>&1) \
+    || { echo "recall exited non-zero: $out"; return 1; }
+  echo "$out" | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+assert d.get("success") is True, f"success not true: {d}"
+mems = d.get("memories", [])
+assert mems, f"empty memories: {d}"
+def matches(m):
+    return (m.get("path") == "preferences.coding.style"
+            or "tabs" in str(m.get("content","")).lower())
+assert any(matches(m) for m in mems), f"no memory matched: {mems}"
+' || { echo "JSON shape or content unexpected: $out"; return 1; }
+}
+
 # --- UI ---
 
 start_ui() {
@@ -216,6 +269,16 @@ run_case "cli-branch-create-and-list"   case_cli_branch_create_and_list
 run_case "cli-checkout-and-write"       case_cli_checkout_and_write
 run_case "cli-branch-isolation"         case_cli_branch_isolation
 
+# LLM-backed cases — gated on ANTHROPIC_API_KEY presence so a forked PR run
+# (or a local run without a key configured) doesn't fail the suite.
+if [[ -n "${ANTHROPIC_API_KEY:-}" ]]; then
+  run_case "cli-remember-no-path-uses-llm" case_cli_remember_no_path
+  run_case "cli-recall-finds-stored-key"   case_cli_recall_finds_stored
+else
+  skip_case "cli-remember-no-path-uses-llm" "ANTHROPIC_API_KEY not set"
+  skip_case "cli-recall-finds-stored-key"   "ANTHROPIC_API_KEY not set"
+fi
+
 # UI tests share one server; bring it up once.
 echo
 ui_screenshots=()  # list of "name|absolute_path" — embedded into summary.md if produced
@@ -254,7 +317,8 @@ else
   fail_count+=1
 fi
 
-total=$((pass_count + fail_count))
+total=$((pass_count + fail_count + skip_count))
+ran=$((pass_count + fail_count))
 
 # ---------------------------------------------------------------------------
 # Summary (stdout)
@@ -262,7 +326,11 @@ total=$((pass_count + fail_count))
 
 echo
 echo "== Summary =="
-echo "  ${pass_count}/${total} passed"
+if (( skip_count > 0 )); then
+  echo "  ${pass_count}/${ran} passed, ${skip_count} skipped"
+else
+  echo "  ${pass_count}/${total} passed"
+fi
 if (( fail_count > 0 )); then
   echo "  Failed:"
   for r in "${results[@]}"; do
@@ -281,7 +349,11 @@ if [[ -n "$SUMMARY_FILE" ]]; then
   {
     echo "## ${status_emoji} PyPI Smoke Test — memoir-ai ${MEMOIR_VERSION}"
     echo
-    echo "**${pass_count}/${total} passed**"
+    if (( skip_count > 0 )); then
+      echo "**${pass_count}/${ran} passed, ${skip_count} skipped**"
+    else
+      echo "**${pass_count}/${total} passed**"
+    fi
     echo
     echo "### Environment"
     echo
@@ -292,18 +364,19 @@ if [[ -n "$SUMMARY_FILE" ]]; then
     echo "| OS | ${env_os} |"
     echo "| Architecture | ${env_arch} |"
     echo "| git | ${env_git} |"
+    echo "| LLM key | ${env_llm} |"
     echo
     echo "### Results"
     echo
-    echo "| | Case | Time |"
-    echo "|---|---|---|"
+    echo "| | Case | Time | Note |"
+    echo "|---|---|---|---|"
     for r in "${results[@]}"; do
       IFS='|' read -r status name elapsed reason <<<"$r"
-      if [[ "$status" == "PASS" ]]; then
-        echo "| ✅ | \`${name}\` | ${elapsed}s |"
-      else
-        echo "| ❌ | \`${name}\` | ${elapsed}s |"
-      fi
+      case "$status" in
+        PASS) echo "| ✅ | \`${name}\` | ${elapsed}s | |" ;;
+        FAIL) echo "| ❌ | \`${name}\` | ${elapsed}s | ${reason} |" ;;
+        SKIP) echo "| ⏭️ | \`${name}\` | — | ${reason} |" ;;
+      esac
     done
     if (( fail_count > 0 )); then
       echo

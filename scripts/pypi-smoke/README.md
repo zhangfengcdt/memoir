@@ -45,6 +45,12 @@ pass/fail with timing. Cases are grouped into:
   and four read-only API endpoints respond with sane JSON
   (`/api/branches`, `/api/current-branch`, `/api/statistics`,
   `/api/commits`).
+- **LLM (gated)** — when `ANTHROPIC_API_KEY` is set, two extra cases run
+  that exercise the LLM-backed code paths: `remember` without `-p`
+  (auto-classification via `IntelligentClassifier`) and `recall` against
+  the populated store. Without a key, both are reported as **SKIP** with
+  a reason and the rest of the suite still passes. Model: memoir's
+  default `claude-haiku-4-5`. Cost: a few cents per run.
 
 Each case is independent: a failure prints its own diagnostic and the
 runner keeps going so you see the full picture, then exits non-zero at
@@ -73,6 +79,17 @@ without the human step. Trigger from the Actions tab or via CLI:
 ```bash
 gh workflow run pypi-smoke.yml -f version=0.1.5
 ```
+
+To enable the LLM cases locally:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-…
+scripts/pypi-smoke/run.sh 0.1.6
+```
+
+To enable in CI: configure `ANTHROPIC_API_KEY` in repo settings →
+Settings → Secrets and variables → Actions. The workflow already wires
+it through; absence of the secret silently falls back to SKIP.
 
 The workflow builds the same image, runs the container with
 `MEMOIR_SMOKE_HEADLESS=1` plus `MEMOIR_SMOKE_SUMMARY_FILE` pointed at a
