@@ -40,7 +40,11 @@ export MEMOIR_LLM_MODEL="${MEMOIR_LLM_MODEL:-claude-haiku-4-5}"
 # Empty `_GIT_ROOT` is intentional and load-bearing for non-git folders — see
 # `in_git_repo` below; `code_git_branch`, `code_branch_exists`, and
 # `auto_match_memoir_branch` all guard on it staying empty.
-_GIT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo "")"
+#
+# Delegated to derive-store-path.sh so the worktree-aware logic (linked
+# worktrees collapse onto the main worktree's path) lives in exactly one place.
+SCRIPT_PARENT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+_GIT_ROOT="$(bash "$SCRIPT_PARENT/scripts/derive-store-path.sh" --print-git-root 2>/dev/null || echo "")"
 if [ -n "$_GIT_ROOT" ]; then
   _PROJECT_DIR="$_GIT_ROOT"
 else
@@ -54,7 +58,6 @@ fi
 in_git_repo() { [ -n "$_GIT_ROOT" ]; }
 
 # Resolve store path: MEMOIR_STORE env wins, else derive from project dir.
-SCRIPT_PARENT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 if [ -n "${MEMOIR_STORE:-}" ]; then
   MEMOIR_STORE_PATH="$MEMOIR_STORE"
 else
@@ -316,7 +319,7 @@ ensure_store() {
 # means.
 _project_root() {
   local root
-  root=$(git rev-parse --show-toplevel 2>/dev/null || true)
+  root=$(bash "$SCRIPT_PARENT/scripts/derive-store-path.sh" --print-git-root 2>/dev/null || true)
   if [ -n "$root" ]; then
     printf '%s' "$root"
   else

@@ -169,6 +169,52 @@ case_cli_branch_isolation() {
   fi
 }
 
+# --- Worktree sanity cases (memoir CLI works inside a linked git worktree) ---
+#
+# Defense-in-depth: the plugin's derive-store-path.sh maps all worktrees of a
+# repo onto one shared memoir store, but the CLI itself takes explicit -s
+# paths and should be wholly worktree-agnostic. These cases assert that
+# neither `memoir new`, basic CRUD, nor `memoir --json status` regress when
+# the cwd is a linked worktree. Each case runs in its own subshell so `cd`
+# does not leak into the rest of the suite.
+case_cli_works_inside_worktree() {
+  local proj wt store
+  proj=$(mktemp -d -t memoir-smoke-wt-proj.XXXXXX)
+  wt=$(mktemp -d -t memoir-smoke-wt-link.XXXXXX); rm -rf "$wt"
+  store=$(mktemp -d -t memoir-smoke-wt-store.XXXXXX); rm -rf "$store"
+  (
+    cd "$proj"
+    git init -q && git commit -q --allow-empty -m init
+    git worktree add -q "$wt" -b smoke-wt-branch >/dev/null
+    cd "$wt"
+    memoir new "$store" --no-connect >/dev/null \
+      || { echo "memoir new failed inside worktree"; exit 1; }
+    memoir -s "$store" remember "tabs over spaces" -p preferences.coding.style >/dev/null \
+      || { echo "remember failed inside worktree"; exit 1; }
+    memoir -s "$store" get preferences.coding.style 2>&1 | grep -q "tabs" \
+      || { echo "get inside worktree did not return value"; exit 1; }
+  ) || return 1
+}
+
+case_cli_status_json_valid_in_worktree() {
+  local proj wt store
+  proj=$(mktemp -d -t memoir-smoke-wts-proj.XXXXXX)
+  wt=$(mktemp -d -t memoir-smoke-wts-link.XXXXXX); rm -rf "$wt"
+  store=$(mktemp -d -t memoir-smoke-wts-store.XXXXXX); rm -rf "$store"
+  (
+    cd "$proj"
+    git init -q && git commit -q --allow-empty -m init
+    git worktree add -q "$wt" -b smoke-wts-branch >/dev/null
+    cd "$wt"
+    memoir new "$store" --no-connect >/dev/null \
+      || { echo "memoir new failed"; exit 1; }
+    out=$(memoir --json -s "$store" status 2>&1) \
+      || { echo "status --json failed: $out"; exit 1; }
+    echo "$out" | python3 -c 'import json,sys; d=json.load(sys.stdin); assert isinstance(d, dict)' \
+      || { echo "status JSON invalid in worktree: $out"; exit 1; }
+  ) || return 1
+}
+
 # --- LLM-backed CLI cases (gated on ANTHROPIC_API_KEY) ---
 
 # `remember` without -p triggers the IntelligentClassifier (LLM call).
@@ -279,6 +325,9 @@ run_case "cli-get-missing-exits-nonzero" case_cli_get_missing_exits_nonzero
 run_case "cli-branch-create-and-list"   case_cli_branch_create_and_list
 run_case "cli-checkout-and-write"       case_cli_checkout_and_write
 run_case "cli-branch-isolation"         case_cli_branch_isolation
+
+run_case "cli-works-inside-worktree"          case_cli_works_inside_worktree
+run_case "cli-status-json-valid-in-worktree"  case_cli_status_json_valid_in_worktree
 
 # LLM-backed cases — gated on ANTHROPIC_API_KEY presence so a forked PR run
 # (or a local run without a key configured) doesn't fail the suite.

@@ -13,7 +13,7 @@ Inside a Claude Code session:
 /plugin install memoir@memoir
 ```
 
-Hooks register on the next session start. Each project gets its own store at `~/.memoir/<basename>_<8-char-hash>/` (override via `MEMOIR_STORE=/your/path`).
+Hooks register on the next session start. Each project gets its own store at `~/.memoir/<slug>/` (override via `MEMOIR_STORE=/your/path`). Linked git worktrees of the same repo share one store keyed on the **main worktree's** path — so memories captured from any worktree are recallable from every other. To opt out, set `MEMOIR_STORE` per worktree.
 
 ### CLI resolution
 
