@@ -15,7 +15,7 @@ Inside a Claude Code session, run:
 
 The first command registers the memoir GitHub repo as a plugin marketplace; the second installs the `memoir` plugin from that marketplace. Hooks take effect on the next session start.
 
-Each project gets its own memoir store under `~/.memoir/memoir_<hash>/`, derived from your cwd. Override by exporting `MEMOIR_STORE=/path/to/store`.
+Each project gets its own memoir store under `~/.memoir/<slug>/`, derived from your cwd. Override by exporting `MEMOIR_STORE=/path/to/store`. If you use `git worktree`, all linked worktrees of one repo share a single store keyed on the main worktree's path — set `MEMOIR_STORE` per worktree to opt out.
 
 ## What ships
 
@@ -71,7 +71,7 @@ Shared helpers: `hooks/common.sh`, `hooks/parse-transcript.sh`.
 
 | Script | Role |
 |---|---|
-| `derive-store-path.sh` | Maps the current cwd to `~/.memoir/memoir_<hash>`. Respects `$MEMOIR_STORE`. |
+| `derive-store-path.sh` | Maps the current cwd to `~/.memoir/<slug>` (linked worktrees collapse onto the main worktree's slug). Respects `$MEMOIR_STORE`. |
 | `memoir-ui-ctl.sh` | `start` / `stop` / `status` for the web UI, with pidfile bookkeeping so repeated `/memoir:ui` calls reuse the same server. |
 | `statusline.sh` | Renders memoir state into Claude Code's status line, e.g. `memoir: feature/foo · 14 memories`. |
 
