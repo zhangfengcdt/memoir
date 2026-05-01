@@ -145,23 +145,31 @@ case_session_start_status() {
 # Bypasses Stop-hook auto-capture (which gets cancelled in -p mode).
 # ---------------------------------------------------------------------------
 case_remember_slash_captures() {
-  local proj store
+  local proj store got
   proj=$(new_proj)
   store=$(new_store)
   trap 'rm -rf "$proj" "$store"' RETURN
   (
     cd "$proj"
     export MEMOIR_STORE="$store"
-    local before after
-    before=$(memoir_user_count "$store")
-    # NOTE: quoted args inside slash-command argv prompts hang claude -p; the
-    # remember command's wrapper accepts bare words and rejoins them.
     claude_p '/memoir:remember I prefer hard tabs over spaces -p preferences.coding.style' \
       >/dev/null 2>&1 || true
-    after=$(memoir_user_count "$store")
-    if [ "$after" -le "$before" ]; then
-      echo "no new memory after /memoir:remember (before=$before, after=$after)"
-      memoir --json -s "$store" status 2>&1 | head -10
+    # Tight assertion: the explicit -p path must be honored. Doubles as a
+    # regression test for the previously-fixed bug where Claude Code's $N
+    # substitution inside slash-command bash blocks caused -p to be silently
+    # dropped, leaving the memory at the classifier-fallback key.
+    got=$(memoir --json -s "$store" get preferences.coding.style 2>/dev/null \
+      | python3 -c 'import json,sys
+try:
+    d = json.load(sys.stdin)
+    items = d.get("items") or []
+    print(items[0]["value"]["content"] if items else "")
+except Exception:
+    print("")' 2>/dev/null)
+    if ! printf '%s' "$got" | grep -qi 'tab'; then
+      echo "/memoir:remember -p preferences.coding.style did not land at requested key"
+      echo "  got content at preferences.coding.style: [$got]"
+      memoir -s "$store" summarize --keys "*" 2>&1 | tail -10
       exit 1
     fi
   )

@@ -57,27 +57,23 @@ don't pick up the developer's user `~/.claude/settings.json`.
 
 ## Quirks discovered building this harness
 
-These are observed behaviors of `claude -p` + plugin interaction; documented
-here so future authors don't re-rediscover them.
+Observed behaviors of `claude -p` + plugin interaction.
 
-1. **Quoted args inside slash-command prompts hang `claude -p`.** Passing
-   `'/memoir:remember "I prefer tabs" -p preferences.coding.style'` makes
-   the session never progress past `SessionStart`. The bare-words form
-   (`/memoir:remember I prefer tabs -p preferences.coding.style`) works.
-   The slash-command wrapper rejoins bare words into a single `content`
-   arg, so functionality is preserved.
+1. **Claude Code rewrites `$1`, `$2`, `$N` inside slash-command markdown
+   bodies before bash runs** — even inside single-quoted bash strings.
+   The substitution is 0-indexed against the slash command's whitespace-
+   split arguments, so a literal `case "$1"` inside a `bash -c '...'`
+   block matches the *second* word of the user's input on every iteration,
+   not the bash positional arg. Any slash-command bash block that needs
+   true bash positional access must shell out to a real script under
+   `plugins/claude-code/scripts/` so the markdown preprocessor never sees
+   the `$N` literals (see `commands/remember.md` → `scripts/remember-args.sh`
+   for the template). This caused two visible symptoms before being fixed:
+   (a) `/memoir:remember -p <path>` silently fell back to the LLM
+   classifier's `context.current.session` key, and (b) the quoted-args form
+   hung `claude -p` indefinitely.
 
-2. **`/memoir:remember -p <path>` doesn't honor `-p` under `claude -p`.**
-   When invoked via `claude -p` with `--dangerously-skip-permissions`, the
-   command's bash returns a success JSON naming the requested path, but the
-   memory actually lands at the classifier-fallback key
-   `context.current.session`. Running the same bash command directly in a
-   shell honors `-p` correctly. Root cause not yet pinned — may be related
-   to how Claude Code expands `$ARGUMENTS` in slash-command bash blocks.
-   Tracked as a separate plugin bug; the smoke harness uses direct
-   `memoir remember` calls to seed memories rather than the slash command.
-
-3. **Stop hook gets `outcome:"cancelled"` in `-p` mode.** `claude -p` exits
+2. **Stop hook gets `outcome:"cancelled"` in `-p` mode.** `claude -p` exits
    as soon as the result lands and kills the Stop hook mid-execution.
    Auto-capture doesn't reliably persist anything in headless mode. Don't
    write smoke cases that depend on Stop-driven captures.

@@ -13,6 +13,6 @@ Multi-word content works with or without surrounding quotes — the wrapper rejo
 /memoir:remember Project uses Python 3.12 and ruff
 ```
 
-!`bash -c 'STORE="${MEMOIR_STORE:-$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/derive-store-path.sh")}"; content=""; flags=(); while [ $# -gt 0 ]; do case "$1" in -n|-p|--namespace|--path) flags+=("$1" "$2"); shift 2;; *) if [ -z "$content" ]; then content="$1"; else content="$content $1"; fi; shift;; esac; done; MEMOIR_LLM_BACKEND=claude-cli memoir --json -s "$STORE" remember "$content" "${flags[@]}"' _ $ARGUMENTS`
+!`bash "${CLAUDE_PLUGIN_ROOT}/scripts/remember-args.sh" $ARGUMENTS`
 
 Show the resulting `key` (taxonomy path) and `commit_hash`. This is independent of the Stop hook — the auto-capture pipeline still fires at the end of the turn for any other durable facts mentioned.
