@@ -1,4 +1,4 @@
-.PHONY: help install install-dev clean test test-cov lint format type-check security benchmark docs docs-live docs-clean pre-commit build publish release-check release-test check-versions ui-install ui-dev ui-build ui-clean
+.PHONY: help install install-dev clean test test-cov lint format type-check security benchmark docs docs-live docs-clean pre-commit build publish release-check release-test check-versions ui-install ui-dev ui-build ui-clean cc-smoke
 
 # Default target
 help:
@@ -23,6 +23,7 @@ help:
 	@echo "  release-test    Build + upload to TestPyPI (requires ~/.pypirc testpypi entry)"
 	@echo "  check-versions  Verify version consistency across package + plugin manifests"
 	@echo "  ci              Run full CI pipeline locally"
+	@echo "  cc-smoke        Run Claude Code end-to-end smoke tests (requires \`claude\` CLI; costs LLM tokens)"
 	@echo ""
 	@echo "Web UI (v2 — src/memoir/ui/webapp):"
 	@echo "  ui-install      pnpm install the webapp dependencies"
@@ -125,6 +126,12 @@ ci: clean install-dev lint type-check security test-cov docs
 	@echo "- Memory Storage: 20-30ms (vs 200-600ms vanilla LangMem)"
 	@echo "- Classification: 1-5ms (vs 2-5 seconds vanilla LangMem)"
 	@echo "- Total Improvement: 10-20x faster overall!"
+
+# Claude Code end-to-end smoke harness — drives `claude -p` against the local
+# plugin checkout. Requires `claude` on PATH (logged in or ANTHROPIC_API_KEY).
+# Costs LLM tokens; not part of `ci`.
+cc-smoke:
+	bash scripts/cc-smoke/run.sh
 
 # Quick development setup
 setup: clean install-dev pre-commit
