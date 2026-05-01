@@ -1953,9 +1953,9 @@
 </span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="c1"># Shell-wide override</span>
 </span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="nb">export</span><span class="w"> </span><span class="nv">MEMOIR_LLM_MODEL</span><span class="o">=</span>gpt-4o-mini
 </span></code></pre></div>
-<p>As of v0.1.8, <code>litellm</code> is a default dependency, so <code>pip install
+<p>As of v0.1.7, <code>litellm</code> is a default dependency, so <code>pip install
 memoir-ai</code> enables both LLM-backed and direct-path commands. (Prior
-to v0.1.8 you had to add the <code>[litellm]</code> extra explicitly.)</p>
+to v0.1.7 you had to add the <code>[litellm]</code> extra explicitly.)</p>
 <h3 id="memoir-get-direct-lookup-by-taxonomy-path"><code>memoir get</code> — direct lookup by taxonomy path<a class="headerlink" href="#memoir-get-direct-lookup-by-taxonomy-path" title="Permanent link">&para;</a></h3>
 <p>No LLM, no search. Pass one or more exact keys; missing keys come back as <code>found: false</code> so you can batch speculative candidates without branching. Latency is typically &lt;10ms.</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Single lookup</span>
