@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """
 Utility handler for common helper functions and data processing utilities.
 """

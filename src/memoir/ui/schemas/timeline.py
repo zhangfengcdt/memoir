@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Timeline + location response models."""
 
 from __future__ import annotations

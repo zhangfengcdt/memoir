@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Memoir Integration Package - Framework adapters for Memoir memory system."""
 
 from memoir.integration.base import BaseIntegration

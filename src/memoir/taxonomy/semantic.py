@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """
 Comprehensive semantic taxonomy for AI memory classification.
 Defines hierarchical paths for deterministic memory organization.

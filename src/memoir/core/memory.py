@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """
 Provides high-performance semantic memory with versioning capabilities.
 """

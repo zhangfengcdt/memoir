@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """
 Claude CLI backend — a drop-in replacement for LiteLLMWrapper that invokes
 the `claude` command-line interface instead of making direct provider API calls.

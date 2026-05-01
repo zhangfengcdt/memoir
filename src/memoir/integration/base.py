@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Base integration interface for framework adapters."""
 
 from abc import ABC, abstractmethod

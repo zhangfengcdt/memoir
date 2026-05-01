@@ -1,5 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
 """
-LangMem-ProllyTree Integration
+Memoir
 High-performance semantic memory system for AI agents.
 """
 

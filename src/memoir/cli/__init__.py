@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """
 Memoir CLI - Command-line interface for AI memory management.
 

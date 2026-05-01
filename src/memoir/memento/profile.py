@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """
 Profile Memento for User Profile Generation and Management.
 

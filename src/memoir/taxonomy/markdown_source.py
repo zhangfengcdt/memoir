@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Markdown-based taxonomy data source.
 
 Parses YAML frontmatter and structured markdown content into taxonomy data.

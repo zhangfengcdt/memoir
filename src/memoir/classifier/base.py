@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """
 Base interfaces and protocols for taxonomy systems.
 """

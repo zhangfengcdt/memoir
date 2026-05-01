@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """
 Pydantic response models for the memoir HTTP API.
 

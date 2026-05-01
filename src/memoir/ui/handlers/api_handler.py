@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """
 Base API handler class with common functionality.
 """

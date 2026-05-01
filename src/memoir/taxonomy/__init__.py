@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Semantic taxonomy components."""
 
 from .loader import TAXONOMY_NAMESPACE, TaxonomyLoader

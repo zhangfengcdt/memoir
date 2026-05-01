@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """
 ProllyTree adapter implementing LangGraph's BaseStore interface.
 Provides high-performance semantic memory storage with versioning.
@@ -102,7 +103,7 @@ class ProllyTreeStore(BaseStore):
                 # Create initial commit
                 readme_path = os.path.join(self.path, "README.md")
                 with open(readme_path, "w") as f:
-                    f.write("# LangMem ProllyTree Store\n")
+                    f.write("# Memoir Store\n")
                 subprocess.run(
                     ["git", "add", "."],
                     cwd=self.path,

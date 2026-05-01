@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """
 Semantic classifier for mapping memories to taxonomy paths.
 Uses LLM-based classification with caching and optimization.

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """
 Branch handler for git operations and version control.
 

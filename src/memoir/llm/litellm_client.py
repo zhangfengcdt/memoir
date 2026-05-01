@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """
 LiteLLM wrapper providing a LangChain-compatible interface.
 
