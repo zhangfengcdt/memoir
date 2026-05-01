@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """
 Crypto service for cryptographic proof operations.
 

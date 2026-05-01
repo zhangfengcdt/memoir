@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """LangGraph integration for Memoir memory system."""
 
 from .memory_store import LangGraphMemoryStore

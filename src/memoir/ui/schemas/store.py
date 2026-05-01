@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Store-read API response model."""
 
 from __future__ import annotations

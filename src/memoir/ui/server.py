@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
 """
 Simple HTTP server to serve the Memoir UI and handle memory store data.
 """

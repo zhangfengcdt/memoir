@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """
 Analysis commands for memoir CLI.
 

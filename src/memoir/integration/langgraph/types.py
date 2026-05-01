@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Type definitions for LangGraph integration."""
 
 from dataclasses import dataclass

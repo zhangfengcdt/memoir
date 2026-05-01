@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """
 LLM-Driven Iterative Taxonomy Expansion System.
 Based on "Creating a Fine Grained Entity Type Taxonomy Using LLMs" paper.

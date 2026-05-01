@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Branch-related API response models."""
 
 from __future__ import annotations

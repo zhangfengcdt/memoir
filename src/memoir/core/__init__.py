@@ -1,1 +1,2 @@
-"""Core components for LangMem-ProllyTree integration."""
+# SPDX-License-Identifier: Apache-2.0
+"""Core components for Memoir."""

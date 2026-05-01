@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """
 Intelligent Classifier with LLM-based classification and dynamic expansion.
 Handles memory-worthiness detection, confidence-based expansion, and classification decisions.

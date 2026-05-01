@@ -1,13 +1,13 @@
-# Contributing to LangMem-ProllyTree
+# Contributing to Memoir
 
-Thank you for your interest in contributing to LangMem-ProllyTree! This document provides guidelines and information for contributors.
+Thank you for your interest in contributing to Memoir! This document provides guidelines and information for contributors.
 
 ## 🚀 Quick Start for Contributors
 
 1. **Fork and clone the repository**
    ```bash
-   git clone https://github.com/yourusername/langmem-prollytree.git
-   cd langmem-prollytree
+   git clone https://github.com/zhangfengcdt/memoir.git
+   cd memoir
    ```
 
 2. **Set up development environment**
@@ -54,8 +54,8 @@ Thank you for your interest in contributing to LangMem-ProllyTree! This document
 ### Installation
 ```bash
 # Clone your fork
-git clone https://github.com/yourusername/langmem-prollytree.git
-cd langmem-prollytree
+git clone https://github.com/zhangfengcdt/memoir.git
+cd memoir
 
 # Set up development environment
 make install-dev
@@ -334,10 +334,10 @@ Contributors are recognized in several ways:
 
 ## 📜 License
 
-By contributing, you agree that your contributions will be licensed under the same MIT License that covers the project.
+By contributing, you agree that your contributions will be licensed under the same Apache-2.0 License that covers the project.
 
 ---
 
-**Thank you for contributing to LangMem-ProllyTree!** 🚀
+**Thank you for contributing to Memoir!** 🚀
 
 Together, we're building the next generation of AI memory systems with revolutionary performance improvements.

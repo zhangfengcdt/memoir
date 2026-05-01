@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Unified taxonomy loader for services and applications.
 
 Provides high-level API for loading taxonomy data from markdown files

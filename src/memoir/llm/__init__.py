@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """
 LLM utilities for memoir using LiteLLM.
 

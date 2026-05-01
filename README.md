@@ -1,7 +1,7 @@
 # Memoir
 
 <div align="center">
-  <img src="https://memoir-ai-dev.vercel.app/images/memoir.png" alt="Memoir Logo" width="200" height="200">
+  <img src="https://www.memoir-ai.dev/images/memoir.png" alt="Memoir Logo" width="200" height="200">
 
   **Git for AI Memory**
 

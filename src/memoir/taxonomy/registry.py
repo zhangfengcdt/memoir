@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Central registry for taxonomy data management.
 
 Handles loading from builtin and external markdown files,

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """LangGraph memory store implementation using Memoir."""
 
 import asyncio

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """
 Location Memento for Spatial Memory Management and Geographic Event Storage.
 

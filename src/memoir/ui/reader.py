@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
 """
 Memory store reader for UI - provides JSON data from the memory store.
 This script can be called from the UI to fetch memory store data.

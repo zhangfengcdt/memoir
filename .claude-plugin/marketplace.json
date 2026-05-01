@@ -21,7 +21,7 @@
       },
       "homepage": "https://github.com/zhangfengcdt/memoir",
       "repository": "https://github.com/zhangfengcdt/memoir",
-      "license": "MIT",
+      "license": "Apache-2.0",
       "keywords": [
         "memory",
         "git",

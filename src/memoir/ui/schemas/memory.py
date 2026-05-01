@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Memory record shape used in the store snapshot and future memory APIs."""
 
 from __future__ import annotations

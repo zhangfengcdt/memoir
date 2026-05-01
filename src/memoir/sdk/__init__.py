@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """
 Memoir SDK - Python API for AI agent memory operations.
 
