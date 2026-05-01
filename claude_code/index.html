@@ -1932,7 +1932,7 @@
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>/plugin install memoir@memoir
 </span></code></pre></div>
 <p>The first command registers the memoir GitHub repo as a plugin marketplace; the second installs the <code>memoir</code> plugin from that marketplace. Hooks take effect on the next session start.</p>
-<p>Each project gets its own memoir store under <code>~/.memoir/memoir_&lt;hash&gt;/</code>, derived from your cwd. Override by exporting <code>MEMOIR_STORE=/path/to/store</code>.</p>
+<p>Each project gets its own memoir store under <code>~/.memoir/&lt;slug&gt;/</code>, derived from your cwd. Override by exporting <code>MEMOIR_STORE=/path/to/store</code>. If you use <code>git worktree</code>, all linked worktrees of one repo share a single store keyed on the main worktree's path — set <code>MEMOIR_STORE</code> per worktree to opt out.</p>
 <h2 id="what-ships">What ships<a class="headerlink" href="#what-ships" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2081,7 +2081,7 @@
 <tbody>
 <tr>
 <td><code>derive-store-path.sh</code></td>
-<td>Maps the current cwd to <code>~/.memoir/memoir_&lt;hash&gt;</code>. Respects <code>$MEMOIR_STORE</code>.</td>
+<td>Maps the current cwd to <code>~/.memoir/&lt;slug&gt;</code> (linked worktrees collapse onto the main worktree's slug). Respects <code>$MEMOIR_STORE</code>.</td>
 </tr>
 <tr>
 <td><code>memoir-ui-ctl.sh</code></td>
