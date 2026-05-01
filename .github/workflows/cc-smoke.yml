@@ -1,0 +1,98 @@
+name: Claude Code Smoke Test
+
+# Drives `claude -p` against the local plugin checkout to assert that hooks,
+# slash commands, and skills behave end-to-end. Manual trigger only — costs
+# LLM credits (~$0.50/run against haiku).
+
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: 'Claude model to use (e.g. claude-haiku-4-5, claude-sonnet-4-6)'
+        required: false
+        default: 'claude-haiku-4-5'
+        type: string
+
+jobs:
+  cc-smoke:
+    name: Claude Code end-to-end smoke
+    # Repo owner only — same gate as pypi-smoke.yml. Keeps the ANTHROPIC_API_KEY
+    # secret from being usable by collaborators triggering this workflow.
+    if: github.actor == github.repository_owner
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install memoir from this checkout
+        run: |
+          pip install --upgrade pip
+          pip install -e .
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Install jq (stream-json parser)
+        run: |
+          if ! command -v jq >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq jq
+          fi
+          jq --version
+
+      - name: Verify CLIs
+        run: |
+          claude --version
+          memoir --version
+          jq --version
+
+      - name: Run cc-smoke
+        env:
+          # Required for `claude -p` to authenticate non-interactively.
+          # If the secret is unset the harness will fail at `claude -p` rather
+          # than skip — that's intentional, this workflow is gated on having
+          # the secret.
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CC_SMOKE_MODEL: ${{ inputs.model }}
+        run: |
+          mkdir -p /tmp/cc-smoke-out
+          bash scripts/cc-smoke/run.sh 2>&1 | tee /tmp/cc-smoke-out/run.log
+
+      - name: Append summary to job summary
+        if: always()
+        run: |
+          {
+            echo "## Claude Code Smoke Test"
+            echo ""
+            echo "Model: \`${{ inputs.model }}\`"
+            echo ""
+            if [[ -f /tmp/cc-smoke-out/run.log ]]; then
+              echo "### Results"
+              echo ""
+              echo '```'
+              # Show only the result lines, not the full per-case stderr noise.
+              grep -E '\[(PASS|FAIL)\]|^== Summary|^  [0-9]+/[0-9]+ passed' /tmp/cc-smoke-out/run.log || cat /tmp/cc-smoke-out/run.log
+              echo '```'
+            else
+              echo "No run.log produced."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload run log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cc-smoke-run-log
+          path: /tmp/cc-smoke-out/run.log
+          if-no-files-found: ignore
+          retention-days: 30
