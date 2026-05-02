@@ -40,7 +40,7 @@ def _canned_llm_response(text: str):
 @pytest.fixture
 def temp_store():
     with tempfile.TemporaryDirectory() as tmpdir:
-        store = ProllyTreeStore(tmpdir)
+        store = ProllyTreeStore(tmpdir, create_if_missing=True)
         yield store
 
 
