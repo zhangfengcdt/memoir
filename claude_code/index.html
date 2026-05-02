@@ -1198,6 +1198,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#how-auto-capture-decides-what-to-remember" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How auto-capture decides what to remember
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#per-branch-turn-metrics-metricsturnbranch" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1855,6 +1866,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#how-auto-capture-decides-what-to-remember" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How auto-capture decides what to remember
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#per-branch-turn-metrics-metricsturnbranch" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2373,24 +2395,56 @@
 </span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>  `echo git &gt; &lt;store&gt;/.git/plugin-store-mode`.
 </span></code></pre></div>
 <p>Captures keep working through the warning — it's informational, not enforced. The marker is auto-backfilled the first time an old (pre-guardrail) store is observed, so no warning fires for stores that pre-date this feature.</p>
+<h2 id="how-auto-capture-decides-what-to-remember">How auto-capture decides what to remember<a class="headerlink" href="#how-auto-capture-decides-what-to-remember" title="Permanent link">&para;</a></h2>
+<p>The <code>Stop</code> hook's capture stage (<code>stop.sh:69-end</code>, gated by <code>MEMOIR_NO_CAPTURE=1</code>) makes one haiku call per turn that does <strong>both extraction and classification in one shot</strong> — emitting taxonomy-classified durable facts directly, bypassing memoir's internal LLM classifier chain. Net effect: ONE haiku call per turn instead of 1 (extract) + N×4-5 (classify + decide + metadata for each fact) — typically 25–30× faster end-to-end.</p>
+<p><strong>Pipeline.</strong></p>
+<ol>
+<li><strong>Pre-flight guards.</strong> Skip silently if the transcript has fewer than 3 lines, or if <code>parse-transcript.sh</code> returns <code>(empty transcript)</code>, <code>(no user message found)</code>, or <code>(empty turn)</code>. Anchors on the most recent user message — only the trailing turn is sent to haiku.</li>
+<li><strong>Taxonomy resolution.</strong> Read the cached taxonomy block populated at <code>SessionStart</code>. Falls back to a hardcoded hint sheet (top-level + common second-level paths) if the store has no taxonomy loaded — so first-run sessions still classify correctly.</li>
+<li><strong>System prompt.</strong> Load <code>plugins/claude-code/hooks/prompts/stop_capture.tmpl</code> (single source of truth, testable via the prompt-harness) and substitute <code>${TAXONOMY_BLOCK}</code> in bash. The <code>CATEGORIES</code> + <code>EXAMPLES</code> blocks come from the store's persisted taxonomy (<code>taxonomy:v1:*</code>), so auto-capture classifies against the same taxonomy as explicit <code>/memoir:remember "fact"</code> (without <code>-p</code>).</li>
+<li>
+<p><strong>Worthiness gate — the silent default.</strong> The system prompt instructs haiku that <em>the default answer is nothing</em>. A line is emitted only when a fact passes four hard gates:</p>
+<ol>
+<li>Durable — still relevant in weeks or months.</li>
+<li>A future session would genuinely benefit from knowing it.</li>
+<li>Not already discoverable from the code, git log, <code>CLAUDE.md</code>, or <code>README</code>.</li>
+<li>A senior engineer would write it down in onboarding notes.</li>
+</ol>
+<p>Always-capture triggers override the silent default: standing rules ("from now on…", "always X", "never X"), stated preferences ("I prefer X over Y"), architectural / tooling decisions just resolved this turn (with rationale), project facts not yet in the repo, and non-obvious technical invariants. Most turns produce zero lines — that is the expected, high-quality result.
+5. <strong>One-shot LLM call.</strong> <code>claude -p --model haiku --no-session-persistence --no-chrome --system-prompt "$STOP_SYSTEM_PROMPT"</code> with the parsed transcript on stdin. <code>MEMOIR_NO_CAPTURE=1 CLAUDECODE=</code> is set on the subprocess to prevent recursion into the host's plugin hooks.
+6. <strong>Output format.</strong> <code>&lt;path&gt;[,&lt;path&gt;...]&lt;TAB&gt;&lt;fact&gt;</code> per line. Comma-separated paths in column 1 mean "write the same fact to multiple paths in one call" — each blob's <code>related_keys</code> field records the siblings (handled memoir-side).
+7. <strong>Line-format validation.</strong> A line is rejected if any of: empty path or fact, fact under 8 characters, or paths don't match <code>^[a-z][a-z0-9_]*(\.[a-z0-9_]+){1,3}(,…)*$</code>. Guards against haiku going rogue with preamble text or malformed taxonomy paths.
+8. <strong>Write.</strong> For each surviving line, build <code>-p p1 -p p2 …</code> argv from the comma list and call <code>memoir remember "$fact" -p …</code> — bypassing memoir's internal classifier entirely.
+9. <strong>Statusline refresh.</strong> After captures land, recompute the user-memory count and rewrite the statusline cache so the displayed count ticks up immediately.</p>
+</li>
+</ol>
+<p><strong>Toggles &amp; failure mode.</strong> <code>MEMOIR_NO_CAPTURE=1</code> disables only the capture stage; the metrics stage still runs. The whole pipeline is fail-silent — every subprocess uses <code>2&gt;/dev/null || true</code>, malformed haiku output is filtered out by the line-format check, and the hook always exits <code>0</code>. A failed turn is silent, not loud.</p>
+<p><strong>Testing.</strong> The system prompt is a first-class artifact — extracted to <code>hooks/prompts/stop_capture.tmpl</code> so the prompt-harness can test it in isolation:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Full LLM suite (~60s, costs LLM tokens)</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>plugins/claude-code/tests/prompt-harness/runner.py<span class="w"> </span>run<span class="w"> </span>--prompt<span class="w"> </span>stop_capture<span class="w"> </span>--model<span class="w"> </span>haiku
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># One case</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>plugins/claude-code/tests/prompt-harness/runner.py<span class="w"> </span><span class="k">case</span><span class="w"> </span>stop_capture/&lt;<span class="k">case</span>&gt;.yaml<span class="w"> </span>--model<span class="w"> </span>haiku
+</span></code></pre></div>
+<p>The harness drops <code>system.txt</code>, <code>input.txt</code>, <code>output.txt</code>, <code>result.json</code>, and a replayable <code>command.sh</code> per case under <code>/tmp/memoir-prompt-tests/&lt;UTC-timestamp&gt;/</code>. Read <code>summary.md</code> for pass/fail. Assertion DSL: <code>plugins/claude-code/tests/prompt-harness/README.md</code>.</p>
 <h2 id="per-branch-turn-metrics-metricsturnbranch">Per-branch turn metrics (<code>metrics.turn.&lt;branch&gt;</code>)<a class="headerlink" href="#per-branch-turn-metrics-metricsturnbranch" title="Permanent link">&para;</a></h2>
 <p>The <code>Stop</code> hook accumulates per-turn statistics into one key per branch in the <code>default</code> namespace, alongside auto-captured memories.</p>
 <p><strong>Key shape:</strong> <code>metrics.turn.&lt;branch&gt;</code> — for example <code>metrics.turn.main</code>, <code>metrics.turn.feature/x</code>. Branch names with <code>/</code> are kept literal (memoir's <code>remember -p</code> accepts arbitrary path strings).</p>
 <p><strong>Value shape:</strong></p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="w">  </span><span class="nt">&quot;schema_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span><span class="nt">&quot;tokens&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span><span class="nt">&quot;llms&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span><span class="nt">&quot;turns_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span><span class="nt">&quot;total_output_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">198432</span><span class="p">,</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="w">  </span><span class="nt">&quot;total_tool_input_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">24561</span><span class="p">,</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="w">  </span><span class="nt">&quot;total_tool_result_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">884201</span><span class="p">,</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="w">  </span><span class="nt">&quot;total_tool_calls&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">187</span><span class="p">,</span>
-</span><span id="__span-4-10"><a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">  </span><span class="nt">&quot;total_tool_errors&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span>
-</span><span id="__span-4-11"><a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="w">  </span><span class="nt">&quot;total_repeated_tool_calls&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
-</span><span id="__span-4-12"><a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="w">  </span><span class="nt">&quot;total_latency_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1845300</span><span class="p">,</span>
-</span><span id="__span-4-13"><a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="w">  </span><span class="nt">&quot;latency_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">31</span>
-</span><span id="__span-4-14"><a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="p">}</span>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">&quot;schema_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">&quot;tokens&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">&quot;llms&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="nt">&quot;turns_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="nt">&quot;total_output_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">198432</span><span class="p">,</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span><span class="nt">&quot;total_tool_input_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">24561</span><span class="p">,</span>
+</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">  </span><span class="nt">&quot;total_tool_result_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">884201</span><span class="p">,</span>
+</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">  </span><span class="nt">&quot;total_tool_calls&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">187</span><span class="p">,</span>
+</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">  </span><span class="nt">&quot;total_tool_errors&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span>
+</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">  </span><span class="nt">&quot;total_repeated_tool_calls&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
+</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">  </span><span class="nt">&quot;total_latency_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1845300</span><span class="p">,</span>
+</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">  </span><span class="nt">&quot;latency_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">31</span>
+</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>Each turn the hook reads the existing accumulator, folds in deltas computed by <code>collect-metrics.sh</code>, and writes it back via <code>merge-metrics.py</code>. <code>tokens</code> and <code>llms</code> are reserved <code>null</code> until Claude Code exposes per-turn usage to hooks; today the proxies are char-count and tool-count fields. <code>latency_samples</code> only ticks for turns whose transcript line carries a user-message timestamp.</p>
 <p><strong>Toggles &amp; failure mode.</strong> <code>MEMOIR_NO_METRICS=1</code> disables the metrics path independently of <code>MEMOIR_NO_CAPTURE</code> — either can fail without affecting the other. The whole block is wrapped in <code>2&gt;/dev/null || true</code>, matching the rest of the Stop hook's fail-silent design.</p>
@@ -2446,11 +2500,11 @@
 </table>
 <h2 id="manifest">Manifest<a class="headerlink" href="#manifest" title="Permanent link">&para;</a></h2>
 <p><code>plugins/claude-code/.claude-plugin/plugin.json</code>:</p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;memoir&quot;</span><span class="p">,</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span><span class="p">,</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Git-versioned, taxonomy-structured memory for Claude Code — recall by path, branch to isolate, time-travel to audit.&quot;</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="p">}</span>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;memoir&quot;</span><span class="p">,</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span><span class="p">,</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Git-versioned, taxonomy-structured memory for Claude Code — recall by path, branch to isolate, time-travel to audit.&quot;</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="p">}</span>
 </span></code></pre></div>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
