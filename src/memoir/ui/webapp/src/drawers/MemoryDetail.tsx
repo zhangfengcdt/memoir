@@ -243,8 +243,9 @@ export default function MemoryDetail({ memory }: MemoryDetailProps) {
           className="btn btn-secondary btn-sm"
           onClick={onCancel}
           disabled={!dirty || saving}
+          title="Discard unsaved edits and restore the saved value"
         >
-          Cancel
+          Revert
         </button>
         <button
           type="button"

@@ -71,6 +71,16 @@ button {
     color var(--duration-fast) var(--ease-out);
 }
 
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn:disabled:hover {
+  transform: none;
+}
+
 .btn-primary {
   background: var(--accent);
   color: #05120c;
