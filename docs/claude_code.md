@@ -384,7 +384,7 @@ Both tabs only appear when their data exists. Both fetch via raw `GET /api/onboa
 
 ## Environment variables
 
-All optional. Set in your shell or per-project `.envrc`.
+All optional.
 
 | Variable | Default | Effect |
 |---|---|---|
@@ -395,6 +395,46 @@ All optional. Set in your shell or per-project `.envrc`.
 | `MEMOIR_ONBOARD_INJECT` | `1` | `0` suppresses the `codebase:onboard` block in `SessionStart`'s `additionalContext`. |
 | `MEMOIR_LLM_MODEL` | `haiku` | Model used for the `Stop` hook's fact extractor. Override only if you've validated alignment with the prompt-test harness. |
 | `MEMOIR_MAX_RESULT_CHARS` | `1000` | Per-tool-result truncation in `parse-transcript.sh`. |
+
+### Where to set them
+
+Pick the scope you want — Claude Code merges settings from all three layers, with project-local winning over user-global winning over the shell environment.
+
+**1. User-global (every Claude Code session, every project)** — `~/.claude/settings.json`:
+
+```json
+{
+  "env": {
+    "MEMOIR_NO_CAPTURE": "1",
+    "MEMOIR_LLM_MODEL": "claude-sonnet-4-6"
+  }
+}
+```
+
+**2. Per-project, committed (every collaborator on this repo)** — `<repo>/.claude/settings.json`:
+
+```json
+{
+  "env": {
+    "MEMOIR_NO_CODE_SUMMARY": "1"
+  }
+}
+```
+
+**3. Per-project, local only (just you, gitignored)** — `<repo>/.claude/settings.local.json`. Same shape as above. Use this for personal toggles you don't want to commit (e.g. `MEMOIR_STORE` pointing at a custom path).
+
+**4. One-off / shell session** — export before launching `claude`:
+
+```bash
+MEMOIR_NO_CAPTURE=1 claude
+# or
+export MEMOIR_LLM_MODEL=claude-sonnet-4-6
+claude
+```
+
+Persist by adding the `export` line to `~/.zshrc` / `~/.bashrc`, or use `direnv` with a per-project `.envrc`.
+
+After editing a `settings.json`, restart the Claude Code session for the change to take effect (the plugin reads env at hook fire time, but Claude Code reads settings at session start).
 
 ## Manifest
 
