@@ -239,3 +239,4 @@ semgrep-report.json
 
 # Claude Code
 .claude/
+plugins/*/.orphaned_at
