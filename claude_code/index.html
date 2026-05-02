@@ -1209,6 +1209,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#code-change-audit-log-metricscodebranch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Code-change audit log (metrics.code.&lt;branch&gt;)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#per-branch-turn-metrics-metricsturnbranch" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1227,6 +1238,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Environment variables">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#where-to-set-them" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where to set them
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1877,6 +1905,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#code-change-audit-log-metricscodebranch" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Code-change audit log (metrics.code.&lt;branch&gt;)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#per-branch-turn-metrics-metricsturnbranch" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1895,6 +1934,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Environment variables">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#where-to-set-them" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Where to set them
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2124,7 +2180,7 @@
     participant Store as memoir store
 
     rect rgb(30, 50, 70)
-    Note over Claude,Store: 1. SessionStart — session-start.sh (sync, 15s)
+    Note over Claude,Store: 1. SessionStart — session-start.sh (sync)
     Plugin-&gt;&gt;Store: read status, branch/commit, codebase:onboard
     Store--&gt;&gt;Claude: inject snapshot + "memory available" hints
     end
@@ -2132,16 +2188,16 @@
     rect rgb(30, 55, 45)
     Note over You,Store: 2–4. Per user prompt (loops)
     You-&gt;&gt;Claude: prompt
-    Plugin-&gt;&gt;Store: 2. UserPromptSubmit — match paths (sync, 10s)
+    Plugin-&gt;&gt;Store: 2. UserPromptSubmit — recall determine (sync)
     Store--&gt;&gt;Claude: "[memoir] memory available" hints
     Claude-&gt;&gt;Store: 3. memory-recall skill (forked, on-demand)
     Store--&gt;&gt;Claude: summarize → pick prefixes → get → facts
     Claude--&gt;&gt;You: response
-    Plugin-&gt;&gt;Store: 4. Stop — classify + auto-capture (async, 180s)
+    Plugin-&gt;&gt;Store: 4. Stop — classify + auto-capture (async)
     end
 
     rect rgb(60, 45, 30)
-    Note over Claude,Store: 5. SessionEnd — session-end.sh (async, 5s)
+    Note over Claude,Store: 5. SessionEnd — session-end.sh (async)
     Plugin-&gt;&gt;Store: cleanup
     end</code></pre>
 <p>Two properties to notice:</p>
@@ -2427,24 +2483,59 @@
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>plugins/claude-code/tests/prompt-harness/runner.py<span class="w"> </span><span class="k">case</span><span class="w"> </span>stop_capture/&lt;<span class="k">case</span>&gt;.yaml<span class="w"> </span>--model<span class="w"> </span>haiku
 </span></code></pre></div>
 <p>The harness drops <code>system.txt</code>, <code>input.txt</code>, <code>output.txt</code>, <code>result.json</code>, and a replayable <code>command.sh</code> per case under <code>/tmp/memoir-prompt-tests/&lt;UTC-timestamp&gt;/</code>. Read <code>summary.md</code> for pass/fail. Assertion DSL: <code>plugins/claude-code/tests/prompt-harness/README.md</code>.</p>
+<h2 id="code-change-audit-log-metricscodebranch">Code-change audit log (<code>metrics.code.&lt;branch&gt;</code>)<a class="headerlink" href="#code-change-audit-log-metricscodebranch" title="Permanent link">&para;</a></h2>
+<p>After the auto-capture stage, the <code>Stop</code> hook runs a third pass that detects file edits this turn and appends a one-line summary to a per-branch audit log. The goal is a chronological, human-readable record of <em>what changed in the code</em>, browseable later via <code>memoir get metrics.code.&lt;branch&gt;</code> (or the UI).</p>
+<p><strong>Pipeline.</strong></p>
+<ol>
+<li><strong>Toggle gate.</strong> Skip if <code>MEMOIR_NO_CODE_SUMMARY=1</code>.</li>
+<li><strong>Transcript scan.</strong> <code>hooks/collect-edits.sh</code> walks the most recent turn's <code>tool_use</code> blocks for <code>Edit</code>, <code>Write</code>, <code>MultiEdit</code>, and <code>NotebookEdit</code>. Returns a JSON object <code>{user_prompt, edits: [{tool, file_path, snippet}, …]}</code> with each snippet truncated to 300 chars and the user prompt truncated to 2000 chars. Empty stdout = no file edits → skip the LLM call.</li>
+<li><strong>Build prompt input.</strong> Prepend an optional <code>[User prompt]\n&lt;text&gt;\n---</code> header (the <em>why</em> — gives haiku the user's stated intent), then concatenate edits as <code>&lt;tool&gt; &lt;file_path&gt;\n&lt;snippet&gt;\n---</code>, capped at ~8 KB so multi-file refactors stay well under haiku's context window.</li>
+<li><strong>One haiku call.</strong> <code>claude -p --model haiku --no-session-persistence --no-chrome --system-prompt "$CC_SUMMARY_PROMPT"</code> with the assembled block on stdin. Recursion-prevention env: <code>MEMOIR_NO_CAPTURE=1 MEMOIR_NO_METRICS=1 MEMOIR_NO_CODE_SUMMARY=1 CLAUDECODE=</code>. Prompt template: <code>hooks/prompts/code_change_summary.tmpl</code>. Haiku uses the user prompt as the highest-signal source for <em>why</em>; the snippets confirm <em>what</em>.</li>
+<li><strong>Output validation &amp; cleanup.</strong> Strip surrounding quotes / preambles (<code>Here is</code>, <code>Summary:</code>, leading bullets), collapse to the first non-empty line, truncate to 1000 chars (haiku is asked for ≤100 words, so the cap is a safety belt for run-on output). If the result is exactly <code>trivial</code> (case-insensitive), skip the write — trivial-edit suppression is decided by haiku in-prompt.</li>
+<li><strong>Branch lookup.</strong> <code>memoir_json status</code> → current memoir branch (fallback <code>unknown</code>).</li>
+<li><strong>Read-merge-write append.</strong> <code>memoir remember -p</code> replaces by path, so the hook owns the append (mirrors the <code>metrics.turn.&lt;branch&gt;</code> flow). Reads the existing JSON value, parses <code>entries[]</code>, appends <code>{timestamp, summary}</code>, writes the merged accumulator back.</li>
+</ol>
+<p><strong>Key shape:</strong> <code>metrics.code.&lt;branch&gt;</code> — sibling to <code>metrics.turn.&lt;branch&gt;</code>. Branch names with <code>/</code> (e.g. <code>feature/x</code>) are kept literal.</p>
+<p><strong>Value shape:</strong></p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">&quot;schema_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">&quot;entries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1714800000.0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;summary&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Refactored auth middleware to use JWT; added unit tests for token expiry.&quot;</span><span class="p">},</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1714801200.0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;summary&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Renamed getUser → getCurrentUser across 7 callers; updated docstrings.&quot;</span><span class="p">}</span>
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="p">]</span>
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="p">}</span>
+</span></code></pre></div>
+<p>Entries are append-forever — no decay. Bash-induced edits (<code>sed -i</code>, <code>mv</code>, refactor scripts) are <strong>not</strong> detected by design; the log reflects what the agent itself did via Edit/Write/MultiEdit/NotebookEdit.</p>
+<p><strong>Toggles &amp; failure mode.</strong> <code>MEMOIR_NO_CODE_SUMMARY=1</code> disables only this stage; capture and metrics still run. Every subprocess uses <code>2&gt;/dev/null || true</code> and the hook always exits <code>0</code> — same fail-silent design as the other stages. A failed turn is silent, not loud.</p>
+<p><strong>Branch identity &amp; merge.</strong> Source-branch identity lives in the key fragment, not the value. <code>BranchService.promote_branch</code> carries <code>metrics.code.feature/x</code> to <code>main</code> automatically when the user runs <code>memoir sync-branch feature/x</code>, preserving the per-source-branch view.</p>
+<p><strong>Testing.</strong> Unit + integration + prompt-harness cover the three layers separately:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Transcript-scan unit tests (no memoir, no haiku)</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>bash<span class="w"> </span>plugins/claude-code/tests/test_collect_edits.sh
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Stop-hook integration (read-merge-write append, gating; no haiku)</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>bash<span class="w"> </span>plugins/claude-code/tests/test_stop_code_summary.sh
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c1"># Prompt cases (haiku-driven, costs LLM tokens)</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>plugins/claude-code/tests/prompt-harness/runner.py<span class="w"> </span>run<span class="w"> </span>--prompt<span class="w"> </span>code_change_summary<span class="w"> </span>--model<span class="w"> </span>haiku
+</span></code></pre></div>
 <h2 id="per-branch-turn-metrics-metricsturnbranch">Per-branch turn metrics (<code>metrics.turn.&lt;branch&gt;</code>)<a class="headerlink" href="#per-branch-turn-metrics-metricsturnbranch" title="Permanent link">&para;</a></h2>
 <p>The <code>Stop</code> hook accumulates per-turn statistics into one key per branch in the <code>default</code> namespace, alongside auto-captured memories.</p>
 <p><strong>Key shape:</strong> <code>metrics.turn.&lt;branch&gt;</code> — for example <code>metrics.turn.main</code>, <code>metrics.turn.feature/x</code>. Branch names with <code>/</code> are kept literal (memoir's <code>remember -p</code> accepts arbitrary path strings).</p>
 <p><strong>Value shape:</strong></p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">&quot;schema_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">&quot;tokens&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span><span class="nt">&quot;llms&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span><span class="nt">&quot;turns_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="nt">&quot;total_output_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">198432</span><span class="p">,</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="w">  </span><span class="nt">&quot;total_tool_input_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">24561</span><span class="p">,</span>
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="w">  </span><span class="nt">&quot;total_tool_result_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">884201</span><span class="p">,</span>
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a><span class="w">  </span><span class="nt">&quot;total_tool_calls&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">187</span><span class="p">,</span>
-</span><span id="__span-5-10"><a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">  </span><span class="nt">&quot;total_tool_errors&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span>
-</span><span id="__span-5-11"><a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a><span class="w">  </span><span class="nt">&quot;total_repeated_tool_calls&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
-</span><span id="__span-5-12"><a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="w">  </span><span class="nt">&quot;total_latency_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1845300</span><span class="p">,</span>
-</span><span id="__span-5-13"><a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="w">  </span><span class="nt">&quot;latency_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">31</span>
-</span><span id="__span-5-14"><a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a><span class="p">}</span>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">&quot;schema_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="nt">&quot;tokens&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span><span class="nt">&quot;llms&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span><span class="nt">&quot;turns_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span><span class="nt">&quot;total_output_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">198432</span><span class="p">,</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">  </span><span class="nt">&quot;total_tool_input_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">24561</span><span class="p">,</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">  </span><span class="nt">&quot;total_tool_result_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">884201</span><span class="p">,</span>
+</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">  </span><span class="nt">&quot;total_tool_calls&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">187</span><span class="p">,</span>
+</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">  </span><span class="nt">&quot;total_tool_errors&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span>
+</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">  </span><span class="nt">&quot;total_repeated_tool_calls&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
+</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">  </span><span class="nt">&quot;total_latency_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1845300</span><span class="p">,</span>
+</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="w">  </span><span class="nt">&quot;latency_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">31</span>
+</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>Each turn the hook reads the existing accumulator, folds in deltas computed by <code>collect-metrics.sh</code>, and writes it back via <code>merge-metrics.py</code>. <code>tokens</code> and <code>llms</code> are reserved <code>null</code> until Claude Code exposes per-turn usage to hooks; today the proxies are char-count and tool-count fields. <code>latency_samples</code> only ticks for turns whose transcript line carries a user-message timestamp.</p>
 <p><strong>Toggles &amp; failure mode.</strong> <code>MEMOIR_NO_METRICS=1</code> disables the metrics path independently of <code>MEMOIR_NO_CAPTURE</code> — either can fail without affecting the other. The whole block is wrapped in <code>2&gt;/dev/null || true</code>, matching the rest of the Stop hook's fail-silent design.</p>
@@ -2456,7 +2547,7 @@
 </ul>
 <p>Both tabs only appear when their data exists. Both fetch via raw <code>GET /api/onboard</code> and <code>GET /api/metrics</code> — no LLM.</p>
 <h2 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
-<p>All optional. Set in your shell or per-project <code>.envrc</code>.</p>
+<p>All optional.</p>
 <table>
 <thead>
 <tr>
@@ -2482,6 +2573,11 @@
 <td><code>1</code> disables the per-branch turn-metrics accumulator. Auto-capture still runs.</td>
 </tr>
 <tr>
+<td><code>MEMOIR_NO_CODE_SUMMARY</code></td>
+<td>unset</td>
+<td><code>1</code> disables the per-branch code-change audit log (<code>metrics.code.&lt;branch&gt;</code>). Capture and metrics still run.</td>
+</tr>
+<tr>
 <td><code>MEMOIR_ONBOARD_INJECT</code></td>
 <td><code>1</code></td>
 <td><code>0</code> suppresses the <code>codebase:onboard</code> block in <code>SessionStart</code>'s <code>additionalContext</code>.</td>
@@ -2498,13 +2594,39 @@
 </tr>
 </tbody>
 </table>
+<h3 id="where-to-set-them">Where to set them<a class="headerlink" href="#where-to-set-them" title="Permanent link">&para;</a></h3>
+<p>Pick the scope you want — Claude Code merges settings from all three layers, with project-local winning over user-global winning over the shell environment.</p>
+<p><strong>1. User-global (every Claude Code session, every project)</strong> — <code>~/.claude/settings.json</code>:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">&quot;env&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="nt">&quot;MEMOIR_NO_CAPTURE&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1&quot;</span><span class="p">,</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="nt">&quot;MEMOIR_LLM_MODEL&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;claude-sonnet-4-6&quot;</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><strong>2. Per-project, committed (every collaborator on this repo)</strong> — <code>&lt;repo&gt;/.claude/settings.json</code>:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">&quot;env&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="nt">&quot;MEMOIR_NO_CODE_SUMMARY&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1&quot;</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><strong>3. Per-project, local only (just you, gitignored)</strong> — <code>&lt;repo&gt;/.claude/settings.local.json</code>. Same shape as above. Use this for personal toggles you don't want to commit (e.g. <code>MEMOIR_STORE</code> pointing at a custom path).</p>
+<p><strong>4. One-off / shell session</strong> — export before launching <code>claude</code>:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nv">MEMOIR_NO_CAPTURE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>claude
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="c1"># or</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">MEMOIR_LLM_MODEL</span><span class="o">=</span>claude-sonnet-4-6
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>claude
+</span></code></pre></div>
+<p>Persist by adding the <code>export</code> line to <code>~/.zshrc</code> / <code>~/.bashrc</code>, or use <code>direnv</code> with a per-project <code>.envrc</code>.</p>
+<p>After editing a <code>settings.json</code>, restart the Claude Code session for the change to take effect (the plugin reads env at hook fire time, but Claude Code reads settings at session start).</p>
 <h2 id="manifest">Manifest<a class="headerlink" href="#manifest" title="Permanent link">&para;</a></h2>
 <p><code>plugins/claude-code/.claude-plugin/plugin.json</code>:</p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;memoir&quot;</span><span class="p">,</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span><span class="p">,</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Git-versioned, taxonomy-structured memory for Claude Code — recall by path, branch to isolate, time-travel to audit.&quot;</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="p">}</span>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;memoir&quot;</span><span class="p">,</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span><span class="p">,</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Git-versioned, taxonomy-structured memory for Claude Code — recall by path, branch to isolate, time-travel to audit.&quot;</span>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="p">}</span>
 </span></code></pre></div>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
