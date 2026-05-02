@@ -80,17 +80,27 @@ fi
 if [ "${MEMOIR_NO_CODE_SUMMARY:-}" != "1" ]; then
   EDITS_JSON=$("$SCRIPT_DIR/collect-edits.sh" "$TRANSCRIPT_PATH" 2>/dev/null || true)
   if [ -n "$EDITS_JSON" ]; then
-    # Build the haiku input: a compact text block of "<tool> <file_path>\n<snippet>\n---" per entry.
-    # Capped at ~8KB so multi-file refactors stay well under context.
+    # Build the haiku input: an optional [User prompt] header (the *why*) followed
+    # by "<tool> <file_path>\n<snippet>\n---" per edit. Capped at ~8KB so multi-file
+    # refactors stay well under context. The user prompt gives haiku intent it
+    # can't infer from snippets alone.
     EDITS_TEXT=$(printf '%s' "$EDITS_JSON" | python3 -c "
 import json, sys
 try:
-    entries = json.loads(sys.stdin.read() or '[]')
+    payload = json.loads(sys.stdin.read() or '{}')
 except Exception:
     sys.exit(0)
+if not isinstance(payload, dict):
+    sys.exit(0)
+user_prompt = payload.get('user_prompt') or ''
+entries = payload.get('edits') or []
 parts = []
 total = 0
 LIMIT = 8000
+if isinstance(user_prompt, str) and user_prompt.strip():
+    block = f'[User prompt]\n{user_prompt.strip()}\n---\n'
+    parts.append(block)
+    total += len(block)
 for e in entries:
     if not isinstance(e, dict):
         continue

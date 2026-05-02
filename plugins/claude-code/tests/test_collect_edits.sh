@@ -52,12 +52,17 @@ run_collector() {
 count_entries() {
   local out="$1"
   if [ -z "$out" ]; then echo 0; return; fi
-  printf '%s' "$out" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))"
+  printf '%s' "$out" | python3 -c "import json,sys; print(len(json.load(sys.stdin)['edits']))"
 }
 
 field() {
   local out="$1" idx="$2" key="$3"
-  printf '%s' "$out" | python3 -c "import json,sys; print(json.load(sys.stdin)[$idx]['$key'])"
+  printf '%s' "$out" | python3 -c "import json,sys; print(json.load(sys.stdin)['edits'][$idx]['$key'])"
+}
+
+user_prompt() {
+  local out="$1"
+  printf '%s' "$out" | python3 -c "import json,sys; v=json.load(sys.stdin).get('user_prompt'); print('' if v is None else v)"
 }
 
 # --- Test 1: no edits in the turn ⇒ empty output ---
@@ -73,10 +78,10 @@ OUT=$(run_collector "$F")
 assert "no-edit turn produces empty output" "" "$OUT"
 rm -f "$F"
 
-# --- Test 2: single Edit ---
+# --- Test 2: single Edit + user prompt is captured ---
 F=$(mktemp -t cc-edits-2.XXXXXX.jsonl)
 write_fixture "$F" '[
-  {"type": "user", "isMeta": False, "message": {"content": "fix bug"}},
+  {"type": "user", "isMeta": False, "message": {"content": "fix the auth bug"}},
   {"type": "assistant", "message": {"content": [
     {"type": "tool_use", "name": "Edit", "input": {
       "file_path": "src/x.py",
@@ -90,6 +95,7 @@ assert "single Edit: 1 entry"            "1"             "$(count_entries "$OUT"
 assert "single Edit: tool=Edit"          "Edit"          "$(field "$OUT" 0 tool)"
 assert "single Edit: file_path"          "src/x.py"      "$(field "$OUT" 0 file_path)"
 assert "single Edit: snippet=new_string" "new content here" "$(field "$OUT" 0 snippet)"
+assert "single Edit: user_prompt"        "fix the auth bug" "$(user_prompt "$OUT")"
 rm -f "$F"
 
 # --- Test 3: Write ---
@@ -174,7 +180,7 @@ write_fixture "$F" "[
   ]}}
 ]"
 OUT=$(run_collector "$F")
-SNIPPET_LEN=$(printf '%s' "$OUT" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)[0]["snippet"]))')
+SNIPPET_LEN=$(printf '%s' "$OUT" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["edits"][0]["snippet"]))')
 # 300 chars + 1 ellipsis "…" character (3 bytes UTF-8 but 1 character)
 assert "snippet truncated to 301 chars (300 + ellipsis)" "301" "$SNIPPET_LEN"
 rm -f "$F"
@@ -196,7 +202,35 @@ assert "anchor: only last turn"        "1"           "$(count_entries "$OUT")"
 assert "anchor: file from last turn"   "new.py"      "$(field "$OUT" 0 file_path)"
 rm -f "$F"
 
-# --- Test 9: empty / nonexistent transcript path ---
+# --- Test 9: user prompt as a list of text blocks (not a bare string) ---
+F=$(mktemp -t cc-edits-9.XXXXXX.jsonl)
+write_fixture "$F" '[
+  {"type": "user", "isMeta": False, "message": {"content": [
+    {"type": "text", "text": "let us switch to JWT"}
+  ]}},
+  {"type": "assistant", "message": {"content": [
+    {"type": "tool_use", "name": "Edit", "input": {"file_path": "auth.py", "old_string": "a", "new_string": "b"}}
+  ]}}
+]'
+OUT=$(run_collector "$F")
+assert "list-content prompt: extracted as text" "let us switch to JWT" "$(user_prompt "$OUT")"
+rm -f "$F"
+
+# --- Test 10: user prompt truncation at 2000 chars ---
+F=$(mktemp -t cc-edits-10.XXXXXX.jsonl)
+LONG_PROMPT=$(python3 -c 'print("y" * 2500)')
+write_fixture "$F" "[
+  {'type': 'user', 'isMeta': False, 'message': {'content': '$LONG_PROMPT'}},
+  {'type': 'assistant', 'message': {'content': [
+    {'type': 'tool_use', 'name': 'Edit', 'input': {'file_path': 'f.py', 'old_string': 'a', 'new_string': 'b'}}
+  ]}}
+]"
+OUT=$(run_collector "$F")
+PROMPT_LEN=$(printf '%s' "$OUT" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)["user_prompt"]))')
+assert "user_prompt truncated to 2001 chars (2000 + ellipsis)" "2001" "$PROMPT_LEN"
+rm -f "$F"
+
+# --- Test 11: empty / nonexistent transcript path ---
 OUT=$(run_collector "/tmp/this-does-not-exist-$$.jsonl")
 assert "missing transcript ⇒ empty output" "" "$OUT"
 
