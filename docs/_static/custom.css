@@ -1,23 +1,18 @@
-/* Custom CSS for Memoir documentation */
+/* Custom CSS for the Memoir mkdocs site (Material for MkDocs theme).
+ *
+ * Theme-aware logo swap: the default `logo:` in mkdocs.yml is the dark-bg
+ * variant (`_static/memoir.png`), which reads well on the slate/dark palette
+ * but shows a hard square on the default/light palette. On light mode we swap
+ * to `_static/memoir-light.png` (transparent background, dark glyph).
+ *
+ * Material exposes the active palette via `data-md-color-scheme` on the body:
+ *   default = light, slate = dark.
+ *
+ * The CSS lives at `_static/custom.css`; image URLs are relative to it, so
+ * `memoir-light.png` resolves to `_static/memoir-light.png` in the built site.
+ */
 
-/* Keep original logo but make it smaller and better positioned */
-.wy-side-nav-search .wy-dropdown > a img.logo,
-.wy-side-nav-search > a img.logo {
-    max-width: 120px !important;
-    max-height: 40px !important;
-    width: auto !important;
-    height: auto !important;
-    margin: 8px auto !important;
-    display: block !important;
-}
-
-/* Clean up the search area */
-.wy-side-nav-search {
-    background-color: #2980b9 !important;
-    padding: 15px 10px !important;
-}
-
-.wy-side-nav-search > a {
-    display: block !important;
-    text-align: center !important;
+[data-md-color-scheme="default"] .md-header__button.md-logo img,
+[data-md-color-scheme="default"] .md-nav__title .md-logo img {
+    content: url("memoir-light.png");
 }

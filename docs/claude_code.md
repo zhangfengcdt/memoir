@@ -87,7 +87,7 @@ sequenceDiagram
     participant Store as memoir store
 
     rect rgb(30, 50, 70)
-    Note over Claude,Store: 1. SessionStart — session-start.sh (sync, 15s)
+    Note over Claude,Store: 1. SessionStart — session-start.sh (sync)
     Plugin->>Store: read status, branch/commit, codebase:onboard
     Store-->>Claude: inject snapshot + "memory available" hints
     end
@@ -95,16 +95,16 @@ sequenceDiagram
     rect rgb(30, 55, 45)
     Note over You,Store: 2–4. Per user prompt (loops)
     You->>Claude: prompt
-    Plugin->>Store: 2. UserPromptSubmit — match paths (sync, 10s)
+    Plugin->>Store: 2. UserPromptSubmit — recall determine (sync)
     Store-->>Claude: "[memoir] memory available" hints
     Claude->>Store: 3. memory-recall skill (forked, on-demand)
     Store-->>Claude: summarize → pick prefixes → get → facts
     Claude-->>You: response
-    Plugin->>Store: 4. Stop — classify + auto-capture (async, 180s)
+    Plugin->>Store: 4. Stop — classify + auto-capture (async)
     end
 
     rect rgb(60, 45, 30)
-    Note over Claude,Store: 5. SessionEnd — session-end.sh (async, 5s)
+    Note over Claude,Store: 5. SessionEnd — session-end.sh (async)
     Plugin->>Store: cleanup
     end
 ```
@@ -261,6 +261,89 @@ Per `kind`, the stdlib extractor always runs first; configured tools then run an
 
 Captures keep working through the warning — it's informational, not enforced. The marker is auto-backfilled the first time an old (pre-guardrail) store is observed, so no warning fires for stores that pre-date this feature.
 
+## How auto-capture decides what to remember
+
+The `Stop` hook's capture stage (`stop.sh:69-end`, gated by `MEMOIR_NO_CAPTURE=1`) makes one haiku call per turn that does **both extraction and classification in one shot** — emitting taxonomy-classified durable facts directly, bypassing memoir's internal LLM classifier chain. Net effect: ONE haiku call per turn instead of 1 (extract) + N×4-5 (classify + decide + metadata for each fact) — typically 25–30× faster end-to-end.
+
+**Pipeline.**
+
+1. **Pre-flight guards.** Skip silently if the transcript has fewer than 3 lines, or if `parse-transcript.sh` returns `(empty transcript)`, `(no user message found)`, or `(empty turn)`. Anchors on the most recent user message — only the trailing turn is sent to haiku.
+2. **Taxonomy resolution.** Read the cached taxonomy block populated at `SessionStart`. Falls back to a hardcoded hint sheet (top-level + common second-level paths) if the store has no taxonomy loaded — so first-run sessions still classify correctly.
+3. **System prompt.** Load `plugins/claude-code/hooks/prompts/stop_capture.tmpl` (single source of truth, testable via the prompt-harness) and substitute `${TAXONOMY_BLOCK}` in bash. The `CATEGORIES` + `EXAMPLES` blocks come from the store's persisted taxonomy (`taxonomy:v1:*`), so auto-capture classifies against the same taxonomy as explicit `/memoir:remember "fact"` (without `-p`).
+4. **Worthiness gate — the silent default.** The system prompt instructs haiku that *the default answer is nothing*. A line is emitted only when a fact passes four hard gates:
+    1. Durable — still relevant in weeks or months.
+    2. A future session would genuinely benefit from knowing it.
+    3. Not already discoverable from the code, git log, `CLAUDE.md`, or `README`.
+    4. A senior engineer would write it down in onboarding notes.
+
+    Always-capture triggers override the silent default: standing rules ("from now on…", "always X", "never X"), stated preferences ("I prefer X over Y"), architectural / tooling decisions just resolved this turn (with rationale), project facts not yet in the repo, and non-obvious technical invariants. Most turns produce zero lines — that is the expected, high-quality result.
+5. **One-shot LLM call.** `claude -p --model haiku --no-session-persistence --no-chrome --system-prompt "$STOP_SYSTEM_PROMPT"` with the parsed transcript on stdin. `MEMOIR_NO_CAPTURE=1 CLAUDECODE=` is set on the subprocess to prevent recursion into the host's plugin hooks.
+6. **Output format.** `<path>[,<path>...]<TAB><fact>` per line. Comma-separated paths in column 1 mean "write the same fact to multiple paths in one call" — each blob's `related_keys` field records the siblings (handled memoir-side).
+7. **Line-format validation.** A line is rejected if any of: empty path or fact, fact under 8 characters, or paths don't match `^[a-z][a-z0-9_]*(\.[a-z0-9_]+){1,3}(,…)*$`. Guards against haiku going rogue with preamble text or malformed taxonomy paths.
+8. **Write.** For each surviving line, build `-p p1 -p p2 …` argv from the comma list and call `memoir remember "$fact" -p …` — bypassing memoir's internal classifier entirely.
+9. **Statusline refresh.** After captures land, recompute the user-memory count and rewrite the statusline cache so the displayed count ticks up immediately.
+
+**Toggles & failure mode.** `MEMOIR_NO_CAPTURE=1` disables only the capture stage; the metrics stage still runs. The whole pipeline is fail-silent — every subprocess uses `2>/dev/null || true`, malformed haiku output is filtered out by the line-format check, and the hook always exits `0`. A failed turn is silent, not loud.
+
+**Testing.** The system prompt is a first-class artifact — extracted to `hooks/prompts/stop_capture.tmpl` so the prompt-harness can test it in isolation:
+
+```bash
+# Full LLM suite (~60s, costs LLM tokens)
+plugins/claude-code/tests/prompt-harness/runner.py run --prompt stop_capture --model haiku
+
+# One case
+plugins/claude-code/tests/prompt-harness/runner.py case stop_capture/<case>.yaml --model haiku
+```
+
+The harness drops `system.txt`, `input.txt`, `output.txt`, `result.json`, and a replayable `command.sh` per case under `/tmp/memoir-prompt-tests/<UTC-timestamp>/`. Read `summary.md` for pass/fail. Assertion DSL: `plugins/claude-code/tests/prompt-harness/README.md`.
+
+## Code-change audit log (`metrics.code.<branch>`)
+
+After the auto-capture stage, the `Stop` hook runs a third pass that detects file edits this turn and appends a one-line summary to a per-branch audit log. The goal is a chronological, human-readable record of *what changed in the code*, browseable later via `memoir get metrics.code.<branch>` (or the UI).
+
+**Pipeline.**
+
+1. **Toggle gate.** Skip if `MEMOIR_NO_CODE_SUMMARY=1`.
+2. **Transcript scan.** `hooks/collect-edits.sh` walks the most recent turn's `tool_use` blocks for `Edit`, `Write`, `MultiEdit`, and `NotebookEdit`. Returns a JSON object `{user_prompt, edits: [{tool, file_path, snippet}, …]}` with each snippet truncated to 300 chars and the user prompt truncated to 2000 chars. Empty stdout = no file edits → skip the LLM call.
+3. **Build prompt input.** Prepend an optional `[User prompt]\n<text>\n---` header (the *why* — gives haiku the user's stated intent), then concatenate edits as `<tool> <file_path>\n<snippet>\n---`, capped at ~8 KB so multi-file refactors stay well under haiku's context window.
+4. **One haiku call.** `claude -p --model haiku --no-session-persistence --no-chrome --system-prompt "$CC_SUMMARY_PROMPT"` with the assembled block on stdin. Recursion-prevention env: `MEMOIR_NO_CAPTURE=1 MEMOIR_NO_METRICS=1 MEMOIR_NO_CODE_SUMMARY=1 CLAUDECODE=`. Prompt template: `hooks/prompts/code_change_summary.tmpl`. Haiku uses the user prompt as the highest-signal source for *why*; the snippets confirm *what*.
+5. **Output validation & cleanup.** Strip surrounding quotes / preambles (`Here is`, `Summary:`, leading bullets), collapse to the first non-empty line, truncate to 1000 chars (haiku is asked for ≤100 words, so the cap is a safety belt for run-on output). If the result is exactly `trivial` (case-insensitive), skip the write — trivial-edit suppression is decided by haiku in-prompt.
+6. **Branch lookup.** `memoir_json status` → current memoir branch (fallback `unknown`).
+7. **Read-merge-write append.** `memoir remember -p` replaces by path, so the hook owns the append (mirrors the `metrics.turn.<branch>` flow). Reads the existing JSON value, parses `entries[]`, appends `{timestamp, summary}`, writes the merged accumulator back.
+
+**Key shape:** `metrics.code.<branch>` — sibling to `metrics.turn.<branch>`. Branch names with `/` (e.g. `feature/x`) are kept literal.
+
+**Value shape:**
+
+```json
+{
+  "schema_version": 1,
+  "entries": [
+    {"timestamp": 1714800000.0, "summary": "Refactored auth middleware to use JWT; added unit tests for token expiry."},
+    {"timestamp": 1714801200.0, "summary": "Renamed getUser → getCurrentUser across 7 callers; updated docstrings."}
+  ]
+}
+```
+
+Entries are append-forever — no decay. Bash-induced edits (`sed -i`, `mv`, refactor scripts) are **not** detected by design; the log reflects what the agent itself did via Edit/Write/MultiEdit/NotebookEdit.
+
+**Toggles & failure mode.** `MEMOIR_NO_CODE_SUMMARY=1` disables only this stage; capture and metrics still run. Every subprocess uses `2>/dev/null || true` and the hook always exits `0` — same fail-silent design as the other stages. A failed turn is silent, not loud.
+
+**Branch identity & merge.** Source-branch identity lives in the key fragment, not the value. `BranchService.promote_branch` carries `metrics.code.feature/x` to `main` automatically when the user runs `memoir sync-branch feature/x`, preserving the per-source-branch view.
+
+**Testing.** Unit + integration + prompt-harness cover the three layers separately:
+
+```bash
+# Transcript-scan unit tests (no memoir, no haiku)
+bash plugins/claude-code/tests/test_collect_edits.sh
+
+# Stop-hook integration (read-merge-write append, gating; no haiku)
+bash plugins/claude-code/tests/test_stop_code_summary.sh
+
+# Prompt cases (haiku-driven, costs LLM tokens)
+plugins/claude-code/tests/prompt-harness/runner.py run --prompt code_change_summary --model haiku
+```
+
 ## Per-branch turn metrics (`metrics.turn.<branch>`)
 
 The `Stop` hook accumulates per-turn statistics into one key per branch in the `default` namespace, alongside auto-captured memories.
@@ -301,16 +384,57 @@ Both tabs only appear when their data exists. Both fetch via raw `GET /api/onboa
 
 ## Environment variables
 
-All optional. Set in your shell or per-project `.envrc`.
+All optional.
 
 | Variable | Default | Effect |
 |---|---|---|
 | `MEMOIR_STORE` | `~/.memoir/memoir_<hash>` | Override the per-project store path. |
 | `MEMOIR_NO_CAPTURE` | unset | `1` disables `Stop`-hook auto-capture (haiku classification + memory writes). Metrics still record. |
 | `MEMOIR_NO_METRICS` | unset | `1` disables the per-branch turn-metrics accumulator. Auto-capture still runs. |
+| `MEMOIR_NO_CODE_SUMMARY` | unset | `1` disables the per-branch code-change audit log (`metrics.code.<branch>`). Capture and metrics still run. |
 | `MEMOIR_ONBOARD_INJECT` | `1` | `0` suppresses the `codebase:onboard` block in `SessionStart`'s `additionalContext`. |
 | `MEMOIR_LLM_MODEL` | `haiku` | Model used for the `Stop` hook's fact extractor. Override only if you've validated alignment with the prompt-test harness. |
 | `MEMOIR_MAX_RESULT_CHARS` | `1000` | Per-tool-result truncation in `parse-transcript.sh`. |
+
+### Where to set them
+
+Pick the scope you want — Claude Code merges settings from all three layers, with project-local winning over user-global winning over the shell environment.
+
+**1. User-global (every Claude Code session, every project)** — `~/.claude/settings.json`:
+
+```json
+{
+  "env": {
+    "MEMOIR_NO_CAPTURE": "1",
+    "MEMOIR_LLM_MODEL": "claude-sonnet-4-6"
+  }
+}
+```
+
+**2. Per-project, committed (every collaborator on this repo)** — `<repo>/.claude/settings.json`:
+
+```json
+{
+  "env": {
+    "MEMOIR_NO_CODE_SUMMARY": "1"
+  }
+}
+```
+
+**3. Per-project, local only (just you, gitignored)** — `<repo>/.claude/settings.local.json`. Same shape as above. Use this for personal toggles you don't want to commit (e.g. `MEMOIR_STORE` pointing at a custom path).
+
+**4. One-off / shell session** — export before launching `claude`:
+
+```bash
+MEMOIR_NO_CAPTURE=1 claude
+# or
+export MEMOIR_LLM_MODEL=claude-sonnet-4-6
+claude
+```
+
+Persist by adding the `export` line to `~/.zshrc` / `~/.bashrc`, or use `direnv` with a per-project `.envrc`.
+
+After editing a `settings.json`, restart the Claude Code session for the change to take effect (the plugin reads env at hook fire time, but Claude Code reads settings at session start).
 
 ## Manifest
 

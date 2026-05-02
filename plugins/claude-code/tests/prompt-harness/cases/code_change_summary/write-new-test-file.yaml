@@ -1,0 +1,23 @@
+# Positive case: Write creating a new test file. Summary should mention
+# "test" or "added" since the change is purely additive.
+description: "Write of a new test file is summarized as adding tests"
+prompt: code_change_summary
+input: |
+  Write tests/test_auth.py
+  import pytest
+  from src.auth import get_current_user
+
+  def test_get_current_user_returns_request_user():
+      class R: user = "alice"
+      assert get_current_user(R) == "alice"
+
+  def test_get_current_user_handles_none():
+      class R: user = None
+      assert get_current_user(R) is None
+  ---
+expect:
+  - kind: not_empty
+  - kind: max_lines
+    value: 1
+  - kind: any_line_matches
+    value: "(?i)\\b(added|wrote|created|new)\\b.*\\btest"

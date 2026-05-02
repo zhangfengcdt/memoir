@@ -13,6 +13,8 @@ from typing import Any
 
 import click
 
+from memoir import __version__
+
 # Exit codes for agent error handling
 EXIT_SUCCESS = 0
 EXIT_ERROR = 1
@@ -272,7 +274,7 @@ def print_machine_readable(ctx: click.Context, _param: click.Parameter, value: b
     callback=print_machine_readable,
     help="Output CLI schema as JSON (for agents to parse commands)",
 )
-@click.version_option(package_name="memoir-ai")
+@click.version_option(__version__)
 @pass_context
 def cli(
     ctx: MemoirContext,

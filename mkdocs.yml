@@ -38,6 +38,9 @@ theme:
     - content.code.annotate
     - content.action.edit
 
+extra_css:
+  - _static/custom.css
+
 markdown_extensions:
   - admonition
   - attr_list

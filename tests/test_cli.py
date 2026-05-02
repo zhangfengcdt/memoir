@@ -52,10 +52,21 @@ class TestMainCLI:
         assert "COMMAND GROUPS" in result.output
 
     def test_version(self, runner):
-        """Test --version option."""
+        """Test --version option.
+
+        Regression: previously used `@click.version_option(package_name="memoir-ai")`,
+        which required `importlib.metadata.version("memoir-ai")` to succeed. In
+        layouts where the dist metadata isn't registered under that name (e.g.
+        some pipx editable installs), Click raised RuntimeError. Now we pass
+        the version explicitly from `memoir.__version__`, so the call works
+        regardless of metadata-registration quirks.
+        """
+        from memoir import __version__
+
         result = runner.invoke(cli, ["--version"])
         assert result.exit_code == 0
         assert "version" in result.output.lower()
+        assert __version__ in result.output
 
     def test_machine_readable(self, runner):
         """Test --machine-readable option."""
