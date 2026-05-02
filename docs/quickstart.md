@@ -35,7 +35,7 @@ memoir new ~/.memoir/notes
 memoir connect ~/.memoir/notes
 
 # 2. Store with an explicit path (offline, no LLM call)
-memoir remember "Feng prefers tabs and 2-space indents" \
+memoir remember "Sarah prefers tabs and 2-space indents" \
     -p preferences.coding.style
 
 # 3. Store with auto-classification (LLM picks the path; needs API key)
@@ -45,7 +45,7 @@ memoir remember "I work in Pacific time"
 memoir get preferences.coding.style
 
 # 5. Semantic search (LLM-backed)
-memoir recall "what does Feng prefer?"
+memoir recall "what does Sarah prefer?"
 ```
 
 ### Picking a different model

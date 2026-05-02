@@ -1,7 +1,11 @@
 # Memoir
 
 <div align="center">
-  <img src="https://www.memoir-ai.dev/images/memoir.png" alt="Memoir Logo" width="200" height="200">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://www.memoir-ai.dev/images/memoir.png">
+    <source media="(prefers-color-scheme: light)" srcset="https://www.memoir-ai.dev/images/memoir-light.png">
+    <img src="https://www.memoir-ai.dev/images/memoir.png" alt="Memoir Logo" width="200" height="200">
+  </picture>
 
   **Git for AI Memory**
 
@@ -11,23 +15,38 @@
 [![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://python.org)
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://github.com/zhangfengcdt/memoir/blob/main/LICENSE)
 [![Status](https://img.shields.io/badge/Status-Alpha-orange.svg)]()
+[![Website](https://img.shields.io/badge/Website-memoir--ai.dev-purple.svg)](https://www.memoir-ai.dev/)
 [![Docs](https://img.shields.io/badge/Docs-zhangfengcdt.github.io%2Fmemoir-blue.svg)](https://zhangfengcdt.github.io/memoir/)
 
 <p align="center">
   <img src="docs/_static/memoir-demo.gif" alt="Memoir demo" width="900">
 </p>
 
-Memoir is a **hierarchical memory system for AI agents**, with Git-like version control built in. Instead of storing facts as opaque embeddings and guessing at relevance through vector similarity, Memoir classifies every fact into a semantic taxonomy path like `preferences.coding.style` or `workflow.coding.testing`. Retrieval becomes **explainable** (you see which path was chosen and why) and **efficient** (O(log n) tree lookup — no vector index, no embedding model to host, no re-rank stage). Memoir is framework-agnostic — usable from any agent runtime via its CLI, Python SDK, or MCP server — and sits alongside any static prompt or instruction file your agent already uses, carrying the evolving layer (decisions, debugging trails, accumulated preferences, branch-specific context) that a static file can't version or query.
+Memoir is a high-performance semantic memory system for AI agents that brings Git-like version control to AI memory management. It replaces opaque vector databases with transparent, versioned, cryptographically secure memory storage using hierarchical semantic paths.
 
-## Why Memoir for Coding Agents
+> **Project page:** **[memoir-ai.dev](https://www.memoir-ai.dev/)** — full overview, demos, and roadmap.
 
-- **Hierarchical paths, not embeddings.** Every fact lands at a named path in a 3-level taxonomy (~200 paths in v1.1.0). No vector DB to operate, no similarity threshold to tune — lookup is a tree walk and results trace directly back to the path that matched.
-- **Explainable retrieval.** Unlike semantic/vector search, you can always answer *why* a memory was surfaced: the agent picked path `preferences.coding.style` and read the value there. Good for debugging, auditability, and reproducibility.
-- **Efficient at scale.** Taxonomy classification is O(log n), not O(n). No embedding inference on the hot path, no vector index to warm, no re-ranker. The CLI returns typical recalls in hundreds of milliseconds.
-- **Complements static prompts.** System prompts and instruction files are great for invariants. Memoir handles the evolving layer — per-session decisions, debugging history, branch-specific context — so the prompt stays lean and the history stays queryable.
-- **Branches for experiments.** Try a refactor direction or a new coding style on `experiment/*`, keep it if it works, discard it if it doesn't — same workflow you already trust from git.
-- **Taxonomy designed for coding workflows.** v1.1.0 maps to how coding agents actually think — `workflow.coding`, `debugging`, `knowledge`, `preferences.tools` — not generic prose buckets.
-- **Framework-agnostic, agent-native ergonomics.** Works with Claude Code, LangGraph, custom runtimes, or anything that can shell out. `--json` on every CLI command, stable exit codes, KV-cache-friendly output shapes, and an MCP server for any MCP-compatible client.
+## Why agents need versioned memory
+
+> **AI memory is a Global Variable anti-pattern.** Every production agent hits the same three walls: context contamination, token rent, and memory drift. Memoir brings version control to your agent's mind.
+
+**Your agent doesn't respect your git state.**
+Context contamination happens every time you `git checkout`. Without branch-aware memory, your agent tries to apply experimental refactor patterns to stable production hotfixes.
+
+**You're paying "token rent" on a flat file.**
+Using `CLAUDE.md` or `MEMORY.md` as a global store is a cache-killer. Every minor memory update invalidates your entire prefix cache, forcing you to pay full price to re-process your entire conversation.
+
+**Your agent's memory is code without version control.**
+Today's AI memory — `CLAUDE.md`, vector stores, scratchpads — is treated like an append-only blob. One bad session poisons every future retrieval. Without `memoir blame` or `memoir checkout`, there's no way to audit who taught the agent a rule or revert a hallucination without wiping the whole store.
+
+## Key Features
+
+- **Git-like Versioning** — Branch, commit, merge, and rollback memories with cryptographic integrity.
+- **Semantic Paths** — Replace UUID keys with meaningful paths like `profile.professional.skills.python`.
+- **O(log n) Lookups** — Fast hierarchical search instead of expensive vector operations.
+- **Memory Aggregation** — Automatic consolidation of related memories at semantic locations.
+- **Clean Architecture** — Proper separation of storage, classification, and search layers.
+- **Multiple Search Engines** — Choose between fast keyword-based or intelligent LLM-powered search.
 
 ## Install from PyPI
 
@@ -50,14 +69,36 @@ The plugin registers hooks for session start, user-prompt-submit, and stop, so y
 
 ## Quick look
 
+Memoir's CLI defaults to Anthropic **`claude-haiku-4-5`** as of v0.1.6 — set your key first:
+
 ```bash
-export MEMOIR_STORE=/tmp/my_store
-memoir new "$MEMOIR_STORE"
-memoir remember "prefer pytest over unittest, parametrize aggressively"
-memoir recall "what's my testing setup?"
+export ANTHROPIC_API_KEY="sk-..."
 ```
 
-That's the core loop — auto-classified on the way in, semantically retrieved on the way out.
+Then create a store and round-trip a memory:
+
+```bash
+# 1. Create + connect
+memoir new ~/.memoir/notes
+memoir connect ~/.memoir/notes
+
+# 2. Store with an explicit path (offline, no LLM call)
+memoir remember "Sarah prefers tabs and 2-space indents" \
+    -p preferences.coding.style
+
+# 3. Store with auto-classification (LLM picks the path; needs API key)
+memoir remember "I work in Pacific time"
+
+# 4. Read back by path (offline)
+memoir get preferences.coding.style
+
+# 5. Semantic search (LLM-backed)
+memoir recall "what does Sarah prefer?"
+```
+
+Prefer a different model? `memoir recall "..." --model gpt-4o-mini` (needs `OPENAI_API_KEY`), or set `MEMOIR_LLM_MODEL` in your shell. Resolution order: `--model` flag → `MEMOIR_LLM_MODEL` → `claude-haiku-4-5`.
+
+See the full [Quickstart](https://zhangfengcdt.github.io/memoir/quickstart/) for the Python API and version-control workflow.
 
 ## Documentation
 
