@@ -16,7 +16,13 @@ import { useUI } from "../state/uiSlice";
 import "./StatsModal.css";
 
 type SectionKey = keyof StatisticsBlock;
-type TabKey = SectionKey | "overview" | "onboard" | "project" | "metrics";
+type TabKey =
+  | SectionKey
+  | "overview"
+  | "onboard"
+  | "project"
+  | "metrics"
+  | "codechanges";
 
 const BASE_SECTIONS: { key: TabKey; label: string }[] = [
   { key: "overview", label: "Overview" },
@@ -34,6 +40,10 @@ export default function StatsModal() {
   const open = useUI((s) => s.statsOpen);
   const close = useUI((s) => s.closeStats);
   const storePath = useStore((s) => s.storePath);
+  // Current branch from the store (`/api/store` response). Used to filter
+  // metrics.code.<branch> entries so the Code Changes tab matches the
+  // active branch the same way metrics.turn.<branch> does on the server.
+  const currentBranch = useStore((s) => s.data?.current_branch ?? null);
 
   const [data, setData] = useState<StatisticsResponse | null>(null);
   const [onboardData, setOnboardData] = useState<OnboardResponse | null>(null);
@@ -132,6 +142,18 @@ export default function StatsModal() {
   const onboardItems = onboardData?.items ?? [];
   const projectOnboardItems = projectOnboardData?.items ?? [];
   const metricsItems = metricsData?.items ?? [];
+  // Pick the metrics.code.<branch> entry for the currently-checked-out
+  // branch. Tab is hidden when the key is missing or the entries list is
+  // empty. We accept a null currentBranch (store hasn't loaded yet) by
+  // simply not surfacing the tab — it'll appear once the store data arrives.
+  const codeMetricsItem =
+    currentBranch !== null
+      ? metricsItems.find(
+          (it) =>
+            it.key.startsWith("metrics.code.") && it.branch === currentBranch,
+        )
+      : undefined;
+  const codeMetricsEntries = codeMetricsValueEntries(codeMetricsItem);
   const sections: { key: TabKey; label: string }[] = [];
   for (const s of BASE_SECTIONS) {
     sections.push(s);
@@ -144,6 +166,9 @@ export default function StatsModal() {
       }
       if (metricsItems.length > 0) {
         sections.push({ key: "metrics", label: "Metrics" });
+      }
+      if (codeMetricsEntries.length > 0) {
+        sections.push({ key: "codechanges", label: "Code Changes" });
       }
     }
   }
@@ -226,11 +251,18 @@ export default function StatsModal() {
           )}
           {tab === "project" && <ProjectOnboardPanel items={projectOnboardItems} />}
           {tab === "metrics" && <MetricsPanel items={metricsItems} />}
+          {tab === "codechanges" && (
+            <CodeChangesPanel
+              entries={codeMetricsEntries}
+              branch={currentBranch ?? "unknown"}
+            />
+          )}
           {data &&
             tab !== "overview" &&
             tab !== "onboard" &&
             tab !== "project" &&
-            tab !== "metrics" && (
+            tab !== "metrics" &&
+            tab !== "codechanges" && (
               <SectionPanel section={data.statistics[tab]} title={tab} />
             )}
         </div>
@@ -635,6 +667,79 @@ function ProjectOnboardPanel({ items }: { items: ProjectOnboardItem[] }) {
           <pre className="stats-onboard-tree">{treeText}</pre>
         </section>
       )}
+    </div>
+  );
+}
+
+// Pull the `entries` array out of a metrics.code.<branch> item value.
+// Tolerates the value being missing/null/the wrong shape — returns [] in
+// those cases so the tab simply doesn't appear.
+type CodeChangeEntry = { timestamp: number; summary: string };
+function codeMetricsValueEntries(
+  item: MetricsItem | undefined,
+): CodeChangeEntry[] {
+  if (!item || typeof item.value !== "object" || item.value === null) return [];
+  const v = item.value as Record<string, unknown>;
+  const entries = v.entries;
+  if (!Array.isArray(entries)) return [];
+  const out: CodeChangeEntry[] = [];
+  for (const e of entries) {
+    if (e && typeof e === "object") {
+      const ts = (e as Record<string, unknown>).timestamp;
+      const summary = (e as Record<string, unknown>).summary;
+      if (typeof ts === "number" && typeof summary === "string") {
+        out.push({ timestamp: ts, summary });
+      }
+    }
+  }
+  return out;
+}
+
+// Format an epoch-seconds timestamp as a short relative string ("3m", "2h",
+// "yesterday", "Apr 12"). Mirrors lib/time.relativeTimeFromISO but skips the
+// ISO parse since the metric stores raw epoch seconds.
+function formatCodeChangeTime(epochSeconds: number): string {
+  const now = Date.now() / 1000;
+  const delta = Math.max(0, now - epochSeconds);
+  if (delta < 60) return "just now";
+  if (delta < 3600) return `${Math.floor(delta / 60)}m ago`;
+  if (delta < 86400) return `${Math.floor(delta / 3600)}h ago`;
+  if (delta < 7 * 86400) return `${Math.floor(delta / 86400)}d ago`;
+  const d = new Date(epochSeconds * 1000);
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function CodeChangesPanel({
+  entries,
+  branch,
+}: {
+  entries: CodeChangeEntry[];
+  branch: string;
+}) {
+  // Newest first. The Stop hook appends FIFO, so reversing here gives the
+  // most recent activity at the top, matching how a "log" view should read.
+  const ordered = [...entries].reverse();
+  return (
+    <div className="stats-codechanges">
+      <div className="stats-codechanges-header">
+        <code className="stats-codechanges-branch">{branch}</code>
+        <span className="stats-codechanges-count">
+          {entries.length} {entries.length === 1 ? "entry" : "entries"}
+        </span>
+      </div>
+      <ol className="stats-codelog">
+        {ordered.map((entry, i) => (
+          <li key={i} className="stats-codelog-row">
+            <span
+              className="stats-codelog-time"
+              title={new Date(entry.timestamp * 1000).toLocaleString()}
+            >
+              {formatCodeChangeTime(entry.timestamp)}
+            </span>
+            <span className="stats-codelog-summary">{entry.summary}</span>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
