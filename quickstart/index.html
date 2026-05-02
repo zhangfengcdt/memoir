@@ -1835,11 +1835,20 @@
 <h1 id="quick-start-guide">Quick Start Guide<a class="headerlink" href="#quick-start-guide" title="Permanent link">&para;</a></h1>
 <p>This guide will help you get started with Memoir in just a few minutes.</p>
 <h2 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>memoir-ai
+<p>Three options, in order of speed:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># Try without installing (one-shot venv managed by uv)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>uvx<span class="w"> </span>--from<span class="w"> </span>memoir-ai<span class="w"> </span>memoir<span class="w"> </span>--help
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># Persistent install with uv — faster than pip, isolates the CLI</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>uv<span class="w"> </span>tool<span class="w"> </span>install<span class="w"> </span>memoir-ai
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="c1"># Universal fallback</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>pip<span class="w"> </span>install<span class="w"> </span>memoir-ai
 </span></code></pre></div>
-<p>That's it. As of v0.1.7, <code>litellm</code> is a default dependency, so both
-direct-path and LLM-backed commands work out of the box. (Prior to
-v0.1.7 you had to add the <code>[litellm]</code> extra explicitly.)</p>
+<p>As of v0.1.7, <code>litellm</code> is a default dependency, so both direct-path and
+LLM-backed commands work out of the box. (Prior to v0.1.7 you had to add
+the <code>[litellm]</code> extra explicitly.) Don't have uv? Install it with
+<code>curl -LsSf https://astral.sh/uv/install.sh | sh</code>.</p>
 <p>For development:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">&quot;.[dev]&quot;</span>
 </span></code></pre></div>
