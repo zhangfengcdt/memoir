@@ -79,11 +79,10 @@ Then create a store and round-trip a memory:
 
 ```bash
 # 1. Create default memoir store
-memoir new ./my-memoir-store & cd my-memoir-store
+memoir new my-memoir-store && cd my-memoir-store
 
 # 2. Store with an explicit path (offline, no LLM call)
-memoir remember "Sarah prefers tabs and 2-space indents" \
-    -p preferences.coding.style
+memoir remember "Sarah prefers tabs and 2-space indents" -p preferences.coding.style
 
 # 3. Store with auto-classification (LLM picks the path; needs API key)
 memoir remember "I work in Pacific time"

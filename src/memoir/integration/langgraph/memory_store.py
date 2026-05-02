@@ -65,6 +65,9 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
         self.store = ProllyTreeStore(
             path=self.memory_config.storage_path,
             enable_versioning=self.memory_config.enable_versioning,
+            # LangGraph integration auto-creates the store on first use, like
+            # LangMem's BaseStore.
+            create_if_missing=True,
         )
 
         # Memory manager will be initialized after search engine

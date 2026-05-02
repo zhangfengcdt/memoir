@@ -93,6 +93,9 @@ class ProllyTreeMemoryStoreManager(MemoryStoreManager):
                 enable_versioning=enable_versioning,
                 auto_commit=auto_commit,
                 cache_size=cache_size,
+                # Path-based construction is the fallback / auto-create entry
+                # point; if the path isn't a memoir store yet, init it.
+                create_if_missing=True,
             )
         else:
             raise ValueError("Either prolly_store or prolly_path must be provided")

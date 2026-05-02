@@ -28,6 +28,7 @@ class TestVersioningControl:
             path=str(Path(self.temp_dir) / "auto_commit_test"),
             enable_versioning=True,
             auto_commit=True,  # Default behavior
+            create_if_missing=True,
         )
 
         # Store a value - should commit automatically
@@ -44,6 +45,7 @@ class TestVersioningControl:
             path=str(Path(self.temp_dir) / "manual_commit_test"),
             enable_versioning=True,
             auto_commit=False,  # Manual control
+            create_if_missing=True,
         )
 
         # Store values without committing (auto_commit=False)
@@ -66,6 +68,7 @@ class TestVersioningControl:
             path=str(Path(self.temp_dir) / "batch_put_test"),
             enable_versioning=True,
             auto_commit=False,
+            create_if_missing=True,
         )
 
         # Use regular put method with auto_commit=False
@@ -88,6 +91,7 @@ class TestVersioningControl:
             path=str(Path(self.temp_dir) / "batch_delete_test"),
             enable_versioning=True,
             auto_commit=False,
+            create_if_missing=True,
         )
 
         # Store and commit a value first
@@ -113,6 +117,7 @@ class TestVersioningControl:
             path=str(Path(self.temp_dir) / "mixed_workflow_test"),
             enable_versioning=True,
             auto_commit=True,  # Start with auto-commit
+            create_if_missing=True,
         )
 
         # Store something with auto-commit
@@ -151,6 +156,7 @@ class TestVersioningControl:
             path=str(Path(self.temp_dir) / "no_versioning_test"),
             enable_versioning=False,  # No versioning
             auto_commit=False,
+            create_if_missing=True,
         )
 
         # Store a value
@@ -171,6 +177,7 @@ class TestVersioningControl:
             path=str(Path(self.temp_dir) / "backward_compat_test"),
             enable_versioning=True,
             # auto_commit defaults to True
+            create_if_missing=True,
         )
 
         # Old style usage (should auto-commit as before)
@@ -189,6 +196,7 @@ class TestVersioningControl:
             path=str(Path(self.temp_dir) / "auto_perf_test"),
             enable_versioning=True,
             auto_commit=True,
+            create_if_missing=True,
         )
 
         # Test manual commit (few commits)
@@ -196,6 +204,7 @@ class TestVersioningControl:
             path=str(Path(self.temp_dir) / "manual_perf_test"),
             enable_versioning=True,
             auto_commit=False,
+            create_if_missing=True,
         )
 
         # Store multiple values with auto-commit
@@ -233,6 +242,7 @@ class TestVersioningControl:
             path=str(Path(self.temp_dir) / "snapshot_commit_test"),
             enable_versioning=True,
             auto_commit=False,  # Key: no auto commits
+            create_if_missing=True,
         )
 
         # Store data without committing
