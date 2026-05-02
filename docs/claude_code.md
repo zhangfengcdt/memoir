@@ -87,7 +87,7 @@ sequenceDiagram
     participant Store as memoir store
 
     rect rgb(30, 50, 70)
-    Note over Claude,Store: 1. SessionStart — session-start.sh (sync, 15s)
+    Note over Claude,Store: 1. SessionStart — session-start.sh (sync)
     Plugin->>Store: read status, branch/commit, codebase:onboard
     Store-->>Claude: inject snapshot + "memory available" hints
     end
@@ -95,16 +95,16 @@ sequenceDiagram
     rect rgb(30, 55, 45)
     Note over You,Store: 2–4. Per user prompt (loops)
     You->>Claude: prompt
-    Plugin->>Store: 2. UserPromptSubmit — match paths (sync, 10s)
+    Plugin->>Store: 2. UserPromptSubmit — recall determine (sync)
     Store-->>Claude: "[memoir] memory available" hints
     Claude->>Store: 3. memory-recall skill (forked, on-demand)
     Store-->>Claude: summarize → pick prefixes → get → facts
     Claude-->>You: response
-    Plugin->>Store: 4. Stop — classify + auto-capture (async, 180s)
+    Plugin->>Store: 4. Stop — classify + auto-capture (async)
     end
 
     rect rgb(60, 45, 30)
-    Note over Claude,Store: 5. SessionEnd — session-end.sh (async, 5s)
+    Note over Claude,Store: 5. SessionEnd — session-end.sh (async)
     Plugin->>Store: cleanup
     end
 ```
