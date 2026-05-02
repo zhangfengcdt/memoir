@@ -59,9 +59,10 @@ def ui(
 ):
     """Launch the web UI to explore a memoir repo.
 
-    INPUT: Optional PATH to an existing memoir store. If omitted, falls back
-    to the connected store (MEMOIR_STORE or default config); otherwise launches
-    the UI in disconnected/demo mode.
+    INPUT: Optional PATH to an existing memoir store. If omitted, the store
+    is resolved via the standard chain — `-s` flag → `MEMOIR_STORE` env →
+    current working directory. The UI always opens against a real store;
+    pre-launch demo mode was removed.
     OUTPUT: Starts an HTTP server on a free port (random by default) and opens
     a browser tab.
 
@@ -78,32 +79,26 @@ def ui(
       memoir ui /tmp/my-store --usellm --readonly # Full LLM, no edits
       memoir ui ~/memories --port 9090            # Pin to port 9090
     """
+    # Resolution: positional path arg → standard ctx.store_path chain
+    # (-s → MEMOIR_STORE → cwd). One of these must point at a real memoir
+    # store; there's no "open without a store" path.
     target = path or ctx.store_path
-    resolved: str | None = None
-
-    if target:
-        store_path = Path(target).expanduser().resolve()
-        if not store_path.exists():
-            ctx.error(f"Path does not exist: {store_path}", EXIT_NO_STORE)
-        if not (store_path / ".git").exists():
-            ctx.error(
-                f"Not a valid memoir store (no .git): {store_path}", EXIT_NO_STORE
-            )
-        resolved = str(store_path)
+    store_path = Path(target).expanduser().resolve()
+    if not store_path.exists():
+        ctx.error(f"Path does not exist: {store_path}", EXIT_NO_STORE)
+    if not (store_path / ".git").exists():
+        ctx.error(f"Not a valid memoir store (no .git): {store_path}", EXIT_NO_STORE)
+    resolved = str(store_path)
 
     flags = f"readonly={1 if readonly else 0}&usellm={1 if usellm else 0}"
 
     def _on_ready(bound_port: int):
         base = f"http://localhost:{bound_port}"
-        if resolved:
-            url = f"{base}/?store={quote(resolved, safe='')}&{flags}"
-            mode = []
-            mode.append("readonly" if readonly else "writable")
-            mode.append("llm on" if usellm else "llm off")
-            ctx.info(f"Opening {resolved} in the UI at {url}  ({', '.join(mode)})")
-        else:
-            url = f"{base}/?{flags}"
-            ctx.info(f"Starting UI at {url} (no store pre-loaded)")
+        url = f"{base}/?store={quote(resolved, safe='')}&{flags}"
+        mode = []
+        mode.append("readonly" if readonly else "writable")
+        mode.append("llm on" if usellm else "llm off")
+        ctx.info(f"Opening {resolved} in the UI at {url}  ({', '.join(mode)})")
         if not no_browser:
             import webbrowser
 

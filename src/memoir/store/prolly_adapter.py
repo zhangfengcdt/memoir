@@ -37,6 +37,44 @@ class MemoryItem(BaseModel):
     confidence: float = Field(default=1.0, description="Classification confidence")
 
 
+class _CwdLockedTree:
+    """Proxy that chdir's into the store path before any tree method call,
+    then restores the caller's cwd. Workaround for prollytree's Rust binding,
+    which uses cwd (not the absolute path passed to its constructor) to
+    locate the enclosing git repo on every operation — not just at
+    construction. Without this wrapper, callers in non-git cwds hit
+    "Not in a git repository" on `.put()`/`.insert()`/`.commit()` even when
+    the tree was constructed successfully via the in-init chdir below.
+
+    Wrapping once at __init__ is uniformly cheaper than annotating every
+    public method that touches `self.tree` (28+ call sites).
+    """
+
+    def __init__(self, tree: Any, store_path: Path):
+        # Underscore prefix on the inner attrs so __getattr__ never recurses
+        # into them (it only fires for missing names).
+        object.__setattr__(self, "_tree", tree)
+        object.__setattr__(self, "_store_path", str(store_path))
+
+    def __getattr__(self, name: str) -> Any:
+        attr = getattr(self._tree, name)
+        if not callable(attr):
+            return attr
+        store_path = self._store_path
+
+        def _wrapped(*args, **kwargs):
+            import os as _os
+
+            saved = _os.getcwd()
+            try:
+                _os.chdir(store_path)
+                return attr(*args, **kwargs)
+            finally:
+                _os.chdir(saved)
+
+        return _wrapped
+
+
 class AggregatedMemory(BaseModel):
     """Represents aggregated memories at a semantic path."""
 
@@ -127,20 +165,21 @@ class ProllyTreeStore(BaseStore):
             # VersionedKvStore (prollytree Rust binding) uses cwd to locate the
             # enclosing git repository even when handed an absolute path —
             # which means callers in non-git cwds (e.g. /tmp, ~/.memoir) get
-            # "Not in a git repository" errors. Workaround: chdir into the
-            # store before constructing, then restore so caller's cwd stays
-            # clean. Once constructed, the tree retains its handle and works
-            # from any cwd.
+            # "Not in a git repository" errors. Construction needs a chdir;
+            # so do per-operation calls (`.insert`/`.update`/`.commit`/`.get`).
+            # We chdir here for the constructor, then wrap the tree in
+            # _CwdLockedTree so every later method call also chdir's first.
             import os as _os
 
             _saved_cwd = _os.getcwd()
             try:
                 _os.chdir(str(self.path))
-                self.tree = VersionedKvStore(str(data_dir))
+                _raw_tree = VersionedKvStore(str(data_dir))
             finally:
                 _os.chdir(_saved_cwd)
+            self.tree = _CwdLockedTree(_raw_tree, self.path)
         else:
-            # Use memory mode for simplicity (can be changed to 'file' for persistence)
+            # Memory mode doesn't touch git, so no cwd wrapper needed.
             self.tree = ProllyTree("memory")
 
         self.enable_versioning = enable_versioning

@@ -2,7 +2,11 @@
 """
 Store commands for memoir CLI.
 
-Commands: new, connect, status, refresh
+Commands: new, status, refresh
+
+Note: `memoir connect` and `--connect` were removed. Memoir does not persist
+a global default store; pick one each invocation via -s, MEMOIR_STORE, or by
+running from inside the store directory.
 """
 
 import click
@@ -13,15 +17,11 @@ from memoir.cli.main import (
     EXIT_NO_STORE,
     MemoirContext,
     pass_context,
-    save_default_store,
 )
 
 
 @click.command()
 @click.argument("path")
-@click.option(
-    "--connect/--no-connect", default=True, help="Set as default store after creation"
-)
 @click.option(
     "--taxonomy-builtin",
     is_flag=True,
@@ -40,17 +40,17 @@ from memoir.cli.main import (
 def new(
     ctx: MemoirContext,
     path: str,
-    connect: bool,
     taxonomy_builtin: bool,
     taxonomy_paths: tuple,
 ):
     """Create a new memory store.
 
     INPUT: Path where the store should be created (will create directory).
-    OUTPUT: Confirmation with store path.
+    OUTPUT: Confirmation with store path and an export hint.
 
-    Creates a git-initialized memory store at PATH. By default, also
-    sets it as the default store (use --no-connect to skip).
+    Creates a git-initialized memory store at PATH. To use it on subsequent
+    commands, either pass `-s PATH`, set `MEMOIR_STORE=PATH` in your shell,
+    or `cd` into the store directory.
 
     Optionally initialize with taxonomy data for classification:
       --taxonomy-builtin loads the builtin taxonomy (~215 examples)
@@ -59,7 +59,6 @@ def new(
     \b
     Examples:
       memoir new /tmp/my-agent-memory
-      memoir new ~/memories --no-connect
       memoir new ~/memories --taxonomy-builtin
       memoir new ~/memories --taxonomy-builtin -t custom.md
 
@@ -95,67 +94,13 @@ def new(
         except Exception as e:
             ctx.warn(f"Failed to initialize taxonomy: {e}")
 
-    if connect:
-        save_default_store(result.path)
-
     output_data = {"path": result.path}
     if taxonomy_result:
         output_data["taxonomy_loaded"] = taxonomy_result
 
-    if connect:
-        ctx.success(f"Created and connected to {result.path}", output_data)
-    else:
-        ctx.success(f"Created store at {result.path}", output_data)
-
-
-@click.command()
-@click.argument("path")
-@pass_context
-def connect(ctx: MemoirContext, path: str):
-    """Connect to an existing memory store.
-
-    INPUT: Path to an existing memoir store (must have .git directory).
-    OUTPUT: Store status info (branch, memory count).
-
-    Sets PATH as the default store for subsequent commands. This is
-    saved to ~/.config/memoir/config.json. Alternative: set MEMOIR_STORE env var.
-
-    \b
-    Examples:
-      memoir connect /tmp/memories
-      memoir connect ~/ai-memories
-
-    \b
-    JSON output includes: path, branch, memory_count, namespaces
-    """
-    from pathlib import Path
-
-    from memoir.services.store_service import StoreService
-
-    # Validate the path exists and is a valid store
-    store_path = Path(path).expanduser().resolve()
-
-    if not store_path.exists():
-        ctx.error(f"Path does not exist: {store_path}", EXIT_NO_STORE)
-
-    if not (store_path / ".git").exists():
-        ctx.error(f"Not a valid memoir store (no .git): {store_path}", EXIT_NO_STORE)
-
-    # Save as default
-    save_default_store(str(store_path))
-
-    # Get status info
-    service = StoreService(str(store_path))
-    info = service.get_status()
-
-    if ctx.json_output:
-        ctx.output(info.to_dict())
-    else:
-        ctx.success(f"Connected to {store_path}")
-        if info.branch:
-            ctx.info(f"Branch: {info.branch}")
-        if info.memory_count is not None:
-            ctx.info(f"Memories: {info.memory_count}")
+    ctx.success(f"Created store at {result.path}", output_data)
+    if not ctx.json_output:
+        ctx.info(f"To use this store: export MEMOIR_STORE={result.path}")
 
 
 @click.command()
@@ -178,7 +123,8 @@ def status(ctx: MemoirContext):
     """
     if not ctx.store_path:
         ctx.error(
-            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
+            "No store configured. Pass -s <path>, set MEMOIR_STORE, or cd into a memoir store.",
+            EXIT_NO_STORE,
         )
 
     from memoir.services.store_service import StoreService
@@ -216,7 +162,8 @@ def refresh(ctx: MemoirContext):
     """
     if not ctx.store_path:
         ctx.error(
-            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
+            "No store configured. Pass -s <path>, set MEMOIR_STORE, or cd into a memoir store.",
+            EXIT_NO_STORE,
         )
 
     from memoir.services.store_service import StoreService

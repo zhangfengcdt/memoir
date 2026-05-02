@@ -9,7 +9,6 @@ Optimized for both human use and shell-based AI agents.
 import json
 import os
 import sys
-from pathlib import Path
 from typing import Any
 
 import click
@@ -141,7 +140,7 @@ def get_cli_schema(group: click.Group) -> dict[str, Any]:
 
     # Extract commands by group
     command_groups = {
-        "store": ["new", "connect", "status", "refresh"],
+        "store": ["new", "status", "refresh"],
         "memory": ["remember", "recall", "forget"],
         "branch": [
             "branch",
@@ -167,42 +166,15 @@ def get_cli_schema(group: click.Group) -> dict[str, Any]:
     return schema
 
 
-def get_config_dir() -> Path:
-    """Get the memoir configuration directory."""
-    config_home = os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config"))
-    return Path(config_home) / "memoir"
-
-
-def load_default_store() -> str | None:
-    """Load the default store path from config."""
-    config_file = get_config_dir() / "config.json"
-    if config_file.exists():
-        try:
-            with open(config_file) as f:
-                config = json.load(f)
-                return config.get("default_store")
-        except Exception:
-            pass
-    return None
-
-
-def save_default_store(path: str) -> None:
-    """Save the default store path to config."""
-    config_dir = get_config_dir()
-    config_dir.mkdir(parents=True, exist_ok=True)
-    config_file = config_dir / "config.json"
-
-    config = {}
-    if config_file.exists():
-        try:
-            with open(config_file) as f:
-                config = json.load(f)
-        except Exception:
-            pass
-
-    config["default_store"] = path
-    with open(config_file, "w") as f:
-        json.dump(config, f, indent=2)
+# Store-path resolution is intentionally three-tier and fully explicit:
+#   1. -s / --store flag         (per-invocation, wins everything)
+#   2. MEMOIR_STORE env var       (per-shell, picked up by Click envvar=)
+#   3. current working directory  (per-cwd; lets you `cd <store> && memoir …`)
+# There is no global default written to ~/.config/memoir/config.json — that
+# was deliberately removed: a long-lived hidden default from a forgotten
+# `memoir connect` from an earlier session caused stale-state surprises and
+# wrong-store recalls in cross-project work. If you want a personal default,
+# set MEMOIR_STORE in your shell rc.
 
 
 class MemoirContext:
@@ -317,19 +289,25 @@ def cli(
 
     \b
     QUICK START FOR AGENTS:
-      1. memoir new /path/to/store      # Create store (once)
-      2. memoir connect /path/to/store  # Set as default
-      3. memoir remember "content"      # Store memories
-      4. memoir recall "query"          # Search memories
+      1. memoir new /path/to/store           # Create store (once)
+      2. export MEMOIR_STORE=/path/to/store  # Or use -s on each command
+      3. memoir remember "content"           # Store memories
+      4. memoir recall "query"               # Search memories
 
     \b
     COMMAND GROUPS:
-      Store:    new, connect, status, refresh
+      Store:    new, status, refresh
       Memory:   remember, recall, get, forget
       Branch:   branch, checkout, merge, sync-branch, time-travel, diff
       Crypto:   proof, verify, blame
       Analysis: summarize
       Utility:  ui
+
+    \b
+    STORE RESOLUTION (no hidden global default):
+      1. -s / --store flag
+      2. MEMOIR_STORE env var
+      3. current working directory (cd into a memoir store and just run)
 
     \b
     AGENT TIPS:
@@ -344,7 +322,10 @@ def cli(
       MEMOIR_JSON   Always output JSON (set to 1)
       MEMOIR_QUIET  Suppress non-essential output (set to 1)
     """
-    ctx.store_path = store or load_default_store()
+    # Resolution: -s flag (or MEMOIR_STORE via Click envvar=) → cwd → command-time error.
+    # Click already folds MEMOIR_STORE into `store` via envvar="MEMOIR_STORE", so by the
+    # time we're here `store` is None only when neither was set.
+    ctx.store_path = store or os.getcwd()
     ctx.json_output = json_output
     ctx.quiet = quiet
     ctx.verbose = verbose
@@ -363,7 +344,6 @@ from memoir.cli.commands import (  # noqa: E402
 
 # Store commands
 cli.add_command(store.new)
-cli.add_command(store.connect)
 cli.add_command(store.status)
 cli.add_command(store.refresh)
 

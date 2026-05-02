@@ -17,7 +17,7 @@ STORE="${MEMOIR_STORE:-$(bash "$CLAUDE_PLUGIN_ROOT/scripts/derive-store-path.sh"
 
 The script hashes the project's git-root absolute path into `~/.memoir/<basename>_<8charhash>`. Different machines, checkout locations, or renamed directories produce different paths — never hardcode a specific store name.
 
-**Do NOT** rely on `memoir`'s connected default (the path stored in `~/.config/memoir/config.json` and shown by bare `memoir status`). It frequently points at stale or unrelated test stores; using it has caused this skill to return memories from the wrong project (or none at all). If `memoir status` (no `-s`) and `memoir -s "$STORE" status` disagree, **trust the script**, and consider running `memoir connect "$STORE"` to fix the global default.
+memoir's CLI no longer persists a global default store; resolution is `-s` → `MEMOIR_STORE` → cwd. Plugin code passes `-s "$STORE"` on every call so the right store is always selected regardless of the user's shell env or cwd.
 
 Pass `-s "$STORE"` on **every** memoir call below, including `summarize`, `get`, `blame`, and `diff`.
 

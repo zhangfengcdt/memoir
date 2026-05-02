@@ -62,7 +62,8 @@ def init_taxonomy(ctx: MemoirContext, force: bool):
     """
     if not ctx.store_path:
         ctx.error(
-            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
+            "No store configured. Pass -s <path>, set MEMOIR_STORE, or cd into a memoir store.",
+            EXIT_NO_STORE,
         )
 
     from memoir.store.prolly_adapter import ProllyTreeStore
@@ -118,7 +119,8 @@ def load_taxonomy(ctx: MemoirContext, path: str):
     """
     if not ctx.store_path:
         ctx.error(
-            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
+            "No store configured. Pass -s <path>, set MEMOIR_STORE, or cd into a memoir store.",
+            EXIT_NO_STORE,
         )
 
     from memoir.store.prolly_adapter import ProllyTreeStore
@@ -170,7 +172,8 @@ def list_taxonomies(ctx: MemoirContext):
     """
     if not ctx.store_path:
         ctx.error(
-            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
+            "No store configured. Pass -s <path>, set MEMOIR_STORE, or cd into a memoir store.",
+            EXIT_NO_STORE,
         )
 
     from memoir.store.prolly_adapter import ProllyTreeStore
@@ -220,7 +223,8 @@ def show_taxonomy(ctx: MemoirContext, taxonomy_id: str):
     """
     if not ctx.store_path:
         ctx.error(
-            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
+            "No store configured. Pass -s <path>, set MEMOIR_STORE, or cd into a memoir store.",
+            EXIT_NO_STORE,
         )
 
     from memoir.store.prolly_adapter import ProllyTreeStore
@@ -293,7 +297,8 @@ def prompt_snippet(ctx: MemoirContext, max_examples: int):
     """
     if not ctx.store_path:
         ctx.error(
-            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
+            "No store configured. Pass -s <path>, set MEMOIR_STORE, or cd into a memoir store.",
+            EXIT_NO_STORE,
         )
 
     from memoir.store.prolly_adapter import ProllyTreeStore

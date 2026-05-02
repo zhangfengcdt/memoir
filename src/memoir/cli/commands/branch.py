@@ -44,7 +44,8 @@ def branch(
     """
     if not ctx.store_path:
         ctx.error(
-            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
+            "No store configured. Pass -s <path>, set MEMOIR_STORE, or cd into a memoir store.",
+            EXIT_NO_STORE,
         )
 
     from memoir.services.branch_service import BranchService
@@ -109,7 +110,8 @@ def checkout(ctx: MemoirContext, target: str, create_branch: bool):
     """
     if not ctx.store_path:
         ctx.error(
-            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
+            "No store configured. Pass -s <path>, set MEMOIR_STORE, or cd into a memoir store.",
+            EXIT_NO_STORE,
         )
 
     from memoir.services.branch_service import BranchService
@@ -166,7 +168,8 @@ def merge(ctx: MemoirContext, source: str, into_branch: str, strategy: str):
     """
     if not ctx.store_path:
         ctx.error(
-            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
+            "No store configured. Pass -s <path>, set MEMOIR_STORE, or cd into a memoir store.",
+            EXIT_NO_STORE,
         )
 
     from memoir.services.branch_service import BranchService, MergeStrategy
@@ -271,7 +274,8 @@ def sync_branch(
     """
     if not ctx.store_path:
         ctx.error(
-            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
+            "No store configured. Pass -s <path>, set MEMOIR_STORE, or cd into a memoir store.",
+            EXIT_NO_STORE,
         )
 
     from memoir.services.branch_service import BranchService
@@ -399,7 +403,8 @@ def time_travel(ctx: MemoirContext, target: str, branch_name: str):
     """
     if not ctx.store_path:
         ctx.error(
-            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
+            "No store configured. Pass -s <path>, set MEMOIR_STORE, or cd into a memoir store.",
+            EXIT_NO_STORE,
         )
 
     from memoir.services.branch_service import BranchService
@@ -464,7 +469,8 @@ def diff(ctx: MemoirContext, commit1: str, commit2: str, stat: bool):
     """
     if not ctx.store_path:
         ctx.error(
-            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
+            "No store configured. Pass -s <path>, set MEMOIR_STORE, or cd into a memoir store.",
+            EXIT_NO_STORE,
         )
 
     from memoir.services.branch_service import BranchService

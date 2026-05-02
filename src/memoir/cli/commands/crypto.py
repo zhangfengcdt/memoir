@@ -34,7 +34,8 @@ def proof(ctx: MemoirContext, key: str, namespace: str, output_file: str):
     """
     if not ctx.store_path:
         ctx.error(
-            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
+            "No store configured. Pass -s <path>, set MEMOIR_STORE, or cd into a memoir store.",
+            EXIT_NO_STORE,
         )
 
     from memoir.services.crypto_service import CryptoService
@@ -111,7 +112,8 @@ def verify(
     """
     if not ctx.store_path:
         ctx.error(
-            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
+            "No store configured. Pass -s <path>, set MEMOIR_STORE, or cd into a memoir store.",
+            EXIT_NO_STORE,
         )
 
     # Get proof from argument or file
@@ -184,7 +186,8 @@ def blame(ctx: MemoirContext, key: str, namespace: str, limit: int):
     """
     if not ctx.store_path:
         ctx.error(
-            "No store configured. Use 'memoir connect <path>' first.", EXIT_NO_STORE
+            "No store configured. Pass -s <path>, set MEMOIR_STORE, or cd into a memoir store.",
+            EXIT_NO_STORE,
         )
 
     from memoir.services.crypto_service import CryptoService

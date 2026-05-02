@@ -76,7 +76,11 @@ class TestMainCLI:
 
 
 class TestStoreCommands:
-    """Test store commands: new, connect, status, refresh."""
+    """Test store commands: new, status, refresh.
+
+    Note: `memoir connect` and `--connect` were removed (no global default
+    store). Resolution is now: -s flag → MEMOIR_STORE → cwd.
+    """
 
     def test_new_creates_store(self, runner, temp_store):
         """Test 'new' command creates a store."""
@@ -89,6 +93,18 @@ class TestStoreCommands:
         assert os.path.exists(temp_store)
         assert os.path.exists(os.path.join(temp_store, ".git"))
 
+    def test_new_prints_export_hint(self, runner, temp_store):
+        """`memoir new` should tell the user how to use the store next.
+
+        Since there's no global default any more, the success message points
+        the user at the explicit options.
+        """
+        shutil.rmtree(temp_store)
+
+        result = runner.invoke(cli, ["new", temp_store])
+        assert result.exit_code == 0
+        assert "MEMOIR_STORE" in result.output
+
     def test_new_json_output(self, runner, temp_store):
         """Test 'new' command with JSON output."""
         shutil.rmtree(temp_store)
@@ -98,33 +114,6 @@ class TestStoreCommands:
         data = json.loads(result.output)
         assert data["success"] is True
         assert "path" in data
-
-    def test_new_no_connect_option(self, runner, temp_store):
-        """Test 'new' command with --no-connect option."""
-        shutil.rmtree(temp_store)
-
-        result = runner.invoke(cli, ["new", temp_store, "--no-connect"])
-        assert result.exit_code == 0
-        assert os.path.exists(temp_store)
-
-    def test_connect_to_store(self, runner, initialized_store):
-        """Test 'connect' command."""
-        result = runner.invoke(cli, ["connect", initialized_store])
-        assert result.exit_code == 0
-        assert "Connected" in result.output
-
-    def test_connect_json_output(self, runner, initialized_store):
-        """Test 'connect' command with JSON output."""
-        result = runner.invoke(cli, ["--json", "connect", initialized_store])
-        assert result.exit_code == 0
-        data = json.loads(result.output)
-        assert "path" in data
-
-    def test_connect_nonexistent_path(self, runner):
-        """Test 'connect' to nonexistent path fails."""
-        result = runner.invoke(cli, ["connect", "/nonexistent/path"])
-        assert result.exit_code != 0
-        assert "not exist" in result.output.lower() or "error" in result.output.lower()
 
     def test_status_shows_info(self, runner, initialized_store):
         """Test 'status' command."""
@@ -139,13 +128,19 @@ class TestStoreCommands:
         data = json.loads(result.output)
         assert "path" in data
 
-    def test_status_no_store_error(self, runner):
-        """Test 'status' without store configured fails or uses default."""
-        # Clear any environment variables that might set a store
+    def test_status_no_store_falls_back_to_cwd(self, runner, tmp_path, monkeypatch):
+        """Without -s and without MEMOIR_STORE, resolution falls back to cwd.
+
+        If cwd isn't a memoir store, status surfaces a normal error rather than
+        crashing — which is the contract after we dropped the global default.
+        """
+        monkeypatch.delenv("MEMOIR_STORE", raising=False)
+        monkeypatch.chdir(tmp_path)  # tmp dir is not a memoir store
+
         result = runner.invoke(cli, ["status"], env={"MEMOIR_STORE": ""})
-        # May fail (no store) or succeed (if default configured)
-        # Just verify it runs without crashing
-        assert result.exit_code in [0, 3]
+        # Must not crash; either the cwd is treated as a (non-)store and we
+        # surface a clean error, or the command bails with EXIT_NO_STORE.
+        assert result.exit_code in (0, 1, 3)
 
     def test_refresh(self, runner, initialized_store):
         """Test 'refresh' command."""

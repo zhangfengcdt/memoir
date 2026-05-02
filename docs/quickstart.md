@@ -24,18 +24,18 @@ The CLI is the fastest path. Memoir's CLI defaults to Anthropic
 **`claude-haiku-4-5`** as of v0.1.6 — set your key first:
 
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-…"
+export ANTHROPIC_API_KEY="sk-…"
 ```
 
 Then create a store and round-trip a memory:
 
 ```bash
-# 1. Create + connect
-memoir new ~/.memoir/notes
-memoir connect ~/.memoir/notes
+# 1. Create the store and cd into it
+#    (subsequent commands use cwd as the store; or set MEMOIR_STORE / pass -s)
+memoir new my-memoir-store && cd my-memoir-store
 
 # 2. Store with an explicit path (offline, no LLM call)
-memoir remember "Feng prefers tabs and 2-space indents" \
+memoir remember "Sarah prefers tabs and 2-space indents" \
     -p preferences.coding.style
 
 # 3. Store with auto-classification (LLM picks the path; needs API key)
@@ -45,7 +45,7 @@ memoir remember "I work in Pacific time"
 memoir get preferences.coding.style
 
 # 5. Semantic search (LLM-backed)
-memoir recall "what does Feng prefer?"
+memoir recall "what does Sarah prefer?"
 ```
 
 ### Picking a different model
