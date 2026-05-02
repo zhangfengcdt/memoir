@@ -367,42 +367,10 @@ function pushError(input: string, err: unknown): void {
   useStore.getState().pushHistory({ input, level: "error", lines: [message] });
 }
 
-// ---------- Memory store creation ----------
-
-register({
-  name: "new",
-  aliases: ["create"],
-  summary: "Create a new memory store at <path>",
-  usage: "/new <path>",
-  category: "core",
-  tags: ["mutating"],
-  longDescription:
-    "Initialises a git repo at the given path and connects to it as a memoir store.",
-  async run(args) {
-    const target = args.join(" ").trim();
-    const input = `/new ${target}`;
-    if (!target) {
-      useStore.getState().pushHistory({
-        input: "/new",
-        level: "warning",
-        lines: ["Missing path. Usage: /new <path>"],
-      });
-      return;
-    }
-    try {
-      const res = await api.newStore(target);
-      useStore.getState().pushHistory({
-        input,
-        level: "success",
-        lines: [res.message ?? `Created store at ${target}`],
-      });
-      // Auto-connect to the freshly-created store.
-      await useStore.getState().connect(res.path ?? target);
-    } catch (err) {
-      pushError(input, err);
-    }
-  },
-});
+// Note: store creation has no slash command. Use `memoir new <path>` from a
+// terminal. The previous `/new` palette command was removed because it let a
+// stray autocomplete land an "Initial commit" of prolly storage files into
+// an unrelated git repo when the path resolved wrong.
 
 // ---------- Memory operations ----------
 
@@ -704,80 +672,10 @@ register({
   },
 });
 
-register({
-  name: "branch",
-  aliases: ["br"],
-  summary: "Manage branches: list / create <name> / delete <name>",
-  usage: "/branch <list|create|delete> [name]",
-  category: "core",
-  tags: ["mutating"],
-  longDescription:
-    "/branch list = same as /branches. /branch create <name> creates from HEAD. /branch delete <name> deletes (cannot delete the current branch).",
-  async run(args) {
-    const sub = (args[0] ?? "list").toLowerCase();
-    const name = args[1];
-    const input = `/branch ${sub}${name ? " " + name : ""}`;
-    const path = requireStorePath(input);
-    if (!path) return;
-    try {
-      if (sub === "list") {
-        const res = await api.branches(path);
-        useStore.getState().pushHistory({
-          input,
-          level: "info",
-          lines: [
-            `current  ${res.current}`,
-            `branches ${res.branches.join(", ")}`,
-          ],
-        });
-        return;
-      }
-      if (sub === "create") {
-        if (!name) {
-          useStore.getState().pushHistory({
-            input,
-            level: "warning",
-            lines: ["Missing name. Usage: /branch create <name>"],
-          });
-          return;
-        }
-        const res = await api.createBranch(path, name);
-        useStore.getState().pushHistory({
-          input,
-          level: "success",
-          lines: [res.message ?? `Created branch ${name}`],
-        });
-        await useStore.getState().refresh();
-        return;
-      }
-      if (sub === "delete") {
-        if (!name) {
-          useStore.getState().pushHistory({
-            input,
-            level: "warning",
-            lines: ["Missing name. Usage: /branch delete <name>"],
-          });
-          return;
-        }
-        const res = await api.deleteBranch(path, name);
-        useStore.getState().pushHistory({
-          input,
-          level: "success",
-          lines: [res.message ?? `Deleted branch ${name}`],
-        });
-        await useStore.getState().refresh();
-        return;
-      }
-      useStore.getState().pushHistory({
-        input,
-        level: "warning",
-        lines: [`Unknown subcommand: ${sub}. Use list / create / delete.`],
-      });
-    } catch (err) {
-      pushError(input, err);
-    }
-  },
-});
+// Note: there is no `/branch` slash command. Branch list/create/delete are
+// available via the BranchCommitsModal and the CLI (`memoir branch …`).
+// The palette command was removed for the same reason as `/new`: a stray
+// autocomplete could fire a destructive operation against the wrong store.
 
 register({
   name: "checkout",

@@ -77,6 +77,10 @@ fi
 #
 # Stored value shape (JSON string under the key):
 #   {"schema_version": 1, "entries": [{"timestamp": <epoch>, "summary": "..."}]}
+#
+# Retention: the entries list is capped at the most recent
+# MEMOIR_METRICS_CODE_MAX (default 1000); older summaries are dropped on write
+# so a single key can't grow unbounded over months of use.
 if [ "${MEMOIR_NO_CODE_SUMMARY:-}" != "1" ]; then
   EDITS_JSON=$("$SCRIPT_DIR/collect-edits.sh" "$TRANSCRIPT_PATH" 2>/dev/null || true)
   if [ -n "$EDITS_JSON" ]; then
@@ -157,12 +161,19 @@ sys.stdout.write(text[:1000])
           # the hook owns the append (mirrors merge-metrics for metrics.turn).
           PREV_CC=$(memoir_json get "$CCKEY" 2>/dev/null \
             | python3 -c "import json,sys; d=json.loads(sys.stdin.read() or '{}'); items=d.get('items') or [{}]; v=items[0].get('value') or {}; c=v.get('content'); print(c if isinstance(c,str) else '')" 2>/dev/null)
-          MERGED_CC=$(SUMMARY="$SUMMARY" PREV_CC="$PREV_CC" python3 -c "
+          MERGED_CC=$(SUMMARY="$SUMMARY" PREV_CC="$PREV_CC" \
+            MEMOIR_METRICS_CODE_MAX="${MEMOIR_METRICS_CODE_MAX:-1000}" python3 -c "
 import json, os, time
 prev_raw = os.environ.get('PREV_CC', '').strip()
 summary = os.environ.get('SUMMARY', '').strip()
 if not summary:
     raise SystemExit(0)
+try:
+    max_entries = int(os.environ.get('MEMOIR_METRICS_CODE_MAX', '1000'))
+except ValueError:
+    max_entries = 1000
+if max_entries < 1:
+    max_entries = 1
 acc = {'schema_version': 1, 'entries': []}
 if prev_raw:
     try:
@@ -173,6 +184,10 @@ if prev_raw:
     except (TypeError, ValueError):
         pass
 acc['entries'].append({'timestamp': time.time(), 'summary': summary})
+# Retain only the most recent N entries — older summaries get dropped so the
+# stored value can't grow unbounded over months of use.
+if len(acc['entries']) > max_entries:
+    acc['entries'] = acc['entries'][-max_entries:]
 print(json.dumps(acc))
 " 2>/dev/null || true)
           if [ -n "$MERGED_CC" ]; then

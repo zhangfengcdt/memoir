@@ -280,31 +280,8 @@ class StoreHandler(BaseAPIHandler):
         except Exception as e:
             self.send_error_response(str(e))
 
-    def handle_new_api(self):
-        """Handle /new command to create a new git repository and initialize memory store."""
-        from memoir.services.store_service import StoreService
-
-        try:
-            data = self.get_post_data()
-
-            store_path = data.get("path")
-            if not store_path:
-                self.send_error_response("Missing 'path' parameter", 400)
-                return
-
-            service = StoreService()
-            result = service.create_store(store_path)
-
-            if result.success:
-                self.send_json_response(
-                    {
-                        "success": True,
-                        "path": result.path,
-                        "message": result.message,
-                    }
-                )
-            else:
-                self.send_error_response(result.error or "Failed to create store", 400)
-
-        except Exception as e:
-            self.send_error_response(f"Error creating memory store: {e!s}")
+    # NOTE: handle_new_api was removed. Store creation is CLI-only via
+    # `memoir new <path>`. The previous in-UI endpoint let a stray slash-
+    # command autocomplete land an "Initial commit" of prolly storage files
+    # in an unrelated git repo (e.g. the project root). Users who need to
+    # create a store should run the CLI command from a terminal.

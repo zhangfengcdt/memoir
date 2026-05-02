@@ -168,11 +168,11 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         parsed_path = urlparse(self.path)
 
-        # Handle API endpoints
-        if parsed_path.path == "/api/new":
-            self._ensure_handlers_initialized()
-            self.store_handler.handle_new_api()
-        elif parsed_path.path == "/api/remember":
+        # Handle API endpoints. Note: there is intentionally no /api/new
+        # route. Store creation is CLI-only (`memoir new <path>`) — the
+        # in-UI path was removed after a slash-command autocomplete landed
+        # an "Initial commit" of prolly storage files in an unrelated repo.
+        if parsed_path.path == "/api/remember":
             self._ensure_handlers_initialized()
             self.memory_handler.handle_remember_api()
         elif parsed_path.path == "/api/forget":
