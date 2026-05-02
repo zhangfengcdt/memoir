@@ -196,12 +196,10 @@ export const api = {
     }),
 
   // ---------------- Memory ops ----------------
-
-  newStore: (path: string) =>
-    postJSON<{ success: boolean; path?: string; message?: string }>(
-      "/api/new",
-      { path },
-    ),
+  //
+  // Note: store creation has no client method. It is intentionally CLI-only
+  // (`memoir new <path>`) so the UI can't accidentally land an "Initial
+  // commit" in an unrelated git repo when a path resolves wrong.
 
   remember: (path: string, content: string, namespace = "default") =>
     postJSON<Record<string, unknown>>("/api/remember", {
