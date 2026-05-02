@@ -126,9 +126,9 @@ def test_store_response_with_memories_validates(temp_store):
         path=temp_store,
         enable_versioning=True,
         auto_commit=True,
-        cache_size=1000,,
-    create_if_missing=True,
-)
+        cache_size=1000,
+        create_if_missing=True,
+    )
     samples = [
         ("default:workflow.coding.style", "prefer async-first"),
         ("default:workflow.coding.naming", "snake_case for Python"),
