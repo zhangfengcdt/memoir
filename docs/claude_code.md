@@ -261,6 +261,42 @@ Per `kind`, the stdlib extractor always runs first; configured tools then run an
 
 Captures keep working through the warning — it's informational, not enforced. The marker is auto-backfilled the first time an old (pre-guardrail) store is observed, so no warning fires for stores that pre-date this feature.
 
+## How auto-capture decides what to remember
+
+The `Stop` hook's capture stage (`stop.sh:69-end`, gated by `MEMOIR_NO_CAPTURE=1`) makes one haiku call per turn that does **both extraction and classification in one shot** — emitting taxonomy-classified durable facts directly, bypassing memoir's internal LLM classifier chain. Net effect: ONE haiku call per turn instead of 1 (extract) + N×4-5 (classify + decide + metadata for each fact) — typically 25–30× faster end-to-end.
+
+**Pipeline.**
+
+1. **Pre-flight guards.** Skip silently if the transcript has fewer than 3 lines, or if `parse-transcript.sh` returns `(empty transcript)`, `(no user message found)`, or `(empty turn)`. Anchors on the most recent user message — only the trailing turn is sent to haiku.
+2. **Taxonomy resolution.** Read the cached taxonomy block populated at `SessionStart`. Falls back to a hardcoded hint sheet (top-level + common second-level paths) if the store has no taxonomy loaded — so first-run sessions still classify correctly.
+3. **System prompt.** Load `plugins/claude-code/hooks/prompts/stop_capture.tmpl` (single source of truth, testable via the prompt-harness) and substitute `${TAXONOMY_BLOCK}` in bash. The `CATEGORIES` + `EXAMPLES` blocks come from the store's persisted taxonomy (`taxonomy:v1:*`), so auto-capture classifies against the same taxonomy as explicit `/memoir:remember "fact"` (without `-p`).
+4. **Worthiness gate — the silent default.** The system prompt instructs haiku that *the default answer is nothing*. A line is emitted only when a fact passes four hard gates:
+    1. Durable — still relevant in weeks or months.
+    2. A future session would genuinely benefit from knowing it.
+    3. Not already discoverable from the code, git log, `CLAUDE.md`, or `README`.
+    4. A senior engineer would write it down in onboarding notes.
+
+    Always-capture triggers override the silent default: standing rules ("from now on…", "always X", "never X"), stated preferences ("I prefer X over Y"), architectural / tooling decisions just resolved this turn (with rationale), project facts not yet in the repo, and non-obvious technical invariants. Most turns produce zero lines — that is the expected, high-quality result.
+5. **One-shot LLM call.** `claude -p --model haiku --no-session-persistence --no-chrome --system-prompt "$STOP_SYSTEM_PROMPT"` with the parsed transcript on stdin. `MEMOIR_NO_CAPTURE=1 CLAUDECODE=` is set on the subprocess to prevent recursion into the host's plugin hooks.
+6. **Output format.** `<path>[,<path>...]<TAB><fact>` per line. Comma-separated paths in column 1 mean "write the same fact to multiple paths in one call" — each blob's `related_keys` field records the siblings (handled memoir-side).
+7. **Line-format validation.** A line is rejected if any of: empty path or fact, fact under 8 characters, or paths don't match `^[a-z][a-z0-9_]*(\.[a-z0-9_]+){1,3}(,…)*$`. Guards against haiku going rogue with preamble text or malformed taxonomy paths.
+8. **Write.** For each surviving line, build `-p p1 -p p2 …` argv from the comma list and call `memoir remember "$fact" -p …` — bypassing memoir's internal classifier entirely.
+9. **Statusline refresh.** After captures land, recompute the user-memory count and rewrite the statusline cache so the displayed count ticks up immediately.
+
+**Toggles & failure mode.** `MEMOIR_NO_CAPTURE=1` disables only the capture stage; the metrics stage still runs. The whole pipeline is fail-silent — every subprocess uses `2>/dev/null || true`, malformed haiku output is filtered out by the line-format check, and the hook always exits `0`. A failed turn is silent, not loud.
+
+**Testing.** The system prompt is a first-class artifact — extracted to `hooks/prompts/stop_capture.tmpl` so the prompt-harness can test it in isolation:
+
+```bash
+# Full LLM suite (~60s, costs LLM tokens)
+plugins/claude-code/tests/prompt-harness/runner.py run --prompt stop_capture --model haiku
+
+# One case
+plugins/claude-code/tests/prompt-harness/runner.py case stop_capture/<case>.yaml --model haiku
+```
+
+The harness drops `system.txt`, `input.txt`, `output.txt`, `result.json`, and a replayable `command.sh` per case under `/tmp/memoir-prompt-tests/<UTC-timestamp>/`. Read `summary.md` for pass/fail. Assertion DSL: `plugins/claude-code/tests/prompt-harness/README.md`.
+
 ## Per-branch turn metrics (`metrics.turn.<branch>`)
 
 The `Stop` hook accumulates per-turn statistics into one key per branch in the `default` namespace, alongside auto-captured memories.
