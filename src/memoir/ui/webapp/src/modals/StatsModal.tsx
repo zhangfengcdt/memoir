@@ -752,6 +752,21 @@ function CodeChangesPanel({
     });
   };
 
+  // Per-group "Copy as bullets" → PR-description-ready markdown. Tracks
+  // which group's button was just clicked so the icon can flash a brief
+  // "✓" without standing up a per-row state slot.
+  const [copiedBranch, setCopiedBranch] = useState<string | null>(null);
+  const copyGroup = async (branch: string, items: CodeChangeEntry[]) => {
+    const text = items.map((e) => `- ${e.summary}`).join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedBranch(branch);
+      setTimeout(() => setCopiedBranch((v) => (v === branch ? null : v)), 1500);
+    } catch {
+      /* clipboard unavailable — silently no-op */
+    }
+  };
+
   return (
     <div className="stats-codechanges">
       <div className="stats-codechanges-header">
@@ -773,32 +788,64 @@ function CodeChangesPanel({
               key={branch}
               className={`stats-codegroup${isCurrent ? " is-current" : ""}`}
             >
-              <button
-                type="button"
-                className="stats-codegroup-header"
-                onClick={() => toggle(branch)}
-                aria-expanded={isOpen}
-                aria-controls={`codegroup-${branch}`}
-              >
-                <span
-                  className={`stats-codegroup-caret${isOpen ? " is-open" : ""}`}
-                  aria-hidden="true"
+              {/* Header row: a flex container with the toggle as a left-side
+                  button and the copy action as a sibling button on the right.
+                  Two siblings rather than nested buttons (illegal HTML) so
+                  each control gets its own focus / keyboard semantics. */}
+              <div className="stats-codegroup-header-row">
+                <button
+                  type="button"
+                  className="stats-codegroup-header"
+                  onClick={() => toggle(branch)}
+                  aria-expanded={isOpen}
+                  aria-controls={`codegroup-${branch}`}
                 >
-                  ▶
-                </span>
-                <code
-                  className={`stats-codelog-branch${isCurrent ? " is-current" : ""}`}
-                  title={isCurrent ? `${branch} (current)` : branch}
+                  <span
+                    className={`stats-codegroup-caret${isOpen ? " is-open" : ""}`}
+                    aria-hidden="true"
+                  >
+                    ▶
+                  </span>
+                  <code
+                    className={`stats-codelog-branch${isCurrent ? " is-current" : ""}`}
+                    title={isCurrent ? `${branch} (current)` : branch}
+                  >
+                    {branch}
+                  </code>
+                  {isCurrent && (
+                    <span className="stats-codegroup-tag">current</span>
+                  )}
+                  <span className="stats-codegroup-count">
+                    {items.length} {items.length === 1 ? "entry" : "entries"}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="stats-codegroup-copy"
+                  onClick={() => copyGroup(branch, items)}
+                  aria-label={`Copy ${branch} entries as bullets`}
+                  title="Copy entries as a bullet list (PR-ready)"
                 >
-                  {branch}
-                </code>
-                {isCurrent && (
-                  <span className="stats-codegroup-tag">current</span>
-                )}
-                <span className="stats-codegroup-count">
-                  {items.length} {items.length === 1 ? "entry" : "entries"}
-                </span>
-              </button>
+                  {copiedBranch === branch ? (
+                    "✓"
+                  ) : (
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                  )}
+                </button>
+              </div>
               {isOpen && (
                 <ol id={`codegroup-${branch}`} className="stats-codelog">
                   {items.map((entry, i) => (
