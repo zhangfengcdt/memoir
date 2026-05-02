@@ -142,18 +142,11 @@ export default function StatsModal() {
   const onboardItems = onboardData?.items ?? [];
   const projectOnboardItems = projectOnboardData?.items ?? [];
   const metricsItems = metricsData?.items ?? [];
-  // Pick the metrics.code.<branch> entry for the currently-checked-out
-  // branch. Tab is hidden when the key is missing or the entries list is
-  // empty. We accept a null currentBranch (store hasn't loaded yet) by
-  // simply not surfacing the tab — it'll appear once the store data arrives.
-  const codeMetricsItem =
-    currentBranch !== null
-      ? metricsItems.find(
-          (it) =>
-            it.key.startsWith("metrics.code.") && it.branch === currentBranch,
-        )
-      : undefined;
-  const codeMetricsEntries = codeMetricsValueEntries(codeMetricsItem);
+  // Aggregate metrics.code.* across every branch into one timeline. Each
+  // entry keeps its source branch so the UI can label it; rows are sorted
+  // newest-first regardless of which branch produced them. Tab hides when
+  // there are no entries at all.
+  const codeMetricsEntries = collectCodeMetricsEntries(metricsItems);
   const sections: { key: TabKey; label: string }[] = [];
   for (const s of BASE_SECTIONS) {
     sections.push(s);
@@ -254,7 +247,7 @@ export default function StatsModal() {
           {tab === "codechanges" && (
             <CodeChangesPanel
               entries={codeMetricsEntries}
-              branch={currentBranch ?? "unknown"}
+              currentBranch={currentBranch}
             />
           )}
           {data &&
@@ -671,27 +664,35 @@ function ProjectOnboardPanel({ items }: { items: ProjectOnboardItem[] }) {
   );
 }
 
-// Pull the `entries` array out of a metrics.code.<branch> item value.
-// Tolerates the value being missing/null/the wrong shape — returns [] in
-// those cases so the tab simply doesn't appear.
-type CodeChangeEntry = { timestamp: number; summary: string };
-function codeMetricsValueEntries(
-  item: MetricsItem | undefined,
-): CodeChangeEntry[] {
-  if (!item || typeof item.value !== "object" || item.value === null) return [];
-  const v = item.value as Record<string, unknown>;
-  const entries = v.entries;
-  if (!Array.isArray(entries)) return [];
+// One row of the Code Changes timeline. `branch` is the originating
+// branch (the suffix of the metrics.code.<branch> key); we keep it on the
+// row so the panel can label rows when aggregating across branches.
+type CodeChangeEntry = { timestamp: number; summary: string; branch: string };
+
+// Collect every entry from every metrics.code.<branch> item across the
+// store, tagging each row with its source branch and sorting newest-first.
+// Returns [] when there are no metrics.code.* items at all, which causes
+// the Code Changes tab to be hidden entirely.
+function collectCodeMetricsEntries(items: MetricsItem[]): CodeChangeEntry[] {
   const out: CodeChangeEntry[] = [];
-  for (const e of entries) {
-    if (e && typeof e === "object") {
-      const ts = (e as Record<string, unknown>).timestamp;
-      const summary = (e as Record<string, unknown>).summary;
-      if (typeof ts === "number" && typeof summary === "string") {
-        out.push({ timestamp: ts, summary });
+  for (const item of items) {
+    if (!item.key.startsWith("metrics.code.")) continue;
+    const branch = item.branch ?? "unknown";
+    if (typeof item.value !== "object" || item.value === null) continue;
+    const v = item.value as Record<string, unknown>;
+    const entries = v.entries;
+    if (!Array.isArray(entries)) continue;
+    for (const e of entries) {
+      if (e && typeof e === "object") {
+        const ts = (e as Record<string, unknown>).timestamp;
+        const summary = (e as Record<string, unknown>).summary;
+        if (typeof ts === "number" && typeof summary === "string") {
+          out.push({ timestamp: ts, summary, branch });
+        }
       }
     }
   }
+  out.sort((a, b) => b.timestamp - a.timestamp);
   return out;
 }
 
@@ -711,35 +712,114 @@ function formatCodeChangeTime(epochSeconds: number): string {
 
 function CodeChangesPanel({
   entries,
-  branch,
+  currentBranch,
 }: {
   entries: CodeChangeEntry[];
-  branch: string;
+  currentBranch: string | null;
 }) {
-  // Newest first. The Stop hook appends FIFO, so reversing here gives the
-  // most recent activity at the top, matching how a "log" view should read.
-  const ordered = [...entries].reverse();
+  // Group entries by branch. Within each group rows are already newest-
+  // first because the upstream collector sorted by timestamp. Across
+  // groups we order branches by their most-recent timestamp; the user's
+  // current branch is pinned first so the most-likely-relevant group
+  // is always at the top.
+  const groups = new Map<string, CodeChangeEntry[]>();
+  for (const e of entries) {
+    const list = groups.get(e.branch);
+    if (list) list.push(e);
+    else groups.set(e.branch, [e]);
+  }
+  const orderedBranches = Array.from(groups.keys()).sort((a, b) => {
+    if (a === currentBranch && b !== currentBranch) return -1;
+    if (b === currentBranch && a !== currentBranch) return 1;
+    const aMax = groups.get(a)?.[0]?.timestamp ?? 0;
+    const bMax = groups.get(b)?.[0]?.timestamp ?? 0;
+    return bMax - aMax;
+  });
+
+  // Each group is independently collapsible. Default: current branch
+  // expanded, every other group collapsed — gives an immediate view of
+  // active work without overwhelming the modal when many branches have
+  // history.
+  const [expanded, setExpanded] = useState<Set<string>>(
+    () => new Set(currentBranch && groups.has(currentBranch) ? [currentBranch] : []),
+  );
+  const toggle = (branch: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(branch)) next.delete(branch);
+      else next.add(branch);
+      return next;
+    });
+  };
+
   return (
     <div className="stats-codechanges">
       <div className="stats-codechanges-header">
-        <code className="stats-codechanges-branch">{branch}</code>
-        <span className="stats-codechanges-count">
+        <span className="stats-codechanges-summary">
+          All branches{" "}
+          <span className="stats-codechanges-divider">·</span>{" "}
+          {groups.size} {groups.size === 1 ? "branch" : "branches"}{" "}
+          <span className="stats-codechanges-divider">·</span>{" "}
           {entries.length} {entries.length === 1 ? "entry" : "entries"}
         </span>
       </div>
-      <ol className="stats-codelog">
-        {ordered.map((entry, i) => (
-          <li key={i} className="stats-codelog-row">
-            <span
-              className="stats-codelog-time"
-              title={new Date(entry.timestamp * 1000).toLocaleString()}
+      <div className="stats-codegroups">
+        {orderedBranches.map((branch) => {
+          const items = groups.get(branch) ?? [];
+          const isCurrent = branch === currentBranch;
+          const isOpen = expanded.has(branch);
+          return (
+            <section
+              key={branch}
+              className={`stats-codegroup${isCurrent ? " is-current" : ""}`}
             >
-              {formatCodeChangeTime(entry.timestamp)}
-            </span>
-            <span className="stats-codelog-summary">{entry.summary}</span>
-          </li>
-        ))}
-      </ol>
+              <button
+                type="button"
+                className="stats-codegroup-header"
+                onClick={() => toggle(branch)}
+                aria-expanded={isOpen}
+                aria-controls={`codegroup-${branch}`}
+              >
+                <span
+                  className={`stats-codegroup-caret${isOpen ? " is-open" : ""}`}
+                  aria-hidden="true"
+                >
+                  ▶
+                </span>
+                <code
+                  className={`stats-codelog-branch${isCurrent ? " is-current" : ""}`}
+                  title={isCurrent ? `${branch} (current)` : branch}
+                >
+                  {branch}
+                </code>
+                {isCurrent && (
+                  <span className="stats-codegroup-tag">current</span>
+                )}
+                <span className="stats-codegroup-count">
+                  {items.length} {items.length === 1 ? "entry" : "entries"}
+                </span>
+              </button>
+              {isOpen && (
+                <ol id={`codegroup-${branch}`} className="stats-codelog">
+                  {items.map((entry, i) => (
+                    <li key={i} className="stats-codelog-row">
+                      <span
+                        className="stats-codelog-time"
+                        title={new Date(entry.timestamp * 1000).toLocaleString()}
+                      >
+                        {formatCodeChangeTime(entry.timestamp)}
+                      </span>
+                      <span className="stats-codelog-summary">
+                        {entry.summary}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </section>
+          );
+        })}
+      </div>
     </div>
   );
 }
