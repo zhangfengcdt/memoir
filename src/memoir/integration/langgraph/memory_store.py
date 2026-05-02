@@ -62,12 +62,17 @@ class LangGraphMemoryStore(BaseStore, BaseIntegration):
 
     def _init_storage(self) -> None:
         """Initialize the storage layer."""
+        # LangGraph integration auto-creates the store on first use, like
+        # LangMem's BaseStore. ProllyTreeStore itself is strict, so go
+        # through StoreService.create_store to bootstrap when absent.
+        from memoir.services.store_service import StoreService
+
+        StoreService(self.memory_config.storage_path).create_store(
+            self.memory_config.storage_path
+        )
         self.store = ProllyTreeStore(
             path=self.memory_config.storage_path,
             enable_versioning=self.memory_config.enable_versioning,
-            # LangGraph integration auto-creates the store on first use, like
-            # LangMem's BaseStore.
-            create_if_missing=True,
         )
 
         # Memory manager will be initialized after search engine

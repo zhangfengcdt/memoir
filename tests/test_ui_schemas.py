@@ -120,14 +120,15 @@ def test_store_response_with_memories_validates(temp_store):
     """
     import json as _json
 
+    from memoir.services.store_service import StoreService
     from memoir.store.prolly_adapter import ProllyTreeStore
 
+    StoreService(temp_store).create_store(temp_store)
     store = ProllyTreeStore(
         path=temp_store,
         enable_versioning=True,
         auto_commit=True,
         cache_size=1000,
-        create_if_missing=True,
     )
     samples = [
         ("default:workflow.coding.style", "prefer async-first"),

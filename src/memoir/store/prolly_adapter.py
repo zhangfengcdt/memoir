@@ -106,7 +106,6 @@ class ProllyTreeStore(BaseStore):
         enable_versioning: bool = True,
         auto_commit: bool = True,
         cache_size: int = 10000,
-        create_if_missing: bool = False,
     ):
         """
         Initialize ProllyTree store.
@@ -114,70 +113,30 @@ class ProllyTreeStore(BaseStore):
         Storage layer is responsible only for storing and retrieving data.
         Classification is handled by higher layers (memory manager).
 
+        ProllyTreeStore is strict: it opens an existing memoir store and
+        refuses paths that aren't one yet. Use ``StoreService.create_store``
+        (or ``memoir new``) to bootstrap a fresh store. Single init path =
+        no surprise side-effects from running `memoir remember` in a random
+        cwd.
+
         Args:
-            path: Path to ProllyTree database
+            path: Path to an existing memoir store (must contain a ``.git``
+                directory when ``enable_versioning`` is True).
             enable_versioning: Whether to enable git-like versioning
             auto_commit: Whether to automatically commit on each put/delete operation
             cache_size: Size of internal caches
-            create_if_missing: When True, init the path as a git store if it
-                isn't one yet (write README, `git init`, initial commit). When
-                False (default), refuse to operate on a path that isn't already
-                a memoir store. Strict default protects users running
-                `memoir remember` from a random cwd from accidentally turning
-                that cwd into a half-baked store. Only `memoir new` and the
-                opt-in SDK auto-create paths should pass True.
         """
         super().__init__()
 
         self.path = Path(path)
         self.path.mkdir(parents=True, exist_ok=True)
 
-        # Initialize git repository if using versioning and not exists
-        if enable_versioning:
-            import os
-            import subprocess
-
-            def _git_step(args: list[str], op_label: str) -> None:
-                """Run a git command, surfacing git's stderr in the exception
-                message instead of dropping it. Without this wrap users see
-                only `CalledProcessError ... non-zero exit status 128` — which
-                is useless for diagnosing real problems like 'directory has a
-                .git but no commit checked out'.
-                """
-                try:
-                    subprocess.run(
-                        ["git", *args],
-                        cwd=self.path,
-                        check=True,
-                        capture_output=True,
-                        text=True,
-                    )
-                except subprocess.CalledProcessError as e:
-                    stderr = (e.stderr or "").strip()
-                    detail = stderr or f"exit {e.returncode}"
-                    raise RuntimeError(
-                        f"Failed to initialize Git store: Git object error: "
-                        f"{op_label} failed: {detail}"
-                    ) from e
-
-            if not os.path.exists(os.path.join(self.path, ".git")):
-                if not create_if_missing:
-                    raise FileNotFoundError(
-                        f"Not a memoir store: {self.path} (no .git directory). "
-                        f"Create one with `memoir new <path>` first, or pass "
-                        f"-s/--store / set MEMOIR_STORE / cd into an existing store."
-                    )
-                _git_step(["init", "--quiet"], "git init")
-
-                # Create initial commit
-                readme_path = os.path.join(self.path, "README.md")
-                with open(readme_path, "w") as f:
-                    f.write("# Memoir Store\n")
-                _git_step(["add", "."], "git add")
-                _git_step(
-                    ["commit", "-m", "Initial Commit -- ProllyTree Store"],
-                    "git commit",
-                )
+        if enable_versioning and not (self.path / ".git").exists():
+            raise FileNotFoundError(
+                f"Not a memoir store: {self.path} (no .git directory). "
+                f"Create one with `memoir new <path>` first, or pass "
+                f"-s/--store / set MEMOIR_STORE / cd into an existing store."
+            )
 
         # Initialize ProllyTree
         if enable_versioning:

@@ -81,43 +81,46 @@ class StoreService(BaseService):
                     error=f"Directory not writable: {store_path} - {e}",
                 )
 
+            # Helper: run a git step with check=True, capture both streams,
+            # and surface git's stderr in the exception message rather than
+            # letting CalledProcessError print a useless `non-zero exit
+            # status N`. Single auto-create path now (ProllyTreeStore is
+            # strict), so any "directory has .git but no commit" / "not a
+            # repo" / etc. flavours of git errors land here.
+            def _git_step(args: list[str], op_label: str) -> "subprocess.CompletedProcess":
+                try:
+                    return subprocess.run(
+                        ["git", *args],
+                        cwd=store_path,
+                        check=True,
+                        capture_output=True,
+                        text=True,
+                    )
+                except subprocess.CalledProcessError as e:
+                    stderr = (e.stderr or "").strip()
+                    detail = stderr or f"exit {e.returncode}"
+                    raise RuntimeError(
+                        f"Failed to initialize Git store: Git object error: "
+                        f"{op_label} failed: {detail}"
+                    ) from e
+
             # Initialize git repository
             git_path = store_path / ".git"
             if not git_path.exists():
-                subprocess.run(
-                    ["git", "init"],
-                    cwd=store_path,
-                    check=True,
-                    capture_output=True,
-                )
+                _git_step(["init"], "git init")
 
             # Create data directory
             data_path = store_path / "data"
             data_path.mkdir(exist_ok=True)
 
             # Create initial commit
-            subprocess.run(
-                ["git", "add", "."],
-                cwd=store_path,
-                check=True,
-                capture_output=True,
-            )
+            _git_step(["add", "."], "git add")
 
             # Check if there are any changes to commit
-            status_result = subprocess.run(
-                ["git", "status", "--porcelain"],
-                cwd=store_path,
-                capture_output=True,
-                text=True,
-            )
+            status_result = _git_step(["status", "--porcelain"], "git status")
 
             if status_result.stdout.strip():
-                subprocess.run(
-                    ["git", "commit", "-m", "Initial commit"],
-                    cwd=store_path,
-                    check=True,
-                    capture_output=True,
-                )
+                _git_step(["commit", "-m", "Initial commit"], "git commit")
                 commit_message = "Initial commit created"
             else:
                 commit_message = "Repository already initialized"
@@ -131,12 +134,12 @@ class StoreService(BaseService):
                 message=f"Memory store initialized at {store_path}. {commit_message}",
             )
 
-        except subprocess.CalledProcessError as e:
-            error_msg = e.stderr.decode("utf-8") if e.stderr else str(e)
+        except RuntimeError as e:
+            # _git_step already formatted a useful message; keep it verbatim.
             return CreateStoreResult(
                 success=False,
                 path=path,
-                error=f"Git operation failed: {error_msg}",
+                error=str(e),
             )
         except Exception as e:
             logger.error(f"Failed to create store: {e}")

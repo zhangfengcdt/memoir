@@ -4,6 +4,7 @@ import tempfile
 
 import pytest
 
+from memoir.services.store_service import StoreService
 from memoir.store.prolly_adapter import ProllyTreeStore
 from memoir.taxonomy import TaxonomyLoader
 
@@ -15,7 +16,8 @@ class TestTaxonomyLoaderIntegration:
     def temp_store(self):
         """Create a temporary store for testing."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            store = ProllyTreeStore(tmpdir, create_if_missing=True)
+            StoreService(tmpdir).create_store(tmpdir)
+            store = ProllyTreeStore(tmpdir)
             yield store
 
     def test_init_store_with_builtin(self, temp_store):
@@ -128,7 +130,8 @@ class TestTaxonomyLoaderWithExternalFiles:
     def temp_store(self):
         """Create a temporary store for testing."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            store = ProllyTreeStore(tmpdir, create_if_missing=True)
+            StoreService(tmpdir).create_store(tmpdir)
+            store = ProllyTreeStore(tmpdir)
             yield store
 
     def test_load_external_file(self, temp_store):
@@ -204,7 +207,8 @@ class TestClassifierWithTaxonomyLoader:
     def temp_store(self):
         """Create a temporary store with taxonomy."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            store = ProllyTreeStore(tmpdir, create_if_missing=True)
+            StoreService(tmpdir).create_store(tmpdir)
+            store = ProllyTreeStore(tmpdir)
             loader = TaxonomyLoader(store)
             loader.init_store(include_builtin=True)
             yield store
@@ -259,7 +263,8 @@ class TestSearchEngineWithTaxonomyLoader:
     def temp_store(self):
         """Create a temporary store with taxonomy."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            store = ProllyTreeStore(tmpdir, create_if_missing=True)
+            StoreService(tmpdir).create_store(tmpdir)
+            store = ProllyTreeStore(tmpdir)
             loader = TaxonomyLoader(store)
             loader.init_store(include_builtin=True)
             yield store
