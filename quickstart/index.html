@@ -55,6 +55,8 @@
     
       <link rel="stylesheet" href="../assets/_mkdocstrings.css">
     
+      <link rel="stylesheet" href="../_static/custom.css">
+    
     <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
     
       
@@ -1852,7 +1854,7 @@ v0.1.7 you had to add the <code>[litellm]</code> extra explicitly.)</p>
 </span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>memoir<span class="w"> </span>connect<span class="w"> </span>~/.memoir/notes
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>
 </span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="c1"># 2. Store with an explicit path (offline, no LLM call)</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>memoir<span class="w"> </span>remember<span class="w"> </span><span class="s2">&quot;Feng prefers tabs and 2-space indents&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>memoir<span class="w"> </span>remember<span class="w"> </span><span class="s2">&quot;Sarah prefers tabs and 2-space indents&quot;</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">    </span>-p<span class="w"> </span>preferences.coding.style
 </span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a>
 </span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="c1"># 3. Store with auto-classification (LLM picks the path; needs API key)</span>
@@ -1862,7 +1864,7 @@ v0.1.7 you had to add the <code>[litellm]</code> extra explicitly.)</p>
 </span><span id="__span-3-13"><a id="__codelineno-3-13" name="__codelineno-3-13" href="#__codelineno-3-13"></a>memoir<span class="w"> </span>get<span class="w"> </span>preferences.coding.style
 </span><span id="__span-3-14"><a id="__codelineno-3-14" name="__codelineno-3-14" href="#__codelineno-3-14"></a>
 </span><span id="__span-3-15"><a id="__codelineno-3-15" name="__codelineno-3-15" href="#__codelineno-3-15"></a><span class="c1"># 5. Semantic search (LLM-backed)</span>
-</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>memoir<span class="w"> </span>recall<span class="w"> </span><span class="s2">&quot;what does Feng prefer?&quot;</span>
+</span><span id="__span-3-16"><a id="__codelineno-3-16" name="__codelineno-3-16" href="#__codelineno-3-16"></a>memoir<span class="w"> </span>recall<span class="w"> </span><span class="s2">&quot;what does Sarah prefer?&quot;</span>
 </span></code></pre></div>
 <h3 id="picking-a-different-model">Picking a different model<a class="headerlink" href="#picking-a-different-model" title="Permanent link">&para;</a></h3>
 <p>The default is Haiku. Override per call:</p>
