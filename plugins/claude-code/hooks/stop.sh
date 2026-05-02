@@ -132,7 +132,7 @@ for ln in text.splitlines():
     if ln:
         text = ln
         break
-sys.stdout.write(text[:500])
+sys.stdout.write(text[:1000])
 " 2>/dev/null || true)
         # Skip writes for trivial-only turns or empty/preamble outputs.
         if [ -n "$SUMMARY" ] \
