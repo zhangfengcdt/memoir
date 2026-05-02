@@ -5,9 +5,10 @@
 # blocks the user's next turn.
 #
 # Escape hatches:
-#   MEMOIR_NO_CAPTURE=1  disables auto-capture of memory-worthy facts.
-#   MEMOIR_NO_METRICS=1  disables per-branch turn-statistics accumulation.
-# Both are independent — either path can fail without affecting the other.
+#   MEMOIR_NO_CAPTURE=1       disables auto-capture of memory-worthy facts.
+#   MEMOIR_NO_METRICS=1       disables per-branch turn-statistics accumulation.
+#   MEMOIR_NO_CODE_SUMMARY=1  disables per-turn code-change summary writes.
+# All three are independent — any path can fail without affecting the others.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/common.sh"
@@ -62,6 +63,113 @@ if [ "${MEMOIR_NO_METRICS:-}" != "1" ]; then
     MERGED=$(python3 "$SCRIPT_DIR/merge-metrics.py" "$PREV" "$DELTA" 2>/dev/null || true)
     if [ -n "$MERGED" ]; then
       memoir_json remember "$MERGED" -p "$MKEY" >/dev/null 2>&1 || true
+    fi
+  fi
+fi
+
+# Per-branch code-change audit log. Detects file-edit tool calls in this turn
+# (Edit / Write / MultiEdit / NotebookEdit), asks haiku for a one-line summary,
+# and appends to a JSON-encoded list at `metrics.code.<branch>`. Read-merge-
+# write at the hook level (mirrors metrics.turn.<branch>) — `memoir remember`
+# replaces by path, so the hook owns the append. Skipped silently when the
+# turn has no file edits or when memoir/haiku is unavailable. Independent of
+# capture and metrics; failure here doesn't affect them.
+#
+# Stored value shape (JSON string under the key):
+#   {"schema_version": 1, "entries": [{"timestamp": <epoch>, "summary": "..."}]}
+if [ "${MEMOIR_NO_CODE_SUMMARY:-}" != "1" ]; then
+  EDITS_JSON=$("$SCRIPT_DIR/collect-edits.sh" "$TRANSCRIPT_PATH" 2>/dev/null || true)
+  if [ -n "$EDITS_JSON" ]; then
+    # Build the haiku input: a compact text block of "<tool> <file_path>\n<snippet>\n---" per entry.
+    # Capped at ~8KB so multi-file refactors stay well under context.
+    EDITS_TEXT=$(printf '%s' "$EDITS_JSON" | python3 -c "
+import json, sys
+try:
+    entries = json.loads(sys.stdin.read() or '[]')
+except Exception:
+    sys.exit(0)
+parts = []
+total = 0
+LIMIT = 8000
+for e in entries:
+    if not isinstance(e, dict):
+        continue
+    tool = e.get('tool', '')
+    fp = e.get('file_path', '')
+    snippet = e.get('snippet', '')
+    block = f'{tool} {fp}\n{snippet}\n---\n'
+    if total + len(block) > LIMIT:
+        parts.append('… (additional edits truncated for length) …\n')
+        break
+    parts.append(block)
+    total += len(block)
+sys.stdout.write(''.join(parts))
+" 2>/dev/null || true)
+    if [ -n "$EDITS_TEXT" ] && command -v claude &>/dev/null; then
+      CC_SUMMARY_PROMPT=$(cat "$SCRIPT_DIR/prompts/code_change_summary.tmpl" 2>/dev/null || true)
+      if [ -n "$CC_SUMMARY_PROMPT" ]; then
+        SUMMARY=$(printf '%s' "$EDITS_TEXT" \
+          | MEMOIR_NO_CAPTURE=1 MEMOIR_NO_METRICS=1 MEMOIR_NO_CODE_SUMMARY=1 CLAUDECODE= claude -p \
+              --model haiku \
+              --no-session-persistence \
+              --no-chrome \
+              --system-prompt "$CC_SUMMARY_PROMPT" \
+              2>/dev/null || true)
+        # Strip surrounding whitespace and any preamble / quoting haiku adds.
+        SUMMARY=$(printf '%s' "$SUMMARY" | python3 -c "
+import re, sys
+text = sys.stdin.read().strip()
+# Drop leading/trailing quotes if the whole thing is wrapped.
+if (text.startswith('\"') and text.endswith('\"')) or (text.startswith(\"'\") and text.endswith(\"'\")):
+    text = text[1:-1].strip()
+# Strip common preambles.
+text = re.sub(r'^(here(\\s+is)?|summary|the\\s+(changes?|diff|edits?))[:\\s-]+', '', text, flags=re.I)
+# Strip leading bullets.
+text = re.sub(r'^[\\-\\*\\u2022]\\s+', '', text)
+# Collapse to first non-empty line.
+for ln in text.splitlines():
+    ln = ln.strip()
+    if ln:
+        text = ln
+        break
+sys.stdout.write(text[:500])
+" 2>/dev/null || true)
+        # Skip writes for trivial-only turns or empty/preamble outputs.
+        if [ -n "$SUMMARY" ] \
+           && [ "$(printf '%s' "$SUMMARY" | tr '[:upper:]' '[:lower:]')" != "trivial" ]; then
+          BRANCH_RAW=$(memoir_json status 2>/dev/null \
+            | python3 -c "import json,sys; d=json.loads(sys.stdin.read() or '{}'); print(d.get('branch','unknown'))" 2>/dev/null)
+          if [ -z "$BRANCH_RAW" ]; then
+            BRANCH_RAW="unknown"
+          fi
+          CCKEY="metrics.code.${BRANCH_RAW}"
+          # Read-merge-write the entries list. memoir remember -p replaces, so
+          # the hook owns the append (mirrors merge-metrics for metrics.turn).
+          PREV_CC=$(memoir_json get "$CCKEY" 2>/dev/null \
+            | python3 -c "import json,sys; d=json.loads(sys.stdin.read() or '{}'); items=d.get('items') or [{}]; v=items[0].get('value') or {}; c=v.get('content'); print(c if isinstance(c,str) else '')" 2>/dev/null)
+          MERGED_CC=$(SUMMARY="$SUMMARY" PREV_CC="$PREV_CC" python3 -c "
+import json, os, time
+prev_raw = os.environ.get('PREV_CC', '').strip()
+summary = os.environ.get('SUMMARY', '').strip()
+if not summary:
+    raise SystemExit(0)
+acc = {'schema_version': 1, 'entries': []}
+if prev_raw:
+    try:
+        parsed = json.loads(prev_raw)
+        if isinstance(parsed, dict) and isinstance(parsed.get('entries'), list):
+            acc = parsed
+            acc.setdefault('schema_version', 1)
+    except (TypeError, ValueError):
+        pass
+acc['entries'].append({'timestamp': time.time(), 'summary': summary})
+print(json.dumps(acc))
+" 2>/dev/null || true)
+          if [ -n "$MERGED_CC" ]; then
+            memoir_json remember "$MERGED_CC" -p "$CCKEY" >/dev/null 2>&1 || true
+          fi
+        fi
+      fi
     fi
   fi
 fi

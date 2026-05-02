@@ -1,0 +1,21 @@
+# Positive case: a single Edit that renames a function. Haiku should produce a
+# one-line summary with an action verb, not "trivial", and not a file path
+# bare without intent.
+description: "Single Edit renaming a function produces one descriptive line"
+prompt: code_change_summary
+input: |
+  Edit src/auth.py
+  def get_current_user(request):
+      """Renamed from get_user — clearer intent for callers in the API layer."""
+      return request.user
+  ---
+expect:
+  - kind: not_empty
+  - kind: max_lines
+    value: 1
+  - kind: any_line_matches
+    value: "(?i)\\b(renamed|refactor|rename|extract)\\b"
+  - kind: no_line_matches
+    value: "(?i)^(here\\s+is|summary|the\\s+changes)"
+  - kind: no_line_matches
+    value: "^[\"']"

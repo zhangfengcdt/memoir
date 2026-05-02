@@ -297,6 +297,53 @@ plugins/claude-code/tests/prompt-harness/runner.py case stop_capture/<case>.yaml
 
 The harness drops `system.txt`, `input.txt`, `output.txt`, `result.json`, and a replayable `command.sh` per case under `/tmp/memoir-prompt-tests/<UTC-timestamp>/`. Read `summary.md` for pass/fail. Assertion DSL: `plugins/claude-code/tests/prompt-harness/README.md`.
 
+## Code-change audit log (`metrics.code.<branch>`)
+
+After the auto-capture stage, the `Stop` hook runs a third pass that detects file edits this turn and appends a one-line summary to a per-branch audit log. The goal is a chronological, human-readable record of *what changed in the code*, browseable later via `memoir get metrics.code.<branch>` (or the UI).
+
+**Pipeline.**
+
+1. **Toggle gate.** Skip if `MEMOIR_NO_CODE_SUMMARY=1`.
+2. **Transcript scan.** `hooks/collect-edits.sh` walks the most recent turn's `tool_use` blocks for `Edit`, `Write`, `MultiEdit`, and `NotebookEdit`. Returns a JSON array `[{tool, file_path, snippet}, …]` with each snippet truncated to 300 chars. Empty stdout = no file edits → skip the LLM call.
+3. **Build prompt input.** Concatenate entries into a compact text block (`<tool> <file_path>\n<snippet>\n---`), capped at ~8 KB so multi-file refactors stay well under haiku's context window.
+4. **One haiku call.** `claude -p --model haiku --no-session-persistence --no-chrome --system-prompt "$CC_SUMMARY_PROMPT"` with the edits block on stdin. Recursion-prevention env: `MEMOIR_NO_CAPTURE=1 MEMOIR_NO_METRICS=1 MEMOIR_NO_CODE_SUMMARY=1 CLAUDECODE=`. Prompt template: `hooks/prompts/code_change_summary.tmpl`.
+5. **Output validation & cleanup.** Strip surrounding quotes / preambles (`Here is`, `Summary:`, leading bullets), collapse to the first non-empty line, truncate to 500 chars. If the result is exactly `trivial` (case-insensitive), skip the write — trivial-edit suppression is decided by haiku in-prompt.
+6. **Branch lookup.** `memoir_json status` → current memoir branch (fallback `unknown`).
+7. **Read-merge-write append.** `memoir remember -p` replaces by path, so the hook owns the append (mirrors the `metrics.turn.<branch>` flow). Reads the existing JSON value, parses `entries[]`, appends `{timestamp, summary}`, writes the merged accumulator back.
+
+**Key shape:** `metrics.code.<branch>` — sibling to `metrics.turn.<branch>`. Branch names with `/` (e.g. `feature/x`) are kept literal.
+
+**Value shape:**
+
+```json
+{
+  "schema_version": 1,
+  "entries": [
+    {"timestamp": 1714800000.0, "summary": "Refactored auth middleware to use JWT; added unit tests for token expiry."},
+    {"timestamp": 1714801200.0, "summary": "Renamed getUser → getCurrentUser across 7 callers; updated docstrings."}
+  ]
+}
+```
+
+Entries are append-forever — no decay. Bash-induced edits (`sed -i`, `mv`, refactor scripts) are **not** detected by design; the log reflects what the agent itself did via Edit/Write/MultiEdit/NotebookEdit.
+
+**Toggles & failure mode.** `MEMOIR_NO_CODE_SUMMARY=1` disables only this stage; capture and metrics still run. Every subprocess uses `2>/dev/null || true` and the hook always exits `0` — same fail-silent design as the other stages. A failed turn is silent, not loud.
+
+**Branch identity & merge.** Source-branch identity lives in the key fragment, not the value. `BranchService.promote_branch` carries `metrics.code.feature/x` to `main` automatically when the user runs `memoir sync-branch feature/x`, preserving the per-source-branch view.
+
+**Testing.** Unit + integration + prompt-harness cover the three layers separately:
+
+```bash
+# Transcript-scan unit tests (no memoir, no haiku)
+bash plugins/claude-code/tests/test_collect_edits.sh
+
+# Stop-hook integration (read-merge-write append, gating; no haiku)
+bash plugins/claude-code/tests/test_stop_code_summary.sh
+
+# Prompt cases (haiku-driven, costs LLM tokens)
+plugins/claude-code/tests/prompt-harness/runner.py run --prompt code_change_summary --model haiku
+```
+
 ## Per-branch turn metrics (`metrics.turn.<branch>`)
 
 The `Stop` hook accumulates per-turn statistics into one key per branch in the `default` namespace, alongside auto-captured memories.
@@ -344,6 +391,7 @@ All optional. Set in your shell or per-project `.envrc`.
 | `MEMOIR_STORE` | `~/.memoir/memoir_<hash>` | Override the per-project store path. |
 | `MEMOIR_NO_CAPTURE` | unset | `1` disables `Stop`-hook auto-capture (haiku classification + memory writes). Metrics still record. |
 | `MEMOIR_NO_METRICS` | unset | `1` disables the per-branch turn-metrics accumulator. Auto-capture still runs. |
+| `MEMOIR_NO_CODE_SUMMARY` | unset | `1` disables the per-branch code-change audit log (`metrics.code.<branch>`). Capture and metrics still run. |
 | `MEMOIR_ONBOARD_INJECT` | `1` | `0` suppresses the `codebase:onboard` block in `SessionStart`'s `additionalContext`. |
 | `MEMOIR_LLM_MODEL` | `haiku` | Model used for the `Stop` hook's fact extractor. Override only if you've validated alignment with the prompt-test harness. |
 | `MEMOIR_MAX_RESULT_CHARS` | `1000` | Per-tool-result truncation in `parse-transcript.sh`. |
