@@ -104,17 +104,42 @@ class StoreService(BaseService):
                         f"{op_label} failed: {detail}"
                     ) from e
 
-            # Initialize git repository
+            # Initialize git repository.
+            #
+            # Guardrail: the "Initial commit" path may only run when the repo
+            # has no commits yet. If `.git/` already exists *and* HEAD
+            # resolves, the repo belongs to someone else (typically a project
+            # repo whose root happened to resolve as the store path) and
+            # committing into it would leak prolly storage files into their
+            # history. Refuse loudly instead.
             git_path = store_path / ".git"
-            if not git_path.exists():
+            if git_path.exists():
+                head_check = subprocess.run(
+                    ["git", "rev-parse", "--verify", "--quiet", "HEAD"],
+                    cwd=str(store_path),
+                    capture_output=True,
+                )
+                if head_check.returncode == 0:
+                    raise RuntimeError(
+                        f"Refusing to initialize memoir store at "
+                        f"{store_path}: path is already a git repository "
+                        f"with existing commits. memoir stores must live in "
+                        f"a dedicated directory (e.g. ~/.memoir/<slug>). If "
+                        f"the store path resolved to a project repo, set "
+                        f"MEMOIR_STORE explicitly."
+                    )
+            else:
                 _git_step(["init"], "git init")
 
             # Create data directory
             data_path = store_path / "data"
             data_path.mkdir(exist_ok=True)
 
-            # Create initial commit
-            _git_step(["add", "."], "git add")
+            # Stage only memoir's storage subtree. Using `git add data/`
+            # rather than `git add .` is defense in depth: even if some
+            # caller hands us a path that contains unrelated working-tree
+            # files, we never sweep them into the initial commit.
+            _git_step(["add", "data"], "git add")
 
             # Check if there are any changes to commit
             status_result = _git_step(["status", "--porcelain"], "git status")
