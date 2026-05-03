@@ -42,13 +42,27 @@ Also always exclude `taxonomy:v1:*` namespaces (classifier bookkeeping, never us
 
 You are the picker. Read the query, read the taxonomy prefixes, pick relevant names, batch-`get` their values. Do **not** shell out to `memoir recall`.
 
-## Decision tree
+## Decision tree — count gate FIRST, mode SECOND
 
-1. Query names an exact path → **`[mode=get]`**: skip straight to `get`.
-2. Query has strong path-shape hint (one glob suffices) → **`[mode=flat]`**: `summarize --keys <pattern>` → pick → `get`.
-3. Otherwise → run `summarize --depth 1 -n default` (cheap count gate; output bounded by L1 prefixes regardless of store size). Read `total_memories` from the response. If ≤ 1000 → **`[mode=fast]`**. Else → **`[mode=drill]`** (and reuse the same response's L1 histogram — do not re-summarize).
-4. Provenance question ("when did I decide?") → **`[mode=blame]`** on the picked path.
-5. Cross-commit/branch question → **`[mode=diff]`**.
+The count gate gates everything below. Run it before deciding mode.
+
+1. Query names an exact path → **`[mode=get]`**: skip straight to `get`. (Allowed at any size.)
+2. Otherwise → **always** run `summarize --depth 1 -n default` first (cheap count gate; output bounded by L1 prefixes regardless of store size). Read `total_memories` from the response.
+
+Then branch on the count:
+
+- **`total_memories ≤ 1000` → MUST use `[mode=fast]`. NO OTHER MODE IS PERMITTED.**
+  - Do NOT use `[mode=drill]`. Drill is for >1000 only.
+  - Do NOT use `[mode=flat]`. Flat is for >1000 only.
+  - Do NOT issue per-topic `summarize --keys "*term*"` searches. Even if the user named 7 specific topics, dump everything via `--depth 3` and pick from the listing — that is strictly faster.
+- **`total_memories > 1000`:**
+  - Query has a clear single-glob shape ("what about pytest?" → `*pytest*`) → `[mode=flat]`.
+  - Otherwise → `[mode=drill]`, reusing the gate's L1 histogram.
+
+Provenance / cross-commit questions overlay these modes:
+
+3. Provenance question ("when did I decide?") → **`[mode=blame]`** on the picked path.
+4. Cross-commit/branch question → **`[mode=diff]`**.
 
 ## `[mode=get]` — query names a path
 
@@ -58,9 +72,9 @@ memoir --json -s "$STORE" get <path> [<path>...] -n default
 
 Returns `items[]` with `{key, namespace, full_key, found, value}`. Batching is safe.
 
-## `[mode=fast]` — small-store single-shot (≤1000 memories)
+## `[mode=fast]` — small-store single-shot (≤1000 memories) — MANDATORY for small stores
 
-For stores at this size, the entire key listing fits in one prompt — skip the drill loop entirely.
+If `total_memories ≤ 1000` from the count gate, you MUST use this mode. Do not fall through to drill — drill is for stores >1000 only. The entire key listing fits in one prompt; skip the drill loop entirely.
 
 ```bash
 memoir --json -s "$STORE" summarize --depth 3 -n default
@@ -110,14 +124,18 @@ memoir --json -s "$STORE" get <path1> <path2> ... -n default
 
 When key names are ambiguous, err on the side of including extra candidates — `get` is cheap.
 
-## `[mode=flat]` — single-glob scope
+## `[mode=flat]` — single-glob scope (large stores ONLY, >1000 memories)
 
-When the query is narrow and one glob covers it (e.g. "what do I know about pytest?" → `*pytest*`, or "testing prefs" → `*.testing.*`):
+**Gated:** flat mode is permitted ONLY when `total_memories > 1000` AND the query maps to one clear glob. For small stores (≤1000) use `[mode=fast]` instead — even narrow queries.
+
+When permitted (e.g. on a large store, "what do I know about pytest?" → `*pytest*`, or "testing prefs" → `*.testing.*`):
 
 ```bash
 memoir --json -s "$STORE" summarize --keys "<pattern>" -n default
 # pick from returned matches, then get
 ```
+
+**Single glob, single call.** If you'd need multiple globs (`*business*`, `*commercial*`, `*model*`, ...), this isn't flat — it's drill, and you must batch all patterns into ONE `summarize --keys p1 --keys p2 ...` call, not separate calls.
 
 ## `[mode=blame]` and `[mode=diff]` — history
 
@@ -138,9 +156,11 @@ Use only when the question is explicitly about evolution.
 
 ## Hard rules
 
+- **Count gate decides mode. No exceptions.** If `total_memories ≤ 1000`, the only permitted modes are `[mode=get]` (when query names an exact path) or `[mode=fast]`. Drill and flat are FORBIDDEN at this size. The query naming many topics is NOT a reason to switch — fast still wins.
+- **Single glob per flat call.** If you need multiple globs, that's drill, and you MUST issue ONE `summarize --keys p1 --keys p2 ...` call covering them all — never separate calls per pattern.
+- **Never iterate one CLI call per prefix.** Always batch via repeated `--keys`.
 - **Never** invoke `memoir recall`. It's the legacy LLM-bundled path: slow, spawns nested `claude -p`, requires `OPENAI_API_KEY`, redundant.
 - **Defer to `memoir-onboard`** for repo-shape questions ("what does this project do"). That skill owns `codebase:onboard`; this one owns the `default` namespace.
-- **Never iterate one CLI call per prefix.** Always batch via repeated `--keys`.
 - **Always exclude `metrics.*`** unless `INCLUDE_METRICS=1` is set from args.
 
 ## Output format
