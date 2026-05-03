@@ -1,6 +1,6 @@
 ---
 name: memory-recall
-description: "Recall facts from past sessions via memoir. STORE PATH: ALWAYS compute first via `STORE=$(bash \"$CLAUDE_PLUGIN_ROOT/scripts/derive-store-path.sh\")` (or `$MEMOIR_STORE`). Pass `-s \"$STORE\"` on every call — never rely on memoir's connected default (frequently stale). PROCEDURE: `summarize --depth 1 -n default` (cheap count gate) → if total ≤ 1000 use fast path (`summarize --depth 3 -n default` returns full key listing → pick → batch `get`), else drill (reuse the gate's L1 histogram → ONE `summarize --keys p1 --keys p2 ...` covering all picks → `get`). EXCLUDE `metrics.*` unless args contain `--include-metrics`. NEVER shell out to `memoir recall` (legacy LLM-bundled, slow, requires OPENAI_API_KEY). First reply line MUST be a mode marker `[mode=get|fast|drill|flat|blame|diff]`. DEFAULT ON: invoke for any question or task that may depend on past preferences, decisions, conventions, or knowledge — questions touching prior state, meta/overview asks, design/implementation prompts where output may reflect prior style, SessionStart hints, or any moment you'd otherwise silently apply remembered facts. SKIP only for mechanical single-symbol lookups, throwaway scratch work, or explicit user opt-out. Defer to memoir-onboard for repo-structure questions (it owns `codebase:onboard`). Cost of an unused recall is low; cost of missing a remembered preference is high."
+description: "Recall facts from past sessions via memoir. STORE PATH: ALWAYS compute first via `STORE=$(bash \"$CLAUDE_PLUGIN_ROOT/scripts/derive-store-path.sh\")` (or `$MEMOIR_STORE`). Pass `-s \"$STORE\"` on every call — never rely on memoir's connected default (frequently stale). PROCEDURE (single-shot default): ONE `summarize --depth 3 -n default` → pick at most 5–7 keys → batch `get`. Only escalate to drill (batched `--keys`) if the depth-3 response shows `total_memories > 1000` AND the query is broad. Never call `summarize --depth 1` separately — `--depth 3` already returns count + full key listing. EXCLUDE `metrics.*` unless args contain `--include-metrics`. NEVER shell out to `memoir recall` (legacy LLM-bundled, slow, requires OPENAI_API_KEY). First reply line MUST be a mode marker `[mode=get|fast|drill|flat|blame|diff]`. DEFAULT ON: invoke for any question or task that may depend on past preferences, decisions, conventions, or knowledge — questions touching prior state, meta/overview asks, design/implementation prompts where output may reflect prior style, SessionStart hints, or any moment you'd otherwise silently apply remembered facts. SKIP only for mechanical single-symbol lookups, throwaway scratch work, or explicit user opt-out. Defer to memoir-onboard for repo-structure questions (it owns `codebase:onboard`). Cost of an unused recall is low; cost of missing a remembered preference is high."
 context: fork
 allowed-tools: Bash
 ---
@@ -42,22 +42,17 @@ Also always exclude `taxonomy:v1:*` namespaces (classifier bookkeeping, never us
 
 You are the picker. Read the query, read the taxonomy prefixes, pick relevant names, batch-`get` their values. Do **not** shell out to `memoir recall`.
 
-## Decision tree — count gate FIRST, mode SECOND
+## Decision tree — single-shot by default
 
-The count gate gates everything below. Run it before deciding mode.
+1. Query names an exact path → **`[mode=get]`**: skip straight to `get`.
+2. **Otherwise → `[mode=fast]` (default for everything else).** Issue ONE `summarize --depth 3 -n default` call, pick keys from the response, batch `get`. NO count gate. NO separate `--depth 1` call. NO drill.
 
-1. Query names an exact path → **`[mode=get]`**: skip straight to `get`. (Allowed at any size.)
-2. Otherwise → **always** run `summarize --depth 1 -n default` first (cheap count gate; output bounded by L1 prefixes regardless of store size). Read `total_memories` from the response.
+Only escalate beyond `[mode=fast]` if the depth-3 response itself shows the store is unworkably large (you'll see `total_memories` in the JSON):
 
-Then branch on the count:
+- `total_memories > 1000` AND query has a clear single-glob shape ("what about pytest?" → `*pytest*`) → `[mode=flat]`.
+- `total_memories > 1000` AND query is broad → `[mode=drill]`, using the L2/L3 prefixes already in the depth-3 response.
 
-- **`total_memories ≤ 1000` → MUST use `[mode=fast]`. NO OTHER MODE IS PERMITTED.**
-  - Do NOT use `[mode=drill]`. Drill is for >1000 only.
-  - Do NOT use `[mode=flat]`. Flat is for >1000 only.
-  - Do NOT issue per-topic `summarize --keys "*term*"` searches. Even if the user named 7 specific topics, dump everything via `--depth 3` and pick from the listing — that is strictly faster.
-- **`total_memories > 1000`:**
-  - Query has a clear single-glob shape ("what about pytest?" → `*pytest*`) → `[mode=flat]`.
-  - Otherwise → `[mode=drill]`, reusing the gate's L1 histogram.
+For small/medium stores (≤1000 — the common case) you stay in `[mode=fast]` and never escalate.
 
 Provenance / cross-commit questions overlay these modes:
 
@@ -72,29 +67,33 @@ memoir --json -s "$STORE" get <path> [<path>...] -n default
 
 Returns `items[]` with `{key, namespace, full_key, found, value}`. Batching is safe.
 
-## `[mode=fast]` — small-store single-shot (≤1000 memories) — MANDATORY for small stores
+## `[mode=fast]` — single-shot default (always start here)
 
-If `total_memories ≤ 1000` from the count gate, you MUST use this mode. Do not fall through to drill — drill is for stores >1000 only. The entire key listing fits in one prompt; skip the drill loop entirely.
+This is the default mode for any non-path-named query. **One** `summarize`, **one** `get`, done.
 
 ```bash
 memoir --json -s "$STORE" summarize --depth 3 -n default
 ```
 
-The taxonomy is 3 levels deep, so `--depth 3` returns the full key listing as `prefix_counts` (each entry is a full `L1.L2.L3` key path with count, typically 1). Ignore any `metrics.*` keys unless `INCLUDE_METRICS=1`. **Pick at most 5–7 most-relevant keys** (hard cap — never more) directly from the listing, then batch-`get`:
+The taxonomy is 3 levels deep, so `--depth 3` returns the full key listing as `prefix_counts` (each entry is a full `L1.L2.L3` key path with count, typically 1). The response also has `total_memories` at the top — check it for escalation only if needed.
+
+Ignore any `metrics.*` keys unless `INCLUDE_METRICS=1`. **Pick at most 5–7 most-relevant keys** (hard cap — never more) directly from the listing, then batch-`get`:
 
 ```bash
 memoir --json -s "$STORE" get <key1> <key2> ... -n default
 ```
 
-This whole mode is **2 CLI calls after the L1 count** (3 total) and **2 reasoning rounds** (pick keys, synthesize). Do NOT issue any intermediate `summarize --keys` calls — depth 3 already gave you everything.
+This whole mode is **2 CLI calls** (summarize + get) and **2 reasoning rounds** (issue summarize, then pick+get). Do NOT issue any intermediate `summarize --depth 1` or `summarize --keys` calls — depth 3 already gave you everything in one shot.
 
-**Why not start with `--depth 3` instead of `--depth 1`?** At small store sizes it would work, but on large stores (>10,000 memories) `--depth 3` serializes a row per key (~300 KB at 10K). The L1 count gate (`--depth 1`, ~200 bytes regardless of store size) lets us pay that serialization cost only when we'll use it.
+**Trade-off at scale:** at very large stores (>10,000 memories), `--depth 3` serializes a row per key (~300 KB at 10K). The model can detect this from `total_memories` in the response and escalate to drill or flat. For small/medium stores (the common case) the depth-3 response is small (~1–30 KB) and there's no reason to do anything else.
 
-## `[mode=drill]` — large store (>1000 memories)
+## `[mode=drill]` — escalation for very large stores (>1000 memories)
 
-### Step 1 — pick L1 prefixes (reuse the count-gate response)
+Only use this if `[mode=fast]`'s depth-3 response showed `total_memories > 1000` AND the query is broad (no clear single glob). For small/medium stores, stay in `[mode=fast]`.
 
-The gate call from the decision tree already returned `prefix_counts: { "default": { "preferences": 9, "context": 15, ... } }`. Do NOT re-summarize. Top-level names are stable and semantic (`preferences`, `context`, `workflow`, `knowledge`, `profile`, `goals`, `project`, `entity`, `settings`).
+### Step 1 — pick L1 prefixes (reuse the depth-3 response)
+
+The depth-3 response from `[mode=fast]` already includes the prefix histogram — read it as `prefix_counts: { "default": { "preferences.coding": 9, "context.project": 15, ... } }`. Do NOT re-summarize. Top-level names are stable and semantic (`preferences`, `context`, `workflow`, `knowledge`, `profile`, `goals`, `project`, `entity`, `settings`).
 
 Pick 2–4 prefixes whose names plausibly cover the query. **Always exclude `metrics`** unless `INCLUDE_METRICS=1`. Always skip `taxonomy:v1:*` namespaces.
 
@@ -156,7 +155,7 @@ Use only when the question is explicitly about evolution.
 
 ## Hard rules
 
-- **Count gate decides mode. No exceptions.** If `total_memories ≤ 1000`, the only permitted modes are `[mode=get]` (when query names an exact path) or `[mode=fast]`. Drill and flat are FORBIDDEN at this size. The query naming many topics is NOT a reason to switch — fast still wins.
+- **Default to `[mode=fast]`. Single-shot `--depth 3`, no count gate.** Don't issue `summarize --depth 1` first — that's an extra reasoning round for no benefit. `--depth 3` already returns `total_memories`. Only escalate to drill/flat if the depth-3 response itself shows `total_memories > 1000`.
 - **Single glob per flat call.** If you need multiple globs, that's drill, and you MUST issue ONE `summarize --keys p1 --keys p2 ...` call covering them all — never separate calls per pattern.
 - **Never iterate one CLI call per prefix.** Always batch via repeated `--keys`.
 - **Never** invoke `memoir recall`. It's the legacy LLM-bundled path: slow, spawns nested `claude -p`, requires `OPENAI_API_KEY`, redundant.
@@ -170,7 +169,7 @@ You are a retrieval primitive, not a synthesizer. The PARENT Claude that invoked
 **Structure of your reply (strict):**
 
 1. **Line 1: mode marker.** Exactly one of `[mode=get]`, `[mode=fast]`, `[mode=drill]`, `[mode=flat]`, `[mode=blame]`, `[mode=diff]`. Combine with `+` when chained (e.g. `[mode=drill+blame]`).
-2. **Line 2: count line.** `recalled <N> of <total> memories` where `<total>` is from the count gate and `<N>` is the number you fetched.
+2. **Line 2: count line.** `recalled <N> of <total> memories` where `<total>` is `total_memories` from the depth-3 response and `<N>` is the number you fetched (≤ 7).
 3. **Body: one entry per recalled memory, no prose around it.** Format each entry as:
    ```
    - <key>: <value.content trimmed to one line>
