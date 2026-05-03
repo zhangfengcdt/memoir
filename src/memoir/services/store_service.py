@@ -87,7 +87,9 @@ class StoreService(BaseService):
             # status N`. Single auto-create path now (ProllyTreeStore is
             # strict), so any "directory has .git but no commit" / "not a
             # repo" / etc. flavours of git errors land here.
-            def _git_step(args: list[str], op_label: str) -> "subprocess.CompletedProcess":
+            def _git_step(
+                args: list[str], op_label: str
+            ) -> "subprocess.CompletedProcess":
                 try:
                     return subprocess.run(
                         ["git", *args],

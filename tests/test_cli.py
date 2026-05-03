@@ -436,6 +436,49 @@ class TestAnalysisCommands:
         counts = json.loads(result.output)["prefix_counts"]["default"]
         assert counts == {"preferences": 2}
 
+    def test_summarize_multi_pattern_union(
+        self, monkeypatch, runner, initialized_store
+    ):
+        """Multiple --keys patterns union-match (not intersect, not last-wins)."""
+        from memoir.services.store_service import StoreService
+
+        fake = {
+            "namespaces": {
+                "default": [
+                    "context.project.scope",
+                    "context.current.session",
+                    "knowledge.technical.taxonomy",
+                    "metrics.turn.main",
+                    "preferences.coding.style",
+                ]
+            }
+        }
+        monkeypatch.setattr(StoreService, "read_store", lambda self: fake)
+
+        result = runner.invoke(
+            cli,
+            [
+                "--json",
+                "-s",
+                initialized_store,
+                "summarize",
+                "--keys",
+                "context.*",
+                "--keys",
+                "knowledge.*",
+            ],
+        )
+        assert result.exit_code == 0
+        matched = json.loads(result.output)["matching_keys"]["default"]
+        assert set(matched) == {
+            "context.project.scope",
+            "context.current.session",
+            "knowledge.technical.taxonomy",
+        }
+        # metrics.* and preferences.* must NOT appear — would mean union failed.
+        assert not any(k.startswith("metrics.") for k in matched)
+        assert not any(k.startswith("preferences.") for k in matched)
+
 
 class TestMemoryCommands:
     """Test memory commands: remember, recall, forget.

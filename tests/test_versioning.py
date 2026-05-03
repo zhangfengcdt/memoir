@@ -25,7 +25,9 @@ class TestVersioningControl:
 
     def test_auto_commit_default_behavior(self):
         """Test that auto_commit=True provides backward compatible behavior."""
-        StoreService(str(Path(self.temp_dir) / "auto_commit_test")).create_store(str(Path(self.temp_dir) / "auto_commit_test"))
+        StoreService(str(Path(self.temp_dir) / "auto_commit_test")).create_store(
+            str(Path(self.temp_dir) / "auto_commit_test")
+        )
         store = ProllyTreeStore(
             path=str(Path(self.temp_dir) / "auto_commit_test"),
             enable_versioning=True,
@@ -42,7 +44,9 @@ class TestVersioningControl:
 
     def test_manual_commit_control(self):
         """Test manual commit control with auto_commit=False."""
-        StoreService(str(Path(self.temp_dir) / "manual_commit_test")).create_store(str(Path(self.temp_dir) / "manual_commit_test"))
+        StoreService(str(Path(self.temp_dir) / "manual_commit_test")).create_store(
+            str(Path(self.temp_dir) / "manual_commit_test")
+        )
         store = ProllyTreeStore(
             path=str(Path(self.temp_dir) / "manual_commit_test"),
             enable_versioning=True,
@@ -65,7 +69,9 @@ class TestVersioningControl:
 
     def test_batch_put_with_auto_commit_false(self):
         """Test putting data with auto_commit=False."""
-        StoreService(str(Path(self.temp_dir) / "batch_put_test")).create_store(str(Path(self.temp_dir) / "batch_put_test"))
+        StoreService(str(Path(self.temp_dir) / "batch_put_test")).create_store(
+            str(Path(self.temp_dir) / "batch_put_test")
+        )
         store = ProllyTreeStore(
             path=str(Path(self.temp_dir) / "batch_put_test"),
             enable_versioning=True,
@@ -88,7 +94,9 @@ class TestVersioningControl:
 
     def test_batch_delete_with_auto_commit_false(self):
         """Test deleting data with auto_commit=False."""
-        StoreService(str(Path(self.temp_dir) / "batch_delete_test")).create_store(str(Path(self.temp_dir) / "batch_delete_test"))
+        StoreService(str(Path(self.temp_dir) / "batch_delete_test")).create_store(
+            str(Path(self.temp_dir) / "batch_delete_test")
+        )
         store = ProllyTreeStore(
             path=str(Path(self.temp_dir) / "batch_delete_test"),
             enable_versioning=True,
@@ -114,7 +122,9 @@ class TestVersioningControl:
 
     def test_mixed_auto_commit_workflow(self):
         """Test dynamically toggling auto_commit."""
-        StoreService(str(Path(self.temp_dir) / "mixed_workflow_test")).create_store(str(Path(self.temp_dir) / "mixed_workflow_test"))
+        StoreService(str(Path(self.temp_dir) / "mixed_workflow_test")).create_store(
+            str(Path(self.temp_dir) / "mixed_workflow_test")
+        )
         store = ProllyTreeStore(
             path=str(Path(self.temp_dir) / "mixed_workflow_test"),
             enable_versioning=True,
@@ -153,7 +163,9 @@ class TestVersioningControl:
 
     def test_commit_without_versioning(self):
         """Test that commit() handles non-versioned stores gracefully."""
-        StoreService(str(Path(self.temp_dir) / "no_versioning_test")).create_store(str(Path(self.temp_dir) / "no_versioning_test"))
+        StoreService(str(Path(self.temp_dir) / "no_versioning_test")).create_store(
+            str(Path(self.temp_dir) / "no_versioning_test")
+        )
         store = ProllyTreeStore(
             path=str(Path(self.temp_dir) / "no_versioning_test"),
             enable_versioning=False,  # No versioning
@@ -174,7 +186,9 @@ class TestVersioningControl:
     def test_backward_compatibility(self):
         """Test that existing code continues to work unchanged."""
         # Old style initialization (should work exactly as before)
-        StoreService(str(Path(self.temp_dir) / "backward_compat_test")).create_store(str(Path(self.temp_dir) / "backward_compat_test"))
+        StoreService(str(Path(self.temp_dir) / "backward_compat_test")).create_store(
+            str(Path(self.temp_dir) / "backward_compat_test")
+        )
         store = ProllyTreeStore(
             path=str(Path(self.temp_dir) / "backward_compat_test"),
             enable_versioning=True,
@@ -193,7 +207,9 @@ class TestVersioningControl:
         import time
 
         # Test auto-commit (many commits)
-        StoreService(str(Path(self.temp_dir) / "auto_perf_test")).create_store(str(Path(self.temp_dir) / "auto_perf_test"))
+        StoreService(str(Path(self.temp_dir) / "auto_perf_test")).create_store(
+            str(Path(self.temp_dir) / "auto_perf_test")
+        )
         auto_store = ProllyTreeStore(
             path=str(Path(self.temp_dir) / "auto_perf_test"),
             enable_versioning=True,
@@ -201,7 +217,9 @@ class TestVersioningControl:
         )
 
         # Test manual commit (few commits)
-        StoreService(str(Path(self.temp_dir) / "manual_perf_test")).create_store(str(Path(self.temp_dir) / "manual_perf_test"))
+        StoreService(str(Path(self.temp_dir) / "manual_perf_test")).create_store(
+            str(Path(self.temp_dir) / "manual_perf_test")
+        )
         manual_store = ProllyTreeStore(
             path=str(Path(self.temp_dir) / "manual_perf_test"),
             enable_versioning=True,
@@ -239,7 +257,9 @@ class TestVersioningControl:
 
     def test_snapshot_commits_pending_changes(self):
         """Test that create_time_snapshot commits pending changes when auto_commit=False."""
-        StoreService(str(Path(self.temp_dir) / "snapshot_commit_test")).create_store(str(Path(self.temp_dir) / "snapshot_commit_test"))
+        StoreService(str(Path(self.temp_dir) / "snapshot_commit_test")).create_store(
+            str(Path(self.temp_dir) / "snapshot_commit_test")
+        )
         store = ProllyTreeStore(
             path=str(Path(self.temp_dir) / "snapshot_commit_test"),
             enable_versioning=True,

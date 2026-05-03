@@ -18,7 +18,12 @@ from memoir.cli.main import (
 @click.command()
 @click.argument("summary_type", required=False, default="all")
 @click.option("-n", "--namespace", help="Summarize specific namespace only")
-@click.option("--keys", "key_pattern", help="Summarize keys matching pattern")
+@click.option(
+    "--keys",
+    "key_patterns",
+    multiple=True,
+    help="Summarize keys matching pattern (repeatable; matches union)",
+)
 @click.option(
     "--depth",
     type=int,
@@ -30,7 +35,7 @@ def summarize(
     ctx: MemoirContext,
     summary_type: str,
     namespace: str,
-    key_pattern: str,
+    key_patterns: tuple[str, ...],
     depth: int,
 ):
     """Summarize memories in the store.
@@ -43,6 +48,7 @@ def summarize(
       memoir summarize taxonomy              # Taxonomy breakdown
       memoir summarize -n default            # Summarize 'default' namespace
       memoir summarize --keys profile.*      # Keys matching pattern
+      memoir summarize --keys a.* --keys b.* # Union of multiple patterns
       memoir summarize --depth 1             # Group by top-level prefix
       memoir summarize --keys profile.* --depth 2   # Pattern filter, then group
     """
@@ -79,11 +85,11 @@ def summarize(
         total_memories = sum(len(keys) for keys in namespaces.values())
 
         def _filter_keys(keys):
-            if not key_pattern:
+            if not key_patterns:
                 return list(keys)
             import fnmatch
 
-            return [k for k in keys if fnmatch.fnmatch(k, key_pattern)]
+            return [k for k in keys if any(fnmatch.fnmatch(k, p) for p in key_patterns)]
 
         def _group_by_depth(keys, n):
             counts: dict[str, int] = {}
@@ -101,7 +107,7 @@ def summarize(
                 "total_memories": total_memories,
                 "namespaces": {ns: len(keys) for ns, keys in namespaces.items()},
             }
-            if key_pattern:
+            if key_patterns:
                 matching = {}
                 for ns, keys in namespaces.items():
                     matches = _filter_keys(keys)
@@ -130,8 +136,10 @@ def summarize(
                 for ns, keys in sorted(namespaces.items()):
                     click.echo(f"    {ns}: {len(keys)} memories")
 
-            if key_pattern and depth is None:
-                click.echo(f"\n  Keys matching '{key_pattern}':")
+            pattern_display = ", ".join(key_patterns) if key_patterns else ""
+
+            if key_patterns and depth is None:
+                click.echo(f"\n  Keys matching '{pattern_display}':")
                 for ns, keys in namespaces.items():
                     matches = _filter_keys(keys)
                     for key in matches[:10]:
@@ -140,7 +148,7 @@ def summarize(
                         click.echo(f"    ... and {len(matches) - 10} more")
 
             if depth is not None:
-                scope = f" matching '{key_pattern}'" if key_pattern else ""
+                scope = f" matching '{pattern_display}'" if key_patterns else ""
                 click.echo(f"\n  Prefix counts (depth={depth}){scope}:")
                 for ns, keys in sorted(namespaces.items()):
                     scoped = _filter_keys(keys)
