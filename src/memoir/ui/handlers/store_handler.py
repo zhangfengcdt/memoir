@@ -268,12 +268,14 @@ class StoreHandler(BaseAPIHandler):
             items = []
             for key, data in sorted(results, key=lambda kv: kv[0]):
                 value = _extract_content(data)
-                # Each metrics.turn.<branch> key encodes the branch name in
-                # the path fragment — surface it explicitly so the UI can
-                # group/render without re-parsing the key.
+                # metrics.turn.<branch> and metrics.code.<branch> both encode
+                # the branch in the path fragment — surface it explicitly so
+                # the UI can group/render without re-parsing the key.
                 branch = None
                 if key.startswith("metrics.turn."):
                     branch = key[len("metrics.turn.") :]
+                elif key.startswith("metrics.code."):
+                    branch = key[len("metrics.code.") :]
                 items.append({"key": key, "branch": branch, "value": value})
 
             self.send_json_response({"success": True, "items": items})

@@ -16,7 +16,13 @@ import { useUI } from "../state/uiSlice";
 import "./StatsModal.css";
 
 type SectionKey = keyof StatisticsBlock;
-type TabKey = SectionKey | "overview" | "onboard" | "project" | "metrics";
+type TabKey =
+  | SectionKey
+  | "overview"
+  | "onboard"
+  | "project"
+  | "metrics"
+  | "codechanges";
 
 const BASE_SECTIONS: { key: TabKey; label: string }[] = [
   { key: "overview", label: "Overview" },
@@ -34,6 +40,10 @@ export default function StatsModal() {
   const open = useUI((s) => s.statsOpen);
   const close = useUI((s) => s.closeStats);
   const storePath = useStore((s) => s.storePath);
+  // Current branch from the store (`/api/store` response). Used to filter
+  // metrics.code.<branch> entries so the Code Changes tab matches the
+  // active branch the same way metrics.turn.<branch> does on the server.
+  const currentBranch = useStore((s) => s.data?.current_branch ?? null);
 
   const [data, setData] = useState<StatisticsResponse | null>(null);
   const [onboardData, setOnboardData] = useState<OnboardResponse | null>(null);
@@ -132,6 +142,11 @@ export default function StatsModal() {
   const onboardItems = onboardData?.items ?? [];
   const projectOnboardItems = projectOnboardData?.items ?? [];
   const metricsItems = metricsData?.items ?? [];
+  // Aggregate metrics.code.* across every branch into one timeline. Each
+  // entry keeps its source branch so the UI can label it; rows are sorted
+  // newest-first regardless of which branch produced them. Tab hides when
+  // there are no entries at all.
+  const codeMetricsEntries = collectCodeMetricsEntries(metricsItems);
   const sections: { key: TabKey; label: string }[] = [];
   for (const s of BASE_SECTIONS) {
     sections.push(s);
@@ -144,6 +159,9 @@ export default function StatsModal() {
       }
       if (metricsItems.length > 0) {
         sections.push({ key: "metrics", label: "Metrics" });
+      }
+      if (codeMetricsEntries.length > 0) {
+        sections.push({ key: "codechanges", label: "Code Changes" });
       }
     }
   }
@@ -226,11 +244,18 @@ export default function StatsModal() {
           )}
           {tab === "project" && <ProjectOnboardPanel items={projectOnboardItems} />}
           {tab === "metrics" && <MetricsPanel items={metricsItems} />}
+          {tab === "codechanges" && (
+            <CodeChangesPanel
+              entries={codeMetricsEntries}
+              currentBranch={currentBranch}
+            />
+          )}
           {data &&
             tab !== "overview" &&
             tab !== "onboard" &&
             tab !== "project" &&
-            tab !== "metrics" && (
+            tab !== "metrics" &&
+            tab !== "codechanges" && (
               <SectionPanel section={data.statistics[tab]} title={tab} />
             )}
         </div>
@@ -635,6 +660,213 @@ function ProjectOnboardPanel({ items }: { items: ProjectOnboardItem[] }) {
           <pre className="stats-onboard-tree">{treeText}</pre>
         </section>
       )}
+    </div>
+  );
+}
+
+// One row of the Code Changes timeline. `branch` is the originating
+// branch (the suffix of the metrics.code.<branch> key); we keep it on the
+// row so the panel can label rows when aggregating across branches.
+type CodeChangeEntry = { timestamp: number; summary: string; branch: string };
+
+// Collect every entry from every metrics.code.<branch> item across the
+// store, tagging each row with its source branch and sorting newest-first.
+// Returns [] when there are no metrics.code.* items at all, which causes
+// the Code Changes tab to be hidden entirely.
+function collectCodeMetricsEntries(items: MetricsItem[]): CodeChangeEntry[] {
+  const out: CodeChangeEntry[] = [];
+  for (const item of items) {
+    if (!item.key.startsWith("metrics.code.")) continue;
+    const branch = item.branch ?? "unknown";
+    if (typeof item.value !== "object" || item.value === null) continue;
+    const v = item.value as Record<string, unknown>;
+    const entries = v.entries;
+    if (!Array.isArray(entries)) continue;
+    for (const e of entries) {
+      if (e && typeof e === "object") {
+        const ts = (e as Record<string, unknown>).timestamp;
+        const summary = (e as Record<string, unknown>).summary;
+        if (typeof ts === "number" && typeof summary === "string") {
+          out.push({ timestamp: ts, summary, branch });
+        }
+      }
+    }
+  }
+  out.sort((a, b) => b.timestamp - a.timestamp);
+  return out;
+}
+
+// Format an epoch-seconds timestamp as a short relative string ("3m", "2h",
+// "yesterday", "Apr 12"). Mirrors lib/time.relativeTimeFromISO but skips the
+// ISO parse since the metric stores raw epoch seconds.
+function formatCodeChangeTime(epochSeconds: number): string {
+  const now = Date.now() / 1000;
+  const delta = Math.max(0, now - epochSeconds);
+  if (delta < 60) return "just now";
+  if (delta < 3600) return `${Math.floor(delta / 60)}m ago`;
+  if (delta < 86400) return `${Math.floor(delta / 3600)}h ago`;
+  if (delta < 7 * 86400) return `${Math.floor(delta / 86400)}d ago`;
+  const d = new Date(epochSeconds * 1000);
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function CodeChangesPanel({
+  entries,
+  currentBranch,
+}: {
+  entries: CodeChangeEntry[];
+  currentBranch: string | null;
+}) {
+  // Group entries by branch. Within each group rows are already newest-
+  // first because the upstream collector sorted by timestamp. Across
+  // groups we order branches by their most-recent timestamp; the user's
+  // current branch is pinned first so the most-likely-relevant group
+  // is always at the top.
+  const groups = new Map<string, CodeChangeEntry[]>();
+  for (const e of entries) {
+    const list = groups.get(e.branch);
+    if (list) list.push(e);
+    else groups.set(e.branch, [e]);
+  }
+  const orderedBranches = Array.from(groups.keys()).sort((a, b) => {
+    if (a === currentBranch && b !== currentBranch) return -1;
+    if (b === currentBranch && a !== currentBranch) return 1;
+    const aMax = groups.get(a)?.[0]?.timestamp ?? 0;
+    const bMax = groups.get(b)?.[0]?.timestamp ?? 0;
+    return bMax - aMax;
+  });
+
+  // Each group is independently collapsible. Default: current branch
+  // expanded, every other group collapsed — gives an immediate view of
+  // active work without overwhelming the modal when many branches have
+  // history.
+  const [expanded, setExpanded] = useState<Set<string>>(
+    () => new Set(currentBranch && groups.has(currentBranch) ? [currentBranch] : []),
+  );
+  const toggle = (branch: string) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(branch)) next.delete(branch);
+      else next.add(branch);
+      return next;
+    });
+  };
+
+  // Per-group "Copy as bullets" → PR-description-ready markdown. Tracks
+  // which group's button was just clicked so the icon can flash a brief
+  // "✓" without standing up a per-row state slot.
+  const [copiedBranch, setCopiedBranch] = useState<string | null>(null);
+  const copyGroup = async (branch: string, items: CodeChangeEntry[]) => {
+    const text = items.map((e) => `- ${e.summary}`).join("\n");
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedBranch(branch);
+      setTimeout(() => setCopiedBranch((v) => (v === branch ? null : v)), 1500);
+    } catch {
+      /* clipboard unavailable — silently no-op */
+    }
+  };
+
+  return (
+    <div className="stats-codechanges">
+      <div className="stats-codechanges-header">
+        <span className="stats-codechanges-summary">
+          All branches{" "}
+          <span className="stats-codechanges-divider">·</span>{" "}
+          {groups.size} {groups.size === 1 ? "branch" : "branches"}{" "}
+          <span className="stats-codechanges-divider">·</span>{" "}
+          {entries.length} {entries.length === 1 ? "entry" : "entries"}
+        </span>
+      </div>
+      <div className="stats-codegroups">
+        {orderedBranches.map((branch) => {
+          const items = groups.get(branch) ?? [];
+          const isCurrent = branch === currentBranch;
+          const isOpen = expanded.has(branch);
+          return (
+            <section
+              key={branch}
+              className={`stats-codegroup${isCurrent ? " is-current" : ""}`}
+            >
+              {/* Header row: a flex container with the toggle as a left-side
+                  button and the copy action as a sibling button on the right.
+                  Two siblings rather than nested buttons (illegal HTML) so
+                  each control gets its own focus / keyboard semantics. */}
+              <div className="stats-codegroup-header-row">
+                <button
+                  type="button"
+                  className="stats-codegroup-header"
+                  onClick={() => toggle(branch)}
+                  aria-expanded={isOpen}
+                  aria-controls={`codegroup-${branch}`}
+                >
+                  <span
+                    className={`stats-codegroup-caret${isOpen ? " is-open" : ""}`}
+                    aria-hidden="true"
+                  >
+                    ▶
+                  </span>
+                  <code
+                    className={`stats-codelog-branch${isCurrent ? " is-current" : ""}`}
+                    title={isCurrent ? `${branch} (current)` : branch}
+                  >
+                    {branch}
+                  </code>
+                  {isCurrent && (
+                    <span className="stats-codegroup-tag">current</span>
+                  )}
+                  <span className="stats-codegroup-count">
+                    {items.length} {items.length === 1 ? "entry" : "entries"}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="stats-codegroup-copy"
+                  onClick={() => copyGroup(branch, items)}
+                  aria-label={`Copy ${branch} entries as bullets`}
+                  title="Copy entries as a bullet list (PR-ready)"
+                >
+                  {copiedBranch === branch ? (
+                    "✓"
+                  ) : (
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      aria-hidden="true"
+                    >
+                      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+              {isOpen && (
+                <ol id={`codegroup-${branch}`} className="stats-codelog">
+                  {items.map((entry, i) => (
+                    <li key={i} className="stats-codelog-row">
+                      <span
+                        className="stats-codelog-time"
+                        title={new Date(entry.timestamp * 1000).toLocaleString()}
+                      >
+                        {formatCodeChangeTime(entry.timestamp)}
+                      </span>
+                      <span className="stats-codelog-summary">
+                        {entry.summary}
+                      </span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </section>
+          );
+        })}
+      </div>
     </div>
   );
 }
