@@ -12,6 +12,11 @@
 
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# shellcheck source=resolve-memoir-cli.sh
+source "$SCRIPT_DIR/resolve-memoir-cli.sh"
+
 PIDFILE_DIR="${HOME}/.memoir/ui-servers"
 mkdir -p "$PIDFILE_DIR"
 
@@ -64,6 +69,10 @@ cmd_start() {
         echo "not a memoir store (no .git dir): $store" >&2
         return 3
     fi
+    if [ "${#MEMOIR_CMD_ARGV[@]}" -eq 0 ]; then
+        echo "$MEMOIR_INSTALL_HINT" >&2
+        return 127
+    fi
     # Resolve to absolute path so two invocations with different relative
     # forms still hash to the same pidfile.
     store=$(cd "$store" && pwd -P)
@@ -97,7 +106,7 @@ print(json.dumps(d))
     # Subshell + nohup + stdio redirection fully detaches the server
     # from this script's process group; it survives when the skill's
     # Bash tool call returns.
-    ( nohup memoir ui "$store" </dev/null >"$log" 2>&1 & echo $! ) > "$log.pid"
+    ( nohup "${MEMOIR_CMD_ARGV[@]}" ui "$store" </dev/null >"$log" 2>&1 & echo $! ) > "$log.pid"
     local pid; pid=$(cat "$log.pid")
     rm -f "$log.pid"
 

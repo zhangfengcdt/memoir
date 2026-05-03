@@ -64,29 +64,13 @@ else
   MEMOIR_STORE_PATH="$(bash "$SCRIPT_PARENT/scripts/derive-store-path.sh" "$_PROJECT_DIR")"
 fi
 
-# Resolve the memoir CLI. Preference order:
-#   1. `memoir` on PATH (explicit install, fastest cold start).
-#   2. `uvx --from memoir-ai memoir` (uv installed, no global CLI) — ephemeral,
-#      no pollution of the user's Python envs, ~1s warmup on first use then
-#      cached.
-#   3. Nothing — capture/recall disabled, install hint shown.
-#
-# MEMOIR_CMD is the human-readable form used for `[ -z "$MEMOIR_CMD" ]`
-# enable/disable checks throughout the hooks. MEMOIR_CMD_ARGV is the bash
-# array used for actual invocation, since the uvx fallback is multi-token.
-if command -v memoir &>/dev/null; then
-  MEMOIR_CMD="memoir"
-  MEMOIR_CMD_ARGV=(memoir)
-elif command -v uvx &>/dev/null; then
-  MEMOIR_CMD="uvx --from memoir-ai memoir"
-  MEMOIR_CMD_ARGV=(uvx --from memoir-ai memoir)
-elif command -v uv &>/dev/null; then
-  MEMOIR_CMD="uv tool run --from memoir-ai memoir"
-  MEMOIR_CMD_ARGV=(uv tool run --from memoir-ai memoir)
-else
-  MEMOIR_CMD=""
-  MEMOIR_CMD_ARGV=()
-fi
+# Resolve the memoir CLI. The preference chain (memoir → uvx → uv tool run)
+# and the rationale live in scripts/resolve-memoir-cli.sh so slash-command
+# shims and skills can use the same logic without duplication. Sets
+# MEMOIR_CMD (human-readable form, empty if no working invocation exists)
+# and MEMOIR_CMD_ARGV (bash array for direct invocation).
+# shellcheck source=../scripts/resolve-memoir-cli.sh
+source "$SCRIPT_PARENT/scripts/resolve-memoir-cli.sh"
 
 # Short prefix used in injected instructions / status lines. Always "memoir"
 # so user-facing messages stay clean regardless of how the CLI is resolved.
