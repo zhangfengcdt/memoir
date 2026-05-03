@@ -6,13 +6,13 @@
   },
   "metadata": {
     "description": "Git-versioned, taxonomy-structured memory plugins for Claude Code — branch, merge, time-travel your AI's memory.",
-    "version": "0.1.9"
+    "version": "0.2.0"
   },
   "plugins": [
     {
       "name": "memoir",
       "description": "Git-versioned, taxonomy-structured memory for Claude Code — recall by path, branch to isolate, time-travel to audit.",
-      "version": "0.1.9",
+      "version": "0.2.0",
       "source": "./plugins/claude-code",
       "category": "productivity",
       "author": {
