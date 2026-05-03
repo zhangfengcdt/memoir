@@ -80,7 +80,7 @@ If `total_memories ≤ 1000` from the count gate, you MUST use this mode. Do not
 memoir --json -s "$STORE" summarize --depth 3 -n default
 ```
 
-The taxonomy is 3 levels deep, so `--depth 3` returns the full key listing as `prefix_counts` (each entry is a full `L1.L2.L3` key path with count, typically 1). Ignore any `metrics.*` keys unless `INCLUDE_METRICS=1`. Pick the 3–7 most relevant keys directly from the listing, then batch-`get`:
+The taxonomy is 3 levels deep, so `--depth 3` returns the full key listing as `prefix_counts` (each entry is a full `L1.L2.L3` key path with count, typically 1). Ignore any `metrics.*` keys unless `INCLUDE_METRICS=1`. **Pick at most 5–7 most-relevant keys** (hard cap — never more) directly from the listing, then batch-`get`:
 
 ```bash
 memoir --json -s "$STORE" get <key1> <key2> ... -n default
@@ -116,7 +116,7 @@ memoir --json -s "$STORE" summarize --keys "<L1a>.<L2x>.*" --keys "<L1b>.<L2y>.*
 
 ### Step 3 — fetch
 
-Pick 3–7 exact keys across all the descended prefixes, then batch-`get`:
+**Pick at most 5–7 exact keys** (hard cap — never more) across all the descended prefixes, then batch-`get`:
 
 ```bash
 memoir --json -s "$STORE" get <path1> <path2> ... -n default
@@ -175,7 +175,10 @@ You are a retrieval primitive, not a synthesizer. The PARENT Claude that invoked
    ```
    - <key>: <value.content trimmed to one line>
    ```
-   Do not group by theme. Do not add section headers. Do not add commentary. Do not write "Bottom line" / "Closest neighbor" / "Adjacent context". Do not paraphrase — copy `value.content` verbatim (truncate to ~200 chars if multi-paragraph, append `…`).
+   Hard caps for performance:
+   - **Maximum 5–7 memories.** Never return more, even if many seem relevant. Pick the most-relevant subset and stop. Returning 13 memories is wrong; return 5–7.
+   - **Truncate each `value.content` to ~100 chars** (one short sentence). If the original is longer, cut at a word boundary near 100 chars and append `…`. Do not paraphrase — just truncate.
+   - Do not group by theme. Do not add section headers. Do not add commentary. Do not write "Bottom line" / "Closest neighbor" / "Adjacent context".
 4. **If no memories were relevant**, output exactly two lines: the mode marker, then `No relevant memories found.` Nothing else.
 
 **Forbidden in your output:**
