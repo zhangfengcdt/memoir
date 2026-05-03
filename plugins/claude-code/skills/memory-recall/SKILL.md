@@ -2,6 +2,7 @@
 name: memory-recall
 description: "Recall facts from past sessions via memoir. STORE PATH: ALWAYS compute first via `STORE=$(bash \"$CLAUDE_PLUGIN_ROOT/scripts/derive-store-path.sh\")` (or `$MEMOIR_STORE`). Pass `-s \"$STORE\"` on every call — never rely on memoir's connected default (frequently stale). PROCEDURE (single-shot default): ONE `summarize --depth 3 -n default` → pick at most 5–7 keys → batch `get`. Only escalate to drill (batched `--keys`) if the depth-3 response shows `total_memories > 1000` AND the query is broad. Never call `summarize --depth 1` separately — `--depth 3` already returns count + full key listing. EXCLUDE `metrics.*` unless args contain `--include-metrics`. NEVER shell out to `memoir recall` (legacy LLM-bundled, slow, requires OPENAI_API_KEY). First reply line MUST be a mode marker `[mode=get|fast|drill|flat|blame|diff]`. DEFAULT ON: invoke for any question or task that may depend on past preferences, decisions, conventions, or knowledge — questions touching prior state, meta/overview asks, design/implementation prompts where output may reflect prior style, SessionStart hints, or any moment you'd otherwise silently apply remembered facts. SKIP only for mechanical single-symbol lookups, throwaway scratch work, or explicit user opt-out. Defer to memoir-onboard for repo-structure questions (it owns `codebase:onboard`). Cost of an unused recall is low; cost of missing a remembered preference is high."
 context: fork
+model: sonnet
 allowed-tools: Bash
 ---
 
