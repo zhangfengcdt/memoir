@@ -253,39 +253,13 @@ ensure_store() {
   if [ -z "$MEMOIR_CMD" ]; then
     return 1
   fi
-  if [ ! -d "$MEMOIR_STORE_PATH/.git" ]; then
-    mkdir -p "$(dirname "$MEMOIR_STORE_PATH")"
-    # --no-connect because the plugin manages store selection via MEMOIR_STORE
-    # env rather than memoir's global config file — we don't want to clobber
-    # what a user may have set for CLI use outside the plugin.
-    #
-    # `memoir new` writes both the store git repo AND the builtin taxonomy.
-    # The taxonomy install runs against the store's git backend, which only
-    # works when the calling process's cwd is itself inside a git working
-    # tree. In a git-tracked project the user's cwd already satisfies that;
-    # in a non-git folder it does not, and the taxonomy load fails ("Not in
-    # a git repository") leaving an unusable store.
-    #
-    # Workaround: run `memoir new` from a throwaway git-init'd scratch dir
-    # so the operation always has a valid cwd, regardless of where the
-    # user invoked Claude Code from. After this step the store itself is a
-    # git repo, so all subsequent memoir calls work via `memoir_json` /
-    # `memoir_plain`, which cd into the store.
-    local _scratch_dir
-    _scratch_dir=$(mktemp -d -t memoir-scratch.XXXXXX 2>/dev/null || echo "")
-    if [ -n "$_scratch_dir" ]; then
-      git init -q "$_scratch_dir" 2>/dev/null || true
-      ( cd "$_scratch_dir" \
-        && "${MEMOIR_CMD_ARGV[@]}" new "$MEMOIR_STORE_PATH" --taxonomy-builtin --no-connect ) >/dev/null 2>&1
-      local _rc=$?
-      rm -rf "$_scratch_dir"
-      [ "$_rc" -ne 0 ] && return 1
-    else
-      # mktemp failed — fall back to running from current cwd. May produce a
-      # store without a fully loaded taxonomy in non-git folders, but the
-      # store itself will be created so subsequent ops can recover.
-      "${MEMOIR_CMD_ARGV[@]}" new "$MEMOIR_STORE_PATH" --taxonomy-builtin --no-connect >/dev/null 2>&1 || return 1
-    fi
+  # Delegate the actual create-if-missing work to the shared helper so
+  # slash-command shims and SessionStart use the same bootstrap path.
+  # Helper prints "created" on stdout iff this call materialized the
+  # store; empty stdout means it was already there.
+  local _result
+  _result=$(bash "$SCRIPT_PARENT/scripts/ensure-store.sh" "$MEMOIR_STORE_PATH" 2>/dev/null) || return 1
+  if [ "$_result" = "created" ]; then
     MEMOIR_STORE_WAS_CREATED=1
     write_store_mode_marker
   else

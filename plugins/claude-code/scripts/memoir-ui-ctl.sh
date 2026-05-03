@@ -65,13 +65,17 @@ cmd_start() {
         echo "usage: memoir-ui-ctl.sh start <STORE_PATH>" >&2
         return 2
     fi
-    if [ ! -d "$store/.git" ]; then
-        echo "not a memoir store (no .git dir): $store" >&2
-        return 3
-    fi
     if [ "${#MEMOIR_CMD_ARGV[@]}" -eq 0 ]; then
         echo "$MEMOIR_INSTALL_HINT" >&2
         return 127
+    fi
+    # First-time-user safety net: bootstrap the store if SessionStart didn't
+    # (e.g. memoir was installed mid-session). ensure-store.sh is idempotent.
+    if [ ! -d "$store/.git" ]; then
+        bash "$SCRIPT_DIR/ensure-store.sh" "$store" >/dev/null || {
+            echo "failed to bootstrap memoir store at $store" >&2
+            return 3
+        }
     fi
     # Resolve to absolute path so two invocations with different relative
     # forms still hash to the same pidfile.

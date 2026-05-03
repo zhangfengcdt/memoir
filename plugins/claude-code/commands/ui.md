@@ -13,7 +13,7 @@ Run this Bash call to resolve the store path (respects `$MEMOIR_STORE`, otherwis
 if [ -n "${MEMOIR_STORE:-}" ]; then echo "$MEMOIR_STORE"; else bash "${CLAUDE_PLUGIN_ROOT}/scripts/derive-store-path.sh"; fi
 ```
 
-Capture stdout as `<STORE_PATH>`. If that path doesn't have a `.git` directory, stop and tell the user: "No memoir store at `<path>`. Run `memoir new <path>` to create one first." Do NOT try to launch the UI.
+Capture stdout as `<STORE_PATH>`. The launch helper in Step 2 will auto-bootstrap the store if it doesn't exist yet (idempotent — same logic SessionStart uses), so you don't need to pre-check.
 
 ## Step 2 — Launch (or re-open) the UI
 

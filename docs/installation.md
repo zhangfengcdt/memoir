@@ -7,13 +7,41 @@
 
 ## Basic Installation
 
-Install Memoir using pip:
+Pick one — they all install the same `memoir` CLI.
+
+### Recommended: `uv`
+
+If you don't already have `uv`, install it first (one-line, no Python required):
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Then either install memoir as a tool, or just run it on demand via `uvx`:
+
+```bash
+# Persistent install (recommended for daily use)
+uv tool install memoir-ai
+
+# OR — try without installing (one-shot, ephemeral venv)
+uvx --from memoir-ai memoir --help
+```
+
+`uv` is significantly faster than `pip` and isolates the CLI from your project Python environments. **If you have `uv`, you do not need to `pip install memoir-ai`** — the Claude Code plugin's auto-fallback also uses `uvx --from memoir-ai memoir` transparently when the bare `memoir` binary isn't on PATH.
+
+### Alternative: `pipx`
+
+```bash
+pipx install memoir-ai
+```
+
+### Universal fallback: `pip`
 
 ```bash
 pip install memoir-ai
 ```
 
-The distribution name on PyPI is `memoir-ai` (the `memoir` name was already taken). After install, the Python import is still `import memoir`.
+The distribution name on PyPI is `memoir-ai` (the `memoir` name was already taken). After install, the Python import is still `import memoir` and the CLI command is `memoir`.
 
 ## Development Installation
 

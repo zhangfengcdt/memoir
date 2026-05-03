@@ -20,4 +20,10 @@ fi
 
 STORE="${MEMOIR_STORE:-$(bash "$SCRIPT_DIR/derive-store-path.sh")}"
 
+# First-time-user safety net — see remember-args.sh for the rationale.
+bash "$SCRIPT_DIR/ensure-store.sh" "$STORE" >/dev/null || {
+  echo "ERROR: failed to bootstrap memoir store at $STORE" >&2
+  exit 1
+}
+
 exec "${MEMOIR_CMD_ARGV[@]}" --json -s "$STORE" status

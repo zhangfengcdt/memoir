@@ -65,7 +65,13 @@ Inside a Claude Code session, run:
 /plugin install memoir@memoir
 ```
 
-No need to `pip install memoir-ai` first — if you have `uv` (or `uvx`) on PATH, the plugin will fetch the CLI on demand via `uvx --from memoir-ai memoir`. It registers hooks for session start, user-prompt-submit, and stop, so your project gets automatic context injection and auto-captured memories. See the [Claude Code plugin guide](https://zhangfengcdt.github.io/memoir/claude_code/) for the full slash-command and hook reference.
+**No manual `pip install` needed if you have `uv` on PATH** — the plugin auto-resolves to `uvx --from memoir-ai memoir` when the bare `memoir` binary isn't installed. Don't have `uv`? Install it once with the standard one-liner:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+That's enough — the plugin handles the rest. It registers hooks for session start, user-prompt-submit, and stop, so your project gets automatic context injection and auto-captured memories. See the [Claude Code plugin guide](https://zhangfengcdt.github.io/memoir/claude_code/) for the full slash-command and hook reference.
 
 ## Quick look
 

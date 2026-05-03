@@ -29,6 +29,16 @@ fi
 
 STORE="${MEMOIR_STORE:-$(bash "$SCRIPT_DIR/derive-store-path.sh")}"
 
+# First-time-user safety net: SessionStart is supposed to create the store,
+# but if memoir wasn't installed when SessionStart fired (or the user
+# installed memoir mid-session and then ran a slash command without
+# restarting Claude Code) the store directory won't exist. Materialize it
+# now so /memoir:remember just works instead of erroring "Store not found".
+bash "$SCRIPT_DIR/ensure-store.sh" "$STORE" >/dev/null || {
+  echo "ERROR: failed to bootstrap memoir store at $STORE" >&2
+  exit 1
+}
+
 content=""
 flags=()
 while [ "$#" -gt 0 ]; do
