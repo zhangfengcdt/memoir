@@ -163,23 +163,27 @@ Use only when the question is explicitly about evolution.
 - **Defer to `memoir-onboard`** for repo-shape questions ("what does this project do"). That skill owns `codebase:onboard`; this one owns the `default` namespace.
 - **Always exclude `metrics.*`** unless `INCLUDE_METRICS=1` is set from args.
 
-## Output format
+## Output format — RAW, no synthesis
 
-**First line MUST be a mode marker:**
+You are a retrieval primitive, not a synthesizer. The PARENT Claude that invoked you will do any grouping/judging/summarizing in its own reply to the user. Your job is to return the raw recalled facts as fast as possible.
 
-- `[mode=get]` — direct path lookup
-- `[mode=fast]` — small-store single-shot (≤1000 memories)
-- `[mode=drill]` — hierarchical drill-down
-- `[mode=flat]` — single-glob scope
-- `[mode=blame]` — provenance
-- `[mode=diff]` — cross-commit/branch
+**Structure of your reply (strict):**
 
-Combine when chained (e.g. `[mode=drill+blame]`).
+1. **Line 1: mode marker.** Exactly one of `[mode=get]`, `[mode=fast]`, `[mode=drill]`, `[mode=flat]`, `[mode=blame]`, `[mode=diff]`. Combine with `+` when chained (e.g. `[mode=drill+blame]`).
+2. **Line 2: count line.** `recalled <N> of <total> memories` where `<total>` is from the count gate and `<N>` is the number you fetched.
+3. **Body: one entry per recalled memory, no prose around it.** Format each entry as:
+   ```
+   - <key>: <value.content trimmed to one line>
+   ```
+   Do not group by theme. Do not add section headers. Do not add commentary. Do not write "Bottom line" / "Closest neighbor" / "Adjacent context". Do not paraphrase — copy `value.content` verbatim (truncate to ~200 chars if multi-paragraph, append `…`).
+4. **If no memories were relevant**, output exactly two lines: the mode marker, then `No relevant memories found.` Nothing else.
 
-After the marker, return a curated summary. For each relevant memory include:
+**Forbidden in your output:**
 
-- The fact (`value.content` from `get`).
-- The taxonomy path (`key`).
-- Source (`blame` commit/date if escalated, else "recalled").
+- Themed groupings ("Commercial / business model", "Recall architecture", etc.)
+- Re-phrasing or summarizing the memory contents
+- "Bottom line:" / "Closest hits:" / "Adjacent:" framing
+- Apologetic prose ("Note that …", "Caveat: …", "Worth noting …")
+- Markdown headers (`##`, `###`)
 
-Be concise. Only include what's genuinely useful. If nothing relevant exists, say "No relevant memories found." — do not fabricate.
+The parent Claude has the user's full context and will compose the human-facing answer. Your job: dump the facts; let the caller render them.
