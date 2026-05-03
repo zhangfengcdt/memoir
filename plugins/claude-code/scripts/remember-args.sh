@@ -19,6 +19,14 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# shellcheck source=resolve-memoir-cli.sh
+source "$SCRIPT_DIR/resolve-memoir-cli.sh"
+
+if [ "${#MEMOIR_CMD_ARGV[@]}" -eq 0 ]; then
+  echo "ERROR: $MEMOIR_INSTALL_HINT" >&2
+  exit 127
+fi
+
 STORE="${MEMOIR_STORE:-$(bash "$SCRIPT_DIR/derive-store-path.sh")}"
 
 content=""
@@ -52,8 +60,8 @@ fi
 # Bash 3.2 / nounset safety: only expand the flags array when it has entries.
 if [ "${#flags[@]}" -gt 0 ]; then
   exec env MEMOIR_LLM_BACKEND=claude-cli \
-    memoir --json -s "$STORE" remember "$content" "${flags[@]}"
+    "${MEMOIR_CMD_ARGV[@]}" --json -s "$STORE" remember "$content" "${flags[@]}"
 else
   exec env MEMOIR_LLM_BACKEND=claude-cli \
-    memoir --json -s "$STORE" remember "$content"
+    "${MEMOIR_CMD_ARGV[@]}" --json -s "$STORE" remember "$content"
 fi
