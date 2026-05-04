@@ -4,9 +4,10 @@
 # Conventions used throughout:
 #   - memoir's global flags (--json, -s) must be passed BEFORE the subcommand.
 #   - CLI resolution: prefer `memoir` on PATH; if missing, fall back to
-#     `uvx --from memoir-ai memoir` when `uv` is available (no global install,
-#     no env pollution, one-time cache warmup). If neither is available we
-#     surface an install hint in the status line and disable capture/recall.
+#     `uvx --from memoir-ai==<pin> memoir` when `uv` is available (no global
+#     install, no env pollution, one-time cache warmup). The pin lives in
+#     scripts/resolve-memoir-cli.sh (MEMOIR_AI_PIN). If neither is available
+#     we surface an install hint in the status line and disable capture/recall.
 
 set -euo pipefail
 

@@ -20,7 +20,7 @@ Hooks register on the next session start. Each project gets its own store at `~/
 The plugin shells out to the `memoir` CLI. It picks, in order:
 
 1. **`memoir` on `PATH`** — install with `pip install memoir-ai`, `pipx install memoir-ai`, or `uv tool install memoir-ai`.
-2. **`uvx` on `PATH`** — transparent fallback as `uvx --from memoir-ai memoir …` (~1s first-run warmup, zero install).
+2. **`uvx` on `PATH`** — transparent fallback as `uvx --from memoir-ai==<pinned> memoir …` (~1s first-run warmup, zero install). The pin is set in `scripts/resolve-memoir-cli.sh` (`MEMOIR_AI_PIN`) so a silent PyPI publish can't change behavior under you.
 3. **Neither** — the plugin disables capture/recall and surfaces an install hint in the status line.
 
 LLM calls inherit Claude Code's auth automatically (`MEMOIR_LLM_BACKEND=claude-cli`, `MEMOIR_LLM_MODEL=claude-haiku-4-5`). Override `MEMOIR_LLM_MODEL` in your shell for `sonnet` / `opus`.

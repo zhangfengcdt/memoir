@@ -17,7 +17,7 @@ STORE="${MEMOIR_STORE:-$(bash "$CLAUDE_PLUGIN_ROOT/scripts/derive-store-path.sh"
 MEMOIR="$CLAUDE_PLUGIN_ROOT/scripts/memoir-cli.sh"
 ```
 
-`$MEMOIR` is a wrapper that resolves the right invocation for this machine — `memoir` on PATH if installed, otherwise `uvx --from memoir-ai memoir`, otherwise `uv tool run --from memoir-ai memoir`. Always call it as `"$MEMOIR" …` (NOT bare `memoir …`); that way recall works on machines where memoir isn't `pip install`ed but `uv` is.
+`$MEMOIR` is a wrapper that resolves the right invocation for this machine — `memoir` on PATH if installed, otherwise `uvx --from memoir-ai==<pin> memoir`, otherwise `uv tool run --from memoir-ai==<pin> memoir` (pin lives in `scripts/resolve-memoir-cli.sh`). Always call it as `"$MEMOIR" …` (NOT bare `memoir …`); that way recall works on machines where memoir isn't `pip install`ed but `uv` is.
 
 Pass `-s "$STORE"` on **every** call. Memoir's connected-default is frequently stale and is the #1 reason recall silently returns wrong data.
 

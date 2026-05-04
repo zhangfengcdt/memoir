@@ -10,7 +10,8 @@ exec < /dev/null
 source "$SCRIPT_DIR/common.sh"
 
 # If neither `memoir` nor `uv`/`uvx` is available, surface an install hint.
-# With uv present, the plugin transparently shells out via `uvx --from memoir-ai memoir`.
+# With uv present, the plugin transparently shells out via
+# `uvx --from memoir-ai==<pin> memoir` (pin in scripts/resolve-memoir-cli.sh).
 if [ -z "$MEMOIR_CMD" ]; then
   status="[memoir] $MEMOIR_INSTALL_HINT Capture/recall disabled."
   json_status=$(_json_encode_str "$status")

@@ -29,7 +29,7 @@ STORE_PATH="${MEMOIR_STORE:-$(bash "${CLAUDE_PLUGIN_ROOT}/scripts/derive-store-p
 MEMOIR="${CLAUDE_PLUGIN_ROOT}/scripts/memoir-cli.sh"
 ```
 
-`$MEMOIR` is a wrapper that resolves the right invocation for this machine — `memoir` on PATH if installed, otherwise `uvx --from memoir-ai memoir`, otherwise `uv tool run --from memoir-ai memoir`. Always invoke it as `"$MEMOIR" …`; bare `memoir` will fail on machines that only have `uv` installed.
+`$MEMOIR` is a wrapper that resolves the right invocation for this machine — `memoir` on PATH if installed, otherwise `uvx --from memoir-ai==<pin> memoir`, otherwise `uv tool run --from memoir-ai==<pin> memoir` (pin lives in `scripts/resolve-memoir-cli.sh`). Always invoke it as `"$MEMOIR" …`; bare `memoir` will fail on machines that only have `uv` installed.
 
 Then use `$STORE_PATH` and `$MEMOIR` everywhere below. **Do not** rely on memoir's connected default (`~/.config/memoir/config.json`) — it is frequently stale and can point at a different per-project store from a previous plugin version, which is the #1 cause of writes silently landing in the wrong store. Always verify with the confirmation check below before doing real work.
 
