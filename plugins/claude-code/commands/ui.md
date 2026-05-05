@@ -57,6 +57,7 @@ If the helper exits non-zero, print its stderr back to the user under a one-line
 ## Rules
 
 - Do NOT pass `--no-browser` — the CLI's built-in `webbrowser.open()` is what we want.
+- Do NOT run `open <url>` (or `xdg-open`, `start`, etc.) after the helper — the helper already opens the browser exactly once. A second open creates a duplicate tab. This is true for both `reused: true` (helper re-opens) and `reused: false` (CLI auto-opens on bind).
 - Do NOT pass `--no-readonly` or `--usellm` — chat-triggered launches stay in the safe default (readonly, no-LLM). The reply tells the user exactly how to relaunch with those flags from a terminal if they want more.
 - Do NOT block the turn waiting on the server. The helper returns within ~3 seconds whether it launched or reused.
 - Do NOT invoke `memoir ui` directly. Always go through the helper so the pidfile bookkeeping stays consistent.
