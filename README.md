@@ -48,6 +48,14 @@ Today's AI memory — `CLAUDE.md`, vector stores, scratchpads — is treated lik
 - **Clean Architecture** — Proper separation of storage, classification, and search layers.
 - **Multiple Search Engines** — Choose between fast keyword-based or intelligent LLM-powered search.
 
+## Multi-agent sessions
+
+<p align="center">
+  <img src="docs/_static/memoir-multi-agent.gif" alt="Multiple agent sessions working with Memoir" width="900">
+  <br>
+  <em>Multiple agent sessions working with Memoir.</em>
+</p>
+
 ## Install from PyPI
 
 ```bash
