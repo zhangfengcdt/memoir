@@ -19,7 +19,7 @@
 [![Docs](https://img.shields.io/badge/Docs-zhangfengcdt.github.io%2Fmemoir-blue.svg)](https://zhangfengcdt.github.io/memoir/)
 
 <p align="center">
-  <img src="docs/_static/memoir-demo.gif" alt="Memoir demo" width="900">
+  <video src="docs/_static/memoir-demo.mp4" controls muted playsinline width="900"></video>
 </p>
 
 Memoir is a high-performance semantic memory system for AI agents that brings Git-like version control to AI memory management. It replaces opaque vector databases with transparent, versioned, cryptographically secure memory storage using hierarchical semantic paths.
