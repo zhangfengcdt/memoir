@@ -23,7 +23,15 @@ from memoir.cli.main import (
 
 @click.command()
 @click.argument("content")
-@click.option("-n", "--namespace", default="default", help="Memory namespace")
+@click.option(
+    "-n",
+    "--namespace",
+    default=None,
+    help=(
+        "Memory namespace. If omitted, inferred from a `<namespace>:<path>` "
+        "prefix on -p (when present); otherwise falls back to 'default'."
+    ),
+)
 @click.option(
     "-p",
     "--path",
@@ -32,10 +40,12 @@ from memoir.cli.main import (
     help=(
         "Pre-classified taxonomy path (e.g. 'preferences.coding.languages'). "
         "When given, skips memoir's LLM classifier entirely and stores at this "
-        "path directly. Pass -p multiple times to write the same content to "
-        "several paths in one call; each blob's `related_keys` field will list "
-        "the other sibling paths (excluding self). Use for bulk imports or when "
-        "the caller has already classified the content."
+        "path directly. May include a `<namespace>:` prefix "
+        "(e.g. 'default:preferences.coding.languages') — the namespace is then "
+        "inferred from the prefix when -n is omitted. Pass -p multiple times "
+        "to write the same content to several paths in one call; each blob's "
+        "`related_keys` field will list the other sibling paths (excluding "
+        "self). All -p prefixes (and any explicit -n) must agree."
     ),
 )
 @click.option(
@@ -51,7 +61,11 @@ from memoir.cli.main import (
 )
 @pass_context
 def remember(
-    ctx: MemoirContext, content: str, namespace: str, paths: tuple, model: str | None
+    ctx: MemoirContext,
+    content: str,
+    namespace: str | None,
+    paths: tuple,
+    model: str | None,
 ):
     """Store content in memory with intelligent classification.
 
@@ -87,11 +101,51 @@ def remember(
 
     from memoir.services.memory_service import MemoryService
 
+    # Parse optional `<namespace>:<path>` prefix on each -p value. Taxonomy
+    # paths are dot-segmented and never contain ':', so a leftmost ':' is an
+    # unambiguous namespace separator. All prefixes must agree with each
+    # other and with any explicit -n; conflicts hard-error rather than
+    # silently picking one (a write to the wrong namespace is hard to find).
+    paths_list: list[str] | None = None
+    inferred_ns: str | None = None
+    if paths:
+        cleaned: list[str] = []
+        for raw in paths:
+            if ":" in raw:
+                prefix, _, rest = raw.partition(":")
+                if not prefix or not rest:
+                    ctx.error(
+                        f"Invalid -p value '{raw}': namespace prefix and path "
+                        "must both be non-empty.",
+                        EXIT_ERROR,
+                    )
+                if inferred_ns is None:
+                    inferred_ns = prefix
+                elif inferred_ns != prefix:
+                    ctx.error(
+                        f"Conflicting namespace prefixes on -p: "
+                        f"'{inferred_ns}' vs '{prefix}'.",
+                        EXIT_ERROR,
+                    )
+                cleaned.append(rest)
+            else:
+                cleaned.append(raw)
+        paths_list = cleaned
+
+    if namespace is not None and inferred_ns is not None and namespace != inferred_ns:
+        ctx.error(
+            f"-n '{namespace}' conflicts with namespace prefix on -p "
+            f"'{inferred_ns}:...'.",
+            EXIT_ERROR,
+        )
+    effective_namespace = namespace or inferred_ns or "default"
+
     service = MemoryService(ctx.store_path, llm_model=model)
-    paths_list = list(paths) if paths else None
 
     try:
-        result = asyncio.run(service.remember(content, namespace, paths=paths_list))
+        result = asyncio.run(
+            service.remember(content, effective_namespace, paths=paths_list)
+        )
 
         if ctx.json_output:
             ctx.output(result.to_dict())
