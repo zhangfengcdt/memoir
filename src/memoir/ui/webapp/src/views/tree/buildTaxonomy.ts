@@ -141,3 +141,24 @@ export function walkTree(
   visit(node, depth);
   for (const c of node.children) walkTree(c, visit, depth + 1);
 }
+
+/**
+ * Return a clone of ``root`` with no node deeper than ``maxDepth``
+ * segments below the synthetic namespace root.
+ *
+ *   maxDepth = 1 → keep only top-level segments (workflow, metrics, …)
+ *   maxDepth = 2 → keep up to two segments
+ *   maxDepth = 3 → keep up to three segments
+ *
+ * Counts at the cutoff nodes are preserved (they already represent the
+ * full descendant total), so the user can still see how much was rolled
+ * up. The original tree is not mutated.
+ */
+export function pruneToDepth(root: TreeNode, maxDepth: number): TreeNode {
+  if (maxDepth <= 0) return { ...root, children: [] };
+  const cloneAt = (n: TreeNode, depth: number): TreeNode => {
+    if (depth >= maxDepth) return { ...n, children: [] };
+    return { ...n, children: n.children.map((c) => cloneAt(c, depth + 1)) };
+  };
+  return cloneAt(root, 0);
+}

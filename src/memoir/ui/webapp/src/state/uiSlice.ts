@@ -31,6 +31,15 @@ export const VISIBLE_VIEW_KEYS: ViewKey[] = ["commits", "tree", "graph"];
 export const AUTO_REFRESH_MS = 3000;
 
 /**
+ * Maximum taxonomy depth shown in the Outline / Map views.
+ *   "all" → unlimited (default)
+ *   1/2/3 → keep paths trimmed to that many segments
+ */
+export type DepthFilter = "all" | 1 | 2 | 3;
+
+export const DEPTH_OPTIONS: DepthFilter[] = ["all", 1, 2, 3];
+
+/**
  * A single slide-in panel on the drawer stack. The drawer shows the
  * top-most panel; the breadcrumb lists everything below so users can
  * jump back with one click.
@@ -59,9 +68,16 @@ interface PersistedUI {
   activeView: ViewKey;
   leftCollapsed: boolean;
   selectedNamespace: string | null;
+  keyInclude: string;
+  keyExclude: string;
+  depthFilter: DepthFilter;
 }
 
 const PERSIST_KEY = "memoir:ui:v1";
+
+function isDepthFilter(v: unknown): v is DepthFilter {
+  return v === "all" || v === 1 || v === 2 || v === 3;
+}
 
 const persist = makeStorage<PersistedUI>(
   PERSIST_KEY,
@@ -69,7 +85,14 @@ const persist = makeStorage<PersistedUI>(
   // the ``default`` namespace so the Tree view shows real data right away
   // (the most common case is the user only ever has the ``default`` ns).
   // Users can still pick "All namespaces" — that choice persists.
-  { activeView: "commits", leftCollapsed: false, selectedNamespace: "default" },
+  {
+    activeView: "commits",
+    leftCollapsed: false,
+    selectedNamespace: "default",
+    keyInclude: "",
+    keyExclude: "",
+    depthFilter: "all",
+  },
   (raw) => {
     if (!raw || typeof raw !== "object") return null;
     const obj = raw as Record<string, unknown>;
@@ -81,10 +104,18 @@ const persist = makeStorage<PersistedUI>(
     }
     if (typeof collapsed !== "boolean") return null;
     if (ns !== null && typeof ns !== "string") return null;
+    // Filter fields are optional for forward-compat with prefs written
+    // by older builds; missing values fall back to the defaults.
+    const keyInclude = typeof obj.keyInclude === "string" ? obj.keyInclude : "";
+    const keyExclude = typeof obj.keyExclude === "string" ? obj.keyExclude : "";
+    const depthFilter = isDepthFilter(obj.depthFilter) ? obj.depthFilter : "all";
     return {
       activeView: view as ViewKey,
       leftCollapsed: collapsed,
       selectedNamespace: ns,
+      keyInclude,
+      keyExclude,
+      depthFilter,
     };
   },
 );
@@ -106,11 +137,23 @@ interface UISlice {
   /** Namespace filter for the right-hand views.
    *  ``null`` means "All namespaces". Persists across reloads. */
   selectedNamespace: string | null;
+  /** Wildcard pattern that memory paths must match to appear in the
+   *  Outline / Map views. Empty = no filter. Persists. */
+  keyInclude: string;
+  /** Wildcard pattern that memory paths must NOT match. Empty = no
+   *  filter. Applied after ``keyInclude``. Persists. */
+  keyExclude: string;
+  /** Maximum taxonomy depth shown in the Outline / Map views. Persists. */
+  depthFilter: DepthFilter;
 
   setActiveView: (view: ViewKey) => void;
   toggleLeft: () => void;
   setLeftCollapsed: (collapsed: boolean) => void;
   setSelectedNamespace: (ns: string | null) => void;
+  setKeyInclude: (pattern: string) => void;
+  setKeyExclude: (pattern: string) => void;
+  setDepthFilter: (depth: DepthFilter) => void;
+  clearFilters: () => void;
   openStats: () => void;
   closeStats: () => void;
   toggleStats: () => void;
@@ -161,6 +204,9 @@ function snapshot(state: UISlice): PersistedUI {
     activeView: state.activeView,
     leftCollapsed: state.leftCollapsed,
     selectedNamespace: state.selectedNamespace,
+    keyInclude: state.keyInclude,
+    keyExclude: state.keyExclude,
+    depthFilter: state.depthFilter,
   };
 }
 
@@ -174,6 +220,9 @@ export const useUI = create<UISlice>((set) => ({
   branchCommitsTarget: null,
   autoRefresh: false,
   selectedNamespace: initial.selectedNamespace,
+  keyInclude: initial.keyInclude,
+  keyExclude: initial.keyExclude,
+  depthFilter: initial.depthFilter,
 
   setActiveView(view) {
     set({ activeView: view });
@@ -189,6 +238,22 @@ export const useUI = create<UISlice>((set) => ({
   },
   setSelectedNamespace(ns) {
     set({ selectedNamespace: ns });
+    persistFromState(snapshot(useUI.getState()));
+  },
+  setKeyInclude(pattern) {
+    set({ keyInclude: pattern });
+    persistFromState(snapshot(useUI.getState()));
+  },
+  setKeyExclude(pattern) {
+    set({ keyExclude: pattern });
+    persistFromState(snapshot(useUI.getState()));
+  },
+  setDepthFilter(depth) {
+    set({ depthFilter: depth });
+    persistFromState(snapshot(useUI.getState()));
+  },
+  clearFilters() {
+    set({ keyInclude: "", keyExclude: "", depthFilter: "all" });
     persistFromState(snapshot(useUI.getState()));
   },
   openStats() {
