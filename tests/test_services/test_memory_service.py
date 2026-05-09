@@ -214,18 +214,79 @@ class TestMemoryServiceRemember:
 
     @pytest.mark.asyncio
     async def test_remember_edit_preserves_related_keys(self, memory_service):
-        """Editing one path of a multi-key memory keeps the sibling reference."""
+        """Editing one path of a multi-key memory keeps the sibling reference
+        and appends the new content as an [update] paragraph."""
         await memory_service.remember(
             "v1",
             paths=["preferences.coding.methodology", "preferences.tooling.terminal"],
         )
-        # Subsequent path-only write to one key should not clobber siblings.
+        # Subsequent path-only write to one key should not clobber siblings,
+        # and content should be appended (not replaced).
         await memory_service.remember("v2", paths=["preferences.coding.methodology"])
 
         get_a = memory_service.get(["preferences.coding.methodology"], "default")
         blob_a = get_a.items[0]["value"]
-        assert blob_a["content"] == "v2"
+        assert blob_a["content"] == "v1\n\n[update] v2"
         assert "preferences.tooling.terminal" in blob_a["related_keys"]
+
+    @pytest.mark.asyncio
+    async def test_remember_path_appends_on_existing(self, memory_service):
+        """Second -p write to an existing key appends with [update] marker."""
+        await memory_service.remember(
+            "first fact", paths=["context.project.append_test"]
+        )
+        await memory_service.remember(
+            "second fact", paths=["context.project.append_test"]
+        )
+
+        blob = memory_service.get(["context.project.append_test"]).items[0]["value"]
+        assert blob["content"] == "first fact\n\n[update] second fact"
+
+    @pytest.mark.asyncio
+    async def test_remember_path_appends_repeatedly(self, memory_service):
+        """Three writes stack two [update] paragraphs onto the original."""
+        path = "context.project.stack_test"
+        await memory_service.remember("a", paths=[path])
+        await memory_service.remember("b", paths=[path])
+        await memory_service.remember("c", paths=[path])
+
+        blob = memory_service.get([path]).items[0]["value"]
+        assert blob["content"] == "a\n\n[update] b\n\n[update] c"
+
+    @pytest.mark.asyncio
+    async def test_remember_path_duplicate_still_appends(self, memory_service):
+        """Identical content submitted twice is appended verbatim (no dedup)."""
+        path = "context.project.dup_test"
+        await memory_service.remember("same", paths=[path])
+        await memory_service.remember("same", paths=[path])
+
+        blob = memory_service.get([path]).items[0]["value"]
+        assert blob["content"] == "same\n\n[update] same"
+
+    @pytest.mark.asyncio
+    async def test_remember_path_mixed_existing_independent(self, memory_service):
+        """Multi-path -p with one existing and one fresh path: each behaves
+        independently (existing appends, fresh stores plain)."""
+        existing_path = "context.project.mixed_existing"
+        fresh_path = "context.project.mixed_fresh"
+
+        await memory_service.remember("orig", paths=[existing_path])
+        await memory_service.remember("new", paths=[existing_path, fresh_path])
+
+        existing_blob = memory_service.get([existing_path]).items[0]["value"]
+        fresh_blob = memory_service.get([fresh_path]).items[0]["value"]
+        assert existing_blob["content"] == "orig\n\n[update] new"
+        assert fresh_blob["content"] == "new"
+
+    @pytest.mark.asyncio
+    async def test_remember_path_first_write_is_plain(self, memory_service):
+        """First -p write at a fresh key stores the content verbatim
+        (no [update] marker)."""
+        path = "context.project.fresh_test"
+        await memory_service.remember("only fact", paths=[path])
+
+        blob = memory_service.get([path]).items[0]["value"]
+        assert blob["content"] == "only fact"
 
 
 class TestMemoryServiceEdgeCases:
