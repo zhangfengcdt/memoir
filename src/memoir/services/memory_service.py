@@ -191,54 +191,30 @@ class MemoryService(BaseService):
                 else f"Path provided by caller; classifier skipped: {key}"
             )
         else:
-            try:
-                classifier = self._get_classifier()
-                current_date = datetime.now().strftime("%Y-%m-%d")
+            classifier = self._get_classifier()
+            current_date = datetime.now().strftime("%Y-%m-%d")
 
-                result = await classifier.classify_input(
-                    content,
-                    metadata={"session_date": current_date},
-                    return_prompt=True,
+            result = await classifier.classify_input(
+                content,
+                metadata={"session_date": current_date},
+                return_prompt=True,
+            )
+
+            confidence = result.confidence
+
+            if result.paths and len(result.paths) > 1:
+                keys = result.paths
+                key = keys[0]
+                reasoning = (
+                    f"Multi-label classified as {keys} (confidence: {confidence:.2f})"
                 )
+            else:
+                key = result.path if result.path else "context.current.session"
+                keys = [key]
+                reasoning = f"Classified as {key} (confidence: {confidence:.2f})"
 
-                confidence = result.confidence
-
-                # Handle multi-label classification
-                if result.paths and len(result.paths) > 1:
-                    keys = result.paths
-                    key = keys[0]
-                    reasoning = f"Multi-label classified as {keys} (confidence: {confidence:.2f})"
-                else:
-                    key = result.path if result.path else "context.current.session"
-                    keys = [key]
-                    reasoning = f"Classified as {key} (confidence: {confidence:.2f})"
-
-                timeline_events = result.timeline_events
-                location_events = result.location_events
-
-            except Exception as e:
-                logger.warning(
-                    f"LLM classification failed: {e}, using pattern matching"
-                )
-                try:
-                    from memoir.classifier.semantic import SemanticClassifier
-
-                    semantic_classifier = SemanticClassifier()
-                    result = await semantic_classifier.classify_async(content)
-                    key = result.primary_path
-                    keys = [key]
-                    confidence = result.confidence
-                    reasoning = (
-                        f"Pattern-matched as {key} (confidence: {confidence:.2f})"
-                    )
-                except Exception as e2:
-                    logger.warning(
-                        f"Pattern matching failed: {e2}, using timestamp fallback"
-                    )
-                    key = f"memory.{int(time.time())}"
-                    keys = [key]
-                    confidence = 1.0
-                    reasoning = "Fallback to timestamp key due to classification error"
+            timeline_events = result.timeline_events
+            location_events = result.location_events
 
         step_timings["step2_classification"] = round(time.time() - step2_start, 3)
 

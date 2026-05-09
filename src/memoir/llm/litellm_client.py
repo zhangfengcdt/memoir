@@ -408,9 +408,34 @@ def get_llm(
     # Validate API keys for known providers
     if model_lower.startswith("anthropic/") or "claude" in model_lower:
         if not os.getenv("ANTHROPIC_API_KEY") and not api_key:
+            # No direct API key — transparently switch to the claude-cli
+            # backend if the local `claude` binary is reachable. This rides
+            # Claude Code's auth (subscription OAuth or keychain) so memoir
+            # works out of the box under Claude Code without an API key.
+            # Slower per call (subprocess overhead) but functionally correct.
+            import shutil
+
+            if shutil.which("claude"):
+                from memoir.llm.claude_cli_client import ClaudeCLIWrapper
+
+                logger.info(
+                    "ANTHROPIC_API_KEY not set; using claude CLI auth "
+                    "(slower per call). Set the key for direct-API speed."
+                )
+                cli_model = model.removeprefix("anthropic/")
+                return ClaudeCLIWrapper(
+                    model=cli_model,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    base_url=base_url,
+                    api_key=api_key,
+                    enable_prompt_cache=enable_prompt_cache,
+                    debug_cache=debug_cache,
+                )
             raise ValueError(
                 "ANTHROPIC_API_KEY environment variable is required for Claude models. "
-                "Set it with: export ANTHROPIC_API_KEY=your-api-key-here"
+                "Set it with: export ANTHROPIC_API_KEY=your-api-key-here, "
+                "or install the `claude` CLI to use Claude Code auth."
             )
     elif model_lower.startswith("gemini/"):
         if not os.getenv("GEMINI_API_KEY") and not api_key:
