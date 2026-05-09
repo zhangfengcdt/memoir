@@ -147,6 +147,12 @@ export default function StatsModal() {
   // newest-first regardless of which branch produced them. Tab hides when
   // there are no entries at all.
   const codeMetricsEntries = collectCodeMetricsEntries(metricsItems);
+  // Metrics tab is turn-only; code metrics power Code Changes. Hide the
+  // Metrics tab if there are no turn rows to show, otherwise the table
+  // would render empty when only metrics.code.* items exist.
+  const turnMetricsItems = metricsItems.filter((it) =>
+    it.key.startsWith("metrics.turn."),
+  );
   const sections: { key: TabKey; label: string }[] = [];
   for (const s of BASE_SECTIONS) {
     sections.push(s);
@@ -157,7 +163,7 @@ export default function StatsModal() {
       if (projectOnboardItems.length > 0) {
         sections.push({ key: "project", label: "Project" });
       }
-      if (metricsItems.length > 0) {
+      if (turnMetricsItems.length > 0) {
         sections.push({ key: "metrics", label: "Metrics" });
       }
       if (codeMetricsEntries.length > 0) {
@@ -899,7 +905,12 @@ function MetricsPanel({ items }: { items: MetricsItem[] }) {
     { key: "total_tool_result_chars", label: "Tool result chars" },
   ];
 
-  const rows = items.map((it) => ({
+  // Only turn metrics belong in this table — `metrics.code.*` items live
+  // under a different schema (changes timeline) and are surfaced on the
+  // Code Changes tab. Mixing them in here produced duplicate rows per
+  // branch with every column dashed out.
+  const turnItems = items.filter((it) => it.key.startsWith("metrics.turn."));
+  const rows = turnItems.map((it) => ({
     branch: it.branch ?? it.key,
     value: (it.value && typeof it.value === "object" ? it.value : {}) as Record<string, unknown>,
   }));
