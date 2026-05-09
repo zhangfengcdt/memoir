@@ -67,11 +67,17 @@ Observed behaviors of `claude -p` + plugin interaction.
    not the bash positional arg. Any slash-command bash block that needs
    true bash positional access must shell out to a real script under
    `plugins/claude-code/scripts/` so the markdown preprocessor never sees
-   the `$N` literals (see `commands/remember.md` → `scripts/remember-args.sh`
-   for the template). This caused two visible symptoms before being fixed:
-   (a) `/memoir:remember -p <path>` silently fell back to the LLM
-   classifier's `context.current.session` key, and (b) the quoted-args form
-   hung `claude -p` indefinitely.
+   the `$N` literals.
+
+   The related but distinct problem — `$ARGUMENTS` interpolated into a
+   `!`bash …`` exec gets *shell-tokenized*, mangling any content with
+   parens, semicolons, slashes, quotes, or newlines — has no shell-quoting
+   fix. `commands/remember.md` works around this by *not* using `!`bash``
+   exec at all: its body is instructions to the orchestrating Claude to
+   invoke memoir via the Bash tool with content passed through a
+   single-quoted heredoc, bypassing shell tokenization entirely. Any new
+   slash command that takes free-form user content should follow the same
+   pattern.
 
 2. **Stop hook gets `outcome:"cancelled"` in `-p` mode.** `claude -p` exits
    as soon as the result lands and kills the Stop hook mid-execution.

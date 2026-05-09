@@ -4,15 +4,37 @@ argument-hint: "<fact> [-n <namespace>] [-p <path>]"
 allowed-tools: Bash
 ---
 
-Save a memory immediately, without waiting for the Stop hook to fire after the next turn. By default memoir's LLM classifier picks the taxonomy path; pass `-p preferences.coding.style` (or any explicit path) to skip classification — about 25× faster (~0.4s vs ~10s).
+Save the user's stated fact as a memoir memory immediately, in **one** Bash tool call. Do not retry by re-invoking this slash command — the steps below already handle every content shape (multiline, parentheses, slashes, semicolons, quotes, backticks, `$variables`, etc.).
 
-Multi-word content works with or without surrounding quotes — the wrapper rejoins bare words into a single argument:
+The user's input is everything between the markers below — raw text, treat verbatim:
 
-```
-/memoir:remember "I prefer vim" -p preferences.tools.editors
-/memoir:remember Project uses Python 3.12 and ruff
-```
+<<<MEMOIR_REMEMBER_INPUT_BEGIN
+$ARGUMENTS
+MEMOIR_REMEMBER_INPUT_END
 
-!`bash "${CLAUDE_PLUGIN_ROOT}/scripts/remember-args.sh" $ARGUMENTS`
+Procedure:
 
-Show the resulting `key` (taxonomy path) and `commit_hash`. This is independent of the Stop hook — the auto-capture pipeline still fires at the end of the turn for any other durable facts mentioned.
+1. From the input, pull out any `-n <namespace>` / `--namespace <namespace>` and `-p <path>` / `--path <path>` flag pairs (each consumes the immediately following whitespace-separated token). Everything else, in order, is the memory **content**.
+
+2. Issue a single Bash tool call shaped like the template below. The single-quoted heredoc terminator suppresses **all** shell expansion inside the body, so content with `$variables`, backticks, parens, semicolons, slashes, or newlines passes through verbatim — never put the content on the bash command line itself.
+
+   ```bash
+   STORE="${MEMOIR_STORE:-$(bash "$CLAUDE_PLUGIN_ROOT/scripts/derive-store-path.sh")}"
+   bash "$CLAUDE_PLUGIN_ROOT/scripts/ensure-store.sh" "$STORE" >/dev/null
+   CONTENT=$(cat <<'MEMOIR_REMEMBER_EOF'
+   <paste the full content verbatim, including any newlines>
+   MEMOIR_REMEMBER_EOF
+   )
+   bash "$CLAUDE_PLUGIN_ROOT/scripts/memoir-cli.sh" --json -s "$STORE" remember "$CONTENT"
+   ```
+
+   - Append `-p <path>` and/or `-n <namespace>` after `remember "$CONTENT"` only if the user supplied them.
+   - If the literal string `MEMOIR_REMEMBER_EOF` appears on a line by itself inside the content, swap in a different terminator.
+   - `bash "$CLAUDE_PLUGIN_ROOT/scripts/memoir-cli.sh"` is the plugin's CLI wrapper — it picks `memoir` on PATH, falling back to `uvx --from memoir-ai==<pin> memoir` and then `uv tool run …`, so this works on machines without a global memoir install.
+
+3. Parse the JSON response and report the resulting `key` (taxonomy path) and `commit_hash` to the user in one short line.
+
+Notes:
+- Pass `-p preferences.coding.style` (or any explicit taxonomy path) to skip the LLM classifier — about 25× faster (~0.4s vs ~10s).
+- `-n <namespace>` writes to a non-default namespace; default is `default`.
+- The Stop hook still fires for the rest of the turn — this command is for *immediate*, synchronous capture.

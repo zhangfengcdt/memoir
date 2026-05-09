@@ -20,7 +20,7 @@ Capture stdout as `<STORE_PATH>`. The launch helper in Step 2 will auto-bootstra
 One Bash call does the whole job — the helper handles reuse, launch, and the browser open:
 
 ```bash
-bash "${CLAUDE_PLUGIN_ROOT}/scripts/memoir:ui-ctl.sh" start "<STORE_PATH>"
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/memoir-ui-ctl.sh" start "<STORE_PATH>"
 ```
 
 The helper prints a single-line JSON document on stdout:
