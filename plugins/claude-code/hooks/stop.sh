@@ -62,7 +62,7 @@ if [ "${MEMOIR_NO_METRICS:-}" != "1" ]; then
       | python3 -c "import json,sys; d=json.loads(sys.stdin.read() or '{}'); items=d.get('items') or [{}]; v=items[0].get('value') or {}; c=v.get('content'); print(c if isinstance(c,str) else '')" 2>/dev/null)
     MERGED=$(python3 "$SCRIPT_DIR/merge-metrics.py" "$PREV" "$DELTA" 2>/dev/null || true)
     if [ -n "$MERGED" ]; then
-      memoir_json remember "$MERGED" -p "$MKEY" >/dev/null 2>&1 || true
+      memoir_json remember "$MERGED" -p "$MKEY" --replace >/dev/null 2>&1 || true
     fi
   fi
 fi
@@ -157,8 +157,10 @@ sys.stdout.write(text[:1000])
             BRANCH_RAW="unknown"
           fi
           CCKEY="metrics.code.${BRANCH_RAW}"
-          # Read-merge-write the entries list. memoir remember -p replaces, so
-          # the hook owns the append (mirrors merge-metrics for metrics.turn).
+          # Read-merge-write the entries list. memoir remember -p --replace
+          # restores clobber semantics (default -p appends an [update] paragraph
+          # for free-text memory writes), so the hook owns the append at this
+          # level (mirrors merge-metrics for metrics.turn).
           PREV_CC=$(memoir_json get "$CCKEY" 2>/dev/null \
             | python3 -c "import json,sys; d=json.loads(sys.stdin.read() or '{}'); items=d.get('items') or [{}]; v=items[0].get('value') or {}; c=v.get('content'); print(c if isinstance(c,str) else '')" 2>/dev/null)
           MERGED_CC=$(SUMMARY="$SUMMARY" PREV_CC="$PREV_CC" \
@@ -191,7 +193,7 @@ if len(acc['entries']) > max_entries:
 print(json.dumps(acc))
 " 2>/dev/null || true)
           if [ -n "$MERGED_CC" ]; then
-            memoir_json remember "$MERGED_CC" -p "$CCKEY" >/dev/null 2>&1 || true
+            memoir_json remember "$MERGED_CC" -p "$CCKEY" --replace >/dev/null 2>&1 || true
           fi
         fi
       fi

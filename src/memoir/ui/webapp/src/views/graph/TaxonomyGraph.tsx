@@ -4,7 +4,14 @@ import type { Memory } from "../../api/types";
 import { useStore } from "../../state/storeSlice";
 import { useUI } from "../../state/uiSlice";
 import { useMemorySelection } from "../../state/memorySelectionSlice";
-import { buildTaxonomy, walkTree, type TreeNode } from "../tree/buildTaxonomy";
+import {
+  buildTaxonomy,
+  pruneToDepth,
+  walkTree,
+  type TreeNode,
+} from "../tree/buildTaxonomy";
+import { compileWildcard } from "../../lib/wildcard";
+import type { DepthFilter } from "../../state/uiSlice";
 import "./TaxonomyGraph.css";
 
 /**
@@ -44,6 +51,9 @@ export default function TaxonomyGraph() {
   const allMemories = useStore((s) => s.data?.memories ?? []);
   const connected = useStore((s) => s.status === "connected");
   const namespaceFilter = useUI((s) => s.selectedNamespace);
+  const keyInclude = useUI((s) => s.keyInclude);
+  const keyExclude = useUI((s) => s.keyExclude);
+  const depthFilter = useUI((s) => s.depthFilter);
   const select = useMemorySelection((s) => s.select);
   const selected = useMemorySelection((s) => s.selected);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -139,15 +149,21 @@ export default function TaxonomyGraph() {
 
   const selectedId = selected ? `${selected.namespace}:${selected.path}` : null;
 
-  const memories = useMemo(
-    () =>
-      namespaceFilter
-        ? allMemories.filter((m) => m.namespace === namespaceFilter)
-        : allMemories,
-    [allMemories, namespaceFilter],
-  );
+  const memories = useMemo(() => {
+    let out = namespaceFilter
+      ? allMemories.filter((m) => m.namespace === namespaceFilter)
+      : allMemories;
+    const include = compileWildcard(keyInclude);
+    if (include) out = out.filter((m) => include(m.path));
+    const exclude = compileWildcard(keyExclude);
+    if (exclude) out = out.filter((m) => !exclude(m.path));
+    return out;
+  }, [allMemories, namespaceFilter, keyInclude, keyExclude]);
 
-  const { nodes, links } = useMemo(() => buildGraph(memories), [memories]);
+  const { nodes, links } = useMemo(
+    () => buildGraph(memories, depthFilter),
+    [memories, depthFilter],
+  );
 
   useEffect(() => {
     const svg = svgRef.current;
@@ -464,11 +480,20 @@ export default function TaxonomyGraph() {
 
 // ----------------------------- helpers -----------------------------
 
-function buildGraph(memories: Memory[]): {
+function buildGraph(
+  memories: Memory[],
+  depthFilter: DepthFilter = "all",
+): {
   nodes: GraphNode[];
   links: GraphLink[];
 } {
-  const namespaces = buildTaxonomy(memories);
+  const built = buildTaxonomy(memories);
+  // Prune the per-namespace tree to the requested depth before walking,
+  // so both nodes and the links emitted from each parent stay in sync.
+  const namespaces =
+    depthFilter === "all"
+      ? built
+      : built.map((ns) => ({ ...ns, root: pruneToDepth(ns.root, depthFilter) }));
   const nodes: GraphNode[] = [];
   const links: GraphLink[] = [];
   const seen = new Set<string>();

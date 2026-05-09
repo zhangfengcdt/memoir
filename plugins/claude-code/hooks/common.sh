@@ -937,10 +937,11 @@ update_onboard_meta_after_sync() {
   [ -z "$code_sha" ] && return 0
   local date_iso
   date_iso=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-  "${MEMOIR_CMD_ARGV[@]}" -s "$MEMOIR_STORE_PATH" remember "$code_sha"  -p _meta.last_onboard.commit -n codebase:onboard >/dev/null 2>&1 || true
-  "${MEMOIR_CMD_ARGV[@]}" -s "$MEMOIR_STORE_PATH" remember "$date_iso"  -p _meta.last_onboard.date   -n codebase:onboard >/dev/null 2>&1 || true
+  # Scalar pointers (latest sha, date, memoir version) — overwrite, not append.
+  "${MEMOIR_CMD_ARGV[@]}" -s "$MEMOIR_STORE_PATH" remember "$code_sha"  -p _meta.last_onboard.commit -n codebase:onboard --replace >/dev/null 2>&1 || true
+  "${MEMOIR_CMD_ARGV[@]}" -s "$MEMOIR_STORE_PATH" remember "$date_iso"  -p _meta.last_onboard.date   -n codebase:onboard --replace >/dev/null 2>&1 || true
   if [ -n "$memoir_sha" ]; then
-    "${MEMOIR_CMD_ARGV[@]}" -s "$MEMOIR_STORE_PATH" remember "$memoir_sha" -p _meta.last_onboard.memoir_commit -n codebase:onboard >/dev/null 2>&1 || true
+    "${MEMOIR_CMD_ARGV[@]}" -s "$MEMOIR_STORE_PATH" remember "$memoir_sha" -p _meta.last_onboard.memoir_commit -n codebase:onboard --replace >/dev/null 2>&1 || true
   fi
   return 0
 }

@@ -8,6 +8,7 @@ import TaxonomyGraph from "../views/graph/TaxonomyGraph";
 import TimelineView from "../views/timeline/TimelineView";
 import PlacesView from "../views/places/PlacesView";
 import ViewToolbar from "./ViewToolbar";
+import FilterBar from "./FilterBar";
 import "./MainCanvas.css";
 
 const VIEW_LABELS: Record<ViewKey, { label: string; shortcut: string }> = {
@@ -105,6 +106,8 @@ export default function MainCanvas() {
           );
         })}
       </nav>
+
+      {connected && (active === "tree" || active === "graph") && <FilterBar />}
 
       <div className="view-body" role="tabpanel" aria-label={`${active} view`}>
         {connected ? (

@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildTaxonomy, splitTaxonomyPath, walkTree } from "./buildTaxonomy";
+import {
+  buildTaxonomy,
+  pruneToDepth,
+  splitTaxonomyPath,
+  walkTree,
+} from "./buildTaxonomy";
 import type { Memory } from "../../api/types";
 
 const mem = (namespace: string, path: string, content = "…"): Memory => ({
@@ -123,6 +128,58 @@ describe("buildTaxonomy", () => {
       "metrics.turn.feature/metric.codebase.stas",
     );
     expect(featureNode.children).toHaveLength(0);
+  });
+});
+
+describe("pruneToDepth", () => {
+  it("maxDepth=1 keeps only top-level segments", () => {
+    const ns = buildTaxonomy([
+      mem("default", "workflow.coding.style"),
+      mem("default", "workflow.git.commits"),
+      mem("default", "metrics.turn.main"),
+    ])[0];
+    const pruned = pruneToDepth(ns.root, 1);
+    expect(pruned.children.map((c) => c.name).sort()).toEqual([
+      "metrics",
+      "workflow",
+    ]);
+    for (const c of pruned.children) {
+      expect(c.children).toEqual([]);
+    }
+  });
+
+  it("maxDepth=2 keeps two levels and trims deeper", () => {
+    const ns = buildTaxonomy([
+      mem("default", "workflow.coding.style"),
+      mem("default", "workflow.coding.naming"),
+      mem("default", "workflow.git.commits"),
+    ])[0];
+    const pruned = pruneToDepth(ns.root, 2);
+    const workflow = pruned.children[0];
+    expect(workflow.children.map((c) => c.name).sort()).toEqual([
+      "coding",
+      "git",
+    ]);
+    for (const c of workflow.children) {
+      expect(c.children).toEqual([]);
+    }
+  });
+
+  it("preserves subtree counts at the cutoff", () => {
+    const ns = buildTaxonomy([
+      mem("default", "workflow.coding.style"),
+      mem("default", "workflow.git.commits"),
+    ])[0];
+    const pruned = pruneToDepth(ns.root, 1);
+    const workflow = pruned.children.find((c) => c.name === "workflow")!;
+    expect(workflow.count).toBe(2);
+  });
+
+  it("does not mutate the original tree", () => {
+    const ns = buildTaxonomy([mem("default", "a.b.c")])[0];
+    const before = JSON.stringify(ns.root);
+    pruneToDepth(ns.root, 1);
+    expect(JSON.stringify(ns.root)).toBe(before);
   });
 });
 

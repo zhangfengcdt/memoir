@@ -1,0 +1,109 @@
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-0);
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+}
+
+.filter-bar-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.filter-bar-label {
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.filter-bar-input {
+  width: 18ch;
+  height: 28px;
+  padding: 0 0.55rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-0);
+  background: var(--bg-1);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--duration-fast) var(--ease-out);
+}
+
+.filter-bar-input::placeholder {
+  color: var(--fg-3);
+}
+
+.filter-bar-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.filter-bar-depth {
+  /* Slightly tighter so the segmented control hugs its label. */
+  gap: var(--space-2);
+}
+
+.filter-bar-segmented {
+  display: inline-flex;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.filter-bar-segment {
+  height: 28px;
+  padding: 0 0.6rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--border-strong);
+  transition: background var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.filter-bar-segment:last-child {
+  border-right: 0;
+}
+
+.filter-bar-segment:hover:not(.active) {
+  color: var(--fg-0);
+  background: var(--bg-2);
+}
+
+.filter-bar-segment.active {
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.filter-bar-clear {
+  margin-left: auto;
+  height: 28px;
+  padding: 0 0.75rem;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
+}
+
+.filter-bar-clear:hover:not(:disabled) {
+  border-color: var(--fg-2);
+  color: var(--fg-0);
+}
+
+.filter-bar-clear:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

@@ -549,6 +549,175 @@ class TestMemoryCommands:
         data = json.loads(result.output)
         assert isinstance(data, dict)
 
+    def test_remember_path_namespace_prefix_inferred(self, runner, initialized_store):
+        """`-p custom:foo.bar` with no -n stores under namespace 'custom' at
+        path 'foo.bar' (not under namespace 'default' at literal key
+        'custom:foo.bar')."""
+        result = runner.invoke(
+            cli,
+            [
+                "--json",
+                "-s",
+                initialized_store,
+                "remember",
+                "fact one",
+                "-p",
+                "custom:foo.bar",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output[result.output.find("{") :])
+        assert data["success"]
+        assert data["namespace"] == "custom"
+        assert data["key"] == "foo.bar"
+        assert data["full_key"] == "custom:foo.bar"
+
+    def test_remember_path_prefix_matches_explicit_namespace(
+        self, runner, initialized_store
+    ):
+        """`-n default -p default:foo.bar` strips prefix silently."""
+        result = runner.invoke(
+            cli,
+            [
+                "--json",
+                "-s",
+                initialized_store,
+                "remember",
+                "fact",
+                "-n",
+                "default",
+                "-p",
+                "default:foo.bar",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output[result.output.find("{") :])
+        assert data["namespace"] == "default"
+        assert data["key"] == "foo.bar"
+
+    def test_remember_path_prefix_conflicts_explicit_namespace(
+        self, runner, initialized_store
+    ):
+        """`-n default -p other:foo` is a hard error."""
+        result = runner.invoke(
+            cli,
+            [
+                "-s",
+                initialized_store,
+                "remember",
+                "fact",
+                "-n",
+                "default",
+                "-p",
+                "other:foo",
+            ],
+        )
+        assert result.exit_code != 0
+        assert "conflicts" in result.output.lower()
+
+    def test_remember_two_paths_different_prefixes_error(
+        self, runner, initialized_store
+    ):
+        """Two -p with different namespace prefixes is a hard error."""
+        result = runner.invoke(
+            cli,
+            [
+                "-s",
+                initialized_store,
+                "remember",
+                "fact",
+                "-p",
+                "ns1:foo",
+                "-p",
+                "ns2:bar",
+            ],
+        )
+        assert result.exit_code != 0
+        assert "conflicting" in result.output.lower()
+
+    def test_remember_path_no_prefix_uses_default_namespace(
+        self, runner, initialized_store
+    ):
+        """`-p foo.bar` with no -n stores under namespace 'default'."""
+        result = runner.invoke(
+            cli,
+            [
+                "--json",
+                "-s",
+                initialized_store,
+                "remember",
+                "fact",
+                "-p",
+                "foo.bar",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output[result.output.find("{") :])
+        assert data["namespace"] == "default"
+        assert data["key"] == "foo.bar"
+
+    def test_remember_path_mixed_prefix_and_bare(self, runner, initialized_store):
+        """One -p with prefix + one without inherits the prefix's namespace."""
+        result = runner.invoke(
+            cli,
+            [
+                "--json",
+                "-s",
+                initialized_store,
+                "remember",
+                "fact",
+                "-p",
+                "scratch:a.b",
+                "-p",
+                "c.d",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.output[result.output.find("{") :])
+        assert data["namespace"] == "scratch"
+        assert set(data["keys"]) == {"a.b", "c.d"}
+
+    def test_remember_path_empty_prefix_or_path_error(self, runner, initialized_store):
+        """`-p :foo` and `-p foo:` both error."""
+        for bad in [":foo", "foo:"]:
+            result = runner.invoke(
+                cli,
+                ["-s", initialized_store, "remember", "fact", "-p", bad],
+            )
+            assert result.exit_code != 0, f"expected error for {bad!r}"
+
+    def test_remember_replace_flag_overrides_append(self, runner, initialized_store):
+        """`--replace` makes -p clobber instead of appending."""
+        path = "context.project.cli_replace_test"
+
+        result = runner.invoke(
+            cli,
+            ["--json", "-s", initialized_store, "remember", "first", "-p", path],
+        )
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke(
+            cli,
+            [
+                "--json",
+                "-s",
+                initialized_store,
+                "remember",
+                "second",
+                "-p",
+                path,
+                "--replace",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+
+        get_result = runner.invoke(
+            cli,
+            ["--json", "-s", initialized_store, "get", path],
+        )
+        data = json.loads(get_result.output[get_result.output.find("{") :])
+        assert data["items"][0]["value"]["content"] == "second"
+
 
 class TestEnvironmentVariables:
     """Test environment variable support."""

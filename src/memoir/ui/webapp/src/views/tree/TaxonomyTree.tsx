@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useStore } from "../../state/storeSlice";
 import { useMemorySelection } from "../../state/memorySelectionSlice";
 import { useUI } from "../../state/uiSlice";
-import { buildTaxonomy, walkTree } from "./buildTaxonomy";
+import { buildTaxonomy, pruneToDepth, walkTree } from "./buildTaxonomy";
+import { compileWildcard } from "../../lib/wildcard";
 import type { Memory } from "../../api/types";
 import TreeNodeView from "./TreeNodeView";
 import "./TaxonomyTree.css";
@@ -12,18 +13,31 @@ export default function TaxonomyTree() {
   const selected = useMemorySelection((s) => s.selected);
   const select = useMemorySelection((s) => s.select);
   const selectedNamespace = useUI((s) => s.selectedNamespace);
+  const keyInclude = useUI((s) => s.keyInclude);
+  const keyExclude = useUI((s) => s.keyExclude);
+  const depthFilter = useUI((s) => s.depthFilter);
 
-  // When the user has clicked a namespace in the LeftPane, hide the
-  // others. Null = "All namespaces" (the default).
-  const memories = useMemo(
-    () =>
-      selectedNamespace
-        ? allMemories.filter((m) => m.namespace === selectedNamespace)
-        : allMemories,
-    [allMemories, selectedNamespace],
-  );
+  // Apply (in order) namespace filter, include wildcard, exclude
+  // wildcard. Empty patterns are no-ops.
+  const memories = useMemo(() => {
+    let out = selectedNamespace
+      ? allMemories.filter((m) => m.namespace === selectedNamespace)
+      : allMemories;
+    const include = compileWildcard(keyInclude);
+    if (include) out = out.filter((m) => include(m.path));
+    const exclude = compileWildcard(keyExclude);
+    if (exclude) out = out.filter((m) => !exclude(m.path));
+    return out;
+  }, [allMemories, selectedNamespace, keyInclude, keyExclude]);
 
-  const namespaces = useMemo(() => buildTaxonomy(memories), [memories]);
+  const namespaces = useMemo(() => {
+    const trees = buildTaxonomy(memories);
+    if (depthFilter === "all") return trees;
+    return trees.map((ns) => ({
+      ...ns,
+      root: pruneToDepth(ns.root, depthFilter),
+    }));
+  }, [memories, depthFilter]);
 
   // Expansion state, keyed by "<namespace>:<fullPath>". Two namespaces
   // can legitimately share a prefix (e.g. both have "workflow"), so we
