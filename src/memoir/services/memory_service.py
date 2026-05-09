@@ -224,8 +224,8 @@ class MemoryService(BaseService):
                     from memoir.classifier.semantic import SemanticClassifier
 
                     semantic_classifier = SemanticClassifier()
-                    result = semantic_classifier.classify(content)
-                    key = result.path
+                    result = await semantic_classifier.classify_async(content)
+                    key = result.primary_path
                     keys = [key]
                     confidence = result.confidence
                     reasoning = (

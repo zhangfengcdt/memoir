@@ -19,6 +19,11 @@ Procedure:
 2. Issue a single Bash tool call shaped like the template below. The single-quoted heredoc terminator suppresses **all** shell expansion inside the body, so content with `$variables`, backticks, parens, semicolons, slashes, or newlines passes through verbatim — never put the content on the bash command line itself.
 
    ```bash
+   if [ ! -x "${CLAUDE_PLUGIN_ROOT:-}/scripts/memoir-cli.sh" ]; then
+     for c in "$(pwd)/plugins/claude-code" "${HOME}/.claude/plugins/marketplaces/memoir/plugins/claude-code"; do
+       if [ -x "$c/scripts/memoir-cli.sh" ]; then CLAUDE_PLUGIN_ROOT="$c"; break; fi
+     done
+   fi
    STORE="${MEMOIR_STORE:-$(bash "$CLAUDE_PLUGIN_ROOT/scripts/derive-store-path.sh")}"
    bash "$CLAUDE_PLUGIN_ROOT/scripts/ensure-store.sh" "$STORE" >/dev/null
    CONTENT=$(cat <<'MEMOIR_REMEMBER_EOF'
