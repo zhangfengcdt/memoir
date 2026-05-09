@@ -59,6 +59,18 @@ from memoir.cli.main import (
         "call)."
     ),
 )
+@click.option(
+    "--replace",
+    "replace",
+    is_flag=True,
+    default=False,
+    help=(
+        "Overwrite the existing value at each -p target instead of appending "
+        "the new content as an '[update]' paragraph. Use for callers that own "
+        "their own read-merge-write cycle (per-branch metrics, scalar pointers). "
+        "No effect without -p — the LLM-classifier path always replaces."
+    ),
+)
 @pass_context
 def remember(
     ctx: MemoirContext,
@@ -66,6 +78,7 @@ def remember(
     namespace: str | None,
     paths: tuple,
     model: str | None,
+    replace: bool,
 ):
     """Store content in memory with intelligent classification.
 
@@ -144,7 +157,9 @@ def remember(
 
     try:
         result = asyncio.run(
-            service.remember(content, effective_namespace, paths=paths_list)
+            service.remember(
+                content, effective_namespace, paths=paths_list, replace=replace
+            )
         )
 
         if ctx.json_output:

@@ -115,6 +115,7 @@ class MemoryService(BaseService):
         namespace: str = "default",
         path: str | None = None,
         paths: list[str] | None = None,
+        replace: bool = False,
     ) -> RememberResult:
         """
         Classify and store content in memory.
@@ -137,6 +138,11 @@ class MemoryService(BaseService):
                 sibling paths from the same write. Pre-existing ``related_keys``
                 on a target path are merged in (a path-provided write does not
                 clobber siblings recorded by an earlier multi-key call).
+            replace: When True, overwrite the existing value at each path-provided
+                target instead of appending the new content as an "[update]"
+                paragraph. Use for callers that own their own read-merge-write
+                cycle (e.g. the plugin metrics writers, scalar onboard pointers).
+                Has no effect on the LLM-classifier branch, which always replaces.
 
         Returns:
             RememberResult with classification info and commit details. When
@@ -259,9 +265,10 @@ class MemoryService(BaseService):
                             if isinstance(k, str) and k not in seen_rel:
                                 seen_rel.add(k)
                                 related_keys.append(k)
-                    prior_content = existing.get("content")
-                    if isinstance(prior_content, str) and prior_content.strip():
-                        stored_content = f"{prior_content}\n\n[update] {content}"
+                    if not replace:
+                        prior_content = existing.get("content")
+                        if isinstance(prior_content, str) and prior_content.strip():
+                            stored_content = f"{prior_content}\n\n[update] {content}"
             memory_item_copy = memory_item.copy()
             memory_item_copy["key"] = storage_key
             memory_item_copy["content"] = stored_content

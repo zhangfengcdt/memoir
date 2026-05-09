@@ -686,6 +686,38 @@ class TestMemoryCommands:
             )
             assert result.exit_code != 0, f"expected error for {bad!r}"
 
+    def test_remember_replace_flag_overrides_append(self, runner, initialized_store):
+        """`--replace` makes -p clobber instead of appending."""
+        path = "context.project.cli_replace_test"
+
+        result = runner.invoke(
+            cli,
+            ["--json", "-s", initialized_store, "remember", "first", "-p", path],
+        )
+        assert result.exit_code == 0, result.output
+
+        result = runner.invoke(
+            cli,
+            [
+                "--json",
+                "-s",
+                initialized_store,
+                "remember",
+                "second",
+                "-p",
+                path,
+                "--replace",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+
+        get_result = runner.invoke(
+            cli,
+            ["--json", "-s", initialized_store, "get", path],
+        )
+        data = json.loads(get_result.output[get_result.output.find("{") :])
+        assert data["items"][0]["value"]["content"] == "second"
+
 
 class TestEnvironmentVariables:
     """Test environment variable support."""

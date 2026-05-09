@@ -288,6 +288,32 @@ class TestMemoryServiceRemember:
         blob = memory_service.get([path]).items[0]["value"]
         assert blob["content"] == "only fact"
 
+    @pytest.mark.asyncio
+    async def test_remember_path_replace_overrides_append(self, memory_service):
+        """`replace=True` clobbers existing content instead of appending."""
+        path = "context.project.replace_test"
+        await memory_service.remember("first", paths=[path])
+        await memory_service.remember("second", paths=[path], replace=True)
+
+        blob = memory_service.get([path]).items[0]["value"]
+        assert blob["content"] == "second"
+
+    @pytest.mark.asyncio
+    async def test_remember_path_replace_preserves_related_keys(self, memory_service):
+        """Even with replace=True, sibling related_keys from earlier multi-key
+        writes are still merged (replace targets content only, not graph edges)."""
+        await memory_service.remember(
+            "v1",
+            paths=["preferences.coding.methodology", "preferences.tooling.terminal"],
+        )
+        await memory_service.remember(
+            "v2", paths=["preferences.coding.methodology"], replace=True
+        )
+
+        blob = memory_service.get(["preferences.coding.methodology"]).items[0]["value"]
+        assert blob["content"] == "v2"
+        assert "preferences.tooling.terminal" in blob["related_keys"]
+
 
 class TestMemoryServiceEdgeCases:
     """Test edge cases and error handling."""
