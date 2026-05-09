@@ -150,6 +150,22 @@ class ClaudeCLIWrapper:
             return prompt[:end], prompt[end:].lstrip()
         return None, prompt
 
+    # Strict format reminder prepended to the user message. Memoir's
+    # classifier system prompt is ~19KB and the JSON-format instruction is
+    # buried in the middle; Haiku occasionally drifts into conversational
+    # mode when the user content sounds casual (e.g. "got 1000 upvotes on
+    # launch day!"). Putting the reminder at the start of the user message —
+    # the freshest thing the model attends to before generating — reliably
+    # locks output format. Only applied when a system prompt is present
+    # (i.e. a structured classifier call), so free-form invocations that
+    # legitimately want prose are unaffected.
+    _JSON_DISCIPLINE_PREAMBLE: ClassVar[str] = (
+        "[OUTPUT FORMAT — STRICT] Reply with ONLY the JSON object specified "
+        "in the system prompt's response-format section. No prose. No "
+        "congratulations. No commentary. No questions back. The first "
+        "character of your reply must be '{'.\n\n"
+    )
+
     def _build_argv(self, system_prompt: str | None) -> list[str]:
         argv = [
             self._claude_path,
@@ -209,6 +225,8 @@ class ClaudeCLIWrapper:
         prompt_str = self._coerce_prompt(prompt)
         system, user = self._split_prompt(prompt_str)
         argv = self._build_argv(system)
+        if system:
+            user = self._JSON_DISCIPLINE_PREAMBLE + user
 
         try:
             result = subprocess.run(
@@ -235,6 +253,8 @@ class ClaudeCLIWrapper:
         prompt_str = self._coerce_prompt(prompt)
         system, user = self._split_prompt(prompt_str)
         argv = self._build_argv(system)
+        if system:
+            user = self._JSON_DISCIPLINE_PREAMBLE + user
 
         proc = await asyncio.create_subprocess_exec(
             *argv,
