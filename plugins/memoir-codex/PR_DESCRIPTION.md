@@ -11,6 +11,7 @@
 - Preserved the read/write asymmetry: recall is skill-driven, onboarding is an explicit project-indexing skill, manual remember/forget stay CLI-only, and Stop handles best-effort auto-capture.
 - Started the Codex plugin's independent release line at `0.1.0`.
 - Aligned Codex install docs with `/plugins` repo-marketplace distribution from `zhangfengcdt/memoir`, including the local-checkout path for PR testing and the uv-based CLI fallback.
+- Documented that pre-merge marketplace testing must use the PR branch or local checkout so Codex does not fall back to the existing Claude Code marketplace on upstream main.
 - Updated docs, release notes, and version consistency checks for the new Codex plugin surface.
 
 ## Limitations

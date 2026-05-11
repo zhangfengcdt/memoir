@@ -71,7 +71,7 @@ The Codex plugin lives under `plugins/memoir-codex/`, with the marketplace manif
 codex plugin marketplace add /absolute/path/to/memoir
 ```
 
-That local command is for source testing. User-facing installs should use the repo marketplace:
+That local command is for source testing. After merge, user-facing installs should use the repo marketplace:
 
 ```text
 /plugins
