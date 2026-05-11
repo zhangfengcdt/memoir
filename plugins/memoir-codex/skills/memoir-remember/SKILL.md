@@ -42,12 +42,12 @@ if data.get("name") == "memoir-codex":
 PY
       done | head -n 1)
 fi
-STORE="${MEMOIR_STORE:-$(bash "$PLUGIN_ROOT/scripts/derive-store-path.sh")}"
 MEMOIR="$PLUGIN_ROOT/scripts/memoir-cli.sh"
-if [ -z "$PLUGIN_ROOT" ] || [ ! -x "$MEMOIR" ]; then
+if [ -z "$PLUGIN_ROOT" ] || [ ! -x "$MEMOIR" ] || [ ! -x "$PLUGIN_ROOT/scripts/derive-store-path.sh" ]; then
   echo "Memoir Codex plugin not found" >&2
   exit 127
 fi
+STORE="${MEMOIR_STORE:-$(bash "$PLUGIN_ROOT/scripts/derive-store-path.sh")}"
 bash "$PLUGIN_ROOT/scripts/ensure-store.sh" "$STORE" >/dev/null
 ```
 
