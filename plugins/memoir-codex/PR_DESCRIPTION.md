@@ -18,6 +18,7 @@
 ## Limitations
 - Codex plugin slash commands, deprecated custom prompt surfaces, Claude Code statusline behavior, and SessionEnd cleanup are not included in v1.
 - Codex does not activate marketplace plugin hooks automatically yet (openai/codex#16430); run `scripts/install-codex-hooks.sh` after plugin install to bridge the bundled `SessionStart`, `UserPromptSubmit`, and `Stop` hooks into `~/.codex/hooks.json`.
+- After installing the hook bridge, Codex may warn that 3 hooks need review; open `/hooks`, review each Memoir hook, and press `t` to trust it before expecting hooks to run.
 - Stop-hook LLM extraction uses `codex exec`; if Codex auth or the executable is unavailable, capture fails open and the user turn is not blocked.
 
 ## Validation

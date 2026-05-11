@@ -48,6 +48,14 @@ This writes `SessionStart`, `UserPromptSubmit`, and `Stop` hooks to `~/.codex/ho
 bash "$PLUGIN_ROOT/scripts/install-codex-hooks.sh" uninstall
 ```
 
+After installing the bridge, Codex may show:
+
+```text
+⚠ 3 hooks need review before they can run. Open /hooks to review them.
+```
+
+Open `/hooks`, review each Memoir hook, and press `t` to trust it. Hooks do not run until they are trusted.
+
 Each project gets a store under `~/.memoir/<slug>/`, derived from the session cwd. Override with `MEMOIR_STORE=/path/to/store`.
 
 The plugin shells out to the Memoir CLI. No manual `pip install` is required if `uv` is on `PATH`: the helper uses `memoir` when already installed, otherwise `uvx --from memoir-ai==<pinned> memoir`, otherwise `uv tool run --from memoir-ai==<pinned> memoir`.

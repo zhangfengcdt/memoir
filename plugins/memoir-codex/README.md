@@ -46,6 +46,14 @@ This writes `SessionStart`, `UserPromptSubmit`, and `Stop` hooks to `~/.codex/ho
 bash "$PLUGIN_ROOT/scripts/install-codex-hooks.sh" uninstall
 ```
 
+After installing the bridge, Codex may show:
+
+```text
+⚠ 3 hooks need review before they can run. Open /hooks to review them.
+```
+
+Open `/hooks`, review each Memoir hook, and press `t` to trust it. Hooks do not run until they are trusted.
+
 Each project gets its own store at `~/.memoir/<slug>/`, derived from the session cwd. Override with `MEMOIR_STORE=/your/path`. Linked git worktrees share one store keyed on the main worktree path; set `MEMOIR_STORE` per worktree to opt out.
 
 ## CLI resolution
