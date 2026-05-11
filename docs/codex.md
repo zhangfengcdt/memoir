@@ -33,6 +33,21 @@ hooks = true
 
 For one-off tests, pass `--enable hooks`. Codex v0.129.0 warns that `[features].codex_hooks` is deprecated; use `[features].hooks` for new installs.
 
+Codex v0.130.0 installs plugin skills but does not yet activate lifecycle hooks bundled by marketplace plugins. Until plugin-bundled hooks are loaded by Codex itself, install Memoir's bundled hooks into your user hooks file after installing the plugin:
+
+```bash
+PLUGIN_ROOT=$(find "${CODEX_HOME:-$HOME/.codex}/plugins/cache" \
+  -path '*/memoir-codex/*/.codex-plugin/plugin.json' -print -quit \
+  | sed 's#/.codex-plugin/plugin.json$##')
+bash "$PLUGIN_ROOT/scripts/install-codex-hooks.sh"
+```
+
+This writes `SessionStart`, `UserPromptSubmit`, and `Stop` hooks to `~/.codex/hooks.json`. To remove them:
+
+```bash
+bash "$PLUGIN_ROOT/scripts/install-codex-hooks.sh" uninstall
+```
+
 Each project gets a store under `~/.memoir/<slug>/`, derived from the session cwd. Override with `MEMOIR_STORE=/path/to/store`.
 
 The plugin shells out to the Memoir CLI. No manual `pip install` is required if `uv` is on `PATH`: the helper uses `memoir` when already installed, otherwise `uvx --from memoir-ai==<pinned> memoir`, otherwise `uv tool run --from memoir-ai==<pinned> memoir`.
