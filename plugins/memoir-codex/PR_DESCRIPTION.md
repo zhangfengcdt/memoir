@@ -3,6 +3,17 @@
 - Packages Memoir as a Codex plugin with lifecycle hooks, recall/onboarding skills, local marketplace metadata, and Codex-specific transcript parsing.
 - Documents install, configuration, limitations, and real Codex smoke-test evidence.
 
+## Install / try it
+- In Codex, open `/plugins`, add marketplace `scdozier/memoir` with ref `codex/issue-85-codex-extension`, then install `memoir-codex`.
+- CLI equivalent for PR testing: `codex plugin marketplace add scdozier/memoir --ref codex/issue-85-codex-extension`.
+- After install, run the hook bridge until openai/codex#16430 is resolved:
+  `PLUGIN_ROOT=$(find "${CODEX_HOME:-$HOME/.codex}/plugins/cache" -path '*/memoir-codex/*/.codex-plugin/plugin.json' -print -quit | sed 's#/.codex-plugin/plugin.json$##') && bash "$PLUGIN_ROOT/scripts/install-codex-hooks.sh"`
+- Restart Codex, open `/hooks` if prompted, and press `t` to trust the Memoir hooks.
+- Try: `remember that this project prefers pytest`, `show Memoir status`, `open the Memoir UI`, or ask a question that should use `memory-recall`.
+
+## Screenshot
+<!-- Add screenshot here before opening/marking the upstream PR ready. Suggested: Codex plugin detail page showing Memoir skills/hooks, or a session showing Memoir hooks + a remembered fact. -->
+
 ## What changed
 - Added `plugins/memoir-codex/` with `.codex-plugin/plugin.json`, `skills/`, `hooks/hooks.json`, hook scripts, helper scripts, tests, and fixtures.
 - Added `.agents/plugins/marketplace.json` for local Codex plugin discovery.
@@ -25,7 +36,7 @@
 - Stop capture only runs after a completed Codex turn; interrupted turns may not produce auto-captured memories.
 
 ## Validation
-- `.venv/bin/pytest plugins/memoir-codex/tests -v` - 43 passed.
+- `.venv/bin/pytest plugins/memoir-codex/tests -v` - 45 passed.
 - `.venv/bin/python plugins/memoir-codex/tests/prompt-harness/runner.py gate --hook user-prompt-submit` - 13/13 passed.
 - `PATH="$PWD/.venv/bin:$PATH" ... for t in plugins/memoir-codex/tests/*.sh; do bash "$t"; done` - shell hook suite passed.
 - `uv run --extra dev make test` - 350 passed, 9 skipped.
