@@ -1,0 +1,44 @@
+{
+  "name": "memoir-codex",
+  "version": "0.2.0",
+  "description": "Git-versioned, taxonomy-structured memory for Codex. Memoir adds branch-aware memory recall, onboarding snapshots, and best-effort lifecycle capture to Codex sessions.",
+  "author": {
+    "name": "NextMind",
+    "email": "f.feng.zhang@gmail.com"
+  },
+  "homepage": "https://github.com/zhangfengcdt/memoir",
+  "repository": "https://github.com/zhangfengcdt/memoir",
+  "license": "Apache-2.0",
+  "keywords": [
+    "memory",
+    "git",
+    "versioning",
+    "taxonomy",
+    "branching",
+    "codex",
+    "provenance",
+    "prollytree"
+  ],
+  "skills": "./skills/",
+  "hooks": "./hooks/hooks.json",
+  "interface": {
+    "displayName": "Memoir",
+    "shortDescription": "Git-versioned memory for Codex",
+    "longDescription": "Memoir gives Codex a per-project, branch-aware memory store. It recalls prior preferences and decisions, injects store context on session start, and best-effort captures durable facts at turn end.",
+    "developerName": "NextMind",
+    "category": "Productivity",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/zhangfengcdt/memoir",
+    "privacyPolicyURL": "https://github.com/zhangfengcdt/memoir",
+    "termsOfServiceURL": "https://github.com/zhangfengcdt/memoir/blob/main/LICENSE",
+    "defaultPrompt": [
+      "Recall any relevant Memoir context before we start",
+      "Onboard this project into Memoir"
+    ],
+    "brandColor": "#111827",
+    "screenshots": []
+  }
+}

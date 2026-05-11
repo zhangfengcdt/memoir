@@ -1,0 +1,17 @@
+# Negative case: routine Q&A where neither party learned anything persistent.
+# Production prompt's silent-default lists this exact category as one that
+# should "almost always produce NOTHING".
+description: "Routine 'where is X defined' Q&A must produce no captures"
+prompt: stop_capture
+input: |
+  === Transcript of a conversation between a human and Codex ===
+  [Human]
+  Where is the BranchService class defined?
+  [Codex]
+  src/memoir/services/branch_service.py at line 45.
+# Haiku sometimes emits a "(no durable facts)" preamble — stop.sh's
+# downstream filter rejects any line without a tab/valid path, so this is
+# harmless in production. We only assert that no line is a *valid* capture.
+expect:
+  - kind: no_line_matches
+    value: "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+){1,3}\\t.+$"

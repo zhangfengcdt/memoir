@@ -1,0 +1,18 @@
+# Positive case: user packs 2-3 distinct durable rules into a single turn.
+# Expect ≥2 well-formed lines — one per rule. Validates that the silent
+# default doesn't suppress the second/third when the first triggers.
+description: "Three rules in one turn must capture at least two facts"
+prompt: stop_capture
+input: |
+  === Transcript of a conversation between a human and Codex ===
+  [Human]
+  A few standing rules I want you to follow on this project: always use
+  TypeScript strict mode for any frontend code, never commit without running
+  the linter first, and prefer pnpm over npm for installing packages.
+  [Codex]
+  Acknowledged: TS strict, lint before commit, pnpm over npm.
+expect:
+  - kind: min_valid_capture_lines
+    value: 2
+  - kind: max_lines
+    value: 6

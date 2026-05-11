@@ -1,0 +1,41 @@
+{
+  "description": "memoir-codex hooks - surface branch + commit state, auto-capture durable facts into the taxonomy",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${PLUGIN_ROOT}/hooks/session-start.sh\"",
+            "timeout": 15,
+            "statusMessage": "Loading Memoir context"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${PLUGIN_ROOT}/hooks/user-prompt-submit.sh\"",
+            "timeout": 10,
+            "statusMessage": "Checking Memoir recall"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${PLUGIN_ROOT}/hooks/stop.sh\"",
+            "timeout": 180,
+            "statusMessage": "Capturing Memoir facts"
+          }
+        ]
+      }
+    ]
+  }
+}

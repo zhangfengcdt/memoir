@@ -1,0 +1,20 @@
+# Positive case: doc-only Edit. Should be summarized (NOT "trivial") and
+# the summary should mention docs / readme / documentation.
+description: "Doc-only edit is summarized as a documentation change"
+prompt: code_change_summary
+input: |
+  Edit docs/codex.md
+  ## How auto-capture decides what to remember
+
+  The Stop hook's capture stage makes one model call per turn that does both
+  extraction and classification in one shot — emitting taxonomy-classified
+  durable facts directly, bypassing memoir's internal LLM classifier chain.
+  ---
+expect:
+  - kind: not_empty
+  - kind: max_lines
+    value: 1
+  - kind: any_line_matches
+    value: "(?i)\\b(document|docs|readme|guide|codex|capture)\\b"
+  - kind: no_line_matches
+    value: "(?i)^trivial$"

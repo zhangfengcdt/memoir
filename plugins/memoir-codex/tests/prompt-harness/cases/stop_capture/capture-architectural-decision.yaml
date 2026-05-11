@@ -1,0 +1,25 @@
+# Positive case: an architectural choice with explicit rationale ("we chose X
+# because Y, not Z"). Should land under knowledge.decisions or knowledge.technical
+# — the *why*, not just the *what*. The prompt's ALWAYS-CAPTURE list calls out
+# "Architectural / design / tooling decisions made this turn — capture the *why*".
+description: "Architectural decision with rationale must capture under knowledge.*"
+prompt: stop_capture
+input: |
+  === Transcript of a conversation between a human and Codex ===
+  [Human]
+  Quick context decision: we're going with eventual consistency for the
+  session-state store, not strong consistency. The reason is the read path
+  is 100x hotter than the write path, and a few seconds of staleness on
+  session refreshes is acceptable per the product spec.
+  [Codex]
+  Got it.
+expect:
+  - kind: min_valid_capture_lines
+    value: 1
+  - kind: max_lines
+    value: 6
+  - kind: any_path_prefix
+    value:
+      - knowledge.decisions
+      - knowledge.technical
+      - context.project

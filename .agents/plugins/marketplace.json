@@ -1,0 +1,20 @@
+{
+  "name": "memoir",
+  "interface": {
+    "displayName": "Memoir Plugins"
+  },
+  "plugins": [
+    {
+      "name": "memoir-codex",
+      "source": {
+        "source": "local",
+        "path": "./plugins/memoir-codex"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

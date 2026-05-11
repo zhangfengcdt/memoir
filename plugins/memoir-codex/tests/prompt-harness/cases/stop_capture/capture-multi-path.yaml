@@ -1,0 +1,25 @@
+# Positive case: a fact that genuinely spans two top-level categories
+# should emit a comma-joined multi-path line so it's stored at both keys
+# with cross-references in `related_keys`.
+description: "Cross-category preference (coding methodology + user role) may emit comma-separated paths"
+prompt: stop_capture
+input: |
+  === Transcript of a conversation between a human and Codex ===
+  [Human]
+  Quick context for future sessions: I'm a senior backend engineer who has been doing strict TDD for ~10 years; that's both my professional identity and the methodology I want any code suggestions to follow on this project.
+  [Codex]
+  Got it — TDD all the way, and I'll keep your senior-backend lens in mind for design tradeoffs.
+expect:
+  - kind: min_valid_capture_lines
+    value: 1
+  - kind: max_lines
+    value: 6
+  # The line(s) should land somewhere in coding/methodology or user/role territory.
+  # Multi-path emission (one line carrying both) is allowed but not required —
+  # the regex in `min_valid_capture_lines` accepts both single and comma-joined.
+  - kind: any_path_prefix
+    value:
+      - preferences.coding
+      - workflow.coding
+      - user.profile
+      - user.role

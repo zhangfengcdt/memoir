@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Version consistency check for memoir release surfaces.
 
-Memoir has two independently versioned products:
+Memoir has three independently versioned products:
 
   * The Python package ``memoir-ai`` (source of truth: ``src/memoir/__init__.py``).
   * The Claude Code plugin ``memoir`` (source of truth: the plugin manifest).
+  * The Codex plugin ``memoir-codex`` (source of truth: the plugin manifest).
 
 The two products may legitimately track different version numbers, but within
 each group every file that declares a version must agree. This script enforces
@@ -48,8 +49,9 @@ def collect_sources() -> dict[str, list[VersionSource]]:
     """Return version sources grouped by product."""
 
     pkg_init = REPO_ROOT / "src" / "memoir" / "__init__.py"
-    plugin_manifest = REPO_ROOT / "plugins" / "claude-code" / ".claude-plugin" / "plugin.json"
-    marketplace = REPO_ROOT / ".claude-plugin" / "marketplace.json"
+    claude_plugin_manifest = REPO_ROOT / "plugins" / "claude-code" / ".claude-plugin" / "plugin.json"
+    codex_plugin_manifest = REPO_ROOT / "plugins" / "memoir-codex" / ".codex-plugin" / "plugin.json"
+    claude_marketplace = REPO_ROOT / ".claude-plugin" / "marketplace.json"
 
     python_group: list[VersionSource] = [
         VersionSource(
@@ -59,46 +61,57 @@ def collect_sources() -> dict[str, list[VersionSource]]:
         ),
     ]
 
-    plugin_group: list[VersionSource] = []
+    claude_plugin_group: list[VersionSource] = []
+    codex_plugin_group: list[VersionSource] = []
 
-    plugin_json = _read_json(plugin_manifest)
+    plugin_json = _read_json(claude_plugin_manifest)
     plugin_name = plugin_json.get("name", "memoir")
-    plugin_group.append(
+    claude_plugin_group.append(
         VersionSource(
-            label=f"{plugin_manifest.relative_to(REPO_ROOT)}:version",
-            path=plugin_manifest,
+            label=f"{claude_plugin_manifest.relative_to(REPO_ROOT)}:version",
+            path=claude_plugin_manifest,
             version=plugin_json["version"],
         )
     )
 
-    marketplace_json = _read_json(marketplace)
-    plugin_group.append(
+    marketplace_json = _read_json(claude_marketplace)
+    claude_plugin_group.append(
         VersionSource(
-            label=f"{marketplace.relative_to(REPO_ROOT)}:metadata.version",
-            path=marketplace,
+            label=f"{claude_marketplace.relative_to(REPO_ROOT)}:metadata.version",
+            path=claude_marketplace,
             version=marketplace_json["metadata"]["version"],
         )
     )
 
     for entry in marketplace_json.get("plugins", []):
         if entry.get("name") == plugin_name:
-            plugin_group.append(
+            claude_plugin_group.append(
                 VersionSource(
-                    label=f"{marketplace.relative_to(REPO_ROOT)}:plugins[{plugin_name}].version",
-                    path=marketplace,
+                    label=f"{claude_marketplace.relative_to(REPO_ROOT)}:plugins[{plugin_name}].version",
+                    path=claude_marketplace,
                     version=entry["version"],
                 )
             )
             break
     else:
         raise RuntimeError(
-            f"{marketplace}: no plugin entry named {plugin_name!r} — update this script "
+            f"{claude_marketplace}: no plugin entry named {plugin_name!r} — update this script "
             f"if the plugin was renamed."
         )
 
+    codex_plugin_json = _read_json(codex_plugin_manifest)
+    codex_plugin_group.append(
+        VersionSource(
+            label=f"{codex_plugin_manifest.relative_to(REPO_ROOT)}:version",
+            path=codex_plugin_manifest,
+            version=codex_plugin_json["version"],
+        )
+    )
+
     return {
         "Python package (memoir-ai)": python_group,
-        "Claude Code plugin (memoir)": plugin_group,
+        "Claude Code plugin (memoir)": claude_plugin_group,
+        "Codex plugin (memoir-codex)": codex_plugin_group,
     }
 
 

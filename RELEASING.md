@@ -1,11 +1,12 @@
 # Releasing memoir
 
-Memoir ships as **two independently versioned products**:
+Memoir ships as **three independently versioned products**:
 
 | Product | Version source of truth | Distributed via |
 | --- | --- | --- |
 | Python package `memoir-ai` | `src/memoir/__init__.py` → `__version__` | [PyPI](https://pypi.org/project/memoir-ai/) |
 | Claude Code plugin `memoir` | `plugins/claude-code/.claude-plugin/plugin.json` → `version` | Marketplace (`.claude-plugin/marketplace.json`) |
+| Codex plugin `memoir-codex` | `plugins/memoir-codex/.codex-plugin/plugin.json` → `version` | Marketplace (`.agents/plugins/marketplace.json`) |
 
 The two versions may diverge (different release cadences). Within each product, every manifest that declares the version **must agree** — enforced in CI by `scripts/check_version_consistency.py` (see [Version consistency](#version-consistency) below).
 
@@ -33,6 +34,8 @@ This verifies that every version-bearing file inside each product agrees. CI run
   - `plugins/claude-code/.claude-plugin/plugin.json` — `"version": "X.Y.Z"`
   - `.claude-plugin/marketplace.json` — `metadata.version`
   - `.claude-plugin/marketplace.json` — `plugins[<memoir>].version`
+- **Codex plugin (`memoir-codex`)**
+  - `plugins/memoir-codex/.codex-plugin/plugin.json` — `"version": "X.Y.Z"`
 
 Ancillary versions that are **intentionally independent** and not checked:
 
@@ -135,6 +138,46 @@ The plugin is distributed via the marketplace file in this repo — there is no 
    ```
 
 Users pick up the new plugin version on their next `/plugin update memoir` (or whatever refresh command they use for marketplace-sourced plugins).
+
+## Cutting a Codex plugin release
+
+The Codex plugin is distributed by the local marketplace file in this repo.
+
+1. **Create a release branch from `main`:**
+
+   ```bash
+   git checkout -b release/codex-plugin-X.Y.Z
+   ```
+
+2. **Bump the plugin manifest:**
+
+   - `plugins/memoir-codex/.codex-plugin/plugin.json` → `"version": "X.Y.Z"`
+
+3. **Verify consistency and tests:**
+
+   ```bash
+   make check-versions
+   pytest plugins/memoir-codex/tests -v
+   plugins/memoir-codex/tests/prompt-harness/runner.py gate --hook user-prompt-submit
+   ```
+
+4. **Run a real Codex smoke test with `gpt-5.4`** in `/tmp/memoir-codex-smoke`, export evidence to `/tmp/memoir-codex-smoke/evidence.md`, then clean the disposable project and store.
+
+5. **Commit and push:**
+
+   ```bash
+   git add plugins/memoir-codex docs/codex.md .agents/plugins/marketplace.json
+   git commit -m "Release Codex plugin vX.Y.Z"
+   git push -u origin release/codex-plugin-X.Y.Z
+   ```
+
+6. **Open a PR, merge after review, then tag:**
+
+   ```bash
+   git checkout main && git pull
+   git tag codex-plugin-vX.Y.Z
+   git push origin codex-plugin-vX.Y.Z
+   ```
 
 ## Rollback
 

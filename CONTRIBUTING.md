@@ -63,6 +63,25 @@ To remove your local install:
 
 For prompt-template debugging (Stop hook auto-capture, etc.), see the prompt-harness section in [`CLAUDE.md`](./CLAUDE.md).
 
+## Testing the Codex plugin from local source
+
+The Codex plugin lives under `plugins/memoir-codex/`, with the marketplace manifest at `.agents/plugins/marketplace.json`.
+
+```bash
+codex plugin marketplace add /absolute/path/to/memoir
+```
+
+Install `memoir-codex` from Codex, then enable hooks with `[features].hooks = true` or a one-off `--enable hooks` run. Use `gpt-5.4` for PR smoke validation:
+
+```bash
+MEMOIR_STORE=/tmp/memoir-codex-smoke-store \
+MEMOIR_CODEX_MODEL=gpt-5.4 \
+codex exec --enable hooks --skip-git-repo-check -m gpt-5.4 \
+  "Use Memoir and report status."
+```
+
+Record any smoke evidence under `/tmp`, then clean the disposable project/store before committing. Do not commit local Codex config, generated Memoir stores, or `/tmp` evidence unless a maintainer explicitly asks for a sanitized artifact.
+
 ## Reporting issues
 
 - **Bugs:** open an issue with a minimal reproducer (CLI command or short script) and the output you got vs. expected.

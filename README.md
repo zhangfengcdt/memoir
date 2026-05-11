@@ -81,6 +81,16 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 That's enough — the plugin handles the rest. It registers hooks for session start, user-prompt-submit, and stop, so your project gets automatic context injection and auto-captured memories. See the [Claude Code plugin guide](https://zhangfengcdt.github.io/memoir/claude_code/) for the full slash-command and hook reference.
 
+## Install for Codex
+
+From a local checkout, register the Codex marketplace and install `memoir-codex`:
+
+```bash
+codex plugin marketplace add /absolute/path/to/memoir
+```
+
+Enable Codex hooks with `[features].hooks = true` in `~/.codex/config.toml` or pass `--enable hooks` for a smoke run. The Codex plugin ships lifecycle hooks, `memory-recall` and `memoir-onboard` skills, Codex-specific transcript parsing, and local marketplace metadata. See the [Codex plugin guide](https://zhangfengcdt.github.io/memoir/codex/) for setup, limitations, and the real Codex smoke-test flow.
+
 ## Quick look
 
 Memoir's CLI defaults to Anthropic **`claude-haiku-4-5`** as of v0.1.6 — set your key first:
@@ -126,6 +136,7 @@ Full docs live at **[zhangfengcdt.github.io/memoir](https://zhangfengcdt.github.
 - [CLI Reference](https://zhangfengcdt.github.io/memoir/cli/) — every command, flag, and exit code.
 - [UI](https://zhangfengcdt.github.io/memoir/ui/) — the visual explorer (Tree / Graph / Timeline / Places + `/stats`).
 - [Claude Code](https://zhangfengcdt.github.io/memoir/claude_code/) — plugin install, slash commands, hooks, lifecycle.
+- [Codex](https://zhangfengcdt.github.io/memoir/codex/) — plugin install, hooks, skills, transcript parsing, smoke-test evidence.
 - [Architecture](https://zhangfengcdt.github.io/memoir/architecture/) — taxonomy, classifier, store, search.
 - [API Reference](https://zhangfengcdt.github.io/memoir/api/memoir/) — Python SDK.
 - [Examples](https://zhangfengcdt.github.io/memoir/examples/) — context branching, memory debugging, reproducible testing.

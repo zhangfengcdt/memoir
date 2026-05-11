@@ -1,0 +1,16 @@
+# Negative case: a whitespace-only change (re-indentation, no semantic change)
+# must produce exactly the word "trivial" so stop.sh skips the write. This
+# protects the audit log from being polluted by formatting noise.
+description: "Whitespace-only edit produces exactly 'trivial'"
+prompt: code_change_summary
+input: |
+  Edit src/main.py
+      x = 1
+      y = 2
+      z = x + y
+  ---
+expect:
+  - kind: exact_lines
+    value: 1
+  - kind: regex_each_line
+    value: "^trivial$"

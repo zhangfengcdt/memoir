@@ -1,0 +1,19 @@
+# Negative case: user retracts an earlier rule within the same turn. The
+# extractor sees only this turn (not history), so a turn that ONLY says
+# "scratch that previous rule" carries no durable rule itself — capturing
+# the negated rule would invert intent. Output should not contain a fact
+# claiming the original rule.
+description: "Retraction-only turn must produce no captures"
+prompt: stop_capture
+input: |
+  === Transcript of a conversation between a human and Codex ===
+  [Human]
+  Actually, scratch what I said earlier about always using pytest — turns
+  out the team is split on it and we haven't formally landed on a testing
+  framework yet. Ignore that previous instruction; I'll come back with a
+  decision once we've discussed it.
+  [Codex]
+  Understood — no standing rule on test framework yet.
+expect:
+  - kind: no_line_matches
+    value: "^[a-z][a-z0-9_]*(\\.[a-z0-9_]+){1,3}\\t.+$"

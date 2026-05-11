@@ -1,0 +1,11 @@
+kind: gate
+hook: user-prompt-submit
+description: "Verb in a <40 char prompt does NOT fire (length gate holds)"
+env:
+  USER_MEMORIES: "5"
+  MEMOIR_CMD: "memoir"
+prompt: "add a log line"
+expect:
+  - kind: recall_block_absent
+  - kind: exit_code_is
+    value: 0

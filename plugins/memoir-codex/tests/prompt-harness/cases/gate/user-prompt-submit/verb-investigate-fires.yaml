@@ -1,0 +1,9 @@
+kind: gate
+hook: user-prompt-submit
+description: "Verb 'investigate' (added in trigger expansion) fires"
+env:
+  USER_MEMORIES: "12"
+  MEMOIR_CMD: "memoir"
+prompt: "Investigate why the SyncBranchesModal popup feels slow on first open."
+expect:
+  - kind: recall_block_emitted

@@ -1,0 +1,9 @@
+kind: gate
+hook: user-prompt-submit
+description: "USER_MEMORIES=0 short-circuits the gate even with a strong verb prompt"
+env:
+  USER_MEMORIES: "0"
+  MEMOIR_CMD: "memoir"
+prompt: "Please refactor the authentication middleware to use JWT-based sessions."
+expect:
+  - kind: recall_block_absent

@@ -103,6 +103,7 @@ nav:
   - CLI: cli.md
   - UI: ui.md
   - Claude Code: claude_code.md
+  - Codex: codex.md
   - API:
       - Memoir: api/memoir.md
       - Classifier: api/classifier.md

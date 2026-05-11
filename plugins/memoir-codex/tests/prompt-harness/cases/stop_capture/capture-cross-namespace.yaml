@@ -1,0 +1,23 @@
+# Positive case: a preference about AI tooling, which lives outside the
+# preferences.coding/.tools and workflow.coding buckets the other tests
+# concentrate on. Validates that cases authored against one namespace
+# allowlist don't accidentally lock the prompt into that allowlist.
+description: "AI-tool preference must capture under preferences.ai.*"
+prompt: stop_capture
+input: |
+  === Transcript of a conversation between a human and Codex ===
+  [Human]
+  For code review tasks I prefer Codex over GPT — Codex follows multi-file
+  context better and is less likely to hallucinate APIs that don't exist in
+  the actual codebase. For brainstorming I'll still reach for GPT.
+  [Codex]
+  Noted.
+expect:
+  - kind: min_valid_capture_lines
+    value: 1
+  - kind: max_lines
+    value: 6
+  - kind: any_path_prefix
+    value:
+      - preferences.ai
+      - preferences.tools

@@ -1,0 +1,23 @@
+# Positive case: project-level facts that aren't already discoverable from
+# CLAUDE.md (stack, deploy targets, package manager, etc.). The prompt's
+# ALWAYS-CAPTURE list explicitly mentions these as durable triggers.
+description: "Project stack/deploy facts must capture under context.project.*"
+prompt: stop_capture
+input: |
+  === Transcript of a conversation between a human and Codex ===
+  [Human]
+  Heads up on this repo so you have the right mental model: it ships as a
+  PyPI package called acme-core, the React webapp under src/web/ is built
+  with pnpm + Vite (not yarn), and the public API lives behind AWS API
+  Gateway → Lambda. Production uses Postgres 15 multi-AZ.
+  [Codex]
+  Mental model loaded.
+expect:
+  - kind: min_valid_capture_lines
+    value: 1
+  - kind: max_lines
+    value: 6
+  - kind: any_path_prefix
+    value:
+      - context.project
+      - knowledge.technical
