@@ -95,7 +95,7 @@ While developing from a local checkout, use `codex plugin marketplace add /absol
 
 **No manual `pip install` needed if you have `uv` on PATH** — the Codex plugin resolves the Memoir CLI the same way the Claude Code plugin does: `memoir` on `PATH` first, then `uvx --from memoir-ai==<pinned> memoir`, then `uv tool run --from memoir-ai==<pinned> memoir`.
 
-Enable Codex hooks with `[features].hooks = true` in `~/.codex/config.toml` or pass `--enable hooks` for a smoke run. The Codex plugin ships lifecycle hooks, `memory-recall` and `memoir-onboard` skills, Codex-specific transcript parsing, and local marketplace metadata. See the [Codex plugin guide](https://zhangfengcdt.github.io/memoir/codex/) for setup, limitations, and the real Codex smoke-test flow.
+Enable Codex hooks with `[features].hooks = true` in `~/.codex/config.toml` or pass `--enable hooks` for a smoke run. The Codex plugin ships lifecycle hooks; `memory-recall`, `memoir-onboard`, `memoir-remember`, `memoir-status`, and `memoir-ui` skills; Codex-specific transcript parsing; and local marketplace metadata. See the [Codex plugin guide](https://zhangfengcdt.github.io/memoir/codex/) for setup, limitations, and the real Codex smoke-test flow.
 
 ## Quick look
 

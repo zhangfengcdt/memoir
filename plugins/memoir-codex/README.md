@@ -80,7 +80,7 @@ This mirrors the Claude Code plugin's CLI ergonomics: if `uv` is present, users 
 
 | Component | Role |
 |---|---|
-| Skills | `memory-recall` for default-namespace facts, `memoir-onboard` for `codebase:onboard` / `project:onboard` snapshots. |
+| Skills | `memory-recall`, `memoir-onboard`, `memoir-remember`, `memoir-status`, and `memoir-ui`. |
 | Hooks | `SessionStart`, `UserPromptSubmit`, and `Stop`. |
 | Helper scripts | Store path resolution, CLI resolution, UI control, status command, transcript parsing, metrics, and edit collection. |
 | Marketplace | `.agents/plugins/marketplace.json` points Codex at `./plugins/memoir-codex`. |
@@ -91,10 +91,11 @@ The plugin keeps reads and writes intentionally asymmetric:
 
 - Reads are skill-driven. Codex can use `memory-recall` when existing memories may help, and `UserPromptSubmit` only injects a recall-before-acting hint.
 - Onboarding is explicit. `memoir-onboard` is a user-invoked project indexing workflow that writes scoped `codebase:onboard` or `project:onboard` snapshots.
-- General manual writes are not a skill. The `Stop` hook handles best-effort auto-capture, and the manual escape hatch remains the CLI.
+- General manual writes are explicit. `memoir-remember` is the Codex replacement for Claude Code's `/memoir:remember`; it writes with `memoir remember -p` so classification is done by Codex rather than Memoir's package-level LLM default. The `Stop` hook still handles best-effort auto-capture.
+- `memoir-status` and `memoir-ui` replace the read-only Claude Code `/memoir:status` and `/memoir:ui` command surfaces.
 - Deletion remains CLI-only through `memoir forget`.
 
-Codex plugin slash commands, deprecated custom prompt surfaces, Claude Code statusline behavior, and `SessionEnd` cleanup are not part of v1. Use the Memoir CLI for manual operations:
+Codex plugin slash commands, deprecated custom prompt surfaces, Claude Code statusline behavior, and `SessionEnd` cleanup are not part of v1. Use the Memoir CLI for administrative operations:
 
 ```bash
 STORE="${MEMOIR_STORE:-$(bash /path/to/memoir/plugins/memoir-codex/scripts/derive-store-path.sh)}"

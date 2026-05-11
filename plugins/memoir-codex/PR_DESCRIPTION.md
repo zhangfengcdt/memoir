@@ -7,8 +7,9 @@
 - Added `plugins/memoir-codex/` with `.codex-plugin/plugin.json`, `skills/`, `hooks/hooks.json`, hook scripts, helper scripts, tests, and fixtures.
 - Added `.agents/plugins/marketplace.json` for local Codex plugin discovery.
 - Ported SessionStart, UserPromptSubmit, and Stop behavior from the Claude Code plugin where Codex supports equivalent lifecycle hooks.
+- Migrated Claude Code slash-command behavior into Codex skills: `memoir-remember`, `memoir-status`, and `memoir-ui`, alongside the existing `memory-recall` and `memoir-onboard` skills.
 - Added Codex-specific transcript parsing for messages, tool calls, apply_patch, shell calls, and tool outputs.
-- Preserved the read/write asymmetry: recall is skill-driven, onboarding is an explicit project-indexing skill, manual remember/forget stay CLI-only, and Stop handles best-effort auto-capture.
+- Preserved the read/write asymmetry: recall is skill-driven, onboarding is explicit, manual remember is an explicit Codex skill, deletion stays CLI-only, and Stop handles best-effort auto-capture.
 - Matched Claude Code plugin CLI resolution semantics: `memoir` on PATH first, then pinned `uvx` / `uv tool run` fallbacks, with Codex-specific LLM extraction through `codex exec` that inherits the active Codex model and falls back to `gpt-5.4`.
 - Started the Codex plugin's independent release line at `0.1.0`.
 - Added a `scripts/install-codex-hooks.sh` bridge for the current Codex plugin-hook gap tracked upstream in openai/codex#16430, where marketplace plugins install skills but do not yet activate bundled lifecycle hooks.

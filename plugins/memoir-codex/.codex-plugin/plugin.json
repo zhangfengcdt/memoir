@@ -36,7 +36,8 @@
     "termsOfServiceURL": "https://github.com/zhangfengcdt/memoir/blob/main/LICENSE",
     "defaultPrompt": [
       "Recall any relevant Memoir context before we start",
-      "Onboard this project into Memoir"
+      "Onboard this project into Memoir",
+      "Remember that this project prefers pytest"
     ],
     "brandColor": "#111827",
     "screenshots": []

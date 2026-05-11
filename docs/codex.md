@@ -84,6 +84,9 @@ LLM extraction uses Codex auth through `codex exec`, not Claude Code's `MEMOIR_L
 |---|---|
 | `memory-recall` skill | Recalls default-namespace facts by semantic path. |
 | `memoir-onboard` skill | Populates `codebase:onboard` for git repos or `project:onboard` for non-git folders. |
+| `memoir-remember` skill | Explicit manual capture, replacing Claude Code's `/memoir:remember` with Codex-side path selection and `remember -p` writes. |
+| `memoir-status` skill | Shows the active store, branch, commits, memory count, and namespaces. |
+| `memoir-ui` skill | Launches or reopens the readonly Memoir UI for the active store. |
 | `SessionStart` hook | Ensures the store exists and injects memory status, keys, unmerged hints, and onboarding snapshots. |
 | `UserPromptSubmit` hook | Keeps the memoir branch aligned with the code branch and injects recall-before-acting guidance. |
 | `Stop` hook | Best-effort metrics, code-change summaries, and durable-fact extraction from Codex transcript JSONL. |
@@ -94,10 +97,11 @@ The Codex plugin keeps the same read/write split as the Claude Code integration:
 
 - Reads are skill-driven. Codex can use `memory-recall` when existing memories may help, and `UserPromptSubmit` only injects a recall-before-acting hint.
 - Onboarding is explicit. `memoir-onboard` is a user-invoked project indexing workflow that writes scoped `codebase:onboard` or `project:onboard` snapshots.
-- General manual writes are not a skill. The `Stop` hook handles best-effort auto-capture, and the manual escape hatch remains the CLI.
+- General manual writes are explicit. `memoir-remember` is the Codex replacement for Claude Code's `/memoir:remember`; it writes with `memoir remember -p` so classification is done by Codex rather than Memoir's package-level LLM default. The `Stop` hook still handles best-effort auto-capture.
+- `memoir-status` and `memoir-ui` replace the read-only Claude Code `/memoir:status` and `/memoir:ui` command surfaces.
 - Deletion remains CLI-only through `memoir forget`.
 
-Codex plugin slash commands, deprecated custom prompt surfaces, Claude Code statusline behavior, and `SessionEnd` cleanup are not included in v1. Use the Memoir CLI for manual operations:
+Codex plugin slash commands, deprecated custom prompt surfaces, Claude Code statusline behavior, and `SessionEnd` cleanup are not included in v1. Use the Memoir CLI for administrative operations:
 
 ```bash
 STORE="${MEMOIR_STORE:-$(bash /path/to/memoir/plugins/memoir-codex/scripts/derive-store-path.sh)}"
@@ -157,4 +161,4 @@ Do not commit generated stores, local Codex config, or `/tmp` evidence unless a 
 
 ## Parity notes
 
-The Codex plugin intentionally mirrors the Claude Code plugin where Codex has equivalent surfaces: `SessionStart`, `UserPromptSubmit`, `Stop`, skill-driven recall/onboarding, store derivation, branch auto-match, and onboarding namespaces. It does not port Claude-only slash-command markdown, deprecated custom prompt surfaces, statusline behavior, or `SessionEnd` cleanup. The first Codex-specific divergence is transcript parsing: Codex records messages and tools as `response_item.payload` objects, so the parser, metrics collector, and edit collector are separate from the Claude JSONL versions.
+The Codex plugin intentionally mirrors the Claude Code plugin where Codex has equivalent surfaces: `SessionStart`, `UserPromptSubmit`, `Stop`, skill-driven recall/onboarding/manual remember/status/UI, store derivation, branch auto-match, and onboarding namespaces. It does not port Claude-only slash-command markdown, deprecated custom prompt surfaces, statusline behavior, or `SessionEnd` cleanup. The first Codex-specific divergence is transcript parsing: Codex records messages and tools as `response_item.payload` objects, so the parser, metrics collector, and edit collector are separate from the Claude JSONL versions.
