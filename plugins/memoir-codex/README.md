@@ -6,13 +6,13 @@ Full reference: <https://zhangfengcdt.github.io/memoir/codex/>.
 
 ## Install
 
-Memoir's Codex plugin is distributed through the repository marketplace in `zhangfengcdt/memoir`:
+Memoir's Codex plugin is distributed through the repository marketplace in `zhangfengcdt/memoir`. In Codex, run `/plugins`, add the `memoir` marketplace from `zhangfengcdt/memoir`, restart Codex if prompted, then choose **Memoir Plugins** and install `memoir-codex`.
+
+You can also register the marketplace from the CLI:
 
 ```bash
 codex plugin marketplace add zhangfengcdt/memoir
 ```
-
-Restart Codex, open the plugin directory, choose **Memoir Plugins**, and install `memoir-codex`.
 
 For local development or PR validation from a checkout, register that checkout as the marketplace root instead:
 

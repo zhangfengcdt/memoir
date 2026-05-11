@@ -83,7 +83,9 @@ That's enough — the plugin handles the rest. It registers hooks for session st
 
 ## Install for Codex
 
-Memoir's Codex plugin is distributed from this repository's Codex marketplace. Register the repo, restart Codex, then open the plugin directory, choose **Memoir Plugins**, and install `memoir-codex`:
+Memoir's Codex plugin is distributed from this repository's Codex marketplace. In Codex, run `/plugins`, add the `memoir` marketplace from `zhangfengcdt/memoir`, restart Codex if prompted, then choose **Memoir Plugins** and install `memoir-codex`.
+
+You can also register the marketplace from the CLI:
 
 ```bash
 codex plugin marketplace add zhangfengcdt/memoir
