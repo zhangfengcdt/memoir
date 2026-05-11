@@ -7,7 +7,7 @@ Memoir has three independently versioned products:
   * The Claude Code plugin ``memoir`` (source of truth: the plugin manifest).
   * The Codex plugin ``memoir-codex`` (source of truth: the plugin manifest).
 
-The two products may legitimately track different version numbers, but within
+The three products may legitimately track different version numbers, but within
 each group every file that declares a version must agree. This script enforces
 that invariant so a release bump that forgets to touch one file fails fast in
 CI.

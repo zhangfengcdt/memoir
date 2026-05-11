@@ -8,7 +8,7 @@ Memoir ships as **three independently versioned products**:
 | Claude Code plugin `memoir` | `plugins/claude-code/.claude-plugin/plugin.json` → `version` | Marketplace (`.claude-plugin/marketplace.json`) |
 | Codex plugin `memoir-codex` | `plugins/memoir-codex/.codex-plugin/plugin.json` → `version` | Marketplace (`.agents/plugins/marketplace.json`) |
 
-The two versions may diverge (different release cadences). Within each product, every manifest that declares the version **must agree** — enforced in CI by `scripts/check_version_consistency.py` (see [Version consistency](#version-consistency) below).
+The three product versions may diverge (different release cadences). Within each product, every manifest that declares the version **must agree** — enforced in CI by `scripts/check_version_consistency.py` (see [Version consistency](#version-consistency) below).
 
 (The Python import name is `memoir`; the distribution name on PyPI is `memoir-ai` because `memoir` was already taken.)
 
@@ -36,6 +36,8 @@ This verifies that every version-bearing file inside each product agrees. CI run
   - `.claude-plugin/marketplace.json` — `plugins[<memoir>].version`
 - **Codex plugin (`memoir-codex`)**
   - `plugins/memoir-codex/.codex-plugin/plugin.json` — `"version": "X.Y.Z"`
+
+The first Codex plugin release starts at `0.1.0` even if the Python package and Claude Code plugin are on later versions, because it is a new independently versioned product surface.
 
 Ancillary versions that are **intentionally independent** and not checked:
 

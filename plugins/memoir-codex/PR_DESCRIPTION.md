@@ -9,6 +9,7 @@
 - Ported SessionStart, UserPromptSubmit, and Stop behavior from the Claude Code plugin where Codex supports equivalent lifecycle hooks.
 - Added Codex-specific transcript parsing for messages, tool calls, apply_patch, shell calls, and tool outputs.
 - Preserved the read/write asymmetry: recall is skill-driven, onboarding is an explicit project-indexing skill, manual remember/forget stay CLI-only, and Stop handles best-effort auto-capture.
+- Started the Codex plugin's independent release line at `0.1.0`.
 - Updated docs, release notes, and version consistency checks for the new Codex plugin surface.
 
 ## Limitations

@@ -1,6 +1,6 @@
 {
   "name": "memoir-codex",
-  "version": "0.2.0",
+  "version": "0.1.0",
   "description": "Git-versioned, taxonomy-structured memory for Codex. Memoir adds branch-aware memory recall, onboarding snapshots, and best-effort lifecycle capture to Codex sessions.",
   "author": {
     "name": "NextMind",
