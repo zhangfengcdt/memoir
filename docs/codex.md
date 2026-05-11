@@ -35,7 +35,16 @@ Each project gets a store under `~/.memoir/<slug>/`, derived from the session cw
 | `UserPromptSubmit` hook | Keeps the memoir branch aligned with the code branch and injects recall-before-acting guidance. |
 | `Stop` hook | Best-effort metrics, code-change summaries, and durable-fact extraction from Codex transcript JSONL. |
 
-Codex plugin slash commands, Claude Code statusline behavior, and `SessionEnd` cleanup are not included in v1. Use the Memoir CLI for manual operations:
+## Read/write asymmetry
+
+The Codex plugin keeps the same read/write split as the Claude Code integration:
+
+- Reads are skill-driven. Codex can use `memory-recall` when existing memories may help, and `UserPromptSubmit` only injects a recall-before-acting hint.
+- Onboarding is explicit. `memoir-onboard` is a user-invoked project indexing workflow that writes scoped `codebase:onboard` or `project:onboard` snapshots.
+- General manual writes are not a skill. The `Stop` hook handles best-effort auto-capture, and the manual escape hatch remains the CLI.
+- Deletion remains CLI-only through `memoir forget`.
+
+Codex plugin slash commands, deprecated custom prompt surfaces, Claude Code statusline behavior, and `SessionEnd` cleanup are not included in v1. Use the Memoir CLI for manual operations:
 
 ```bash
 STORE="${MEMOIR_STORE:-$(bash /path/to/memoir/plugins/memoir-codex/scripts/derive-store-path.sh)}"
@@ -93,4 +102,4 @@ Do not commit generated stores, local Codex config, or `/tmp` evidence unless a 
 
 ## Parity notes
 
-The Codex plugin intentionally mirrors the Claude Code plugin where Codex has equivalent surfaces: `SessionStart`, `UserPromptSubmit`, `Stop`, skills, store derivation, branch auto-match, and onboarding namespaces. The first Codex-specific divergence is transcript parsing: Codex records messages and tools as `response_item.payload` objects, so the parser, metrics collector, and edit collector are separate from the Claude JSONL versions.
+The Codex plugin intentionally mirrors the Claude Code plugin where Codex has equivalent surfaces: `SessionStart`, `UserPromptSubmit`, `Stop`, skill-driven recall/onboarding, store derivation, branch auto-match, and onboarding namespaces. It does not port Claude-only slash-command markdown, deprecated custom prompt surfaces, statusline behavior, or `SessionEnd` cleanup. The first Codex-specific divergence is transcript parsing: Codex records messages and tools as `response_item.payload` objects, so the parser, metrics collector, and edit collector are separate from the Claude JSONL versions.

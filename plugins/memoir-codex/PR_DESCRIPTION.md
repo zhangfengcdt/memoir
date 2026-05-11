@@ -8,10 +8,11 @@
 - Added `.agents/plugins/marketplace.json` for local Codex plugin discovery.
 - Ported SessionStart, UserPromptSubmit, and Stop behavior from the Claude Code plugin where Codex supports equivalent lifecycle hooks.
 - Added Codex-specific transcript parsing for messages, tool calls, apply_patch, shell calls, and tool outputs.
+- Preserved the read/write asymmetry: recall is skill-driven, onboarding is an explicit project-indexing skill, manual remember/forget stay CLI-only, and Stop handles best-effort auto-capture.
 - Updated docs, release notes, and version consistency checks for the new Codex plugin surface.
 
 ## Limitations
-- Codex plugin slash commands, Claude Code statusline behavior, and SessionEnd cleanup are not included in v1.
+- Codex plugin slash commands, deprecated custom prompt surfaces, Claude Code statusline behavior, and SessionEnd cleanup are not included in v1.
 - Stop-hook LLM extraction uses `codex exec`; if Codex auth or the executable is unavailable, capture fails open and the user turn is not blocked.
 
 ## Validation

@@ -46,7 +46,16 @@ Stop-hook LLM extraction uses Codex auth through `codex exec`. Override the nest
 | Helper scripts | Store path resolution, CLI resolution, UI control, status command, transcript parsing, metrics, and edit collection. |
 | Marketplace | `.agents/plugins/marketplace.json` points Codex at `./plugins/memoir-codex`. |
 
-Codex plugin slash commands, Claude Code statusline behavior, and `SessionEnd` cleanup are not part of v1. Use the Memoir CLI for manual operations:
+## Read/write asymmetry
+
+The plugin keeps reads and writes intentionally asymmetric:
+
+- Reads are skill-driven. Codex can use `memory-recall` when existing memories may help, and `UserPromptSubmit` only injects a recall-before-acting hint.
+- Onboarding is explicit. `memoir-onboard` is a user-invoked project indexing workflow that writes scoped `codebase:onboard` or `project:onboard` snapshots.
+- General manual writes are not a skill. The `Stop` hook handles best-effort auto-capture, and the manual escape hatch remains the CLI.
+- Deletion remains CLI-only through `memoir forget`.
+
+Codex plugin slash commands, deprecated custom prompt surfaces, Claude Code statusline behavior, and `SessionEnd` cleanup are not part of v1. Use the Memoir CLI for manual operations:
 
 ```bash
 STORE="${MEMOIR_STORE:-$(bash /path/to/memoir/plugins/memoir-codex/scripts/derive-store-path.sh)}"
