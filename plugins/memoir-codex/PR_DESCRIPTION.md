@@ -9,6 +9,7 @@
 - Ported SessionStart, UserPromptSubmit, and Stop behavior from the Claude Code plugin where Codex supports equivalent lifecycle hooks.
 - Added Codex-specific transcript parsing for messages, tool calls, apply_patch, shell calls, and tool outputs.
 - Preserved the read/write asymmetry: recall is skill-driven, onboarding is an explicit project-indexing skill, manual remember/forget stay CLI-only, and Stop handles best-effort auto-capture.
+- Matched Claude Code plugin CLI resolution semantics: `memoir` on PATH first, then pinned `uvx` / `uv tool run` fallbacks, with Codex-specific LLM extraction through `codex exec` that inherits the active Codex model and falls back to `gpt-5.4`.
 - Started the Codex plugin's independent release line at `0.1.0`.
 - Added a `scripts/install-codex-hooks.sh` bridge for the current Codex plugin-hook gap tracked upstream in openai/codex#16430, where marketplace plugins install skills but do not yet activate bundled lifecycle hooks.
 - Aligned Codex install docs with `/plugins` repo-marketplace distribution from `zhangfengcdt/memoir`, including the local-checkout path for PR testing and the uv-based CLI fallback.
@@ -20,6 +21,7 @@
 - Codex does not activate marketplace plugin hooks automatically yet (openai/codex#16430); run `scripts/install-codex-hooks.sh` after plugin install to bridge the bundled `SessionStart`, `UserPromptSubmit`, and `Stop` hooks into `~/.codex/hooks.json`.
 - After installing the hook bridge, Codex may warn that 3 hooks need review; open `/hooks`, review each Memoir hook, and press `t` to trust it before expecting hooks to run.
 - Stop-hook LLM extraction uses `codex exec`; if Codex auth or the executable is unavailable, capture fails open and the user turn is not blocked.
+- Stop capture only runs after a completed Codex turn; interrupted turns may not produce auto-captured memories.
 
 ## Validation
 - `.venv/bin/pytest plugins/memoir-codex/tests -v` - 43 passed.

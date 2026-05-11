@@ -58,7 +58,25 @@ Open `/hooks`, review each Memoir hook, and press `t` to trust it. Hooks do not 
 
 Each project gets a store under `~/.memoir/<slug>/`, derived from the session cwd. Override with `MEMOIR_STORE=/path/to/store`.
 
-The plugin shells out to the Memoir CLI. No manual `pip install` is required if `uv` is on `PATH`: the helper uses `memoir` when already installed, otherwise `uvx --from memoir-ai==<pinned> memoir`, otherwise `uv tool run --from memoir-ai==<pinned> memoir`.
+To inspect the same store the plugin uses, resolve the store first instead of running bare `memoir status` from the project directory:
+
+```bash
+PLUGIN_ROOT=/path/to/memoir/plugins/memoir-codex
+STORE=$("$PLUGIN_ROOT/scripts/derive-store-path.sh" /path/to/project)
+"$PLUGIN_ROOT/scripts/memoir-cli.sh" -s "$STORE" status
+"$PLUGIN_ROOT/scripts/memoir-cli.sh" --json -s "$STORE" summarize --keys "*" -n default
+```
+
+## CLI resolution
+
+The plugin shells out to the `memoir` CLI through `scripts/memoir-cli.sh`. It picks, in order:
+
+1. **`memoir` on `PATH`** — install with `pip install memoir-ai`, `pipx install memoir-ai`, or `uv tool install memoir-ai`.
+2. **`uvx` on `PATH`** — transparent fallback as `uvx --from memoir-ai==<pinned> memoir ...` with zero manual install. The pin is set in `scripts/resolve-memoir-cli.sh` (`MEMOIR_AI_PIN`) so a silent PyPI publish cannot change behavior under you.
+3. **`uv` on `PATH`** — fallback as `uv tool run --from memoir-ai==<pinned> memoir ...` for environments without the `uvx` shim.
+4. **Neither** — the plugin disables capture/recall and surfaces an install hint in the status line.
+
+LLM extraction uses Codex auth through `codex exec`, not Claude Code's `MEMOIR_LLM_BACKEND=claude-cli` path. Override the nested extraction model with `MEMOIR_CODEX_MODEL`; otherwise the hook inherits Codex's active model from hook input and falls back to `gpt-5.4`.
 
 ## What ships
 
@@ -92,9 +110,11 @@ MEMOIR="/path/to/memoir/plugins/memoir-codex/scripts/memoir-cli.sh"
 
 ## LLM extraction
 
-The Stop hook uses `codex exec` for fact extraction and code-change summaries. It runs nested Codex with hooks disabled, read-only sandboxing, ignored rules, and `--skip-git-repo-check` so extraction does not recurse into Memoir capture. Set `MEMOIR_CODEX_MODEL` to override the nested model; PR validation should use `gpt-5.4`.
+The Stop hook uses `codex exec` for fact extraction and code-change summaries. It runs nested Codex with hooks disabled, read-only sandboxing, ignored rules, and `--skip-git-repo-check` so extraction does not recurse into Memoir capture. It uses `MEMOIR_CODEX_MODEL` when set, otherwise the active Codex model from hook input, otherwise `gpt-5.4`.
 
 If `codex` is unavailable or the nested call fails, the hook fails open and the user turn continues. Metrics and explicit-path CLI writes still work without nested LLM extraction.
+
+Stop capture runs only after Codex completes a turn. If the turn is interrupted or aborted before the final assistant message, there may be no Stop hook run and no auto-captured memory for that turn.
 
 ## Real Codex smoke test
 

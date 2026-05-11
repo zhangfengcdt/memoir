@@ -19,7 +19,7 @@ The harness exercises the same prompt templates and gate logic that the Codex pl
 # Deterministic recall-gate suite.
 plugins/memoir-codex/tests/prompt-harness/runner.py gate --hook user-prompt-submit
 
-# Full Stop-hook prompt suite. Use gpt-5.4 for PR validation.
+# Full Stop-hook prompt suite. Use the current Codex plugin fallback model for validation.
 plugins/memoir-codex/tests/prompt-harness/runner.py run --prompt stop_capture --model gpt-5.4
 
 # One case.

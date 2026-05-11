@@ -56,19 +56,25 @@ Open `/hooks`, review each Memoir hook, and press `t` to trust it. Hooks do not 
 
 Each project gets its own store at `~/.memoir/<slug>/`, derived from the session cwd. Override with `MEMOIR_STORE=/your/path`. Linked git worktrees share one store keyed on the main worktree path; set `MEMOIR_STORE` per worktree to opt out.
 
+To inspect the same store the plugin uses, resolve the store first instead of running bare `memoir status` from the project directory:
+
+```bash
+PLUGIN_ROOT=/path/to/memoir/plugins/memoir-codex
+STORE=$("$PLUGIN_ROOT/scripts/derive-store-path.sh" /path/to/project)
+"$PLUGIN_ROOT/scripts/memoir-cli.sh" -s "$STORE" status
+"$PLUGIN_ROOT/scripts/memoir-cli.sh" --json -s "$STORE" summarize --keys "*" -n default
+```
+
 ## CLI resolution
 
-The plugin shells out to the `memoir` CLI. It picks, in order:
+The plugin shells out to the `memoir` CLI through `scripts/memoir-cli.sh`. It picks, in order:
 
-1. `memoir` on `PATH`.
-2. `uvx --from memoir-ai==<pinned> memoir`.
-3. `uv tool run --from memoir-ai==<pinned> memoir`.
+1. **`memoir` on `PATH`** — install with `pip install memoir-ai`, `pipx install memoir-ai`, or `uv tool install memoir-ai`.
+2. **`uvx` on `PATH`** — transparent fallback as `uvx --from memoir-ai==<pinned> memoir ...` with zero manual install. The pin is set in `scripts/resolve-memoir-cli.sh` (`MEMOIR_AI_PIN`) so a silent PyPI publish cannot change behavior under you.
+3. **`uv` on `PATH`** — fallback as `uv tool run --from memoir-ai==<pinned> memoir ...` for environments without the `uvx` shim.
+4. **Neither** — the plugin disables capture/recall and surfaces an install hint in the status line.
 
-If none are available, capture and recall are disabled and the hook surfaces an install hint.
-
-This mirrors the Claude Code plugin's install ergonomics: if `uv` is present, users do not need to install `memoir-ai` manually before enabling the plugin.
-
-Stop-hook LLM extraction uses Codex auth through `codex exec`. Override the nested extraction model with `MEMOIR_CODEX_MODEL`; otherwise the hook uses Codex's active model when available and falls back to `gpt-5.4`.
+This mirrors the Claude Code plugin's CLI ergonomics: if `uv` is present, users do not need to install `memoir-ai` manually before enabling the plugin. LLM extraction is Codex-specific, though: the Stop hook uses Codex auth through `codex exec`, not Claude Code's `MEMOIR_LLM_BACKEND=claude-cli` path. Override the nested extraction model with `MEMOIR_CODEX_MODEL`; otherwise the hook inherits Codex's active model from hook input and falls back to `gpt-5.4`.
 
 ## What ships
 
@@ -108,6 +114,8 @@ MEMOIR="/path/to/memoir/plugins/memoir-codex/scripts/memoir-cli.sh"
 | `Stop` | `hooks/stop.sh` | Best-effort metrics, code-change summaries, and durable-fact extraction from Codex transcript JSONL. |
 
 Disable auto-capture with `MEMOIR_NO_CAPTURE=1`. Disable metrics with `MEMOIR_NO_METRICS=1`. Disable code summaries with `MEMOIR_NO_CODE_SUMMARY=1`.
+
+Stop capture runs only after Codex completes a turn. If the turn is interrupted or aborted before the final assistant message, there may be no Stop hook run and no auto-captured memory for that turn.
 
 ## Real Codex smoke test
 
