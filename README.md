@@ -83,11 +83,15 @@ That's enough — the plugin handles the rest. It registers hooks for session st
 
 ## Install for Codex
 
-From a local checkout, register the Codex marketplace and install `memoir-codex`:
+Memoir's Codex plugin is distributed from this repository's Codex marketplace. Register the repo, restart Codex, then open the plugin directory, choose **Memoir Plugins**, and install `memoir-codex`:
 
 ```bash
-codex plugin marketplace add /absolute/path/to/memoir
+codex plugin marketplace add zhangfengcdt/memoir
 ```
+
+While developing from a local checkout, use `codex plugin marketplace add /absolute/path/to/memoir` instead. The repo marketplace lives at `.agents/plugins/marketplace.json` and points Codex at `./plugins/memoir-codex`, relative to the repository root.
+
+**No manual `pip install` needed if you have `uv` on PATH** — the Codex plugin resolves the Memoir CLI the same way the Claude Code plugin does: `memoir` on `PATH` first, then `uvx --from memoir-ai==<pinned> memoir`, then `uv tool run --from memoir-ai==<pinned> memoir`.
 
 Enable Codex hooks with `[features].hooks = true` in `~/.codex/config.toml` or pass `--enable hooks` for a smoke run. The Codex plugin ships lifecycle hooks, `memory-recall` and `memoir-onboard` skills, Codex-specific transcript parsing, and local marketplace metadata. See the [Codex plugin guide](https://zhangfengcdt.github.io/memoir/codex/) for setup, limitations, and the real Codex smoke-test flow.
 

@@ -143,7 +143,7 @@ Users pick up the new plugin version on their next `/plugin update memoir` (or w
 
 ## Cutting a Codex plugin release
 
-The Codex plugin is distributed by the local marketplace file in this repo.
+The Codex plugin is distributed by this repository's marketplace at `.agents/plugins/marketplace.json`. There is no separate Codex registry publish step today; after the release PR merges to `zhangfengcdt/memoir`, users install or refresh the marketplace with `codex plugin marketplace add zhangfengcdt/memoir` or `codex plugin marketplace upgrade memoir`.
 
 1. **Create a release branch from `main`:**
 

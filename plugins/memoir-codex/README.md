@@ -6,13 +6,21 @@ Full reference: <https://zhangfengcdt.github.io/memoir/codex/>.
 
 ## Install
 
-From a local checkout of this repository:
+Memoir's Codex plugin is distributed through the repository marketplace in `zhangfengcdt/memoir`:
+
+```bash
+codex plugin marketplace add zhangfengcdt/memoir
+```
+
+Restart Codex, open the plugin directory, choose **Memoir Plugins**, and install `memoir-codex`.
+
+For local development or PR validation from a checkout, register that checkout as the marketplace root instead:
 
 ```bash
 codex plugin marketplace add /absolute/path/to/memoir
 ```
 
-Then install `memoir-codex` from the Codex plugin UI or plugin command surface.
+The marketplace file lives at `.agents/plugins/marketplace.json`; its `source.path` points to `./plugins/memoir-codex`, relative to the repository root.
 
 Enable hooks in Codex config:
 
@@ -34,6 +42,8 @@ The plugin shells out to the `memoir` CLI. It picks, in order:
 3. `uv tool run --from memoir-ai==<pinned> memoir`.
 
 If none are available, capture and recall are disabled and the hook surfaces an install hint.
+
+This mirrors the Claude Code plugin's install ergonomics: if `uv` is present, users do not need to install `memoir-ai` manually before enabling the plugin.
 
 Stop-hook LLM extraction uses Codex auth through `codex exec`. Override the nested extraction model with `MEMOIR_CODEX_MODEL`; otherwise the hook uses Codex's active model when available and falls back to `gpt-5.4`.
 

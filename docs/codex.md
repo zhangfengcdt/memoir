@@ -6,13 +6,21 @@ The plugin lives in the repo at `plugins/memoir-codex/`.
 
 ## Install
 
-From a local checkout:
+Memoir's Codex plugin is distributed through the repository marketplace in `zhangfengcdt/memoir`:
+
+```bash
+codex plugin marketplace add zhangfengcdt/memoir
+```
+
+Restart Codex, open the plugin directory, choose **Memoir Plugins**, and install `memoir-codex`. The repository marketplace lives at `.agents/plugins/marketplace.json`; its `source.path` is `./plugins/memoir-codex`, resolved relative to the repository root.
+
+For local development or PR validation from a checkout, register that checkout as the marketplace root instead:
 
 ```bash
 codex plugin marketplace add /absolute/path/to/memoir
 ```
 
-Then install `memoir-codex` from Codex's plugin UI or plugin command surface. The repository marketplace lives at `.agents/plugins/marketplace.json` and points to `./plugins/memoir-codex`.
+Codex installs plugins from marketplace entries into its plugin cache, so after changing local plugin files, restart Codex or refresh the marketplace before retesting.
 
 Enable hooks in Codex:
 
@@ -24,6 +32,8 @@ hooks = true
 For one-off tests, pass `--enable hooks`. Codex v0.129.0 warns that `[features].codex_hooks` is deprecated; use `[features].hooks` for new installs.
 
 Each project gets a store under `~/.memoir/<slug>/`, derived from the session cwd. Override with `MEMOIR_STORE=/path/to/store`.
+
+The plugin shells out to the Memoir CLI. No manual `pip install` is required if `uv` is on `PATH`: the helper uses `memoir` when already installed, otherwise `uvx --from memoir-ai==<pinned> memoir`, otherwise `uv tool run --from memoir-ai==<pinned> memoir`.
 
 ## What ships
 

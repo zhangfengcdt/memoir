@@ -10,6 +10,7 @@
 - Added Codex-specific transcript parsing for messages, tool calls, apply_patch, shell calls, and tool outputs.
 - Preserved the read/write asymmetry: recall is skill-driven, onboarding is an explicit project-indexing skill, manual remember/forget stay CLI-only, and Stop handles best-effort auto-capture.
 - Started the Codex plugin's independent release line at `0.1.0`.
+- Aligned Codex install docs with repo-marketplace distribution from `zhangfengcdt/memoir`, including the local-checkout path for PR testing and the uv-based CLI fallback.
 - Updated docs, release notes, and version consistency checks for the new Codex plugin surface.
 
 ## Limitations

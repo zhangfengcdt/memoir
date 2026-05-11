@@ -71,7 +71,13 @@ The Codex plugin lives under `plugins/memoir-codex/`, with the marketplace manif
 codex plugin marketplace add /absolute/path/to/memoir
 ```
 
-Install `memoir-codex` from Codex, then enable hooks with `[features].hooks = true` or a one-off `--enable hooks` run. Use `gpt-5.4` for PR smoke validation:
+That local command is for source testing. User-facing installs should use the repo marketplace:
+
+```bash
+codex plugin marketplace add zhangfengcdt/memoir
+```
+
+Install `memoir-codex` from Codex, then enable hooks with `[features].hooks = true` or a one-off `--enable hooks` run. The plugin resolves the Memoir CLI through `memoir` on `PATH`, `uvx --from memoir-ai==<pinned> memoir`, or `uv tool run --from memoir-ai==<pinned> memoir`, so a separate `pip install memoir-ai` is not required when `uv` is available. Use `gpt-5.4` for PR smoke validation:
 
 ```bash
 MEMOIR_STORE=/tmp/memoir-codex-smoke-store \
