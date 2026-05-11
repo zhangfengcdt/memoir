@@ -31,7 +31,7 @@ hooks = true
 
 For one-off testing, pass `--enable hooks` to Codex. Older docs and builds used `[features].codex_hooks`; Codex v0.129.0 warns that name is deprecated.
 
-Codex v0.130.0 installs plugin skills but does not yet activate lifecycle hooks bundled by marketplace plugins. Until plugin-bundled hooks are loaded by Codex itself, install Memoir's bundled hooks into your user hooks file after installing the plugin:
+Codex installs plugin skills today, but does not yet activate lifecycle hooks bundled by marketplace plugins (tracked upstream in [openai/codex#16430](https://github.com/openai/codex/issues/16430)). Until plugin-bundled hooks are loaded by Codex itself, install Memoir's bundled hooks into your user hooks file after installing the plugin:
 
 ```bash
 PLUGIN_ROOT=$(find "${CODEX_HOME:-$HOME/.codex}/plugins/cache" \

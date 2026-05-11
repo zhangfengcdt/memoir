@@ -10,14 +10,14 @@
 - Added Codex-specific transcript parsing for messages, tool calls, apply_patch, shell calls, and tool outputs.
 - Preserved the read/write asymmetry: recall is skill-driven, onboarding is an explicit project-indexing skill, manual remember/forget stay CLI-only, and Stop handles best-effort auto-capture.
 - Started the Codex plugin's independent release line at `0.1.0`.
-- Added a `scripts/install-codex-hooks.sh` bridge for Codex v0.130.0, where marketplace plugins install skills but do not yet activate bundled lifecycle hooks.
+- Added a `scripts/install-codex-hooks.sh` bridge for the current Codex plugin-hook gap tracked upstream in openai/codex#16430, where marketplace plugins install skills but do not yet activate bundled lifecycle hooks.
 - Aligned Codex install docs with `/plugins` repo-marketplace distribution from `zhangfengcdt/memoir`, including the local-checkout path for PR testing and the uv-based CLI fallback.
 - Documented that pre-merge marketplace testing must use the PR branch or local checkout so Codex does not fall back to the existing Claude Code marketplace on upstream main.
 - Updated docs, release notes, and version consistency checks for the new Codex plugin surface.
 
 ## Limitations
 - Codex plugin slash commands, deprecated custom prompt surfaces, Claude Code statusline behavior, and SessionEnd cleanup are not included in v1.
-- Codex v0.130.0 does not activate marketplace plugin hooks automatically; run `scripts/install-codex-hooks.sh` after plugin install to bridge the bundled `SessionStart`, `UserPromptSubmit`, and `Stop` hooks into `~/.codex/hooks.json`.
+- Codex does not activate marketplace plugin hooks automatically yet (openai/codex#16430); run `scripts/install-codex-hooks.sh` after plugin install to bridge the bundled `SessionStart`, `UserPromptSubmit`, and `Stop` hooks into `~/.codex/hooks.json`.
 - Stop-hook LLM extraction uses `codex exec`; if Codex auth or the executable is unavailable, capture fails open and the user turn is not blocked.
 
 ## Validation
