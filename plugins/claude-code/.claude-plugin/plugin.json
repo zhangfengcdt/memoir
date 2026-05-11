@@ -1,5 +1,5 @@
 {
   "name": "memoir",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Git-versioned, taxonomy-structured memory for Claude Code — recall by path, branch to isolate, time-travel to audit."
 }

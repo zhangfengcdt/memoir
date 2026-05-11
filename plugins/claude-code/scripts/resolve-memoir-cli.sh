@@ -35,7 +35,7 @@
 # separate version groups). This pin is the plugin's downstream constraint
 # against the published package; bump it deliberately after verifying the
 # new release works with the current plugin.
-MEMOIR_AI_PIN="0.1.9"
+MEMOIR_AI_PIN="0.2.0"
 
 if command -v memoir &>/dev/null; then
   MEMOIR_CMD="memoir"
