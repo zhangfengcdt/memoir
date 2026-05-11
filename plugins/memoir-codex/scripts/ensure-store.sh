@@ -34,6 +34,13 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Standalone callers may run this from a minimal PATH (e.g. skill-driven
+# helpers after SessionStart missed store creation). Mirror the same user bin
+# bootstrap the other Codex helper entry points use before resolving the CLI.
+for p in "$HOME/.local/bin" "$HOME/.cargo/bin" "$HOME/bin" "/usr/local/bin" "/opt/homebrew/bin"; do
+  [[ -d "$p" ]] && [[ ":$PATH:" != *":$p:"* ]] && export PATH="$p:$PATH"
+done
+
 # shellcheck source=resolve-memoir-cli.sh
 source "$SCRIPT_DIR/resolve-memoir-cli.sh"
 

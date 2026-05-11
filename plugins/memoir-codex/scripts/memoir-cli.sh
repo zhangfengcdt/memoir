@@ -21,7 +21,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # don't, so do it here too — a `pip install --user memoir-ai` puts the
 # binary in ~/.local/bin which isn't on PATH inside Codex's Bash tool
 # subshells by default.
-for p in "$HOME/.local/bin" "$HOME/.cargo/bin" "$HOME/bin" "/usr/local/bin"; do
+for p in "$HOME/.local/bin" "$HOME/.cargo/bin" "$HOME/bin" "/usr/local/bin" "/opt/homebrew/bin"; do
   [[ -d "$p" ]] && [[ ":$PATH:" != *":$p:"* ]] && export PATH="$p:$PATH"
 done
 
