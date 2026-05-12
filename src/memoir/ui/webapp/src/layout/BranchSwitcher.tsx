@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, MemoirApiError } from "../api/client";
 import { useStore } from "../state/storeSlice";
 import "./BranchSwitcher.css";
@@ -21,8 +21,17 @@ export default function BranchSwitcher({
   const codeRepoBranch = data?.code_repo_branch ?? null;
 
   const popoverRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLUListElement | null>(null);
   const [switching, setSwitching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const sorted = useMemo(() => {
+    return [...branches].sort((a, b) => {
+      if (a === currentBranch) return -1;
+      if (b === currentBranch) return 1;
+      return a.localeCompare(b);
+    });
+  }, [branches, currentBranch]);
 
   useEffect(() => {
     if (!open) {
@@ -50,13 +59,19 @@ export default function BranchSwitcher({
     };
   }, [open, onClose, anchorRef]);
 
-  if (!open) return null;
+  // Auto-focus the first non-current row when the popover opens so
+  // keyboard users can immediately activate or arrow through options.
+  useEffect(() => {
+    if (!open) return;
+    const list = listRef.current;
+    if (!list) return;
+    const first = list.querySelector<HTMLLIElement>(
+      'li[role="option"]:not([aria-disabled="true"])',
+    );
+    first?.focus();
+  }, [open, sorted.length]);
 
-  const sorted = [...branches].sort((a, b) => {
-    if (a === currentBranch) return -1;
-    if (b === currentBranch) return 1;
-    return a.localeCompare(b);
-  });
+  if (!open) return null;
 
   const handlePick = async (branch: string) => {
     if (!storePath || switching) return;
@@ -76,6 +91,55 @@ export default function BranchSwitcher({
     }
   };
 
+  // Focus a sibling option row by index, wrapping at both ends and
+  // skipping disabled (current) rows.
+  const focusRow = (index: number) => {
+    const list = listRef.current;
+    if (!list) return;
+    const rows = Array.from(
+      list.querySelectorAll<HTMLLIElement>(
+        'li[role="option"]:not([aria-disabled="true"])',
+      ),
+    );
+    if (rows.length === 0) return;
+    const wrapped = ((index % rows.length) + rows.length) % rows.length;
+    rows[wrapped]?.focus();
+  };
+
+  const handleKeyDown = (
+    e: React.KeyboardEvent<HTMLLIElement>,
+    branch: string,
+    enabledIndex: number,
+    enabledCount: number,
+  ) => {
+    switch (e.key) {
+      case "Enter":
+      case " ":
+        e.preventDefault();
+        void handlePick(branch);
+        return;
+      case "ArrowDown":
+        e.preventDefault();
+        focusRow(enabledIndex + 1);
+        return;
+      case "ArrowUp":
+        e.preventDefault();
+        focusRow(enabledIndex - 1);
+        return;
+      case "Home":
+        e.preventDefault();
+        focusRow(0);
+        return;
+      case "End":
+        e.preventDefault();
+        focusRow(enabledCount - 1);
+        return;
+    }
+  };
+
+  const enabledBranches = sorted.filter((b) => b !== currentBranch);
+  const enabledIndexOf = (branch: string) => enabledBranches.indexOf(branch);
+
   return (
     <div
       ref={popoverRef}
@@ -84,14 +148,15 @@ export default function BranchSwitcher({
       aria-label="Switch branch"
     >
       <div className="branch-switcher-header">Switch branch</div>
-      <ul className="branch-switcher-list">
+      <ul ref={listRef} className="branch-switcher-list">
         {sorted.length === 0 && (
           <li className="branch-switcher-empty">No branches</li>
         )}
         {sorted.map((branch) => {
           const isCurrent = branch === currentBranch;
           const isMain = branch === "main";
-          const isCodeMatch = codeRepoBranch != null && branch === codeRepoBranch;
+          const isCodeMatch =
+            codeRepoBranch != null && branch === codeRepoBranch;
           const classes = [
             "branch-switcher-row",
             isCurrent && "current",
@@ -100,17 +165,27 @@ export default function BranchSwitcher({
           ]
             .filter(Boolean)
             .join(" ");
+          const disabled = switching || isCurrent;
           return (
             <li
               key={branch}
               role="option"
               aria-selected={isCurrent}
-              aria-disabled={switching || isCurrent}
+              aria-disabled={disabled}
+              tabIndex={disabled ? -1 : 0}
               className={classes}
               onMouseDown={(e) => {
                 e.preventDefault();
                 void handlePick(branch);
               }}
+              onKeyDown={(e) =>
+                handleKeyDown(
+                  e,
+                  branch,
+                  enabledIndexOf(branch),
+                  enabledBranches.length,
+                )
+              }
             >
               <span className="branch-switcher-bullet" aria-hidden="true">
                 {isCurrent ? "●" : "○"}
