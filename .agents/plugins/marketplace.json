@@ -1,7 +1,7 @@
 {
   "name": "memoir",
   "interface": {
-    "displayName": "Memoir Plugins"
+    "displayName": "Memoir Plugins for Codex"
   },
   "plugins": [
     {
