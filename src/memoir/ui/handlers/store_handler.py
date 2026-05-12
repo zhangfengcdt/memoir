@@ -8,10 +8,35 @@ Delegates to StoreService for business logic.
 import asyncio
 import json
 import subprocess
+import time
 from pathlib import Path
 from urllib.parse import parse_qs
 
 from .api_handler import BaseAPIHandler
+
+# Cache for the code-repo branch lookup keyed by store_path. The UI polls
+# /api/store every ~3s; spawning two `git rev-parse` subprocesses per poll
+# is wasteful when the answer rarely changes. 5s TTL keeps the indicator
+# responsive enough that a host-side ``git checkout`` shows up quickly
+# while amortising the subprocess cost across polls.
+_CODE_REPO_CACHE_TTL_SEC = 5.0
+_code_repo_branch_cache: dict[str, tuple[float, str | None]] = {}
+
+
+def _code_repo_branch_for_store(store_path: str) -> str | None:
+    """Cached wrapper around :func:`_resolve_code_repo_path` +
+    :func:`_git_head_info`. Returns the live HEAD branch of the code repo
+    this store maps to, or ``None`` when the path is unknown or not a git
+    repo. Results are cached per ``store_path`` for ``_CODE_REPO_CACHE_TTL_SEC``.
+    """
+    now = time.monotonic()
+    cached = _code_repo_branch_cache.get(store_path)
+    if cached is not None and (now - cached[0]) < _CODE_REPO_CACHE_TTL_SEC:
+        return cached[1]
+    repo_path = _resolve_code_repo_path(store_path, [])
+    _, branch = _git_head_info(repo_path) if repo_path else (None, None)
+    _code_repo_branch_cache[store_path] = (now, branch)
+    return branch
 
 
 def _resolve_code_repo_path(store_path: str, items: list[dict]) -> str | None:
@@ -125,14 +150,11 @@ class StoreHandler(BaseAPIHandler):
             data = service.read_store()
             # Best-effort codebase HEAD lookup so the branch switcher can
             # highlight which memoir branch matches the user's checked-out
-            # code branch. Skips the snapshot-meta path (no items here) and
-            # falls back to slug-derive only; failures yield ``None``.
-            code_repo_path = _resolve_code_repo_path(store_path, [])
-            _, code_repo_branch = (
-                _git_head_info(code_repo_path) if code_repo_path else (None, None)
-            )
-            data["code_repo_path"] = code_repo_path
-            data["code_repo_branch"] = code_repo_branch
+            # code branch. Cached with a short TTL because /api/store is
+            # polled frequently. Only the branch name is exposed on the
+            # wire — the absolute repo path stays server-side to avoid
+            # leaking filesystem layout via logs/telemetry/non-local UIs.
+            data["code_repo_branch"] = _code_repo_branch_for_store(store_path)
             # Round-trip through the schema to enforce required fields, then
             # emit the validated dict (which keeps any extra legacy keys —
             # ``extra='allow'`` on the model — so the old UI keeps working).

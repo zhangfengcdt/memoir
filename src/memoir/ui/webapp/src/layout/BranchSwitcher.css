@@ -64,10 +64,12 @@
     color var(--duration-fast) var(--ease-out);
 }
 
-.branch-switcher-row:hover {
+.branch-switcher-row:hover,
+.branch-switcher-row:focus-visible {
   background: var(--bg-2);
   border-left-color: var(--accent);
   color: var(--fg-0);
+  outline: none;
 }
 
 .branch-switcher-row.current {

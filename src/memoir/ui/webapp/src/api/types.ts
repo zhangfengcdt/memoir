@@ -32,10 +32,9 @@ export interface StoreResponse {
   namespaces: Record<string, string[]>;
   memories: Memory[];
   total_memories: number;
-  // On-disk path of the code repo the store was created against, plus its
-  // live HEAD branch. Best-effort — null when the codebase folder is
-  // missing or not a git repo.
-  code_repo_path?: string | null;
+  // Live HEAD branch of the code repo this store was created against —
+  // best-effort, null when the folder is missing or not a git repo. The
+  // absolute path is intentionally not exposed on the wire.
   code_repo_branch?: string | null;
   // legacy extras preserved on the wire:
   tree?: Record<string, number>;
