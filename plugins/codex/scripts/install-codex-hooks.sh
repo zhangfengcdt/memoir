@@ -76,15 +76,10 @@ def is_memoir_handler(handler: object) -> bool:
     if not isinstance(handler, dict):
         return False
     command = str(handler.get("command", ""))
-    status = str(handler.get("statusMessage", ""))
     return (
         marker in command
         or legacy_marker in command
         or "/memoir-codex/" in command
-        or command.endswith("/hooks/session-start.sh")
-        or command.endswith("/hooks/user-prompt-submit.sh")
-        or command.endswith("/hooks/stop.sh")
-        or status in {v["statusMessage"] for v in events.values()}
     )
 
 

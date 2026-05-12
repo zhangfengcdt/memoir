@@ -79,6 +79,37 @@ def test_install_strips_legacy_memoir_codex_hooks(tmp_path: Path) -> None:
     assert len(_backup_names(hooks_file)) == 1
 
 
+def test_install_keeps_unmarked_same_named_hooks(tmp_path: Path) -> None:
+    hooks_file = tmp_path / "hooks.json"
+    other_command = "bash /other-plugin/hooks/session-start.sh"
+    hooks_file.write_text(
+        json.dumps(
+            {
+                "hooks": {
+                    "SessionStart": [
+                        {
+                            "hooks": [
+                                {
+                                    "type": "command",
+                                    "command": other_command,
+                                    "statusMessage": "Loading Memoir context",
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        )
+        + "\n"
+    )
+
+    _run_installer(hooks_file, tmp_path)
+
+    text = hooks_file.read_text()
+    assert other_command in text
+    assert "memoir managed hook" in text
+
+
 def test_install_keeps_only_three_latest_backups(tmp_path: Path) -> None:
     hooks_file = tmp_path / "hooks.json"
     hooks_file.write_text('{"hooks": {}}\n')
