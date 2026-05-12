@@ -194,7 +194,7 @@ def _invoke_codex(model: str, system_prompt: str, case_input: str) -> tuple[str,
         "MEMOIR_NO_METRICS": "1",
         "MEMOIR_NO_CODE_SUMMARY": "1",
     }
-    with tempfile.NamedTemporaryFile(prefix="memoir-codex-last-", delete=False) as tmp:
+    with tempfile.NamedTemporaryFile(prefix="memoir-last-", delete=False) as tmp:
         output_path = Path(tmp.name)
     prompt = f"{system_prompt}\n\n=== Input ===\n{case_input}"
     try:

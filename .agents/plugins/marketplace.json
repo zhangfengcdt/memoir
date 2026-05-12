@@ -5,10 +5,10 @@
   },
   "plugins": [
     {
-      "name": "memoir-codex",
+      "name": "memoir",
       "source": {
         "source": "local",
-        "path": "./plugins/memoir-codex"
+        "path": "./plugins/codex"
       },
       "policy": {
         "installation": "AVAILABLE",

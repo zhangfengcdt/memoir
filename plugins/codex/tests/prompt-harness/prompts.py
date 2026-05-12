@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 # Repo layout — this file lives at:
-#   plugins/memoir-codex/tests/prompt-harness/prompts.py
+#   plugins/codex/tests/prompt-harness/prompts.py
 # So the plugin root is two parents up.
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent.parent
 PROMPTS_DIR = PLUGIN_ROOT / "hooks" / "prompts"

@@ -1,4 +1,4 @@
-.PHONY: help install install-dev clean test test-cov lint format type-check security benchmark docs docs-live docs-clean pre-commit build publish release-check release-test check-versions ui-install ui-dev ui-build ui-clean cc-smoke
+.PHONY: help install install-dev clean test test-cov codex-plugin-test lint format type-check security benchmark docs docs-live docs-clean pre-commit build publish release-check release-test check-versions ui-install ui-dev ui-build ui-clean cc-smoke
 
 # Default target
 help:
@@ -8,6 +8,7 @@ help:
 	@echo "  clean           Remove build artifacts and cache"
 	@echo "  test            Run tests"
 	@echo "  test-cov        Run tests with coverage report"
+	@echo "  codex-plugin-test  Run Codex plugin pytest, prompt-gate, and shell hook tests"
 	@echo "  lint            Run all linting checks"
 	@echo "  format          Format code with black and isort"
 	@echo "  type-check      Run type checking with mypy"
@@ -55,6 +56,18 @@ test:
 
 test-cov:
 	pytest tests/ -v -W "ignore::DeprecationWarning" --cov=memoir --cov-report=html --cov-report=term-missing
+
+codex-plugin-test: export GIT_AUTHOR_NAME=Test User
+codex-plugin-test: export GIT_AUTHOR_EMAIL=test@example.com
+codex-plugin-test: export GIT_COMMITTER_NAME=Test User
+codex-plugin-test: export GIT_COMMITTER_EMAIL=test@example.com
+codex-plugin-test:
+	pytest plugins/codex/tests -v -W "ignore::DeprecationWarning"
+	plugins/codex/tests/prompt-harness/runner.py gate --hook user-prompt-submit
+	@for test_script in plugins/codex/tests/test_*.sh; do \
+		echo "== $$test_script =="; \
+		bash "$$test_script"; \
+	done
 
 lint: check-versions
 	ruff check src/ tests/ benchmarks/
@@ -117,7 +130,7 @@ release-test: build
 	twine upload --repository testpypi dist/*
 
 # Run comprehensive CI checks locally
-ci: clean install-dev lint type-check security test-cov docs
+ci: clean install-dev lint type-check security test-cov codex-plugin-test docs
 	@echo ""
 	@echo "🎉 All CI checks passed locally!"
 	@echo ""

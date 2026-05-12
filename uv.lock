@@ -1880,6 +1880,7 @@ dev = [
     { name = "pytest-benchmark" },
     { name = "pytest-cov" },
     { name = "pytest-playwright" },
+    { name = "pyyaml" },
     { name = "ruff" },
     { name = "safety" },
 ]
@@ -1925,6 +1926,7 @@ requires-dist = [
     { name = "pytest-benchmark", marker = "extra == 'dev'", specifier = ">=4.0.0" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.0.0" },
     { name = "pytest-playwright", marker = "extra == 'dev'", specifier = ">=0.7.0" },
+    { name = "pyyaml", marker = "extra == 'dev'", specifier = ">=6.0.0" },
     { name = "rich", marker = "extra == 'all'", specifier = ">=13.0.0" },
     { name = "rich", marker = "extra == 'tui'", specifier = ">=13.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.1.0" },

@@ -1,5 +1,5 @@
 {
-  "name": "memoir-codex",
+  "name": "memoir",
   "version": "0.1.0",
   "description": "Git-versioned, taxonomy-structured memory for Codex. Memoir adds branch-aware memory recall, onboarding snapshots, and best-effort lifecycle capture to Codex sessions.",
   "author": {

@@ -17,19 +17,19 @@ The harness exercises the same prompt templates and gate logic that the Codex pl
 
 ```bash
 # Deterministic recall-gate suite.
-plugins/memoir-codex/tests/prompt-harness/runner.py gate --hook user-prompt-submit
+plugins/codex/tests/prompt-harness/runner.py gate --hook user-prompt-submit
 
 # Full Stop-hook prompt suite. Use the current Codex plugin fallback model for validation.
-plugins/memoir-codex/tests/prompt-harness/runner.py run --prompt stop_capture --model gpt-5.4
+plugins/codex/tests/prompt-harness/runner.py run --prompt stop_capture --model gpt-5.4
 
 # One case.
-plugins/memoir-codex/tests/prompt-harness/runner.py case stop_capture/capture-going-forward-rule.yaml --model gpt-5.4
+plugins/codex/tests/prompt-harness/runner.py case stop_capture/capture-going-forward-rule.yaml --model gpt-5.4
 
 # Diagnostic replay from a pasted turn.
-plugins/memoir-codex/tests/prompt-harness/runner.py adhoc --prompt stop_capture --input /tmp/turn.txt --model gpt-5.4
+plugins/codex/tests/prompt-harness/runner.py adhoc --prompt stop_capture --input /tmp/turn.txt --model gpt-5.4
 
 # Assemble prompts without an LLM call.
-plugins/memoir-codex/tests/prompt-harness/runner.py adhoc --prompt stop_capture --input /tmp/turn.txt --model gpt-5.4 --dry-run
+plugins/codex/tests/prompt-harness/runner.py adhoc --prompt stop_capture --input /tmp/turn.txt --model gpt-5.4 --dry-run
 ```
 
 Every run writes artifacts under `/tmp/memoir-prompt-tests/<UTC-timestamp>/`, including `summary.md`, `summary.json`, per-case `system.txt`, `input.txt`, `output.txt`, and a replayable `command.sh`.

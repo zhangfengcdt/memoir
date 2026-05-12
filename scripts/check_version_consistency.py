@@ -5,7 +5,7 @@ Memoir has three independently versioned products:
 
   * The Python package ``memoir-ai`` (source of truth: ``src/memoir/__init__.py``).
   * The Claude Code plugin ``memoir`` (source of truth: the plugin manifest).
-  * The Codex plugin ``memoir-codex`` (source of truth: the plugin manifest).
+  * The Codex plugin ``memoir`` (source of truth: the plugin manifest).
 
 The three products may legitimately track different version numbers, but within
 each group every file that declares a version must agree. This script enforces
@@ -50,7 +50,7 @@ def collect_sources() -> dict[str, list[VersionSource]]:
 
     pkg_init = REPO_ROOT / "src" / "memoir" / "__init__.py"
     claude_plugin_manifest = REPO_ROOT / "plugins" / "claude-code" / ".claude-plugin" / "plugin.json"
-    codex_plugin_manifest = REPO_ROOT / "plugins" / "memoir-codex" / ".codex-plugin" / "plugin.json"
+    codex_plugin_manifest = REPO_ROOT / "plugins" / "codex" / ".codex-plugin" / "plugin.json"
     claude_marketplace = REPO_ROOT / ".claude-plugin" / "marketplace.json"
 
     python_group: list[VersionSource] = [
@@ -111,7 +111,7 @@ def collect_sources() -> dict[str, list[VersionSource]]:
     return {
         "Python package (memoir-ai)": python_group,
         "Claude Code plugin (memoir)": claude_plugin_group,
-        "Codex plugin (memoir-codex)": codex_plugin_group,
+        "Codex plugin (memoir)": codex_plugin_group,
     }
 
 

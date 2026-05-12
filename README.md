@@ -83,7 +83,7 @@ That's enough — the plugin handles the rest. It registers hooks for session st
 
 ## Install for Codex
 
-Memoir's Codex plugin is distributed from this repository's Codex marketplace. In Codex, run `/plugins`, add the `memoir` marketplace from `zhangfengcdt/memoir`, restart Codex if prompted, then choose **Memoir Plugins** and install `memoir-codex`.
+Memoir's Codex plugin is distributed from this repository's Codex marketplace. In Codex, run `/plugins`, add the `memoir` marketplace from `zhangfengcdt/memoir`, restart Codex if prompted, then choose **Memoir Plugins** and install `memoir`.
 
 You can also register the marketplace from the CLI:
 
@@ -91,7 +91,7 @@ You can also register the marketplace from the CLI:
 codex plugin marketplace add zhangfengcdt/memoir
 ```
 
-While developing from a local checkout, use `codex plugin marketplace add /absolute/path/to/memoir` instead. The repo marketplace lives at `.agents/plugins/marketplace.json` and points Codex at `./plugins/memoir-codex`, relative to the repository root.
+While developing from a local checkout, use `codex plugin marketplace add /absolute/path/to/memoir` instead. The repo marketplace lives at `.agents/plugins/marketplace.json` and points Codex at `./plugins/codex`, relative to the repository root.
 
 **No manual `pip install` needed if you have `uv` on PATH** — the Codex plugin resolves the Memoir CLI the same way the Claude Code plugin does: `memoir` on `PATH` first, then `uvx --from memoir-ai==<pinned> memoir`, then `uv tool run --from memoir-ai==<pinned> memoir`.
 

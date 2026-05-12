@@ -2,11 +2,11 @@
 
 Memoir ships a Codex plugin that brings branch-aware, taxonomy-structured memory into Codex sessions. It is the Codex port of the existing Claude Code integration: session context is injected at startup, recall is nudged before substantive work, and durable facts are captured at turn end when possible.
 
-The plugin lives in the repo at `plugins/memoir-codex/`.
+The plugin lives in the repo at `plugins/codex/`.
 
 ## Install
 
-Memoir's Codex plugin is distributed through the repository marketplace in `zhangfengcdt/memoir`. In Codex, run `/plugins`, add the `memoir` marketplace from `zhangfengcdt/memoir`, restart Codex if prompted, then choose **Memoir Plugins** and install `memoir-codex`.
+Memoir's Codex plugin is distributed through the repository marketplace in `zhangfengcdt/memoir`. In Codex, run `/plugins`, add the `memoir` marketplace from `zhangfengcdt/memoir`, restart Codex if prompted, then choose **Memoir Plugins** and install `memoir`.
 
 You can also register the marketplace from the CLI:
 
@@ -14,7 +14,7 @@ You can also register the marketplace from the CLI:
 codex plugin marketplace add zhangfengcdt/memoir
 ```
 
-The repository marketplace lives at `.agents/plugins/marketplace.json`; its `source.path` is `./plugins/memoir-codex`, resolved relative to the repository root.
+The repository marketplace lives at `.agents/plugins/marketplace.json`; its `source.path` is `./plugins/codex`, resolved relative to the repository root.
 
 For local development or PR validation from a checkout, register that checkout as the marketplace root instead:
 
@@ -37,7 +37,7 @@ Codex installs plugin skills today, but does not yet activate lifecycle hooks bu
 
 ```bash
 PLUGIN_ROOT=$(find "${CODEX_HOME:-$HOME/.codex}/plugins/cache" \
-  -path '*/memoir-codex/*/.codex-plugin/plugin.json' -print -quit \
+  -path '*/memoir/memoir/*/.codex-plugin/plugin.json' -print -quit \
   | sed 's#/.codex-plugin/plugin.json$##')
 bash "$PLUGIN_ROOT/scripts/install-codex-hooks.sh"
 ```
@@ -61,7 +61,7 @@ Each project gets a store under `~/.memoir/<slug>/`, derived from the session cw
 To inspect the same store the plugin uses, resolve the store first instead of running bare `memoir status` from the project directory:
 
 ```bash
-PLUGIN_ROOT=/path/to/memoir/plugins/memoir-codex
+PLUGIN_ROOT=/path/to/memoir/plugins/codex
 STORE=$("$PLUGIN_ROOT/scripts/derive-store-path.sh" /path/to/project)
 "$PLUGIN_ROOT/scripts/memoir-cli.sh" -s "$STORE" status
 "$PLUGIN_ROOT/scripts/memoir-cli.sh" --json -s "$STORE" summarize --keys "*" -n default
@@ -104,8 +104,8 @@ The Codex plugin keeps the same read/write split as the Claude Code integration:
 Codex plugin slash commands, deprecated custom prompt surfaces, Claude Code statusline behavior, and `SessionEnd` cleanup are not included in v1. Use the Memoir CLI for administrative operations:
 
 ```bash
-STORE="${MEMOIR_STORE:-$(bash /path/to/memoir/plugins/memoir-codex/scripts/derive-store-path.sh)}"
-MEMOIR="/path/to/memoir/plugins/memoir-codex/scripts/memoir-cli.sh"
+STORE="${MEMOIR_STORE:-$(bash /path/to/memoir/plugins/codex/scripts/derive-store-path.sh)}"
+MEMOIR="/path/to/memoir/plugins/codex/scripts/memoir-cli.sh"
 
 ( cd "$STORE" && "$MEMOIR" -s "$STORE" remember "Prefer pytest for Python tests" -p preferences.coding.testing )
 ( cd "$STORE" && "$MEMOIR" --json -s "$STORE" status )
@@ -125,11 +125,11 @@ Stop capture runs only after Codex completes a turn. If the turn is interrupted 
 Use a disposable project and store:
 
 ```bash
-rm -rf /tmp/memoir-codex-smoke /tmp/memoir-codex-smoke-store
-mkdir -p /tmp/memoir-codex-smoke
+rm -rf /tmp/memoir-smoke /tmp/memoir-smoke-store
+mkdir -p /tmp/memoir-smoke
 
-cd /tmp/memoir-codex-smoke
-MEMOIR_STORE=/tmp/memoir-codex-smoke-store \
+cd /tmp/memoir-smoke
+MEMOIR_STORE=/tmp/memoir-smoke-store \
 MEMOIR_CODEX_MODEL=gpt-5.4 \
 codex exec --enable hooks --skip-git-repo-check -m gpt-5.4 \
   "Use Memoir, remember that this smoke project prefers pytest, then report Memoir status."
@@ -144,17 +144,17 @@ Export evidence before cleanup:
   codex --version
   echo
   echo "model: gpt-5.4"
-  echo "store: /tmp/memoir-codex-smoke-store"
+  echo "store: /tmp/memoir-smoke-store"
   echo
-  /path/to/memoir/plugins/memoir-codex/scripts/memoir-cli.sh --json -s /tmp/memoir-codex-smoke-store status
-  /path/to/memoir/plugins/memoir-codex/scripts/memoir-cli.sh --json -s /tmp/memoir-codex-smoke-store summarize --keys "*" -n default
-} > /tmp/memoir-codex-smoke/evidence.md
+  /path/to/memoir/plugins/codex/scripts/memoir-cli.sh --json -s /tmp/memoir-smoke-store status
+  /path/to/memoir/plugins/codex/scripts/memoir-cli.sh --json -s /tmp/memoir-smoke-store summarize --keys "*" -n default
+} > /tmp/memoir-smoke/evidence.md
 ```
 
 Clean up after recording evidence:
 
 ```bash
-rm -rf /tmp/memoir-codex-smoke /tmp/memoir-codex-smoke-store
+rm -rf /tmp/memoir-smoke /tmp/memoir-smoke-store
 ```
 
 Do not commit generated stores, local Codex config, or `/tmp` evidence unless a maintainer asks for a sanitized artifact.

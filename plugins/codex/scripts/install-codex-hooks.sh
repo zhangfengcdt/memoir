@@ -35,7 +35,9 @@ mode = sys.argv[1]
 plugin_root = Path(sys.argv[2]).resolve()
 hooks_file = Path(sys.argv[3]).expanduser()
 
-marker = "memoir-codex managed hook"
+marker = "memoir managed hook"
+legacy_marker = "memoir-codex managed hook"
+max_backups = 3
 events = {
     "SessionStart": {
         "script": "session-start.sh",
@@ -77,6 +79,7 @@ def is_memoir_handler(handler: object) -> bool:
     status = str(handler.get("statusMessage", ""))
     return (
         marker in command
+        or legacy_marker in command
         or "/memoir-codex/" in command
         or command.endswith("/hooks/session-start.sh")
         or command.endswith("/hooks/user-prompt-submit.sh")
@@ -135,15 +138,38 @@ def install(data: dict) -> None:
         )
 
 
+def render(data: dict) -> str:
+    return json.dumps(data, indent=2, sort_keys=False) + "\n"
+
+
+def prune_backups() -> None:
+    backups = sorted(
+        hooks_file.parent.glob(f"{hooks_file.name}.bak-*"),
+        key=lambda p: p.name,
+        reverse=True,
+    )
+    for backup in backups[max_backups:]:
+        backup.unlink(missing_ok=True)
+
+
 data = load_config()
 strip_existing(data)
 if mode == "install":
     install(data)
 
-if hooks_file.exists():
-    backup = hooks_file.with_name(f"{hooks_file.name}.bak-{time.strftime('%Y%m%d-%H%M%S')}")
-    backup.write_text(hooks_file.read_text())
+new_content = render(data)
+old_content = hooks_file.read_text() if hooks_file.exists() else None
 
-hooks_file.write_text(json.dumps(data, indent=2, sort_keys=False) + "\n")
-print(f"{mode}ed Memoir Codex hooks in {hooks_file}")
+if old_content == new_content:
+    prune_backups()
+    print(f"{mode}ed Memoir hooks in {hooks_file} (unchanged)")
+    raise SystemExit(0)
+
+if old_content is not None:
+    backup = hooks_file.with_name(f"{hooks_file.name}.bak-{time.strftime('%Y%m%d-%H%M%S')}")
+    backup.write_text(old_content)
+
+hooks_file.write_text(new_content)
+prune_backups()
+print(f"{mode}ed Memoir hooks in {hooks_file}")
 PY

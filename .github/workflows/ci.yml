@@ -93,3 +93,47 @@ jobs:
     - name: Run Bandit (security)
       run: |
         bandit -r src/ --skip B101,B110,B404,B601,B603,B607,B608
+
+  codex-plugin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-codex-plugin-${{ hashFiles('**/pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-codex-plugin-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+
+    - name: Configure git for tests
+      run: |
+        git config --global user.email "test@example.com"
+        git config --global user.name "Test User"
+
+    - name: Run Codex plugin tests
+      env:
+        PYTHONWARNINGS: ignore
+      run: |
+        make codex-plugin-test
+
+    - name: Upload prompt harness artifacts
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: codex-plugin-prompt-harness
+        path: /tmp/memoir-prompt-tests
+        if-no-files-found: ignore
+        retention-days: 30

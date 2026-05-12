@@ -1,5 +1,5 @@
 {
-  "description": "memoir-codex hooks - surface branch + commit state, auto-capture durable facts into the taxonomy",
+  "description": "memoir hooks - surface branch + commit state, auto-capture durable facts into the taxonomy",
   "hooks": {
     "SessionStart": [
       {

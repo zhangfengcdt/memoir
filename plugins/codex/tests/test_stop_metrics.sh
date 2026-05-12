@@ -6,7 +6,7 @@
 # and accumulation. Bypasses the model capture path by setting
 # MEMOIR_NO_CAPTURE=1 — we are only testing metrics here.
 #
-# Usage: bash plugins/memoir-codex/tests/test_stop_metrics.sh
+# Usage: bash plugins/codex/tests/test_stop_metrics.sh
 # Requires: `memoir` CLI on PATH, python3.
 
 set -e

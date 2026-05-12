@@ -102,7 +102,7 @@ if [ -z "$ack_short_circuit" ] && [ "$USER_MEMORIES" -gt 0 ] && [ "$prompt_len" 
      || printf '%s' "$PROMPT" | grep -qE '[A-Za-z0-9_~.-]+/[A-Za-z0-9_.-]+'; then
     context="# memoir — recall before acting
 
-The user's prompt describes work to do (implementation, design, refactor, or similar). Before starting, invoke the \`memoir-codex:memory-recall\` skill to fetch any prior preferences, architectural decisions, coding conventions, or constraints that should shape the approach.
+The user's prompt describes work to do (implementation, design, refactor, or similar). Before starting, invoke the \`memoir:memory-recall\` skill to fetch any prior preferences, architectural decisions, coding conventions, or constraints that should shape the approach.
 
 Silently executing without checking past context is a common failure mode: captured preferences (e.g. \"rebase not merge\", \"TypeScript not JavaScript\", \"two-approver PR policy\") only help if they're actually consulted. One recall call up front is cheap (~500-800ms) and typically answers whether any stored facts are relevant.
 

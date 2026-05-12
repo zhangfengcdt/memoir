@@ -37,7 +37,7 @@ try:
     data = json.loads(path.read_text())
 except Exception:
     raise SystemExit(0)
-if data.get("name") == "memoir-codex":
+if data.get("name") == "memoir":
     print(path.parent.parent)
 PY
       done | head -n 1)

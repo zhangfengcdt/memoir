@@ -102,7 +102,7 @@ def test_collect_edits_detects_apply_patch_files() -> None:
             "@@",
             "-old",
             "+new",
-            "*** Add File: plugins/memoir-codex/README.md",
+            "*** Add File: plugins/codex/README.md",
             "+# Memoir Plugin for Codex",
             "*** End Patch",
         ]
@@ -131,7 +131,7 @@ def test_collect_edits_detects_apply_patch_files() -> None:
         assert payload["user_prompt"] == "port docs"
         assert [entry["file_path"] for entry in payload["edits"]] == [
             "docs/codex.md",
-            "plugins/memoir-codex/README.md",
+            "plugins/codex/README.md",
         ]
         assert all(entry["tool"] == "apply_patch" for entry in payload["edits"])
     finally:

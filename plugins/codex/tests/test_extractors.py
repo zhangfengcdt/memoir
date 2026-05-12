@@ -1,4 +1,4 @@
-"""Unit tests for plugins/memoir-codex/skills/memoir-onboard/extractors.py.
+"""Unit tests for plugins/codex/skills/memoir-onboard/extractors.py.
 
 Stdlib-only fixtures — every test creates a tiny synthetic file in a temp
 directory and asserts the structured-blob shape. No network, no LLM.

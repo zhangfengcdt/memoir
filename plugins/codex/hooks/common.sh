@@ -594,7 +594,7 @@ codex_exec_prompt() {
 
   local model output_file rc
   model="${MEMOIR_CODEX_MODEL:-${MEMOIR_HOOK_MODEL:-gpt-5.4}}"
-  output_file=$(mktemp -t memoir-codex-output.XXXXXX 2>/dev/null || mktemp)
+  output_file=$(mktemp -t memoir-output.XXXXXX 2>/dev/null || mktemp)
 
   local -a args
   args=(

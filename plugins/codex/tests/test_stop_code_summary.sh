@@ -9,7 +9,7 @@
 # resolution, and append-via-AggregatedMemory behavior; the LLM call itself
 # is exercised by the prompt-harness.
 #
-# Usage: bash plugins/memoir-codex/tests/test_stop_code_summary.sh
+# Usage: bash plugins/codex/tests/test_stop_code_summary.sh
 # Requires: `memoir` CLI on PATH, python3.
 
 set -e
