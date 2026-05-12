@@ -123,6 +123,16 @@ class StoreHandler(BaseAPIHandler):
         try:
             service = StoreService(store_path)
             data = service.read_store()
+            # Best-effort codebase HEAD lookup so the branch switcher can
+            # highlight which memoir branch matches the user's checked-out
+            # code branch. Skips the snapshot-meta path (no items here) and
+            # falls back to slug-derive only; failures yield ``None``.
+            code_repo_path = _resolve_code_repo_path(store_path, [])
+            _, code_repo_branch = (
+                _git_head_info(code_repo_path) if code_repo_path else (None, None)
+            )
+            data["code_repo_path"] = code_repo_path
+            data["code_repo_branch"] = code_repo_branch
             # Round-trip through the schema to enforce required fields, then
             # emit the validated dict (which keeps any extra legacy keys —
             # ``extra='allow'`` on the model — so the old UI keeps working).

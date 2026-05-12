@@ -113,6 +113,11 @@
   margin-right: var(--space-2);
 }
 
+.topbar-switcher-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
 .topbar-spinning {
   animation: topbar-spin 0.9s linear infinite;
   transform-origin: center;

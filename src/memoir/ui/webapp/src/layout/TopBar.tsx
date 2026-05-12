@@ -1,5 +1,7 @@
+import { useRef, useState } from "react";
 import { useStore } from "../state/storeSlice";
 import { useUI } from "../state/uiSlice";
+import BranchSwitcher from "./BranchSwitcher";
 import "./TopBar.css";
 
 export default function TopBar() {
@@ -14,6 +16,9 @@ export default function TopBar() {
   const refresh = () => {
     void useStore.getState().refresh();
   };
+
+  const [switcherOpen, setSwitcherOpen] = useState(false);
+  const switcherAnchorRef = useRef<HTMLButtonElement | null>(null);
 
   const branch = data?.current_branch ?? (status === "connected" ? "—" : "");
 
@@ -118,6 +123,37 @@ export default function TopBar() {
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
           </svg>
         </button>
+        <div className="topbar-switcher-wrap">
+          <button
+            ref={switcherAnchorRef}
+            className="btn btn-ghost btn-sm"
+            onClick={() => setSwitcherOpen((v) => !v)}
+            title="Switch branch"
+            aria-label="Switch branch"
+            aria-haspopup="listbox"
+            aria-expanded={switcherOpen}
+            disabled={!storePath || isRefreshing}
+          >
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <polyline points="7 15 12 20 17 15" />
+              <polyline points="7 9 12 4 17 9" />
+            </svg>
+          </button>
+          <BranchSwitcher
+            open={switcherOpen}
+            onClose={() => setSwitcherOpen(false)}
+            anchorRef={switcherAnchorRef}
+          />
+        </div>
         <button
           className="btn btn-ghost btn-sm"
           onClick={openBranches}

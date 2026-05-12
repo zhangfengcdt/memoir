@@ -43,3 +43,8 @@ class StoreResponse(BaseModel):
     # groups these by namespace and builds a hierarchy from the dotted paths.
     memories: list[Memory] = Field(default_factory=list)
     total_memories: int = 0
+    # On-disk path of the code repo this store was created against, plus
+    # its live HEAD branch — best-effort, derived from the store slug.
+    # ``None`` when the codebase folder is missing or not a git repo.
+    code_repo_path: str | None = None
+    code_repo_branch: str | None = None
