@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://zhangfengcdt.github.io/memoir/architecture/">
+        <link rel="canonical" href="https://zhangfengcdt.github.io/memoir/codex/">
       
       
-        <link rel="prev" href="../basic_usage/">
+        <link rel="prev" href="../claude_code/">
       
       
-        <link rel="next" href="../faq/">
+        <link rel="next" href="../api/memoir/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Architecture - Memoir</title>
+        <title>Codex - Memoir</title>
       
     
     
@@ -82,7 +82,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#architecture-overview" class="md-skip">
+        <a href="#codex-plugin" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Architecture
+              Codex
             
           </span>
         </div>
@@ -272,13 +272,11 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
-        <a href="./" class="md-tabs__link">
+      <li class="md-tabs__item">
+        <a href="../architecture/" class="md-tabs__link">
           
   
   
@@ -375,9 +373,11 @@
   
   
   
+    
   
-    <li class="md-tabs__item">
-      <a href="../codex/" class="md-tabs__link">
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
         
   
   
@@ -660,10 +660,8 @@
       
   
   
-    
   
   
-  
     
     
       
@@ -675,22 +673,19 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
         
           
-          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="">
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
             
   
   
@@ -708,7 +703,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_3">
             <span class="md-nav__icon md-icon"></span>
             
@@ -723,37 +718,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Architecture
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../architecture/" class="md-nav__link">
         
   
   
@@ -769,175 +737,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#core-principles" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Core Principles
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#system-architecture" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        System Architecture
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#layer-details" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Layer Details
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Layer Details">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-storage-layer-memoirstore" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Storage Layer (memoir.store)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-classification-layer-memoirclassifier" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Classification Layer (memoir.classifier)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-search-engine-layer-memoirsearch" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Search Engine Layer (memoir.search)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#4-memory-manager-memoircore" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Memory Manager (memoir.core)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#data-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Data Flow
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#memory-aggregation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Memory Aggregation
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#taxonomy-system" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Taxonomy System
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#performance-characteristics" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Performance Characteristics
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#version-control" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Version Control
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#extensions-and-plugins" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Extensions and Plugins
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1257,10 +1056,37 @@
       
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../codex/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Codex
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1276,6 +1102,103 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#install" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Install
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#cli-resolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI resolution
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-ships" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What ships
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#readwrite-asymmetry" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Read/write asymmetry
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#llm-extraction" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LLM extraction
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#real-codex-smoke-test" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Real Codex smoke test
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#parity-notes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parity notes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1759,10 +1682,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#core-principles" class="md-nav__link">
+  <a href="#install" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Core Principles
+        Install
       
     </span>
   </a>
@@ -1770,10 +1693,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#system-architecture" class="md-nav__link">
+  <a href="#cli-resolution" class="md-nav__link">
     <span class="md-ellipsis">
       
-        System Architecture
+        CLI resolution
       
     </span>
   </a>
@@ -1781,71 +1704,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#layer-details" class="md-nav__link">
+  <a href="#what-ships" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Layer Details
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Layer Details">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#1-storage-layer-memoirstore" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        1. Storage Layer (memoir.store)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#2-classification-layer-memoirclassifier" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        2. Classification Layer (memoir.classifier)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#3-search-engine-layer-memoirsearch" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        3. Search Engine Layer (memoir.search)
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#4-memory-manager-memoircore" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        4. Memory Manager (memoir.core)
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#data-flow" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Data Flow
+        What ships
       
     </span>
   </a>
@@ -1853,10 +1715,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#memory-aggregation" class="md-nav__link">
+  <a href="#readwrite-asymmetry" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Memory Aggregation
+        Read/write asymmetry
       
     </span>
   </a>
@@ -1864,10 +1726,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#taxonomy-system" class="md-nav__link">
+  <a href="#llm-extraction" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Taxonomy System
+        LLM extraction
       
     </span>
   </a>
@@ -1875,10 +1737,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#performance-characteristics" class="md-nav__link">
+  <a href="#real-codex-smoke-test" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Performance Characteristics
+        Real Codex smoke test
       
     </span>
   </a>
@@ -1886,21 +1748,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#version-control" class="md-nav__link">
+  <a href="#parity-notes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Version Control
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#extensions-and-plugins" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Extensions and Plugins
+        Parity notes
       
     </span>
   </a>
@@ -1924,7 +1775,7 @@
 
 
   
-    <a href="https://github.com/zhangfengcdt/memoir/edit/main/docs/architecture.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/zhangfengcdt/memoir/edit/main/docs/codex.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -1932,191 +1783,147 @@
   
 
 
-<h1 id="architecture-overview">Architecture Overview<a class="headerlink" href="#architecture-overview" title="Permanent link">&para;</a></h1>
-<p>Memoir implements a <strong>clean layered architecture</strong> with proper separation of concerns and dependency injection patterns. This design enables high performance, maintainability, and flexibility.</p>
-<h2 id="core-principles">Core Principles<a class="headerlink" href="#core-principles" title="Permanent link">&para;</a></h2>
+<h1 id="codex-plugin">Codex Plugin<a class="headerlink" href="#codex-plugin" title="Permanent link">&para;</a></h1>
+<p>Memoir ships a Codex plugin that brings branch-aware, taxonomy-structured memory into Codex sessions. It is the Codex port of the existing Claude Code integration: session context is injected at startup, recall is nudged before substantive work, and durable facts are captured at turn end when possible.</p>
+<p>The plugin lives in the repo at <code>plugins/codex/</code>.</p>
+<h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
+<p>Memoir's Codex plugin is distributed through the repository marketplace in <code>zhangfengcdt/memoir</code>. In Codex, run <code>/plugins</code>, add the <code>memoir</code> marketplace from <code>zhangfengcdt/memoir</code>, restart Codex if prompted, then choose <strong>Memoir Plugins</strong> and install <code>memoir</code>.</p>
+<p>You can also register the marketplace from the CLI:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>codex<span class="w"> </span>plugin<span class="w"> </span>marketplace<span class="w"> </span>add<span class="w"> </span>zhangfengcdt/memoir
+</span></code></pre></div>
+<p>The repository marketplace lives at <code>.agents/plugins/marketplace.json</code>; its <code>source.path</code> is <code>./plugins/codex</code>, resolved relative to the repository root.</p>
+<p>For local development or PR validation from a checkout, register that checkout as the marketplace root instead:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>codex<span class="w"> </span>plugin<span class="w"> </span>marketplace<span class="w"> </span>add<span class="w"> </span>/absolute/path/to/memoir
+</span></code></pre></div>
+<p>Codex installs plugins from marketplace entries into its plugin cache, so after changing local plugin files, restart Codex or refresh the marketplace before retesting.</p>
+<p>Enable hooks in Codex:</p>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[features]</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">hooks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+</span></code></pre></div>
+<p>For one-off tests, pass <code>--enable hooks</code>. Codex v0.129.0 warns that <code>[features].codex_hooks</code> is deprecated; use <code>[features].hooks</code> for new installs.</p>
+<p>Codex installs plugin skills today, but does not yet activate lifecycle hooks bundled by marketplace plugins (tracked upstream in <a href="https://github.com/openai/codex/issues/16430">openai/codex#16430</a>). Until plugin-bundled hooks are loaded by Codex itself, install Memoir's bundled hooks into your user hooks file after installing the plugin:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">PLUGIN_ROOT</span><span class="o">=</span><span class="k">$(</span>find<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">CODEX_HOME</span><span class="k">:-</span><span class="nv">$HOME</span><span class="p">/.codex</span><span class="si">}</span><span class="s2">/plugins/cache&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>-path<span class="w"> </span><span class="s1">&#39;*/memoir/memoir/*/.codex-plugin/plugin.json&#39;</span><span class="w"> </span>-print<span class="w"> </span>-quit<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="p">|</span><span class="w"> </span>sed<span class="w"> </span><span class="s1">&#39;s#/.codex-plugin/plugin.json$##&#39;</span><span class="k">)</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>bash<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$PLUGIN_ROOT</span><span class="s2">/scripts/install-codex-hooks.sh&quot;</span>
+</span></code></pre></div>
+<p>This writes <code>SessionStart</code>, <code>UserPromptSubmit</code>, and <code>Stop</code> hooks to <code>~/.codex/hooks.json</code>. To remove them:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>bash<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$PLUGIN_ROOT</span><span class="s2">/scripts/install-codex-hooks.sh&quot;</span><span class="w"> </span>uninstall
+</span></code></pre></div>
+<p>After installing the bridge, Codex may show:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>⚠ 3 hooks need review before they can run. Open /hooks to review them.
+</span></code></pre></div>
+<p>Open <code>/hooks</code>, review each Memoir hook, and press <code>t</code> to trust it. Hooks do not run until they are trusted.</p>
+<p>Each project gets a store under <code>~/.memoir/&lt;slug&gt;/</code>, derived from the session cwd. Override with <code>MEMOIR_STORE=/path/to/store</code>.</p>
+<p>To inspect the same store the plugin uses, resolve the store first instead of running bare <code>memoir status</code> from the project directory:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">PLUGIN_ROOT</span><span class="o">=</span>/path/to/memoir/plugins/codex
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">STORE</span><span class="o">=</span><span class="k">$(</span><span class="s2">&quot;</span><span class="nv">$PLUGIN_ROOT</span><span class="s2">/scripts/derive-store-path.sh&quot;</span><span class="w"> </span>/path/to/project<span class="k">)</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="s2">&quot;</span><span class="nv">$PLUGIN_ROOT</span><span class="s2">/scripts/memoir-cli.sh&quot;</span><span class="w"> </span>-s<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$STORE</span><span class="s2">&quot;</span><span class="w"> </span>status
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="s2">&quot;</span><span class="nv">$PLUGIN_ROOT</span><span class="s2">/scripts/memoir-cli.sh&quot;</span><span class="w"> </span>--json<span class="w"> </span>-s<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$STORE</span><span class="s2">&quot;</span><span class="w"> </span>summarize<span class="w"> </span>--keys<span class="w"> </span><span class="s2">&quot;*&quot;</span><span class="w"> </span>-n<span class="w"> </span>default
+</span></code></pre></div>
+<h2 id="cli-resolution">CLI resolution<a class="headerlink" href="#cli-resolution" title="Permanent link">&para;</a></h2>
+<p>The plugin shells out to the <code>memoir</code> CLI through <code>scripts/memoir-cli.sh</code>. It picks, in order:</p>
 <ol>
-<li><strong>Git-like Versioning</strong>: Every memory change is tracked with cryptographic integrity</li>
-<li><strong>Semantic Paths</strong>: Replace UUID keys with meaningful hierarchical paths</li>
-<li><strong>Memory Aggregation</strong>: Group related memories at semantic locations</li>
-<li><strong>Dependency Injection</strong>: Clean separation between storage, classification, and search</li>
-<li><strong>Performance First</strong>: O(log n) lookups instead of expensive vector operations</li>
+<li><strong><code>memoir</code> on <code>PATH</code></strong> — install with <code>pip install memoir-ai</code>, <code>pipx install memoir-ai</code>, or <code>uv tool install memoir-ai</code>.</li>
+<li><strong><code>uvx</code> on <code>PATH</code></strong> — transparent fallback as <code>uvx --from memoir-ai==&lt;pinned&gt; memoir ...</code> with zero manual install. The pin is set in <code>scripts/resolve-memoir-cli.sh</code> (<code>MEMOIR_AI_PIN</code>) so a silent PyPI publish cannot change behavior under you.</li>
+<li><strong><code>uv</code> on <code>PATH</code></strong> — fallback as <code>uv tool run --from memoir-ai==&lt;pinned&gt; memoir ...</code> for environments without the <code>uvx</code> shim.</li>
+<li><strong>Neither</strong> — the plugin disables capture/recall and surfaces an install hint in the status line.</li>
 </ol>
-<h2 id="system-architecture">System Architecture<a class="headerlink" href="#system-architecture" title="Permanent link">&para;</a></h2>
-<pre class="mermaid"><code>flowchart TB
-    MM["Memory Manager&lt;br/&gt;(Orchestration Layer)"]
-    S[Storage Layer]
-    C[Classification Layer]
-    SE[Search Engine]
-    PT[ProllyTree]
-    TX[Taxonomy System]
-    PS[Path Selection]
-    MM --&gt; S
-    MM --&gt; C
-    MM --&gt; SE
-    S --&gt; PT
-    C --&gt; TX
-    SE --&gt; PS</code></pre>
-<h2 id="layer-details">Layer Details<a class="headerlink" href="#layer-details" title="Permanent link">&para;</a></h2>
-<h3 id="1-storage-layer-memoirstore">1. Storage Layer (<code>memoir.store</code>)<a class="headerlink" href="#1-storage-layer-memoirstore" title="Permanent link">&para;</a></h3>
-<p>The storage layer provides pure data persistence without business logic:</p>
+<p>LLM extraction uses Codex auth through <code>codex exec</code>, not Claude Code's <code>MEMOIR_LLM_BACKEND=claude-cli</code> path. Override the nested extraction model with <code>MEMOIR_CODEX_MODEL</code>; otherwise the hook inherits Codex's active model from hook input and falls back to <code>gpt-5.4</code>.</p>
+<h2 id="what-ships">What ships<a class="headerlink" href="#what-ships" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>memory-recall</code> skill</td>
+<td>Recalls default-namespace facts by semantic path.</td>
+</tr>
+<tr>
+<td><code>memoir-onboard</code> skill</td>
+<td>Populates <code>codebase:onboard</code> for git repos or <code>project:onboard</code> for non-git folders.</td>
+</tr>
+<tr>
+<td><code>memoir-remember</code> skill</td>
+<td>Explicit manual capture, replacing Claude Code's <code>/memoir:remember</code> with Codex-side path selection and <code>remember -p</code> writes.</td>
+</tr>
+<tr>
+<td><code>memoir-status</code> skill</td>
+<td>Shows the active store, branch, commits, memory count, and namespaces.</td>
+</tr>
+<tr>
+<td><code>memoir-ui</code> skill</td>
+<td>Launches or reopens the readonly Memoir UI for the active store.</td>
+</tr>
+<tr>
+<td><code>SessionStart</code> hook</td>
+<td>Ensures the store exists and injects memory status, keys, unmerged hints, and onboarding snapshots.</td>
+</tr>
+<tr>
+<td><code>UserPromptSubmit</code> hook</td>
+<td>Keeps the memoir branch aligned with the code branch and injects recall-before-acting guidance.</td>
+</tr>
+<tr>
+<td><code>Stop</code> hook</td>
+<td>Best-effort metrics, code-change summaries, and durable-fact extraction from Codex transcript JSONL.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="readwrite-asymmetry">Read/write asymmetry<a class="headerlink" href="#readwrite-asymmetry" title="Permanent link">&para;</a></h2>
+<p>The Codex plugin keeps the same read/write split as the Claude Code integration:</p>
 <ul>
-<li><strong>ProllyTreeStore</strong>: Git-like versioned key-value storage</li>
-<li><strong>Memory Aggregation</strong>: Groups memories at semantic paths</li>
-<li><strong>Cryptographic Integrity</strong>: SHA-256 hashing for all operations</li>
-<li><strong>Efficient Queries</strong>: O(log n) prefix searches</li>
+<li>Reads are skill-driven. Codex can use <code>memory-recall</code> when existing memories may help, and <code>UserPromptSubmit</code> only injects a recall-before-acting hint.</li>
+<li>Onboarding is explicit. <code>memoir-onboard</code> is a user-invoked project indexing workflow that writes scoped <code>codebase:onboard</code> or <code>project:onboard</code> snapshots.</li>
+<li>General manual writes are explicit. <code>memoir-remember</code> is the Codex replacement for Claude Code's <code>/memoir:remember</code>; it writes with <code>memoir remember -p</code> so classification is done by Codex rather than Memoir's package-level LLM default. The <code>Stop</code> hook still handles best-effort auto-capture.</li>
+<li><code>memoir-status</code> and <code>memoir-ui</code> replace the read-only Claude Code <code>/memoir:status</code> and <code>/memoir:ui</code> command surfaces.</li>
+<li>Deletion remains CLI-only through <code>memoir forget</code>.</li>
 </ul>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">memoir.store.prolly_adapter</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProllyTreeStore</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">store</span> <span class="o">=</span> <span class="n">ProllyTreeStore</span><span class="p">(</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">path</span><span class="o">=</span><span class="s2">&quot;./memory_store&quot;</span><span class="p">,</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">enable_versioning</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">cache_size</span><span class="o">=</span><span class="mi">10000</span>
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a><span class="p">)</span>
+<p>Codex plugin slash commands, deprecated custom prompt surfaces, Claude Code statusline behavior, and <code>SessionEnd</code> cleanup are not included in v1. Use the Memoir CLI for administrative operations:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nv">STORE</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">MEMOIR_STORE</span><span class="k">:-$(</span>bash<span class="w"> </span>/path/to/memoir/plugins/codex/scripts/derive-store-path.sh<span class="k">)</span><span class="si">}</span><span class="s2">&quot;</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nv">MEMOIR</span><span class="o">=</span><span class="s2">&quot;/path/to/memoir/plugins/codex/scripts/memoir-cli.sh&quot;</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="o">(</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$STORE</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$MEMOIR</span><span class="s2">&quot;</span><span class="w"> </span>-s<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$STORE</span><span class="s2">&quot;</span><span class="w"> </span>remember<span class="w"> </span><span class="s2">&quot;Prefer pytest for Python tests&quot;</span><span class="w"> </span>-p<span class="w"> </span>preferences.coding.testing<span class="w"> </span><span class="o">)</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="o">(</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$STORE</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$MEMOIR</span><span class="s2">&quot;</span><span class="w"> </span>--json<span class="w"> </span>-s<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$STORE</span><span class="s2">&quot;</span><span class="w"> </span>status<span class="w"> </span><span class="o">)</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="o">(</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$STORE</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$MEMOIR</span><span class="s2">&quot;</span><span class="w"> </span>-s<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$STORE</span><span class="s2">&quot;</span><span class="w"> </span>ui<span class="w"> </span><span class="o">)</span>
 </span></code></pre></div>
-<h3 id="2-classification-layer-memoirclassifier">2. Classification Layer (<code>memoir.classifier</code>)<a class="headerlink" href="#2-classification-layer-memoirclassifier" title="Permanent link">&para;</a></h3>
-<p>Handles semantic classification of memories into hierarchical paths:</p>
-<ul>
-<li><strong>SemanticClassifier</strong>: Fast pattern-based classification (1-5ms)</li>
-<li><strong>IntelligentClassifier</strong>: LLM-powered with dynamic taxonomy expansion</li>
-<li><strong>Confidence Thresholds</strong>: Configurable acceptance criteria</li>
-<li><strong>Multi-stage Pipeline</strong>: Pattern matching → LLM → Expansion</li>
-</ul>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">memoir.classifier.intelligent</span><span class="w"> </span><span class="kn">import</span> <span class="n">IntelligentClassifier</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">classifier</span> <span class="o">=</span> <span class="n">IntelligentClassifier</span><span class="p">(</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>    <span class="n">llm</span><span class="o">=</span><span class="n">llm</span><span class="p">,</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>    <span class="n">confidence_thresholds</span><span class="o">=</span><span class="p">{</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a>        <span class="s2">&quot;high&quot;</span><span class="p">:</span> <span class="mf">0.8</span><span class="p">,</span>    <span class="c1"># Auto-store</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a>        <span class="s2">&quot;medium&quot;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">,</span>  <span class="c1"># Review</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>        <span class="s2">&quot;low&quot;</span><span class="p">:</span> <span class="mf">0.0</span>      <span class="c1"># Reject threshold</span>
-</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="p">}</span>
-</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a><span class="p">)</span>
+<h2 id="llm-extraction">LLM extraction<a class="headerlink" href="#llm-extraction" title="Permanent link">&para;</a></h2>
+<p>The Stop hook uses <code>codex exec</code> for fact extraction and code-change summaries. It runs nested Codex with hooks disabled, read-only sandboxing, ignored rules, and <code>--skip-git-repo-check</code> so extraction does not recurse into Memoir capture. It uses <code>MEMOIR_CODEX_MODEL</code> when set, otherwise the active Codex model from hook input, otherwise <code>gpt-5.4</code>.</p>
+<p>If <code>codex</code> is unavailable or the nested call fails, the hook fails open and the user turn continues. Metrics and explicit-path CLI writes still work without nested LLM extraction.</p>
+<p>Stop capture runs only after Codex completes a turn. If the turn is interrupted or aborted before the final assistant message, there may be no Stop hook run and no auto-captured memory for that turn.</p>
+<h2 id="real-codex-smoke-test">Real Codex smoke test<a class="headerlink" href="#real-codex-smoke-test" title="Permanent link">&para;</a></h2>
+<p>Use a disposable project and store:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>rm<span class="w"> </span>-rf<span class="w"> </span>/tmp/memoir-smoke<span class="w"> </span>/tmp/memoir-smoke-store
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>mkdir<span class="w"> </span>-p<span class="w"> </span>/tmp/memoir-smoke
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="nb">cd</span><span class="w"> </span>/tmp/memoir-smoke
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="nv">MEMOIR_STORE</span><span class="o">=</span>/tmp/memoir-smoke-store<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="nv">MEMOIR_CODEX_MODEL</span><span class="o">=</span>gpt-5.4<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>codex<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>--enable<span class="w"> </span>hooks<span class="w"> </span>--skip-git-repo-check<span class="w"> </span>-m<span class="w"> </span>gpt-5.4<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">  </span><span class="s2">&quot;Use Memoir, remember that this smoke project prefers pytest, then report Memoir status.&quot;</span>
 </span></code></pre></div>
-<h3 id="3-search-engine-layer-memoirsearch">3. Search Engine Layer (<code>memoir.search</code>)<a class="headerlink" href="#3-search-engine-layer-memoirsearch" title="Permanent link">&para;</a></h3>
-<p>Provides intelligent memory retrieval capabilities:</p>
-<ul>
-<li><strong>IntelligentSearchEngine</strong>: LLM-powered path selection</li>
-<li><strong>Multi-strategy</strong>: Breadth-first, depth-first, best-match</li>
-<li><strong>Relevance Scoring</strong>: Combined semantic and structural scoring</li>
-</ul>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># Intelligent LLM-powered search</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">memoir.search.intelligent</span><span class="w"> </span><span class="kn">import</span> <span class="n">IntelligentSearchEngine</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">search_engine</span> <span class="o">=</span> <span class="n">IntelligentSearchEngine</span><span class="p">(</span><span class="n">llm</span><span class="o">=</span><span class="n">llm</span><span class="p">,</span> <span class="n">store</span><span class="o">=</span><span class="n">store</span><span class="p">)</span>
+<p>Export evidence before cleanup:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="o">{</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;# Memoir Codex Smoke Evidence&quot;</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nb">echo</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span>codex<span class="w"> </span>--version
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">  </span><span class="nb">echo</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">  </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;model: gpt-5.4&quot;</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">  </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;store: /tmp/memoir-smoke-store&quot;</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">  </span><span class="nb">echo</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">  </span>/path/to/memoir/plugins/codex/scripts/memoir-cli.sh<span class="w"> </span>--json<span class="w"> </span>-s<span class="w"> </span>/tmp/memoir-smoke-store<span class="w"> </span>status
+</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">  </span>/path/to/memoir/plugins/codex/scripts/memoir-cli.sh<span class="w"> </span>--json<span class="w"> </span>-s<span class="w"> </span>/tmp/memoir-smoke-store<span class="w"> </span>summarize<span class="w"> </span>--keys<span class="w"> </span><span class="s2">&quot;*&quot;</span><span class="w"> </span>-n<span class="w"> </span>default
+</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="o">}</span><span class="w"> </span>&gt;<span class="w"> </span>/tmp/memoir-smoke/evidence.md
 </span></code></pre></div>
-<h3 id="4-memory-manager-memoircore">4. Memory Manager (<code>memoir.core</code>)<a class="headerlink" href="#4-memory-manager-memoircore" title="Permanent link">&para;</a></h3>
-<p>Orchestrates all components with proper dependency injection:</p>
-<ul>
-<li><strong>Dependency Injection</strong>: Clean separation of concerns</li>
-<li><strong>Transaction Management</strong>: Atomic operations</li>
-<li><strong>Version Control</strong>: Branching, merging, rollback</li>
-<li><strong>Performance Monitoring</strong>: Built-in metrics</li>
-</ul>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">memoir.core.memory</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProllyTreeMemoryStoreManager</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="n">memory_manager</span> <span class="o">=</span> <span class="n">ProllyTreeMemoryStoreManager</span><span class="p">(</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>    <span class="n">prolly_store</span><span class="o">=</span><span class="n">store</span><span class="p">,</span>        <span class="c1"># Injected dependency</span>
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>    <span class="n">classifier</span><span class="o">=</span><span class="n">classifier</span><span class="p">,</span>      <span class="c1"># Injected dependency</span>
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>    <span class="n">search_engine</span><span class="o">=</span><span class="n">search_engine</span> <span class="c1"># Injected dependency</span>
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="p">)</span>
+<p>Clean up after recording evidence:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>rm<span class="w"> </span>-rf<span class="w"> </span>/tmp/memoir-smoke<span class="w"> </span>/tmp/memoir-smoke-store
 </span></code></pre></div>
-<h2 id="data-flow">Data Flow<a class="headerlink" href="#data-flow" title="Permanent link">&para;</a></h2>
-<p><strong>Storage Flow</strong>:</p>
-<pre class="mermaid"><code>flowchart LR
-    A["Memory Input&lt;br/&gt;I work at X"] --&gt; B["Classification&lt;br/&gt;Classifier analysis"]
-    B --&gt; C["Path Selection&lt;br/&gt;profile.professional.occupation"]
-    C --&gt; D["Aggregation&lt;br/&gt;with similar memories"]
-    D --&gt; E["Storage&lt;br/&gt;ProllyTree"]</code></pre>
-<p><strong>Retrieval Flow</strong>:</p>
-<pre class="mermaid"><code>flowchart LR
-    A["Query&lt;br/&gt;user job"] --&gt; B["Path Selection&lt;br/&gt;profile.* paths"]
-    B --&gt; C["Storage Lookup&lt;br/&gt;Tree Search"]
-    C --&gt; D["Aggregation&lt;br/&gt;Collect memories"]
-    D --&gt; E["Results&lt;br/&gt;Ranked"]</code></pre>
-<h2 id="memory-aggregation">Memory Aggregation<a class="headerlink" href="#memory-aggregation" title="Permanent link">&para;</a></h2>
-<p>Memories are aggregated at semantic paths rather than stored individually:</p>
-<p><strong>Traditional Approach</strong>:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>uuid-1234-5678 → &quot;I work at TechCorp&quot;
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>uuid-9876-5432 → &quot;I&#39;m a software engineer&quot;
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>uuid-1111-2222 → &quot;I&#39;ve been coding for 5 years&quot;
-</span></code></pre></div>
-<p><strong>Memoir Approach</strong>:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>profile.professional.occupation → {
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>  &quot;memories&quot;: [
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>    {&quot;content&quot;: &quot;I work at TechCorp&quot;, &quot;confidence&quot;: 0.95},
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>    {&quot;content&quot;: &quot;I&#39;m a software engineer&quot;, &quot;confidence&quot;: 0.87},
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>    {&quot;content&quot;: &quot;I&#39;ve been coding for 5 years&quot;, &quot;confidence&quot;: 0.82}
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>  ],
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>  &quot;count&quot;: 3,
-</span><span id="__span-5-8"><a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>  &quot;last_updated&quot;: &quot;2024-01-15&quot;
-</span><span id="__span-5-9"><a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>}
-</span></code></pre></div>
-<h2 id="taxonomy-system">Taxonomy System<a class="headerlink" href="#taxonomy-system" title="Permanent link">&para;</a></h2>
-<p>The taxonomy system provides hierarchical organization:</p>
-<p><strong>Fixed Taxonomy</strong> (<code>memoir.taxonomy.semantic</code>):
-- ~200 predefined paths
-- Fast pattern matching
-- Consistent organization</p>
-<p><strong>Dynamic Taxonomy</strong> (<code>memoir.taxonomy.iterative</code>):
-- LLM-driven expansion
-- Automatic growth
-- Context-aware paths</p>
-<p><strong>Example Paths</strong>:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>profile.
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>├── identity.
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>│   ├── name.{first,last,full}
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a>│   └── demographics.{age,location}
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>├── professional.
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>│   ├── occupation.{role,company}
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>│   └── skills.{technical,soft}
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>└── personal.
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a>    ├── interests.{hobbies,sports}
-</span><span id="__span-6-10"><a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a>    └── relationships.{family,friends}
-</span></code></pre></div>
-<h2 id="performance-characteristics">Performance Characteristics<a class="headerlink" href="#performance-characteristics" title="Permanent link">&para;</a></h2>
-<p><strong>Search Performance</strong>:</p>
-<ul>
-<li>Semantic Search: 0.1-1ms average latency</li>
-<li>Intelligent Search: 100-500ms (includes LLM calls)</li>
-<li>Traditional Vector Search: 150-750ms</li>
-</ul>
-<p><strong>Storage Performance</strong>:</p>
-<ul>
-<li>Memory Classification: 1-5ms (pattern) / 100-500ms (LLM)</li>
-<li>Storage Operations: 20-30ms</li>
-<li>Version Control Ops: 50-100ms</li>
-</ul>
-<p><strong>Scalability</strong>:</p>
-<ul>
-<li>Memory Count: Tested up to 1M memories</li>
-<li>Path Depth: Up to 8 levels deep</li>
-<li>Concurrent Users: Horizontal scaling ready</li>
-</ul>
-<h2 id="version-control">Version Control<a class="headerlink" href="#version-control" title="Permanent link">&para;</a></h2>
-<p>Git-like operations for memory management:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>main branch
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>│
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>├─ commit: &quot;Initial user profile&quot;
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>│  └─ memories: profile.identity.*
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>│
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>├─ commit: &quot;Added work info&quot;
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>│  └─ memories: profile.professional.*
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>│
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>└─ branch: experiment
-</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>   ├─ commit: &quot;Testing new classifier&quot;
-</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a>   └─ merge → main
-</span></code></pre></div>
-<h2 id="extensions-and-plugins">Extensions and Plugins<a class="headerlink" href="#extensions-and-plugins" title="Permanent link">&para;</a></h2>
-<p><strong>Memento Collections</strong> (<code>memoir.memento</code>):
-- LocationMemento: Spatial/geographic memories
-- TimelineMemento: Temporal/chronological memories
-- ProfileMemento: Identity/personal memories</p>
-<p><strong>Custom Extensions</strong>:
-- Custom classifiers
-- Custom search engines
-- Custom taxonomy systems
-- Custom storage backends</p>
-<p>This architecture enables Memoir to provide fast, reliable, and scalable semantic memory management while maintaining clean code organization and extensibility.</p>
+<p>Do not commit generated stores, local Codex config, or <code>/tmp</code> evidence unless a maintainer asks for a sanitized artifact.</p>
+<h2 id="parity-notes">Parity notes<a class="headerlink" href="#parity-notes" title="Permanent link">&para;</a></h2>
+<p>The Codex plugin intentionally mirrors the Claude Code plugin where Codex has equivalent surfaces: <code>SessionStart</code>, <code>UserPromptSubmit</code>, <code>Stop</code>, skill-driven recall/onboarding/manual remember/status/UI, store derivation, branch auto-match, and onboarding namespaces. It does not port Claude-only slash-command markdown, deprecated custom prompt surfaces, statusline behavior, or <code>SessionEnd</code> cleanup. The first Codex-specific divergence is transcript parsing: Codex records messages and tools as <code>response_item.payload</code> objects, so the parser, metrics collector, and edit collector are separate from the Claude JSONL versions.</p>
 
 
 
