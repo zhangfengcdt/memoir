@@ -1,24 +1,19 @@
 # SPDX-License-Identifier: Apache-2.0
 """
-Memoir TUI - Terminal User Interface.
-
-A simple CLI-style interface for memoir, styled similar to Claude Code.
+Memoir TUI — read-only full-screen Textual interface.
 
 Usage:
-    # From command line
+    # From the command line
     memoir tui
-    memoir tui -c /path/to/store
+    memoir tui /path/to/store
+    memoir tui /path/to/store -b feature/foo
 
     # Programmatically
-    from memoir.tui import MemoirCLI, run_tui
+    from memoir.tui import run_tui
 
     run_tui("/path/to/store")
 """
 
-from memoir.tui.app import MemoirCLI, MemoirTUI, run_tui
+from memoir.tui.app import MemoirApp, run_tui
 
-__all__ = [
-    "MemoirCLI",
-    "MemoirTUI",
-    "run_tui",
-]
+__all__ = ["MemoirApp", "run_tui"]
