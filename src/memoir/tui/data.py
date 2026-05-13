@@ -198,15 +198,19 @@ class DataLoader:
         for key_bytes in keys:
             if len(entries) >= MAX_OUTLINE_KEYS:
                 break
-            try:
-                key_str = (
-                    key_bytes.decode("utf-8")
-                    if isinstance(key_bytes, bytes)
-                    else str(key_bytes)
-                )
-            except Exception:
-                continue
-            if not key_str.startswith(prefix):
+            # Decode without a bare try/except/continue (bandit B112).
+            # Memoir always stores UTF-8 keys, so a decode error is a
+            # genuine data issue worth surfacing — we just route it
+            # through ``key_str = None`` so the loop control stays linear.
+            key_str: str | None
+            if isinstance(key_bytes, bytes):
+                try:
+                    key_str = key_bytes.decode("utf-8")
+                except UnicodeDecodeError:
+                    key_str = None
+            else:
+                key_str = str(key_bytes)
+            if key_str is None or not key_str.startswith(prefix):
                 continue
             path = key_str[len(prefix) :]
             if not path:

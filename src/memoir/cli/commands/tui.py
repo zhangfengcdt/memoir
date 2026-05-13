@@ -51,7 +51,16 @@ def tui(ctx: MemoirContext, path: str | None, branch: str | None):
 
     try:
         from memoir.tui import run_tui
+    except ImportError as e:
+        ctx.error(
+            "memoir tui requires the optional TUI extras (textual, rich). "
+            "Install with: pip install 'memoir-ai[tui]'  "
+            f"(original error: {e})",
+            EXIT_ERROR,
+        )
+        return
 
+    try:
         run_tui(store_path=str(store_path), branch=branch)
     except KeyboardInterrupt:
         ctx.info("TUI stopped.")

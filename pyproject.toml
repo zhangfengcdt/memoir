@@ -58,6 +58,12 @@ dev = [
     "safety>=2.0.0",
     "playwright>=1.55.0",
     "pytest-playwright>=0.7.0",
+    # Pulled into dev so the TUI smoke tests (tests/test_tui_smoke.py)
+    # can import memoir.tui.app at collection time. Production users
+    # still install via the `tui` extra; this just makes the dev
+    # environment self-sufficient.
+    "textual>=3.0.0",
+    "rich>=13.0.0",
 ]
 
 docs = [
