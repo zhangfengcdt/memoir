@@ -31,6 +31,11 @@ class CommitChange:
     path: str  # Memory path, with namespace prefix stripped.
     op: str  # "added" | "modified" | "deleted"
     namespace: str | None = None  # The original namespace, if any.
+    # Decoded content of the value before/after the change. Same shape
+    # the web UI's CommitDetail drawer renders. ``None`` for the side
+    # that doesn't exist (added has no old; deleted has no new).
+    old_content: str | None = None
+    new_content: str | None = None
 
 
 @dataclass
@@ -143,10 +148,13 @@ class DataLoader:
     # ------------------------------------------------------------------
 
     def get_commit_changes(self, commit_hash: str) -> list[CommitChange]:
-        """Return structured key-level changes for ``commit_hash``.
+        """Return structured key-level changes for ``commit_hash``,
+        including the decoded BEFORE / AFTER content for each change
+        (mirrors the web UI's ``CommitDetail`` drawer).
 
-        For the initial commit (no parents) every key is reported as added.
-        Failures return an empty list so the caller can render a placeholder.
+        For the initial commit (no parents) every key is reported as
+        added with its current value as ``new_content``. Failures
+        return an empty list so the caller can render a placeholder.
         Uses the cached raw ``VersionedKvStore`` directly.
         """
         commit = next((c for c in self.get_commits() if c.hash == commit_hash), None)
@@ -155,31 +163,90 @@ class DataLoader:
             return []
 
         if commit is None or not commit.parents:
+            # Root commit: list all keys, fetch each value as new_content.
             keys = self._call_raw("list_keys") or []
-            return [
-                CommitChange(path=p, op="added", namespace=ns)
-                for p, ns in (self._split_namespaced_key(k) for k in keys)
-                if ns is not None
-            ]
+            changes: list[CommitChange] = []
+            for raw_key in keys:
+                path, namespace = self._split_namespaced_key(raw_key)
+                if namespace is None:
+                    continue
+                key_bytes = (
+                    raw_key
+                    if isinstance(raw_key, bytes)
+                    else str(raw_key).encode("utf-8")
+                )
+                value_bytes = self._call_raw("get", key_bytes)
+                changes.append(
+                    CommitChange(
+                        path=path,
+                        op="added",
+                        namespace=namespace,
+                        new_content=self._decode_value_to_str(value_bytes),
+                    )
+                )
+            return changes
 
         parent = commit.parents[0]
         kv_diffs = self._call_raw("diff", parent, commit_hash) or []
 
-        changes: list[CommitChange] = []
+        changes = []
         for kv_diff in kv_diffs:
             path, namespace = self._split_namespaced_key(kv_diff.key)
-            op_type = kv_diff.operation.operation_type
+            op = kv_diff.operation
+            op_type = op.operation_type
             if op_type == "Added":
-                changes.append(CommitChange(path=path, op="added", namespace=namespace))
+                changes.append(
+                    CommitChange(
+                        path=path,
+                        op="added",
+                        namespace=namespace,
+                        new_content=self._decode_value_to_str(
+                            getattr(op, "value", None)
+                        ),
+                    )
+                )
             elif op_type == "Removed":
                 changes.append(
-                    CommitChange(path=path, op="deleted", namespace=namespace)
+                    CommitChange(
+                        path=path,
+                        op="deleted",
+                        namespace=namespace,
+                        old_content=self._decode_value_to_str(
+                            getattr(op, "value", None)
+                        ),
+                    )
                 )
             elif op_type == "Modified":
                 changes.append(
-                    CommitChange(path=path, op="modified", namespace=namespace)
+                    CommitChange(
+                        path=path,
+                        op="modified",
+                        namespace=namespace,
+                        old_content=self._decode_value_to_str(
+                            getattr(op, "old_value", None)
+                        ),
+                        new_content=self._decode_value_to_str(
+                            getattr(op, "new_value", None)
+                        ),
+                    )
                 )
         return changes
+
+    def _decode_value_to_str(self, value_bytes: Any) -> str | None:
+        """Decode a prollytree value blob to a printable string. ``None``
+        if the input is empty/missing; otherwise the envelope's
+        ``content`` field (parsed via :meth:`_unwrap_memory_value`).
+        """
+        if not value_bytes:
+            return None
+        try:
+            value = json.loads(value_bytes.decode("utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
+            try:
+                return value_bytes.decode("utf-8")
+            except (UnicodeDecodeError, AttributeError):
+                return None
+        return self._unwrap_memory_value(value)
 
     def get_memories(self) -> list[MemoryEntry]:
         """Enumerate up to ``MAX_OUTLINE_KEYS`` paths from the ``default``
