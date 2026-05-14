@@ -40,6 +40,14 @@ class MemoirApp(App):
         self._loader = loader
 
     def on_mount(self) -> None:
+        # Default to the gruvbox theme (warm retro-green palette).
+        # Users can switch via the ctrl+p command palette → "Theme".
+        # Suppressed in case an older Textual version doesn't know the
+        # theme name — we just fall back to the runtime default.
+        import contextlib
+
+        with contextlib.suppress(Exception):
+            self.theme = "gruvbox"
         self.push_screen(MainScreen(self._loader))
 
 

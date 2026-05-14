@@ -18,7 +18,8 @@ _HELP = """[b]memoir tui — keybindings[/b]
   [b]q[/b] / [b]ctrl+c[/b]   Quit
   [b]r[/b]              Force refresh
   [b]1[/b] / [b]2[/b]        Commits / Outline
-  [b]/[/b]              Focus the outline filter
+  [b]/[/b]              Focus the outline Match filter
+  [b]e[/b]              Focus the outline Exclude filter
   [b]tab[/b] / [b]shift+tab[/b]  Move focus inside a pane
   [b]↑[/b] [b]↓[/b] [b]j[/b] [b]k[/b]      Navigate the active list / tree
   [b]g[/b] / [b]G[/b]        Top / bottom of list
@@ -26,7 +27,9 @@ _HELP = """[b]memoir tui — keybindings[/b]
   [b]esc[/b]            Close help / clear focus
   [b]?[/b]              Toggle this help
 
-[dim]Auto-refresh runs every 3 seconds. Press esc or ? to close.[/dim]
+[dim]Outline filters: plain text matches as substring; use [b]*[/b] or [b]?[/b]
+for glob (e.g. [b]workflow.*[/b], [b]*.style[/b]). Depth caps the tree at L1/L2/L3.
+Auto-refresh runs every 3 seconds. Press esc or ? to close.[/dim]
 """
 
 

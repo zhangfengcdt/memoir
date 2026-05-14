@@ -1,20 +1,22 @@
 # SPDX-License-Identifier: Apache-2.0
-"""OutlinePane — split layout: filter + Tree of memories | MemoryViewer.
+"""OutlinePane — filter bar + Tree of memories | MemoryViewer.
 
-Tree shape: dotted-path segments of every memory in the ``default``
-namespace. System namespaces (``codebase:onboard``, ``taxonomy``,
-``project:onboard``, etc.) are hidden — the outline is for user memories
-only. Substring filter (case-insensitive) hides non-matching paths.
+Mirrors the web UI's ``FilterBar`` (Match / Exclude / Depth) for the
+``default`` namespace. Plain text patterns match as a substring; the
+presence of ``*`` or ``?`` switches to ``fnmatch.fnmatchcase`` glob.
+Depth ``All``/``L1``/``L2``/``L3`` caps the rendered tree at N
+segments — matches the ``maxDepth`` prune in ``buildTaxonomy.ts``.
 """
 
 from __future__ import annotations
 
+import fnmatch
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
-from textual.widgets import Input, Tree
+from textual.widgets import Input, Select, Static, Tree
 from textual.worker import Worker, WorkerState
 
 from memoir.tui.widgets.memory_viewer import MemoryViewer
@@ -39,13 +41,32 @@ class _Leaf:
     path: str
 
 
+# Sentinel used as a Select option for "no depth cap".
+_DEPTH_ALL = 0
+
+
 class OutlinePane(Vertical):
     DEFAULT_CSS = """
-    OutlinePane > Input {
+    OutlinePane #outline-filter-bar {
         height: 3;
-        margin: 0;
+        padding: 0 1;
     }
-    OutlinePane > Horizontal {
+    OutlinePane #outline-filter-bar > * {
+        margin-right: 1;
+    }
+    OutlinePane .filter-label {
+        width: auto;
+        padding: 1 0;
+        color: $text-muted;
+    }
+    OutlinePane #outline-match,
+    OutlinePane #outline-exclude {
+        width: 1fr;
+    }
+    OutlinePane #outline-depth {
+        width: 14;
+    }
+    OutlinePane > Horizontal#outline-body {
         height: 1fr;
     }
     OutlinePane Tree {
@@ -58,7 +79,8 @@ class OutlinePane(Vertical):
     """
 
     BINDINGS: ClassVar[list[Binding]] = [
-        Binding("slash", "focus_filter", "Filter", show=True),
+        Binding("slash", "focus_match", "Match", show=True),
+        Binding("e", "focus_exclude", "Exclude", show=True),
     ]
 
     def __init__(self, loader: DataLoader, **kwargs) -> None:
@@ -68,13 +90,25 @@ class OutlinePane(Vertical):
         self._loaded = False
         self._load_worker: Worker | None = None
         self._body_worker: Worker | None = None
-        self._filter_text = ""
+        # Filter state (lowercased — patterns are case-insensitive).
+        self._match_text = ""
+        self._exclude_text = ""
+        self._max_depth: int = _DEPTH_ALL  # 0 = no cap
 
     def compose(self) -> ComposeResult:
-        yield Input(
-            placeholder="filter…  (substring, case-insensitive)", id="outline-filter"
-        )
-        with Horizontal():
+        with Horizontal(id="outline-filter-bar"):
+            yield Static("Match:", classes="filter-label")
+            yield Input(placeholder="text or *.glob", id="outline-match")
+            yield Static("Exclude:", classes="filter-label")
+            yield Input(placeholder="text or *.glob", id="outline-exclude")
+            yield Static("Depth:", classes="filter-label")
+            yield Select(
+                options=[("All", _DEPTH_ALL), ("L1", 1), ("L2", 2), ("L3", 3)],
+                value=_DEPTH_ALL,
+                allow_blank=False,
+                id="outline-depth",
+            )
+        with Horizontal(id="outline-body"):
             tree: Tree[_Leaf] = Tree("Memories", id="outline-tree")
             tree.show_root = False
             yield tree
@@ -126,22 +160,37 @@ class OutlinePane(Vertical):
             viewer.show("No memories in this store yet.", dim=True)
 
     # ------------------------------------------------------------------
-    # Filter
+    # Filter inputs
     # ------------------------------------------------------------------
 
-    def action_focus_filter(self) -> None:
-        self.query_one("#outline-filter", Input).focus()
+    def action_focus_match(self) -> None:
+        self.query_one("#outline-match", Input).focus()
+
+    def action_focus_exclude(self) -> None:
+        self.query_one("#outline-exclude", Input).focus()
 
     def on_input_changed(self, event: Input.Changed) -> None:
-        if event.input.id != "outline-filter":
+        if event.input.id == "outline-match":
+            self._match_text = event.value.strip().lower()
+        elif event.input.id == "outline-exclude":
+            self._exclude_text = event.value.strip().lower()
+        else:
             return
-        self._filter_text = event.value.strip().lower()
         self._rebuild_tree()
 
     def on_input_submitted(self, event: Input.Submitted) -> None:
-        # Pressing enter inside the filter input shifts focus to the tree.
-        if event.input.id == "outline-filter":
+        if event.input.id in ("outline-match", "outline-exclude"):
             self.query_one(Tree).focus()
+
+    def on_select_changed(self, event: Select.Changed) -> None:
+        if event.select.id != "outline-depth":
+            return
+        value = event.value
+        try:
+            self._max_depth = int(value) if value is not None else _DEPTH_ALL
+        except (TypeError, ValueError):
+            self._max_depth = _DEPTH_ALL
+        self._rebuild_tree()
 
     # ------------------------------------------------------------------
     # Tree construction
@@ -155,7 +204,7 @@ class OutlinePane(Vertical):
             return
 
         # Single rooted tree over dotted-path segments — no L1 namespace
-        # group since we already filtered to default-only.
+        # group since we filter to default-only above.
         root: dict = {}
         for entry in filtered:
             node = root
@@ -172,24 +221,45 @@ class OutlinePane(Vertical):
             if segments:
                 node[segments[-1]] = _Leaf(namespace=entry.namespace, path=entry.path)
 
-        self._mount_subtree(tree.root, root)
+        self._mount_subtree(tree.root, root, depth=0)
 
-    def _mount_subtree(self, parent_node, subtree: dict) -> None:
+    def _mount_subtree(self, parent_node, subtree: dict, depth: int) -> None:
+        cap = self._max_depth
+        # At the cap, render the next level as terminal leaves only — no
+        # further recursion. ``cap == 0`` (All) disables the cap.
+        terminal = cap and depth + 1 >= cap
         for label in sorted(subtree):
             value = subtree[label]
             if isinstance(value, _Leaf):
                 parent_node.add_leaf(label, data=value)
+            elif terminal:
+                # Collapse the subtree at this point — no children mounted.
+                parent_node.add_leaf(label)
             else:
                 inner = parent_node.add(label, expand=True)
-                self._mount_subtree(inner, value)
+                self._mount_subtree(inner, value, depth + 1)
 
     def _filtered_memories(self) -> list[MemoryEntry]:
         # Outline is for user memories only — drop system namespaces.
         entries = [m for m in self._memories if m.namespace == "default"]
-        if not self._filter_text:
-            return entries
-        needle = self._filter_text
-        return [m for m in entries if needle in m.path.lower()]
+
+        def matches(path_lower: str, pattern: str) -> bool:
+            """``*``/``?`` → fnmatch; otherwise substring. Both case-insensitive."""
+            if "*" in pattern or "?" in pattern:
+                return fnmatch.fnmatchcase(path_lower, pattern)
+            return pattern in path_lower
+
+        include = self._match_text
+        exclude = self._exclude_text
+        result: list[MemoryEntry] = []
+        for m in entries:
+            p = m.path.lower()
+            if include and not matches(p, include):
+                continue
+            if exclude and matches(p, exclude):
+                continue
+            result.append(m)
+        return result
 
     # ------------------------------------------------------------------
     # Selection
