@@ -60,7 +60,7 @@ MAX_OUTLINE_KEYS = 10_000
 class DataLoader:
     """In-process service facade with light caching."""
 
-    def __init__(self, store_path: str, commit_limit: int = 100) -> None:
+    def __init__(self, store_path: str, commit_limit: int = 10000) -> None:
         self.store_path = store_path
         self.commit_limit = commit_limit
         self._branch = BranchService(store_path)
