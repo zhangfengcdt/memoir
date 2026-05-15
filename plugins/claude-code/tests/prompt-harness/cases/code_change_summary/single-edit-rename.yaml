@@ -1,7 +1,7 @@
-# Positive case: a single Edit that renames a function. Haiku should produce a
-# one-line summary with an action verb, not "trivial", and not a file path
-# bare without intent.
-description: "Single Edit renaming a function produces one descriptive line"
+# Positive case: a single Edit that renames a function. Under the new
+# WHY-focused prompt, haiku should produce a reason-led summary (clarifying
+# naming, intent, callers) rather than a pure diff narration.
+description: "Single Edit renaming a function produces one why-focused line"
 prompt: code_change_summary
 input: |
   Edit src/auth.py
@@ -14,7 +14,7 @@ expect:
   - kind: max_lines
     value: 1
   - kind: any_line_matches
-    value: "(?i)\\b(renamed|refactor|rename|extract)\\b"
+    value: "(?i)\\b(clarif|intent|naming|rename|caller|api)\\w*\\b"
   - kind: no_line_matches
     value: "(?i)^(here\\s+is|summary|the\\s+changes)"
   - kind: no_line_matches

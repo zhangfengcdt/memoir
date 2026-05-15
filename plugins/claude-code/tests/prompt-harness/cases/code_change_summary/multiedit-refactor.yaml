@@ -1,6 +1,7 @@
-# Positive case: MultiEdit across multiple substitutions in one file. Should
-# group by intent rather than listing every substitution.
-description: "MultiEdit refactor produces a grouped summary"
+# Positive case: MultiEdit propagating a rename across multiple files. Under
+# the new WHY-focused prompt, haiku should explain the motivation (propagating
+# / updating callers / consistency) rather than narrating each substitution.
+description: "MultiEdit refactor produces a grouped, why-focused summary"
 prompt: code_change_summary
 input: |
   MultiEdit src/api.py
@@ -17,4 +18,4 @@ expect:
   - kind: max_lines
     value: 1
   - kind: any_line_matches
-    value: "(?i)\\b(refactor|rename|update|wired|migrate|propagat)\\w*\\b"
+    value: "(?i)\\b(propagat|consisten|caller|update|rename|migrate|clarif)\\w*\\b"

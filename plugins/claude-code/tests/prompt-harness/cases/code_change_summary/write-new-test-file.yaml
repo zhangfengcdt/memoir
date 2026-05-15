@@ -1,6 +1,7 @@
-# Positive case: Write creating a new test file. Summary should mention
-# "test" or "added" since the change is purely additive.
-description: "Write of a new test file is summarized as adding tests"
+# Positive case: Write creating a new test file. Under the new WHY-focused
+# prompt, haiku should frame this as "adding regression coverage" / "capturing
+# behavior" rather than "wrote a test file."
+description: "Write of a new test file is framed as adding coverage"
 prompt: code_change_summary
 input: |
   Write tests/test_auth.py
@@ -20,4 +21,4 @@ expect:
   - kind: max_lines
     value: 1
   - kind: any_line_matches
-    value: "(?i)\\b(added|wrote|created|new)\\b.*\\btest"
+    value: "(?i)\\b(test|coverage|cover|regress|behaviou?r|baseline|verif)\\w*\\b"
