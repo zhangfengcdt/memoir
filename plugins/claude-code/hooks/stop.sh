@@ -101,8 +101,12 @@ entries = payload.get('edits') or []
 parts = []
 total = 0
 LIMIT = 8000
+PROMPT_CAP = 2000
 if isinstance(user_prompt, str) and user_prompt.strip():
-    block = f'[User prompt]\n{user_prompt.strip()}\n---\n'
+    up = user_prompt.strip()
+    if len(up) > PROMPT_CAP:
+        up = up[:PROMPT_CAP] + '… (prompt truncated)'
+    block = f'[User prompt]\n{up}\n---\n'
     parts.append(block)
     total += len(block)
 for e in entries:

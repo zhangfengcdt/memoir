@@ -1,6 +1,8 @@
-# Positive case: doc-only Edit. Should be summarized (NOT "trivial") and
-# the summary should mention docs / readme / documentation.
-description: "Doc-only edit is summarized as a documentation change"
+# Positive case: doc-only Edit. Under the new WHY-focused prompt, haiku should
+# frame this as "documenting" / "explaining" the behavior, not narrating the
+# diff. NOT "trivial" — docs ARE substantive when they explain non-obvious
+# pipelines like the Stop hook.
+description: "Doc-only edit is framed as documenting behavior"
 prompt: code_change_summary
 input: |
   Edit docs/claude_code.md
@@ -15,6 +17,6 @@ expect:
   - kind: max_lines
     value: 1
   - kind: any_line_matches
-    value: "(?i)\\b(document|docs|readme|guide|claude_code|capture)\\b"
+    value: "(?i)\\b(document|docs|explain|describ|clarif|capture|auto-capture)\\w*\\b"
   - kind: no_line_matches
     value: "(?i)^trivial$"
