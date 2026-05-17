@@ -298,7 +298,12 @@ class StoreService(BaseService):
 
         path = Path(self.store_path)
         exists = path.exists()
-        initialized = exists and (path / ".git").exists()
+        # A memoir store has BOTH .git/ and data/. Checking only for .git/
+        # would treat any random git repo (including memoir's own source
+        # checkout when status falls back to cwd) as an "initialized" store
+        # and lazy-materialize a fresh prolly tree inside it on the next
+        # _get_store() call. Require the data/ dir too.
+        initialized = exists and (path / ".git").exists() and (path / "data").exists()
 
         if not exists:
             return StoreInfo(

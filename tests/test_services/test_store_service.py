@@ -110,6 +110,30 @@ class TestStoreServiceCreation:
         lock = Path(temp_dir) / ".git" / "memoir-backend"
         assert lock.read_text().strip() == "git"
 
+    def test_get_status_non_memoir_git_repo_reports_not_initialized(self, tmp_path):
+        """status on a non-memoir git repo (e.g. the cwd-fallback hitting a
+        random source checkout) must report not-initialized — NOT silently
+        construct a fresh memoir store inside it."""
+        subprocess.run(["git", "init", "--quiet"], cwd=tmp_path, check=True)
+        subprocess.run(
+            ["git", "-C", str(tmp_path), "config", "user.email", "x@y"], check=True
+        )
+        subprocess.run(
+            ["git", "-C", str(tmp_path), "config", "user.name", "x"], check=True
+        )
+        (tmp_path / "README.md").write_text("not memoir\n")
+        subprocess.run(["git", "-C", str(tmp_path), "add", "README.md"], check=True)
+        subprocess.run(
+            ["git", "-C", str(tmp_path), "commit", "-m", "init", "--quiet"], check=True
+        )
+
+        info = StoreService(str(tmp_path)).get_status()
+        assert info.initialized is False
+        # And nothing got materialized as a side effect.
+        assert not (tmp_path / "data").exists()
+        assert not (tmp_path / ".git" / "memoir-backend").exists()
+        assert not (tmp_path / ".git" / "prolly").exists()
+
     def test_create_store_explicit_backend_overrides_existing_lock(self, temp_dir):
         """When user passes --backend explicitly, that wins over a stale lock —
         otherwise recovering from a wrong choice would be impossible."""

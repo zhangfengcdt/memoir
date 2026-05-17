@@ -141,6 +141,39 @@ class ProllyTreeStore(BaseStore):
                 f"-s/--store / set MEMOIR_STORE / cd into an existing store."
             )
 
+        # Defense-in-depth: refuse to open a path that is a git repository
+        # with existing commits but has no memoir markers (no backend lock,
+        # no data/ directory). create_store has its own guardrail for the
+        # create path; this catches read-side callers (status, recall, the
+        # UI server's cwd fallback, etc.) that bypass create_store. Without
+        # this, the adapter happily initializes a fresh prolly tree inside
+        # any random git repo it gets pointed at.
+        if enable_versioning:
+            has_data_dir = (self.path / "data").exists()
+            has_backend_lock = (self.path / ".git" / "memoir-backend").exists()
+            if not has_data_dir and not has_backend_lock:
+                import subprocess as _subprocess
+
+                head_check = _subprocess.run(
+                    [
+                        "git",
+                        "-C",
+                        str(self.path),
+                        "rev-parse",
+                        "--verify",
+                        "--quiet",
+                        "HEAD",
+                    ],
+                    capture_output=True,
+                )
+                if head_check.returncode == 0:
+                    raise FileNotFoundError(
+                        f"Not a memoir store: {self.path} is a git repository "
+                        f"with existing commits but no memoir-backend lock or "
+                        f"data/ directory. Use `memoir new <path>` to create a "
+                        f"memoir store explicitly, or point at an existing one."
+                    )
+
         # Initialize ProllyTree
         if enable_versioning:
             # Apply gc-safety configs to the .git of any memoir store opened

@@ -139,6 +139,37 @@ def test_prolly_adapter_writes_backend_lock_on_fresh_init(tmp_path, monkeypatch)
     assert lock.read_text().strip() == "file"
 
 
+def test_prolly_adapter_refuses_non_memoir_git_repo_with_commits(tmp_path):
+    """The defense-in-depth twin of StoreService.create_store's guardrail.
+    Read-side callers (status / recall / ui server) can land on a path that
+    is a git repo (has commits) but is NOT a memoir store. Without this
+    guard, the adapter would happily initialize a fresh prolly tree there
+    — exactly how this repo's source tree got accidentally turned into a
+    File-backed memoir store during a leaky test run.
+    """
+    from memoir.store.prolly_adapter import ProllyTreeStore
+
+    # Make a git repo with one real (non-memoir) commit.
+    subprocess.run(["git", "init", "--quiet"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "-C", str(tmp_path), "config", "user.email", "x@y"], check=True
+    )
+    subprocess.run(["git", "-C", str(tmp_path), "config", "user.name", "x"], check=True)
+    (tmp_path / "README.md").write_text("not a memoir store\n")
+    subprocess.run(["git", "-C", str(tmp_path), "add", "README.md"], check=True)
+    subprocess.run(
+        ["git", "-C", str(tmp_path), "commit", "-m", "init", "--quiet"], check=True
+    )
+
+    with pytest.raises(FileNotFoundError, match="Not a memoir store"):
+        ProllyTreeStore(path=str(tmp_path), enable_versioning=True)
+
+    # Crucially: nothing was created in the repo as a side effect.
+    assert not (tmp_path / "data").exists()
+    assert not (tmp_path / ".git" / "memoir-backend").exists()
+    assert not (tmp_path / ".git" / "prolly").exists()
+
+
 def test_prolly_adapter_retrofits_unhardened_store_on_open(tmp_path):
     """A legacy memoir store (one without the gc-safety configs) must be
     retrofitted on the next open through ProllyTreeStore — this is how the
