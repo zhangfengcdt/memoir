@@ -6,6 +6,7 @@ Tests store creation, connection, status, and data reading.
 
 import os
 import shutil
+import subprocess
 import tempfile
 
 import pytest
@@ -46,6 +47,25 @@ class TestStoreServiceCreation:
         assert os.path.realpath(result.path) == os.path.realpath(temp_dir)
         assert os.path.exists(result.path)
         assert os.path.exists(os.path.join(result.path, ".git"))
+
+    def test_create_store_applies_gc_safety_configs(self, temp_dir):
+        """New stores should have gc.auto=0 and gc.pruneExpire=never so dangling
+        prollytree blobs survive automatic / default-config git gc."""
+        shutil.rmtree(temp_dir)
+
+        service = StoreService()
+        result = service.create_store(temp_dir)
+        assert result.success is True
+
+        def _get(key: str) -> str:
+            return subprocess.run(
+                ["git", "-C", temp_dir, "config", "--get", key],
+                capture_output=True,
+                text=True,
+            ).stdout.strip()
+
+        assert _get("gc.auto") == "0"
+        assert _get("gc.pruneExpire") == "never"
 
     def test_create_store_with_path_argument(self, temp_dir):
         """Test creating a store at a specific path."""

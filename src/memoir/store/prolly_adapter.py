@@ -15,6 +15,8 @@ from langgraph.store.base import BaseStore
 from prollytree import ProllyTree, VersionedKvStore
 from pydantic import BaseModel, Field
 
+from memoir.store.git_safety import harden_git_config
+
 # Storage layer doesn't import classification or search modules
 # These are handled by higher layers
 
@@ -140,6 +142,11 @@ class ProllyTreeStore(BaseStore):
 
         # Initialize ProllyTree
         if enable_versioning:
+            # Apply gc-safety configs to the .git of any memoir store opened
+            # here. Idempotent, so retrofits legacy git-backed stores on
+            # first open by a memoir version that includes this helper.
+            harden_git_config(self.path)
+
             # Create data subdirectory for VersionedKvStore
             data_dir = self.path / "data"
             data_dir.mkdir(exist_ok=True)

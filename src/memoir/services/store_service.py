@@ -14,6 +14,7 @@ from typing import Any
 
 from memoir.services.base import BaseService, ServiceError, StoreNotFoundError
 from memoir.services.models import CreateStoreResult, StoreInfo
+from memoir.store.git_safety import harden_git_config
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +133,11 @@ class StoreService(BaseService):
                     )
             else:
                 _git_step(["init"], "git init")
+
+            # Apply gc-safety configs (disables auto gc + prevents dangling
+            # blob pruning) so prollytree's Git-backend nodes survive any
+            # automatic / default-config `git gc`. Idempotent.
+            harden_git_config(store_path)
 
             # Create data directory
             data_path = store_path / "data"

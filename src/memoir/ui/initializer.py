@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from memoir import ProllyTreeMemoryStoreManager
 from memoir.classifier.intelligent import IntelligentClassifier
 from memoir.search.intelligent import IntelligentSearchEngine
+from memoir.store.git_safety import harden_git_config
 from memoir.store.prolly_adapter import ProllyTreeStore
 from memoir.taxonomy.loader import TaxonomyLoader
 from memoir.taxonomy.taxonomy import TaxonomyVersion
@@ -162,6 +163,7 @@ async def main():
         print("   Initializing git repository for versioning...")
         os.makedirs(store_path, exist_ok=True)
         subprocess.run(["git", "init"], cwd=store_path, check=True, capture_output=True)
+        harden_git_config(store_path)
 
     store = ProllyTreeStore(
         path=store_path,
