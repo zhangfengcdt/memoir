@@ -23,6 +23,16 @@ from memoir.cli.main import (
 @click.command()
 @click.argument("path")
 @click.option(
+    "--backend",
+    type=click.Choice(["git", "file"], case_sensitive=False),
+    default=None,
+    help=(
+        "Storage backend for prollytree nodes. Default: file (gc-safe). "
+        "Use git only for tooling-compatibility reasons; "
+        "set MEMOIR_PROLLY_BACKEND for env-level override."
+    ),
+)
+@click.option(
     "--taxonomy-builtin",
     is_flag=True,
     default=False,
@@ -40,6 +50,7 @@ from memoir.cli.main import (
 def new(
     ctx: MemoirContext,
     path: str,
+    backend: str | None,
     taxonomy_builtin: bool,
     taxonomy_paths: tuple,
 ):
@@ -68,7 +79,7 @@ def new(
     from memoir.services.store_service import StoreService
 
     service = StoreService()
-    result = service.create_store(path)
+    result = service.create_store(path, backend=backend)
 
     if not result.success:
         ctx.error(result.error or "Failed to create store", EXIT_GIT_FAILED)

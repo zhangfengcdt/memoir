@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 import tempfile
+from pathlib import Path
 
 import pytest
 
@@ -47,6 +48,49 @@ class TestStoreServiceCreation:
         assert os.path.realpath(result.path) == os.path.realpath(temp_dir)
         assert os.path.exists(result.path)
         assert os.path.exists(os.path.join(result.path, ".git"))
+
+    def test_create_store_default_backend_is_file(self, temp_dir, monkeypatch):
+        """Without an explicit backend or env var, new stores get File."""
+        shutil.rmtree(temp_dir)
+        monkeypatch.delenv("MEMOIR_PROLLY_BACKEND", raising=False)
+
+        result = StoreService().create_store(temp_dir)
+        assert result.success is True
+
+        lock = Path(temp_dir) / ".git" / "memoir-backend"
+        assert lock.exists()
+        assert lock.read_text().strip() == "file"
+
+    def test_create_store_with_backend_git(self, temp_dir):
+        """Explicit backend='git' is honored and recorded in the lock."""
+        shutil.rmtree(temp_dir)
+
+        result = StoreService().create_store(temp_dir, backend="git")
+        assert result.success is True
+
+        lock = Path(temp_dir) / ".git" / "memoir-backend"
+        assert lock.read_text().strip() == "git"
+
+    def test_create_store_with_backend_file(self, temp_dir):
+        """Explicit backend='file' is honored."""
+        shutil.rmtree(temp_dir)
+
+        result = StoreService().create_store(temp_dir, backend="file")
+        assert result.success is True
+
+        lock = Path(temp_dir) / ".git" / "memoir-backend"
+        assert lock.read_text().strip() == "file"
+
+    def test_create_store_env_var_overrides_default(self, temp_dir, monkeypatch):
+        """MEMOIR_PROLLY_BACKEND=git forces Git when no explicit arg."""
+        shutil.rmtree(temp_dir)
+        monkeypatch.setenv("MEMOIR_PROLLY_BACKEND", "git")
+
+        result = StoreService().create_store(temp_dir)
+        assert result.success is True
+
+        lock = Path(temp_dir) / ".git" / "memoir-backend"
+        assert lock.read_text().strip() == "git"
 
     def test_create_store_applies_gc_safety_configs(self, temp_dir):
         """New stores should have gc.auto=0 and gc.pruneExpire=never so dangling

@@ -15,6 +15,7 @@ from langgraph.store.base import BaseStore
 from prollytree import ProllyTree, VersionedKvStore
 from pydantic import BaseModel, Field
 
+from memoir.store.backend import resolve_backend
 from memoir.store.git_safety import harden_git_config
 
 # Storage layer doesn't import classification or search modules
@@ -147,6 +148,12 @@ class ProllyTreeStore(BaseStore):
             # first open by a memoir version that includes this helper.
             harden_git_config(self.path)
 
+            # Resolve the storage backend BEFORE creating data/ so the legacy
+            # detector sees the on-disk state as it is now. Precedence:
+            # per-store lock > on-disk detection > env var > File default.
+            backend = resolve_backend(self.path)
+            logger.debug("opening store at %s with backend=%s", self.path, backend)
+
             # Create data subdirectory for VersionedKvStore
             data_dir = self.path / "data"
             data_dir.mkdir(exist_ok=True)
@@ -159,10 +166,21 @@ class ProllyTreeStore(BaseStore):
             # _CwdLockedTree so every later method call also chdir's first.
             import os as _os
 
+            # `VersionedKvStore(path, backend)` *initializes* a fresh tree
+            # (running an "Initial commit") on every call — fine for first
+            # creation, but overwrites the root_hash in
+            # ``data/prolly_config_tree_config`` on a reopen, which silently
+            # drops all prior data on the File backend. Use ``.open()`` when
+            # the config already exists; the constructor only when this is
+            # a brand-new dataset directory.
+            prolly_config = data_dir / "prolly_config_tree_config"
             _saved_cwd = _os.getcwd()
             try:
                 _os.chdir(str(self.path))
-                _raw_tree = VersionedKvStore(str(data_dir))
+                if prolly_config.exists():
+                    _raw_tree = VersionedKvStore.open(str(data_dir), backend)
+                else:
+                    _raw_tree = VersionedKvStore(str(data_dir), backend)
             finally:
                 _os.chdir(_saved_cwd)
             self.tree = _CwdLockedTree(_raw_tree, self.path)

@@ -12,8 +12,11 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from prollytree import StorageBackend
+
 from memoir.services.base import BaseService, ServiceError, StoreNotFoundError
 from memoir.services.models import CreateStoreResult, StoreInfo
+from memoir.store.backend import parse_backend_name, resolve_backend, write_backend_lock
 from memoir.store.git_safety import harden_git_config
 
 logger = logging.getLogger(__name__)
@@ -40,17 +43,33 @@ class StoreService(BaseService):
             self.store_path = None
             self._store = None
 
-    def create_store(self, path: str) -> CreateStoreResult:
+    def create_store(
+        self,
+        path: str,
+        backend: str | StorageBackend | None = None,
+    ) -> CreateStoreResult:
         """
         Create a new memory store with git repository.
 
         Args:
-            path: Path where to create the store
+            path: Path where to create the store.
+            backend: Storage backend for prollytree nodes. Accepts a
+                ``StorageBackend`` enum, a name string (``git`` / ``file`` /
+                ``rocksdb`` / ``memory``), or ``None``. When ``None``, falls
+                back to the ``MEMOIR_PROLLY_BACKEND`` env var, then to
+                ``File`` (the default for new stores).
 
         Returns:
             CreateStoreResult with success status
         """
         try:
+            if backend is None:
+                resolved_backend = resolve_backend()
+            elif isinstance(backend, str):
+                resolved_backend = parse_backend_name(backend)
+            else:
+                resolved_backend = backend
+
             # Validate and normalize the path
             store_path = Path(path).expanduser().resolve()
 
@@ -138,6 +157,10 @@ class StoreService(BaseService):
             # blob pruning) so prollytree's Git-backend nodes survive any
             # automatic / default-config `git gc`. Idempotent.
             harden_git_config(store_path)
+
+            # Persist the backend choice so future opens use the same one.
+            # A store's backend is fixed at create time.
+            write_backend_lock(store_path, resolved_backend)
 
             # Create data directory
             data_path = store_path / "data"
