@@ -150,3 +150,11 @@ def test_write_backend_lock_overwrites_existing(tmp_path):
     write_backend_lock(tmp_path, StorageBackend.Git)
     write_backend_lock(tmp_path, StorageBackend.File)
     assert (tmp_path / ".git" / "memoir-backend").read_text().strip() == "file"
+
+
+def test_write_backend_lock_refuses_inmemory(tmp_path):
+    """Persisting a volatile backend would lose all data on the next reopen,
+    which is incoherent. Refuse explicitly with a clear error."""
+    _init_repo(tmp_path)
+    with pytest.raises(ValueError, match="InMemory"):
+        write_backend_lock(tmp_path, StorageBackend.InMemory)

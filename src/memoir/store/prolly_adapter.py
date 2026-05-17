@@ -15,7 +15,7 @@ from langgraph.store.base import BaseStore
 from prollytree import ProllyTree, VersionedKvStore
 from pydantic import BaseModel, Field
 
-from memoir.store.backend import resolve_backend
+from memoir.store.backend import resolve_backend, write_backend_lock
 from memoir.store.git_safety import harden_git_config
 
 # Storage layer doesn't import classification or search modules
@@ -179,11 +179,23 @@ class ProllyTreeStore(BaseStore):
                 _os.chdir(str(self.path))
                 if prolly_config.exists():
                     _raw_tree = VersionedKvStore.open(str(data_dir), backend)
+                    fresh_init = False
                 else:
                     _raw_tree = VersionedKvStore(str(data_dir), backend)
+                    fresh_init = True
             finally:
                 _os.chdir(_saved_cwd)
             self.tree = _CwdLockedTree(_raw_tree, self.path)
+
+            # If we just initialized a fresh prollytree (no prior config),
+            # persist the resolved backend so future opens go straight to
+            # the lock rather than re-running detection/env-default. This
+            # covers direct ProllyTreeStore callers (e.g. ui/initializer.py)
+            # that bypass StoreService.create_store. For callers that did
+            # come through StoreService, the lock is already written with
+            # the same value — this is idempotent.
+            if fresh_init and not (self.path / ".git" / "memoir-backend").exists():
+                write_backend_lock(self.path, backend)
         else:
             # Memory mode doesn't touch git, so no cwd wrapper needed.
             self.tree = ProllyTree("memory")

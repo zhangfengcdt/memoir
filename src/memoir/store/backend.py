@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Backend resolution + per-store lock for memoir.
 
 Resolves which ``prollytree.StorageBackend`` to use when opening or creating
@@ -140,7 +141,16 @@ def write_backend_lock(store_path: Path | str, backend: StorageBackend) -> None:
     The lock is the authoritative record of an existing store's backend;
     ``resolve_backend`` reads it on every open. Written once at store
     creation. A store's backend never changes after creation.
+
+    Raises ``ValueError`` if ``backend`` is ``InMemory``: persisting a
+    volatile backend is incoherent (the next reopen would see an empty
+    store), so we refuse to lock a store to it.
     """
+    if backend == StorageBackend.InMemory:
+        raise ValueError(
+            "Cannot lock a store to the InMemory backend: it is volatile "
+            "and would lose all data across reopen."
+        )
     name = _backend_to_name(backend)
     lock = _lock_path(Path(store_path))
     lock.parent.mkdir(parents=True, exist_ok=True)

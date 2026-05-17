@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
 """Git-config hardening for memoir stores.
 
 prollytree's Git backend stores tree nodes as *dangling* git blob objects:
@@ -54,8 +55,11 @@ def harden_git_config(store_path: Path | str) -> None:
         raise FileNotFoundError(f"Not a git repository (no .git): {path}")
 
     for key, value in _HARDENING_CONFIGS:
+        # ``--replace-all`` handles the legacy edge case where a config key
+        # already has multiple values: plain ``git config <key> <value>``
+        # errors with "has multiple values" instead of overwriting them.
         subprocess.run(
-            ["git", "-C", str(path), "config", key, value],
+            ["git", "-C", str(path), "config", "--replace-all", key, value],
             check=True,
             capture_output=True,
         )

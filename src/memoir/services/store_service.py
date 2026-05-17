@@ -63,15 +63,18 @@ class StoreService(BaseService):
             CreateStoreResult with success status
         """
         try:
+            # Validate and normalize the path first so resolve_backend()
+            # can honor any pre-existing per-store lock (e.g. on a retry
+            # after a partial create_store failure). Explicit ``backend``
+            # arg always wins; ``None`` falls through to the precedence
+            # chain (lock → on-disk detection → env var → File default).
+            store_path = Path(path).expanduser().resolve()
             if backend is None:
-                resolved_backend = resolve_backend()
+                resolved_backend = resolve_backend(store_path)
             elif isinstance(backend, str):
                 resolved_backend = parse_backend_name(backend)
             else:
                 resolved_backend = backend
-
-            # Validate and normalize the path
-            store_path = Path(path).expanduser().resolve()
 
             # Check if path is writable by trying to create parent directories
             try:

@@ -117,6 +117,28 @@ def test_file_backend_survives_aggressive_git_gc(tmp_path):
     assert value["content"] == "alive"
 
 
+def test_prolly_adapter_writes_backend_lock_on_fresh_init(tmp_path, monkeypatch):
+    """Direct callers of ProllyTreeStore (e.g. ``ui/initializer.py``) bypass
+    StoreService.create_store and so don't write the per-store backend
+    lock at create time. To prevent that path from leaving stores without
+    a lock, the adapter writes the lock the first time it initializes a
+    fresh prollytree.
+    """
+    from memoir.store.prolly_adapter import ProllyTreeStore
+
+    # Pre-create the bare git scaffolding the way ui/initializer.py does.
+    subprocess.run(["git", "init", "--quiet"], cwd=tmp_path, check=True)
+    monkeypatch.delenv("MEMOIR_PROLLY_BACKEND", raising=False)
+
+    lock = tmp_path / ".git" / "memoir-backend"
+    assert not lock.exists()
+
+    ProllyTreeStore(path=str(tmp_path), enable_versioning=True)
+
+    assert lock.exists()
+    assert lock.read_text().strip() == "file"
+
+
 def test_prolly_adapter_retrofits_unhardened_store_on_open(tmp_path):
     """A legacy memoir store (one without the gc-safety configs) must be
     retrofitted on the next open through ProllyTreeStore — this is how the

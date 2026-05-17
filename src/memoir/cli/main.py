@@ -113,6 +113,10 @@ def get_cli_schema(group: click.Group) -> dict[str, Any]:
             "MEMOIR_STORE": "Default store path",
             "MEMOIR_JSON": "Always output JSON (set to 1)",
             "MEMOIR_QUIET": "Suppress non-essential output (set to 1)",
+            "MEMOIR_PROLLY_BACKEND": (
+                "Default prollytree storage backend for new stores "
+                "(git, file, rocksdb, memory). Default: file."
+            ),
         },
         "global_options": [],
         "commands": {},

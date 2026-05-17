@@ -92,6 +92,37 @@ class TestStoreServiceCreation:
         lock = Path(temp_dir) / ".git" / "memoir-backend"
         assert lock.read_text().strip() == "git"
 
+    def test_create_store_honors_existing_lock_on_retry(self, temp_dir, monkeypatch):
+        """Partial-create retry: an existing .git/memoir-backend lock must win
+        over env/default when the caller didn't pass an explicit backend.
+        Simulates: first create wrote the lock then failed before HEAD was
+        established; user re-runs `memoir new` with different env."""
+        shutil.rmtree(temp_dir)
+        Path(temp_dir).mkdir()
+        # Pre-existing partial state: .git/ with no HEAD, but lock pinned to git.
+        subprocess.run(["git", "init", "--quiet"], cwd=temp_dir, check=True)
+        (Path(temp_dir) / ".git" / "memoir-backend").write_text("git\n")
+
+        # Env says "file" — but the lock should win on retry.
+        monkeypatch.setenv("MEMOIR_PROLLY_BACKEND", "file")
+        result = StoreService().create_store(temp_dir)
+        assert result.success is True
+        lock = Path(temp_dir) / ".git" / "memoir-backend"
+        assert lock.read_text().strip() == "git"
+
+    def test_create_store_explicit_backend_overrides_existing_lock(self, temp_dir):
+        """When user passes --backend explicitly, that wins over a stale lock —
+        otherwise recovering from a wrong choice would be impossible."""
+        shutil.rmtree(temp_dir)
+        Path(temp_dir).mkdir()
+        subprocess.run(["git", "init", "--quiet"], cwd=temp_dir, check=True)
+        (Path(temp_dir) / ".git" / "memoir-backend").write_text("git\n")
+
+        result = StoreService().create_store(temp_dir, backend="file")
+        assert result.success is True
+        lock = Path(temp_dir) / ".git" / "memoir-backend"
+        assert lock.read_text().strip() == "file"
+
     def test_create_store_applies_gc_safety_configs(self, temp_dir):
         """New stores should have gc.auto=0 and gc.pruneExpire=never so dangling
         prollytree blobs survive automatic / default-config git gc."""
