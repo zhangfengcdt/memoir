@@ -793,12 +793,18 @@ class TestExitCodes:
         result = runner.invoke(cli, ["-s", initialized_store, "status"])
         assert result.exit_code == 0
 
-    def test_no_store_shows_error_or_uses_default(self, runner):
-        """Test behavior when no store configured."""
-        # Clear environment
+    def test_no_store_shows_error_or_uses_default(self, runner, tmp_path, monkeypatch):
+        """Test behavior when no store configured.
+
+        Important: isolate cwd to a tmpdir so the CLI's fallback-to-cwd path
+        can't materialize a memoir store inside this repository's working
+        tree when the test runs from the repo root.
+        """
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.delenv("MEMOIR_STORE", raising=False)
         result = runner.invoke(cli, ["status"], env={"MEMOIR_STORE": ""})
-        # May fail (no store) or succeed (default config exists)
-        # Either way should not crash
+        # May fail (no store) or succeed (default config exists). Either way
+        # should not crash.
         assert result.exit_code in [0, 3]
 
     def test_error_returns_nonzero(self, runner, initialized_store):
