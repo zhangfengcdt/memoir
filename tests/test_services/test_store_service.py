@@ -134,6 +134,38 @@ class TestStoreServiceCreation:
         assert not (tmp_path / ".git" / "memoir-backend").exists()
         assert not (tmp_path / ".git" / "prolly").exists()
 
+    def test_get_status_non_memoir_git_repo_with_data_dir_reports_not_initialized(
+        self, tmp_path
+    ):
+        """Stronger version of the previous test: a non-memoir project repo
+        that happens to have a top-level ``data/`` directory (common in
+        data-science / ETL projects) must still report not-initialized.
+        Earlier the ``initialized`` check used only ``.git/`` + ``data/``,
+        which classified any such repo as a memoir store and let
+        ``_get_store()`` materialize prollytree state in it."""
+        subprocess.run(["git", "init", "--quiet"], cwd=tmp_path, check=True)
+        subprocess.run(
+            ["git", "-C", str(tmp_path), "config", "user.email", "x@y"], check=True
+        )
+        subprocess.run(
+            ["git", "-C", str(tmp_path), "config", "user.name", "x"], check=True
+        )
+        (tmp_path / "data").mkdir()
+        (tmp_path / "data" / "dataset.csv").write_text("a,b,c\n1,2,3\n")
+        subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True)
+        subprocess.run(
+            ["git", "-C", str(tmp_path), "commit", "-m", "init", "--quiet"], check=True
+        )
+
+        info = StoreService(str(tmp_path)).get_status()
+        assert info.initialized is False
+        # The user's data/ exists but no memoir-specific markers were created.
+        assert not (tmp_path / ".git" / "memoir-backend").exists()
+        assert not (tmp_path / ".git" / "prolly").exists()
+        assert not (tmp_path / "data" / "prolly_config_tree_config").exists()
+        # And the user's own data is untouched.
+        assert (tmp_path / "data" / "dataset.csv").read_text() == "a,b,c\n1,2,3\n"
+
     def test_create_store_explicit_backend_overrides_existing_lock(self, temp_dir):
         """When user passes --backend explicitly, that wins over a stale lock —
         otherwise recovering from a wrong choice would be impossible."""

@@ -115,7 +115,8 @@ def get_cli_schema(group: click.Group) -> dict[str, Any]:
             "MEMOIR_QUIET": "Suppress non-essential output (set to 1)",
             "MEMOIR_PROLLY_BACKEND": (
                 "Default prollytree storage backend for new stores "
-                "(git, file, rocksdb, memory). Default: file."
+                "(git, file, rocksdb). Default: file. The volatile "
+                "InMemory backend cannot be persisted and is rejected."
             ),
         },
         "global_options": [],

@@ -170,6 +170,42 @@ def test_prolly_adapter_refuses_non_memoir_git_repo_with_commits(tmp_path):
     assert not (tmp_path / ".git" / "prolly").exists()
 
 
+def test_prolly_adapter_refuses_non_memoir_git_repo_even_with_data_dir(tmp_path):
+    """The previous version of this guardrail treated any top-level
+    ``data/`` directory as a memoir marker, which let a non-memoir
+    project repo with commits AND its own ``data/`` (a common shape
+    for data-science / ETL projects) bypass the refusal. The strong-
+    marker check now requires .git/memoir-backend, .git/prolly/, or
+    data/prolly_config_tree_config — a plain data/ is not enough.
+    """
+    from memoir.store.prolly_adapter import ProllyTreeStore
+
+    subprocess.run(["git", "init", "--quiet"], cwd=tmp_path, check=True)
+    subprocess.run(
+        ["git", "-C", str(tmp_path), "config", "user.email", "x@y"], check=True
+    )
+    subprocess.run(["git", "-C", str(tmp_path), "config", "user.name", "x"], check=True)
+    (tmp_path / "README.md").write_text("not a memoir store\n")
+    # The shape that previously bypassed the guard: a top-level data/
+    # directory in a non-memoir project repo.
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "dataset.csv").write_text("a,b,c\n1,2,3\n")
+    subprocess.run(["git", "-C", str(tmp_path), "add", "."], check=True)
+    subprocess.run(
+        ["git", "-C", str(tmp_path), "commit", "-m", "init", "--quiet"], check=True
+    )
+
+    with pytest.raises(FileNotFoundError, match="Not a memoir store"):
+        ProllyTreeStore(path=str(tmp_path), enable_versioning=True)
+
+    # Nothing memoir-specific got materialized.
+    assert not (tmp_path / ".git" / "memoir-backend").exists()
+    assert not (tmp_path / ".git" / "prolly").exists()
+    assert not (tmp_path / "data" / "prolly_config_tree_config").exists()
+    # The user's own data/ contents are untouched.
+    assert (tmp_path / "data" / "dataset.csv").read_text() == "a,b,c\n1,2,3\n"
+
+
 def test_prolly_adapter_retrofits_unhardened_store_on_open(tmp_path):
     """A legacy memoir store (one without the gc-safety configs) must be
     retrofitted on the next open through ProllyTreeStore — this is how the

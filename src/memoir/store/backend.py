@@ -5,15 +5,20 @@ Resolves which ``prollytree.StorageBackend`` to use when opening or creating
 a memoir store. Precedence rules (highest first):
 
 1. **Per-store lock** at ``<store>/.git/memoir-backend``. A one-line file
-   holding ``git`` / ``file`` / ``rocksdb`` / ``memory``. Written by the
-   store-create code path. Fixed for the life of the store — a store's
-   backend cannot change after creation.
+   holding ``git`` / ``file`` / ``rocksdb``. Written by the store-create
+   code path. Fixed for the life of the store — a store's backend cannot
+   change after creation. ``memory`` is *not* a valid persisted value:
+   the InMemory backend is volatile and locking a store to it would lose
+   all data on next reopen.
 
 2. **Legacy on-disk detection.** For stores that exist on disk but have no
    lock (created by a pre-this-change memoir version), the backend is
-   inferred from the on-disk structure: presence of
-   ``.git/prolly/nodes/files/`` ⇒ File backend; ``.git`` and ``data/`` but
-   no File dir ⇒ Git (the historic default).
+   inferred from the on-disk structure: a memoir store is recognized by
+   the prollytree config file at ``data/prolly_config_tree_config`` (a
+   plain top-level ``data/`` directory is *not* sufficient — random
+   project repos can have one). Within a recognized memoir store,
+   presence of ``.git/prolly/nodes/files/`` ⇒ File backend; otherwise
+   ⇒ Git (the historic default).
 
 3. **Env var** ``MEMOIR_PROLLY_BACKEND``. Case-insensitive, whitespace
    trimmed. Useful for power-users opting new stores into a non-default
@@ -37,7 +42,10 @@ _NAME_TO_BACKEND: dict[str, StorageBackend] = {
     "git": StorageBackend.Git,
     "file": StorageBackend.File,
     "rocksdb": StorageBackend.RocksDB,
-    "memory": StorageBackend.InMemory,
+    # NOTE: ``memory`` (StorageBackend.InMemory) is deliberately absent.
+    # Persisting it would create a store that loses all data on next
+    # reopen, which is incoherent. ``parse_backend_name`` rejects it at
+    # parse time so the failure surfaces before any partial init runs.
 }
 
 
@@ -54,8 +62,10 @@ def _backend_to_name(backend: StorageBackend) -> str:
 def parse_backend_name(value: str) -> StorageBackend:
     """Convert a backend name string to the ``StorageBackend`` enum value.
 
-    Accepts ``git``, ``file``, ``rocksdb``, ``memory`` (case-insensitive,
-    whitespace trimmed). Raises ``ValueError`` for unknown names.
+    Accepts ``git``, ``file``, ``rocksdb`` (case-insensitive, whitespace
+    trimmed). ``memory`` is rejected here rather than later in
+    ``write_backend_lock`` so the failure surfaces before partial init.
+    Raises ``ValueError`` for unknown names.
     """
     return _parse_name(value, "backend name")
 
@@ -88,16 +98,45 @@ def _read_lock(store_path: Path) -> StorageBackend | None:
     return _parse_name(lock.read_text(), f"{lock} (memoir-backend lock)")
 
 
+def is_memoir_store(store_path: Path | str) -> bool:
+    """Return True iff the given path is a memoir store.
+
+    Memoir-specific markers (any one suffices):
+
+    - ``.git/memoir-backend`` — the per-store backend lock, written by
+      ``StoreService.create_store`` before any prollytree code runs. This
+      is the earliest marker available.
+    - ``.git/prolly/`` — prollytree's node-storage scratch directory.
+    - ``data/prolly_config_tree_config`` — prollytree's tree config file,
+      created on first ``VersionedKvStore`` init.
+
+    A plain top-level ``data/`` directory is *not* sufficient — many
+    project repos have one, and accepting it would let ``memoir status``
+    (or any other read-side caller) lazy-materialize a fresh prolly tree
+    inside an unrelated project's working copy.
+    """
+    path = Path(store_path)
+    return (
+        (path / ".git" / "memoir-backend").exists()
+        or (path / ".git" / "prolly").exists()
+        or (path / "data" / "prolly_config_tree_config").exists()
+    )
+
+
 def _detect_legacy_backend(store_path: Path) -> StorageBackend | None:
     """Infer the backend of an existing store that has no lock file.
 
     Returns ``None`` if ``store_path`` doesn't look like an existing memoir
-    store (no ``.git`` or no ``data/``), so the caller falls through to the
-    env var / default for brand-new stores.
+    store, so the caller falls through to the env var / default for
+    brand-new stores. Recognition requires a prollytree-specific marker
+    (``data/prolly_config_tree_config`` or ``.git/prolly/``) — a plain
+    ``data/`` directory in a random project repo is *not* enough.
     """
     if not (store_path / ".git").exists():
         return None
-    if not (store_path / "data").exists():
+    has_prolly_config = (store_path / "data" / "prolly_config_tree_config").exists()
+    has_prolly_dir = (store_path / ".git" / "prolly").exists()
+    if not (has_prolly_config or has_prolly_dir):
         return None
     if (store_path / ".git" / "prolly" / "nodes" / "files").exists():
         return StorageBackend.File

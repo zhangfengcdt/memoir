@@ -16,7 +16,12 @@ from prollytree import StorageBackend
 
 from memoir.services.base import BaseService, ServiceError, StoreNotFoundError
 from memoir.services.models import CreateStoreResult, StoreInfo
-from memoir.store.backend import parse_backend_name, resolve_backend, write_backend_lock
+from memoir.store.backend import (
+    is_memoir_store,
+    parse_backend_name,
+    resolve_backend,
+    write_backend_lock,
+)
 from memoir.store.git_safety import harden_git_config
 
 logger = logging.getLogger(__name__)
@@ -298,12 +303,14 @@ class StoreService(BaseService):
 
         path = Path(self.store_path)
         exists = path.exists()
-        # A memoir store has BOTH .git/ and data/. Checking only for .git/
-        # would treat any random git repo (including memoir's own source
-        # checkout when status falls back to cwd) as an "initialized" store
-        # and lazy-materialize a fresh prolly tree inside it on the next
-        # _get_store() call. Require the data/ dir too.
-        initialized = exists and (path / ".git").exists() and (path / "data").exists()
+        # A memoir store has .git/ AND a memoir-specific marker (backend
+        # lock, .git/prolly/, or data/prolly_config_tree_config). A plain
+        # top-level data/ directory is *not* enough — many project repos
+        # have one, and accepting it would treat any random git repo
+        # (including memoir's own source checkout when status falls back
+        # to cwd) as "initialized" and lazy-materialize a fresh prolly
+        # tree inside it on the next ``_get_store()`` call.
+        initialized = exists and (path / ".git").exists() and is_memoir_store(path)
 
         if not exists:
             return StoreInfo(

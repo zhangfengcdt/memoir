@@ -15,7 +15,7 @@ from langgraph.store.base import BaseStore
 from prollytree import ProllyTree, VersionedKvStore
 from pydantic import BaseModel, Field
 
-from memoir.store.backend import resolve_backend, write_backend_lock
+from memoir.store.backend import is_memoir_store, resolve_backend, write_backend_lock
 from memoir.store.git_safety import harden_git_config
 
 # Storage layer doesn't import classification or search modules
@@ -142,37 +142,36 @@ class ProllyTreeStore(BaseStore):
             )
 
         # Defense-in-depth: refuse to open a path that is a git repository
-        # with existing commits but has no memoir markers (no backend lock,
-        # no data/ directory). create_store has its own guardrail for the
-        # create path; this catches read-side callers (status, recall, the
-        # UI server's cwd fallback, etc.) that bypass create_store. Without
-        # this, the adapter happily initializes a fresh prolly tree inside
-        # any random git repo it gets pointed at.
-        if enable_versioning:
-            has_data_dir = (self.path / "data").exists()
-            has_backend_lock = (self.path / ".git" / "memoir-backend").exists()
-            if not has_data_dir and not has_backend_lock:
-                import subprocess as _subprocess
+        # with existing commits but no memoir-specific markers. ``data/``
+        # alone is *not* a memoir marker — many project repos have one and
+        # accepting it lets read-side callers (status, recall, UI server's
+        # cwd fallback, etc.) lazy-materialize a fresh prolly tree inside
+        # an unrelated project repo. ``is_memoir_store`` checks for the
+        # backend lock, ``.git/prolly/``, or ``data/prolly_config_tree_config``.
+        if enable_versioning and not is_memoir_store(self.path):
+            import subprocess as _subprocess
 
-                head_check = _subprocess.run(
-                    [
-                        "git",
-                        "-C",
-                        str(self.path),
-                        "rev-parse",
-                        "--verify",
-                        "--quiet",
-                        "HEAD",
-                    ],
-                    capture_output=True,
+            head_check = _subprocess.run(
+                [
+                    "git",
+                    "-C",
+                    str(self.path),
+                    "rev-parse",
+                    "--verify",
+                    "--quiet",
+                    "HEAD",
+                ],
+                capture_output=True,
+            )
+            if head_check.returncode == 0:
+                raise FileNotFoundError(
+                    f"Not a memoir store: {self.path} is a git repository "
+                    f"with existing commits but no memoir markers "
+                    f"(no .git/memoir-backend, no .git/prolly/, no "
+                    f"data/prolly_config_tree_config). Use `memoir new "
+                    f"<path>` to create a memoir store explicitly, or "
+                    f"point at an existing one."
                 )
-                if head_check.returncode == 0:
-                    raise FileNotFoundError(
-                        f"Not a memoir store: {self.path} is a git repository "
-                        f"with existing commits but no memoir-backend lock or "
-                        f"data/ directory. Use `memoir new <path>` to create a "
-                        f"memoir store explicitly, or point at an existing one."
-                    )
 
         # Initialize ProllyTree
         if enable_versioning:
