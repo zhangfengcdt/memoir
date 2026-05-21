@@ -398,6 +398,7 @@ class WatchScanResult:
     files_seen: int = 0  # Total files visited (before any filtering).
     files_indexed: int = 0  # New / changed files written to the store + index.
     files_unchanged: int = 0  # Hash-match skips.
+    files_deleted: int = 0  # Previously-indexed files that no longer exist on disk.
     files_skipped_size: int = 0  # Oversize skips.
     files_skipped_unsupported: int = 0  # Extension not in markitdown registry.
     files_skipped_parse_error: int = 0  # markitdown raised.
@@ -414,6 +415,7 @@ class WatchScanResult:
             "files_seen": self.files_seen,
             "files_indexed": self.files_indexed,
             "files_unchanged": self.files_unchanged,
+            "files_deleted": self.files_deleted,
             "files_skipped_size": self.files_skipped_size,
             "files_skipped_unsupported": self.files_skipped_unsupported,
             "files_skipped_parse_error": self.files_skipped_parse_error,

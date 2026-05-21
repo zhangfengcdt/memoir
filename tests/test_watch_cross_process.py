@@ -1,27 +1,13 @@
-"""Cross-process regression tests for the namespace/versioned store
-coexistence bug.
+"""Cross-process regression tests for the watch + search code paths.
 
-Reproduces the symptom: after a memoir command that opens
-``NamespacedKvStore`` (watch add, watch scan, watch remove --purge,
-search) finishes and a brand-new Python process opens
-``VersionedKvStore.open()``, the data tree appears empty — every read
-returns None, every search hit resolves to "(memory no longer present)".
-
-Root cause: both store types share ``data/prolly_config_tree_config``.
-Whichever store wrote it last wins; if that's ``NamespacedKvStore``, the
-next ``VersionedKvStore.open()`` falls back to an empty tree and the
-data is invisible until a fresh write through ``VersionedKvStore``
-re-asserts its root hash.
-
-Invariant the fixes maintain:
-    Every memoir code path that opens NamespacedKvStore (directly or
-    via VectorService) must end with a VersionedKvStore write before
-    returning.
-
-These tests drop every in-process handle between operations to simulate
-a process boundary, which is the only way to catch the bug — within a
-single process the cached ``VersionedKvStore`` handle masks the on-disk
-config corruption.
+Each test drops every in-process handle between operations to simulate a
+process boundary. Originally written to repro a config-file collision
+between ``VersionedKvStore`` and ``NamespacedKvStore`` (both wrote
+``prolly_config_tree_config``, last writer won, the next process's
+``VersionedKvStore.open()`` fell back to an empty tree). Prollytree now
+writes a separate ``prolly_config_namespaced_root`` for the namespace
+store, so the collision is gone — these tests stay as guards against
+future regressions in cross-process data visibility.
 """
 
 import asyncio
@@ -115,17 +101,7 @@ def _fresh_search(store_path: Path, query: str, k: int = 3):
 
 
 def test_data_survives_in_fresh_process(memoir_store, docs_dir):
-    """After watch.add, a brand-new MemoryService (= fresh
-    VersionedKvStore.open) must still see the data the watch wrote.
-
-    Regression for the original symptom: namespace-store commits left
-    ``prolly_config_tree_config`` pointing at the namespace tree, so the
-    fresh VersionedKvStore.open() couldn't reconstruct the data tree.
-
-    Fix: ``WatchService._scan_path`` runs ``vector.commit`` first, then
-    writes the ``_meta.watch._last_scan`` marker through the data store
-    so the data tree's root hash is the final write to the config file.
-    """
+    """After watch.add, a brand-new MemoryService must still see the data."""
     svc = _build_watch(memoir_store)
     res = asyncio.run(svc.add(str(docs_dir), namespace="default"))
     assert res.success
@@ -133,24 +109,14 @@ def test_data_survives_in_fresh_process(memoir_store, docs_dir):
     del svc
 
     value = _read_data_fresh(memoir_store, "default", "knowledge.test.demo")
-    assert value is not None, (
-        "Fresh VersionedKvStore.open() cannot read the data the prior "
-        "WatchService wrote. Check that the marker-write step runs "
-        "AFTER vector.commit() in WatchService._scan_path."
-    )
+    assert value is not None
     assert value.get("content"), value
     assert value.get("source", {}).get("kind") == "watch"
 
 
 def test_repeated_search_survives_fresh_handles(memoir_store, docs_dir):
-    """Reproduces the user-visible symptom: the FIRST `memoir search`
-    after a watch succeeded, but the SECOND one returned
-    "(memory no longer present)" for every hit.
-
-    Fix: ``SearchService.search`` writes a small marker through the
-    data store before returning so the data tree's root hash is the
-    final write to ``prolly_config_tree_config``.
-    """
+    """Repeated searches across process boundaries keep returning content
+    (not "(memory no longer present)" stubs)."""
     svc = _build_watch(memoir_store)
     asyncio.run(svc.add(str(docs_dir), namespace="default"))
     del svc
@@ -160,26 +126,18 @@ def test_repeated_search_survives_fresh_handles(memoir_store, docs_dir):
         assert result.success, result.error
         assert result.hits, f"attempt {attempt}: no hits"
         top = result.hits[0]
-        failure_msg = (
-            f"attempt {attempt}: data tree unreadable after a prior "
-            f"search; SearchService must write through VersionedKvStore "
-            f"before returning."
-        )
-        assert top.content, failure_msg
-        assert top.content != "(memory no longer present)", failure_msg
+        assert top.content, f"attempt {attempt}: empty content"
+        assert (
+            top.content != "(memory no longer present)"
+        ), f"attempt {attempt}: orphan stub returned"
 
 
 def test_rescan_then_fresh_search(memoir_store, docs_dir):
-    """watch add → drop handles → watch scan (re-scan path, possibly
-    no-op) → drop handles → search. Re-scans must not corrupt the
-    config file even when they index zero new files."""
+    """No-op rescan must not break a subsequent fresh search."""
     svc = _build_watch(memoir_store)
     asyncio.run(svc.add(str(docs_dir), namespace="default"))
     del svc
 
-    # Re-scan from a fresh WatchService. With no file changes, this
-    # exercises the path where the scan loop indexes nothing but still
-    # runs the end-of-scan vector.commit + marker-write sequence.
     svc2 = _build_watch(memoir_store)
     rescans = asyncio.run(svc2.scan(path=str(docs_dir)))
     assert len(rescans) == 1
@@ -196,8 +154,7 @@ def test_rescan_then_fresh_search(memoir_store, docs_dir):
 
 
 def test_search_then_rescan_then_fresh_search(memoir_store, docs_dir):
-    """Interleave: watch add → search → rescan → search. Every step
-    must end with the data tree's root hash on disk."""
+    """Interleave: watch add → search → rescan → search."""
     svc = _build_watch(memoir_store)
     asyncio.run(svc.add(str(docs_dir), namespace="default"))
     del svc
@@ -256,6 +213,37 @@ def test_purge_then_fresh_search(memoir_store, docs_dir):
         "write."
     )
     assert paths_meta.get("paths") == []
+
+
+def test_search_skips_files_deleted_between_scans(memoir_store, docs_dir):
+    """End-to-end: index files, delete one on disk, re-scan, then search.
+    The deleted file's content must not surface as a "(memory no longer
+    present)" stub — the scan should have cleaned both the data and the
+    vector index."""
+    svc = _build_watch(memoir_store, paths=("knowledge.test.demo",))
+    asyncio.run(svc.add(str(docs_dir), namespace="default"))
+    del svc
+
+    deleted_path = docs_dir / "rust.md"
+    deleted_path.unlink()
+
+    svc2 = _build_watch(memoir_store, paths=("knowledge.test.demo",))
+    rescan = asyncio.run(svc2.scan(path=str(docs_dir)))
+    assert rescan[0].files_deleted == 1
+    del svc2
+
+    result = _fresh_search(memoir_store, "ownership", k=5)
+    assert result.success
+    for hit in result.hits:
+        assert hit.content != "(memory no longer present)", (
+            "deleted file surfaced as an orphan; scan cleanup did not "
+            "remove its vector index entry"
+        )
+        if hit.source:
+            assert hit.source.get("abs_path") != str(deleted_path), (
+                "deleted file still surfacing in search; scan cleanup "
+                "did not remove its memory entry"
+            )
 
 
 def test_search_with_no_matching_hits(memoir_store, docs_dir):

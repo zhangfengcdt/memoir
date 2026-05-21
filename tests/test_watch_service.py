@@ -191,6 +191,133 @@ def test_watch_reindexes_on_content_change(memoir_store, docs_dir):
     assert r.files_unchanged == 2
 
 
+def test_scan_cleans_up_deleted_files(memoir_store, docs_dir):
+    """A previously-indexed file that's been removed from disk on a
+    re-scan must be deleted from memory + vector index and counted as
+    files_deleted."""
+    svc = _build_watch(memoir_store, classification_paths=("knowledge.test.demo",))
+    res = asyncio.run(svc.add(str(docs_dir), namespace="default"))
+    assert res.success
+    assert res.scan.files_indexed == 3
+
+    # Delete one file.
+    (docs_dir / "rust.md").unlink()
+
+    rescans = asyncio.run(svc.scan(path=str(docs_dir)))
+    assert len(rescans) == 1
+    r = rescans[0]
+    assert r.success
+    assert r.files_indexed == 0
+    assert r.files_unchanged == 2
+    assert r.files_deleted == 1
+
+    # Per-file state no longer references the deleted file.
+    files_state = svc._read_files()
+    abs_paths = [s.get("abs_path") for s in files_state.values()]
+    assert str(docs_dir / "rust.md") not in abs_paths
+    assert str(docs_dir / "async.md") in abs_paths
+    assert str(docs_dir / "merkle.md") in abs_paths
+
+
+def test_scan_handles_rename_as_delete_plus_add(memoir_store, docs_dir):
+    """Renaming a file looks like delete+add from the path-hash perspective.
+    The old entry must be torn down and the new file indexed fresh."""
+    svc = _build_watch(memoir_store)
+    asyncio.run(svc.add(str(docs_dir), namespace="default"))
+
+    (docs_dir / "rust.md").rename(docs_dir / "ownership.md")
+
+    rescans = asyncio.run(svc.scan(path=str(docs_dir)))
+    r = rescans[0]
+    assert r.success
+    assert r.files_deleted == 1  # rust.md gone
+    assert r.files_indexed == 1  # ownership.md indexed
+    assert r.files_unchanged == 2
+
+    files_state = svc._read_files()
+    abs_paths = {s.get("abs_path") for s in files_state.values()}
+    assert str(docs_dir / "rust.md") not in abs_paths
+    assert str(docs_dir / "ownership.md") in abs_paths
+
+
+def test_scan_keeps_other_watched_roots_intact_on_delete(memoir_store, tmp_path):
+    """The deletion sweep must only consider entries with watched_path ==
+    the target being scanned. Files indexed under a different watched
+    root must not be touched even if they happen to be missing."""
+    root_a = tmp_path / "a"
+    root_a.mkdir()
+    (root_a / "file_a.md").write_text("# A\n")
+    root_b = tmp_path / "b"
+    root_b.mkdir()
+    (root_b / "file_b.md").write_text("# B\n")
+
+    svc = _build_watch(memoir_store)
+    asyncio.run(svc.add(str(root_a), namespace="default"))
+    asyncio.run(svc.add(str(root_b), namespace="default"))
+
+    pre_state = svc._read_files()
+    b_entries = [s for s in pre_state.values() if s.get("watched_path") == str(root_b)]
+    assert len(b_entries) == 1
+
+    # Delete the file from root_a, then scan ONLY root_a.
+    (root_a / "file_a.md").unlink()
+    rescans = asyncio.run(svc.scan(path=str(root_a)))
+    assert rescans[0].files_deleted == 1
+
+    # root_b's entries are untouched.
+    post_state = svc._read_files()
+    b_entries_after = [
+        s for s in post_state.values() if s.get("watched_path") == str(root_b)
+    ]
+    assert len(b_entries_after) == 1
+
+
+def test_scan_does_not_delete_when_file_filtered_out(memoir_store, tmp_path):
+    """If a file's extension stops being supported (e.g. config changes)
+    we still don't want to tear down the indexed memory — the file is
+    still on disk. Confirm the deletion sweep checks .exists()."""
+    root = tmp_path / "docs"
+    root.mkdir()
+    keep = root / "keep.md"
+    keep.write_text("# Keep\n")
+
+    svc = _build_watch(memoir_store)
+    res = asyncio.run(svc.add(str(root), namespace="default"))
+    assert res.scan.files_indexed == 1
+
+    # Inject a fake entry pointing at a file that still exists, with a
+    # made-up path-hash that scan won't see (so it'd be a candidate for
+    # the deletion sweep). The .exists() guard must skip it.
+    fake_path = root / "ghost.md"
+    fake_path.write_text("# Ghost\n")
+    files_state = svc._read_files()
+    from memoir.services.watch_service import _abs_path_hash
+
+    files_state["fake-key-not-real"] = {
+        "abs_path": str(fake_path),
+        "watched_path": str(root),
+        "namespace": "default",
+        "memory_keys": ["knowledge.test.never-touch"],
+        "content_hash": "sha256:fakefake",
+    }
+    svc._write_files(files_state)
+
+    # Re-scan: ghost.md exists on disk but its path_hash key in the state
+    # dict doesn't match the real one (we used "fake-key-not-real"). The
+    # sweep should NOT delete it because the abs_path still exists.
+    rescans = asyncio.run(svc.scan(path=str(root)))
+    r = rescans[0]
+    assert r.files_deleted == 0
+    # Real ghost.md got indexed under its actual path-hash.
+    assert r.files_indexed == 1  # ghost.md (keep.md was unchanged)
+
+    # The fake entry is still there because abs_path exists.
+    post = svc._read_files()
+    assert "fake-key-not-real" in post
+    # The real path_hash for ghost.md was added too.
+    assert _abs_path_hash(fake_path) in post
+
+
 def test_watch_skips_excluded_dirs(memoir_store, tmp_path):
     """Files under .git / node_modules / etc. are never visited."""
     root = tmp_path / "project"

@@ -577,20 +577,27 @@ class WatchService(BaseService):
         stats = {
             "files_indexed": 0,
             "files_unchanged": 0,
+            "files_deleted": 0,
             "files_skipped_size": 0,
             "files_skipped_parse_error": 0,
             "index_failures": 0,
         }
 
         files_state = self._read_files()
-        self._get_store()
+        store = self._get_store()
         memory_service = self._get_memory_service()
         vector = (
             self._get_vector_service() if VectorService.feature_available() else None
         )
 
+        # Track every path-hash we visit so we can detect files that were
+        # indexed in a previous scan but no longer exist on disk.
+        seen_path_keys: set[str] = set()
+        target_str = str(target)
+
         total = len(candidates)
         for idx, p in enumerate(candidates, start=1):
+            seen_path_keys.add(_abs_path_hash(p))
             try:
                 size = p.stat().st_size
             except OSError as e:
@@ -694,6 +701,32 @@ class WatchService(BaseService):
             }
             self._progress(f"[{idx}/{total}] indexed: {p} → {paths_for_remember[0]}")
 
+        # Detect deletions: entries whose watched_path matches this target
+        # but whose path-hash wasn't seen on disk this scan. We additionally
+        # confirm the file is genuinely missing (not just filtered out by
+        # exclude/extension/oversize rules) before tearing down the entry.
+        for path_key, state in list(files_state.items()):
+            if state.get("watched_path") != target_str:
+                continue
+            if path_key in seen_path_keys:
+                continue
+            abs_path_str = state.get("abs_path", "")
+            if abs_path_str and Path(abs_path_str).exists():
+                continue
+            ns = state.get("namespace", "default")
+            ns_tuple = self.namespace_to_tuple(ns)
+            for k in state.get("memory_keys") or []:
+                try:
+                    store.delete(ns_tuple, k)
+                except Exception as e:
+                    logger.warning("scan: delete %s/%s failed: %s", ns_tuple, k, e)
+            if vector and (state.get("memory_keys") or []):
+                with contextlib.suppress(Exception):
+                    vector.delete(ns, state["memory_keys"][0].encode("utf-8"))
+            files_state.pop(path_key, None)
+            stats["files_deleted"] += 1
+            self._progress(f"deleted: {abs_path_str}")
+
         self._write_files(files_state)
 
         if vector is not None:
@@ -711,6 +744,7 @@ class WatchService(BaseService):
             files_seen=files_seen,
             files_indexed=stats["files_indexed"],
             files_unchanged=stats["files_unchanged"],
+            files_deleted=stats["files_deleted"],
             files_skipped_size=stats["files_skipped_size"],
             files_skipped_unsupported=skipped_unsupported,
             files_skipped_parse_error=stats["files_skipped_parse_error"],
