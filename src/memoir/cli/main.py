@@ -7,9 +7,27 @@ Optimized for both human use and shell-based AI agents.
 """
 
 import json
+import logging
 import os
 import sys
 from typing import Any
+
+# Silence import-time noise from transitive deps that's irrelevant to
+# CLI users. Each respects an explicit opt-out env var for anyone
+# debugging the underlying dep:
+#
+# - litellm: missing-botocore warnings for unused AWS providers.
+#   Opt back in with LITELLM_LOG=WARNING (or DEBUG/INFO).
+# - onnxruntime (via markitdown → magika): GPU probe failure under
+#   /sys/class/drm on headless machines. The warning is emitted by
+#   native code during static init and ignores ORT_LOGGING_LEVEL, so
+#   we mark a sentinel that ``watch_service`` reads to apply FD-level
+#   stderr suppression around the first markitdown import. Opt back in
+#   with MEMOIR_SHOW_NATIVE_WARNINGS=1.
+if not os.environ.get("LITELLM_LOG"):
+    logging.getLogger("LiteLLM").setLevel(logging.ERROR)
+if os.environ.get("MEMOIR_SHOW_NATIVE_WARNINGS") != "1":
+    os.environ["_MEMOIR_SUPPRESS_NATIVE_IMPORT_STDERR"] = "1"
 
 import click
 

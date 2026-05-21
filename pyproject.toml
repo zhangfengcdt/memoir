@@ -94,11 +94,13 @@ langmem = [
 litellm = []
 
 # Enables `memoir watch add <file-or-folder>` / `memoir search <query>`.
-# Pulls markitdown for file parsing (PDFs, docx, pptx, etc.). The vector
-# index itself ships with prollytree's `proximity_text` feature, which is
-# enabled in the default wheel — no extra dep needed for that side.
+# Pulls markitdown with the per-format extras needed for local document
+# ingestion (pdf, docx, pptx, xls/xlsx, outlook .msg). Audio / YouTube /
+# Azure extras are intentionally NOT included — they're large and most
+# memoir users don't want them. Install ``markitdown[all]`` manually if
+# you need them.
 watch = [
-    "markitdown>=0.1.0",
+    "markitdown[pdf,docx]>=0.1.0",
 ]
 
 all = [
@@ -106,7 +108,7 @@ all = [
     "rich>=13.0.0",
     "langmem>=0.0.29",
     "litellm>=1.0.0",
-    "markitdown>=0.1.0",
+    "markitdown[pdf,docx]>=0.1.0",
 ]
 
 [project.urls]

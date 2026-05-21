@@ -76,7 +76,9 @@ def watch_add(ctx: MemoirContext, path: str, namespace: str, model: str | None):
     from memoir.services.watch_service import WatchService
 
     progress = None if ctx.json_output else (lambda msg: click.echo(msg))
-    service = WatchService(ctx.store_path, llm_model=model, progress=progress)
+    service = WatchService(
+        ctx.store_path, llm_model=model, progress=progress, verbose=ctx.verbose
+    )
     try:
         result = asyncio.run(service.add(path, namespace=namespace))
     except Exception as e:
@@ -170,7 +172,9 @@ def watch_scan(
     from memoir.services.watch_service import WatchService
 
     progress = None if ctx.json_output else (lambda msg: click.echo(msg))
-    service = WatchService(ctx.store_path, llm_model=model, progress=progress)
+    service = WatchService(
+        ctx.store_path, llm_model=model, progress=progress, verbose=ctx.verbose
+    )
     try:
         results = asyncio.run(service.scan(path=path, namespace=namespace))
     except Exception as e:

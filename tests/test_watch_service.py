@@ -116,8 +116,15 @@ def _build_watch(memoir_store, classification_paths=("knowledge.test.demo",)):
 
 def test_supported_extensions_includes_core_types():
     exts = supported_extensions()
-    for required in (".md", ".txt", ".pdf", ".docx", ".html"):
+    for required in (".md", ".txt", ".pdf", ".docx", ".csv"):
         assert required in exts, f"{required} missing from {sorted(exts)}"
+
+
+def test_supported_extensions_excludes_non_text_formats():
+    """Image, audio, video, archive — intentionally not supported (yet)."""
+    exts = supported_extensions()
+    for excluded in (".png", ".jpg", ".mp3", ".mp4", ".wav", ".zip", ".epub"):
+        assert excluded not in exts
 
 
 def test_extract_titles_picks_markdown_headings():
@@ -132,7 +139,9 @@ def test_extract_titles_skips_prose():
 
 def test_deterministic_summary_layout():
     body = "head text " * 100 + "\n\n# Section A\n\n" + "tail text " * 100
-    summary = _deterministic_summary(body, threshold=200, source_name="example.md")
+    summary = _deterministic_summary(
+        body, max_summary_chars=200, source_name="example.md"
+    )
     assert summary.startswith("# example.md")
     assert "Section A" in summary
     assert "## Beginning" in summary
@@ -189,6 +198,88 @@ def test_watch_reindexes_on_content_change(memoir_store, docs_dir):
     assert r.success
     assert r.files_indexed == 1
     assert r.files_unchanged == 2
+
+
+def test_medium_doc_uses_llm_summarize(memoir_store, tmp_path):
+    """A doc between summarize_min and summarize_max chars must be passed
+    through an LLM summarize call before classification. The summary
+    becomes both the classifier input and the stored content."""
+    root = tmp_path / "medium"
+    root.mkdir()
+    medium_text = "x" * 5_000  # 1K < 5K < 10K → medium tier
+    (root / "medium.md").write_text(medium_text)
+
+    svc = _build_watch(memoir_store)
+    fake_summary = "concise LLM-generated summary"
+    svc._llm_summarize = AsyncMock(return_value=fake_summary)
+
+    res = asyncio.run(svc.add(str(root), namespace="default"))
+    assert res.success
+    assert res.scan.files_indexed == 1
+
+    # The LLM summarize was called with the original text and the small-doc cap.
+    svc._llm_summarize.assert_awaited_once()
+    _, kwargs = svc._llm_summarize.call_args
+    assert kwargs.get("max_chars") == 1_000
+
+    # The stored content is the LLM summary, not the original text.
+    store = svc._get_memory_service()._get_store()
+    value = store.get(("default",), "knowledge.test.demo")
+    assert value is not None
+    assert value["content"] == fake_summary
+
+
+def test_long_doc_uses_deterministic_summary(memoir_store, tmp_path):
+    """A doc above summarize_max chars must use the deterministic
+    head+tail+titles summary — no LLM call for summarization."""
+    root = tmp_path / "long"
+    root.mkdir()
+    # Big enough to exceed summarize_max (10K default).
+    long_text = "# Topic\n\n" + ("body line\n" * 2_000)  # ≈ 20K chars
+    (root / "long.md").write_text(long_text)
+
+    svc = _build_watch(memoir_store)
+    # Sentinel: if _llm_summarize is called, the test fails (long docs must
+    # not pay the LLM-summarize cost).
+    svc._llm_summarize = AsyncMock(
+        side_effect=AssertionError("long doc must not call _llm_summarize")
+    )
+
+    res = asyncio.run(svc.add(str(root), namespace="default"))
+    assert res.success
+    assert res.scan.files_indexed == 1
+    svc._llm_summarize.assert_not_awaited()
+
+    store = svc._get_memory_service()._get_store()
+    value = store.get(("default",), "knowledge.test.demo")
+    assert value is not None
+    # Deterministic summary has the markdown structure markers.
+    assert "## Beginning" in value["content"]
+    # Capped at summarize_min_chars (1K default).
+    assert len(value["content"]) <= 1_000
+
+
+def test_medium_doc_falls_back_to_deterministic_on_llm_failure(memoir_store, tmp_path):
+    """When _llm_summarize returns None (LLM unavailable, network failure,
+    etc.), the medium-doc path must degrade to the deterministic summary
+    so the scan still makes progress."""
+    root = tmp_path / "medium-fallback"
+    root.mkdir()
+    medium_text = "# Header\n\n" + ("x" * 5_000)  # medium tier
+    (root / "m.md").write_text(medium_text)
+
+    svc = _build_watch(memoir_store)
+    svc._llm_summarize = AsyncMock(return_value=None)  # simulate failure
+
+    res = asyncio.run(svc.add(str(root), namespace="default"))
+    assert res.success
+    assert res.scan.files_indexed == 1
+
+    store = svc._get_memory_service()._get_store()
+    value = store.get(("default",), "knowledge.test.demo")
+    assert value is not None
+    # Deterministic summary markers present (not None, not LLM output).
+    assert "## Beginning" in value["content"]
 
 
 def test_scan_cleans_up_deleted_files(memoir_store, docs_dir):
@@ -347,7 +438,12 @@ def test_watch_skips_oversize_files(memoir_store, tmp_path):
     # Manually shrink the size cap.
     svc._write_meta(
         "watch.config",
-        {"max_size_mb": 1, "summarize_min_chars": 10_000, "embedder": "MiniLmEmbedder"},
+        {
+            "max_size_mb": 1,
+            "summarize_min_chars": 1_000,
+            "summarize_max_chars": 10_000,
+            "embedder": "MiniLmEmbedder",
+        },
     )
     res = asyncio.run(svc.add(str(root), namespace="default"))
     assert res.success

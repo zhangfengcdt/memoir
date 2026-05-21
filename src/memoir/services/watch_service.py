@@ -4,8 +4,8 @@
 Provides the pipeline behind ``memoir watch``. For each file:
 
 1. ``markitdown`` extracts plaintext.
-2. Short docs (``len(text) <= summarize_min_chars``) are passed through verbatim.
-   Long docs are reduced to a deterministic head+tail+titles summary — no LLM.
+2. Docs ≤ ``summarize_max_chars`` pass through verbatim. Larger docs are
+   reduced to a deterministic head+tail+titles summary — no LLM.
 3. The result is classified by the existing intelligent classifier (one LLM
    call), stored via ``MemoryService.remember`` with ``extra_metadata={"source":
    ...}``, and indexed for vector search via ``VectorService``.
@@ -47,7 +47,18 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CONFIG = {
     "max_size_mb": 100,
-    "summarize_min_chars": 10_000,
+    # Three-tier per-file pipeline:
+    #   text ≤ summarize_min_chars (small):    full text → classifier
+    #   between min and max     (medium):      LLM-summarize text down to
+    #                                          ≤ min chars → classifier
+    #   text > summarize_max_chars (long):     deterministic head+tail+titles
+    #                                          summary capped at min chars
+    #                                          (no LLM for summarize) → classifier
+    # Summary outputs are always capped at ``summarize_min_chars`` so the
+    # classifier never sees more than that — keeps token costs bounded
+    # regardless of input doc size.
+    "summarize_min_chars": 1_000,
+    "summarize_max_chars": 10_000,
     "embedder": "MiniLmEmbedder",
 }
 
@@ -65,27 +76,19 @@ EXCLUDE_DIRS = frozenset(
     }
 )
 
-# Fallback when markitdown's per-converter ACCEPTED_FILE_EXTENSIONS isn't
-# introspectable. Image and audio formats omitted — markitdown supports them
-# but their output is empty/OCR-only.
+# Text-based formats only at this stage. Markitdown's registry includes image,
+# audio, video, and archive types — we intentionally exclude them: their
+# extracted text content is empty (or unreliable OCR) and they don't add
+# value to a semantic memory store. Expand here when use cases justify it.
 SUPPORTED_EXTENSIONS = frozenset(
     {
         ".md",
         ".markdown",
         ".txt",
         ".text",
-        ".pdf",
-        ".docx",
-        ".pptx",
-        ".xlsx",
-        ".html",
-        ".htm",
         ".csv",
-        ".epub",
-        ".ipynb",
-        ".json",
-        ".jsonl",
-        ".msg",
+        ".docx",
+        ".pdf",
     }
 )
 
@@ -143,24 +146,19 @@ def _extract_titles(text: str, max_titles: int = 30) -> list[str]:
 
 def _deterministic_summary(
     text: str,
-    threshold: int,
+    max_summary_chars: int,
     source_name: str | None = None,
     head_chars: int | None = None,
     tail_chars: int | None = None,
-    max_summary_chars: int | None = None,
 ) -> str:
     """Build a head + tail + titles summary without calling an LLM.
 
     Used for long documents so the watch pipeline only spends one LLM call
-    (classification) per file.
+    (classification) per file. ``max_summary_chars`` caps the output size;
+    head + tail are sized to 60/30 of that cap.
     """
-    # 60/30/10 budget split: head dominates because intros set topic;
-    # tail catches end-matter; rest is headings.
-    head_chars = head_chars if head_chars is not None else int(threshold * 0.6)
-    tail_chars = tail_chars if tail_chars is not None else int(threshold * 0.3)
-    max_summary_chars = (
-        max_summary_chars if max_summary_chars is not None else threshold
-    )
+    head_chars = head_chars if head_chars is not None else int(max_summary_chars * 0.6)
+    tail_chars = tail_chars if tail_chars is not None else int(max_summary_chars * 0.3)
 
     head = text[:head_chars]
     tail = text[-tail_chars:] if len(text) > head_chars + tail_chars else ""
@@ -187,37 +185,47 @@ def _deterministic_summary(
     return summary
 
 
-def supported_extensions() -> set[str]:
-    """File extensions the watch pipeline can ingest.
+@contextlib.contextmanager
+def _maybe_suppress_native_stderr():
+    """FD-level stderr redirect around blocks that trigger native lib loads
+    (markitdown → magika → onnxruntime), so the onnxruntime GPU-probe
+    warning emitted by native code via ``fprintf(stderr)`` doesn't escape.
 
-    Derived from the markitdown converter registry when introspectable
-    (falls back to ``SUPPORTED_EXTENSIONS`` otherwise — markitdown 0.1.x
-    doesn't expose extensions publicly).
+    Active only when ``_MEMOIR_SUPPRESS_NATIVE_IMPORT_STDERR=1`` (set by
+    the CLI entry point). Library callers get a pass-through.
     """
-    exts: set[str] = set(SUPPORTED_EXTENSIONS)
+    if os.environ.get("_MEMOIR_SUPPRESS_NATIVE_IMPORT_STDERR") != "1":
+        yield
+        return
+    saved_fd = os.dup(2)
+    devnull_fd = os.open(os.devnull, os.O_WRONLY)
     try:
-        import importlib
-        import pkgutil
+        os.dup2(devnull_fd, 2)
+        yield
+    finally:
+        os.dup2(saved_fd, 2)
+        os.close(devnull_fd)
+        os.close(saved_fd)
 
-        import markitdown.converters as conv_pkg
 
-        for mod_info in pkgutil.iter_modules(conv_pkg.__path__):
-            try:
-                mod = importlib.import_module(f"markitdown.converters.{mod_info.name}")
-            except Exception:
-                continue
-            for attr in dir(mod):
-                if attr == "ACCEPTED_FILE_EXTENSIONS":
-                    val = getattr(mod, attr)
-                    if isinstance(val, (list, tuple, set)):
-                        for e in val:
-                            if isinstance(e, str) and e.startswith("."):
-                                exts.add(e.lower())
-    except Exception as e:  # pragma: no cover - defensive
-        logger.debug(
-            "supported_extensions: introspection failed (%s); using fallback", e
-        )
-    return exts
+_MARKITDOWN_CLS = None
+
+
+def _load_markitdown():
+    """Import and return ``markitdown.MarkItDown``. Cached."""
+    global _MARKITDOWN_CLS
+    if _MARKITDOWN_CLS is not None:
+        return _MARKITDOWN_CLS
+    with _maybe_suppress_native_stderr():
+        from markitdown import MarkItDown as _MD
+    _MARKITDOWN_CLS = _MD
+    return _MARKITDOWN_CLS
+
+
+def supported_extensions() -> set[str]:
+    """File extensions the watch pipeline can ingest. Text-based formats
+    only (see ``SUPPORTED_EXTENSIONS``)."""
+    return set(SUPPORTED_EXTENSIONS)
 
 
 # ---------------------------------------------------------------------------
@@ -238,6 +246,7 @@ class WatchService(BaseService):
         store_path: str,
         llm_model: str | None = None,
         progress: Callable[[str], None] | None = None,
+        verbose: bool = False,
     ):
         super().__init__(store_path)
         self.llm_model = llm_model
@@ -247,6 +256,12 @@ class WatchService(BaseService):
         # Test seam: returns an object with ``.convert(path).text_content``.
         self._markitdown_factory: Callable[[], Any] | None = None
         self._progress = progress or (lambda _msg: None)
+        self._verbose = verbose
+
+    def _vprogress(self, msg: str) -> None:
+        """Emit a sub-step message only in verbose mode."""
+        if self._verbose:
+            self._progress(msg)
 
     def _get_memory_service(self) -> MemoryService:
         if self._memory_service is None:
@@ -539,7 +554,8 @@ class WatchService(BaseService):
 
         config = self._read_config()
         max_bytes = int(config.get("max_size_mb", 100)) * 1024 * 1024
-        summarize_min = int(config.get("summarize_min_chars", 10_000))
+        summarize_min = int(config.get("summarize_min_chars", 1_000))
+        summarize_max = int(config.get("summarize_max_chars", 10_000))
 
         # Embedder identity guard: prollytree rejects reopen with a different
         # embedder than the one persisted at first open.
@@ -626,15 +642,46 @@ class WatchService(BaseService):
                 stats["files_unchanged"] += 1
                 continue
 
+            self._vprogress(f"[{idx}/{total}] processing: {p}")
+
             text = self._extract_text(p)
             if text is None:
                 self._progress(f"[{idx}/{total}] parse error: {p}")
                 stats["files_skipped_parse_error"] += 1
                 continue
+            self._vprogress(f"  → extract: markitdown produced {len(text):,} chars")
+
+            model_label = self.llm_model or "default model"
+            if len(text) <= summarize_min:
+                self._vprogress(
+                    f"  → summary: skipped (small doc, {len(text):,} ≤ "
+                    f"{summarize_min:,} chars; full text passed to classifier)"
+                )
+                self._vprogress(f"  → classify: 1 LLM call ({model_label})")
+            elif len(text) <= summarize_max:
+                self._vprogress(
+                    f"  → summary: LLM-summarize "
+                    f"(medium doc, {summarize_min:,} < {len(text):,} ≤ "
+                    f"{summarize_max:,} chars; target ≤ {summarize_min:,} chars)"
+                )
+                self._vprogress(
+                    f"  → classify: 2 LLM calls ({model_label}; "
+                    f"1 summarize + 1 classify)"
+                )
+            else:
+                self._vprogress(
+                    f"  → summary: deterministic head+tail+titles "
+                    f"(long doc, {len(text):,} > {summarize_max:,} chars; "
+                    f"capped at {summarize_min:,} chars; no LLM for summarize)"
+                )
+                self._vprogress(f"  → classify: 1 LLM call ({model_label})")
 
             try:
                 cls_result, content_to_store = await self._build_content_and_classify(
-                    text, threshold=summarize_min, p=p
+                    text,
+                    summarize_min=summarize_min,
+                    summarize_max=summarize_max,
+                    p=p,
                 )
             except Exception as e:
                 logger.warning("classify failed for %s: %s", p, e)
@@ -648,6 +695,10 @@ class WatchService(BaseService):
                 paths_for_remember = [
                     "knowledge.files." + _sanitize_path_component(p.stem)
                 ]
+            self._vprogress(
+                f"  → classify: confidence={cls_result.confidence:.2f}, "
+                f"paths={paths_for_remember}"
+            )
 
             source_meta = {
                 "kind": "watch",
@@ -655,6 +706,10 @@ class WatchService(BaseService):
                 "content_hash": chash,
                 "extracted_text_chars": len(text),
             }
+            self._vprogress(
+                f"  → store: writing {len(content_to_store):,} chars to "
+                f"{len(paths_for_remember)} memory key(s) (replace=True)"
+            )
             try:
                 remember_result = await memory_service.remember(
                     content=content_to_store,
@@ -683,9 +738,15 @@ class WatchService(BaseService):
                         with contextlib.suppress(Exception):
                             vector.delete(namespace, prev_primary.encode("utf-8"))
                     vector.index(namespace, doc_id, content_to_store)
+                    self._vprogress(
+                        f"  → vector: indexed under {paths_for_remember[0]}"
+                    )
                 except Exception as e:
                     logger.warning("vector index failed for %s: %s", p, e)
                     stats["index_failures"] += 1
+                    self._vprogress(f"  → vector: FAILED ({e})")
+            else:
+                self._vprogress("  → vector: skipped (proximity_text not available)")
 
             stats["files_indexed"] += 1
             files_state[path_key] = {
@@ -759,8 +820,7 @@ class WatchService(BaseService):
             if self._markitdown_factory is not None:
                 md = self._markitdown_factory()
             else:
-                from markitdown import MarkItDown
-
+                MarkItDown = _load_markitdown()
                 md = MarkItDown()
             res = md.convert(str(p))
             text = getattr(res, "text_content", None)
@@ -777,27 +837,71 @@ class WatchService(BaseService):
             logger.warning("markitdown.convert failed on %s: %s", p, e)
             return None
 
+    async def _llm_summarize(self, text: str, max_chars: int) -> str | None:
+        """Single LLM call to summarize ``text`` down to ``max_chars``.
+
+        Returns the summary (truncated to ``max_chars`` if the model went
+        over) or ``None`` on any error so the caller can fall back to the
+        deterministic summary path.
+        """
+        try:
+            llm = self._get_memory_service()._get_llm()
+            prompt = (
+                f"Summarize the following document in {max_chars} characters or "
+                f"fewer. Preserve key topics, named entities, conclusions, and "
+                f"any actionable details. Output the summary only — no preamble.\n\n"
+                f"{text}"
+            )
+            response = await llm.ainvoke(prompt)
+            summary = (
+                response.content if hasattr(response, "content") else str(response)
+            )
+            if not isinstance(summary, str):
+                return None
+            if len(summary) > max_chars:
+                summary = summary[:max_chars]
+            return summary
+        except Exception as e:
+            logger.warning("LLM summarize failed: %s", e)
+            return None
+
     async def _build_content_and_classify(
         self,
         text: str,
-        threshold: int,
+        summarize_min: int,
+        summarize_max: int,
         p: Path,
     ):
-        """Build the content to store and classify it.
+        """Three-tier pipeline:
 
-        - ``len(text) <= threshold``: send the full raw text to the
-          classifier and store it verbatim. One LLM call.
-        - ``len(text) > threshold``: build a deterministic summary
-          (head + tail + extracted titles/headings) without touching an LLM,
-          send the summary to the classifier, store the summary. One LLM
-          call.
+        - small (``len(text) <= summarize_min``): full text → classifier
+          (1 LLM call).
+        - medium (``summarize_min < len(text) <= summarize_max``):
+          LLM-summarize down to ``summarize_min`` chars → classifier
+          (2 LLM calls). Falls back to the deterministic summary if the
+          LLM summarize call fails.
+        - long (``len(text) > summarize_max``): deterministic head+tail+titles
+          summary capped at ``summarize_min`` chars → classifier
+          (1 LLM call).
 
-        Returns ``(ClassificationResult, content_to_store)``.
+        Returns ``(ClassificationResult, content_to_store)`` — ``content_to_store``
+        is what gets persisted as the memoir memory and indexed for search.
         """
         classifier = self._get_classifier()
-        if len(text) <= threshold:
+        if len(text) <= summarize_min:
             cls = await classifier.classify_input(text)
             return cls, text
-        summary = _deterministic_summary(text, threshold=threshold, source_name=p.name)
+        if len(text) <= summarize_max:
+            summary = await self._llm_summarize(text, max_chars=summarize_min)
+            if summary is None:
+                # LLM unavailable / failed — degrade to deterministic so the
+                # scan still makes progress.
+                summary = _deterministic_summary(
+                    text, max_summary_chars=summarize_min, source_name=p.name
+                )
+        else:
+            summary = _deterministic_summary(
+                text, max_summary_chars=summarize_min, source_name=p.name
+            )
         cls = await classifier.classify_input(summary)
         return cls, summary
