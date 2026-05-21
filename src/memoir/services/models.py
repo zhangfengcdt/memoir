@@ -380,3 +380,190 @@ class CreateStoreResult:
             "message": self.message,
             "error": self.error,
         }
+
+
+# ---------- memoir watch / memoir search --------------------------------
+
+
+@dataclass
+class WatchScanResult:
+    """Result of a single watch scan (one folder or one file).
+
+    Used by both ``watch add`` (initial scan) and ``watch scan`` (re-scan).
+    """
+
+    success: bool
+    path: str  # The watched path that was scanned (folder or file).
+    namespace: str = "default"
+    files_seen: int = 0  # Total files visited (before any filtering).
+    files_indexed: int = 0  # New / changed files written to the store + index.
+    files_unchanged: int = 0  # Hash-match skips.
+    files_skipped_size: int = 0  # Oversize skips.
+    files_skipped_unsupported: int = 0  # Extension not in markitdown registry.
+    files_skipped_parse_error: int = 0  # markitdown raised.
+    index_failures: int = 0  # Vector index put raised; data write committed anyway.
+    commit_hash: str | None = None  # Data-store commit hash.
+    timing_ms: float = 0.0
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "success": self.success,
+            "path": self.path,
+            "namespace": self.namespace,
+            "files_seen": self.files_seen,
+            "files_indexed": self.files_indexed,
+            "files_unchanged": self.files_unchanged,
+            "files_skipped_size": self.files_skipped_size,
+            "files_skipped_unsupported": self.files_skipped_unsupported,
+            "files_skipped_parse_error": self.files_skipped_parse_error,
+            "index_failures": self.index_failures,
+            "commit_hash": self.commit_hash,
+            "timing_ms": self.timing_ms,
+            "error": self.error,
+        }
+
+
+@dataclass
+class WatchAddResult:
+    """Result of ``watch add <path>`` — registers the path and runs the
+    initial scan."""
+
+    success: bool
+    path: str
+    scan: WatchScanResult | None = None
+    already_registered: bool = False
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "success": self.success,
+            "path": self.path,
+            "scan": self.scan.to_dict() if self.scan else None,
+            "already_registered": self.already_registered,
+            "error": self.error,
+        }
+
+
+@dataclass
+class WatchEntry:
+    """A single registered watch path. Shown by ``watch list``."""
+
+    path: str
+    kind: str  # "folder" | "file"
+    namespace: str
+    added_at: str
+    last_scan: str | None
+    indexed_count: int  # Files currently associated with this watched path.
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "path": self.path,
+            "kind": self.kind,
+            "namespace": self.namespace,
+            "added_at": self.added_at,
+            "last_scan": self.last_scan,
+            "indexed_count": self.indexed_count,
+        }
+
+
+@dataclass
+class WatchListResult:
+    success: bool
+    entries: list[WatchEntry] = field(default_factory=list)
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "success": self.success,
+            "entries": [e.to_dict() for e in self.entries],
+            "count": len(self.entries),
+            "error": self.error,
+        }
+
+
+@dataclass
+class WatchRemoveResult:
+    success: bool
+    path: str
+    files_removed: int = 0  # Memory entries + index entries deleted (purge mode).
+    purge: bool = False
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "success": self.success,
+            "path": self.path,
+            "files_removed": self.files_removed,
+            "purge": self.purge,
+            "error": self.error,
+        }
+
+
+@dataclass
+class WatchStatusResult:
+    success: bool
+    path: str
+    kind: str | None = None
+    namespace: str | None = None
+    added_at: str | None = None
+    last_scan: str | None = None
+    files_indexed: int = 0
+    recently_changed: list[str] = field(default_factory=list)
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "success": self.success,
+            "path": self.path,
+            "kind": self.kind,
+            "namespace": self.namespace,
+            "added_at": self.added_at,
+            "last_scan": self.last_scan,
+            "files_indexed": self.files_indexed,
+            "recently_changed": list(self.recently_changed),
+            "error": self.error,
+        }
+
+
+@dataclass
+class SearchHit:
+    """One result from ``memoir search``."""
+
+    key: str  # Primary memory key (= classified taxonomy path).
+    score: float  # Distance from prollytree's text_index_search; lower = closer.
+    content: str  # The stored memory content (summary or plaintext).
+    namespace: str
+    source: dict[str, Any] | None = None  # extra_metadata.source if set by watch.
+    related_keys: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "key": self.key,
+            "score": self.score,
+            "content": self.content,
+            "namespace": self.namespace,
+            "source": self.source,
+            "related_keys": list(self.related_keys),
+        }
+
+
+@dataclass
+class SearchResult:
+    success: bool
+    query: str
+    hits: list[SearchHit] = field(default_factory=list)
+    namespace: str = "default"
+    timing_ms: float = 0.0
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "success": self.success,
+            "query": self.query,
+            "hits": [h.to_dict() for h in self.hits],
+            "count": len(self.hits),
+            "namespace": self.namespace,
+            "timing_ms": self.timing_ms,
+            "error": self.error,
+        }

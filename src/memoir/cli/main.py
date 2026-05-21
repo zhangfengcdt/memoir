@@ -344,10 +344,12 @@ from memoir.cli.commands import (  # noqa: E402
     branch,
     crypto,
     memory,
+    search,
     store,
     taxonomy,
     tui,
     ui,
+    watch,
 )
 
 # Store commands
@@ -379,6 +381,10 @@ cli.add_command(crypto.blame)
 
 # Analysis commands
 cli.add_command(analysis.summarize)
+
+# Watch + search (file/folder ingestion + vector search)
+cli.add_command(watch.watch)
+cli.add_command(search.search)
 
 # Utility commands
 cli.add_command(ui.ui)

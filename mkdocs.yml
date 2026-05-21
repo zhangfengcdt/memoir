@@ -101,6 +101,7 @@ nav:
       - Memento: theory/memento.md
       - Related Work: theory/related-work.md
   - CLI: cli.md
+  - Watch & Search: watch.md
   - UI: ui.md
   - Claude Code: claude_code.md
   - Codex: codex.md

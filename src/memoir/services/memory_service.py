@@ -116,6 +116,7 @@ class MemoryService(BaseService):
         path: str | None = None,
         paths: list[str] | None = None,
         replace: bool = False,
+        extra_metadata: dict | None = None,
     ) -> RememberResult:
         """
         Classify and store content in memory.
@@ -143,6 +144,16 @@ class MemoryService(BaseService):
                 paragraph. Use for callers that own their own read-merge-write
                 cycle (e.g. the plugin metrics writers, scalar onboard pointers).
                 Has no effect on the LLM-classifier branch, which always replaces.
+            extra_metadata: Optional caller-supplied metadata dict merged into
+                the stored value alongside ``content``/``key``/etc. Reserved
+                keys (``content``, ``key``, ``namespace``, ``confidence``,
+                ``timestamp``, ``related_keys``) cannot be overwritten — those
+                are silently dropped. On non-replace path-provided writes the
+                merge happens after the read-merge-write cycle for
+                ``related_keys``, so prior extra_metadata is overwritten by
+                this call's (caller-owned semantics; merging arbitrary
+                metadata is a footgun). Used by ``memoir watch`` to stamp
+                each per-file memory with its source provenance.
 
         Returns:
             RememberResult with classification info and commit details. When
@@ -235,6 +246,23 @@ class MemoryService(BaseService):
             "confidence": confidence,
             "timestamp": time.time(),
         }
+        # Caller-supplied metadata (e.g. ``source`` from ``memoir watch``).
+        # Reserved keys are silently dropped so callers can't spoof core
+        # fields like ``content`` or ``key`` via the extra_metadata channel.
+        if extra_metadata:
+            _RESERVED = {
+                "content",
+                "key",
+                "namespace",
+                "confidence",
+                "timestamp",
+                "related_keys",
+            }
+            for _k, _v in extra_metadata.items():
+                if _k in _RESERVED:
+                    logger.debug("Ignoring reserved extra_metadata key: %s", _k)
+                    continue
+                memory_item[_k] = _v
 
         # Store under all classified paths. Each blob carries `related_keys`
         # listing the *other* sibling paths from this write (excludes self).
