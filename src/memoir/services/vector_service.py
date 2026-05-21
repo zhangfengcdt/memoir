@@ -9,13 +9,12 @@ existing adapter, ``VectorService`` opens a second prollytree handle —
 a ``NamespacedKvStore`` against the same ``data/`` directory — and exposes
 only the vector ops through it.
 
-Coexistence is verified by ``tests/test_proximity_smoke.py`` (P0 gate). Two
-commits per scan reality: writes through ``VectorService`` are persisted by
-``vector_service.commit(...)``, which is a separate git commit from
-``ProllyTreeStore.commit(...)``. Callers that need both stores in sync should
-commit data first, index second, and accept that a crash in between leaves
-the index slightly behind (next scan re-detects unchanged files via hash and
-re-indexes — no correctness loss, only wasted LLM tokens).
+As of prollytree's namespaced-config-file split, the two stores write to
+separate config files (``prolly_config_tree_config`` for the versioned tree,
+``prolly_config_namespaced_root`` for the namespace tree), so they no
+longer clobber each other's root hash. ``versioned_config_preserved`` is
+kept as a no-op context manager so call sites compiled against earlier
+memoir versions don't need to change.
 """
 
 import contextlib
@@ -28,54 +27,20 @@ from memoir.store.cwd_locked import CwdLockedTree
 
 logger = logging.getLogger(__name__)
 
-# Filename inside ``<store>/data`` that holds the active prolly tree's
-# root hash. Shared between ``VersionedKvStore`` and ``NamespacedKvStore``
-# in prollytree 0.3.x — both write it on commit, last writer wins on disk.
-_TREE_CONFIG_FILENAME = "prolly_config_tree_config"
-
 
 @contextlib.contextmanager
 def versioned_config_preserved(store_path: str):
-    """Preserve ``data/prolly_config_tree_config`` across a code block
-    that may open or commit through ``NamespacedKvStore``.
+    """No-op context manager kept for backward compatibility.
 
-    Why this exists: ``NamespacedKvStore.open()`` and ``.commit()`` both
-    write the config file with the *namespace* tree's placeholder root
-    hash, even though the actual data tree maintained by
-    ``VersionedKvStore`` is unchanged. If we exit the process with the
-    placeholder hash on disk, the next process's ``VersionedKvStore.open()``
-    can't reconstruct its tree and every subsequent read returns None.
-
-    The fix: snapshot the file bytes on entry, write them back on exit.
-    Cheap (one file read + write, no git commit), matches the in-memory
-    state both stores already cached, and leaves
-    ``prolly_namespace_registry`` / ``prolly_hash_mappings`` untouched
-    so the namespace store remains fully readable.
-
-    Caveat: between snapshot/restore and the next data write, the
-    working tree diverges from HEAD (HEAD's commit holds the placeholder;
-    the file holds the data tree's root). The next data write through
-    ``VersionedKvStore`` reconciles via its auto-commit. ``git status``
-    would show this file as modified in the meantime — cosmetic.
+    Previously snapshotted ``data/prolly_config_tree_config`` around any
+    ``NamespacedKvStore`` operation to work around a shared-filename
+    collision. Prollytree now writes the namespace store's root hash to
+    a separate file (``prolly_config_namespaced_root``), so the
+    workaround is no longer needed. Yielding a no-op preserves the
+    public API for any out-of-tree callers.
     """
-    config_path = Path(store_path) / "data" / _TREE_CONFIG_FILENAME
-    snapshot: bytes | None = None
-    if config_path.exists():
-        try:
-            snapshot = config_path.read_bytes()
-        except OSError as e:
-            logger.warning("config snapshot read failed: %s", e)
-            snapshot = None
-    try:
-        yield
-    finally:
-        if snapshot is not None:
-            try:
-                current = config_path.read_bytes() if config_path.exists() else None
-                if current != snapshot:
-                    config_path.write_bytes(snapshot)
-            except OSError as e:
-                logger.warning("config restore write failed: %s", e)
+    _ = store_path  # accepted for backward-compat
+    yield
 
 
 # Single text index per namespace in v1. Prollytree validates the embedder's
@@ -139,17 +104,10 @@ class VectorService(BaseService):
     def _get_ns_store(self):
         """Lazily open a NamespacedKvStore against ``<store>/data``.
 
-        Prefers ``NamespacedKvStore.open(path)`` (the static method) over
-        the constructor. The constructor (``NamespacedKvStore(path)``)
-        unconditionally re-runs ``GitNamespacedKvStore::init``, which
-        creates a new ``"Initial namespaced store"`` git commit every
-        time it's called — even on already-initialized stores. That
-        means every memoir process that ran ``memoir search`` would add
-        a junk commit to history. ``.open`` skips the init step.
-
-        On first creation of the store the file doesn't exist yet, so
-        ``open`` raises — we fall back to the constructor in that case,
-        which is the one and only legitimate use of ``init``.
+        Prollytree's ``NamespacedKvStore(path)`` constructor is now
+        idempotent — it detects an existing namespaced store and routes
+        to ``open()`` internally, so we no longer need the
+        try-open-fall-back-to-init dance memoir used to do here.
 
         Wraps the raw handle in ``CwdLockedTree`` so every method call
         chdir's into the store path first — required because prollytree's
@@ -169,13 +127,7 @@ class VectorService(BaseService):
             saved = os.getcwd()
             try:
                 os.chdir(self.store_path)
-                try:
-                    raw = NamespacedKvStore.open(str(data_dir))
-                except Exception as e:
-                    # First-time open on a fresh store has no namespace
-                    # metadata yet — fall back to the init constructor.
-                    logger.debug("NamespacedKvStore.open failed (%s); init", e)
-                    raw = NamespacedKvStore(str(data_dir))
+                raw = NamespacedKvStore(str(data_dir))
             finally:
                 os.chdir(saved)
             self._ns_store = CwdLockedTree(raw, self.store_path)
