@@ -40,14 +40,10 @@ from memoir.services.models import (
     WatchScanResult,
     WatchStatusResult,
 )
-from memoir.services.vector_service import VectorService, versioned_config_preserved
+from memoir.services.vector_service import VectorService
 
 logger = logging.getLogger(__name__)
 
-
-# ---------------------------------------------------------------------------
-# Config + constants
-# ---------------------------------------------------------------------------
 
 DEFAULT_CONFIG = {
     "max_size_mb": 100,
@@ -55,8 +51,7 @@ DEFAULT_CONFIG = {
     "embedder": "MiniLmEmbedder",
 }
 
-# Directories never walked into. Matched against any path component, so
-# ``/repo/.git/objects/...`` is filtered the same way ``/.git/...`` is.
+# Matched against any path component (so `.git/objects/...` is also filtered).
 EXCLUDE_DIRS = frozenset(
     {
         ".git",
@@ -70,12 +65,9 @@ EXCLUDE_DIRS = frozenset(
     }
 )
 
-# Hardcoded markitdown-supported extension fallback. Mirrors the
-# ``ACCEPTED_FILE_EXTENSIONS`` declared in markitdown's per-converter modules
-# (csv, docx, epub, html, ipynb, msg, pdf, pptx, txt, markdown, json, ...).
-# Image and audio formats are intentionally excluded — markitdown supports
-# them but typically returns empty / OCR-only text and they balloon the LLM
-# bill for low signal.
+# Fallback when markitdown's per-converter ACCEPTED_FILE_EXTENSIONS isn't
+# introspectable. Image and audio formats omitted — markitdown supports them
+# but their output is empty/OCR-only.
 SUPPORTED_EXTENSIONS = frozenset(
     {
         ".md",
@@ -98,8 +90,6 @@ SUPPORTED_EXTENSIONS = frozenset(
 )
 
 
-# Reserved per-file path-state keys live under the namespace tuple ``("_meta",)``
-# with these scalar string keys (mirrors the ``_meta.last_onboard.*`` style).
 _META_NS: tuple[str, ...] = ("_meta",)
 _META_CONFIG_KEY = "watch.config"
 _META_PATHS_KEY = "watch.paths"
@@ -111,21 +101,17 @@ def _now_iso() -> str:
 
 
 def _sanitize_path_component(s: str) -> str:
-    """Make a file basename safe to embed in a taxonomy path."""
     cleaned = re.sub(r"[^a-zA-Z0-9_]", "_", s)
     return cleaned or "untitled"
 
 
 def _abs_path_hash(p: Path) -> str:
-    """Stable hash of an absolute path string — used as the key in
-    ``_meta.watch.files``. SHA-256 hex digest."""
     return hashlib.sha256(str(p).encode("utf-8")).hexdigest()
 
 
 def _content_hash(data: bytes) -> str:
-    """Hash file bytes. Prefers blake3 (faster) but falls back to sha256.
-    The result is prefixed with the algorithm name so a swap re-triggers
-    indexing on next scan (the comparison string includes the prefix)."""
+    # Algorithm prefix means swapping blake3/sha256 forces a re-index since
+    # comparison includes it.
     try:
         import blake3
 
@@ -135,18 +121,11 @@ def _content_hash(data: bytes) -> str:
 
 
 def _is_excluded(p: Path) -> bool:
-    """True if any path component is in EXCLUDE_DIRS."""
     return any(part in EXCLUDE_DIRS for part in p.parts)
 
 
 def _extract_titles(text: str, max_titles: int = 30) -> list[str]:
-    """Pull ``#``-style headings from markitdown's output.
-
-    markitdown emits markdown for the formats it understands (PDFs, docx,
-    pptx, html), so leading-``#`` runs are the reliable signal. Plaintext
-    sources without explicit headings simply yield nothing — the head/tail
-    of the document still carry the topic.
-    """
+    """Pull ``#``-style headings out of markitdown's output."""
     titles: list[str] = []
     seen: set[str] = set()
     for raw_line in text.splitlines():
@@ -170,33 +149,13 @@ def _deterministic_summary(
     tail_chars: int | None = None,
     max_summary_chars: int | None = None,
 ) -> str:
-    """Build a deterministic head+tail+titles summary, no LLM.
+    """Build a head + tail + titles summary without calling an LLM.
 
-    Used when ``len(text) > summarize_min_chars`` so the watch pipeline can
-    keep the LLM call count to one (classification only). The summary is the
-    content actually stored in memoir and the input handed to the classifier
-    — so it should preserve enough surface-form signal that classification
-    quality doesn't fall off a cliff.
-
-    Layout (Markdown):
-        # <source_name>           # only when source_name is provided
-        ## Headings               # extracted titles (≤ 30)
-        - Heading 1
-        - Heading 2
-
-        ## Beginning
-        <first head_chars chars of text>
-
-        ## End
-        <last tail_chars chars of text>
-
-    Defaults scale with ``threshold``: head = 60% of threshold, tail = 30%,
-    leaving slack for headings + structural overhead. Caller can override
-    for tests.
+    Used for long documents so the watch pipeline only spends one LLM call
+    (classification) per file.
     """
-    # 60/30/10 split: most of the budget goes to the head (intros tend to
-    # set the topic), a third to the tail (conclusions / TOC at-end PDFs),
-    # the rest for headings.
+    # 60/30/10 budget split: head dominates because intros set topic;
+    # tail catches end-matter; rest is headings.
     head_chars = head_chars if head_chars is not None else int(threshold * 0.6)
     tail_chars = tail_chars if tail_chars is not None else int(threshold * 0.3)
     max_summary_chars = (
@@ -229,13 +188,11 @@ def _deterministic_summary(
 
 
 def supported_extensions() -> set[str]:
-    """Returns the set of file extensions the watch pipeline can ingest.
+    """File extensions the watch pipeline can ingest.
 
-    Tries to derive the set from the markitdown converter registry at runtime
-    so a markitdown upgrade picks up new formats automatically. Falls back to
-    the hardcoded ``SUPPORTED_EXTENSIONS`` set if introspection fails (which
-    happens with the markitdown 0.1.x line; converters declare a private
-    ``accepts(stream)`` method, not an ``accepted_file_extensions`` attribute).
+    Derived from the markitdown converter registry when introspectable
+    (falls back to ``SUPPORTED_EXTENSIONS`` otherwise — markitdown 0.1.x
+    doesn't expose extensions publicly).
     """
     exts: set[str] = set(SUPPORTED_EXTENSIONS)
     try:
@@ -287,21 +244,16 @@ class WatchService(BaseService):
         self._memory_service: MemoryService | None = None
         self._vector_service: VectorService | None = None
         self._classifier = None
-        # Test seam: tests inject a stub that mimics
-        # ``MarkItDown().convert(path).text_content`` semantics.
+        # Test seam: returns an object with ``.convert(path).text_content``.
         self._markitdown_factory: Callable[[], Any] | None = None
-        # Hook for per-file progress output (suppressed under --json).
         self._progress = progress or (lambda _msg: None)
-
-    # ----- lazy collaborators ------------------------------------------------
 
     def _get_memory_service(self) -> MemoryService:
         if self._memory_service is None:
             self._memory_service = MemoryService(
                 self.store_path, llm_model=self.llm_model
             )
-            # Share the same store handle so per-file writes don't reopen the
-            # tree. Important under auto_commit=False (set during scans).
+            # Share the store handle so per-file writes don't reopen the tree.
             self._memory_service._store = self._get_store()
         return self._memory_service
 
@@ -311,16 +263,11 @@ class WatchService(BaseService):
         return self._vector_service
 
     def _get_classifier(self):
+        # Reuse MemoryService's wiring so the watch classifier and
+        # `memoir remember` see the same taxonomy.
         if self._classifier is None:
-            # Reuse MemoryService's wiring (LLM + taxonomy loader + thresholds)
-            # so the watch classifier sees the same paths the user's existing
-            # ``memoir remember`` writes do. Pulling the classifier through
-            # MemoryService also means tests that swap the classifier on the
-            # MemoryService instance flow through to here.
             self._classifier = self._get_memory_service()._get_classifier()
         return self._classifier
-
-    # ----- _meta helpers -----------------------------------------------------
 
     def _read_meta(self, key: str) -> Any:
         try:
@@ -335,11 +282,10 @@ class WatchService(BaseService):
     def _read_config(self) -> dict:
         existing = self._read_meta(_META_CONFIG_KEY)
         if isinstance(existing, dict):
-            # Fill in any missing keys without clobbering user-set ones.
+            # Merge so user-set keys aren't clobbered by defaults.
             merged = dict(DEFAULT_CONFIG)
             merged.update(existing)
             return merged
-        # First touch: seed defaults.
         self._write_meta(_META_CONFIG_KEY, dict(DEFAULT_CONFIG))
         return dict(DEFAULT_CONFIG)
 
@@ -360,8 +306,6 @@ class WatchService(BaseService):
 
     def _write_files(self, files: dict) -> None:
         self._write_meta(_META_FILES_KEY, files)
-
-    # ----- public commands ---------------------------------------------------
 
     async def add(
         self,
@@ -396,7 +340,6 @@ class WatchService(BaseService):
             self._write_paths(paths)
 
         scan = await self._scan_path(abs_path, namespace=namespace)
-        # Stamp last_scan.
         if scan.success:
             paths = self._read_paths()
             for entry in paths:
@@ -538,50 +481,44 @@ class WatchService(BaseService):
                     else None
                 )
                 surviving_files = {}
-                # Wrap all namespace-store operations in the config-preserve
-                # context so the data tree's root hash survives the purge.
-                with versioned_config_preserved(self.store_path):
-                    for path_hash, state in files.items():
-                        if state.get("watched_path") != abs_target:
-                            surviving_files[path_hash] = state
-                            continue
-                        # Delete every memory key written for this file plus
-                        # the vector-index entry (single doc_id = primary path).
-                        ns_tuple = self.namespace_to_tuple(
-                            state.get("namespace", "default")
-                        )
-                        memory_keys = state.get("memory_keys") or []
-                        for k in memory_keys:
-                            try:
-                                store.delete(ns_tuple, k)
-                            except Exception as e:
-                                logger.warning(
-                                    "purge: delete %s/%s failed: %s", ns_tuple, k, e
-                                )
-                        if vector and memory_keys:
-                            try:
-                                vector.delete(
-                                    state.get("namespace", "default"),
-                                    memory_keys[0].encode("utf-8"),
-                                )
-                            except Exception as e:
-                                logger.warning("purge: vector delete failed: %s", e)
-                        files_removed += 1
-                    self._write_files(surviving_files)
-                    if vector:
+                for path_hash, state in files.items():
+                    if state.get("watched_path") != abs_target:
+                        surviving_files[path_hash] = state
+                        continue
+                    ns_tuple = self.namespace_to_tuple(
+                        state.get("namespace", "default")
+                    )
+                    memory_keys = state.get("memory_keys") or []
+                    for k in memory_keys:
                         try:
-                            vector.commit(f"watch purge {abs_target}")
+                            store.delete(ns_tuple, k)
                         except Exception as e:
-                            logger.warning("purge: vector commit failed: %s", e)
-            else:
-                # Soft remove: just drop the registry entry. File state lives
-                # on under _meta.watch.files so future re-adds skip re-indexing.
-                pass
+                            logger.warning(
+                                "purge: delete %s/%s failed: %s", ns_tuple, k, e
+                            )
+                    if vector and memory_keys:
+                        # Only the primary path is indexed; siblings share the
+                        # same vector via related_keys.
+                        try:
+                            vector.delete(
+                                state.get("namespace", "default"),
+                                memory_keys[0].encode("utf-8"),
+                            )
+                        except Exception as e:
+                            logger.warning("purge: vector delete failed: %s", e)
+                    files_removed += 1
+                self._write_files(surviving_files)
+                if vector:
+                    try:
+                        vector.commit(f"watch purge {abs_target}")
+                    except Exception as e:
+                        logger.warning("purge: vector commit failed: %s", e)
+            # Soft remove (purge=False) just drops the registry entry; file
+            # state under _meta.watch.files stays so future re-adds are
+            # idempotent.
 
             self._write_paths(remaining)
             with contextlib.suppress(Exception):
-                # auto_commit may already have handled the commit; tolerate
-                # both cases.
                 self._get_store().commit(f"watch remove {abs_target}")
 
             return WatchRemoveResult(
@@ -591,8 +528,6 @@ class WatchService(BaseService):
             return WatchRemoveResult(
                 success=False, path=abs_target, purge=purge, error=str(e)
             )
-
-    # ----- scan pipeline -----------------------------------------------------
 
     async def _scan_path(
         self,
@@ -606,10 +541,8 @@ class WatchService(BaseService):
         max_bytes = int(config.get("max_size_mb", 100)) * 1024 * 1024
         summarize_min = int(config.get("summarize_min_chars", 10_000))
 
-        # Embedder identity guard: refuse cleanly when the stored config
-        # references a different embedder than VectorService can produce.
-        # In v1 we only ship MiniLmEmbedder; in tests, MEMOIR_TEST_USE_HASH_EMBEDDER
-        # swaps in HashEmbedder, in which case we relax the guard.
+        # Embedder identity guard: prollytree rejects reopen with a different
+        # embedder than the one persisted at first open.
         if (
             VectorService.feature_available()
             and os.environ.get("MEMOIR_TEST_USE_HASH_EMBEDDER") != "1"
@@ -629,7 +562,6 @@ class WatchService(BaseService):
                 ),
             )
 
-        # Enumerate candidate files.
         if target.is_file():
             candidates: list[Path] = [target]
         else:
@@ -637,13 +569,11 @@ class WatchService(BaseService):
                 p for p in target.rglob("*") if p.is_file() and not _is_excluded(p)
             ]
 
-        # Filter by extension.
         exts = supported_extensions()
         files_seen = len(candidates)
         candidates = [p for p in candidates if p.suffix.lower() in exts]
         skipped_unsupported = files_seen - len(candidates)
 
-        # Stat-and-hash pass.
         stats = {
             "files_indexed": 0,
             "files_unchanged": 0,
@@ -653,10 +583,6 @@ class WatchService(BaseService):
         }
 
         files_state = self._read_files()
-        # Open the data store BEFORE the namespace store opens during the
-        # scan — keeps the in-process VersionedKvStore handle cached so
-        # per-file remember() writes work even after the namespace store
-        # has touched prolly_config_tree_config.
         self._get_store()
         memory_service = self._get_memory_service()
         vector = (
@@ -693,18 +619,12 @@ class WatchService(BaseService):
                 stats["files_unchanged"] += 1
                 continue
 
-            # Parse with markitdown.
             text = self._extract_text(p)
             if text is None:
                 self._progress(f"[{idx}/{total}] parse error: {p}")
                 stats["files_skipped_parse_error"] += 1
                 continue
 
-            # Build content + classify. Long documents are reduced to a
-            # deterministic head+tail+titles summary (no LLM); only the
-            # classifier touches an LLM. Short documents pass through
-            # verbatim — content stored is the original text, classified
-            # whole.
             try:
                 cls_result, content_to_store = await self._build_content_and_classify(
                     text, threshold=summarize_min, p=p
@@ -714,12 +634,10 @@ class WatchService(BaseService):
                 stats["files_skipped_parse_error"] += 1
                 continue
 
-            # Persist via MemoryService.
             paths_for_remember = cls_result.paths or (
                 [cls_result.path] if cls_result.path else None
             )
             if not paths_for_remember:
-                # Classifier returned nothing usable; fall back to a deterministic path.
                 paths_for_remember = [
                     "knowledge.files." + _sanitize_path_component(p.stem)
                 ]
@@ -743,20 +661,18 @@ class WatchService(BaseService):
                 stats["files_skipped_parse_error"] += 1
                 continue
 
-            # Vector index — best-effort. Data is already committed, so a
-            # failure here only means search won't surface this file; recall
-            # / get still work.
+            # Vector index — best-effort. Data is already committed, so an
+            # index failure only means search won't surface this file.
             if vector is not None:
                 doc_id = paths_for_remember[0].encode("utf-8")
                 try:
-                    # Pre-delete prior doc_id when the primary path changed,
-                    # so old vectors don't linger.
                     prev_primary = (
                         (prev or {}).get("memory_keys", [None])[0]
                         if isinstance(prev, dict)
                         else None
                     )
                     if prev_primary and prev_primary != paths_for_remember[0]:
+                        # Primary path changed; drop the stale vector.
                         with contextlib.suppress(Exception):
                             vector.delete(namespace, prev_primary.encode("utf-8"))
                     vector.index(namespace, doc_id, content_to_store)
@@ -778,23 +694,13 @@ class WatchService(BaseService):
             }
             self._progress(f"[{idx}/{total}] indexed: {p} → {paths_for_remember[0]}")
 
-        # Flush per-file state once.
         self._write_files(files_state)
 
-        # End-of-scan: persist the vector index, but preserve the data
-        # tree's root hash in ``data/prolly_config_tree_config``. Both
-        # stores share that file; if we let the namespace tree's commit
-        # be the last write, the next process's ``VersionedKvStore.open()``
-        # silently falls back to an empty tree and every memory we just
-        # wrote becomes unreadable. ``versioned_config_preserved`` snapshots
-        # the file bytes on entry and writes them back on exit — no extra
-        # git commit needed (see vector_service.py for the full rationale).
         if vector is not None:
-            with versioned_config_preserved(self.store_path):
-                try:
-                    vector.commit(f"watch index {target}")
-                except Exception as e:
-                    logger.warning("vector commit failed: %s", e)
+            try:
+                vector.commit(f"watch index {target}")
+            except Exception as e:
+                logger.warning("vector commit failed: %s", e)
 
         commit_hash = self._get_current_commit_info()[0]
 
