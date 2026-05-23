@@ -60,6 +60,20 @@ export function namespaceFilterDisabledReason(view: ViewKey): string | null {
   }
 }
 
+/** Namespace prefixes that are hidden from the UI — they're treated as
+ * internal/implementation-detail by memoir and shouldn't clutter the
+ * Outline / Map / namespace picker.
+ *
+ * "taxonomy" covers the taxonomy-loader's own bookkeeping memories.
+ * Extend this list as future internal namespaces appear; match is by
+ * prefix on the namespace string. */
+export const HIDDEN_NAMESPACE_PREFIXES: readonly string[] = ["taxonomy"];
+
+/** True when ``ns`` matches any prefix in HIDDEN_NAMESPACE_PREFIXES. */
+export function isHiddenNamespace(ns: string): boolean {
+  return HIDDEN_NAMESPACE_PREFIXES.some((p) => ns === p || ns.startsWith(p));
+}
+
 /** Polling interval in ms when ``autoRefresh`` is on. Three seconds is
  * the same cadence the legacy UI's auto-poll used. */
 export const AUTO_REFRESH_MS = 3000;

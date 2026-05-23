@@ -1,5 +1,9 @@
 import { useStore } from "../state/storeSlice";
-import { namespaceFilterDisabledReason, useUI } from "../state/uiSlice";
+import {
+  isHiddenNamespace,
+  namespaceFilterDisabledReason,
+  useUI,
+} from "../state/uiSlice";
 import type { ViewKey } from "../state/uiSlice";
 import "./LeftPane.css";
 
@@ -67,12 +71,15 @@ export default function LeftPane() {
 function NamespaceList({ namespaces }: { namespaces: Record<string, unknown> }) {
   // ``default`` always pinned to the top (right under "All namespaces"),
   // then everything else alphabetically. Backend insertion order isn't
-  // stable, so we explicitly sort.
-  const entries = Object.entries(namespaces).sort(([a], [b]) => {
-    if (a === "default") return -1;
-    if (b === "default") return 1;
-    return a.localeCompare(b);
-  });
+  // stable, so we explicitly sort. Hidden namespaces (taxonomy-loader
+  // bookkeeping, etc.) are dropped — see HIDDEN_NAMESPACE_PREFIXES.
+  const entries = Object.entries(namespaces)
+    .filter(([ns]) => !isHiddenNamespace(ns))
+    .sort(([a], [b]) => {
+      if (a === "default") return -1;
+      if (b === "default") return 1;
+      return a.localeCompare(b);
+    });
   const selected = useUI((s) => s.selectedNamespace);
   const setSelected = useUI((s) => s.setSelectedNamespace);
   const activeView = useUI((s) => s.activeView);

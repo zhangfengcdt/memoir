@@ -206,7 +206,7 @@ def test_medium_doc_uses_llm_summarize(memoir_store, tmp_path):
     becomes both the classifier input and the stored content."""
     root = tmp_path / "medium"
     root.mkdir()
-    medium_text = "x" * 5_000  # 1K < 5K < 10K → medium tier
+    medium_text = "x" * 50_000  # 10K < 50K < 100K → medium tier
     (root / "medium.md").write_text(medium_text)
 
     svc = _build_watch(memoir_store)
@@ -220,7 +220,7 @@ def test_medium_doc_uses_llm_summarize(memoir_store, tmp_path):
     # The LLM summarize was called with the original text and the small-doc cap.
     svc._llm_summarize.assert_awaited_once()
     _, kwargs = svc._llm_summarize.call_args
-    assert kwargs.get("max_chars") == 1_000
+    assert kwargs.get("max_chars") == 10_000
 
     # The stored content is the LLM summary, not the original text.
     store = svc._get_memory_service()._get_store()
@@ -234,8 +234,8 @@ def test_long_doc_uses_deterministic_summary(memoir_store, tmp_path):
     head+tail+titles summary — no LLM call for summarization."""
     root = tmp_path / "long"
     root.mkdir()
-    # Big enough to exceed summarize_max (10K default).
-    long_text = "# Topic\n\n" + ("body line\n" * 2_000)  # ≈ 20K chars
+    # Big enough to exceed summarize_max (100K default).
+    long_text = "# Topic\n\n" + ("body line\n" * 20_000)  # ≈ 200K chars
     (root / "long.md").write_text(long_text)
 
     svc = _build_watch(memoir_store)
@@ -255,8 +255,8 @@ def test_long_doc_uses_deterministic_summary(memoir_store, tmp_path):
     assert value is not None
     # Deterministic summary has the markdown structure markers.
     assert "## Beginning" in value["content"]
-    # Capped at summarize_min_chars (1K default).
-    assert len(value["content"]) <= 1_000
+    # Capped at summarize_min_chars (10K default).
+    assert len(value["content"]) <= 10_000
 
 
 def test_medium_doc_falls_back_to_deterministic_on_llm_failure(memoir_store, tmp_path):
@@ -265,7 +265,7 @@ def test_medium_doc_falls_back_to_deterministic_on_llm_failure(memoir_store, tmp
     so the scan still makes progress."""
     root = tmp_path / "medium-fallback"
     root.mkdir()
-    medium_text = "# Header\n\n" + ("x" * 5_000)  # medium tier
+    medium_text = "# Header\n\n" + ("x" * 50_000)  # medium tier
     (root / "m.md").write_text(medium_text)
 
     svc = _build_watch(memoir_store)
@@ -642,3 +642,53 @@ def test_watch_status_reports_recent_files(memoir_store, docs_dir):
     assert st.namespace == "default"
     assert st.files_indexed == 3
     assert len(st.recently_changed) == 3
+
+
+def test_keyboard_interrupt_saves_partial_progress(memoir_store, tmp_path):
+    """When a scan is interrupted (KeyboardInterrupt), already-indexed files
+    must be written to files_state and last_scan must be updated.  The
+    KeyboardInterrupt is re-raised so the caller knows the scan was cut short."""
+    root = tmp_path / "many"
+    root.mkdir()
+    for i in range(5):
+        (root / f"f{i:02d}.md").write_text(f"# File {i}\n")
+
+    svc = _build_watch(memoir_store)
+
+    # First, register the path with a clean initial scan.
+    initial = asyncio.run(svc.add(str(root), namespace="default"))
+    assert initial.success
+    assert initial.scan.files_indexed == 5
+
+    # Mutate all files so they appear changed on the next scan.
+    for i in range(5):
+        (root / f"f{i:02d}.md").write_text(f"# File {i} UPDATED\n")
+
+    # Inject a mock that raises KeyboardInterrupt on the third classify call.
+    call_count = 0
+    original_classify = svc._build_content_and_classify
+
+    async def _interrupt_on_third(text, *, summarize_min, summarize_max, p):
+        nonlocal call_count
+        call_count += 1
+        if call_count == 3:
+            raise KeyboardInterrupt
+        return await original_classify(
+            text, summarize_min=summarize_min, summarize_max=summarize_max, p=p
+        )
+
+    svc._build_content_and_classify = _interrupt_on_third
+
+    # Re-scan — the interrupt fires after 2 files are indexed.
+    with pytest.raises(KeyboardInterrupt):
+        asyncio.run(svc.scan(path=str(root)))
+
+    # Despite the interrupt, all 5 entries remain (2 updated + 3 from initial).
+    files_state = svc._read_files()
+    assert len(files_state) == 5, "No files_state entries should have been deleted"
+
+    # last_scan must be updated even for an interrupted scan.
+    paths_meta = svc._read_paths()
+    entry = next((p for p in paths_meta if p.get("path") == str(root)), None)
+    assert entry is not None
+    assert entry.get("last_scan") is not None, "last_scan must be set even after interrupt"

@@ -59,8 +59,8 @@ DEFAULT_CONFIG = {
     # Summary outputs are always capped at ``summarize_min_chars`` so the
     # classifier never sees more than that — keeps token costs bounded
     # regardless of input doc size.
-    "summarize_min_chars": 1_000,
-    "summarize_max_chars": 10_000,
+    "summarize_min_chars": 10_000,
+    "summarize_max_chars": 100_000,
     # Cap how many files a single ``scan`` will index (new or changed).
     # Unchanged files (hash match) don't count — they're cheap. When the
     # cap is hit the scan prints a warning naming the remaining count so
@@ -415,12 +415,16 @@ class WatchService(BaseService):
             res = await self._scan_path(Path(entry["path"]), namespace=ns)
             results.append(res)
             if res.success:
+                # Update last_scan even for aborted/partial scans — the files
+                # that were processed before the interrupt are already committed.
                 paths = self._read_paths()
                 for p in paths:
                     if p.get("path") == entry["path"]:
                         p["last_scan"] = _now_iso()
                         break
                 self._write_paths(paths)
+            if res.aborted:
+                raise KeyboardInterrupt
         return results
 
     def list(self) -> WatchListResult:
@@ -592,8 +596,8 @@ class WatchService(BaseService):
 
         config = self._read_config()
         max_bytes = int(config.get("max_size_mb", 100)) * 1024 * 1024
-        summarize_min = int(config.get("summarize_min_chars", 1_000))
-        summarize_max = int(config.get("summarize_max_chars", 10_000))
+        summarize_min = int(config.get("summarize_min_chars", 10_000))
+        summarize_max = int(config.get("summarize_max_chars", 100_000))
         max_files_per_scan = int(config.get("max_files_per_scan", 100))
 
         # Embedder identity guard: prollytree rejects reopen with a different
@@ -657,170 +661,180 @@ class WatchService(BaseService):
         # deletions and tear them down.
         scan_complete = True
         remaining_after_cap = 0
-        for idx, p in enumerate(candidates, start=1):
-            # Cap fires BEFORE this file would be processed, so the warning
-            # at end-of-scan can report the exact remaining count.
-            if stats["files_indexed"] >= max_files_per_scan:
-                scan_complete = False
-                # Everything from this point onward — even unchanged files —
-                # is unvisited from the deletion-sweep's perspective.
-                remaining_after_cap = total - idx + 1
-                break
-            seen_path_keys.add(_abs_path_hash(p))
-            try:
-                size = p.stat().st_size
-            except OSError as e:
-                logger.warning("stat failed for %s: %s", p, e)
-                stats["files_skipped_parse_error"] += 1
-                continue
-            if size > max_bytes:
-                self._progress(
-                    f"[{idx}/{total}] skip (size > {config['max_size_mb']}MB): {p}"
-                )
-                stats["files_skipped_size"] += 1
-                continue
-
-            try:
-                data = p.read_bytes()
-            except OSError as e:
-                logger.warning("read failed for %s: %s", p, e)
-                stats["files_skipped_parse_error"] += 1
-                continue
-
-            chash = _content_hash(data)
-            path_key = _abs_path_hash(p)
-            prev = files_state.get(path_key)
-            if isinstance(prev, dict) and prev.get("content_hash") == chash:
-                self._progress(f"[{idx}/{total}] unchanged: {p}")
-                stats["files_unchanged"] += 1
-                continue
-
-            self._vprogress(f"[{idx}/{total}] processing: {p}")
-
-            text = self._extract_text(p)
-            if text is None:
-                self._progress(f"[{idx}/{total}] parse error: {p}")
-                stats["files_skipped_parse_error"] += 1
-                continue
-            self._vprogress(f"  → extract: markitdown produced {len(text):,} chars")
-
-            model_label = self.llm_model or "default model"
-            if len(text) <= summarize_min:
-                self._vprogress(
-                    f"  → summary: skipped (small doc, {len(text):,} ≤ "
-                    f"{summarize_min:,} chars; full text passed to classifier)"
-                )
-                self._vprogress(f"  → classify: 1 LLM call ({model_label})")
-            elif len(text) <= summarize_max:
-                self._vprogress(
-                    f"  → summary: LLM-summarize "
-                    f"(medium doc, {summarize_min:,} < {len(text):,} ≤ "
-                    f"{summarize_max:,} chars; target ≤ {summarize_min:,} chars)"
-                )
-                self._vprogress(
-                    f"  → classify: 2 LLM calls ({model_label}; "
-                    f"1 summarize + 1 classify)"
-                )
-            else:
-                self._vprogress(
-                    f"  → summary: deterministic head+tail+titles "
-                    f"(long doc, {len(text):,} > {summarize_max:,} chars; "
-                    f"capped at {summarize_min:,} chars; no LLM for summarize)"
-                )
-                self._vprogress(f"  → classify: 1 LLM call ({model_label})")
-
-            try:
-                cls_result, content_to_store = await self._build_content_and_classify(
-                    text,
-                    summarize_min=summarize_min,
-                    summarize_max=summarize_max,
-                    p=p,
-                )
-            except Exception as e:
-                logger.warning("classify failed for %s: %s", p, e)
-                stats["files_skipped_parse_error"] += 1
-                continue
-
-            paths_for_remember = cls_result.paths or (
-                [cls_result.path] if cls_result.path else None
-            )
-            if not paths_for_remember:
-                paths_for_remember = [
-                    "knowledge.files." + _sanitize_path_component(p.stem)
-                ]
-            self._vprogress(
-                f"  → classify: confidence={cls_result.confidence:.2f}, "
-                f"paths={paths_for_remember}"
-            )
-
-            source_meta = {
-                "kind": "watch",
-                "abs_path": str(p),
-                "content_hash": chash,
-                "extracted_text_chars": len(text),
-            }
-            self._vprogress(
-                f"  → store: writing {len(content_to_store):,} chars to "
-                f"{len(paths_for_remember)} memory key(s) (replace=True)"
-            )
-            try:
-                remember_result = await memory_service.remember(
-                    content=content_to_store,
-                    paths=paths_for_remember,
-                    namespace=namespace,
-                    replace=True,
-                    extra_metadata={"source": source_meta},
-                )
-            except Exception as e:
-                logger.warning("remember failed for %s: %s", p, e)
-                stats["files_skipped_parse_error"] += 1
-                continue
-
-            # Vector index — best-effort. Data is already committed, so an
-            # index failure only means search won't surface this file.
-            if vector is not None:
-                doc_id = paths_for_remember[0].encode("utf-8")
+        aborted = False
+        try:
+            for idx, p in enumerate(candidates, start=1):
+                # Cap fires BEFORE this file would be processed, so the warning
+                # at end-of-scan can report the exact remaining count.
+                if stats["files_indexed"] >= max_files_per_scan:
+                    scan_complete = False
+                    # Everything from this point onward — even unchanged files —
+                    # is unvisited from the deletion-sweep's perspective.
+                    remaining_after_cap = total - idx + 1
+                    break
+                seen_path_keys.add(_abs_path_hash(p))
                 try:
-                    prev_primary = (
-                        (prev or {}).get("memory_keys", [None])[0]
-                        if isinstance(prev, dict)
-                        else None
+                    size = p.stat().st_size
+                except OSError as e:
+                    logger.warning("stat failed for %s: %s", p, e)
+                    stats["files_skipped_parse_error"] += 1
+                    continue
+                if size > max_bytes:
+                    self._progress(
+                        f"[{idx}/{total}] skip (size > {config['max_size_mb']}MB): {p}"
                     )
-                    if prev_primary and prev_primary != paths_for_remember[0]:
-                        # Primary path changed; drop the stale vector.
-                        with contextlib.suppress(Exception):
-                            vector.delete(namespace, prev_primary.encode("utf-8"))
-                    vector.index(namespace, doc_id, content_to_store)
+                    stats["files_skipped_size"] += 1
+                    continue
+
+                try:
+                    data = p.read_bytes()
+                except OSError as e:
+                    logger.warning("read failed for %s: %s", p, e)
+                    stats["files_skipped_parse_error"] += 1
+                    continue
+
+                chash = _content_hash(data)
+                path_key = _abs_path_hash(p)
+                prev = files_state.get(path_key)
+                if isinstance(prev, dict) and prev.get("content_hash") == chash:
+                    self._progress(f"[{idx}/{total}] unchanged: {p}")
+                    stats["files_unchanged"] += 1
+                    continue
+
+                self._vprogress(f"[{idx}/{total}] processing: {p}")
+
+                text = self._extract_text(p)
+                if text is None:
+                    self._progress(f"[{idx}/{total}] parse error: {p}")
+                    stats["files_skipped_parse_error"] += 1
+                    continue
+                self._vprogress(f"  → extract: markitdown produced {len(text):,} chars")
+
+                model_label = self.llm_model or "default model"
+                if len(text) <= summarize_min:
                     self._vprogress(
-                        f"  → vector: indexed under {paths_for_remember[0]}"
+                        f"  → summary: skipped (small doc, {len(text):,} ≤ "
+                        f"{summarize_min:,} chars; full text passed to classifier)"
+                    )
+                    self._vprogress(f"  → classify: 1 LLM call ({model_label})")
+                elif len(text) <= summarize_max:
+                    self._vprogress(
+                        f"  → summary: LLM-summarize "
+                        f"(medium doc, {summarize_min:,} < {len(text):,} ≤ "
+                        f"{summarize_max:,} chars; target ≤ {summarize_min:,} chars)"
+                    )
+                    self._vprogress(
+                        f"  → classify: 2 LLM calls ({model_label}; "
+                        f"1 summarize + 1 classify)"
+                    )
+                else:
+                    self._vprogress(
+                        f"  → summary: deterministic head+tail+titles "
+                        f"(long doc, {len(text):,} > {summarize_max:,} chars; "
+                        f"capped at {summarize_min:,} chars; no LLM for summarize)"
+                    )
+                    self._vprogress(f"  → classify: 1 LLM call ({model_label})")
+
+                try:
+                    cls_result, content_to_store = await self._build_content_and_classify(
+                        text,
+                        summarize_min=summarize_min,
+                        summarize_max=summarize_max,
+                        p=p,
                     )
                 except Exception as e:
-                    logger.warning("vector index failed for %s: %s", p, e)
-                    stats["index_failures"] += 1
-                    self._vprogress(f"  → vector: FAILED ({e})")
-            else:
-                self._vprogress("  → vector: skipped (proximity_text not available)")
+                    logger.warning("classify failed for %s: %s", p, e)
+                    stats["files_skipped_parse_error"] += 1
+                    continue
 
-            stats["files_indexed"] += 1
-            files_state[path_key] = {
-                "abs_path": str(p),
-                "watched_path": str(target),
-                "namespace": namespace,
-                "memory_keys": list(remember_result.keys),
-                "content_hash": chash,
-                "size": size,
-                "mtime": p.stat().st_mtime,
-                "indexed_at": _now_iso(),
-                "summary_chars": len(content_to_store),
-            }
-            self._progress(f"[{idx}/{total}] indexed: {p} → {paths_for_remember[0]}")
+                paths_for_remember = cls_result.paths or (
+                    [cls_result.path] if cls_result.path else None
+                )
+                if not paths_for_remember:
+                    paths_for_remember = [
+                        "knowledge.files." + _sanitize_path_component(p.stem)
+                    ]
+                self._vprogress(
+                    f"  → classify: confidence={cls_result.confidence:.2f}, "
+                    f"paths={paths_for_remember}"
+                )
+
+                source_meta = {
+                    "kind": "watch",
+                    "abs_path": str(p),
+                    "content_hash": chash,
+                    "extracted_text_chars": len(text),
+                }
+                self._vprogress(
+                    f"  → store: writing {len(content_to_store):,} chars to "
+                    f"{len(paths_for_remember)} memory key(s) (replace=True)"
+                )
+                try:
+                    remember_result = await memory_service.remember(
+                        content=content_to_store,
+                        paths=paths_for_remember,
+                        namespace=namespace,
+                        replace=True,
+                        extra_metadata={"source": source_meta},
+                    )
+                except Exception as e:
+                    logger.warning("remember failed for %s: %s", p, e)
+                    stats["files_skipped_parse_error"] += 1
+                    continue
+
+                # Vector index — best-effort. Data is already committed, so an
+                # index failure only means search won't surface this file.
+                if vector is not None:
+                    doc_id = paths_for_remember[0].encode("utf-8")
+                    try:
+                        prev_primary = (
+                            (prev or {}).get("memory_keys", [None])[0]
+                            if isinstance(prev, dict)
+                            else None
+                        )
+                        if prev_primary and prev_primary != paths_for_remember[0]:
+                            # Primary path changed; drop the stale vector.
+                            with contextlib.suppress(Exception):
+                                vector.delete(namespace, prev_primary.encode("utf-8"))
+                        vector.index(namespace, doc_id, content_to_store)
+                        self._vprogress(
+                            f"  → vector: indexed under {paths_for_remember[0]}"
+                        )
+                    except Exception as e:
+                        logger.warning("vector index failed for %s: %s", p, e)
+                        stats["index_failures"] += 1
+                        self._vprogress(f"  → vector: FAILED ({e})")
+                else:
+                    self._vprogress("  → vector: skipped (proximity_text not available)")
+
+                stats["files_indexed"] += 1
+                files_state[path_key] = {
+                    "abs_path": str(p),
+                    "watched_path": str(target),
+                    "namespace": namespace,
+                    "memory_keys": list(remember_result.keys),
+                    "content_hash": chash,
+                    "size": size,
+                    "mtime": p.stat().st_mtime,
+                    "indexed_at": _now_iso(),
+                    "summary_chars": len(content_to_store),
+                }
+                self._progress(f"[{idx}/{total}] indexed: {p} → {paths_for_remember[0]}")
+        except KeyboardInterrupt:
+            aborted = True
+            scan_complete = False
+            self._progress(
+                f"⚠ scan interrupted: indexed {stats['files_indexed']} file(s) "
+                f"so far — saving progress. Re-run `memoir watch scan` to continue."
+            )
 
         # Detect deletions: entries whose watched_path matches this target
         # but whose path-hash wasn't seen on disk this scan. We additionally
         # confirm the file is genuinely missing (not just filtered out by
         # exclude/extension/oversize rules) before tearing down the entry.
-        # Skipped when the per-scan cap fired — seen_path_keys is partial,
-        # so any unvisited file would be wrongly treated as deleted.
+        # Skipped when the per-scan cap fired or the scan was interrupted —
+        # seen_path_keys is partial, so any unvisited file would be wrongly
+        # treated as deleted.
         if scan_complete:
             for path_key, state in list(files_state.items()):
                 if state.get("watched_path") != target_str:
@@ -844,7 +858,7 @@ class WatchService(BaseService):
                 stats["files_deleted"] += 1
                 self._progress(f"deleted: {abs_path_str}")
 
-        if not scan_complete:
+        if not scan_complete and not aborted:
             self._progress(
                 f"⚠ scan cap reached: indexed {stats['files_indexed']} files "
                 f"(max_files_per_scan={max_files_per_scan}); "
@@ -852,6 +866,8 @@ class WatchService(BaseService):
                 f"to continue. Deletion detection skipped on this partial scan."
             )
 
+        # Always flush files_state so progress from a partial/interrupted scan
+        # is not lost on the next run.
         self._write_files(files_state)
 
         if vector is not None:
@@ -876,6 +892,7 @@ class WatchService(BaseService):
             index_failures=stats["index_failures"],
             commit_hash=commit_hash,
             timing_ms=(time.time() - start) * 1000.0,
+            aborted=aborted,
         )
 
     def _extract_text(self, p: Path) -> str | None:

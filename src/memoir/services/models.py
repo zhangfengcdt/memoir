@@ -406,6 +406,7 @@ class WatchScanResult:
     commit_hash: str | None = None  # Data-store commit hash.
     timing_ms: float = 0.0
     error: str | None = None
+    aborted: bool = False  # True when scan was cut short by KeyboardInterrupt.
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -423,6 +424,7 @@ class WatchScanResult:
             "commit_hash": self.commit_hash,
             "timing_ms": self.timing_ms,
             "error": self.error,
+            "aborted": self.aborted,
         }
 
 
