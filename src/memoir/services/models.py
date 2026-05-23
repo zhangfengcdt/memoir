@@ -485,6 +485,45 @@ class WatchListResult:
 
 
 @dataclass
+class WatchFileEntry:
+    """A single indexed file under a watched root."""
+
+    abs_path: str
+    size: int
+    indexed_at: str
+    mtime: float | None
+    summary_chars: int
+    content_hash: str  # First 12 hex chars only.
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "abs_path": self.abs_path,
+            "size": self.size,
+            "indexed_at": self.indexed_at,
+            "mtime": self.mtime,
+            "summary_chars": self.summary_chars,
+            "content_hash": self.content_hash,
+        }
+
+
+@dataclass
+class WatchFilesResult:
+    success: bool
+    watched_path: str
+    files: list[WatchFileEntry] = field(default_factory=list)
+    error: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "success": self.success,
+            "watched_path": self.watched_path,
+            "files": [f.to_dict() for f in self.files],
+            "count": len(self.files),
+            "error": self.error,
+        }
+
+
+@dataclass
 class WatchRemoveResult:
     success: bool
     path: str

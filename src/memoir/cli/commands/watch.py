@@ -46,7 +46,7 @@ def watch():
 @click.option(
     "-n",
     "--namespace",
-    default="default",
+    default="watch",
     show_default=True,
     help="Target namespace for the stored memories.",
 )
@@ -76,6 +76,12 @@ def watch_add(ctx: MemoirContext, path: str, namespace: str, model: str | None):
     from memoir.services.watch_service import WatchService
 
     progress = None if ctx.json_output else (lambda msg: click.echo(msg))
+    if not ctx.json_output:
+        click.echo(
+            click.style("⚠ ", fg="yellow")
+            + "This may take a while — each new or changed file is parsed and "
+            "classified by an LLM."
+        )
     service = WatchService(
         ctx.store_path, llm_model=model, progress=progress, verbose=ctx.verbose
     )
@@ -172,6 +178,12 @@ def watch_scan(
     from memoir.services.watch_service import WatchService
 
     progress = None if ctx.json_output else (lambda msg: click.echo(msg))
+    if not ctx.json_output:
+        click.echo(
+            click.style("⚠ ", fg="yellow")
+            + "This may take a while — each new or changed file is parsed and "
+            "classified by an LLM."
+        )
     service = WatchService(
         ctx.store_path, llm_model=model, progress=progress, verbose=ctx.verbose
     )

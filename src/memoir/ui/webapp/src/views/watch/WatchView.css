@@ -85,44 +85,70 @@
   max-width: 480px;
 }
 
-/* ---- Stats grid ---- */
+/* ---- Expandable folder rows ---- */
 
-.watch-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: var(--space-3) var(--space-4);
-  margin: 0;
+.watch-caret-col {
+  width: 24px;
+  padding-right: 0 !important;
 }
 
-.watch-stats > div {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+.watch-caret {
+  display: inline-block;
+  font-size: 10px;
+  color: var(--fg-2);
+  transition: transform 120ms ease-out;
+  user-select: none;
 }
 
-.watch-stats dt {
+.watch-caret.open {
+  transform: rotate(90deg);
+}
+
+.watch-row-folder:hover {
+  background: var(--bg-2, rgba(0, 0, 0, 0.03));
+}
+
+.watch-files-row > td {
+  border-bottom: 1px solid var(--border, rgba(0, 0, 0, 0.08));
+  background: var(--bg-2, rgba(0, 0, 0, 0.02));
+  padding: var(--space-2) var(--space-3) var(--space-3);
+}
+
+.watch-files-cell {
+  padding-left: var(--space-3) !important;
+}
+
+.watch-files-table {
+  width: 100%;
+  border-collapse: collapse;
   font-size: var(--text-xs);
+}
+
+.watch-files-table th,
+.watch-files-table td {
+  text-align: left;
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--border, rgba(0, 0, 0, 0.05));
+}
+
+.watch-files-table th {
+  font-weight: 600;
+  color: var(--fg-2);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--fg-2);
-  font-weight: 600;
+  font-size: 10px;
 }
 
-.watch-stats dd {
-  margin: 0;
-  font-size: var(--text-lg);
-  font-family: var(--font-mono);
+.watch-files-table td.num,
+.watch-files-table th.num {
+  text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-.watch-stats-note {
-  grid-column: 1 / -1;
-}
-
-.watch-stats-note dd {
-  font-size: var(--text-sm);
-  font-family: inherit;
-  color: var(--fg-2);
+.watch-file-path {
+  font-family: var(--font-mono);
+  word-break: break-all;
+  max-width: 520px;
 }
 
 /* ---- Search form + results ---- */
@@ -209,6 +235,13 @@
   font-family: var(--font-mono);
   font-size: var(--text-sm);
   font-weight: 600;
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--accent-bg, rgba(56, 132, 255, 0.12));
+  color: var(--accent, #1f6feb);
+  border: 1px solid var(--accent-border, rgba(56, 132, 255, 0.35));
+  letter-spacing: 0.01em;
 }
 
 .watch-hit-score {

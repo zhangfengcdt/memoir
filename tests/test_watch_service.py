@@ -437,7 +437,7 @@ def test_watch_skips_oversize_files(memoir_store, tmp_path):
     svc = _build_watch(memoir_store)
     # Manually shrink the size cap.
     svc._write_meta(
-        "watch.config",
+        "config",
         {
             "max_size_mb": 1,
             "summarize_min_chars": 1_000,
@@ -490,7 +490,7 @@ def test_scan_caps_indexed_files_per_run(memoir_store, tmp_path):
 
     # Cap at 3 — 6 files on disk, expect 3 indexed + warning about 3 remaining.
     svc._write_meta(
-        "watch.config",
+        "config",
         {
             "max_size_mb": 100,
             "summarize_min_chars": 1_000,
@@ -530,7 +530,7 @@ def test_scan_cap_does_not_run_deletion_sweep(memoir_store, tmp_path):
     for i in range(5):
         (root / f"f{i}.md").write_text(f"# {i} UPDATED\n")
     svc._write_meta(
-        "watch.config",
+        "config",
         {
             "max_size_mb": 100,
             "summarize_min_chars": 1_000,

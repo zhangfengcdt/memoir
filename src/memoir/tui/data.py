@@ -289,7 +289,7 @@ class DataLoader:
     def get_watch_entries(self) -> list:
         """Return registered watch paths via ``WatchService.list()``.
 
-        Not cached — the call is cheap (reads two ``_meta`` keys) and the
+        Not cached — the call is cheap (reads two ``watch`` keys) and the
         result can change between scans, which we want the TUI to surface
         on refresh without a separate invalidate path.
         """

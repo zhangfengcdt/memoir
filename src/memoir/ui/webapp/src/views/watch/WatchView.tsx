@@ -1,13 +1,27 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   api,
   MemoirApiError,
+  type WatchFile,
   type WatchListResponse,
   type WatchSearchResponse,
-  type WatchStatsResponse,
 } from "../../api/client";
 import { useStore } from "../../state/storeSlice";
 import "./WatchView.css";
+
+/** Format a byte count compactly. */
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+}
+
+/** Render ``abs_path`` relative to the watched root if it lives inside. */
+function relativeTo(absPath: string, root: string): string {
+  if (absPath === root) return absPath;
+  const prefix = root.endsWith("/") ? root : root + "/";
+  return absPath.startsWith(prefix) ? absPath.slice(prefix.length) : absPath;
+}
 
 /** Format an ISO-ish timestamp as a local date+time. */
 function formatTime(s: string | null | undefined): string {
@@ -30,7 +44,6 @@ export default function WatchView() {
   const connected = useStore((s) => s.status === "connected");
 
   const [listData, setListData] = useState<WatchListResponse | null>(null);
-  const [statsData, setStatsData] = useState<WatchStatsResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -40,28 +53,67 @@ export default function WatchView() {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [searching, setSearching] = useState(false);
 
-  // The namespace toggle on the global filter bar isn't shown on this
-  // view (we ship one bar per view). Keep it local — most users use the
-  // default namespace.
-  const namespace = "default";
+  // Per-watched-path expansion state for the "Watched paths" table.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [filesCache, setFilesCache] = useState<
+    Record<string, { loading: boolean; files: WatchFile[]; error: string | null }>
+  >({});
+
+  const toggleExpand = (entryPath: string, kind: string) => {
+    if (kind !== "folder") return;
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(entryPath)) {
+        next.delete(entryPath);
+        return next;
+      }
+      next.add(entryPath);
+      return next;
+    });
+    if (!filesCache[entryPath] && storePath) {
+      setFilesCache((prev) => ({
+        ...prev,
+        [entryPath]: { loading: true, files: [], error: null },
+      }));
+      api
+        .watchFiles(storePath, entryPath)
+        .then((res) => {
+          setFilesCache((prev) => ({
+            ...prev,
+            [entryPath]: {
+              loading: false,
+              files: res.files ?? [],
+              error: res.error,
+            },
+          }));
+        })
+        .catch((err: unknown) => {
+          const msg = err instanceof MemoirApiError ? err.message : String(err);
+          setFilesCache((prev) => ({
+            ...prev,
+            [entryPath]: { loading: false, files: [], error: msg },
+          }));
+        });
+    }
+  };
+
+  // Watched memories live under their own "watch" namespace so they don't
+  // mix with `memoir remember` content under "default".
+  const namespace = "watch";
 
   useEffect(() => {
     let cancelled = false;
     if (!storePath || !connected) {
       setListData(null);
-      setStatsData(null);
       return;
     }
     setLoading(true);
     setLoadError(null);
-    Promise.all([
-      api.watchList(storePath),
-      api.watchStats(storePath, namespace),
-    ])
-      .then(([list, stats]) => {
+    api
+      .watchList(storePath)
+      .then((list) => {
         if (cancelled) return;
         setListData(list);
-        setStatsData(stats);
         setLoading(false);
       })
       .catch((err: unknown) => {
@@ -133,6 +185,7 @@ export default function WatchView() {
           <table className="watch-table">
             <thead>
               <tr>
+                <th className="watch-caret-col"></th>
                 <th>Path</th>
                 <th>Kind</th>
                 <th>Namespace</th>
@@ -142,66 +195,91 @@ export default function WatchView() {
               </tr>
             </thead>
             <tbody>
-              {sortedEntries.map((e) => (
-                <tr key={e.path}>
-                  <td className="watch-path" title={e.path}>
-                    {e.path}
-                  </td>
-                  <td>{e.kind}</td>
-                  <td>{e.namespace}</td>
-                  <td className="num">{e.indexed_count}</td>
-                  <td>{formatTime(e.last_scan)}</td>
-                  <td>{formatTime(e.added_at)}</td>
-                </tr>
-              ))}
+              {sortedEntries.map((e) => {
+                const isFolder = e.kind === "folder";
+                const isOpen = expanded.has(e.path);
+                const cache = filesCache[e.path];
+                return (
+                  <Fragment key={e.path}>
+                    <tr
+                      className={
+                        isFolder ? "watch-row watch-row-folder" : "watch-row"
+                      }
+                      onClick={() => toggleExpand(e.path, e.kind)}
+                      style={{ cursor: isFolder ? "pointer" : "default" }}
+                    >
+                      <td className="watch-caret-col">
+                        {isFolder && (
+                          <span
+                            className={`watch-caret ${isOpen ? "open" : ""}`}
+                            aria-label={isOpen ? "Collapse" : "Expand"}
+                          >
+                            ▶
+                          </span>
+                        )}
+                      </td>
+                      <td className="watch-path" title={e.path}>
+                        {e.path}
+                      </td>
+                      <td>{e.kind}</td>
+                      <td>{e.namespace}</td>
+                      <td className="num">{e.indexed_count}</td>
+                      <td>{formatTime(e.last_scan)}</td>
+                      <td>{formatTime(e.added_at)}</td>
+                    </tr>
+                    {isFolder && isOpen && (
+                      <tr className="watch-files-row">
+                        <td></td>
+                        <td colSpan={6} className="watch-files-cell">
+                          {cache?.loading && (
+                            <p className="watch-loading">Loading files…</p>
+                          )}
+                          {cache?.error && (
+                            <p className="watch-error">{cache.error}</p>
+                          )}
+                          {cache && !cache.loading && !cache.error && (
+                            cache.files.length === 0 ? (
+                              <p className="watch-empty">
+                                No indexed files under this path yet.
+                              </p>
+                            ) : (
+                              <table className="watch-files-table">
+                                <thead>
+                                  <tr>
+                                    <th>File</th>
+                                    <th className="num">Size</th>
+                                    <th className="num">Summary chars</th>
+                                    <th>Indexed</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {cache.files.map((f) => (
+                                    <tr key={f.abs_path}>
+                                      <td
+                                        className="watch-file-path"
+                                        title={f.abs_path}
+                                      >
+                                        {relativeTo(f.abs_path, e.path)}
+                                      </td>
+                                      <td className="num">
+                                        {formatSize(f.size)}
+                                      </td>
+                                      <td className="num">{f.summary_chars}</td>
+                                      <td>{formatTime(f.indexed_at)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            )
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
-        )}
-      </section>
-
-      <section className="watch-section">
-        <header className="watch-section-header">
-          <h2>Proximity index stats</h2>
-          <span className="watch-count">namespace: {namespace}</span>
-        </header>
-        {statsData && !statsData.available && (
-          <p className="watch-empty">
-            Vector index unavailable: {statsData.reason ?? "feature disabled"}.
-          </p>
-        )}
-        {statsData && statsData.available && (
-          <dl className="watch-stats">
-            <div>
-              <dt>Index</dt>
-              <dd>{statsData.index_name ?? "—"}</dd>
-            </div>
-            <div>
-              <dt>Documents</dt>
-              <dd>{statsData.doc_count ?? 0}</dd>
-            </div>
-            <div>
-              <dt>Chunks</dt>
-              <dd>{statsData.chunk_count ?? 0}</dd>
-            </div>
-            <div>
-              <dt>In sync</dt>
-              <dd>{statsData.in_sync ? "yes" : "no"}</dd>
-            </div>
-            <div>
-              <dt>Orphans</dt>
-              <dd>{statsData.orphans ?? 0}</dd>
-            </div>
-            <div>
-              <dt>Missing</dt>
-              <dd>{statsData.missing ?? 0}</dd>
-            </div>
-            {statsData.note && (
-              <div className="watch-stats-note">
-                <dt>Note</dt>
-                <dd>{statsData.note}</dd>
-              </div>
-            )}
-          </dl>
         )}
       </section>
 

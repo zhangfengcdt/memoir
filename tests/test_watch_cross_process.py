@@ -201,13 +201,13 @@ def test_purge_then_fresh_search(memoir_store, docs_dir):
     assert post is None, "purge should have deleted the memory entry"
 
     # And we should still be able to read other parts of the store —
-    # specifically the registry, which lives under _meta.
+    # specifically the registry, which lives under the watch namespace.
     from memoir.services.memory_service import MemoryService
 
     store = MemoryService(str(memoir_store))._get_store()
-    paths_meta = store.get(("_meta",), "watch.paths")
+    paths_meta = store.get(("watch",), "paths")
     assert paths_meta is not None, (
-        "Post-purge fresh open cannot read _meta.watch.paths — purge "
+        "Post-purge fresh open cannot read watch:paths — purge "
         "left the config file pointing at the namespace tree. The "
         "remove(purge=True) code path must end with a VersionedKvStore "
         "write."

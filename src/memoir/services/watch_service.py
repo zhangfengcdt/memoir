@@ -10,13 +10,13 @@ Provides the pipeline behind ``memoir watch``. For each file:
    call), stored via ``MemoryService.remember`` with ``extra_metadata={"source":
    ...}``, and indexed for vector search via ``VectorService``.
 
-State lives in the ``_meta`` namespace alongside ``_meta.last_onboard.*``:
+State lives in the ``watch`` namespace alongside the indexed file content:
 
-- ``_meta.watch.config`` — config dict (max size, summarize threshold, embedder name)
-- ``_meta.watch.paths``  — registry of watched paths
-- ``_meta.watch.files``  — per-file state (content hash, memory keys, mtime, ...)
-                          kept as a single dict; read once per scan,
-                          mutated in memory, written once at end.
+- ``watch:config`` — config dict (max size, summarize threshold, embedder name)
+- ``watch:paths``  — registry of watched paths
+- ``watch:files``  — per-file state (content hash, memory keys, mtime, ...)
+                     kept as a single dict; read once per scan,
+                     mutated in memory, written once at end.
 """
 
 import contextlib
@@ -35,6 +35,8 @@ from memoir.services.memory_service import MemoryService
 from memoir.services.models import (
     WatchAddResult,
     WatchEntry,
+    WatchFileEntry,
+    WatchFilesResult,
     WatchListResult,
     WatchRemoveResult,
     WatchScanResult,
@@ -99,10 +101,10 @@ SUPPORTED_EXTENSIONS = frozenset(
 )
 
 
-_META_NS: tuple[str, ...] = ("_meta",)
-_META_CONFIG_KEY = "watch.config"
-_META_PATHS_KEY = "watch.paths"
-_META_FILES_KEY = "watch.files"
+_WATCH_NS: tuple[str, ...] = ("watch",)
+_CONFIG_KEY = "config"
+_PATHS_KEY = "paths"
+_FILES_KEY = "files"
 
 
 def _now_iso() -> str:
@@ -240,7 +242,7 @@ def supported_extensions() -> set[str]:
 
 
 class WatchService(BaseService):
-    """Orchestrates the per-scan pipeline. Owns ``_meta.watch.*`` reads/writes.
+    """Orchestrates the per-scan pipeline. Owns ``watch:{config,paths,files}`` reads/writes.
 
     Heavy collaborators (markitdown, MemoryService, VectorService,
     IntelligentClassifier) are lazy-initialized so commands that don't touch
@@ -292,46 +294,46 @@ class WatchService(BaseService):
 
     def _read_meta(self, key: str) -> Any:
         try:
-            return self._get_store().get(_META_NS, key)
+            return self._get_store().get(_WATCH_NS, key)
         except Exception as e:
-            logger.debug("read _meta.%s failed (%s); treating as missing", key, e)
+            logger.debug("read watch:%s failed (%s); treating as missing", key, e)
             return None
 
     def _write_meta(self, key: str, value: Any) -> None:
-        self._get_store().put(_META_NS, key, value)
+        self._get_store().put(_WATCH_NS, key, value)
 
     def _read_config(self) -> dict:
-        existing = self._read_meta(_META_CONFIG_KEY)
+        existing = self._read_meta(_CONFIG_KEY)
         if isinstance(existing, dict):
             # Merge so user-set keys aren't clobbered by defaults.
             merged = dict(DEFAULT_CONFIG)
             merged.update(existing)
             return merged
-        self._write_meta(_META_CONFIG_KEY, dict(DEFAULT_CONFIG))
+        self._write_meta(_CONFIG_KEY, dict(DEFAULT_CONFIG))
         return dict(DEFAULT_CONFIG)
 
     def _read_paths(self) -> list[dict]:
-        existing = self._read_meta(_META_PATHS_KEY)
+        existing = self._read_meta(_PATHS_KEY)
         if isinstance(existing, dict) and isinstance(existing.get("paths"), list):
             return list(existing["paths"])
         return []
 
     def _write_paths(self, paths: list[dict]) -> None:
-        self._write_meta(_META_PATHS_KEY, {"paths": paths})
+        self._write_meta(_PATHS_KEY, {"paths": paths})
 
     def _read_files(self) -> dict:
-        existing = self._read_meta(_META_FILES_KEY)
+        existing = self._read_meta(_FILES_KEY)
         if isinstance(existing, dict):
             return existing
         return {}
 
     def _write_files(self, files: dict) -> None:
-        self._write_meta(_META_FILES_KEY, files)
+        self._write_meta(_FILES_KEY, files)
 
     async def add(
         self,
         path: str,
-        namespace: str = "default",
+        namespace: str = "watch",
     ) -> WatchAddResult:
         """Register a file or folder and run the initial scan."""
         abs_path = Path(path).expanduser().resolve()
@@ -409,7 +411,7 @@ class WatchService(BaseService):
 
         results: list[WatchScanResult] = []
         for entry in targets:
-            ns = namespace or entry.get("namespace", "default")
+            ns = namespace or entry.get("namespace", "watch")
             res = await self._scan_path(Path(entry["path"]), namespace=ns)
             results.append(res)
             if res.success:
@@ -437,7 +439,7 @@ class WatchService(BaseService):
                     WatchEntry(
                         path=entry.get("path", ""),
                         kind=entry.get("kind", "folder"),
-                        namespace=entry.get("namespace", "default"),
+                        namespace=entry.get("namespace", "watch"),
                         added_at=entry.get("added_at", ""),
                         last_scan=entry.get("last_scan"),
                         indexed_count=count_by_root.get(entry.get("path", ""), 0),
@@ -446,6 +448,39 @@ class WatchService(BaseService):
         except Exception as e:
             return WatchListResult(success=False, error=str(e))
         return WatchListResult(success=True, entries=entries)
+
+    def files(self, path: str) -> WatchFilesResult:
+        """List every indexed file under ``path`` (the watched root).
+
+        Unlike ``status()`` which caps at the 20 most-recent, this returns
+        every file the watch service has on record for the root.
+        """
+        abs_target = str(Path(path).expanduser().resolve())
+        try:
+            files_state = self._read_files()
+            entries: list[WatchFileEntry] = []
+            for state in files_state.values():
+                if state.get("watched_path") != abs_target:
+                    continue
+                chash = state.get("content_hash") or ""
+                entries.append(
+                    WatchFileEntry(
+                        abs_path=state.get("abs_path", ""),
+                        size=int(state.get("size") or 0),
+                        indexed_at=state.get("indexed_at", ""),
+                        mtime=state.get("mtime"),
+                        summary_chars=int(state.get("summary_chars") or 0),
+                        content_hash=chash[:12] if isinstance(chash, str) else "",
+                    )
+                )
+            entries.sort(key=lambda e: e.abs_path)
+            return WatchFilesResult(
+                success=True, watched_path=abs_target, files=entries
+            )
+        except Exception as e:
+            return WatchFilesResult(
+                success=False, watched_path=abs_target, error=str(e)
+            )
 
     def status(self, path: str) -> WatchStatusResult:
         """Per-path status. Includes recently-changed files (up to 20)."""
@@ -506,9 +541,7 @@ class WatchService(BaseService):
                     if state.get("watched_path") != abs_target:
                         surviving_files[path_hash] = state
                         continue
-                    ns_tuple = self.namespace_to_tuple(
-                        state.get("namespace", "default")
-                    )
+                    ns_tuple = self.namespace_to_tuple(state.get("namespace", "watch"))
                     memory_keys = state.get("memory_keys") or []
                     for k in memory_keys:
                         try:
@@ -522,7 +555,7 @@ class WatchService(BaseService):
                         # same vector via related_keys.
                         try:
                             vector.delete(
-                                state.get("namespace", "default"),
+                                state.get("namespace", "watch"),
                                 memory_keys[0].encode("utf-8"),
                             )
                         except Exception as e:
@@ -535,8 +568,7 @@ class WatchService(BaseService):
                     except Exception as e:
                         logger.warning("purge: vector commit failed: %s", e)
             # Soft remove (purge=False) just drops the registry entry; file
-            # state under _meta.watch.files stays so future re-adds are
-            # idempotent.
+            # state under watch:files stays so future re-adds are idempotent.
 
             self._write_paths(remaining)
             with contextlib.suppress(Exception):
@@ -577,11 +609,11 @@ class WatchService(BaseService):
                 path=str(target),
                 namespace=namespace,
                 error=(
-                    f"_meta.watch.config.embedder is set to "
+                    f"watch:config.embedder is set to "
                     f"{config.get('embedder')!r}, but this build only supports "
-                    f"MiniLmEmbedder. Either reset it via "
-                    f"`memoir put _meta.watch.config ...` or drop the index "
-                    f"and re-scan."
+                    f"MiniLmEmbedder. Reset it with "
+                    f"`memoir forget config -n watch --force` (the next scan "
+                    f"will regenerate the config with the default embedder)."
                 ),
             )
 
@@ -798,7 +830,7 @@ class WatchService(BaseService):
                 abs_path_str = state.get("abs_path", "")
                 if abs_path_str and Path(abs_path_str).exists():
                     continue
-                ns = state.get("namespace", "default")
+                ns = state.get("namespace", "watch")
                 ns_tuple = self.namespace_to_tuple(ns)
                 for k in state.get("memory_keys") or []:
                     try:

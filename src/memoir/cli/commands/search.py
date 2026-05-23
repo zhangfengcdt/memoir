@@ -22,9 +22,9 @@ from memoir.cli.main import (
 @click.option(
     "-n",
     "--namespace",
-    default="default",
+    default="watch",
     show_default=True,
-    help="Search inside this namespace.",
+    help="Search inside this namespace. Defaults to 'watch' since `memoir watch` writes there.",
 )
 @click.option(
     "-k",

@@ -149,6 +149,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         elif parsed_path.path == "/api/watch/list":
             self._ensure_handlers_initialized()
             self.watch_handler.handle_list_api(parsed_path)
+        elif parsed_path.path == "/api/watch/files":
+            self._ensure_handlers_initialized()
+            self.watch_handler.handle_files_api(parsed_path)
         elif parsed_path.path == "/api/watch/stats":
             self._ensure_handlers_initialized()
             self.watch_handler.handle_stats_api(parsed_path)

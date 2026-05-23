@@ -4,8 +4,9 @@
 Three endpoints:
 
 - ``GET /api/watch/list?path=<store>``                     — registered watched paths
-- ``GET /api/watch/stats?path=<store>&namespace=default``  — proximity-tree stats
-- ``GET /api/watch/search?path=<store>&query=...&namespace=default&k=5``
+- ``GET /api/watch/files?path=<store>&watched=<root>``     — indexed files under a watched root
+- ``GET /api/watch/stats?path=<store>&namespace=watch``    — proximity-tree stats
+- ``GET /api/watch/search?path=<store>&query=...&namespace=watch&k=5``
 """
 
 import logging
@@ -35,6 +36,24 @@ class WatchHandler(BaseAPIHandler):
             logger.exception("watch list failed")
             self.send_error_response(str(e))
 
+    def handle_files_api(self, parsed_path):
+        from memoir.services.watch_service import WatchService
+
+        store_path = self._require_store_path(parsed_path)
+        if store_path is None:
+            return
+        params = parse_qs(parsed_path.query)
+        watched = params.get("watched", [None])[0]
+        if not watched:
+            self.send_error_response("Missing 'watched' parameter", 400)
+            return
+        try:
+            result = WatchService(store_path).files(watched)
+            self.send_json_response(result.to_dict())
+        except Exception as e:
+            logger.exception("watch files failed")
+            self.send_error_response(str(e))
+
     def handle_stats_api(self, parsed_path):
         from memoir.services.vector_service import INDEX_NAME, VectorService
 
@@ -42,7 +61,7 @@ class WatchHandler(BaseAPIHandler):
         if store_path is None:
             return
         params = parse_qs(parsed_path.query)
-        namespace = params.get("namespace", ["default"])[0]
+        namespace = params.get("namespace", ["watch"])[0]
 
         if not VectorService.feature_available():
             self.send_json_response(
@@ -115,7 +134,7 @@ class WatchHandler(BaseAPIHandler):
             return
         params = parse_qs(parsed_path.query)
         query = params.get("query", [""])[0]
-        namespace = params.get("namespace", ["default"])[0]
+        namespace = params.get("namespace", ["watch"])[0]
         try:
             k = int(params.get("k", ["5"])[0])
         except ValueError:

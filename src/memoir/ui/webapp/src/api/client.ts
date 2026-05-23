@@ -324,8 +324,8 @@ export const api = {
   watchList: (path: string) =>
     getJSON<WatchListResponse>("/api/watch/list", { path }),
 
-  watchStats: (path: string, namespace = "default") =>
-    getJSON<WatchStatsResponse>("/api/watch/stats", { path, namespace }),
+  watchFiles: (path: string, watched: string) =>
+    getJSON<WatchFilesResponse>("/api/watch/files", { path, watched }),
 
   watchSearch: (
     path: string,
@@ -358,18 +358,21 @@ export interface WatchListResponse {
   error: string | null;
 }
 
-export interface WatchStatsResponse {
-  available: boolean;
-  namespace: string;
-  index_name?: string;
-  opened?: boolean;
-  doc_count?: number;
-  chunk_count?: number;
-  orphans?: number;
-  missing?: number;
-  in_sync?: boolean;
-  reason?: string;
-  note?: string;
+export interface WatchFile {
+  abs_path: string;
+  size: number;
+  indexed_at: string;
+  mtime: number | null;
+  summary_chars: number;
+  content_hash: string;
+}
+
+export interface WatchFilesResponse {
+  success: boolean;
+  watched_path: string;
+  files: WatchFile[];
+  count: number;
+  error: string | null;
 }
 
 export interface WatchSearchHit {

@@ -343,9 +343,26 @@ def cli(
 
     \b
     ENVIRONMENT VARIABLES:
-      MEMOIR_STORE  Default store path (recommended for agents)
-      MEMOIR_JSON   Always output JSON (set to 1)
-      MEMOIR_QUIET  Suppress non-essential output (set to 1)
+      MEMOIR_STORE         Default store path (recommended for agents)
+      MEMOIR_JSON          Always output JSON (set to 1)
+      MEMOIR_QUIET         Suppress non-essential output (set to 1)
+      MEMOIR_LLM_MODEL     Default LLM model (see LLM RESOLUTION below)
+      MEMOIR_LLM_BACKEND   Force LLM backend: 'claude-cli' or 'litellm'
+
+    \b
+    LLM RESOLUTION (shared by `remember`, `watch add`, `watch scan`, ...):
+
+    \b
+      Model selection (memory_service.py:50-52):
+        --model flag  →  MEMOIR_LLM_MODEL env  →  'claude-haiku-4-5' (default)
+
+    \b
+      Backend selection — controlled by MEMOIR_LLM_BACKEND (litellm_client.py:384-417):
+        Condition                                                    | Backend
+        -------------------------------------------------------------+------------------------------------------
+        MEMOIR_LLM_BACKEND=claude-cli                                | ClaudeCLIWrapper → shells out to `claude -p`
+        Claude model + no ANTHROPIC_API_KEY + `claude` binary on PATH| Auto-fallback to ClaudeCLIWrapper
+        Otherwise (Claude with API key, OpenAI, Gemini, etc.)        | LiteLLMWrapper → direct provider HTTP
     """
     # Resolution: -s flag (or MEMOIR_STORE via Click envvar=) → cwd → command-time error.
     # Click already folds MEMOIR_STORE into `store` via envvar="MEMOIR_STORE", so by the

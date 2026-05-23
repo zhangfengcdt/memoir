@@ -50,7 +50,7 @@ For each file under a watched path:
 1. **Filter.** Files under `.git`, `node_modules`, `venv`, `__pycache__`,
    `.DS_Store`, `.idea`, `.vscode` are skipped. Unsupported extensions are
    silently skipped (see `memoir watch formats`).
-2. **Size guard.** Files larger than `_meta.watch.config.max_size_mb` (default
+2. **Size guard.** Files larger than `watch:config.max_size_mb` (default
    100 MB) are skipped with a log entry.
 3. **Hash.** Content hash (blake3 if installed, otherwise sha256). If the
    hash matches the prior scan, nothing happens — this makes re-scans cheap.
@@ -69,7 +69,8 @@ For each file under a watched path:
    primary classified path as the doc id.
 
 All state (config, registered paths, per-file hashes) lives inside the
-memoir store, under the `_meta.watch.*` keys — no sidecar files.
+memoir store, under the `watch:config`, `watch:paths`, `watch:files` keys
+— no sidecar files.
 
 ## CLI reference
 
@@ -88,11 +89,12 @@ memoir search <query> [-n NAMESPACE] [-k INT]
 
 - **Recursion:** folders are walked recursively.
 - **Excludes:** see step 1 above; not user-configurable.
-- **Namespace:** `default` unless `-n` is given.
-- **Max file size:** 100 MB (in `_meta.watch.config.max_size_mb`, editable
-  via `memoir put _meta.watch.config -n _meta`).
+- **Namespace:** `watch` unless `-n` is given.
+- **Max file size:** 100 MB (in `watch:config.max_size_mb`). The config
+  dict is stored on first scan; to reset to defaults, delete it with
+  `memoir forget config -n watch --force` and re-scan.
 - **Summarize threshold:** 10 000 chars (in
-  `_meta.watch.config.summarize_min_chars`).
+  `watch:config.summarize_min_chars`).
 - **Embedder:** `MiniLmEmbedder` (downloads ~90 MB of model weights on
   first run into `~/.cache/prollytree/embedders/`).
 - **LLM model:** resolves via `--model` → `MEMOIR_LLM_MODEL` env →
