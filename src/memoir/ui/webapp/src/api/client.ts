@@ -318,4 +318,75 @@ export const api = {
       "/api/merge-branch",
       { path, source },
     ),
+
+  // ---------- Watch / Search ---------------------------------------------
+
+  watchList: (path: string) =>
+    getJSON<WatchListResponse>("/api/watch/list", { path }),
+
+  watchStats: (path: string, namespace = "default") =>
+    getJSON<WatchStatsResponse>("/api/watch/stats", { path, namespace }),
+
+  watchSearch: (
+    path: string,
+    query: string,
+    opts: { namespace?: string; k?: number } = {},
+  ) =>
+    getJSON<WatchSearchResponse>("/api/watch/search", {
+      path,
+      query,
+      namespace: opts.namespace ?? "default",
+      k: String(opts.k ?? 5),
+    }),
 };
+
+// ---------- Watch / Search response types --------------------------------
+
+export interface WatchEntry {
+  path: string;
+  kind: string; // "file" | "folder"
+  namespace: string;
+  added_at: string;
+  last_scan: string | null;
+  indexed_count: number;
+}
+
+export interface WatchListResponse {
+  success: boolean;
+  entries: WatchEntry[];
+  count: number;
+  error: string | null;
+}
+
+export interface WatchStatsResponse {
+  available: boolean;
+  namespace: string;
+  index_name?: string;
+  opened?: boolean;
+  doc_count?: number;
+  chunk_count?: number;
+  orphans?: number;
+  missing?: number;
+  in_sync?: boolean;
+  reason?: string;
+  note?: string;
+}
+
+export interface WatchSearchHit {
+  key: string;
+  score: number;
+  content: string;
+  namespace: string;
+  source: { kind?: string; abs_path?: string } | null;
+  related_keys: string[];
+}
+
+export interface WatchSearchResponse {
+  success: boolean;
+  query: string;
+  hits: WatchSearchHit[];
+  count: number;
+  namespace: string;
+  timing_ms: number;
+  error: string | null;
+}

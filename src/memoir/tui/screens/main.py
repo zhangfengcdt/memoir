@@ -11,6 +11,7 @@ from textual.widgets import Footer, Static, TabbedContent, TabPane
 
 from memoir.tui.widgets.commits_pane import CommitsPane
 from memoir.tui.widgets.outline_pane import OutlinePane
+from memoir.tui.widgets.watch_pane import WatchPane
 
 if TYPE_CHECKING:
     from textual.app import ComposeResult
@@ -25,6 +26,7 @@ class MainScreen(Screen):
     BINDINGS: ClassVar[list[Binding]] = [
         Binding("1", "show_tab('commits')", "Commits", show=True),
         Binding("2", "show_tab('outline')", "Outline", show=True),
+        Binding("3", "show_tab('watch')", "Watch", show=True),
         Binding("r", "refresh", "Refresh", show=True),
         Binding("question_mark", "help", "Help", show=True),
     ]
@@ -58,6 +60,8 @@ class MainScreen(Screen):
                 yield CommitsPane(self._loader, id="commits-pane")
             with TabPane("Outline", id="outline"):
                 yield OutlinePane(self._loader, id="outline-pane")
+            with TabPane("Watch", id="watch"):
+                yield WatchPane(self._loader, id="watch-pane")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -116,6 +120,7 @@ class MainScreen(Screen):
         # Outline lazy-loads on activation; this kicks the data fetch but
         # the UI only changes when the user opens that tab.
         self.query_one("#outline-pane", OutlinePane).refresh_data()
+        self.query_one("#watch-pane", WatchPane).refresh_data()
 
     # ------------------------------------------------------------------
     # Lazy-load tabs on first activation
@@ -132,3 +137,5 @@ class MainScreen(Screen):
         active = self.query_one("#tabs", TabbedContent).active
         if active == "outline":
             self.query_one("#outline-pane", OutlinePane).ensure_loaded()
+        elif active == "watch":
+            self.query_one("#watch-pane", WatchPane).ensure_loaded()

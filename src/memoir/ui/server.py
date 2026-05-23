@@ -27,6 +27,7 @@ from memoir.ui.handlers.memory_handler import MemoryHandler
 # Import modular handlers
 from memoir.ui.handlers.store_handler import StoreHandler
 from memoir.ui.handlers.utils import UtilityHandler
+from memoir.ui.handlers.watch_handler import WatchHandler
 
 PORT = 8080
 
@@ -72,6 +73,8 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             self.branch_handler = BranchHandler(self)
         if not hasattr(self, "crypto_handler") or self.crypto_handler is None:
             self.crypto_handler = CryptoHandler(self)
+        if not hasattr(self, "watch_handler") or self.watch_handler is None:
+            self.watch_handler = WatchHandler(self)
 
     def send_json_response(self, data, status_code=200):
         """Send JSON response with proper error handling for broken pipes."""
@@ -143,6 +146,15 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_branch_merge_preview_api(parsed_path)
         elif parsed_path.path == "/api/statistics":
             self.handle_statistics_api(parsed_path)
+        elif parsed_path.path == "/api/watch/list":
+            self._ensure_handlers_initialized()
+            self.watch_handler.handle_list_api(parsed_path)
+        elif parsed_path.path == "/api/watch/stats":
+            self._ensure_handlers_initialized()
+            self.watch_handler.handle_stats_api(parsed_path)
+        elif parsed_path.path == "/api/watch/search":
+            self._ensure_handlers_initialized()
+            self.watch_handler.handle_search_api(parsed_path)
         elif parsed_path.path == "/":
             self.path = "/" + self.index_filename
             super().do_GET()

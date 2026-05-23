@@ -9,7 +9,13 @@ import { makeStorage } from "../lib/storage";
  * changing the active tab or drawer from a slash command doesn't risk
  * racing with a fetch in flight.
  */
-export type ViewKey = "commits" | "tree" | "graph" | "timeline" | "places";
+export type ViewKey =
+  | "commits"
+  | "tree"
+  | "graph"
+  | "watch"
+  | "timeline"
+  | "places";
 
 /** All views the app can switch to. Slash commands like ``/timeline``
  * still set these; only the visible tab list narrows them. */
@@ -17,6 +23,7 @@ export const VIEW_KEYS: ViewKey[] = [
   "commits",
   "tree",
   "graph",
+  "watch",
   "timeline",
   "places",
 ];
@@ -24,7 +31,7 @@ export const VIEW_KEYS: ViewKey[] = [
 /** Subset rendered in the tab bar and the collapsed-rail. Timeline and
  * Places are deferred for a later phase — their views still compile so
  * we don't have to delete the work. */
-export const VISIBLE_VIEW_KEYS: ViewKey[] = ["commits", "tree", "graph"];
+export const VISIBLE_VIEW_KEYS: ViewKey[] = ["commits", "tree", "graph", "watch"];
 
 /** Polling interval in ms when ``autoRefresh`` is on. Three seconds is
  * the same cadence the legacy UI's auto-poll used. */
