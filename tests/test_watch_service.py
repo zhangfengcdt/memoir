@@ -442,6 +442,7 @@ def test_watch_skips_oversize_files(memoir_store, tmp_path):
             "max_size_mb": 1,
             "summarize_min_chars": 1_000,
             "summarize_max_chars": 10_000,
+            "max_files_per_scan": 100,
             "embedder": "MiniLmEmbedder",
         },
     )
@@ -449,6 +450,102 @@ def test_watch_skips_oversize_files(memoir_store, tmp_path):
     assert res.success
     assert res.scan.files_skipped_size == 1
     assert res.scan.files_indexed == 1
+
+
+def test_scan_caps_indexed_files_per_run(memoir_store, tmp_path):
+    """Per-scan cap stops the loop once ``max_files_per_scan`` new/changed
+    files have been indexed. Remaining work is reported via a progress
+    warning and is picked up on the next scan."""
+    root = tmp_path / "many"
+    root.mkdir()
+    for i in range(6):
+        (root / f"f{i:02d}.md").write_text(f"# File {i}\n")
+
+    captured: list[str] = []
+
+    svc = WatchService(str(memoir_store), progress=captured.append)
+    # Wire the same fake classifier + markitdown _build_watch uses.
+    fake_cls = MagicMock()
+    fake_cls.classify_input = AsyncMock(
+        return_value=ClassificationResult(
+            is_memory=True,
+            confidence=0.9,
+            confidence_level=ClassificationConfidence.HIGH,
+            reasoning="mocked",
+            suggested_action=ClassificationAction.CLASSIFY,
+            path="knowledge.test.demo",
+            paths=["knowledge.test.demo"],
+        )
+    )
+    svc._get_memory_service()._classifier = fake_cls
+    svc._classifier = fake_cls
+
+    class _FakeMd:
+        def convert(self, path):
+            r = MagicMock()
+            r.text_content = Path(path).read_text()
+            return r
+
+    svc._markitdown_factory = lambda: _FakeMd()
+
+    # Cap at 3 — 6 files on disk, expect 3 indexed + warning about 3 remaining.
+    svc._write_meta(
+        "watch.config",
+        {
+            "max_size_mb": 100,
+            "summarize_min_chars": 1_000,
+            "summarize_max_chars": 10_000,
+            "max_files_per_scan": 3,
+            "embedder": "MiniLmEmbedder",
+        },
+    )
+    res = asyncio.run(svc.add(str(root), namespace="default"))
+    assert res.success
+    assert res.scan.files_indexed == 3
+    assert any("scan cap reached" in line for line in captured), captured
+    assert any("3 file(s) remain" in line for line in captured), captured
+
+    # Second scan should pick up the remaining 3.
+    captured.clear()
+    rescans = asyncio.run(svc.scan(path=str(root)))
+    assert rescans[0].files_indexed == 3
+    assert rescans[0].files_unchanged == 3
+    assert not any("scan cap reached" in line for line in captured)
+
+
+def test_scan_cap_does_not_run_deletion_sweep(memoir_store, tmp_path):
+    """When the cap fires mid-scan, the deletion sweep must NOT run —
+    seen_path_keys is partial and would mark unvisited files as deleted."""
+    root = tmp_path / "del-safety"
+    root.mkdir()
+    for i in range(5):
+        (root / f"f{i}.md").write_text(f"# {i}\n")
+
+    svc = _build_watch(memoir_store)
+    # First scan: index everything (5 files) with default cap (100).
+    res = asyncio.run(svc.add(str(root), namespace="default"))
+    assert res.scan.files_indexed == 5
+
+    # Now mutate ALL files so they're all "changed", and drop the cap to 2.
+    for i in range(5):
+        (root / f"f{i}.md").write_text(f"# {i} UPDATED\n")
+    svc._write_meta(
+        "watch.config",
+        {
+            "max_size_mb": 100,
+            "summarize_min_chars": 1_000,
+            "summarize_max_chars": 10_000,
+            "max_files_per_scan": 2,
+            "embedder": "MiniLmEmbedder",
+        },
+    )
+    rescans = asyncio.run(svc.scan(path=str(root)))
+    r = rescans[0]
+    assert r.files_indexed == 2
+    # Critical: even though 3 files were unvisited, no deletions reported.
+    assert r.files_deleted == 0
+    # All 5 entries should still be in files_state — none torn down.
+    assert len(svc._read_files()) == 5
 
 
 def test_watch_skips_unsupported_extensions(memoir_store, tmp_path):

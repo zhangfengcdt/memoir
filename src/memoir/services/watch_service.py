@@ -59,6 +59,12 @@ DEFAULT_CONFIG = {
     # regardless of input doc size.
     "summarize_min_chars": 1_000,
     "summarize_max_chars": 10_000,
+    # Cap how many files a single ``scan`` will index (new or changed).
+    # Unchanged files (hash match) don't count — they're cheap. When the
+    # cap is hit the scan prints a warning naming the remaining count so
+    # the user can re-run; the deletion sweep is skipped too (we haven't
+    # visited every file, so we can't tell what's truly gone).
+    "max_files_per_scan": 100,
     "embedder": "MiniLmEmbedder",
 }
 
@@ -556,6 +562,7 @@ class WatchService(BaseService):
         max_bytes = int(config.get("max_size_mb", 100)) * 1024 * 1024
         summarize_min = int(config.get("summarize_min_chars", 1_000))
         summarize_max = int(config.get("summarize_max_chars", 10_000))
+        max_files_per_scan = int(config.get("max_files_per_scan", 100))
 
         # Embedder identity guard: prollytree rejects reopen with a different
         # embedder than the one persisted at first open.
@@ -612,7 +619,21 @@ class WatchService(BaseService):
         target_str = str(target)
 
         total = len(candidates)
+        # Track whether we processed every candidate. If the per-scan cap
+        # cuts the loop short, we skip the deletion sweep — incomplete
+        # seen_path_keys would otherwise mis-classify unvisited files as
+        # deletions and tear them down.
+        scan_complete = True
+        remaining_after_cap = 0
         for idx, p in enumerate(candidates, start=1):
+            # Cap fires BEFORE this file would be processed, so the warning
+            # at end-of-scan can report the exact remaining count.
+            if stats["files_indexed"] >= max_files_per_scan:
+                scan_complete = False
+                # Everything from this point onward — even unchanged files —
+                # is unvisited from the deletion-sweep's perspective.
+                remaining_after_cap = total - idx + 1
+                break
             seen_path_keys.add(_abs_path_hash(p))
             try:
                 size = p.stat().st_size
@@ -766,27 +787,38 @@ class WatchService(BaseService):
         # but whose path-hash wasn't seen on disk this scan. We additionally
         # confirm the file is genuinely missing (not just filtered out by
         # exclude/extension/oversize rules) before tearing down the entry.
-        for path_key, state in list(files_state.items()):
-            if state.get("watched_path") != target_str:
-                continue
-            if path_key in seen_path_keys:
-                continue
-            abs_path_str = state.get("abs_path", "")
-            if abs_path_str and Path(abs_path_str).exists():
-                continue
-            ns = state.get("namespace", "default")
-            ns_tuple = self.namespace_to_tuple(ns)
-            for k in state.get("memory_keys") or []:
-                try:
-                    store.delete(ns_tuple, k)
-                except Exception as e:
-                    logger.warning("scan: delete %s/%s failed: %s", ns_tuple, k, e)
-            if vector and (state.get("memory_keys") or []):
-                with contextlib.suppress(Exception):
-                    vector.delete(ns, state["memory_keys"][0].encode("utf-8"))
-            files_state.pop(path_key, None)
-            stats["files_deleted"] += 1
-            self._progress(f"deleted: {abs_path_str}")
+        # Skipped when the per-scan cap fired — seen_path_keys is partial,
+        # so any unvisited file would be wrongly treated as deleted.
+        if scan_complete:
+            for path_key, state in list(files_state.items()):
+                if state.get("watched_path") != target_str:
+                    continue
+                if path_key in seen_path_keys:
+                    continue
+                abs_path_str = state.get("abs_path", "")
+                if abs_path_str and Path(abs_path_str).exists():
+                    continue
+                ns = state.get("namespace", "default")
+                ns_tuple = self.namespace_to_tuple(ns)
+                for k in state.get("memory_keys") or []:
+                    try:
+                        store.delete(ns_tuple, k)
+                    except Exception as e:
+                        logger.warning("scan: delete %s/%s failed: %s", ns_tuple, k, e)
+                if vector and (state.get("memory_keys") or []):
+                    with contextlib.suppress(Exception):
+                        vector.delete(ns, state["memory_keys"][0].encode("utf-8"))
+                files_state.pop(path_key, None)
+                stats["files_deleted"] += 1
+                self._progress(f"deleted: {abs_path_str}")
+
+        if not scan_complete:
+            self._progress(
+                f"⚠ scan cap reached: indexed {stats['files_indexed']} files "
+                f"(max_files_per_scan={max_files_per_scan}); "
+                f"{remaining_after_cap} file(s) remain — re-run `memoir watch scan` "
+                f"to continue. Deletion detection skipped on this partial scan."
+            )
 
         self._write_files(files_state)
 
