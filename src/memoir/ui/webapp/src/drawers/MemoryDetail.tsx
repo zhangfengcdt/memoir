@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { marked } from "marked";
 import type { BlameEntry, Memory } from "../api/types";
 import { api, MemoirApiError } from "../api/client";
 import { useStore } from "../state/storeSlice";
@@ -44,6 +45,7 @@ export default function MemoryDetail({ memory }: MemoryDetailProps) {
   const [copied, setCopied] = useState<"key" | "namespace" | null>(null);
   const [confirmingForget, setConfirmingForget] = useState(false);
   const [forgetting, setForgetting] = useState(false);
+  const [viewingMarkdown, setViewingMarkdown] = useState(false);
 
   // Reset local edit state whenever the user picks a different memory.
   useEffect(() => {
@@ -53,7 +55,28 @@ export default function MemoryDetail({ memory }: MemoryDetailProps) {
     setError(null);
     setConfirmingForget(false);
     setForgetting(false);
+    setViewingMarkdown(false);
   }, [memory.key]);
+
+  // Close the markdown viewer on Escape.
+  useEffect(() => {
+    if (!viewingMarkdown) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setViewingMarkdown(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [viewingMarkdown]);
+
+  const renderedMarkdown = useMemo(() => {
+    if (!viewingMarkdown) return "";
+    // `marked.parse` returns a Promise when used with async extensions; the
+    // default sync renderer returns a string. Cast accordingly.
+    return marked.parse(content, { async: false, breaks: true, gfm: true }) as string;
+  }, [viewingMarkdown, content]);
 
   const dirty = content !== (memory.content ?? "");
 
@@ -257,6 +280,15 @@ export default function MemoryDetail({ memory }: MemoryDetailProps) {
         </button>
         <button
           type="button"
+          className="btn btn-secondary btn-sm"
+          onClick={() => setViewingMarkdown(true)}
+          disabled={!content.trim()}
+          title="Render the current content as Markdown in a popup"
+        >
+          View
+        </button>
+        <button
+          type="button"
           className="btn btn-sm memory-forget-btn"
           onClick={onForgetClick}
           disabled={!writable || saving || forgetting}
@@ -320,6 +352,42 @@ export default function MemoryDetail({ memory }: MemoryDetailProps) {
        * for single-key memories. Each chip navigates the drawer to that key
        * via the same path the graph uses. */}
       <RelatedKeysSection memory={memory} />
+
+      {viewingMarkdown && (
+        <div
+          className="md-viewer-backdrop"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setViewingMarkdown(false);
+          }}
+        >
+          <div
+            className="md-viewer-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="md-viewer-title"
+          >
+            <header className="md-viewer-header">
+              <h2 id="md-viewer-title" className="md-viewer-title" title={memory.key}>
+                {memory.key}
+              </h2>
+              <button
+                type="button"
+                className="md-viewer-close"
+                onClick={() => setViewingMarkdown(false)}
+                aria-label="Close"
+                title="Close (Esc)"
+              >
+                ×
+              </button>
+            </header>
+            <div
+              className="md-viewer-body"
+              dangerouslySetInnerHTML={{ __html: renderedMarkdown }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
