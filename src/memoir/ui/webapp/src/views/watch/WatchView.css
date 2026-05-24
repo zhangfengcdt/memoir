@@ -153,11 +153,107 @@
 
 /* ---- Search form + results ---- */
 
-.watch-search-form {
+.watch-search-form,
+.watch-add-form {
   display: flex;
   align-items: center;
   gap: var(--space-3);
   flex-wrap: wrap;
+}
+
+.watch-add-input {
+  flex: 1 1 360px;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.16));
+  border-radius: 6px;
+  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+}
+
+.watch-add-button {
+  padding: var(--space-2) var(--space-4);
+  border-radius: 6px;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.watch-add-button:disabled,
+.watch-scan-all-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.watch-scan-all-button {
+  padding: var(--space-2) var(--space-4);
+  border-radius: 6px;
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.watch-actions-col {
+  width: 130px;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.watch-row-action {
+  margin-left: var(--space-1);
+  padding: 2px 8px;
+  font-size: var(--text-xs);
+  border-radius: 4px;
+  border: 1px solid var(--border, rgba(0, 0, 0, 0.16));
+  background: var(--bg-1, transparent);
+  cursor: pointer;
+}
+
+.watch-row-action:hover:not(:disabled) {
+  background: var(--bg-2, rgba(0, 0, 0, 0.05));
+}
+
+.watch-row-action:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.watch-row-action-danger {
+  color: var(--danger, #c53030);
+  border-color: rgba(220, 38, 38, 0.35);
+}
+
+.watch-row-action-danger:hover:not(:disabled) {
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.watch-badge {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: 1px 8px;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.watch-badge-indexing {
+  background: var(--accent-bg, rgba(56, 132, 255, 0.16));
+  color: var(--accent, #1f6feb);
+  border: 1px solid var(--accent-border, rgba(56, 132, 255, 0.35));
+  animation: watch-badge-pulse 1.4s ease-in-out infinite;
+}
+
+.watch-badge-error {
+  background: rgba(220, 38, 38, 0.12);
+  color: var(--danger, #c53030);
+  border: 1px solid rgba(220, 38, 38, 0.35);
+}
+
+@keyframes watch-badge-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.55; }
 }
 
 .watch-search-input {

@@ -59,6 +59,23 @@ export default function WatchView() {
     Record<string, { loading: boolean; files: WatchFile[]; error: string | null }>
   >({});
 
+  // Add-file form state.
+  const [addPath, setAddPath] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
+
+  // Per-path remove state. Tracks paths currently being removed so the
+  // row's Remove button can show a "removing…" label without blocking
+  // the rest of the table.
+  const [removing, setRemoving] = useState<Set<string>>(new Set());
+
+  // Monotonic refresh trigger. Incrementing this re-fires the load
+  // effect, which re-fetches /api/watch/list. Handlers bump it after a
+  // mutating action (add/scan/scan-all/remove) so the table updates
+  // without the user manually reloading.
+  const [refreshTick, setRefreshTick] = useState(0);
+  const refresh = () => setRefreshTick((n) => n + 1);
+
   const toggleExpand = (entryPath: string, kind: string) => {
     if (kind !== "folder") return;
     setExpanded((prev) => {
@@ -103,30 +120,50 @@ export default function WatchView() {
 
   useEffect(() => {
     let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
     if (!storePath || !connected) {
       setListData(null);
       return;
     }
-    setLoading(true);
-    setLoadError(null);
-    api
-      .watchList(storePath)
-      .then((list) => {
-        if (cancelled) return;
-        setListData(list);
-        setLoading(false);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        const msg =
-          err instanceof MemoirApiError ? err.message : String(err);
-        setLoadError(msg);
-        setLoading(false);
-      });
+
+    // Poll while any row is indexing. The interval is short while there's
+    // an in-flight scan (2s) and stops once everything's settled — the
+    // user can refresh manually by switching views to re-trigger this
+    // effect.
+    let firstRun = true;
+    const tick = () => {
+      if (firstRun) {
+        setLoading(true);
+        firstRun = false;
+      }
+      setLoadError(null);
+      api
+        .watchList(storePath)
+        .then((list) => {
+          if (cancelled) return;
+          setListData(list);
+          setLoading(false);
+          const anyIndexing = (list.entries ?? []).some((e) => e.indexing);
+          if (anyIndexing) {
+            timer = setTimeout(tick, 2000);
+          }
+        })
+        .catch((err: unknown) => {
+          if (cancelled) return;
+          const msg =
+            err instanceof MemoirApiError ? err.message : String(err);
+          setLoadError(msg);
+          setLoading(false);
+        });
+    };
+    tick();
     return () => {
       cancelled = true;
+      if (timer) clearTimeout(timer);
     };
-  }, [storePath, connected]);
+    // Bumping ``refreshTick`` re-runs this effect so add/scan/remove
+    // handlers can request an immediate re-fetch.
+  }, [storePath, connected, refreshTick]);
 
   const sortedEntries = useMemo(() => {
     if (!listData?.entries) return [];
@@ -134,6 +171,98 @@ export default function WatchView() {
       a.path.localeCompare(b.path),
     );
   }, [listData]);
+
+  const onScanAll = async () => {
+    if (!storePath) return;
+    try {
+      const res = await api.watchScanAll(storePath);
+      if (res.scheduled === 0) {
+        setAddError("No watched files to scan.");
+        return;
+      }
+      // Re-fetch so the polling loop picks up the indexing badges as
+      // the server walks the registry.
+      refresh();
+    } catch (err: unknown) {
+      const msg =
+        err instanceof MemoirApiError ? err.message : String(err);
+      setAddError(`scan all failed: ${msg}`);
+    }
+  };
+
+  const onScanRow = async (e: React.MouseEvent, entryPath: string) => {
+    e.stopPropagation();
+    if (!storePath) return;
+    try {
+      await api.watchScanPath(storePath, entryPath);
+      refresh();
+    } catch (err: unknown) {
+      const msg =
+        err instanceof MemoirApiError ? err.message : String(err);
+      setAddError(`scan failed: ${msg}`);
+    }
+  };
+
+  const onRemoveRow = async (e: React.MouseEvent, entryPath: string) => {
+    e.stopPropagation();
+    if (!storePath) return;
+    const ok = window.confirm(
+      `Remove this watched file and delete all of its indexed memories?\n\n${entryPath}\n\nThis cannot be undone (data + vector entries are purged).`,
+    );
+    if (!ok) return;
+    setRemoving((prev) => {
+      const next = new Set(prev);
+      next.add(entryPath);
+      return next;
+    });
+    try {
+      await api.watchRemovePath(storePath, entryPath);
+      // Optimistic local prune so the row vanishes immediately — don't
+      // wait for the network round-trip + re-render path. The refresh()
+      // below also fires a fresh /api/watch/list to reconcile.
+      setListData((prev) =>
+        prev
+          ? {
+              ...prev,
+              entries: prev.entries.filter((row) => row.path !== entryPath),
+              count: Math.max(0, (prev.count ?? 0) - 1),
+            }
+          : prev,
+      );
+      refresh();
+    } catch (err: unknown) {
+      const msg =
+        err instanceof MemoirApiError ? err.message : String(err);
+      setAddError(`remove failed: ${msg}`);
+    } finally {
+      setRemoving((prev) => {
+        const next = new Set(prev);
+        next.delete(entryPath);
+        return next;
+      });
+    }
+  };
+
+  const onAddFile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!storePath || !addPath.trim()) return;
+    setAdding(true);
+    setAddError(null);
+    try {
+      await api.watchAddPath(storePath, addPath.trim());
+      setAddPath("");
+      // Re-fetch so the new row shows up immediately with the indexing
+      // badge; subsequent polls keep it updated until the server-side
+      // scan completes.
+      refresh();
+    } catch (err: unknown) {
+      const msg =
+        err instanceof MemoirApiError ? err.message : String(err);
+      setAddError(msg);
+    } finally {
+      setAdding(false);
+    }
+  };
 
   const onSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -173,6 +302,38 @@ export default function WatchView() {
             <span className="watch-count">{listData.count} registered</span>
           )}
         </header>
+        <form className="watch-add-form" onSubmit={onAddFile}>
+          <input
+            type="text"
+            value={addPath}
+            onChange={(e) => setAddPath(e.target.value)}
+            placeholder="Absolute path to a file (e.g. /Users/you/Desktop/notes.md)"
+            className="watch-add-input"
+            disabled={adding}
+          />
+          <button
+            type="submit"
+            disabled={adding || !addPath.trim()}
+            className="btn watch-add-button"
+            title="Kick off indexing for this file. Returns immediately; the row shows 'indexing…' until the server finishes."
+          >
+            {adding ? "Adding…" : "Add file"}
+          </button>
+          <button
+            type="button"
+            onClick={onScanAll}
+            disabled={
+              !listData ||
+              listData.entries.length === 0 ||
+              (listData.entries ?? []).some((e) => e.indexing)
+            }
+            className="btn watch-scan-all-button"
+            title="Re-scan every registered file, one at a time. Each row lights up 'indexing…' as the server gets to it."
+          >
+            Scan all
+          </button>
+        </form>
+        {addError && <p className="watch-error">{addError}</p>}
         {loading && <p className="watch-loading">Loading…</p>}
         {loadError && <p className="watch-error">{loadError}</p>}
         {!loading && !loadError && sortedEntries.length === 0 && (
@@ -192,6 +353,7 @@ export default function WatchView() {
                 <th className="num">Indexed</th>
                 <th>Last scan</th>
                 <th>Added</th>
+                <th className="watch-actions-col">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -220,17 +382,53 @@ export default function WatchView() {
                       </td>
                       <td className="watch-path" title={e.path}>
                         {e.path}
+                        {e.indexing && (
+                          <span
+                            className="watch-badge watch-badge-indexing"
+                            title="Server is indexing this file in the background."
+                          >
+                            indexing…
+                          </span>
+                        )}
+                        {!e.indexing && e.indexing_error && (
+                          <span
+                            className="watch-badge watch-badge-error"
+                            title={e.indexing_error}
+                          >
+                            failed
+                          </span>
+                        )}
                       </td>
                       <td>{e.kind}</td>
                       <td>{e.namespace}</td>
                       <td className="num">{e.indexed_count}</td>
                       <td>{formatTime(e.last_scan)}</td>
                       <td>{formatTime(e.added_at)}</td>
+                      <td className="watch-actions-col">
+                        <button
+                          type="button"
+                          className="btn btn-sm watch-row-action"
+                          onClick={(ev) => onScanRow(ev, e.path)}
+                          disabled={e.indexing || removing.has(e.path)}
+                          title="Re-index this file. Picks up content changes; same indexing pipeline as the initial add."
+                        >
+                          Scan
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-sm watch-row-action watch-row-action-danger"
+                          onClick={(ev) => onRemoveRow(ev, e.path)}
+                          disabled={e.indexing || removing.has(e.path)}
+                          title="Unregister this file and purge every raw.<file>.* key from KV + vector. Cannot be undone."
+                        >
+                          {removing.has(e.path) ? "Removing…" : "Remove"}
+                        </button>
+                      </td>
                     </tr>
                     {isFolder && isOpen && (
                       <tr className="watch-files-row">
                         <td></td>
-                        <td colSpan={6} className="watch-files-cell">
+                        <td colSpan={7} className="watch-files-cell">
                           {cache?.loading && (
                             <p className="watch-loading">Loading files…</p>
                           )}

@@ -190,6 +190,18 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         if parsed_path.path == "/api/remember":
             self._ensure_handlers_initialized()
             self.memory_handler.handle_remember_api()
+        elif parsed_path.path == "/api/watch/add":
+            self._ensure_handlers_initialized()
+            self.watch_handler.handle_add_api()
+        elif parsed_path.path == "/api/watch/remove":
+            self._ensure_handlers_initialized()
+            self.watch_handler.handle_remove_api()
+        elif parsed_path.path == "/api/watch/scan":
+            self._ensure_handlers_initialized()
+            self.watch_handler.handle_scan_api()
+        elif parsed_path.path == "/api/watch/scan-all":
+            self._ensure_handlers_initialized()
+            self.watch_handler.handle_scan_all_api()
         elif parsed_path.path == "/api/forget":
             self._ensure_handlers_initialized()
             self.memory_handler.handle_forget_api()
