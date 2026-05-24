@@ -505,7 +505,9 @@ class IntelligentClassifier:
             "  - Slices are non-overlapping and follow the document order.",
             "  - Each slice MUST be a coherent topic. DO NOT split mid-paragraph or mid-list — only split when the topic clearly shifts.",
             "  - Prefer FEWER, LARGER slices. Most documents need 1-5 slices. Only use more when the document covers many distinct topics.",
-            "  - Hard maximum: " + str(max_slices) + " slices total. A short document with one topic should produce exactly 1 slice.",
+            "  - Hard maximum: "
+            + str(max_slices)
+            + " slices total. A short document with one topic should produce exactly 1 slice.",
             "  - Repetitive content (lists of similar URLs, tables of similar rows, log lines) belongs in ONE slice, not many.",
             "  - You may omit text that has no useful classifiable content (boilerplate, navigation, repeated material).",
             "",
@@ -521,7 +523,11 @@ class IntelligentClassifier:
             "  - Use existing paths where they fit. Invent new paths in the same 3-level shape if nothing fits.",
             "  - Each slice gets 1-2 paths in ``paths`` (multi-label allowed when a slice spans two clear topics).",
             "",
-            "Known top-level categories: " + ", ".join(first_level) if first_level else "",
+            (
+                "Known top-level categories: " + ", ".join(first_level)
+                if first_level
+                else ""
+            ),
             "",
             "Existing paths (first 200 shown for guidance):",
         ]
@@ -547,7 +553,9 @@ class IntelligentClassifier:
                 "",
                 "[DYNAMIC_SECTION_START]",
                 "",
-                "DOCUMENT TO SLICE AND CLASSIFY (length: " + str(len(text)) + " chars):",
+                "DOCUMENT TO SLICE AND CLASSIFY (length: "
+                + str(len(text))
+                + " chars):",
                 "",
                 text,
                 "",
@@ -567,12 +575,12 @@ class IntelligentClassifier:
         slice than produce a mid-character truncation."""
         chunk_len = len(chunk_text)
         try:
-            content = response.content if hasattr(response, "content") else str(response)
+            content = (
+                response.content if hasattr(response, "content") else str(response)
+            )
             start_idx = content.find("{")
             if start_idx == -1:
-                logger.warning(
-                    "Slice response has no JSON object: %r", content[:200]
-                )
+                logger.warning("Slice response has no JSON object: %r", content[:200])
                 return []
             # Brace-match to find the matching close.
             brace = 0
@@ -603,9 +611,7 @@ class IntelligentClassifier:
                     continue
                 start_anchor = s.get("start_anchor")
                 end_anchor = s.get("end_anchor")
-                if not isinstance(start_anchor, str) or not isinstance(
-                    end_anchor, str
-                ):
+                if not isinstance(start_anchor, str) or not isinstance(end_anchor, str):
                     continue
                 start_anchor = start_anchor.strip()
                 end_anchor = end_anchor.strip()

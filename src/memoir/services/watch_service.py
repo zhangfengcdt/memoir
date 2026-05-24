@@ -683,8 +683,8 @@ class WatchService(BaseService):
                     # LLM produced no usable slices — fall back to a single
                     # whole-file slice classified to a synthetic path. Keeps
                     # the file searchable rather than silently dropping it.
-                    fallback_path = (
-                        "knowledge.files." + _sanitize_path_component(p.stem)
+                    fallback_path = "knowledge.files." + _sanitize_path_component(
+                        p.stem
                     )
                     slices = [
                         SliceClassification(
@@ -731,30 +731,46 @@ class WatchService(BaseService):
                 # also classify to that path get a numeric suffix (`.2`, `.3`).
                 # Most files end up with clean unsuffixed keys; only genuine
                 # repeated classifications within one file pick up the suffix.
+                # Inlined below rather than wrapped in a closure to satisfy
+                # ruff's B023 (closure-over-loop-variable) — the dict lives
+                # inside this for-iter so a closure would technically be
+                # late-bound to whichever ``path_usage`` exists at call time.
                 path_usage: dict[str, int] = {}
 
-                def _disambiguate(path: str) -> str:
-                    n = path_usage.get(path, 0) + 1
-                    path_usage[path] = n
-                    return path if n == 1 else f"{path}.{n}"
+                # Each slice is stored under both its classified taxonomy
+                # path(s) AND a per-file ``raw.<filename>.sNNN`` key — the
+                # raw key gives a stable filename-based lookup independent
+                # of how the LLM classified the content. Both keys hold the
+                # same slice text.
+                file_token = _sanitize_path_component(p.name)
 
                 for s_idx, sl in enumerate(slices):
                     slice_text = text[sl.start : sl.end]
                     if not slice_text.strip():
                         continue
                     primary = sl.paths[0]
-                    slice_paths = [_disambiguate(pp) for pp in sl.paths]
-                    primary_key = slice_paths[0]
+                    classified_paths: list[str] = []
+                    for pp in sl.paths:
+                        n = path_usage.get(pp, 0) + 1
+                        path_usage[pp] = n
+                        classified_paths.append(pp if n == 1 else f"{pp}.{n}")
+                    raw_key = f"raw.{file_token}.s{s_idx + 1:03d}"
+                    # Same content is written under classified + raw keys.
+                    # MemoryService.remember(paths=[...]) records each as a
+                    # sibling of the others via ``related_keys``, so the UI
+                    # can navigate raw ↔ classified for any slice.
+                    all_keys = [*classified_paths, raw_key]
+                    primary_key = classified_paths[0]
 
                     self._vprogress(
                         f"  → slice {s_idx}: chars [{sl.start},{sl.end}) → "
-                        f"{slice_paths} conf={sl.confidence:.2f}"
+                        f"{all_keys} conf={sl.confidence:.2f}"
                     )
 
                     try:
                         await memory_service.remember(
                             content=slice_text,
-                            paths=slice_paths,
+                            paths=all_keys,
                             namespace=namespace,
                             replace=True,
                             extra_metadata={
@@ -764,6 +780,7 @@ class WatchService(BaseService):
                                     "slice_start": sl.start,
                                     "slice_end": sl.end,
                                     "slice_primary_path": primary,
+                                    "raw_key": raw_key,
                                 }
                             },
                         )
@@ -772,7 +789,7 @@ class WatchService(BaseService):
                             "remember failed for %s slice %d: %s", p, s_idx, e
                         )
                         continue
-                    new_keys.extend(slice_paths)
+                    new_keys.extend(all_keys)
 
                     # Vector index — one doc per slice, best-effort.
                     if vector is not None:
@@ -953,4 +970,3 @@ class WatchService(BaseService):
         except Exception as e:
             logger.warning("markitdown.convert failed on %s: %s", p, e)
             return None
-

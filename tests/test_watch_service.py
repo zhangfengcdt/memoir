@@ -370,7 +370,11 @@ def test_remove_with_purge_deletes_index_entries(memoir_store, docs_dir):
 
     ms = MemoryService(str(memoir_store))
     store = ms._get_store()
-    for key in ("knowledge.test.demo", "knowledge.test.demo.2", "knowledge.test.demo.3"):
+    for key in (
+        "knowledge.test.demo",
+        "knowledge.test.demo.2",
+        "knowledge.test.demo.3",
+    ):
         v = store.get(("default",), key)
         assert v is None, v
 
@@ -500,6 +504,6 @@ def test_keyboard_interrupt_saves_partial_progress(memoir_store, tmp_path):
     # last_scan was updated on each path that completed at least its
     # partial scan loop (including the interrupted one).
     paths_meta = svc._read_paths()
-    assert any(p.get("last_scan") is not None for p in paths_meta), (
-        "at least one path's last_scan must be set after a successful scan"
-    )
+    assert any(
+        p.get("last_scan") is not None for p in paths_meta
+    ), "at least one path's last_scan must be set after a successful scan"

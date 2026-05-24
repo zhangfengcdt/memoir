@@ -89,7 +89,10 @@ def watch_add(ctx: MemoirContext, path: str, namespace: str, model: str | None):
     try:
         result = asyncio.run(service.add(path, namespace=namespace))
     except KeyboardInterrupt:
-        click.echo(click.style("\n⚠ ", fg="yellow") + "Scan interrupted — partial progress saved.")
+        click.echo(
+            click.style("\n⚠ ", fg="yellow")
+            + "Scan interrupted — partial progress saved."
+        )
         return
     except Exception as e:
         ctx.error(f"Failed to add watch: {e}", EXIT_ERROR)
@@ -195,7 +198,10 @@ def watch_scan(
     try:
         results = asyncio.run(service.scan(path=path, namespace=namespace))
     except KeyboardInterrupt:
-        click.echo(click.style("\n⚠ ", fg="yellow") + "Scan interrupted — partial progress saved.")
+        click.echo(
+            click.style("\n⚠ ", fg="yellow")
+            + "Scan interrupted — partial progress saved."
+        )
         return
     except Exception as e:
         ctx.error(f"watch scan failed: {e}", EXIT_ERROR)
