@@ -369,7 +369,10 @@ def test_remove_with_purge_deletes_index_entries(memoir_store, docs_dir):
             assert v is None, (k, v)
 
 
-def test_remove_without_purge_unregisters_only(memoir_store, docs_dir):
+def test_remove_purges_regardless_of_purge_flag(memoir_store, docs_dir):
+    """``purge=False`` (the old soft-remove mode) is no longer supported;
+    remove() always cleans up. Confirm passing purge=False still yields
+    a full purge (files_removed > 0)."""
     svc = _build_watch(memoir_store)
     _add_all_files(svc, docs_dir)
 
@@ -377,7 +380,7 @@ def test_remove_without_purge_unregisters_only(memoir_store, docs_dir):
     for f in files:
         rm = svc.remove(str(f), purge=False)
         assert rm.success
-        assert rm.files_removed == 0  # nothing deleted
+        assert rm.files_removed == 1, "remove should always purge now"
     assert svc.list().entries == []
 
 

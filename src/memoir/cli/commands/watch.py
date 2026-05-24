@@ -244,31 +244,31 @@ def watch_scan(
 @click.option(
     "--purge",
     is_flag=True,
-    default=False,
+    default=True,
     help=(
-        "Also delete every memory + vector-index entry that came from this "
-        "path. Without --purge the path is just unregistered; existing "
-        "indexed entries stay in the store."
+        "Retained for back-compat; remove now ALWAYS deletes every "
+        "memory + vector-index entry that came from this path."
     ),
 )
 @pass_context
 def watch_remove(ctx: MemoirContext, path: str, purge: bool):
-    """Unregister PATH. Use --purge to also delete its indexed memories."""
+    """Unregister PATH and delete every ``raw.<file>.*`` key it indexed
+    from both the watch namespace KV and the vector index."""
+    del purge  # behavior is always full cleanup now.
     if not ctx.store_path:
         ctx.error("No store configured.", EXIT_NO_STORE)
 
     from memoir.services.watch_service import WatchService
 
-    result = WatchService(ctx.store_path).remove(path, purge=purge)
+    result = WatchService(ctx.store_path).remove(path)
     if ctx.json_output:
         ctx.output(result.to_dict())
         return
     if not result.success:
         ctx.error(result.error or "watch remove failed", EXIT_NOT_FOUND)
         return
-    click.echo(click.style("✓ ", fg="green") + f"Unregistered: {result.path}")
-    if purge:
-        click.echo(f"  Purged {result.files_removed} indexed entries.")
+    click.echo(click.style("✓ ", fg="green") + f"Removed: {result.path}")
+    click.echo(f"  Cleaned up {result.files_removed} indexed file(s).")
 
 
 @watch.command("status")

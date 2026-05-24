@@ -90,10 +90,17 @@ class WatchChunk:
 class ChunkPlan:
     """LLM output: a one-paragraph summary plus the list of chunk
     boundaries to store under ``raw.<file>.chunk.NNN`` keys. The summary
-    is written under ``raw.<file>.summary`` and also vector-indexed."""
+    is written under ``raw.<file>.summary`` and also vector-indexed.
+
+    ``error`` carries a short reason when the LLM call or its JSON
+    response couldn't be parsed; the watch pipeline forwards it to its
+    progress callback so the user sees *why* the fallback fired instead
+    of just the placeholder summary in the store.
+    """
 
     summary: str
     chunks: list[WatchChunk] = field(default_factory=list)
+    error: str | None = None
 
 
 # Matched against any path component (so `.git/objects/...` is also filtered).
@@ -606,9 +613,23 @@ class WatchService(BaseService):
         except Exception as e:
             return WatchStatusResult(success=False, path=abs_target, error=str(e))
 
-    def remove(self, path: str, purge: bool = False) -> WatchRemoveResult:
-        """Unregister a watched path. With ``purge=True``, also deletes every
-        memory + vector-index entry that came from this path."""
+    def remove(self, path: str, purge: bool = True) -> WatchRemoveResult:
+        """Unregister a watched path and delete its indexed memories.
+
+        Tears down (1) all ``raw.<file>.*`` memory keys in the watch
+        namespace, (2) every matching vector index entry, (3) the per-file
+        state under ``watch:files``, and (4) the path entry under
+        ``watch:paths``. All buffered into a single batched data commit
+        plus one vector commit per call.
+
+        The ``purge`` parameter is retained for API back-compat: it now
+        defaults to True and is the only supported value. Passing
+        ``purge=False`` is silently treated as True — "remove without
+        cleanup" was confusing (the file looked unwatched but its
+        ``raw.*`` keys and vector hits stayed in the namespace), so the
+        soft-remove path was dropped.
+        """
+        del purge  # back-compat shim; behavior is always full cleanup now.
         abs_target = str(Path(path).expanduser().resolve())
         try:
             paths = self._read_paths()
@@ -617,63 +638,73 @@ class WatchService(BaseService):
                 return WatchRemoveResult(
                     success=False,
                     path=abs_target,
-                    purge=purge,
+                    purge=True,
                     error=f"Path is not registered: {abs_target}",
                 )
 
-            files_removed = 0
+            store = self._get_store()
+            vector = (
+                self._get_vector_service()
+                if VectorService.feature_available()
+                else None
+            )
             files = self._read_files()
-            if purge:
-                store = self._get_store()
-                vector = (
-                    self._get_vector_service()
-                    if VectorService.feature_available()
-                    else None
-                )
-                surviving_files = {}
+
+            # Batch every delete + the path-registry update + the
+            # files_state flush into one data commit. Same auto_commit-off
+            # pattern the scan loop uses.
+            saved_auto_commit = getattr(store, "auto_commit", True)
+            store.auto_commit = False
+            files_removed = 0
+            try:
+                surviving_files: dict[str, Any] = {}
                 for path_hash, state in files.items():
                     if state.get("watched_path") != abs_target:
                         surviving_files[path_hash] = state
                         continue
-                    ns_tuple = self.namespace_to_tuple(state.get("namespace", "watch"))
-                    memory_keys = state.get("memory_keys") or []
+                    ns = state.get("namespace", "watch")
+                    ns_tuple = self.namespace_to_tuple(ns)
+                    memory_keys = list(state.get("memory_keys") or [])
                     for k in memory_keys:
                         try:
                             store.delete(ns_tuple, k)
                         except Exception as e:
                             logger.warning(
-                                "purge: delete %s/%s failed: %s", ns_tuple, k, e
+                                "remove: kv delete %s/%s failed: %s", ns_tuple, k, e
                             )
-                    if vector and memory_keys:
-                        # Only the primary path is indexed; siblings share the
-                        # same vector via related_keys.
-                        try:
-                            vector.delete(
-                                state.get("namespace", "watch"),
-                                memory_keys[0].encode("utf-8"),
-                            )
-                        except Exception as e:
-                            logger.warning("purge: vector delete failed: %s", e)
+                    # Chunk-mode vector-indexes every key (summary + every
+                    # chunk), so the vector teardown must iterate all of
+                    # them — not just memory_keys[0] as the old slice-mode
+                    # code assumed.
+                    if vector:
+                        for k in memory_keys:
+                            with contextlib.suppress(Exception):
+                                vector.delete(ns, k.encode("utf-8"))
                     files_removed += 1
                 self._write_files(surviving_files)
-                if vector:
-                    try:
-                        vector.commit(f"watch purge {abs_target}")
-                    except Exception as e:
-                        logger.warning("purge: vector commit failed: %s", e)
-            # Soft remove (purge=False) just drops the registry entry; file
-            # state under watch:files stays so future re-adds are idempotent.
+                self._write_paths(remaining)
+                with contextlib.suppress(Exception):
+                    store.commit(
+                        f"watch remove {abs_target} ({files_removed} file(s) purged)"
+                    )
+            finally:
+                store.auto_commit = saved_auto_commit
 
-            self._write_paths(remaining)
-            with contextlib.suppress(Exception):
-                self._get_store().commit(f"watch remove {abs_target}")
+            if vector:
+                try:
+                    vector.commit(f"watch remove {abs_target}")
+                except Exception as e:
+                    logger.warning("remove: vector commit failed: %s", e)
 
             return WatchRemoveResult(
-                success=True, path=abs_target, files_removed=files_removed, purge=purge
+                success=True,
+                path=abs_target,
+                files_removed=files_removed,
+                purge=True,
             )
         except Exception as e:
             return WatchRemoveResult(
-                success=False, path=abs_target, purge=purge, error=str(e)
+                success=False, path=abs_target, purge=True, error=str(e)
             )
 
     async def _scan_path(
@@ -818,17 +849,19 @@ class WatchService(BaseService):
 
                 # Fallback: if the LLM returns nothing useful, store the
                 # whole document as a single chunk so the file is still
-                # searchable rather than silently dropped.
+                # searchable rather than silently dropped. Surface the
+                # actual error reason via _progress (not _vprogress) so
+                # the user sees what failed without having to enable -v.
                 fallback = False
                 if not plan.summary and not plan.chunks:
                     fallback = True
+                    reason = plan.error or "unknown (no summary, no chunks)"
                     plan = ChunkPlan(
                         summary="(no summary; LLM call failed or returned empty)",
                         chunks=[WatchChunk(start=0, end=len(text))],
                     )
-                    self._vprogress(
-                        "  → fallback: no chunks/summary from LLM; "
-                        "indexing whole document as one chunk"
+                    self._progress(
+                        f"  ⚠ chunk+summarize fell back to whole-file chunk: {reason}"
                     )
                 elif not plan.chunks:
                     # Summary present but no chunks — single chunk over the
@@ -1127,18 +1160,29 @@ class WatchService(BaseService):
         the watch pipeline can fall back without crashing the scan.
         """
         if not text:
-            return ChunkPlan(summary="", chunks=[])
+            return ChunkPlan(summary="", chunks=[], error="empty input text")
 
         prompt = _build_chunk_summarize_prompt(text, max_chunks=MAX_CHUNKS_PER_FILE)
         try:
             llm = self._get_memory_service()._get_llm()
             response = await llm.ainvoke(prompt)
         except Exception as e:
-            logger.warning("chunk+summarize LLM call failed: %s", e)
-            return ChunkPlan(summary="", chunks=[])
+            err = f"LLM call: {type(e).__name__}: {e}"
+            logger.warning("chunk+summarize %s", err)
+            return ChunkPlan(summary="", chunks=[], error=err)
 
         try:
-            return _parse_chunk_summarize_response(response, source_text=text)
+            plan = _parse_chunk_summarize_response(response, source_text=text)
         except Exception as e:
-            logger.warning("chunk+summarize parse failed: %s", e)
-            return ChunkPlan(summary="", chunks=[])
+            raw = response.content if hasattr(response, "content") else str(response)
+            err = f"parse: {type(e).__name__}: {e}; raw[:160]={raw[:160]!r}"
+            logger.warning("chunk+summarize %s", err)
+            return ChunkPlan(summary="", chunks=[], error=err)
+
+        # If the parser couldn't find any usable JSON, treat that as a
+        # parse failure too — surface a useful excerpt of the raw response.
+        if not plan.summary and not plan.chunks:
+            raw = response.content if hasattr(response, "content") else str(response)
+            plan.error = f"empty parse result; raw[:160]={raw[:160]!r}"
+            logger.warning("chunk+summarize %s", plan.error)
+        return plan
