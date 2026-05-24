@@ -278,7 +278,10 @@ class WatchService(BaseService):
         path: str,
         namespace: str = "watch",
     ) -> WatchAddResult:
-        """Register a file or folder and run the initial scan."""
+        """Register a single file and run the initial scan.
+
+        Folders are rejected — only single-file watches are supported.
+        """
         abs_path = Path(path).expanduser().resolve()
         if not abs_path.exists():
             return WatchAddResult(
@@ -287,34 +290,28 @@ class WatchService(BaseService):
                 error=f"Path does not exist: {abs_path}",
             )
 
+        if abs_path.is_dir():
+            return WatchAddResult(
+                success=False,
+                path=str(abs_path),
+                error=(
+                    f"Folders are not supported: {abs_path}. "
+                    f"Run `memoir watch add` on each file individually."
+                ),
+            )
+
         if not Path(self.store_path).exists():
             raise StoreNotFoundError(self.store_path)
 
-        kind = "folder" if abs_path.is_dir() else "file"
+        # `already_registered` flag for the caller — checked BEFORE the scan
+        # so `add()`'s contract ("returns whether this path was already
+        # watched") still holds. The actual write of the path entry is
+        # batched inside ``_scan_path`` so it lands in the same data commit
+        # as the slice writes (one commit per file, not three).
         paths = self._read_paths()
         already = any(p.get("path") == str(abs_path) for p in paths)
-        if not already:
-            paths.append(
-                {
-                    "path": str(abs_path),
-                    "kind": kind,
-                    "namespace": namespace,
-                    "added_at": _now_iso(),
-                    "last_scan": None,
-                }
-            )
-            self._write_paths(paths)
 
         scan = await self._scan_path(abs_path, namespace=namespace)
-        if scan.success:
-            paths = self._read_paths()
-            for entry in paths:
-                if entry.get("path") == str(abs_path):
-                    entry["last_scan"] = _now_iso()
-                    entry["namespace"] = namespace
-                    entry["kind"] = kind
-                    break
-            self._write_paths(paths)
 
         return WatchAddResult(
             success=scan.success,
@@ -338,7 +335,19 @@ class WatchService(BaseService):
         if path is None:
             targets = list(registered)
         else:
-            abs_target = str(Path(path).expanduser().resolve())
+            abs_target_path = Path(path).expanduser().resolve()
+            abs_target = str(abs_target_path)
+            if abs_target_path.is_dir():
+                return [
+                    WatchScanResult(
+                        success=False,
+                        path=abs_target,
+                        error=(
+                            f"Folders are not supported: {abs_target}. "
+                            f"Run `memoir watch scan` on each file individually."
+                        ),
+                    )
+                ]
             targets = [p for p in registered if p.get("path") == abs_target]
             if not targets:
                 return [
@@ -357,15 +366,8 @@ class WatchService(BaseService):
             ns = namespace or entry.get("namespace", "watch")
             res = await self._scan_path(Path(entry["path"]), namespace=ns)
             results.append(res)
-            if res.success:
-                # Update last_scan even for aborted/partial scans — the files
-                # that were processed before the interrupt are already committed.
-                paths = self._read_paths()
-                for p in paths:
-                    if p.get("path") == entry["path"]:
-                        p["last_scan"] = _now_iso()
-                        break
-                self._write_paths(paths)
+            # last_scan update is batched inside _scan_path itself so it
+            # lands in the same commit as the slice writes.
             if res.aborted:
                 raise KeyboardInterrupt
         return results
@@ -605,6 +607,14 @@ class WatchService(BaseService):
         scan_complete = True
         remaining_after_cap = 0
         aborted = False
+        # Batch all per-slice and metadata writes into a single commit at
+        # end of scan. Without this, ``ProllyTreeStore.put`` auto-commits
+        # on every key — a 10-slice file would otherwise land ~12+ commits
+        # in git log (one per slice + metadata + deletion-sweep + ...).
+        # The vector tree is already batched via vector.commit() below;
+        # this brings the data tree to the same cadence.
+        saved_auto_commit = getattr(store, "auto_commit", True)
+        store.auto_commit = False
         try:
             for idx, p in enumerate(candidates, start=1):
                 # Cap fires BEFORE this file would be processed, so the warning
@@ -853,8 +863,47 @@ class WatchService(BaseService):
             )
 
         # Always flush files_state so progress from a partial/interrupted scan
-        # is not lost on the next run.
+        # is not lost on the next run. With auto_commit disabled this is just
+        # a buffered put — the explicit commit below flushes everything.
         self._write_files(files_state)
+
+        # Register the path entry (first scan) or refresh its last_scan
+        # (re-scan). Both code paths buffer through the same commit batch
+        # below so we don't pay a separate commit for path bookkeeping.
+        paths_meta = self._read_paths()
+        entry = next((p for p in paths_meta if p.get("path") == target_str), None)
+        if entry is None:
+            paths_meta.append(
+                {
+                    "path": target_str,
+                    "kind": "file",
+                    "namespace": namespace,
+                    "added_at": _now_iso(),
+                    "last_scan": _now_iso(),
+                }
+            )
+        else:
+            entry["last_scan"] = _now_iso()
+            entry["namespace"] = namespace
+            entry["kind"] = "file"
+        self._write_paths(paths_meta)
+
+        # Single batched data-tree commit for the whole scan: slice writes,
+        # deletion-sweep deletes, files_state flush, path-registry update —
+        # all roll up into one git commit. Restore auto_commit before
+        # raising so callers that reuse the service handle aren't left with
+        # a half-detached store.
+        try:
+            commit_msg = (
+                f"watch index {target} "
+                f"({stats['slices_indexed']} slices "
+                f"from {stats['files_indexed']} file(s))"
+            )
+            store.commit(commit_msg)
+        except Exception as e:
+            logger.warning("watch: data commit failed: %s", e)
+        finally:
+            store.auto_commit = saved_auto_commit
 
         if vector is not None:
             try:

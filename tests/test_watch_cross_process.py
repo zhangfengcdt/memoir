@@ -98,12 +98,20 @@ def _fresh_search(store_path: Path, query: str, k: int = 3):
     return SearchService(str(store_path)).search(query, namespace="default", k=k)
 
 
+def _add_dir(svc, d, namespace="default"):
+    """Folder watches aren't supported — add each file individually."""
+    return [
+        asyncio.run(svc.add(str(f), namespace=namespace))
+        for f in sorted(f for f in Path(d).iterdir() if f.is_file())
+    ]
+
+
 def test_data_survives_in_fresh_process(memoir_store, docs_dir):
     """After watch.add, a brand-new MemoryService must still see the data."""
     svc = _build_watch(memoir_store)
-    res = asyncio.run(svc.add(str(docs_dir), namespace="default"))
-    assert res.success
-    assert res.scan.files_indexed == 2
+    results = _add_dir(svc, docs_dir)
+    assert all(r.success for r in results)
+    assert sum(r.scan.files_indexed for r in results) == 2
     del svc
 
     # Slice mode: a single-slice file's key is the bare classified path
@@ -119,7 +127,7 @@ def test_repeated_search_survives_fresh_handles(memoir_store, docs_dir):
     """Repeated searches across process boundaries keep returning content
     (not "(memory no longer present)" stubs)."""
     svc = _build_watch(memoir_store)
-    asyncio.run(svc.add(str(docs_dir), namespace="default"))
+    _add_dir(svc, docs_dir)
     del svc
 
     for attempt in (1, 2, 3):
@@ -136,15 +144,18 @@ def test_repeated_search_survives_fresh_handles(memoir_store, docs_dir):
 def test_rescan_then_fresh_search(memoir_store, docs_dir):
     """No-op rescan must not break a subsequent fresh search."""
     svc = _build_watch(memoir_store)
-    asyncio.run(svc.add(str(docs_dir), namespace="default"))
+    _add_dir(svc, docs_dir)
     del svc
 
     svc2 = _build_watch(memoir_store)
-    rescans = asyncio.run(svc2.scan(path=str(docs_dir)))
-    assert len(rescans) == 1
-    assert rescans[0].success
-    assert rescans[0].files_indexed == 0
-    assert rescans[0].files_unchanged == 2
+    files = sorted(f for f in docs_dir.iterdir() if f.is_file())
+    rescans = []
+    for f in files:
+        rescans.extend(asyncio.run(svc2.scan(path=str(f))))
+    assert len(rescans) == len(files)
+    assert all(r.success for r in rescans)
+    assert sum(r.files_indexed for r in rescans) == 0
+    assert sum(r.files_unchanged for r in rescans) == len(files)
     del svc2
 
     result = _fresh_search(memoir_store, "ownership", k=2)
@@ -157,18 +168,22 @@ def test_rescan_then_fresh_search(memoir_store, docs_dir):
 def test_search_then_rescan_then_fresh_search(memoir_store, docs_dir):
     """Interleave: watch add → search → rescan → search."""
     svc = _build_watch(memoir_store)
-    asyncio.run(svc.add(str(docs_dir), namespace="default"))
+    _add_dir(svc, docs_dir)
     del svc
 
     # First search.
     r1 = _fresh_search(memoir_store, "ownership", k=2)
     assert r1.success
+    assert r1.hits, "first search returned no hits"
     assert r1.hits[0].content != "(memory no longer present)"
 
     # Re-scan from fresh handles after a search.
     svc2 = _build_watch(memoir_store)
-    rescans = asyncio.run(svc2.scan(path=str(docs_dir)))
-    assert rescans[0].success
+    files = sorted(f for f in docs_dir.iterdir() if f.is_file())
+    rescans = []
+    for f in files:
+        rescans.extend(asyncio.run(svc2.scan(path=str(f))))
+    assert all(r.success for r in rescans)
     del svc2
 
     # Second search in another fresh process.
@@ -179,12 +194,12 @@ def test_search_then_rescan_then_fresh_search(memoir_store, docs_dir):
 
 
 def test_purge_then_fresh_search(memoir_store, docs_dir):
-    """watch add → drop handles → watch remove --purge → drop handles →
-    search. Purge opens both stores and must end with a VersionedKvStore
-    write so a subsequent fresh open still works (even though the
-    purged data is gone)."""
+    """watch add → drop handles → watch remove --purge per-file → drop
+    handles → search. Purge opens both stores and must end with a
+    VersionedKvStore write so a subsequent fresh open still works (even
+    though the purged data is gone)."""
     svc = _build_watch(memoir_store)
-    asyncio.run(svc.add(str(docs_dir), namespace="default"))
+    _add_dir(svc, docs_dir)
     del svc
 
     # Sanity: data is there before the purge.
@@ -192,9 +207,10 @@ def test_purge_then_fresh_search(memoir_store, docs_dir):
     assert pre is not None
 
     svc2 = _build_watch(memoir_store)
-    rm = svc2.remove(str(docs_dir), purge=True)
-    assert rm.success
-    assert rm.files_removed == 2
+    files = sorted(f for f in docs_dir.iterdir() if f.is_file())
+    for f in files:
+        rm = svc2.remove(str(f), purge=True)
+        assert rm.success
     del svc2
 
     # After purge, the memory key should be gone (not just unreadable).
@@ -222,14 +238,14 @@ def test_search_skips_files_deleted_between_scans(memoir_store, docs_dir):
     present)" stub — the scan should have cleaned both the data and the
     vector index."""
     svc = _build_watch(memoir_store, paths=("knowledge.test.demo",))
-    asyncio.run(svc.add(str(docs_dir), namespace="default"))
+    _add_dir(svc, docs_dir)
     del svc
 
     deleted_path = docs_dir / "rust.md"
     deleted_path.unlink()
 
     svc2 = _build_watch(memoir_store, paths=("knowledge.test.demo",))
-    rescan = asyncio.run(svc2.scan(path=str(docs_dir)))
+    rescan = asyncio.run(svc2.scan(path=str(deleted_path)))
     assert rescan[0].files_deleted == 1
     del svc2
 
@@ -252,7 +268,7 @@ def test_search_with_no_matching_hits(memoir_store, docs_dir):
     namespace store. The marker write must run on this path too,
     otherwise a follow-up search would see a corrupted config."""
     svc = _build_watch(memoir_store)
-    asyncio.run(svc.add(str(docs_dir), namespace="default"))
+    _add_dir(svc, docs_dir)
     del svc
 
     # First search: deliberately bizarre query. HashEmbedder returns

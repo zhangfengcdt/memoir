@@ -25,19 +25,19 @@ from memoir.cli.main import (
 
 @click.group()
 def watch():
-    """Ingest files or folders into memoir.
+    """Ingest single files into memoir.
 
     Watch parses each file (PDFs, markdown, docx, html, ...) with markitdown,
     classifies and stores the content via the existing memoir pipeline, and
-    indexes it for semantic search.
+    indexes it for semantic search. Only single files are supported — folders
+    are rejected; add each file individually.
 
     \b
     Examples:
-      memoir watch add ~/Documents/notes
       memoir watch add paper.pdf -n research
       memoir watch list
-      memoir watch scan ~/Documents/notes
-      memoir watch remove ~/Documents/notes --purge
+      memoir watch scan paper.pdf
+      memoir watch remove paper.pdf --purge
     """
 
 
@@ -61,10 +61,11 @@ def watch():
 )
 @pass_context
 def watch_add(ctx: MemoirContext, path: str, namespace: str, model: str | None):
-    """Register PATH (file or folder) and run the initial scan.
+    """Register PATH (a single file) and run the initial scan.
 
-    Re-running on the same path is idempotent — only files whose content
-    hashes have changed get re-classified and re-indexed.
+    Folders are rejected — add each file individually. Re-running on the
+    same path is idempotent: only files whose content hashes have changed
+    get re-classified and re-indexed.
     """
     if not ctx.store_path:
         ctx.error(

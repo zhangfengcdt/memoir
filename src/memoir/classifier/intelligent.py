@@ -370,7 +370,7 @@ class IntelligentClassifier:
         self,
         text: str,
         *,
-        max_slices: int = 20,
+        max_slices: int = 10,
         window_chars: int = 100_000,
     ) -> list[SliceClassification]:
         """Slice ``text`` by semantic boundary and classify each slice.
@@ -434,7 +434,17 @@ class IntelligentClassifier:
                         reasoning=sl.reasoning,
                     )
                 )
-        return self._knit_slices(out, total_len=len(text))
+        knitted = self._knit_slices(out, total_len=len(text))
+        # Hard cap — defensive against an LLM that ignores the prompt's
+        # "Hard maximum: N slices" instruction. Drop excess from the tail.
+        if len(knitted) > max_slices:
+            logger.info(
+                "Slice classifier returned %d slices; capping at max_slices=%d",
+                len(knitted),
+                max_slices,
+            )
+            knitted = knitted[:max_slices]
+        return knitted
 
     @staticmethod
     def _knit_slices(

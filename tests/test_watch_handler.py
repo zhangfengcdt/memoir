@@ -91,7 +91,9 @@ def _seed_store(docs: dict[str, str]) -> Path:
             return r
 
     svc._markitdown_factory = lambda: _FakeMd()
-    asyncio.run(svc.add(str(docs_dir), namespace="default"))
+    # Folder watches are not supported; add each file individually.
+    for f in sorted(p for p in docs_dir.iterdir() if p.is_file()):
+        asyncio.run(svc.add(str(f), namespace="default"))
     return store_path
 
 
@@ -109,10 +111,11 @@ def test_watch_list_returns_registered_paths():
     status, data = _call(WatchHandler.handle_list_api, f"path={store}")
     assert status == 200
     assert data["success"] is True
-    assert data["count"] == 1  # one watched root (the docs/ dir)
-    entry = data["entries"][0]
-    assert entry["kind"] == "folder"
-    assert entry["indexed_count"] == 2
+    # Each file is its own watched entry (folders aren't supported).
+    assert data["count"] == 2
+    for entry in data["entries"]:
+        assert entry["kind"] == "file"
+        assert entry["indexed_count"] == 1
 
 
 def test_watch_stats_returns_proximity_index_counts():
