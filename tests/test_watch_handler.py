@@ -25,11 +25,7 @@ if not getattr(prollytree, "proximity_text_available", False):
         allow_module_level=True,
     )
 
-from memoir.classifier.intelligent import (
-    ClassificationAction,
-    ClassificationConfidence,
-    ClassificationResult,
-)
+from memoir.classifier.intelligent import SliceClassification
 from memoir.services.store_service import StoreService
 from memoir.services.watch_service import WatchService
 from memoir.ui.handlers.watch_handler import WatchHandler
@@ -71,18 +67,20 @@ def _seed_store(docs: dict[str, str]) -> Path:
 
     svc = WatchService(str(store_path))
     ms = svc._get_memory_service()
+
+    async def _one_slice(text, *, max_slices=50, window_chars=100_000):
+        return [
+            SliceClassification(
+                start=0,
+                end=len(text),
+                paths=["knowledge.test.demo"],
+                confidence=0.9,
+                reasoning="mocked",
+            )
+        ]
+
     fake_cls = MagicMock()
-    fake_cls.classify_input = AsyncMock(
-        return_value=ClassificationResult(
-            is_memory=True,
-            confidence=0.9,
-            confidence_level=ClassificationConfidence.HIGH,
-            reasoning="mocked",
-            suggested_action=ClassificationAction.CLASSIFY,
-            path="knowledge.test.demo",
-            paths=["knowledge.test.demo"],
-        )
-    )
+    fake_cls.classify_slices_async = AsyncMock(side_effect=_one_slice)
     ms._classifier = fake_cls
     svc._classifier = fake_cls
 

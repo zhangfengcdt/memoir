@@ -7,6 +7,7 @@ Provides high-performance semantic memory storage with versioning.
 import contextlib
 import json
 import logging
+import os
 import time
 from pathlib import Path
 from typing import Any
@@ -23,6 +24,39 @@ from memoir.store.git_safety import harden_git_config
 # These are handled by higher layers
 
 logger = logging.getLogger(__name__)
+
+
+@contextlib.contextmanager
+def _native_stderr_quiet():
+    """FD-level stderr redirect around the prollytree ``VersionedKvStore``
+    open/init call.
+
+    Prollytree v0.4 prints "Warning: Failed to load tree from saved root
+    hash. This may indicate missing git objects or corrupted hash
+    mappings. Attempting to create tree with saved config to avoid data
+    loss..." on every open as part of its optimistic-fast-load fallback,
+    even on perfectly healthy stores. The message is hardcoded in the
+    native binary; we can't change it upstream from here, so we silence
+    it at the file-descriptor level when memoir is running as a CLI
+    (``_MEMOIR_SUPPRESS_NATIVE_IMPORT_STDERR=1``, set by the CLI
+    entrypoint). Library callers (tests, embedded users) still see it.
+
+    Real corruption surfaces as a raised exception from the constructor,
+    not stderr noise — suppressing this warning does not hide real
+    errors.
+    """
+    if os.environ.get("_MEMOIR_SUPPRESS_NATIVE_IMPORT_STDERR") != "1":
+        yield
+        return
+    saved_fd = os.dup(2)
+    devnull_fd = os.open(os.devnull, os.O_WRONLY)
+    try:
+        os.dup2(devnull_fd, 2)
+        yield
+    finally:
+        os.dup2(saved_fd, 2)
+        os.close(devnull_fd)
+        os.close(saved_fd)
 
 
 class MemoryItem(BaseModel):
@@ -164,8 +198,6 @@ class ProllyTreeStore(BaseStore):
             # so do per-operation calls (`.insert`/`.update`/`.commit`/`.get`).
             # We chdir here for the constructor, then wrap the tree in
             # _CwdLockedTree so every later method call also chdir's first.
-            import os as _os
-
             # `VersionedKvStore(path, backend)` *initializes* a fresh tree
             # (running an "Initial commit") on every call — fine for first
             # creation, but overwrites the root_hash in
@@ -174,17 +206,25 @@ class ProllyTreeStore(BaseStore):
             # the config already exists; the constructor only when this is
             # a brand-new dataset directory.
             prolly_config = data_dir / "prolly_config_tree_config"
-            _saved_cwd = _os.getcwd()
+            _saved_cwd = os.getcwd()
             try:
-                _os.chdir(str(self.path))
-                if prolly_config.exists():
-                    _raw_tree = VersionedKvStore.open(str(data_dir), backend)
-                    fresh_init = False
-                else:
-                    _raw_tree = VersionedKvStore(str(data_dir), backend)
-                    fresh_init = True
+                os.chdir(str(self.path))
+                # Suppress prollytree's "Failed to load tree from saved root
+                # hash" stderr warning when ``_MEMOIR_SUPPRESS_NATIVE_IMPORT_STDERR=1``
+                # (set by the CLI entrypoint). The warning fires on every
+                # open of an existing store as part of prollytree's
+                # optimistic fast-load → fall-back-to-config-load path,
+                # even on healthy stores; real corruption surfaces as an
+                # exception, not stderr noise. See `_native_stderr_quiet`.
+                with _native_stderr_quiet():
+                    if prolly_config.exists():
+                        _raw_tree = VersionedKvStore.open(str(data_dir), backend)
+                        fresh_init = False
+                    else:
+                        _raw_tree = VersionedKvStore(str(data_dir), backend)
+                        fresh_init = True
             finally:
-                _os.chdir(_saved_cwd)
+                os.chdir(_saved_cwd)
             self.tree = CwdLockedTree(_raw_tree, self.path)
 
             # If we just initialized a fresh prollytree (no prior config),

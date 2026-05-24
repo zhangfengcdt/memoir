@@ -4,17 +4,23 @@
 Provides the pipeline behind ``memoir watch``. For each file:
 
 1. ``markitdown`` extracts plaintext.
-2. Docs ≤ ``summarize_max_chars`` pass through verbatim. Larger docs are
-   reduced to a deterministic head+tail+titles summary — no LLM.
-3. The result is classified by the existing intelligent classifier (one LLM
-   call), stored via ``MemoryService.remember`` with ``extra_metadata={"source":
-   ...}``, and indexed for vector search via ``VectorService``.
+2. ``IntelligentClassifier.classify_slices_async`` runs a single LLM call
+   that segments the document at semantic boundaries and classifies each
+   slice independently. Inputs longer than ``summarize_max_chars`` are
+   windowed and re-stitched into global offsets.
+3. Each slice is stored as its own memoir memory under its classified
+   taxonomy path (via ``MemoryService.remember``) and vector-indexed
+   independently (via ``VectorService``), so semantic search returns
+   slice-level hits rather than whole-file hits. When two slices in the
+   same file classify to the same taxonomy path, the second (and later)
+   pick up a numeric suffix — ``<path>``, ``<path>.2``, ``<path>.3`` — so
+   they don't overwrite each other.
 
 State lives in the ``watch`` namespace alongside the indexed file content:
 
-- ``watch:config`` — config dict (max size, summarize threshold, embedder name)
+- ``watch:config`` — config dict (max size, slice window cap, embedder name)
 - ``watch:paths``  — registry of watched paths
-- ``watch:files``  — per-file state (content hash, memory keys, mtime, ...)
+- ``watch:files``  — per-file state (content hash, slice memory keys, mtime, ...)
                      kept as a single dict; read once per scan,
                      mutated in memory, written once at end.
 """
@@ -30,6 +36,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from memoir.classifier.intelligent import SliceClassification
 from memoir.services.base import BaseService, ServiceError, StoreNotFoundError
 from memoir.services.memory_service import MemoryService
 from memoir.services.models import (
@@ -49,17 +56,11 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CONFIG = {
     "max_size_mb": 100,
-    # Three-tier per-file pipeline:
-    #   text ≤ summarize_min_chars (small):    full text → classifier
-    #   between min and max     (medium):      LLM-summarize text down to
-    #                                          ≤ min chars → classifier
-    #   text > summarize_max_chars (long):     deterministic head+tail+titles
-    #                                          summary capped at min chars
-    #                                          (no LLM for summarize) → classifier
-    # Summary outputs are always capped at ``summarize_min_chars`` so the
-    # classifier never sees more than that — keeps token costs bounded
-    # regardless of input doc size.
-    "summarize_min_chars": 10_000,
+    # ``summarize_max_chars`` is the slice-classification window. The LLM
+    # classifies the whole document in one call when it fits; for longer
+    # inputs the watch pipeline windows the text into non-overlapping
+    # chunks of this size, classifies each window, then re-stitches the
+    # slice offsets back into global file coordinates.
     "summarize_max_chars": 100_000,
     # Cap how many files a single ``scan`` will index (new or changed).
     # Unchanged files (hash match) don't count — they're cheap. When the
@@ -133,64 +134,6 @@ def _content_hash(data: bytes) -> str:
 
 def _is_excluded(p: Path) -> bool:
     return any(part in EXCLUDE_DIRS for part in p.parts)
-
-
-def _extract_titles(text: str, max_titles: int = 30) -> list[str]:
-    """Pull ``#``-style headings out of markitdown's output."""
-    titles: list[str] = []
-    seen: set[str] = set()
-    for raw_line in text.splitlines():
-        line = raw_line.strip()
-        if not line.startswith("#"):
-            continue
-        stripped = line.lstrip("#").strip()
-        if stripped and stripped not in seen:
-            seen.add(stripped)
-            titles.append(stripped)
-        if len(titles) >= max_titles:
-            break
-    return titles
-
-
-def _deterministic_summary(
-    text: str,
-    max_summary_chars: int,
-    source_name: str | None = None,
-    head_chars: int | None = None,
-    tail_chars: int | None = None,
-) -> str:
-    """Build a head + tail + titles summary without calling an LLM.
-
-    Used for long documents so the watch pipeline only spends one LLM call
-    (classification) per file. ``max_summary_chars`` caps the output size;
-    head + tail are sized to 60/30 of that cap.
-    """
-    head_chars = head_chars if head_chars is not None else int(max_summary_chars * 0.6)
-    tail_chars = tail_chars if tail_chars is not None else int(max_summary_chars * 0.3)
-
-    head = text[:head_chars]
-    tail = text[-tail_chars:] if len(text) > head_chars + tail_chars else ""
-
-    titles = _extract_titles(text)
-
-    parts: list[str] = []
-    if source_name:
-        parts.append(f"# {source_name}")
-    if titles:
-        parts.append("## Headings")
-        parts.extend(f"- {t}" for t in titles)
-    parts.append("")
-    parts.append("## Beginning")
-    parts.append(head.strip())
-    if tail:
-        parts.append("")
-        parts.append("## End")
-        parts.append(tail.strip())
-
-    summary = "\n".join(parts)
-    if len(summary) > max_summary_chars:
-        summary = summary[:max_summary_chars]
-    return summary
 
 
 @contextlib.contextmanager
@@ -596,7 +539,6 @@ class WatchService(BaseService):
 
         config = self._read_config()
         max_bytes = int(config.get("max_size_mb", 100)) * 1024 * 1024
-        summarize_min = int(config.get("summarize_min_chars", 10_000))
         summarize_max = int(config.get("summarize_max_chars", 100_000))
         max_files_per_scan = int(config.get("max_files_per_scan", 100))
 
@@ -640,6 +582,7 @@ class WatchService(BaseService):
             "files_skipped_size": 0,
             "files_skipped_parse_error": 0,
             "index_failures": 0,
+            "slices_indexed": 0,
         }
 
         files_state = self._read_files()
@@ -711,115 +654,158 @@ class WatchService(BaseService):
                 self._vprogress(f"  → extract: markitdown produced {len(text):,} chars")
 
                 model_label = self.llm_model or "default model"
-                if len(text) <= summarize_min:
-                    self._vprogress(
-                        f"  → summary: skipped (small doc, {len(text):,} ≤ "
-                        f"{summarize_min:,} chars; full text passed to classifier)"
-                    )
-                    self._vprogress(f"  → classify: 1 LLM call ({model_label})")
-                elif len(text) <= summarize_max:
-                    self._vprogress(
-                        f"  → summary: LLM-summarize "
-                        f"(medium doc, {summarize_min:,} < {len(text):,} ≤ "
-                        f"{summarize_max:,} chars; target ≤ {summarize_min:,} chars)"
-                    )
-                    self._vprogress(
-                        f"  → classify: 2 LLM calls ({model_label}; "
-                        f"1 summarize + 1 classify)"
-                    )
-                else:
-                    self._vprogress(
-                        f"  → summary: deterministic head+tail+titles "
-                        f"(long doc, {len(text):,} > {summarize_max:,} chars; "
-                        f"capped at {summarize_min:,} chars; no LLM for summarize)"
-                    )
-                    self._vprogress(f"  → classify: 1 LLM call ({model_label})")
+                self._vprogress(
+                    f"  → slice+classify: 1 LLM call ({model_label}) on "
+                    f"{len(text):,} chars (window cap {summarize_max:,})"
+                )
 
                 try:
-                    cls_result, content_to_store = await self._build_content_and_classify(
-                        text,
-                        summarize_min=summarize_min,
-                        summarize_max=summarize_max,
-                        p=p,
+                    classifier = self._get_classifier()
+                    slices = await classifier.classify_slices_async(
+                        text, window_chars=summarize_max
                     )
                 except Exception as e:
-                    logger.warning("classify failed for %s: %s", p, e)
+                    logger.warning("slice+classify failed for %s: %s", p, e)
                     stats["files_skipped_parse_error"] += 1
                     continue
 
-                paths_for_remember = cls_result.paths or (
-                    [cls_result.path] if cls_result.path else None
-                )
-                if not paths_for_remember:
-                    paths_for_remember = [
+                if not slices:
+                    # LLM produced no usable slices — fall back to a single
+                    # whole-file slice classified to a synthetic path. Keeps
+                    # the file searchable rather than silently dropping it.
+                    fallback_path = (
                         "knowledge.files." + _sanitize_path_component(p.stem)
+                    )
+                    slices = [
+                        SliceClassification(
+                            start=0,
+                            end=len(text),
+                            paths=[fallback_path],
+                            confidence=0.3,
+                            reasoning="slice classifier returned no slices; fallback",
+                        )
                     ]
-                self._vprogress(
-                    f"  → classify: confidence={cls_result.confidence:.2f}, "
-                    f"paths={paths_for_remember}"
-                )
+                    self._vprogress(
+                        f"  → fallback: 1 slice under {fallback_path} (no LLM slices)"
+                    )
 
-                source_meta = {
+                # Tear down the file's previous slice keys before re-indexing.
+                # The collision-suffix scheme is per-file so a re-scan that
+                # produces different paths or counts would otherwise leave
+                # orphan memories.
+                prev_keys = list((prev or {}).get("memory_keys") or [])
+                if prev_keys:
+                    prev_ns_tuple = self.namespace_to_tuple(
+                        (prev or {}).get("namespace", namespace)
+                    )
+                    for k in prev_keys:
+                        with contextlib.suppress(Exception):
+                            store.delete(prev_ns_tuple, k)
+                    if vector is not None:
+                        for k in prev_keys:
+                            with contextlib.suppress(Exception):
+                                vector.delete(namespace, k.encode("utf-8"))
+
+                source_meta_base = {
                     "kind": "watch",
                     "abs_path": str(p),
                     "content_hash": chash,
                     "extracted_text_chars": len(text),
+                    "slice_count": len(slices),
                 }
-                self._vprogress(
-                    f"  → store: writing {len(content_to_store):,} chars to "
-                    f"{len(paths_for_remember)} memory key(s) (replace=True)"
-                )
-                try:
-                    remember_result = await memory_service.remember(
-                        content=content_to_store,
-                        paths=paths_for_remember,
-                        namespace=namespace,
-                        replace=True,
-                        extra_metadata={"source": source_meta},
+                new_keys: list[str] = []
+                slice_summary: list[str] = []
+                file_index_failures = 0
+                # Per-file collision counter: first slice at a given taxonomy
+                # path uses the bare path as its key; subsequent slices that
+                # also classify to that path get a numeric suffix (`.2`, `.3`).
+                # Most files end up with clean unsuffixed keys; only genuine
+                # repeated classifications within one file pick up the suffix.
+                path_usage: dict[str, int] = {}
+
+                def _disambiguate(path: str) -> str:
+                    n = path_usage.get(path, 0) + 1
+                    path_usage[path] = n
+                    return path if n == 1 else f"{path}.{n}"
+
+                for s_idx, sl in enumerate(slices):
+                    slice_text = text[sl.start : sl.end]
+                    if not slice_text.strip():
+                        continue
+                    primary = sl.paths[0]
+                    slice_paths = [_disambiguate(pp) for pp in sl.paths]
+                    primary_key = slice_paths[0]
+
+                    self._vprogress(
+                        f"  → slice {s_idx}: chars [{sl.start},{sl.end}) → "
+                        f"{slice_paths} conf={sl.confidence:.2f}"
                     )
-                except Exception as e:
-                    logger.warning("remember failed for %s: %s", p, e)
+
+                    try:
+                        await memory_service.remember(
+                            content=slice_text,
+                            paths=slice_paths,
+                            namespace=namespace,
+                            replace=True,
+                            extra_metadata={
+                                "source": {
+                                    **source_meta_base,
+                                    "slice_index": s_idx,
+                                    "slice_start": sl.start,
+                                    "slice_end": sl.end,
+                                    "slice_primary_path": primary,
+                                }
+                            },
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            "remember failed for %s slice %d: %s", p, s_idx, e
+                        )
+                        continue
+                    new_keys.extend(slice_paths)
+
+                    # Vector index — one doc per slice, best-effort.
+                    if vector is not None:
+                        try:
+                            vector.index(
+                                namespace, primary_key.encode("utf-8"), slice_text
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                "vector index failed for %s slice %d: %s",
+                                p,
+                                s_idx,
+                                e,
+                            )
+                            file_index_failures += 1
+                    slice_summary.append(primary)
+
+                if not new_keys:
+                    # Every slice's write failed.
                     stats["files_skipped_parse_error"] += 1
                     continue
 
-                # Vector index — best-effort. Data is already committed, so an
-                # index failure only means search won't surface this file.
-                if vector is not None:
-                    doc_id = paths_for_remember[0].encode("utf-8")
-                    try:
-                        prev_primary = (
-                            (prev or {}).get("memory_keys", [None])[0]
-                            if isinstance(prev, dict)
-                            else None
-                        )
-                        if prev_primary and prev_primary != paths_for_remember[0]:
-                            # Primary path changed; drop the stale vector.
-                            with contextlib.suppress(Exception):
-                                vector.delete(namespace, prev_primary.encode("utf-8"))
-                        vector.index(namespace, doc_id, content_to_store)
-                        self._vprogress(
-                            f"  → vector: indexed under {paths_for_remember[0]}"
-                        )
-                    except Exception as e:
-                        logger.warning("vector index failed for %s: %s", p, e)
-                        stats["index_failures"] += 1
-                        self._vprogress(f"  → vector: FAILED ({e})")
-                else:
-                    self._vprogress("  → vector: skipped (proximity_text not available)")
-
+                stats["index_failures"] += file_index_failures
                 stats["files_indexed"] += 1
+                stats["slices_indexed"] += len(slice_summary)
                 files_state[path_key] = {
                     "abs_path": str(p),
                     "watched_path": str(target),
                     "namespace": namespace,
-                    "memory_keys": list(remember_result.keys),
+                    "memory_keys": new_keys,
                     "content_hash": chash,
                     "size": size,
                     "mtime": p.stat().st_mtime,
                     "indexed_at": _now_iso(),
-                    "summary_chars": len(content_to_store),
+                    "summary_chars": len(text),
+                    "slice_count": len(slice_summary),
                 }
-                self._progress(f"[{idx}/{total}] indexed: {p} → {paths_for_remember[0]}")
+                self._progress(
+                    f"[{idx}/{total}] indexed: {p} → {len(slice_summary)} slice(s) "
+                    f"(paths: {', '.join(slice_summary[:5])}"
+                    + (", ..." if len(slice_summary) > 5 else "")
+                    + ")"
+                )
         except KeyboardInterrupt:
             aborted = True
             scan_complete = False
@@ -884,6 +870,7 @@ class WatchService(BaseService):
             namespace=namespace,
             files_seen=files_seen,
             files_indexed=stats["files_indexed"],
+            slices_indexed=stats["slices_indexed"],
             files_unchanged=stats["files_unchanged"],
             files_deleted=stats["files_deleted"],
             files_skipped_size=stats["files_skipped_size"],
@@ -918,71 +905,3 @@ class WatchService(BaseService):
             logger.warning("markitdown.convert failed on %s: %s", p, e)
             return None
 
-    async def _llm_summarize(self, text: str, max_chars: int) -> str | None:
-        """Single LLM call to summarize ``text`` down to ``max_chars``.
-
-        Returns the summary (truncated to ``max_chars`` if the model went
-        over) or ``None`` on any error so the caller can fall back to the
-        deterministic summary path.
-        """
-        try:
-            llm = self._get_memory_service()._get_llm()
-            prompt = (
-                f"Summarize the following document in {max_chars} characters or "
-                f"fewer. Preserve key topics, named entities, conclusions, and "
-                f"any actionable details. Output the summary only — no preamble.\n\n"
-                f"{text}"
-            )
-            response = await llm.ainvoke(prompt)
-            summary = (
-                response.content if hasattr(response, "content") else str(response)
-            )
-            if not isinstance(summary, str):
-                return None
-            if len(summary) > max_chars:
-                summary = summary[:max_chars]
-            return summary
-        except Exception as e:
-            logger.warning("LLM summarize failed: %s", e)
-            return None
-
-    async def _build_content_and_classify(
-        self,
-        text: str,
-        summarize_min: int,
-        summarize_max: int,
-        p: Path,
-    ):
-        """Three-tier pipeline:
-
-        - small (``len(text) <= summarize_min``): full text → classifier
-          (1 LLM call).
-        - medium (``summarize_min < len(text) <= summarize_max``):
-          LLM-summarize down to ``summarize_min`` chars → classifier
-          (2 LLM calls). Falls back to the deterministic summary if the
-          LLM summarize call fails.
-        - long (``len(text) > summarize_max``): deterministic head+tail+titles
-          summary capped at ``summarize_min`` chars → classifier
-          (1 LLM call).
-
-        Returns ``(ClassificationResult, content_to_store)`` — ``content_to_store``
-        is what gets persisted as the memoir memory and indexed for search.
-        """
-        classifier = self._get_classifier()
-        if len(text) <= summarize_min:
-            cls = await classifier.classify_input(text)
-            return cls, text
-        if len(text) <= summarize_max:
-            summary = await self._llm_summarize(text, max_chars=summarize_min)
-            if summary is None:
-                # LLM unavailable / failed — degrade to deterministic so the
-                # scan still makes progress.
-                summary = _deterministic_summary(
-                    text, max_summary_chars=summarize_min, source_name=p.name
-                )
-        else:
-            summary = _deterministic_summary(
-                text, max_summary_chars=summarize_min, source_name=p.name
-            )
-        cls = await classifier.classify_input(summary)
-        return cls, summary

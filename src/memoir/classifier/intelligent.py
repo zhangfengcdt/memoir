@@ -77,6 +77,24 @@ class ClassificationResult:
 
 
 @dataclass
+class SliceClassification:
+    """One slice of a long document, with its taxonomy classification.
+
+    Produced by ``IntelligentClassifier.classify_slices_async``: the LLM is
+    asked to segment a document by semantic boundary and emit a classification
+    per segment. ``start`` / ``end`` are half-open char offsets into the
+    original input text; ``paths`` is the same multi-label list shape used by
+    ``ClassificationResult.paths``.
+    """
+
+    start: int
+    end: int
+    paths: list[str]
+    confidence: float
+    reasoning: str
+
+
+@dataclass
 class MemoryProcessingResult:
     """Result of complete memory processing including storage."""
 
@@ -347,6 +365,284 @@ class IntelligentClassifier:
                 reasoning=f"Classification failed: {e!s}",
                 suggested_action=ClassificationAction.SKIP,
             )
+
+    async def classify_slices_async(
+        self,
+        text: str,
+        *,
+        max_slices: int = 20,
+        window_chars: int = 100_000,
+    ) -> list[SliceClassification]:
+        """Slice ``text`` by semantic boundary and classify each slice.
+
+        Used by ``memoir watch`` for long documents. The LLM is asked, in a
+        single call, to (1) segment the document at meaningful boundaries
+        (section breaks, topic shifts) and (2) attach 1-2 taxonomy paths +
+        confidence to each segment. Output is a list of half-open char
+        ranges (``[start, end)``) over the original text — the caller does
+        the actual slicing locally so the LLM never has to echo verbatim
+        prose back (saves output tokens and avoids paraphrasing drift).
+
+        For inputs longer than ``window_chars``, the text is windowed into
+        non-overlapping chunks; each chunk is classified independently and
+        the per-window slice offsets are shifted into global file coordinates
+        before being concatenated.
+
+        Returns an empty list on parse failure (so the watch pipeline falls
+        through cleanly without crashing the scan).
+        """
+        if not text:
+            return []
+
+        all_paths = self.taxonomy.get_all_paths()
+        windows: list[tuple[int, str]] = []
+        if len(text) <= window_chars:
+            windows.append((0, text))
+        else:
+            for off in range(0, len(text), window_chars):
+                windows.append((off, text[off : off + window_chars]))
+
+        out: list[SliceClassification] = []
+        for offset, chunk in windows:
+            prompt = self._build_slice_classification_prompt(
+                chunk, all_paths, max_slices=max_slices
+            )
+            try:
+                response = await self.llm.ainvoke(prompt)
+            except Exception as e:
+                logger.error("Slice classification LLM call failed: %s", e)
+                continue
+            slices = self._parse_slice_response(response, chunk_text=chunk)
+            for sl in slices:
+                # Validate paths against taxonomy. Drop slices with no valid path.
+                valid_paths = [p for p in sl.paths if p in all_paths]
+                if not valid_paths:
+                    # Fall back to keeping the LLM's path if it follows the
+                    # 3-level shape (the existing classify_input path does
+                    # the same — taxonomy is iterative/expandable).
+                    valid_paths = [
+                        p for p in sl.paths if isinstance(p, str) and p.count(".") == 2
+                    ]
+                if not valid_paths:
+                    continue
+                out.append(
+                    SliceClassification(
+                        start=offset + sl.start,
+                        end=offset + sl.end,
+                        paths=valid_paths,
+                        confidence=sl.confidence,
+                        reasoning=sl.reasoning,
+                    )
+                )
+        return self._knit_slices(out, total_len=len(text))
+
+    @staticmethod
+    def _knit_slices(
+        slices: list[SliceClassification], total_len: int
+    ) -> list[SliceClassification]:
+        """Defensive cleanup of LLM-produced offsets.
+
+        LLMs miscount char offsets. We sort by start, clamp to [0, total_len),
+        drop empty / inverted ranges, and trim overlaps so later slices win
+        only the non-overlapping tail of any conflict. Gaps are tolerated —
+        the watch pipeline only stores what slices the LLM identified, not
+        a full partition of the text.
+        """
+        cleaned: list[SliceClassification] = []
+        for sl in sorted(slices, key=lambda s: (s.start, s.end)):
+            start = max(0, min(sl.start, total_len))
+            end = max(0, min(sl.end, total_len))
+            if end <= start:
+                continue
+            if cleaned and start < cleaned[-1].end:
+                # Overlap: trim the new slice's head to start at prev.end.
+                start = cleaned[-1].end
+                if end <= start:
+                    continue
+            cleaned.append(
+                SliceClassification(
+                    start=start,
+                    end=end,
+                    paths=sl.paths,
+                    confidence=sl.confidence,
+                    reasoning=sl.reasoning,
+                )
+            )
+        return cleaned
+
+    def _build_slice_classification_prompt(
+        self, text: str, paths: list[str], *, max_slices: int
+    ) -> str:
+        """Build the slice-mode prompt. Same STATIC/DYNAMIC discipline as
+        ``_build_classification_prompt`` so prompt caching still applies.
+
+        Slice boundaries are reported as ANCHOR STRINGS (verbatim quotes of
+        the first ~40 and last ~40 chars of each slice) rather than char
+        offsets. LLMs reliably quote text they see but reliably miscount
+        characters — anchoring sidesteps the miscount entirely.
+        """
+        first_level = sorted({p.split(".")[0] for p in paths if "." in p})
+
+        prompt_parts = [
+            "[STATIC_SECTION_START]",
+            "",
+            "You are a document slicing and classification system. Given a document, you will:",
+            "  1. Segment it at meaningful semantic boundaries (section breaks, topic shifts, distinct ideas).",
+            "  2. Classify EACH segment into 1-2 taxonomy paths.",
+            "  3. Report each segment's location by QUOTING short anchor strings — the first ~40 chars and the last ~40 chars of the slice (verbatim, taken from the document).",
+            "",
+            "SLICING RULES:",
+            "  - Slices are non-overlapping and follow the document order.",
+            "  - Each slice MUST be a coherent topic. DO NOT split mid-paragraph or mid-list — only split when the topic clearly shifts.",
+            "  - Prefer FEWER, LARGER slices. Most documents need 1-5 slices. Only use more when the document covers many distinct topics.",
+            "  - Hard maximum: " + str(max_slices) + " slices total. A short document with one topic should produce exactly 1 slice.",
+            "  - Repetitive content (lists of similar URLs, tables of similar rows, log lines) belongs in ONE slice, not many.",
+            "  - You may omit text that has no useful classifiable content (boilerplate, navigation, repeated material).",
+            "",
+            "ANCHOR RULES (CRITICAL):",
+            "  - ``start_anchor`` = the first 30-60 chars of the slice, copied EXACTLY from the document (preserve case, whitespace, punctuation).",
+            "  - ``end_anchor``   = the last  30-60 chars of the slice, copied EXACTLY from the document.",
+            "  - Pick anchors that appear ONLY ONCE in the document — long enough to be unique.",
+            "  - If a slice is shorter than 60 chars in total, set start_anchor = end_anchor = the entire slice text.",
+            "  - DO NOT paraphrase, summarize, or normalize whitespace inside anchors. Copy verbatim.",
+            "",
+            "TAXONOMY RULES:",
+            "  - Paths are EXACTLY 3 levels: category.subcategory.type",
+            "  - Use existing paths where they fit. Invent new paths in the same 3-level shape if nothing fits.",
+            "  - Each slice gets 1-2 paths in ``paths`` (multi-label allowed when a slice spans two clear topics).",
+            "",
+            "Known top-level categories: " + ", ".join(first_level) if first_level else "",
+            "",
+            "Existing paths (first 200 shown for guidance):",
+        ]
+        for p in paths[:200]:
+            prompt_parts.append(f"  {p}")
+        prompt_parts.extend(
+            [
+                "",
+                "JSON RESPONSE FORMAT (return a single object, no prose, no preamble):",
+                "{",
+                '  "slices": [',
+                "    {",
+                '      "start_anchor": "<verbatim first 30-60 chars of the slice>",',
+                '      "end_anchor":   "<verbatim last  30-60 chars of the slice>",',
+                '      "paths": ["category.subcategory.type", "..."],',
+                '      "confidence": <float 0.0-1.0>,',
+                '      "reasoning": "<one sentence>"',
+                "    }",
+                "  ]",
+                "}",
+                "",
+                "[STATIC_SECTION_END]",
+                "",
+                "[DYNAMIC_SECTION_START]",
+                "",
+                "DOCUMENT TO SLICE AND CLASSIFY (length: " + str(len(text)) + " chars):",
+                "",
+                text,
+                "",
+                "Return only the JSON object.",
+                "[DYNAMIC_SECTION_END]",
+            ]
+        )
+        return "\n".join(prompt_parts)
+
+    def _parse_slice_response(
+        self, response: Any, *, chunk_text: str
+    ) -> list[SliceClassification]:
+        """Extract the ``slices`` array and convert anchor strings back to
+        char offsets via ``str.find`` on the source text. Slices whose
+        anchors don't appear in the document (or appear in the wrong order)
+        are dropped — the LLM hallucinated them and we'd rather lose that
+        slice than produce a mid-character truncation."""
+        chunk_len = len(chunk_text)
+        try:
+            content = response.content if hasattr(response, "content") else str(response)
+            start_idx = content.find("{")
+            if start_idx == -1:
+                logger.warning(
+                    "Slice response has no JSON object: %r", content[:200]
+                )
+                return []
+            # Brace-match to find the matching close.
+            brace = 0
+            end_idx = -1
+            for i in range(start_idx, len(content)):
+                if content[i] == "{":
+                    brace += 1
+                elif content[i] == "}":
+                    brace -= 1
+                    if brace == 0:
+                        end_idx = i + 1
+                        break
+            if end_idx == -1:
+                logger.warning("Slice response has unbalanced braces")
+                return []
+            json_str = content[start_idx:end_idx]
+            try:
+                data = json.loads(json_str)
+            except json.JSONDecodeError:
+                data = json.loads(self._fix_common_json_issues(json_str))
+
+            raw_slices = data.get("slices") or []
+            out: list[SliceClassification] = []
+            cursor = 0  # advance through the doc so later slices can't
+            # locate their anchor before earlier slices
+            for s in raw_slices:
+                if not isinstance(s, dict):
+                    continue
+                start_anchor = s.get("start_anchor")
+                end_anchor = s.get("end_anchor")
+                if not isinstance(start_anchor, str) or not isinstance(
+                    end_anchor, str
+                ):
+                    continue
+                start_anchor = start_anchor.strip()
+                end_anchor = end_anchor.strip()
+                if not start_anchor or not end_anchor:
+                    continue
+                start = chunk_text.find(start_anchor, cursor)
+                if start < 0:
+                    logger.debug(
+                        "slice start_anchor not found in document: %r",
+                        start_anchor[:80],
+                    )
+                    continue
+                # end_anchor must appear at or after start.
+                end_match = chunk_text.find(end_anchor, start)
+                if end_match < 0:
+                    logger.debug(
+                        "slice end_anchor not found after start: %r",
+                        end_anchor[:80],
+                    )
+                    continue
+                end = end_match + len(end_anchor)
+                if end <= start or end > chunk_len:
+                    continue
+                paths = s.get("paths") or []
+                if not isinstance(paths, list):
+                    continue
+                paths = [p for p in paths if isinstance(p, str) and p.strip()]
+                if not paths:
+                    continue
+                try:
+                    conf = float(s.get("confidence", 0.0))
+                except (TypeError, ValueError):
+                    conf = 0.0
+                out.append(
+                    SliceClassification(
+                        start=start,
+                        end=end,
+                        paths=paths,
+                        confidence=conf,
+                        reasoning=str(s.get("reasoning", "")),
+                    )
+                )
+                cursor = end
+            return out
+        except Exception as e:
+            logger.error("Slice response parse failed: %s", e)
+            return []
 
     def _build_classification_prompt(
         self,

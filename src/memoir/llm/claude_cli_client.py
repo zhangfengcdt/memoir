@@ -78,8 +78,13 @@ class ClaudeCLIWrapper:
     # Models this backend can handle. Non-Claude models must stay on LiteLLM.
     SUPPORTED_MARKERS: ClassVar[list[str]] = ["haiku", "sonnet", "opus", "claude"]
 
-    # Default subprocess timeout (seconds). Classification tasks are short.
-    DEFAULT_TIMEOUT = 60
+    # Default subprocess timeout (seconds). Sized for slice classification
+    # (memoir watch): the LLM ingests the full document text (up to
+    # ``summarize_max_chars`` = 100K) plus the cached taxonomy block, then
+    # emits a structured JSON object with N slice entries. That can legitimately
+    # take 90-120s on a cold subprocess. Override per-process with
+    # ``MEMOIR_LLM_TIMEOUT=<seconds>`` for slower networks / larger inputs.
+    DEFAULT_TIMEOUT = 180
 
     # Empty MCP config passed on every call together with --strict-mcp-config
     # to suppress the outer environment's MCP server discovery. See module
@@ -102,6 +107,16 @@ class ClaudeCLIWrapper:
         self.max_tokens = max_tokens
         self.enable_prompt_cache = enable_prompt_cache
         self._debug_cache = debug_cache
+        env_timeout = os.environ.get("MEMOIR_LLM_TIMEOUT", "").strip()
+        if env_timeout:
+            try:
+                timeout = max(1, int(env_timeout))
+            except ValueError:
+                logger.warning(
+                    "MEMOIR_LLM_TIMEOUT=%r is not an int; using default %ds",
+                    env_timeout,
+                    timeout,
+                )
         self._timeout = timeout
 
         # Cache-stat shape matches LiteLLMWrapper so callers don't branch.

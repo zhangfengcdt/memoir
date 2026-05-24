@@ -25,11 +25,7 @@ if not getattr(prollytree, "proximity_text_available", False):
         allow_module_level=True,
     )
 
-from memoir.classifier.intelligent import (
-    ClassificationAction,
-    ClassificationConfidence,
-    ClassificationResult,
-)
+from memoir.classifier.intelligent import SliceClassification
 from memoir.services.store_service import StoreService
 from memoir.services.watch_service import WatchService
 
@@ -59,18 +55,20 @@ def _build_watch(store_path: Path, *, paths=("knowledge.test.demo",)):
     so each test runs deterministically and without an LLM key."""
     svc = WatchService(str(store_path))
     ms = svc._get_memory_service()
+
+    async def _one_slice(text, *, max_slices=50, window_chars=100_000):
+        return [
+            SliceClassification(
+                start=0,
+                end=len(text),
+                paths=list(paths),
+                confidence=0.9,
+                reasoning="mocked",
+            )
+        ]
+
     fake_cls = MagicMock()
-    fake_cls.classify_input = AsyncMock(
-        return_value=ClassificationResult(
-            is_memory=True,
-            confidence=0.9,
-            confidence_level=ClassificationConfidence.HIGH,
-            reasoning="mocked",
-            suggested_action=ClassificationAction.CLASSIFY,
-            path=paths[0],
-            paths=list(paths),
-        )
-    )
+    fake_cls.classify_slices_async = AsyncMock(side_effect=_one_slice)
     ms._classifier = fake_cls
     svc._classifier = fake_cls
 
@@ -108,6 +106,9 @@ def test_data_survives_in_fresh_process(memoir_store, docs_dir):
     assert res.scan.files_indexed == 2
     del svc
 
+    # Slice mode: a single-slice file's key is the bare classified path
+    # (the `.N` collision suffix only kicks in for repeated paths within
+    # one file).
     value = _read_data_fresh(memoir_store, "default", "knowledge.test.demo")
     assert value is not None
     assert value.get("content"), value

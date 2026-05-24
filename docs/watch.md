@@ -55,18 +55,27 @@ For each file under a watched path:
 3. **Hash.** Content hash (blake3 if installed, otherwise sha256). If the
    hash matches the prior scan, nothing happens — this makes re-scans cheap.
 4. **Parse.** `markitdown` extracts plaintext.
-5. **Build the content to store.**
-    - Short docs (`len(text) ≤ summarize_min_chars`, default 10 000 chars):
-      the full plaintext is stored verbatim.
-    - Long docs: a **deterministic** summary is built from the document's
-      head, tail, and any `#`-style markdown headings. No LLM is involved
-      in summarization.
-6. **Classify.** The classifier (one LLM call) assigns 1–2 taxonomy paths.
-7. **Store.** Via `MemoryService.remember`, with `extra_metadata.source` set
-   to `{kind: "watch", abs_path: ..., content_hash: ...}` so the entry is
-   distinguishable from hand-written memories.
-8. **Index.** The stored content is added to the vector index under the
-   primary classified path as the doc id.
+5. **Slice + classify.** A single LLM call (`classify_slices_async`) reads
+   the document and returns a JSON list of `{start, end, paths, confidence}`
+   entries — each is a semantically coherent slice of the file. The pipeline
+   does the actual slicing locally using the returned char offsets, so the
+   LLM never has to echo verbatim prose. For inputs longer than
+   `summarize_max_chars` (default 100 000 chars), the text is windowed into
+   non-overlapping chunks; offsets are shifted into global file coordinates
+   and re-stitched.
+6. **Store per slice.** Each slice is written via `MemoryService.remember`
+   under `<primary_path>.s{idx:04d}` (e.g. `knowledge.papers.transformer.s0003`).
+   `extra_metadata.source` records `{kind: "watch", abs_path, content_hash,
+   slice_index, slice_start, slice_end, slice_primary_path}` so each slice
+   is distinguishable from hand-written memories and traces back to the
+   original file's exact byte range.
+7. **Index per slice.** Each slice is added to the vector index as its own
+   prollytree text-index document, keyed by its slice memory key. Semantic
+   search therefore returns slice-level hits, not whole-file hits.
+
+Re-scanning a changed file tears down its previous slice keys before
+writing the new ones, so the per-slice key namespace never accumulates
+orphans across rewrites.
 
 All state (config, registered paths, per-file hashes) lives inside the
 memoir store, under the `watch:config`, `watch:paths`, `watch:files` keys
@@ -93,8 +102,10 @@ memoir search <query> [-n NAMESPACE] [-k INT]
 - **Max file size:** 100 MB (in `watch:config.max_size_mb`). The config
   dict is stored on first scan; to reset to defaults, delete it with
   `memoir forget config -n watch --force` and re-scan.
-- **Summarize threshold:** 10 000 chars (in
-  `watch:config.summarize_min_chars`).
+- **Slice-classify window cap:** 100 000 chars (in
+  `watch:config.summarize_max_chars`). Inputs above this are windowed and
+  re-stitched, so very long files still go through the single LLM call
+  per window without an extra summarize pass.
 - **Embedder:** `MiniLmEmbedder` (downloads ~90 MB of model weights on
   first run into `~/.cache/prollytree/embedders/`).
 - **LLM model:** resolves via `--model` → `MEMOIR_LLM_MODEL` env →

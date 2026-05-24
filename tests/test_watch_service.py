@@ -26,17 +26,11 @@ if not getattr(prollytree, "proximity_text_available", False):
         allow_module_level=True,
     )
 
-from memoir.classifier.intelligent import (
-    ClassificationAction,
-    ClassificationConfidence,
-    ClassificationResult,
-)
+from memoir.classifier.intelligent import SliceClassification
 from memoir.services.store_service import StoreService
 from memoir.services.watch_service import (
     EXCLUDE_DIRS,
     WatchService,
-    _deterministic_summary,
-    _extract_titles,
     supported_extensions,
 )
 
@@ -71,30 +65,52 @@ def docs_dir(tmp_path):
     return d
 
 
-def _build_watch(memoir_store, classification_paths=("knowledge.test.demo",)):
-    """Construct a WatchService with a mocked classifier + mocked markitdown.
+def _build_watch(
+    memoir_store,
+    classification_paths=("knowledge.test.demo",),
+    slice_count=1,
+):
+    """Construct a WatchService with a mocked slice classifier + markitdown.
 
-    The classifier returns a deterministic ClassificationResult so we can
-    assert downstream behavior without an API key.
+    The slice classifier returns ``slice_count`` SliceClassification objects
+    that together span the full input text (evenly split), each classified
+    to ``classification_paths``. Tests that exercise multi-slice behavior
+    pass ``slice_count > 1``.
     """
     svc = WatchService(str(memoir_store), llm_model="claude-haiku-4-5")
-
-    # Mock the classifier (warm up MemoryService first so its store handle
-    # is shared).
     ms = svc._get_memory_service()
 
+    async def fake_slice(text, *, max_slices=50, window_chars=100_000):
+        if not text:
+            return []
+        if slice_count <= 1:
+            return [
+                SliceClassification(
+                    start=0,
+                    end=len(text),
+                    paths=list(classification_paths),
+                    confidence=0.9,
+                    reasoning="mocked single slice",
+                )
+            ]
+        step = max(1, len(text) // slice_count)
+        out = []
+        for i in range(slice_count):
+            start = i * step
+            end = len(text) if i == slice_count - 1 else (i + 1) * step
+            out.append(
+                SliceClassification(
+                    start=start,
+                    end=end,
+                    paths=list(classification_paths),
+                    confidence=0.9,
+                    reasoning=f"mocked slice {i}",
+                )
+            )
+        return out
+
     fake_cls = MagicMock()
-    fake_cls.classify_input = AsyncMock(
-        return_value=ClassificationResult(
-            is_memory=True,
-            confidence=0.9,
-            confidence_level=ClassificationConfidence.HIGH,
-            reasoning="mocked",
-            suggested_action=ClassificationAction.CLASSIFY,
-            path=classification_paths[0],
-            paths=list(classification_paths),
-        )
-    )
+    fake_cls.classify_slices_async = AsyncMock(side_effect=fake_slice)
     ms._classifier = fake_cls
     svc._classifier = fake_cls
 
@@ -125,29 +141,6 @@ def test_supported_extensions_excludes_non_text_formats():
     exts = supported_extensions()
     for excluded in (".png", ".jpg", ".mp3", ".mp4", ".wav", ".zip", ".epub"):
         assert excluded not in exts
-
-
-def test_extract_titles_picks_markdown_headings():
-    text = "# Top\n\nbody text\n\n## Sub\n\nmore\n\n### Deep\n"
-    assert _extract_titles(text) == ["Top", "Sub", "Deep"]
-
-
-def test_extract_titles_skips_prose():
-    text = "This is a normal sentence with a capital start.\n"
-    assert _extract_titles(text) == []
-
-
-def test_deterministic_summary_layout():
-    body = "head text " * 100 + "\n\n# Section A\n\n" + "tail text " * 100
-    summary = _deterministic_summary(
-        body, max_summary_chars=200, source_name="example.md"
-    )
-    assert summary.startswith("# example.md")
-    assert "Section A" in summary
-    assert "## Beginning" in summary
-    # tail is only included when text is long enough.
-    assert "## End" in summary
-    assert len(summary) <= 200
 
 
 def test_exclude_dirs_contains_expected_set():
@@ -200,86 +193,56 @@ def test_watch_reindexes_on_content_change(memoir_store, docs_dir):
     assert r.files_unchanged == 2
 
 
-def test_medium_doc_uses_llm_summarize(memoir_store, tmp_path):
-    """A doc between summarize_min and summarize_max chars must be passed
-    through an LLM summarize call before classification. The summary
-    becomes both the classifier input and the stored content."""
-    root = tmp_path / "medium"
+def test_slice_pipeline_writes_one_memory_per_slice(memoir_store, tmp_path):
+    """The slice-then-classify pipeline should produce N memories for a doc
+    the classifier carved into N slices. When all slices classify to the
+    same taxonomy path, the first uses the bare path and the rest pick up
+    a numeric collision suffix (``.2``, ``.3``, ...)."""
+    root = tmp_path / "multi"
     root.mkdir()
-    medium_text = "x" * 50_000  # 10K < 50K < 100K → medium tier
-    (root / "medium.md").write_text(medium_text)
+    body = "section one body. " * 100 + "\n\n" + "section two body. " * 100
+    (root / "doc.md").write_text(body)
 
-    svc = _build_watch(memoir_store)
-    fake_summary = "concise LLM-generated summary"
-    svc._llm_summarize = AsyncMock(return_value=fake_summary)
-
+    svc = _build_watch(memoir_store, slice_count=3)
     res = asyncio.run(svc.add(str(root), namespace="default"))
-    assert res.success
+    assert res.success, res.error
     assert res.scan.files_indexed == 1
+    assert res.scan.slices_indexed == 3
 
-    # The LLM summarize was called with the original text and the small-doc cap.
-    svc._llm_summarize.assert_awaited_once()
-    _, kwargs = svc._llm_summarize.call_args
-    assert kwargs.get("max_chars") == 10_000
-
-    # The stored content is the LLM summary, not the original text.
+    # All three slice keys should resolve in the store and concatenate
+    # back to the original body. The mock classifier returns the same
+    # path for every slice, so we get the collision-suffix scheme.
     store = svc._get_memory_service()._get_store()
-    value = store.get(("default",), "knowledge.test.demo")
-    assert value is not None
-    assert value["content"] == fake_summary
+    keys = ["knowledge.test.demo", "knowledge.test.demo.2", "knowledge.test.demo.3"]
+    values = []
+    for k in keys:
+        v = store.get(("default",), k)
+        assert v is not None, f"slice key missing: {k}"
+        values.append(v["content"])
+    assert "".join(values) == body
 
 
-def test_long_doc_uses_deterministic_summary(memoir_store, tmp_path):
-    """A doc above summarize_max chars must use the deterministic
-    head+tail+titles summary — no LLM call for summarization."""
-    root = tmp_path / "long"
+def test_slice_pipeline_cleans_up_prev_keys_on_reindex(memoir_store, tmp_path):
+    """When a file changes and re-scans with a different slice count, the
+    old slice keys must be deleted so the store doesn't accumulate orphans."""
+    root = tmp_path / "reindex"
     root.mkdir()
-    # Big enough to exceed summarize_max (100K default).
-    long_text = "# Topic\n\n" + ("body line\n" * 20_000)  # ≈ 200K chars
-    (root / "long.md").write_text(long_text)
+    (root / "f.md").write_text("v1 body " * 50)
 
-    svc = _build_watch(memoir_store)
-    # Sentinel: if _llm_summarize is called, the test fails (long docs must
-    # not pay the LLM-summarize cost).
-    svc._llm_summarize = AsyncMock(
-        side_effect=AssertionError("long doc must not call _llm_summarize")
-    )
+    svc = _build_watch(memoir_store, slice_count=3)
+    asyncio.run(svc.add(str(root), namespace="default"))
 
-    res = asyncio.run(svc.add(str(root), namespace="default"))
-    assert res.success
-    assert res.scan.files_indexed == 1
-    svc._llm_summarize.assert_not_awaited()
+    # Rewrite content; switch the mock to produce 2 slices this time.
+    (root / "f.md").write_text("v2 body " * 50)
+    svc2 = _build_watch(memoir_store, slice_count=2)
+    asyncio.run(svc2.scan(path=str(root)))
 
-    store = svc._get_memory_service()._get_store()
-    value = store.get(("default",), "knowledge.test.demo")
-    assert value is not None
-    # Deterministic summary has the markdown structure markers.
-    assert "## Beginning" in value["content"]
-    # Capped at summarize_min_chars (10K default).
-    assert len(value["content"]) <= 10_000
-
-
-def test_medium_doc_falls_back_to_deterministic_on_llm_failure(memoir_store, tmp_path):
-    """When _llm_summarize returns None (LLM unavailable, network failure,
-    etc.), the medium-doc path must degrade to the deterministic summary
-    so the scan still makes progress."""
-    root = tmp_path / "medium-fallback"
-    root.mkdir()
-    medium_text = "# Header\n\n" + ("x" * 50_000)  # medium tier
-    (root / "m.md").write_text(medium_text)
-
-    svc = _build_watch(memoir_store)
-    svc._llm_summarize = AsyncMock(return_value=None)  # simulate failure
-
-    res = asyncio.run(svc.add(str(root), namespace="default"))
-    assert res.success
-    assert res.scan.files_indexed == 1
-
-    store = svc._get_memory_service()._get_store()
-    value = store.get(("default",), "knowledge.test.demo")
-    assert value is not None
-    # Deterministic summary markers present (not None, not LLM output).
-    assert "## Beginning" in value["content"]
+    store = svc2._get_memory_service()._get_store()
+    # New slices present.
+    assert store.get(("default",), "knowledge.test.demo") is not None
+    assert store.get(("default",), "knowledge.test.demo.2") is not None
+    # Old third slice removed (was at `.3` after the first scan with 3 slices).
+    assert store.get(("default",), "knowledge.test.demo.3") is None
 
 
 def test_scan_cleans_up_deleted_files(memoir_store, docs_dir):
@@ -464,19 +427,20 @@ def test_scan_caps_indexed_files_per_run(memoir_store, tmp_path):
     captured: list[str] = []
 
     svc = WatchService(str(memoir_store), progress=captured.append)
-    # Wire the same fake classifier + markitdown _build_watch uses.
+    # Wire the same fake slice-classifier + markitdown _build_watch uses.
+    async def _one_slice(text, *, max_slices=50, window_chars=100_000):
+        return [
+            SliceClassification(
+                start=0,
+                end=len(text),
+                paths=["knowledge.test.demo"],
+                confidence=0.9,
+                reasoning="mocked",
+            )
+        ]
+
     fake_cls = MagicMock()
-    fake_cls.classify_input = AsyncMock(
-        return_value=ClassificationResult(
-            is_memory=True,
-            confidence=0.9,
-            confidence_level=ClassificationConfidence.HIGH,
-            reasoning="mocked",
-            suggested_action=ClassificationAction.CLASSIFY,
-            path="knowledge.test.demo",
-            paths=["knowledge.test.demo"],
-        )
-    )
+    fake_cls.classify_slices_async = AsyncMock(side_effect=_one_slice)
     svc._get_memory_service()._classifier = fake_cls
     svc._classifier = fake_cls
 
@@ -575,13 +539,17 @@ def test_remove_with_purge_deletes_index_entries(memoir_store, docs_dir):
     # Confirm registry is empty.
     assert svc.list().entries == []
 
-    # Confirm primary store no longer has the memory.
+    # Confirm primary store no longer has the memory. In slice mode each
+    # file's primary classification key is the bare path (collision suffix
+    # only kicks in for repeated paths within one file); after purge,
+    # neither the bare key nor any collision-suffixed variant should remain.
     from memoir.services.memory_service import MemoryService
 
     ms = MemoryService(str(memoir_store))
     store = ms._get_store()
-    v = store.get(("default",), "knowledge.test.demo")
-    assert v is None, v
+    for key in ("knowledge.test.demo", "knowledge.test.demo.2", "knowledge.test.demo.3"):
+        v = store.get(("default",), key)
+        assert v is None, v
 
 
 def test_remove_without_purge_unregisters_only(memoir_store, docs_dir):
@@ -624,9 +592,10 @@ def test_search_returns_resolved_memory(memoir_store, docs_dir):
     assert sr.success, sr.error
     assert sr.hits  # at least one hit
     top = sr.hits[0]
-    # All three files share the same primary key under this test (mocked
-    # classifier always returns "knowledge.technical.docs"), so the index
-    # only has one document and the content is the last file written.
+    # All three files share the same primary classification under this test
+    # (mocked classifier always returns "knowledge.technical.docs"). In slice
+    # mode each file's single slice gets the bare path (collision suffix is
+    # per-file, so cross-file collisions overwrite — last writer wins).
     assert top.key == "knowledge.technical.docs"
     assert top.source is not None
     assert top.source.get("kind") == "watch"
@@ -664,20 +633,26 @@ def test_keyboard_interrupt_saves_partial_progress(memoir_store, tmp_path):
     for i in range(5):
         (root / f"f{i:02d}.md").write_text(f"# File {i} UPDATED\n")
 
-    # Inject a mock that raises KeyboardInterrupt on the third classify call.
+    # Inject a mock that raises KeyboardInterrupt on the third slice-classify
+    # call (so 2 files have already been indexed when the interrupt fires).
     call_count = 0
-    original_classify = svc._build_content_and_classify
 
-    async def _interrupt_on_third(text, *, summarize_min, summarize_max, p):
+    async def _interrupt_on_third(text, *, max_slices=50, window_chars=100_000):
         nonlocal call_count
         call_count += 1
         if call_count == 3:
             raise KeyboardInterrupt
-        return await original_classify(
-            text, summarize_min=summarize_min, summarize_max=summarize_max, p=p
-        )
+        return [
+            SliceClassification(
+                start=0,
+                end=len(text),
+                paths=["knowledge.test.demo"],
+                confidence=0.9,
+                reasoning="mocked",
+            )
+        ]
 
-    svc._build_content_and_classify = _interrupt_on_third
+    svc._classifier.classify_slices_async = AsyncMock(side_effect=_interrupt_on_third)
 
     # Re-scan — the interrupt fires after 2 files are indexed.
     with pytest.raises(KeyboardInterrupt):
