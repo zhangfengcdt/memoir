@@ -114,7 +114,7 @@ def watch_add(ctx: MemoirContext, path: str, namespace: str, model: str | None):
         )
         click.echo(
             f"  Indexed {scan.files_indexed} of {scan.files_seen} files "
-            f"({scan.slices_indexed} slices total; "
+            f"({scan.chunks_indexed} chunks total; "
             f"{scan.files_unchanged} unchanged, "
             f"{scan.files_deleted} deleted, "
             f"{scan.files_skipped_unsupported} unsupported, "
@@ -225,7 +225,7 @@ def watch_scan(
             continue
         click.echo(
             f"  Indexed {r.files_indexed} of {r.files_seen} files "
-            f"({r.slices_indexed} slices total; "
+            f"({r.chunks_indexed} chunks total; "
             f"{r.files_unchanged} unchanged, "
             f"{r.files_deleted} deleted, "
             f"{r.files_skipped_unsupported} unsupported, "

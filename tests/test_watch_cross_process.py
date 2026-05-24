@@ -25,9 +25,8 @@ if not getattr(prollytree, "proximity_text_available", False):
         allow_module_level=True,
     )
 
-from memoir.classifier.intelligent import SliceClassification
 from memoir.services.store_service import StoreService
-from memoir.services.watch_service import WatchService
+from memoir.services.watch_service import ChunkPlan, WatchChunk, WatchService
 
 os.environ.setdefault("MEMOIR_TEST_USE_HASH_EMBEDDER", "1")
 
@@ -51,26 +50,20 @@ def docs_dir(tmp_path):
 
 
 def _build_watch(store_path: Path, *, paths=("knowledge.test.demo",)):
-    """WatchService wired with a mocked classifier and a mocked markitdown
-    so each test runs deterministically and without an LLM key."""
+    """WatchService wired with a mocked chunk-and-summarize call + mocked
+    markitdown so each test runs deterministically without an LLM key.
+    ``paths`` is accepted (defaulted) for back-compat with older call
+    sites; chunk-mode doesn't classify, so it's ignored."""
+    del paths
     svc = WatchService(str(store_path))
-    ms = svc._get_memory_service()
 
-    async def _one_slice(text, *, max_slices=50, window_chars=100_000):
-        return [
-            SliceClassification(
-                start=0,
-                end=len(text),
-                paths=list(paths),
-                confidence=0.9,
-                reasoning="mocked",
-            )
-        ]
+    async def _one_chunk(text):
+        return ChunkPlan(
+            summary="mocked summary",
+            chunks=[WatchChunk(start=0, end=len(text))],
+        )
 
-    fake_cls = MagicMock()
-    fake_cls.classify_slices_async = AsyncMock(side_effect=_one_slice)
-    ms._classifier = fake_cls
-    svc._classifier = fake_cls
+    svc._chunk_and_summarize_async = AsyncMock(side_effect=_one_chunk)
 
     class _FakeMd:
         def convert(self, path):
@@ -117,7 +110,7 @@ def test_data_survives_in_fresh_process(memoir_store, docs_dir):
     # Slice mode: a single-slice file's key is the bare classified path
     # (the `.N` collision suffix only kicks in for repeated paths within
     # one file).
-    value = _read_data_fresh(memoir_store, "default", "knowledge.test.demo")
+    value = _read_data_fresh(memoir_store, "default", "raw.async_md.summary")
     assert value is not None
     assert value.get("content"), value
     assert value.get("source", {}).get("kind") == "watch"
@@ -203,7 +196,7 @@ def test_purge_then_fresh_search(memoir_store, docs_dir):
     del svc
 
     # Sanity: data is there before the purge.
-    pre = _read_data_fresh(memoir_store, "default", "knowledge.test.demo")
+    pre = _read_data_fresh(memoir_store, "default", "raw.async_md.summary")
     assert pre is not None
 
     svc2 = _build_watch(memoir_store)
@@ -214,7 +207,7 @@ def test_purge_then_fresh_search(memoir_store, docs_dir):
     del svc2
 
     # After purge, the memory key should be gone (not just unreadable).
-    post = _read_data_fresh(memoir_store, "default", "knowledge.test.demo")
+    post = _read_data_fresh(memoir_store, "default", "raw.async_md.summary")
     assert post is None, "purge should have deleted the memory entry"
 
     # And we should still be able to read other parts of the store —
@@ -278,7 +271,7 @@ def test_search_with_no_matching_hits(memoir_store, docs_dir):
     assert r1.success
     # Whatever hits we get, the data must still be readable in the next
     # fresh process.
-    value = _read_data_fresh(memoir_store, "default", "knowledge.test.demo")
+    value = _read_data_fresh(memoir_store, "default", "raw.async_md.summary")
     assert value is not None, (
         "Post-search fresh data read failed even when the search "
         "returned no useful hits. The marker write must always run."

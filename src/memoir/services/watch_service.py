@@ -1,42 +1,43 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Watch service: ingest files / folders into memoir.
+"""Watch service: ingest single files into memoir.
 
 Provides the pipeline behind ``memoir watch``. For each file:
 
-1. ``markitdown`` extracts plaintext.
-2. ``IntelligentClassifier.classify_slices_async`` runs a single LLM call
-   that segments the document at semantic boundaries and classifies each
-   slice independently. Inputs longer than ``summarize_max_chars`` are
-   windowed and re-stitched into global offsets.
-3. Each slice is stored as its own memoir memory under its classified
-   taxonomy path (via ``MemoryService.remember``) and vector-indexed
-   independently (via ``VectorService``), so semantic search returns
-   slice-level hits rather than whole-file hits. When two slices in the
-   same file classify to the same taxonomy path, the second (and later)
-   pick up a numeric suffix — ``<path>``, ``<path>.2``, ``<path>.3`` — so
-   they don't overwrite each other.
+1. **Size check.** Reject files larger than ``max_size_bytes`` (default
+   100 KB). The whole pipeline is sized for short documents.
+2. **Extract.** ``markitdown`` extracts plaintext.
+3. **Chunk + summarize.** One LLM call (see ``_chunk_and_summarize_async``)
+   asks for a one-paragraph summary plus a list of chunk boundaries
+   reported as verbatim anchor strings. The pipeline locates anchors in
+   the source text via ``str.find`` to recover real char offsets.
+4. **Store.** The summary lands at ``raw.<file>.summary`` and each chunk
+   at ``raw.<file>.chunk.NNN``, all under the ``watch`` namespace via
+   ``MemoryService.remember``.
+5. **Vector index.** Every memory key (summary + chunks) is vector-indexed
+   so semantic search returns chunk-level hits.
 
 State lives in the ``watch`` namespace alongside the indexed file content:
 
-- ``watch:config`` — config dict (max size, slice window cap, embedder name)
+- ``watch:config`` — config dict (max size, embedder name)
 - ``watch:paths``  — registry of watched paths
-- ``watch:files``  — per-file state (content hash, slice memory keys, mtime, ...)
+- ``watch:files``  — per-file state (content hash, chunk memory keys, mtime, ...)
                      kept as a single dict; read once per scan,
                      mutated in memory, written once at end.
 """
 
 import contextlib
 import hashlib
+import json
 import logging
 import os
 import re
 import time
 from collections.abc import Callable
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from memoir.classifier.intelligent import SliceClassification
 from memoir.services.base import BaseService, ServiceError, StoreNotFoundError
 from memoir.services.memory_service import MemoryService
 from memoir.services.models import (
@@ -55,13 +56,10 @@ logger = logging.getLogger(__name__)
 
 
 DEFAULT_CONFIG = {
-    "max_size_mb": 100,
-    # ``summarize_max_chars`` is the slice-classification window. The LLM
-    # classifies the whole document in one call when it fits; for longer
-    # inputs the watch pipeline windows the text into non-overlapping
-    # chunks of this size, classifies each window, then re-stitches the
-    # slice offsets back into global file coordinates.
-    "summarize_max_chars": 100_000,
+    # Hard reject above this size on disk. The chunk+summarize pipeline is
+    # built for short documents — bigger files would also push the LLM call
+    # toward output-token limits and slow re-scans considerably.
+    "max_size_bytes": 100_000,
     # Cap how many files a single ``scan`` will index (new or changed).
     # Unchanged files (hash match) don't count — they're cheap. When the
     # cap is hit the scan prints a warning naming the remaining count so
@@ -70,6 +68,33 @@ DEFAULT_CONFIG = {
     "max_files_per_scan": 100,
     "embedder": "MiniLmEmbedder",
 }
+
+# Hard cap on chunks the LLM may produce per file. The prompt nudges
+# toward many fewer (1-6 typical), but a defensive cap protects against
+# a runaway response.
+MAX_CHUNKS_PER_FILE = 10
+
+
+@dataclass
+class WatchChunk:
+    """One chunk of the watched document. Half-open ``[start, end)`` over
+    the extracted text. The watch pipeline never echoes verbatim text back
+    from the LLM — only anchor strings — and recovers offsets locally via
+    ``str.find``."""
+
+    start: int
+    end: int
+
+
+@dataclass
+class ChunkPlan:
+    """LLM output: a one-paragraph summary plus the list of chunk
+    boundaries to store under ``raw.<file>.chunk.NNN`` keys. The summary
+    is written under ``raw.<file>.summary`` and also vector-indexed."""
+
+    summary: str
+    chunks: list[WatchChunk] = field(default_factory=list)
+
 
 # Matched against any path component (so `.git/objects/...` is also filtered).
 EXCLUDE_DIRS = frozenset(
@@ -134,6 +159,134 @@ def _content_hash(data: bytes) -> str:
 
 def _is_excluded(p: Path) -> bool:
     return any(part in EXCLUDE_DIRS for part in p.parts)
+
+
+def _build_chunk_summarize_prompt(text: str, *, max_chunks: int) -> str:
+    """Build the chunk-and-summarize prompt with the same
+    ``[STATIC_SECTION_START]...[STATIC_SECTION_END]`` cache-friendly
+    discipline used by the classifier prompts. The dynamic section is
+    just the document text + a closing instruction."""
+    parts = [
+        "[STATIC_SECTION_START]",
+        "",
+        "You are a document chunking and summarization system. Given a document, you will:",
+        "  1. Write a concise one-paragraph SUMMARY of the whole document (2-4 sentences).",
+        "  2. Segment the document into chunks sized for vector search.",
+        "  3. Report each chunk's location by QUOTING short anchor strings — the first ~40 chars and last ~40 chars of the chunk (verbatim, taken from the document).",
+        "",
+        "CHUNKING RULES:",
+        "  - Each chunk is a coherent block of content (a section, a tight cluster of related lines, a topic).",
+        "  - Target chunk size: 500-2000 chars. Avoid tiny chunks (<200 chars) unless the document is itself short.",
+        "  - Chunks MUST be non-overlapping and follow the document order.",
+        "  - Prefer FEWER, LARGER chunks. Most documents need 1-5 chunks. Hard maximum: "
+        + str(max_chunks)
+        + " chunks total.",
+        "  - Repetitive lists / tables / log lines belong in ONE chunk, not many.",
+        "  - You may omit boilerplate / navigation / repeated material that has no useful retrieval content.",
+        "",
+        "ANCHOR RULES (CRITICAL):",
+        "  - ``start_anchor`` = the first 30-60 chars of the chunk, copied EXACTLY from the document (preserve case, whitespace, punctuation).",
+        "  - ``end_anchor``   = the last  30-60 chars of the chunk, copied EXACTLY from the document.",
+        "  - Pick anchors that appear ONLY ONCE in the document — long enough to be unique.",
+        "  - If a chunk is shorter than 60 chars in total, set start_anchor = end_anchor = the entire chunk text.",
+        "  - DO NOT paraphrase, summarize, or normalize whitespace inside anchors. Copy verbatim.",
+        "",
+        "JSON RESPONSE FORMAT (return a single object, no prose, no preamble):",
+        "{",
+        '  "summary": "<one-paragraph summary>",',
+        '  "chunks": [',
+        "    {",
+        '      "start_anchor": "<verbatim first 30-60 chars of the chunk>",',
+        '      "end_anchor":   "<verbatim last  30-60 chars of the chunk>"',
+        "    }",
+        "  ]",
+        "}",
+        "",
+        "[STATIC_SECTION_END]",
+        "",
+        "[DYNAMIC_SECTION_START]",
+        "",
+        "DOCUMENT TO CHUNK AND SUMMARIZE (length: " + str(len(text)) + " chars):",
+        "",
+        text,
+        "",
+        "Return only the JSON object.",
+        "[DYNAMIC_SECTION_END]",
+    ]
+    return "\n".join(parts)
+
+
+def _parse_chunk_summarize_response(response: Any, *, source_text: str) -> ChunkPlan:
+    """Extract ``summary`` + ``chunks`` from the LLM response. Anchors
+    are resolved against ``source_text`` via ``str.find`` from a monotonic
+    cursor so later chunks can't locate their anchor before earlier ones.
+    Chunks whose anchors fail to locate (in order) are dropped silently.
+    """
+    content = response.content if hasattr(response, "content") else str(response)
+    start_idx = content.find("{")
+    if start_idx == -1:
+        logger.warning("chunk+summarize response has no JSON: %r", content[:200])
+        return ChunkPlan(summary="", chunks=[])
+
+    # Brace-match to find the closing brace.
+    brace = 0
+    end_idx = -1
+    for i in range(start_idx, len(content)):
+        if content[i] == "{":
+            brace += 1
+        elif content[i] == "}":
+            brace -= 1
+            if brace == 0:
+                end_idx = i + 1
+                break
+    if end_idx == -1:
+        logger.warning("chunk+summarize response has unbalanced braces")
+        return ChunkPlan(summary="", chunks=[])
+
+    json_str = content[start_idx:end_idx]
+    data = json.loads(json_str)
+
+    summary = data.get("summary")
+    if not isinstance(summary, str):
+        summary = ""
+    summary = summary.strip()
+
+    raw_chunks = data.get("chunks") or []
+    out: list[WatchChunk] = []
+    cursor = 0
+    src_len = len(source_text)
+    for ch in raw_chunks:
+        if not isinstance(ch, dict):
+            continue
+        start_anchor = ch.get("start_anchor")
+        end_anchor = ch.get("end_anchor")
+        if not isinstance(start_anchor, str) or not isinstance(end_anchor, str):
+            continue
+        sa = start_anchor.strip()
+        ea = end_anchor.strip()
+        if not sa or not ea:
+            continue
+        start = source_text.find(sa, cursor)
+        if start < 0:
+            logger.debug("chunk start_anchor not found: %r", sa[:80])
+            continue
+        end_match = source_text.find(ea, start)
+        if end_match < 0:
+            logger.debug("chunk end_anchor not found after start: %r", ea[:80])
+            continue
+        end = end_match + len(ea)
+        if end <= start or end > src_len:
+            continue
+        out.append(WatchChunk(start=start, end=end))
+        cursor = end
+    if len(out) > MAX_CHUNKS_PER_FILE:
+        logger.info(
+            "chunk+summarize returned %d chunks; capping at %d",
+            len(out),
+            MAX_CHUNKS_PER_FILE,
+        )
+        out = out[:MAX_CHUNKS_PER_FILE]
+    return ChunkPlan(summary=summary, chunks=out)
 
 
 @contextlib.contextmanager
@@ -203,7 +356,6 @@ class WatchService(BaseService):
         self.llm_model = llm_model
         self._memory_service: MemoryService | None = None
         self._vector_service: VectorService | None = None
-        self._classifier = None
         # Test seam: returns an object with ``.convert(path).text_content``.
         self._markitdown_factory: Callable[[], Any] | None = None
         self._progress = progress or (lambda _msg: None)
@@ -227,13 +379,6 @@ class WatchService(BaseService):
         if self._vector_service is None:
             self._vector_service = VectorService(self.store_path)
         return self._vector_service
-
-    def _get_classifier(self):
-        # Reuse MemoryService's wiring so the watch classifier and
-        # `memoir remember` see the same taxonomy.
-        if self._classifier is None:
-            self._classifier = self._get_memory_service()._get_classifier()
-        return self._classifier
 
     def _read_meta(self, key: str) -> Any:
         try:
@@ -540,8 +685,7 @@ class WatchService(BaseService):
         start = time.time()
 
         config = self._read_config()
-        max_bytes = int(config.get("max_size_mb", 100)) * 1024 * 1024
-        summarize_max = int(config.get("summarize_max_chars", 100_000))
+        max_bytes = int(config.get("max_size_bytes", 100_000))
         max_files_per_scan = int(config.get("max_files_per_scan", 100))
 
         # Embedder identity guard: prollytree rejects reopen with a different
@@ -584,7 +728,7 @@ class WatchService(BaseService):
             "files_skipped_size": 0,
             "files_skipped_parse_error": 0,
             "index_failures": 0,
-            "slices_indexed": 0,
+            "chunks_indexed": 0,
         }
 
         files_state = self._read_files()
@@ -634,7 +778,8 @@ class WatchService(BaseService):
                     continue
                 if size > max_bytes:
                     self._progress(
-                        f"[{idx}/{total}] skip (size > {config['max_size_mb']}MB): {p}"
+                        f"[{idx}/{total}] skip "
+                        f"(size {size:,} bytes > cap {max_bytes:,} bytes): {p}"
                     )
                     stats["files_skipped_size"] += 1
                     continue
@@ -665,44 +810,38 @@ class WatchService(BaseService):
 
                 model_label = self.llm_model or "default model"
                 self._vprogress(
-                    f"  → slice+classify: 1 LLM call ({model_label}) on "
-                    f"{len(text):,} chars (window cap {summarize_max:,})"
+                    f"  → chunk+summarize: 1 LLM call ({model_label}) on "
+                    f"{len(text):,} chars"
                 )
 
-                try:
-                    classifier = self._get_classifier()
-                    slices = await classifier.classify_slices_async(
-                        text, window_chars=summarize_max
-                    )
-                except Exception as e:
-                    logger.warning("slice+classify failed for %s: %s", p, e)
-                    stats["files_skipped_parse_error"] += 1
-                    continue
+                plan = await self._chunk_and_summarize_async(text)
 
-                if not slices:
-                    # LLM produced no usable slices — fall back to a single
-                    # whole-file slice classified to a synthetic path. Keeps
-                    # the file searchable rather than silently dropping it.
-                    fallback_path = "knowledge.files." + _sanitize_path_component(
-                        p.stem
+                # Fallback: if the LLM returns nothing useful, store the
+                # whole document as a single chunk so the file is still
+                # searchable rather than silently dropped.
+                fallback = False
+                if not plan.summary and not plan.chunks:
+                    fallback = True
+                    plan = ChunkPlan(
+                        summary="(no summary; LLM call failed or returned empty)",
+                        chunks=[WatchChunk(start=0, end=len(text))],
                     )
-                    slices = [
-                        SliceClassification(
-                            start=0,
-                            end=len(text),
-                            paths=[fallback_path],
-                            confidence=0.3,
-                            reasoning="slice classifier returned no slices; fallback",
-                        )
-                    ]
                     self._vprogress(
-                        f"  → fallback: 1 slice under {fallback_path} (no LLM slices)"
+                        "  → fallback: no chunks/summary from LLM; "
+                        "indexing whole document as one chunk"
+                    )
+                elif not plan.chunks:
+                    # Summary present but no chunks — single chunk over the
+                    # full document so search still has something to hit.
+                    plan = ChunkPlan(
+                        summary=plan.summary,
+                        chunks=[WatchChunk(start=0, end=len(text))],
                     )
 
-                # Tear down the file's previous slice keys before re-indexing.
-                # The collision-suffix scheme is per-file so a re-scan that
-                # produces different paths or counts would otherwise leave
-                # orphan memories.
+                # Tear down the file's previous keys before re-indexing.
+                # ``state["memory_keys"]`` is just a list of key strings;
+                # the new chunk-keyed shape and the legacy slice-keyed
+                # shape both delete cleanly through this same loop.
                 prev_keys = list((prev or {}).get("memory_keys") or [])
                 if prev_keys:
                     prev_ns_tuple = self.namespace_to_tuple(
@@ -716,105 +855,103 @@ class WatchService(BaseService):
                             with contextlib.suppress(Exception):
                                 vector.delete(namespace, k.encode("utf-8"))
 
+                file_token = _sanitize_path_component(p.name)
+                summary_key = f"raw.{file_token}.summary"
                 source_meta_base = {
                     "kind": "watch",
                     "abs_path": str(p),
                     "content_hash": chash,
                     "extracted_text_chars": len(text),
-                    "slice_count": len(slices),
+                    "chunk_count": len(plan.chunks),
+                    "fallback_indexed": fallback,
                 }
+
                 new_keys: list[str] = []
-                slice_summary: list[str] = []
                 file_index_failures = 0
-                # Per-file collision counter: first slice at a given taxonomy
-                # path uses the bare path as its key; subsequent slices that
-                # also classify to that path get a numeric suffix (`.2`, `.3`).
-                # Most files end up with clean unsuffixed keys; only genuine
-                # repeated classifications within one file pick up the suffix.
-                # Inlined below rather than wrapped in a closure to satisfy
-                # ruff's B023 (closure-over-loop-variable) — the dict lives
-                # inside this for-iter so a closure would technically be
-                # late-bound to whichever ``path_usage`` exists at call time.
-                path_usage: dict[str, int] = {}
 
-                # Each slice is stored under both its classified taxonomy
-                # path(s) AND a per-file ``raw.<filename>.sNNN`` key — the
-                # raw key gives a stable filename-based lookup independent
-                # of how the LLM classified the content. Both keys hold the
-                # same slice text.
-                file_token = _sanitize_path_component(p.name)
-
-                for s_idx, sl in enumerate(slices):
-                    slice_text = text[sl.start : sl.end]
-                    if not slice_text.strip():
-                        continue
-                    primary = sl.paths[0]
-                    classified_paths: list[str] = []
-                    for pp in sl.paths:
-                        n = path_usage.get(pp, 0) + 1
-                        path_usage[pp] = n
-                        classified_paths.append(pp if n == 1 else f"{pp}.{n}")
-                    raw_key = f"raw.{file_token}.s{s_idx + 1:03d}"
-                    # Same content is written under classified + raw keys.
-                    # MemoryService.remember(paths=[...]) records each as a
-                    # sibling of the others via ``related_keys``, so the UI
-                    # can navigate raw ↔ classified for any slice.
-                    all_keys = [*classified_paths, raw_key]
-                    primary_key = classified_paths[0]
-
-                    self._vprogress(
-                        f"  → slice {s_idx}: chars [{sl.start},{sl.end}) → "
-                        f"{all_keys} conf={sl.confidence:.2f}"
+                # 1) Summary.
+                try:
+                    await memory_service.remember(
+                        content=plan.summary,
+                        paths=[summary_key],
+                        namespace=namespace,
+                        replace=True,
+                        extra_metadata={
+                            "source": {**source_meta_base, "kind_detail": "summary"}
+                        },
                     )
+                    new_keys.append(summary_key)
+                    if vector is not None:
+                        try:
+                            vector.index(
+                                namespace, summary_key.encode("utf-8"), plan.summary
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                "vector index failed for %s summary: %s", p, e
+                            )
+                            file_index_failures += 1
+                    self._vprogress(
+                        f"  → summary: {len(plan.summary):,} chars → {summary_key}"
+                    )
+                except Exception as e:
+                    logger.warning("remember failed for %s summary: %s", p, e)
 
+                # 2) Chunks.
+                for c_idx, ch in enumerate(plan.chunks):
+                    chunk_text = text[ch.start : ch.end]
+                    if not chunk_text.strip():
+                        continue
+                    chunk_key = f"raw.{file_token}.chunk.{c_idx + 1:03d}"
+                    self._vprogress(
+                        f"  → chunk {c_idx + 1}: chars [{ch.start},{ch.end}) "
+                        f"({len(chunk_text):,}) → {chunk_key}"
+                    )
                     try:
                         await memory_service.remember(
-                            content=slice_text,
-                            paths=all_keys,
+                            content=chunk_text,
+                            paths=[chunk_key],
                             namespace=namespace,
                             replace=True,
                             extra_metadata={
                                 "source": {
                                     **source_meta_base,
-                                    "slice_index": s_idx,
-                                    "slice_start": sl.start,
-                                    "slice_end": sl.end,
-                                    "slice_primary_path": primary,
-                                    "raw_key": raw_key,
+                                    "kind_detail": "chunk",
+                                    "chunk_index": c_idx + 1,
+                                    "chunk_start": ch.start,
+                                    "chunk_end": ch.end,
                                 }
                             },
                         )
                     except Exception as e:
                         logger.warning(
-                            "remember failed for %s slice %d: %s", p, s_idx, e
+                            "remember failed for %s chunk %d: %s", p, c_idx + 1, e
                         )
                         continue
-                    new_keys.extend(all_keys)
+                    new_keys.append(chunk_key)
 
-                    # Vector index — one doc per slice, best-effort.
                     if vector is not None:
                         try:
                             vector.index(
-                                namespace, primary_key.encode("utf-8"), slice_text
+                                namespace, chunk_key.encode("utf-8"), chunk_text
                             )
                         except Exception as e:
                             logger.warning(
-                                "vector index failed for %s slice %d: %s",
+                                "vector index failed for %s chunk %d: %s",
                                 p,
-                                s_idx,
+                                c_idx + 1,
                                 e,
                             )
                             file_index_failures += 1
-                    slice_summary.append(primary)
 
                 if not new_keys:
-                    # Every slice's write failed.
+                    # Every write failed (very unusual).
                     stats["files_skipped_parse_error"] += 1
                     continue
 
                 stats["index_failures"] += file_index_failures
                 stats["files_indexed"] += 1
-                stats["slices_indexed"] += len(slice_summary)
+                stats["chunks_indexed"] += len(plan.chunks)
                 files_state[path_key] = {
                     "abs_path": str(p),
                     "watched_path": str(target),
@@ -824,14 +961,12 @@ class WatchService(BaseService):
                     "size": size,
                     "mtime": p.stat().st_mtime,
                     "indexed_at": _now_iso(),
-                    "summary_chars": len(text),
-                    "slice_count": len(slice_summary),
+                    "extracted_text_chars": len(text),
+                    "chunk_count": len(plan.chunks),
                 }
                 self._progress(
-                    f"[{idx}/{total}] indexed: {p} → {len(slice_summary)} slice(s) "
-                    f"(paths: {', '.join(slice_summary[:5])}"
-                    + (", ..." if len(slice_summary) > 5 else "")
-                    + ")"
+                    f"[{idx}/{total}] indexed: {p} → "
+                    f"summary + {len(plan.chunks)} chunk(s)"
                 )
         except KeyboardInterrupt:
             aborted = True
@@ -859,14 +994,19 @@ class WatchService(BaseService):
                     continue
                 ns = state.get("namespace", "watch")
                 ns_tuple = self.namespace_to_tuple(ns)
-                for k in state.get("memory_keys") or []:
+                state_keys = list(state.get("memory_keys") or [])
+                for k in state_keys:
                     try:
                         store.delete(ns_tuple, k)
                     except Exception as e:
                         logger.warning("scan: delete %s/%s failed: %s", ns_tuple, k, e)
-                if vector and (state.get("memory_keys") or []):
-                    with contextlib.suppress(Exception):
-                        vector.delete(ns, state["memory_keys"][0].encode("utf-8"))
+                # Chunk-mode vector-indexes every key (summary + each chunk),
+                # not just the primary. Delete all of them or stragglers
+                # surface as "(memory no longer present)" stubs in search.
+                if vector and state_keys:
+                    for k in state_keys:
+                        with contextlib.suppress(Exception):
+                            vector.delete(ns, k.encode("utf-8"))
                 files_state.pop(path_key, None)
                 stats["files_deleted"] += 1
                 self._progress(f"deleted: {abs_path_str}")
@@ -913,7 +1053,7 @@ class WatchService(BaseService):
         try:
             commit_msg = (
                 f"watch index {target} "
-                f"({stats['slices_indexed']} slices "
+                f"({stats['chunks_indexed']} chunks "
                 f"from {stats['files_indexed']} file(s))"
             )
             store.commit(commit_msg)
@@ -936,7 +1076,7 @@ class WatchService(BaseService):
             namespace=namespace,
             files_seen=files_seen,
             files_indexed=stats["files_indexed"],
-            slices_indexed=stats["slices_indexed"],
+            chunks_indexed=stats["chunks_indexed"],
             files_unchanged=stats["files_unchanged"],
             files_deleted=stats["files_deleted"],
             files_skipped_size=stats["files_skipped_size"],
@@ -970,3 +1110,35 @@ class WatchService(BaseService):
         except Exception as e:
             logger.warning("markitdown.convert failed on %s: %s", p, e)
             return None
+
+    async def _chunk_and_summarize_async(self, text: str) -> ChunkPlan:
+        """Single LLM call that returns a paragraph summary + chunk
+        boundaries (as verbatim anchor strings) for ``text``.
+
+        Anchor protocol: LLMs reliably quote text they see but reliably
+        miscount character offsets. We ask the LLM for the first 30-60
+        chars and last 30-60 chars of each chunk, then locate them in
+        the source text via ``str.find`` with a monotonic cursor.
+        Chunks whose anchors don't appear (in order) are dropped — the
+        LLM hallucinated them and we'd rather lose that chunk than
+        produce a mid-character cut.
+
+        Returns ``ChunkPlan(summary="", chunks=[])`` on any failure so
+        the watch pipeline can fall back without crashing the scan.
+        """
+        if not text:
+            return ChunkPlan(summary="", chunks=[])
+
+        prompt = _build_chunk_summarize_prompt(text, max_chunks=MAX_CHUNKS_PER_FILE)
+        try:
+            llm = self._get_memory_service()._get_llm()
+            response = await llm.ainvoke(prompt)
+        except Exception as e:
+            logger.warning("chunk+summarize LLM call failed: %s", e)
+            return ChunkPlan(summary="", chunks=[])
+
+        try:
+            return _parse_chunk_summarize_response(response, source_text=text)
+        except Exception as e:
+            logger.warning("chunk+summarize parse failed: %s", e)
+            return ChunkPlan(summary="", chunks=[])

@@ -25,9 +25,8 @@ if not getattr(prollytree, "proximity_text_available", False):
         allow_module_level=True,
     )
 
-from memoir.classifier.intelligent import SliceClassification
 from memoir.services.store_service import StoreService
-from memoir.services.watch_service import WatchService
+from memoir.services.watch_service import ChunkPlan, WatchChunk, WatchService
 from memoir.ui.handlers.watch_handler import WatchHandler
 
 os.environ["MEMOIR_TEST_USE_HASH_EMBEDDER"] = "1"
@@ -66,23 +65,14 @@ def _seed_store(docs: dict[str, str]) -> Path:
         (docs_dir / name).write_text(body)
 
     svc = WatchService(str(store_path))
-    ms = svc._get_memory_service()
 
-    async def _one_slice(text, *, max_slices=50, window_chars=100_000):
-        return [
-            SliceClassification(
-                start=0,
-                end=len(text),
-                paths=["knowledge.test.demo"],
-                confidence=0.9,
-                reasoning="mocked",
-            )
-        ]
+    async def _one_chunk(text):
+        return ChunkPlan(
+            summary="mocked summary",
+            chunks=[WatchChunk(start=0, end=len(text))],
+        )
 
-    fake_cls = MagicMock()
-    fake_cls.classify_slices_async = AsyncMock(side_effect=_one_slice)
-    ms._classifier = fake_cls
-    svc._classifier = fake_cls
+    svc._chunk_and_summarize_async = AsyncMock(side_effect=_one_chunk)
 
     class _FakeMd:
         def convert(self, path):
@@ -126,10 +116,10 @@ def test_watch_stats_returns_proximity_index_counts():
     assert status == 200
     assert data["available"] is True
     assert data["opened"] is True
-    # All 2 files share the same classified path under the mocked
-    # classifier, so 1 doc + 1 chunk under identity chunker.
-    assert data["doc_count"] == 1
-    assert data["chunk_count"] == 1
+    # Chunk-mode writes one summary + one chunk per file under the mocked
+    # single-chunk plan = 4 docs for 2 files (2x summary + 2x chunk.001).
+    assert data["doc_count"] == 4
+    assert data["chunk_count"] == 4
 
 
 def test_watch_search_returns_top_k_hits():

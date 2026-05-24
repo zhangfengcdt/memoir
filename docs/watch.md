@@ -45,37 +45,38 @@ memoir watch remove ~/Documents/notes --purge
 
 ## How it works
 
-For each file under a watched path:
+For each watched file:
 
-1. **Filter.** Files under `.git`, `node_modules`, `venv`, `__pycache__`,
-   `.DS_Store`, `.idea`, `.vscode` are skipped. Unsupported extensions are
-   silently skipped (see `memoir watch formats`).
-2. **Size guard.** Files larger than `watch:config.max_size_mb` (default
-   100 MB) are skipped with a log entry.
-3. **Hash.** Content hash (blake3 if installed, otherwise sha256). If the
+1. **Size guard.** Files larger than `watch:config.max_size_bytes` (default
+   100 000 bytes on disk) are rejected outright. The whole pipeline is
+   sized for short documents.
+2. **Hash.** Content hash (blake3 if installed, otherwise sha256). If the
    hash matches the prior scan, nothing happens — this makes re-scans cheap.
-4. **Parse.** `markitdown` extracts plaintext.
-5. **Slice + classify.** A single LLM call (`classify_slices_async`) reads
-   the document and returns a JSON list of `{start, end, paths, confidence}`
-   entries — each is a semantically coherent slice of the file. The pipeline
-   does the actual slicing locally using the returned char offsets, so the
-   LLM never has to echo verbatim prose. For inputs longer than
-   `summarize_max_chars` (default 100 000 chars), the text is windowed into
-   non-overlapping chunks; offsets are shifted into global file coordinates
-   and re-stitched.
-6. **Store per slice.** Each slice is written via `MemoryService.remember`
-   under `<primary_path>.s{idx:04d}` (e.g. `knowledge.papers.transformer.s0003`).
-   `extra_metadata.source` records `{kind: "watch", abs_path, content_hash,
-   slice_index, slice_start, slice_end, slice_primary_path}` so each slice
-   is distinguishable from hand-written memories and traces back to the
-   original file's exact byte range.
-7. **Index per slice.** Each slice is added to the vector index as its own
-   prollytree text-index document, keyed by its slice memory key. Semantic
-   search therefore returns slice-level hits, not whole-file hits.
+3. **Parse.** `markitdown` extracts plaintext.
+4. **Chunk + summarize.** A single LLM call asks for (a) a one-paragraph
+   summary of the whole document, and (b) a list of chunk boundaries sized
+   for vector search. Boundaries are reported as verbatim **anchor strings**
+   (first / last ~40 chars of each chunk); the pipeline locates them in the
+   source text via `str.find` to recover real char offsets. Hard cap of 10
+   chunks per file.
+5. **Store.** The summary lands at `raw.<file>.summary`; each chunk at
+   `raw.<file>.chunk.001`, `.chunk.002`, … under the `watch` namespace via
+   `MemoryService.remember`. `extra_metadata.source` records
+   `{kind: "watch", abs_path, content_hash, kind_detail, chunk_index,
+   chunk_start, chunk_end, ...}` so each entry traces back to its origin.
+6. **Index.** Every memory key (summary + chunks) is added to the vector
+   index as its own prollytree text-index document. Semantic search returns
+   chunk-level hits.
 
-Re-scanning a changed file tears down its previous slice keys before
-writing the new ones, so the per-slice key namespace never accumulates
-orphans across rewrites.
+Re-scanning a changed file tears down every previous key — both KV and
+vector — before writing the new summary + chunks, so the key namespace
+never accumulates orphans across rewrites. The data tree commits once
+per file (covering all the puts/deletes + path-registry update); the
+vector tree commits once per file as well.
+
+`memoir watch remove --purge <file>` deletes every `raw.<file>.*` key
+from both KV and vector and removes the file from the watched-paths
+registry.
 
 All state (config, registered paths, per-file hashes) lives inside the
 memoir store, under the `watch:config`, `watch:paths`, `watch:files` keys
@@ -96,16 +97,14 @@ memoir search <query> [-n NAMESPACE] [-k INT]
 
 ### Defaults
 
-- **Recursion:** folders are walked recursively.
-- **Excludes:** see step 1 above; not user-configurable.
+- **Single files only.** Folders are rejected by `watch add` / `watch scan`.
 - **Namespace:** `watch` unless `-n` is given.
-- **Max file size:** 100 MB (in `watch:config.max_size_mb`). The config
-  dict is stored on first scan; to reset to defaults, delete it with
+- **Max file size:** **100 000 bytes** on disk (in
+  `watch:config.max_size_bytes`). Files larger than this are rejected.
+  The config dict is written on first scan; reset to defaults with
   `memoir forget config -n watch --force` and re-scan.
-- **Slice-classify window cap:** 100 000 chars (in
-  `watch:config.summarize_max_chars`). Inputs above this are windowed and
-  re-stitched, so very long files still go through the single LLM call
-  per window without an extra summarize pass.
+- **Max chunks per file:** 10 (hard cap in the pipeline; prompt nudges
+  toward 1–5).
 - **Embedder:** `MiniLmEmbedder` (downloads ~90 MB of model weights on
   first run into `~/.cache/prollytree/embedders/`).
 - **LLM model:** resolves via `--model` → `MEMOIR_LLM_MODEL` env →
