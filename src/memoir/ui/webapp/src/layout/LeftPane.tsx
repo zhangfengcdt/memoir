@@ -1,5 +1,9 @@
 import { useStore } from "../state/storeSlice";
-import { useUI } from "../state/uiSlice";
+import {
+  isHiddenNamespace,
+  namespaceFilterDisabledReason,
+  useUI,
+} from "../state/uiSlice";
 import type { ViewKey } from "../state/uiSlice";
 import "./LeftPane.css";
 
@@ -67,14 +71,20 @@ export default function LeftPane() {
 function NamespaceList({ namespaces }: { namespaces: Record<string, unknown> }) {
   // ``default`` always pinned to the top (right under "All namespaces"),
   // then everything else alphabetically. Backend insertion order isn't
-  // stable, so we explicitly sort.
-  const entries = Object.entries(namespaces).sort(([a], [b]) => {
-    if (a === "default") return -1;
-    if (b === "default") return 1;
-    return a.localeCompare(b);
-  });
+  // stable, so we explicitly sort. Hidden namespaces (taxonomy-loader
+  // bookkeeping, etc.) are dropped — see HIDDEN_NAMESPACE_PREFIXES.
+  const entries = Object.entries(namespaces)
+    .filter(([ns]) => !isHiddenNamespace(ns))
+    .sort(([a], [b]) => {
+      if (a === "default") return -1;
+      if (b === "default") return 1;
+      return a.localeCompare(b);
+    });
   const selected = useUI((s) => s.selectedNamespace);
   const setSelected = useUI((s) => s.setSelectedNamespace);
+  const activeView = useUI((s) => s.activeView);
+  const disabledReason = namespaceFilterDisabledReason(activeView);
+  const filterActive = disabledReason === null;
 
   const totalCount = entries.reduce(
     (sum, [, v]) => sum + (Array.isArray(v) ? v.length : countLeaves(v)),
@@ -89,44 +99,61 @@ function NamespaceList({ namespaces }: { namespaces: Record<string, unknown> }) 
     );
   }
   return (
-    <ul className="namespace-list" role="listbox" aria-label="Namespaces filter">
-      <li>
-        <button
-          type="button"
-          role="option"
-          aria-selected={selected === null}
-          className={`namespace-item${selected === null ? " selected" : ""}`}
-          onClick={() => setSelected(null)}
-          title="Show data from all namespaces"
-        >
-          <span className="namespace-name">All namespaces</span>
-          <span className="namespace-count">{totalCount}</span>
-        </button>
-      </li>
-      {entries.map(([ns, value]) => {
-        const count = Array.isArray(value) ? value.length : countLeaves(value);
-        const isSelected = selected === ns;
-        return (
-          <li key={ns}>
-            <button
-              type="button"
-              role="option"
-              aria-selected={isSelected}
-              className={`namespace-item${isSelected ? " selected" : ""}`}
-              onClick={() => setSelected(isSelected ? null : ns)}
-              title={
-                isSelected
-                  ? `Click again to clear; currently filtering to ${ns}`
-                  : `Filter views to ${ns}`
-              }
-            >
-              <span className="namespace-name">{ns}</span>
-              <span className="namespace-count">{count}</span>
-            </button>
-          </li>
-        );
-      })}
-    </ul>
+    <>
+      {!filterActive && (
+        <p className="namespace-disabled-note" title={disabledReason ?? undefined}>
+          {disabledReason}
+        </p>
+      )}
+      <ul
+        className={`namespace-list${filterActive ? "" : " namespace-list-muted"}`}
+        role="listbox"
+        aria-label="Namespaces filter"
+      >
+        <li>
+          <button
+            type="button"
+            role="option"
+            aria-selected={selected === null}
+            className={`namespace-item${selected === null ? " selected" : ""}`}
+            onClick={() => setSelected(null)}
+            title={
+              filterActive
+                ? "Show data from all namespaces"
+                : (disabledReason ?? "")
+            }
+          >
+            <span className="namespace-name">All namespaces</span>
+            <span className="namespace-count">{totalCount}</span>
+          </button>
+        </li>
+        {entries.map(([ns, value]) => {
+          const count = Array.isArray(value) ? value.length : countLeaves(value);
+          const isSelected = selected === ns;
+          return (
+            <li key={ns}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                className={`namespace-item${isSelected ? " selected" : ""}`}
+                onClick={() => setSelected(isSelected ? null : ns)}
+                title={
+                  filterActive
+                    ? isSelected
+                      ? `Click again to clear; currently filtering to ${ns}`
+                      : `Filter views to ${ns}`
+                    : (disabledReason ?? "")
+                }
+              >
+                <span className="namespace-name">{ns}</span>
+                <span className="namespace-count">{count}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+    </>
   );
 }
 

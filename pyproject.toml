@@ -24,7 +24,12 @@ classifiers = [
 ]
 
 dependencies = [
-    "prollytree>=0.3.3",
+    # 0.4.0 is the first PyPI release with NamespacedKvStore text indexing
+    # (`text_index_open`, `text_index_insert`, `text_index_search`,
+    # `MiniLmEmbedder`) and the separate-config-file fix that lets the
+    # versioned and namespaced stores coexist on the same dataset dir.
+    # Used by `memoir watch` + `memoir search`.
+    "prollytree>=0.4.0",
     "langgraph>=0.6.0",
     "pydantic>=2.0.0",
     "typing-extensions>=4.0.0",
@@ -90,11 +95,22 @@ langmem = [
 # default dependency. May be removed in v0.2.0.
 litellm = []
 
+# Enables `memoir watch add <file-or-folder>` / `memoir search <query>`.
+# Pulls markitdown with the per-format extras needed for local document
+# ingestion (pdf, docx, pptx, xls/xlsx, outlook .msg). Audio / YouTube /
+# Azure extras are intentionally NOT included — they're large and most
+# memoir users don't want them. Install ``markitdown[all]`` manually if
+# you need them.
+watch = [
+    "markitdown[pdf,docx]>=0.1.0",
+]
+
 all = [
     "textual>=3.0.0",
     "rich>=13.0.0",
     "langmem>=0.0.29",
     "litellm>=1.0.0",
+    "markitdown[pdf,docx]>=0.1.0",
 ]
 
 [project.urls]

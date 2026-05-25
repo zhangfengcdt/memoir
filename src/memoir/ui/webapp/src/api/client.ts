@@ -318,4 +318,160 @@ export const api = {
       "/api/merge-branch",
       { path, source },
     ),
+
+  // ---------- Watch / Search ---------------------------------------------
+
+  watchList: (path: string) =>
+    getJSON<WatchListResponse>("/api/watch/list", { path }),
+
+  watchFiles: (path: string, watched: string) =>
+    getJSON<WatchFilesResponse>("/api/watch/files", { path, watched }),
+
+  /** File extensions the watch pipeline can ingest. Static — fetched
+   * once per WatchView mount. Mirrors `memoir watch formats`. */
+  watchFormats: () =>
+    getJSON<{ extensions: string[]; count: number }>("/api/watch/formats", {}),
+
+  /** Kick off indexing in the background. Returns 202 with `indexing: true`;
+   * the row will keep `indexing: true` in subsequent /api/watch/list polls
+   * until the server-side thread completes. */
+  watchAddPath: (
+    store: string,
+    file: string,
+    opts: { namespace?: string; model?: string } = {},
+  ) =>
+    postJSON<{
+      success: boolean;
+      path: string;
+      indexing: boolean;
+      already_in_flight?: boolean;
+      error?: string;
+    }>("/api/watch/add", {
+      store,
+      file,
+      namespace: opts.namespace ?? "watch",
+      ...(opts.model ? { model: opts.model } : {}),
+    }),
+
+  /** Unregister a watched file and purge every ``raw.<file>.*`` key from
+   * both the KV store and the vector index. The server's remove() always
+   * cleans up; the legacy ``--purge`` flag is no-op. */
+  watchRemovePath: (store: string, file: string) =>
+    postJSON<{
+      success: boolean;
+      path: string;
+      files_removed: number;
+      purge: boolean;
+      error?: string;
+    }>("/api/watch/remove", { store, file }),
+
+  /** Re-scan a registered watched file in the background. Same async
+   * semantics as ``watchAddPath``: returns 202 with ``indexing: true``;
+   * the row shows the indexing badge until the server's background
+   * thread completes (or fails). */
+  watchScanPath: (
+    store: string,
+    file: string,
+    opts: { namespace?: string; model?: string } = {},
+  ) =>
+    postJSON<{
+      success: boolean;
+      path: string;
+      indexing: boolean;
+      already_in_flight?: boolean;
+      error?: string;
+    }>("/api/watch/scan", {
+      store,
+      file,
+      namespace: opts.namespace ?? "watch",
+      ...(opts.model ? { model: opts.model } : {}),
+    }),
+
+  /** Re-scan every registered watched file in the background, one at a
+   * time. Each file's row lights up the ``indexing…`` badge while
+   * being processed; the polling effect in WatchView covers the
+   * progression. */
+  watchScanAll: (store: string, opts: { model?: string } = {}) =>
+    postJSON<{
+      success: boolean;
+      scheduled: number;
+      paths: string[];
+      indexing: boolean;
+      error?: string;
+    }>("/api/watch/scan-all", {
+      store,
+      ...(opts.model ? { model: opts.model } : {}),
+    }),
+
+  watchSearch: (
+    path: string,
+    query: string,
+    opts: { namespace?: string; k?: number } = {},
+  ) =>
+    getJSON<WatchSearchResponse>("/api/watch/search", {
+      path,
+      query,
+      namespace: opts.namespace ?? "default",
+      k: String(opts.k ?? 5),
+    }),
 };
+
+// ---------- Watch / Search response types --------------------------------
+
+export interface WatchEntry {
+  path: string;
+  kind: string; // "file" | "folder"
+  namespace: string;
+  added_at: string;
+  last_scan: string | null;
+  indexed_count: number;
+  /** Transient flag set by the UI server while a background-thread
+   *  index is in progress. Cleared once indexing finishes. */
+  indexing?: boolean;
+  /** Set when the background thread raised; the badge stays "failed" for
+   *  ~30s then disappears so the user can retry. */
+  indexing_error?: string | null;
+}
+
+export interface WatchListResponse {
+  success: boolean;
+  entries: WatchEntry[];
+  count: number;
+  error: string | null;
+}
+
+export interface WatchFile {
+  abs_path: string;
+  size: number;
+  indexed_at: string;
+  mtime: number | null;
+  summary_chars: number;
+  content_hash: string;
+}
+
+export interface WatchFilesResponse {
+  success: boolean;
+  watched_path: string;
+  files: WatchFile[];
+  count: number;
+  error: string | null;
+}
+
+export interface WatchSearchHit {
+  key: string;
+  score: number;
+  content: string;
+  namespace: string;
+  source: { kind?: string; abs_path?: string } | null;
+  related_keys: string[];
+}
+
+export interface WatchSearchResponse {
+  success: boolean;
+  query: string;
+  hits: WatchSearchHit[];
+  count: number;
+  namespace: string;
+  timing_ms: number;
+  error: string | null;
+}

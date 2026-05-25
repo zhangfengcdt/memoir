@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useStore } from "../../state/storeSlice";
 import { useMemorySelection } from "../../state/memorySelectionSlice";
-import { useUI } from "../../state/uiSlice";
+import { isHiddenNamespace, useUI } from "../../state/uiSlice";
 import { buildTaxonomy, pruneToDepth, walkTree } from "./buildTaxonomy";
 import { compileWildcard } from "../../lib/wildcard";
 import type { Memory } from "../../api/types";
@@ -17,12 +17,15 @@ export default function TaxonomyTree() {
   const keyExclude = useUI((s) => s.keyExclude);
   const depthFilter = useUI((s) => s.depthFilter);
 
-  // Apply (in order) namespace filter, include wildcard, exclude
-  // wildcard. Empty patterns are no-ops.
+  // Apply (in order) namespace filter, hidden-namespace prune,
+  // include wildcard, exclude wildcard. Empty patterns are no-ops.
+  // Hidden namespaces (taxonomy-loader bookkeeping etc.) are dropped
+  // whenever the user is in "All namespaces" mode; if they explicitly
+  // select a hidden namespace via URL/state, we still show it.
   const memories = useMemo(() => {
     let out = selectedNamespace
       ? allMemories.filter((m) => m.namespace === selectedNamespace)
-      : allMemories;
+      : allMemories.filter((m) => !isHiddenNamespace(m.namespace));
     const include = compileWildcard(keyInclude);
     if (include) out = out.filter((m) => include(m.path));
     const exclude = compileWildcard(keyExclude);

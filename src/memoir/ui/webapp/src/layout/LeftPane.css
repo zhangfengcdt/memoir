@@ -66,6 +66,28 @@
   gap: var(--space-1);
 }
 
+/* Muted state: the active view doesn't honor the namespace filter (e.g.
+ * Commits, Watch). Selection state is preserved so switching back to a
+ * filter-honoring view restores it. */
+.namespace-list-muted .namespace-item {
+  opacity: 0.5;
+}
+
+.namespace-list-muted .namespace-item:hover {
+  opacity: 0.7;
+}
+
+.namespace-disabled-note {
+  margin: 0 0 var(--space-2) 0;
+  padding: var(--space-2) var(--space-2);
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+  background: var(--bg-2);
+  border-left: 2px solid var(--accent-dim, rgba(56, 132, 255, 0.35));
+  border-radius: var(--radius-sm);
+  line-height: var(--leading-snug, 1.35);
+}
+
 .namespace-item {
   display: flex;
   align-items: center;

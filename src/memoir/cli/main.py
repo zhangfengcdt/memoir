@@ -7,9 +7,27 @@ Optimized for both human use and shell-based AI agents.
 """
 
 import json
+import logging
 import os
 import sys
 from typing import Any
+
+# Silence import-time noise from transitive deps that's irrelevant to
+# CLI users. Each respects an explicit opt-out env var for anyone
+# debugging the underlying dep:
+#
+# - litellm: missing-botocore warnings for unused AWS providers.
+#   Opt back in with LITELLM_LOG=WARNING (or DEBUG/INFO).
+# - onnxruntime (via markitdown → magika): GPU probe failure under
+#   /sys/class/drm on headless machines. The warning is emitted by
+#   native code during static init and ignores ORT_LOGGING_LEVEL, so
+#   we mark a sentinel that ``watch_service`` reads to apply FD-level
+#   stderr suppression around the first markitdown import. Opt back in
+#   with MEMOIR_SHOW_NATIVE_WARNINGS=1.
+if not os.environ.get("LITELLM_LOG"):
+    logging.getLogger("LiteLLM").setLevel(logging.ERROR)
+if os.environ.get("MEMOIR_SHOW_NATIVE_WARNINGS") != "1":
+    os.environ["_MEMOIR_SUPPRESS_NATIVE_IMPORT_STDERR"] = "1"
 
 import click
 
@@ -325,9 +343,26 @@ def cli(
 
     \b
     ENVIRONMENT VARIABLES:
-      MEMOIR_STORE  Default store path (recommended for agents)
-      MEMOIR_JSON   Always output JSON (set to 1)
-      MEMOIR_QUIET  Suppress non-essential output (set to 1)
+      MEMOIR_STORE         Default store path (recommended for agents)
+      MEMOIR_JSON          Always output JSON (set to 1)
+      MEMOIR_QUIET         Suppress non-essential output (set to 1)
+      MEMOIR_LLM_MODEL     Default LLM model (see LLM RESOLUTION below)
+      MEMOIR_LLM_BACKEND   Force LLM backend: 'claude-cli' or 'litellm'
+
+    \b
+    LLM RESOLUTION (shared by `remember`, `watch add`, `watch scan`, ...):
+
+    \b
+      Model selection (memory_service.py:50-52):
+        --model flag  →  MEMOIR_LLM_MODEL env  →  'claude-haiku-4-5' (default)
+
+    \b
+      Backend selection — controlled by MEMOIR_LLM_BACKEND (litellm_client.py:384-417):
+        Condition                                                    | Backend
+        -------------------------------------------------------------+------------------------------------------
+        MEMOIR_LLM_BACKEND=claude-cli                                | ClaudeCLIWrapper → shells out to `claude -p`
+        Claude model + no ANTHROPIC_API_KEY + `claude` binary on PATH| Auto-fallback to ClaudeCLIWrapper
+        Otherwise (Claude with API key, OpenAI, Gemini, etc.)        | LiteLLMWrapper → direct provider HTTP
     """
     # Resolution: -s flag (or MEMOIR_STORE via Click envvar=) → cwd → command-time error.
     # Click already folds MEMOIR_STORE into `store` via envvar="MEMOIR_STORE", so by the
@@ -344,10 +379,12 @@ from memoir.cli.commands import (  # noqa: E402
     branch,
     crypto,
     memory,
+    search,
     store,
     taxonomy,
     tui,
     ui,
+    watch,
 )
 
 # Store commands
@@ -379,6 +416,10 @@ cli.add_command(crypto.blame)
 
 # Analysis commands
 cli.add_command(analysis.summarize)
+
+# Watch + search (file/folder ingestion + vector search)
+cli.add_command(watch.watch)
+cli.add_command(search.search)
 
 # Utility commands
 cli.add_command(ui.ui)

@@ -286,6 +286,17 @@ class DataLoader:
         self._memories = entries
         return entries
 
+    def get_watch_entries(self) -> list:
+        """Return registered watch paths via ``WatchService.list()``.
+
+        Not cached — the call is cheap (reads two ``watch`` keys) and the
+        result can change between scans, which we want the TUI to surface
+        on refresh without a separate invalidate path.
+        """
+        from memoir.services.watch_service import WatchService
+
+        return WatchService(self.store_path).list().entries
+
     def get_memory(self, path: str, namespace: str = "default") -> str | None:
         """Read a single memory's content via the raw ``VersionedKvStore``,
         avoiding the ``ProllyTreeStore`` wrapper. Returns ``None`` if missing.

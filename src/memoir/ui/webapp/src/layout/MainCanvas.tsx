@@ -5,6 +5,7 @@ import { dispatch } from "../commands/registry";
 import CommitList from "../views/commits/CommitList";
 import TaxonomyTree from "../views/tree/TaxonomyTree";
 import TaxonomyGraph from "../views/graph/TaxonomyGraph";
+import WatchView from "../views/watch/WatchView";
 import TimelineView from "../views/timeline/TimelineView";
 import PlacesView from "../views/places/PlacesView";
 import ViewToolbar from "./ViewToolbar";
@@ -15,8 +16,9 @@ const VIEW_LABELS: Record<ViewKey, { label: string; shortcut: string }> = {
   commits: { label: "Commits", shortcut: "⌘1" },
   tree: { label: "Outline", shortcut: "⌘2" },
   graph: { label: "Map", shortcut: "⌘3" },
-  timeline: { label: "Timeline", shortcut: "⌘4" },
-  places: { label: "Places", shortcut: "⌘5" },
+  watch: { label: "Watch", shortcut: "⌘4" },
+  timeline: { label: "Timeline", shortcut: "⌘5" },
+  places: { label: "Places", shortcut: "⌘6" },
 };
 
 // Octicon-style inline icons. Sized via currentColor so they inherit tab color.
@@ -46,6 +48,14 @@ const VIEW_ICONS: Record<ViewKey, JSX.Element> = {
       <path
         fill="currentColor"
         d="M5.75 2a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5ZM3.25 8a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5ZM12.25 6.5a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5ZM5.75 11a1.75 1.75 0 1 0 0 3.5 1.75 1.75 0 0 0 0-3.5Zm.93-7.86 4.79 3.99-.96 1.15-4.79-3.99.96-1.15Zm.07 9.49 4.5-3.75.96 1.15-4.5 3.75-.96-1.15ZM4.21 9.86l3.5 1.5-.59 1.38-3.5-1.5.59-1.38Z"
+      />
+    </svg>
+  ),
+  watch: (
+    <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M1.75 1h7.5c.966 0 1.75.784 1.75 1.75v4.553c-.391-.166-.812-.279-1.25-.331l-.001-4.222a.25.25 0 0 0-.25-.25h-7.5a.25.25 0 0 0-.25.25v9.5c0 .138.112.25.25.25h2.225a4.737 4.737 0 0 0-.005 1.5H1.75A1.75 1.75 0 0 1 0 12.75v-10C0 1.784.784 1 1.75 1ZM11.5 13.25a3.25 3.25 0 1 1 6.5 0 3.25 3.25 0 0 1-6.5 0Zm5-1.5L13.5 14.75l-1.5-1.5"
       />
     </svg>
   ),
@@ -144,6 +154,8 @@ function ViewBody({ view }: { view: ViewKey }) {
       return <TaxonomyTree />;
     case "graph":
       return <TaxonomyGraph />;
+    case "watch":
+      return <WatchView />;
     case "timeline":
       return <TimelineView />;
     case "places":
