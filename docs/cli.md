@@ -38,23 +38,58 @@ Flags accepted before the subcommand, on the `memoir` group itself:
 
 `remember`, `recall`, `get`, `forget`, and `search` accept `--branch <name>` (env: `MEMOIR_BRANCH`). When set, the call operates against that branch and the store's checked-out branch is restored on exit — no `memoir checkout` round-trip, no race window on shared deployments.
 
+**Set `MEMOIR_BRANCH` once at the runtime boundary** (LangGraph node, MCP client, agent shell). Each agent process injects its own identity once instead of threading a flag through every call site:
+
 ```bash
-# One store, two agents writing in parallel
-MEMOIR_BRANCH=agents/reviewer memoir remember "found N+1 in /users migration"
-MEMOIR_BRANCH=agents/builder  memoir remember "shipped pagination on /users"
+# In agent A's process
+export MEMOIR_BRANCH=agents/reviewer
+memoir remember "found N+1 query in /users migration"
 
-# Each agent reads its own working memory
-memoir recall "N+1" --branch=agents/reviewer
-memoir get lessons.builder.api --branch=agents/builder
-
-# Promote one agent's findings to the shared trunk
-memoir merge agents/reviewer --into main
+# In agent B's process
+export MEMOIR_BRANCH=agents/builder
+memoir remember "shipped pagination on /users"
 ```
 
-- `--branch` wins over `MEMOIR_BRANCH` when both are set.
-- `remember --branch=agents/new-bot` bootstraps the branch off current HEAD on first write — no separate `memoir branch <name>` needed.
-- The read-side commands error if the branch doesn't exist; this catches typos that would otherwise look like "no results".
-- Routing is per-process: don't run multiple in-process writers concurrently against the same store on different branches. Separate CLI invocations are fine — they rely on the same prollytree file locking as today.
+**Or pass `--branch` per call.** Explicit flag wins over the env var:
+
+```bash
+memoir remember "API contract change" --branch=agents/reviewer
+memoir recall   "N+1"                 --branch=agents/reviewer
+memoir get      lessons.builder.api   --branch=agents/builder
+memoir forget   stale.note            --branch=agents/builder --force
+```
+
+**Reads are isolated.** Other branches and `main` don't see an agent's working memory until it's merged:
+
+```bash
+$ memoir get lessons.reviewer.sql --branch=agents/builder
+✗ default:lessons.reviewer.sql (not found)
+
+$ memoir get lessons.reviewer.sql --branch=typo-here
+✗ Failed to get: Branch 'typo-here' does not exist.
+  Create it explicitly with `memoir branch typo-here`, or use a write
+  command (e.g. `memoir remember --branch=typo-here ...`) to bootstrap it.
+```
+
+That last error matters — read commands refuse to silently return empty on a misspelled branch, so typos surface immediately instead of looking like "no results".
+
+**Auto-create on first write.** No separate `memoir branch <name>` is needed for a new agent:
+
+```bash
+memoir remember "first note" --branch=agents/new-bot   # branch is bootstrapped
+memoir branch                                          # → main, agents/new-bot
+```
+
+**Cross-agent synthesis** stays explicit — promote findings to the shared trunk with `memoir merge`:
+
+```bash
+memoir merge agents/reviewer --into main
+memoir recall "N+1"   # now visible on main
+```
+
+After every `--branch` call the store's checked-out branch is unchanged — routing is per-call, not a checkout.
+
+**Concurrency note.** Routing is per-process. Don't run multiple in-process writers concurrently against the same store on different branches. Separate CLI invocations are fine — they rely on the same prollytree file locking as today.
 
 ## Search commands
 
