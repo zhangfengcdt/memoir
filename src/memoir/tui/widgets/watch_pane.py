@@ -81,11 +81,17 @@ class WatchPane(Vertical):
         try:
             entries = self._loader.get_watch_entries()
         except Exception as e:  # surface errors instead of silently empty-rendering
-            self.app.call_from_thread(self._render_error, str(e))
+            self.app.call_from_thread(self._render_error_msg, str(e))
             return
-        self.app.call_from_thread(self._render, entries)
+        self.app.call_from_thread(self._render_table, entries)
 
-    def _render(self, entries: list) -> None:
+    # NOTE: do not rename these back to ``_render`` / ``_render_error``.
+    # ``_render`` is reserved by ``textual.widget.Widget`` — its rendering
+    # pipeline calls ``self._render()`` (no args) on every paint, so a
+    # method of the same name with required args raises
+    # ``TypeError: _render() missing 1 required positional argument`` on
+    # the first frame and the widget crashes mid-render.
+    def _render_table(self, entries: list) -> None:
         self._loaded = True
         table = self.query_one("#watch-table", DataTable)
         table.clear()
@@ -107,6 +113,6 @@ class WatchPane(Vertical):
         else:
             msg.update(f"{len(sorted_entries)} registered")
 
-    def _render_error(self, message: str) -> None:
+    def _render_error_msg(self, message: str) -> None:
         self._loaded = True
         self.query_one("#watch-empty", Static).update(f"[red]Error:[/] {message}")
