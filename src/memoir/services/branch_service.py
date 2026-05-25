@@ -8,13 +8,19 @@ to be shared by CLI, TUI, SDK, and HTTP handlers.
 
 import contextlib
 import logging
+from collections.abc import Iterator
 from enum import Enum
 from pathlib import Path
 from typing import Any
 
 from prollytree import ConflictResolution
 
-from memoir.services.base import BaseService, GitOperationError, StoreNotFoundError
+from memoir.services.base import (
+    BaseService,
+    GitOperationError,
+    ServiceError,
+    StoreNotFoundError,
+)
 from memoir.services.models import (
     BranchInfo,
     CheckoutResult,
@@ -235,6 +241,72 @@ class BranchService(BaseService):
         except Exception as e:
             logger.error(f"Failed to get current branch: {e}")
             raise GitOperationError(f"Failed to get current branch: {e}")
+
+    @contextlib.contextmanager
+    def routed_to(self, branch: str | None, *, auto_create: bool) -> Iterator[None]:
+        """Temporarily route store operations to ``branch``, then restore HEAD.
+
+        Used by per-call --branch / MEMOIR_BRANCH routing (issue #123) so a
+        single command can target an agent's branch without flipping the
+        repo's checkout state for everything else in the process.
+
+        Args:
+            branch: Target branch. ``None`` makes this a no-op so callers can
+                pass through whatever they read from the CLI option without
+                branching their own code.
+            auto_create: True for writes (`memoir remember --branch=new-bot`
+                bootstraps the branch off current HEAD). False for reads
+                (`memoir recall --branch=typo` errors instead of silently
+                returning empty).
+
+        Raises:
+            ServiceError: when the branch doesn't exist and auto_create is False.
+        """
+        if branch is None:
+            yield
+            return
+
+        store = self._get_store()
+
+        # Capture HEAD up front — same idiom as create_branch
+        # (branch_service.py:382-389).
+        original: str | None = None
+        try:
+            current = store.tree.current_branch()
+            original = (
+                current.decode("utf-8") if isinstance(current, bytes) else current
+            )
+        except Exception:
+            pass
+
+        if original == branch:
+            # Already on the target; nothing to checkout and nothing to restore.
+            yield
+            return
+
+        branches_raw = store.tree.list_branches()
+        branches = [
+            b.decode("utf-8") if isinstance(b, bytes) else b for b in branches_raw
+        ]
+
+        if branch not in branches:
+            if not auto_create:
+                raise ServiceError(
+                    f"Branch '{branch}' does not exist. Create it explicitly with "
+                    f"`memoir branch {branch}`, or use a write command "
+                    f"(e.g. `memoir remember --branch={branch} ...`) to bootstrap it."
+                )
+            # prollytree's create_branch also checks out the new branch, so
+            # the subsequent checkout(branch) below is a cheap no-op.
+            store.tree.create_branch(branch)
+
+        try:
+            store.tree.checkout(branch)
+            yield
+        finally:
+            if original and original != branch:
+                with contextlib.suppress(Exception):
+                    store.tree.checkout(original)
 
     def checkout(
         self,

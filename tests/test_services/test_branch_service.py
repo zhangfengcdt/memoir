@@ -907,5 +907,97 @@ class TestBranchServiceEdgeCases:
         assert result is not None
 
 
+class TestBranchServiceRoutedTo:
+    """Tests for the routed_to() context manager used by per-call --branch routing.
+
+    Issue #123. The contract: while the block runs, prollytree HEAD is the
+    target branch; on exit, HEAD is the branch that was checked out coming in.
+    With auto_create=True the target is bootstrapped off current HEAD if
+    missing; with auto_create=False a missing target raises and HEAD is
+    untouched.
+    """
+
+    def test_none_branch_is_noop(self, branch_service):
+        """routed_to(None) yields without touching HEAD."""
+        before, _ = branch_service.get_current_branch()
+        with branch_service.routed_to(None, auto_create=True):
+            during, _ = branch_service.get_current_branch()
+            assert during == before
+        after, _ = branch_service.get_current_branch()
+        assert after == before
+
+    def test_existing_branch_routes_and_restores(self, branch_service):
+        """routed_to('existing') flips HEAD inside the block, restores on exit."""
+        branch_service.create_branch("agents/reviewer")
+        # `create_branch` without --from leaves HEAD on the new branch (see
+        # branch_service.py:418-421 — restore only fires when from_ref is
+        # set). Move back explicitly so the "restore" assertion below is
+        # actually exercising routed_to, not the prior setup.
+        info_before = branch_service.list_branches()
+        default = next(b for b in info_before.branches if b in ("main", "master"))
+        branch_service.checkout(default)
+        original, _ = branch_service.get_current_branch()
+        assert original == default
+
+        with branch_service.routed_to("agents/reviewer", auto_create=False):
+            during, _ = branch_service.get_current_branch()
+            assert during == "agents/reviewer"
+
+        after, _ = branch_service.get_current_branch()
+        assert after == default
+
+    def test_missing_branch_with_auto_create_bootstraps(self, branch_service):
+        """Writes can target a brand-new branch — routed_to creates it."""
+        original, _ = branch_service.get_current_branch()
+        info = branch_service.list_branches()
+        assert "agents/new-bot" not in info.branches
+
+        with branch_service.routed_to("agents/new-bot", auto_create=True):
+            during, _ = branch_service.get_current_branch()
+            assert during == "agents/new-bot"
+
+        after, _ = branch_service.get_current_branch()
+        assert after == original
+
+        info = branch_service.list_branches()
+        assert "agents/new-bot" in info.branches
+
+    def test_missing_branch_without_auto_create_raises(self, branch_service):
+        """Reads against a non-existent branch must error, not silently no-op."""
+        from memoir.services.base import ServiceError
+
+        original, _ = branch_service.get_current_branch()
+
+        with (
+            pytest.raises(ServiceError) as exc_info,
+            branch_service.routed_to("does-not-exist", auto_create=False),
+        ):
+            pass
+
+        # Message must name the missing branch so users can fix typos.
+        assert "does-not-exist" in str(exc_info.value)
+
+        # HEAD must be unchanged after the failed routing attempt.
+        after, _ = branch_service.get_current_branch()
+        assert after == original
+
+    def test_restores_head_even_if_block_raises(self, branch_service):
+        """If the wrapped operation raises, HEAD still gets restored."""
+        branch_service.create_branch("agents/builder")
+        original, _ = branch_service.get_current_branch()
+
+        def run() -> None:
+            with branch_service.routed_to("agents/builder", auto_create=False):
+                during, _ = branch_service.get_current_branch()
+                assert during == "agents/builder"
+                raise RuntimeError("boom")
+
+        with pytest.raises(RuntimeError, match="boom"):
+            run()
+
+        after, _ = branch_service.get_current_branch()
+        assert after == original
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

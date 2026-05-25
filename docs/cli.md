@@ -21,6 +21,7 @@ Add `--json` at the group level for machine-readable output (recommended when sc
 | `MEMOIR_STORE` | Default store path. Avoids `-s <path>` on every call. |
 | `MEMOIR_JSON` | If `1`, all commands output JSON (same as passing `--json`). |
 | `MEMOIR_QUIET` | If `1`, suppresses non-essential output. |
+| `MEMOIR_BRANCH` | Default target branch for `remember`, `recall`, `get`, `forget`, and `search` — per-call routing without changing the store's checked-out branch. Each command also accepts an explicit `--branch <name>` flag which overrides this variable. See [Per-call branch routing](#per-call-branch-routing-multi-agent) below. |
 
 ### Global flags
 
@@ -32,6 +33,28 @@ Flags accepted before the subcommand, on the `memoir` group itself:
 | `--json` | Machine-readable output for every subcommand. |
 | `-q, --quiet` | Suppress non-essential output. |
 | `-v, --verbose` | Enable verbose logging. |
+
+### Per-call branch routing (multi-agent)
+
+`remember`, `recall`, `get`, `forget`, and `search` accept `--branch <name>` (env: `MEMOIR_BRANCH`). When set, the call operates against that branch and the store's checked-out branch is restored on exit — no `memoir checkout` round-trip, no race window on shared deployments.
+
+```bash
+# One store, two agents writing in parallel
+MEMOIR_BRANCH=agents/reviewer memoir remember "found N+1 in /users migration"
+MEMOIR_BRANCH=agents/builder  memoir remember "shipped pagination on /users"
+
+# Each agent reads its own working memory
+memoir recall "N+1" --branch=agents/reviewer
+memoir get lessons.builder.api --branch=agents/builder
+
+# Promote one agent's findings to the shared trunk
+memoir merge agents/reviewer --into main
+```
+
+- `--branch` wins over `MEMOIR_BRANCH` when both are set.
+- `remember --branch=agents/new-bot` bootstraps the branch off current HEAD on first write — no separate `memoir branch <name>` needed.
+- The read-side commands error if the branch doesn't exist; this catches typos that would otherwise look like "no results".
+- Routing is per-process: don't run multiple in-process writers concurrently against the same store on different branches. Separate CLI invocations are fine — they rely on the same prollytree file locking as today.
 
 ## Search commands
 
