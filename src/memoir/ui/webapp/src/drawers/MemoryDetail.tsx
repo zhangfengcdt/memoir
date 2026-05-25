@@ -210,7 +210,7 @@ export default function MemoryDetail({ memory }: MemoryDetailProps) {
           value={content}
           onChange={(e) => onContentChange(e.target.value)}
           spellCheck
-          rows={6}
+          rows={12}
           placeholder="(no textual content)"
         />
       </section>

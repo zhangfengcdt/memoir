@@ -130,6 +130,16 @@ SUPPORTED_EXTENSIONS = frozenset(
         ".csv",
         ".docx",
         ".pdf",
+        # HTML is allowed because ``markitdown.convert(path).text_content``
+        # returns the *extracted Markdown*, not the raw HTML — so the
+        # stored chunks under ``raw.<file>.chunk.NNN`` end up as clean
+        # Markdown text (headings, bold/italic, links, lists), with
+        # ``<script>`` / ``<style>`` / nav boilerplate stripped by
+        # markitdown's html converter. The whole pipeline (chunk
+        # boundaries, summary, vector index) operates on that
+        # post-conversion text.
+        ".html",
+        ".htm",
     }
 )
 

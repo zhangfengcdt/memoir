@@ -191,6 +191,17 @@
   cursor: pointer;
 }
 
+.watch-formats-hint {
+  margin: calc(-1 * var(--space-2)) 0 0 0;
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+}
+
+.watch-formats-list {
+  font-family: var(--font-mono);
+  color: var(--fg-1);
+}
+
 .watch-actions-col {
   width: 130px;
   white-space: nowrap;

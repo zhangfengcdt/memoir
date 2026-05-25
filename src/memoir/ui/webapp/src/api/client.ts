@@ -327,6 +327,11 @@ export const api = {
   watchFiles: (path: string, watched: string) =>
     getJSON<WatchFilesResponse>("/api/watch/files", { path, watched }),
 
+  /** File extensions the watch pipeline can ingest. Static — fetched
+   * once per WatchView mount. Mirrors `memoir watch formats`. */
+  watchFormats: () =>
+    getJSON<{ extensions: string[]; count: number }>("/api/watch/formats", {}),
+
   /** Kick off indexing in the background. Returns 202 with `indexing: true`;
    * the row will keep `indexing: true` in subsequent /api/watch/list polls
    * until the server-side thread completes. */

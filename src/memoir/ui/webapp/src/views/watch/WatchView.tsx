@@ -76,6 +76,9 @@ export default function WatchView() {
   const [refreshTick, setRefreshTick] = useState(0);
   const refresh = () => setRefreshTick((n) => n + 1);
 
+  // Supported file extensions — fetched once on mount, static.
+  const [formats, setFormats] = useState<string[] | null>(null);
+
   const toggleExpand = (entryPath: string, kind: string) => {
     if (kind !== "folder") return;
     setExpanded((prev) => {
@@ -164,6 +167,23 @@ export default function WatchView() {
     // Bumping ``refreshTick`` re-runs this effect so add/scan/remove
     // handlers can request an immediate re-fetch.
   }, [storePath, connected, refreshTick]);
+
+  useEffect(() => {
+    if (!connected) return;
+    let cancelled = false;
+    api
+      .watchFormats()
+      .then((res) => {
+        if (!cancelled) setFormats(res.extensions ?? []);
+      })
+      .catch(() => {
+        // Non-critical — the form still works; the user just won't see
+        // the supported-formats hint.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [connected]);
 
   const sortedEntries = useMemo(() => {
     if (!listData?.entries) return [];
@@ -333,6 +353,12 @@ export default function WatchView() {
             Scan all
           </button>
         </form>
+        {formats && formats.length > 0 && (
+          <p className="watch-formats-hint">
+            Supported formats:{" "}
+            <span className="watch-formats-list">{formats.join(" · ")}</span>
+          </p>
+        )}
         {addError && <p className="watch-error">{addError}</p>}
         {loading && <p className="watch-loading">Loading…</p>}
         {loadError && <p className="watch-error">{loadError}</p>}

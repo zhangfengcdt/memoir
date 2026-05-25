@@ -20,6 +20,9 @@ Endpoints:
                                                               at a time. Each file's row lights
                                                               up ``indexing: true`` while it's
                                                               being processed.
+- ``GET  /api/watch/formats``                               — list the file extensions watch
+                                                              can ingest (matches the CLI's
+                                                              ``memoir watch formats``).
 """
 
 import asyncio
@@ -391,6 +394,16 @@ class WatchHandler(BaseAPIHandler):
             },
             status_code=202,
         )
+
+    def handle_formats_api(self, parsed_path):
+        """GET /api/watch/formats — return the list of supported file
+        extensions. Mirrors the CLI's ``memoir watch formats``; no
+        store-path required (it's a static list)."""
+        del parsed_path  # no params
+        from memoir.services.watch_service import supported_extensions
+
+        exts = sorted(supported_extensions())
+        self.send_json_response({"extensions": exts, "count": len(exts)})
 
     def handle_files_api(self, parsed_path):
         from memoir.services.watch_service import WatchService
