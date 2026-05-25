@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as d3 from "d3";
 import type { Memory } from "../../api/types";
 import { useStore } from "../../state/storeSlice";
-import { useUI } from "../../state/uiSlice";
+import { isHiddenNamespace, useUI } from "../../state/uiSlice";
 import { useMemorySelection } from "../../state/memorySelectionSlice";
 import {
   buildTaxonomy,
@@ -152,7 +152,7 @@ export default function TaxonomyGraph() {
   const memories = useMemo(() => {
     let out = namespaceFilter
       ? allMemories.filter((m) => m.namespace === namespaceFilter)
-      : allMemories;
+      : allMemories.filter((m) => !isHiddenNamespace(m.namespace));
     const include = compileWildcard(keyInclude);
     if (include) out = out.filter((m) => include(m.path));
     const exclude = compileWildcard(keyExclude);

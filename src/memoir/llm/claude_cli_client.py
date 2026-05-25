@@ -49,6 +49,7 @@ import logging
 import os
 import shutil
 import subprocess
+import tempfile
 from typing import Any, ClassVar
 
 from memoir.llm.litellm_client import LiteLLMResponse
@@ -77,8 +78,13 @@ class ClaudeCLIWrapper:
     # Models this backend can handle. Non-Claude models must stay on LiteLLM.
     SUPPORTED_MARKERS: ClassVar[list[str]] = ["haiku", "sonnet", "opus", "claude"]
 
-    # Default subprocess timeout (seconds). Classification tasks are short.
-    DEFAULT_TIMEOUT = 60
+    # Default subprocess timeout (seconds). Sized for slice classification
+    # (memoir watch): the LLM ingests the full document text (up to
+    # ``summarize_max_chars`` = 100K) plus the cached taxonomy block, then
+    # emits a structured JSON object with N slice entries. That can legitimately
+    # take 90-120s on a cold subprocess. Override per-process with
+    # ``MEMOIR_LLM_TIMEOUT=<seconds>`` for slower networks / larger inputs.
+    DEFAULT_TIMEOUT = 180
 
     # Empty MCP config passed on every call together with --strict-mcp-config
     # to suppress the outer environment's MCP server discovery. See module
@@ -101,6 +107,16 @@ class ClaudeCLIWrapper:
         self.max_tokens = max_tokens
         self.enable_prompt_cache = enable_prompt_cache
         self._debug_cache = debug_cache
+        env_timeout = os.environ.get("MEMOIR_LLM_TIMEOUT", "").strip()
+        if env_timeout:
+            try:
+                timeout = max(1, int(env_timeout))
+            except ValueError:
+                logger.warning(
+                    "MEMOIR_LLM_TIMEOUT=%r is not an int; using default %ds",
+                    env_timeout,
+                    timeout,
+                )
         self._timeout = timeout
 
         # Cache-stat shape matches LiteLLMWrapper so callers don't branch.
@@ -177,6 +193,17 @@ class ClaudeCLIWrapper:
             "--strict-mcp-config",
             "--mcp-config",
             self._EMPTY_MCP_CONFIG_JSON,
+            # Suppress skill / slash-command discovery — memoir's classifier
+            # is a pure structured-text completion and any skill list bleeding
+            # into the system context confuses the model (it starts
+            # responding to the skill list as if it were the task).
+            "--disable-slash-commands",
+            # Don't load user/project/local settings.json files. Their hook
+            # configs would otherwise fire under the spawned `claude`, and
+            # in non-`--bare` mode they can also pull in user CLAUDE.md
+            # content via memory paths.
+            "--setting-sources",
+            "",
         ]
         if os.getenv("ANTHROPIC_API_KEY"):
             argv.append("--bare")
@@ -195,6 +222,16 @@ class ClaudeCLIWrapper:
         env["CLAUDECODE"] = ""
         env["MEMOIR_NO_CAPTURE"] = "1"
         return env
+
+    @staticmethod
+    def _neutral_cwd() -> str:
+        """Run the subprocess from a neutral directory so claude-cli's
+        upward CLAUDE.md auto-discovery doesn't find the caller's project
+        memory file and inject it as additional context (the model then
+        treats memoir's classification input as "context provided" rather
+        than as the document to classify). ``tempfile.gettempdir()`` is
+        always present and contains no CLAUDE.md."""
+        return tempfile.gettempdir()
 
     def _coerce_prompt(self, prompt: Any) -> str:
         """Normalize arbitrary prompt inputs (str, list-of-messages) into a single string."""
@@ -235,6 +272,7 @@ class ClaudeCLIWrapper:
                 capture_output=True,
                 text=True,
                 env=self._build_env(),
+                cwd=self._neutral_cwd(),
                 timeout=self._timeout,
                 check=False,
             )
@@ -262,6 +300,7 @@ class ClaudeCLIWrapper:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env=self._build_env(),
+            cwd=self._neutral_cwd(),
         )
         try:
             stdout, stderr = await asyncio.wait_for(

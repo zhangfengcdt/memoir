@@ -7,6 +7,7 @@ Provides high-performance semantic memory storage with versioning.
 import contextlib
 import json
 import logging
+import os
 import time
 from pathlib import Path
 from typing import Any
@@ -16,12 +17,46 @@ from prollytree import ProllyTree, VersionedKvStore
 from pydantic import BaseModel, Field
 
 from memoir.store.backend import is_memoir_store, resolve_backend, write_backend_lock
+from memoir.store.cwd_locked import CwdLockedTree
 from memoir.store.git_safety import harden_git_config
 
 # Storage layer doesn't import classification or search modules
 # These are handled by higher layers
 
 logger = logging.getLogger(__name__)
+
+
+@contextlib.contextmanager
+def _native_stderr_quiet():
+    """FD-level stderr redirect around the prollytree ``VersionedKvStore``
+    open/init call.
+
+    Prollytree v0.4 prints "Warning: Failed to load tree from saved root
+    hash. This may indicate missing git objects or corrupted hash
+    mappings. Attempting to create tree with saved config to avoid data
+    loss..." on every open as part of its optimistic-fast-load fallback,
+    even on perfectly healthy stores. The message is hardcoded in the
+    native binary; we can't change it upstream from here, so we silence
+    it at the file-descriptor level when memoir is running as a CLI
+    (``_MEMOIR_SUPPRESS_NATIVE_IMPORT_STDERR=1``, set by the CLI
+    entrypoint). Library callers (tests, embedded users) still see it.
+
+    Real corruption surfaces as a raised exception from the constructor,
+    not stderr noise — suppressing this warning does not hide real
+    errors.
+    """
+    if os.environ.get("_MEMOIR_SUPPRESS_NATIVE_IMPORT_STDERR") != "1":
+        yield
+        return
+    saved_fd = os.dup(2)
+    devnull_fd = os.open(os.devnull, os.O_WRONLY)
+    try:
+        os.dup2(devnull_fd, 2)
+        yield
+    finally:
+        os.dup2(saved_fd, 2)
+        os.close(devnull_fd)
+        os.close(saved_fd)
 
 
 class MemoryItem(BaseModel):
@@ -40,42 +75,9 @@ class MemoryItem(BaseModel):
     confidence: float = Field(default=1.0, description="Classification confidence")
 
 
-class _CwdLockedTree:
-    """Proxy that chdir's into the store path before any tree method call,
-    then restores the caller's cwd. Workaround for prollytree's Rust binding,
-    which uses cwd (not the absolute path passed to its constructor) to
-    locate the enclosing git repo on every operation — not just at
-    construction. Without this wrapper, callers in non-git cwds hit
-    "Not in a git repository" on `.put()`/`.insert()`/`.commit()` even when
-    the tree was constructed successfully via the in-init chdir below.
-
-    Wrapping once at __init__ is uniformly cheaper than annotating every
-    public method that touches `self.tree` (28+ call sites).
-    """
-
-    def __init__(self, tree: Any, store_path: Path):
-        # Underscore prefix on the inner attrs so __getattr__ never recurses
-        # into them (it only fires for missing names).
-        object.__setattr__(self, "_tree", tree)
-        object.__setattr__(self, "_store_path", str(store_path))
-
-    def __getattr__(self, name: str) -> Any:
-        attr = getattr(self._tree, name)
-        if not callable(attr):
-            return attr
-        store_path = self._store_path
-
-        def _wrapped(*args, **kwargs):
-            import os as _os
-
-            saved = _os.getcwd()
-            try:
-                _os.chdir(store_path)
-                return attr(*args, **kwargs)
-            finally:
-                _os.chdir(saved)
-
-        return _wrapped
+# `_CwdLockedTree` lives in memoir.store.cwd_locked (re-exported below for
+# any external caller that imported the underscore-prefixed name).
+_CwdLockedTree = CwdLockedTree
 
 
 class AggregatedMemory(BaseModel):
@@ -196,8 +198,6 @@ class ProllyTreeStore(BaseStore):
             # so do per-operation calls (`.insert`/`.update`/`.commit`/`.get`).
             # We chdir here for the constructor, then wrap the tree in
             # _CwdLockedTree so every later method call also chdir's first.
-            import os as _os
-
             # `VersionedKvStore(path, backend)` *initializes* a fresh tree
             # (running an "Initial commit") on every call — fine for first
             # creation, but overwrites the root_hash in
@@ -206,18 +206,26 @@ class ProllyTreeStore(BaseStore):
             # the config already exists; the constructor only when this is
             # a brand-new dataset directory.
             prolly_config = data_dir / "prolly_config_tree_config"
-            _saved_cwd = _os.getcwd()
+            _saved_cwd = os.getcwd()
             try:
-                _os.chdir(str(self.path))
-                if prolly_config.exists():
-                    _raw_tree = VersionedKvStore.open(str(data_dir), backend)
-                    fresh_init = False
-                else:
-                    _raw_tree = VersionedKvStore(str(data_dir), backend)
-                    fresh_init = True
+                os.chdir(str(self.path))
+                # Suppress prollytree's "Failed to load tree from saved root
+                # hash" stderr warning when ``_MEMOIR_SUPPRESS_NATIVE_IMPORT_STDERR=1``
+                # (set by the CLI entrypoint). The warning fires on every
+                # open of an existing store as part of prollytree's
+                # optimistic fast-load → fall-back-to-config-load path,
+                # even on healthy stores; real corruption surfaces as an
+                # exception, not stderr noise. See `_native_stderr_quiet`.
+                with _native_stderr_quiet():
+                    if prolly_config.exists():
+                        _raw_tree = VersionedKvStore.open(str(data_dir), backend)
+                        fresh_init = False
+                    else:
+                        _raw_tree = VersionedKvStore(str(data_dir), backend)
+                        fresh_init = True
             finally:
-                _os.chdir(_saved_cwd)
-            self.tree = _CwdLockedTree(_raw_tree, self.path)
+                os.chdir(_saved_cwd)
+            self.tree = CwdLockedTree(_raw_tree, self.path)
 
             # If we just initialized a fresh prollytree (no prior config),
             # persist the resolved backend so future opens go straight to

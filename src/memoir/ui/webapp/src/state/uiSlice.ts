@@ -9,7 +9,13 @@ import { makeStorage } from "../lib/storage";
  * changing the active tab or drawer from a slash command doesn't risk
  * racing with a fetch in flight.
  */
-export type ViewKey = "commits" | "tree" | "graph" | "timeline" | "places";
+export type ViewKey =
+  | "commits"
+  | "tree"
+  | "graph"
+  | "watch"
+  | "timeline"
+  | "places";
 
 /** All views the app can switch to. Slash commands like ``/timeline``
  * still set these; only the visible tab list narrows them. */
@@ -17,6 +23,7 @@ export const VIEW_KEYS: ViewKey[] = [
   "commits",
   "tree",
   "graph",
+  "watch",
   "timeline",
   "places",
 ];
@@ -24,7 +31,48 @@ export const VIEW_KEYS: ViewKey[] = [
 /** Subset rendered in the tab bar and the collapsed-rail. Timeline and
  * Places are deferred for a later phase — their views still compile so
  * we don't have to delete the work. */
-export const VISIBLE_VIEW_KEYS: ViewKey[] = ["commits", "tree", "graph"];
+export const VISIBLE_VIEW_KEYS: ViewKey[] = ["commits", "tree", "graph", "watch"];
+
+/** Views where the left-pane namespace filter actually changes what's shown.
+ * Other views either ignore it (Commits — commits span all namespaces) or
+ * are pinned to a specific namespace (Watch — always 'watch'). The selector
+ * is muted with an explanatory tooltip on those views to remove the
+ * "clicking does nothing" confusion. */
+export const NAMESPACE_FILTERED_VIEWS: ReadonlySet<ViewKey> = new Set([
+  "tree",
+  "graph",
+]);
+
+/** Per-view explanation shown in the namespace-selector tooltip when the
+ * active view doesn't honor the filter. ``null`` means the filter applies. */
+export function namespaceFilterDisabledReason(view: ViewKey): string | null {
+  switch (view) {
+    case "commits":
+      return "Commits span all namespaces; filter has no effect here.";
+    case "watch":
+      return "Watch is pinned to the 'watch' namespace.";
+    case "timeline":
+      return "Timeline reads cross-namespace 'timeline.*' events.";
+    case "places":
+      return "Places reads cross-namespace 'location.*' events.";
+    default:
+      return null;
+  }
+}
+
+/** Namespace prefixes that are hidden from the UI — they're treated as
+ * internal/implementation-detail by memoir and shouldn't clutter the
+ * Outline / Map / namespace picker.
+ *
+ * "taxonomy" covers the taxonomy-loader's own bookkeeping memories.
+ * Extend this list as future internal namespaces appear; match is by
+ * prefix on the namespace string. */
+export const HIDDEN_NAMESPACE_PREFIXES: readonly string[] = ["taxonomy"];
+
+/** True when ``ns`` matches any prefix in HIDDEN_NAMESPACE_PREFIXES. */
+export function isHiddenNamespace(ns: string): boolean {
+  return HIDDEN_NAMESPACE_PREFIXES.some((p) => ns === p || ns.startsWith(p));
+}
 
 /** Polling interval in ms when ``autoRefresh`` is on. Three seconds is
  * the same cadence the legacy UI's auto-poll used. */

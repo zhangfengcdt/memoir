@@ -32,8 +32,6 @@ export default function CommitList({ limit = 50 }: CommitListProps) {
 
   const primary = useSelection((s) => s.primary);
   const selectedHashes = useSelection((s) => s.selectedHashes);
-  const namespaceFilter = useUI((s) => s.selectedNamespace);
-
   useEffect(() => {
     let cancelled = false;
     if (!storePath || !connected) {
@@ -126,14 +124,6 @@ export default function CommitList({ limit = 50 }: CommitListProps) {
       <div className="commit-list-header">
         <div className="commit-list-meta">
           <span>{commits.length} shown</span>
-          {namespaceFilter && (
-            <span
-              className="chip"
-              title="Namespace filter is applied to the Tree view; commits show all changes."
-            >
-              filter: {namespaceFilter}
-            </span>
-          )}
           {selectedCount > 1 && (
             <span className="chip accent">
               {selectedCount} selected — range-diff ready
