@@ -9,7 +9,10 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
-data/
+# Anchored to the repo root: ignores a transient prollytree store accidentally
+# created at ./data, without matching tracked asset dirs like
+# src/memoir/taxonomy/data/ (which must ship in the wheel/sdist).
+/data/
 develop-eggs/
 dist/
 downloads/
