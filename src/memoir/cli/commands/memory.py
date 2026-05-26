@@ -71,6 +71,18 @@ from memoir.cli.main import (
         "No effect without -p — the LLM-classifier path always replaces."
     ),
 )
+@click.option(
+    "--branch",
+    "branch",
+    envvar="MEMOIR_BRANCH",
+    default=None,
+    help=(
+        "Route this write to a specific branch without changing the store's "
+        "checked-out branch (per-call routing for multi-agent setups; env: "
+        "MEMOIR_BRANCH). If the branch doesn't exist it's auto-created off "
+        "current HEAD."
+    ),
+)
 @pass_context
 def remember(
     ctx: MemoirContext,
@@ -79,6 +91,7 @@ def remember(
     paths: tuple,
     model: str | None,
     replace: bool,
+    branch: str | None,
 ):
     """Store content in memory with intelligent classification.
 
@@ -153,14 +166,18 @@ def remember(
         )
     effective_namespace = namespace or inferred_ns or "default"
 
+    from memoir.services.branch_service import BranchService
+
     service = MemoryService(ctx.store_path, llm_model=model)
+    branch_service = BranchService(ctx.store_path)
 
     try:
-        result = asyncio.run(
-            service.remember(
-                content, effective_namespace, paths=paths_list, replace=replace
+        with branch_service.routed_to(branch, auto_create=True):
+            result = asyncio.run(
+                service.remember(
+                    content, effective_namespace, paths=paths_list, replace=replace
+                )
             )
-        )
 
         if ctx.json_output:
             ctx.output(result.to_dict())
@@ -208,6 +225,17 @@ def remember(
         "var → 'claude-haiku-4-5' default."
     ),
 )
+@click.option(
+    "--branch",
+    "branch",
+    envvar="MEMOIR_BRANCH",
+    default=None,
+    help=(
+        "Recall from a specific branch without changing the store's checked-out "
+        "branch (per-call routing for multi-agent setups; env: MEMOIR_BRANCH). "
+        "Errors if the branch doesn't exist."
+    ),
+)
 @pass_context
 def recall(
     ctx: MemoirContext,
@@ -217,6 +245,7 @@ def recall(
     threshold: float,
     mode: str,
     model: str | None,
+    branch: str | None,
 ):
     """Search memories using semantic query.
 
@@ -243,14 +272,17 @@ def recall(
             EXIT_NO_STORE,
         )
 
+    from memoir.services.branch_service import BranchService
     from memoir.services.memory_service import MemoryService
 
     service = MemoryService(ctx.store_path, llm_model=model)
+    branch_service = BranchService(ctx.store_path)
 
     try:
-        result = asyncio.run(
-            service.recall(query, limit=limit, namespace=namespace, mode=mode)
-        )
+        with branch_service.routed_to(branch, auto_create=False):
+            result = asyncio.run(
+                service.recall(query, limit=limit, namespace=namespace, mode=mode)
+            )
 
         if ctx.json_output:
             ctx.output(result.to_dict())
@@ -292,8 +324,19 @@ def recall(
 @click.command("get")
 @click.argument("keys", nargs=-1, required=True)
 @click.option("-n", "--namespace", default="default", help="Memory namespace")
+@click.option(
+    "--branch",
+    "branch",
+    envvar="MEMOIR_BRANCH",
+    default=None,
+    help=(
+        "Read from a specific branch without changing the store's checked-out "
+        "branch (per-call routing for multi-agent setups; env: MEMOIR_BRANCH). "
+        "Errors if the branch doesn't exist."
+    ),
+)
 @pass_context
-def get_memory(ctx: MemoirContext, keys: tuple, namespace: str):
+def get_memory(ctx: MemoirContext, keys: tuple, namespace: str, branch: str | None):
     """Fast direct lookup of memories by key. No LLM involved.
 
     INPUT: One or more exact taxonomy paths (space-separated).
@@ -320,12 +363,15 @@ def get_memory(ctx: MemoirContext, keys: tuple, namespace: str):
             EXIT_NO_STORE,
         )
 
+    from memoir.services.branch_service import BranchService
     from memoir.services.memory_service import MemoryService
 
     service = MemoryService(ctx.store_path)
+    branch_service = BranchService(ctx.store_path)
 
     try:
-        result = service.get(list(keys), namespace)
+        with branch_service.routed_to(branch, auto_create=False):
+            result = service.get(list(keys), namespace)
 
         if ctx.json_output:
             ctx.output(result.to_dict())
@@ -370,8 +416,21 @@ def get_memory(ctx: MemoirContext, keys: tuple, namespace: str):
 @click.argument("key")
 @click.option("-n", "--namespace", default="default", help="Memory namespace")
 @click.option("--force", is_flag=True, help="Skip confirmation (required for agents)")
+@click.option(
+    "--branch",
+    "branch",
+    envvar="MEMOIR_BRANCH",
+    default=None,
+    help=(
+        "Delete from a specific branch without changing the store's checked-out "
+        "branch (per-call routing for multi-agent setups; env: MEMOIR_BRANCH). "
+        "Errors if the branch doesn't exist."
+    ),
+)
 @pass_context
-def forget(ctx: MemoirContext, key: str, namespace: str, force: bool):
+def forget(
+    ctx: MemoirContext, key: str, namespace: str, force: bool, branch: str | None
+):
     """Delete a memory by its key/path.
 
     INPUT: The exact key/path of the memory to delete (from recall results).
@@ -403,12 +462,15 @@ def forget(ctx: MemoirContext, key: str, namespace: str, force: bool):
         ctx.info("Cancelled.")
         return
 
+    from memoir.services.branch_service import BranchService
     from memoir.services.memory_service import MemoryService
 
     service = MemoryService(ctx.store_path)
+    branch_service = BranchService(ctx.store_path)
 
     try:
-        result = asyncio.run(service.forget(key, namespace))
+        with branch_service.routed_to(branch, auto_create=False):
+            result = asyncio.run(service.forget(key, namespace))
 
         if ctx.json_output:
             ctx.output(result.to_dict())

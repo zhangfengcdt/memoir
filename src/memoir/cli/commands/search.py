@@ -35,8 +35,21 @@ from memoir.cli.main import (
     type=int,
     help="Number of hits to return.",
 )
+@click.option(
+    "--branch",
+    "branch",
+    envvar="MEMOIR_BRANCH",
+    default=None,
+    help=(
+        "Search a specific branch without changing the store's checked-out "
+        "branch (per-call routing for multi-agent setups; env: MEMOIR_BRANCH). "
+        "Errors if the branch doesn't exist."
+    ),
+)
 @pass_context
-def search(ctx: MemoirContext, query: str, namespace: str, top_k: int):
+def search(
+    ctx: MemoirContext, query: str, namespace: str, top_k: int, branch: str | None
+):
     """Vector top-k semantic search over watch-indexed memories.
 
     Today the vector index is populated by `memoir watch`; entries written
@@ -56,12 +69,14 @@ def search(ctx: MemoirContext, query: str, namespace: str, top_k: int):
             EXIT_NO_STORE,
         )
 
+    from memoir.services.branch_service import BranchService
     from memoir.services.search_service import SearchService
 
     try:
-        result = SearchService(ctx.store_path).search(
-            query, namespace=namespace, k=top_k
-        )
+        with BranchService(ctx.store_path).routed_to(branch, auto_create=False):
+            result = SearchService(ctx.store_path).search(
+                query, namespace=namespace, k=top_k
+            )
     except Exception as e:
         ctx.error(f"search failed: {e}", EXIT_ERROR)
         return

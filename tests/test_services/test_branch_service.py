@@ -907,5 +907,171 @@ class TestBranchServiceEdgeCases:
         assert result is not None
 
 
+class TestBranchServiceRoutedTo:
+    """Tests for the routed_to() context manager used by per-call --branch routing.
+
+    Issue #123. The contract: while the block runs, prollytree HEAD is the
+    target branch; on exit, HEAD is the branch that was checked out coming in.
+    With auto_create=True the target is bootstrapped off current HEAD if
+    missing; with auto_create=False a missing target raises and HEAD is
+    untouched.
+    """
+
+    def test_none_branch_is_noop(self, branch_service):
+        """routed_to(None) yields without touching HEAD."""
+        before, _ = branch_service.get_current_branch()
+        with branch_service.routed_to(None, auto_create=True):
+            during, _ = branch_service.get_current_branch()
+            assert during == before
+        after, _ = branch_service.get_current_branch()
+        assert after == before
+
+    def test_existing_branch_routes_and_restores(self, branch_service):
+        """routed_to('existing') flips HEAD inside the block, restores on exit."""
+        branch_service.create_branch("agents/reviewer")
+        # `create_branch` without `from_ref` leaves HEAD on the new branch.
+        # Move back explicitly so the "restore" assertion below exercises
+        # routed_to, not the prior setup.
+        info_before = branch_service.list_branches()
+        default = next(b for b in info_before.branches if b in ("main", "master"))
+        branch_service.checkout(default)
+        original, _ = branch_service.get_current_branch()
+        assert original == default
+
+        with branch_service.routed_to("agents/reviewer", auto_create=False):
+            during, _ = branch_service.get_current_branch()
+            assert during == "agents/reviewer"
+
+        after, _ = branch_service.get_current_branch()
+        assert after == default
+
+    def test_missing_branch_with_auto_create_bootstraps(self, branch_service):
+        """Writes can target a brand-new branch — routed_to creates it."""
+        original, _ = branch_service.get_current_branch()
+        info = branch_service.list_branches()
+        assert "agents/new-bot" not in info.branches
+
+        with branch_service.routed_to("agents/new-bot", auto_create=True):
+            during, _ = branch_service.get_current_branch()
+            assert during == "agents/new-bot"
+
+        after, _ = branch_service.get_current_branch()
+        assert after == original
+
+        info = branch_service.list_branches()
+        assert "agents/new-bot" in info.branches
+
+    def test_missing_branch_without_auto_create_raises(self, branch_service):
+        """Reads against a non-existent branch must error, not silently no-op."""
+        from memoir.services.base import ServiceError
+
+        original, _ = branch_service.get_current_branch()
+
+        with (
+            pytest.raises(ServiceError) as exc_info,
+            branch_service.routed_to("does-not-exist", auto_create=False),
+        ):
+            pass
+
+        # Message must name the missing branch so users can fix typos.
+        assert "does-not-exist" in str(exc_info.value)
+
+        # HEAD must be unchanged after the failed routing attempt.
+        after, _ = branch_service.get_current_branch()
+        assert after == original
+
+    def test_restores_head_even_if_block_raises(self, branch_service):
+        """If the wrapped operation raises, HEAD still gets restored."""
+        branch_service.create_branch("agents/builder")
+        original, _ = branch_service.get_current_branch()
+
+        def run() -> None:
+            with branch_service.routed_to("agents/builder", auto_create=False):
+                during, _ = branch_service.get_current_branch()
+                assert during == "agents/builder"
+                raise RuntimeError("boom")
+
+        with pytest.raises(RuntimeError, match="boom"):
+            run()
+
+        after, _ = branch_service.get_current_branch()
+        assert after == original
+
+    def test_fails_fast_when_current_branch_unreadable(self, branch_service):
+        """If we can't read HEAD up front we can't promise to restore it, so
+        the contract requires raising before we touch checkout state."""
+        from memoir.services.base import ServiceError
+
+        store = branch_service._get_store()
+        original_current_branch = store.tree.current_branch
+        original_checkout = store.tree.checkout
+
+        checkout_calls: list[str] = []
+
+        def boom_current_branch():
+            raise RuntimeError("simulated git read failure")
+
+        def track_checkout(target):
+            checkout_calls.append(target)
+            return original_checkout(target)
+
+        store.tree.current_branch = boom_current_branch
+        store.tree.checkout = track_checkout
+        try:
+            with (
+                pytest.raises(ServiceError) as exc_info,
+                branch_service.routed_to("agents/anything", auto_create=True),
+            ):
+                pass
+        finally:
+            store.tree.current_branch = original_current_branch
+            store.tree.checkout = original_checkout
+
+        # Error must mention the target so the user can correlate.
+        assert "agents/anything" in str(exc_info.value)
+        # And critically: we never flipped HEAD.
+        assert checkout_calls == []
+
+    def test_logs_when_restore_checkout_fails(self, branch_service, caplog):
+        """A failed restore must surface in logs — silent leak of routed
+        state would leave the store in an unexpected branch with no signal."""
+        import logging
+
+        branch_service.create_branch("agents/leaky")
+        # Ensure we start on the default branch so the restore path is exercised.
+        info = branch_service.list_branches()
+        default = next(b for b in info.branches if b in ("main", "master"))
+        branch_service.checkout(default)
+
+        store = branch_service._get_store()
+        original_checkout = store.tree.checkout
+        call_count = {"n": 0}
+
+        def flaky_checkout(target):
+            call_count["n"] += 1
+            # First call (route into target) succeeds; second call (restore)
+            # fails — the exact failure mode this test guards against.
+            if call_count["n"] >= 2:
+                raise RuntimeError("simulated restore failure")
+            return original_checkout(target)
+
+        store.tree.checkout = flaky_checkout
+        try:
+            with (
+                caplog.at_level(logging.ERROR, logger="memoir.services.branch_service"),
+                branch_service.routed_to("agents/leaky", auto_create=False),
+            ):
+                pass
+        finally:
+            store.tree.checkout = original_checkout
+            # Manually restore HEAD so subsequent tests aren't poisoned.
+            original_checkout(default)
+
+        joined = "\n".join(r.getMessage() for r in caplog.records)
+        # The log must identify both branches so the operator can recover.
+        assert "agents/leaky" in joined
+        assert default in joined
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -8,13 +8,19 @@ to be shared by CLI, TUI, SDK, and HTTP handlers.
 
 import contextlib
 import logging
+from collections.abc import Iterator
 from enum import Enum
 from pathlib import Path
 from typing import Any
 
 from prollytree import ConflictResolution
 
-from memoir.services.base import BaseService, GitOperationError, StoreNotFoundError
+from memoir.services.base import (
+    BaseService,
+    GitOperationError,
+    ServiceError,
+    StoreNotFoundError,
+)
 from memoir.services.models import (
     BranchInfo,
     CheckoutResult,
@@ -235,6 +241,90 @@ class BranchService(BaseService):
         except Exception as e:
             logger.error(f"Failed to get current branch: {e}")
             raise GitOperationError(f"Failed to get current branch: {e}")
+
+    @contextlib.contextmanager
+    def routed_to(self, branch: str | None, *, auto_create: bool) -> Iterator[None]:
+        """Temporarily route store operations to ``branch``, then restore HEAD.
+
+        Used by per-call --branch / MEMOIR_BRANCH routing (issue #123) so a
+        single command can target an agent's branch without flipping the
+        repo's checkout state for everything else in the process.
+
+        Args:
+            branch: Target branch. ``None`` makes this a no-op so callers can
+                pass through whatever they read from the CLI option without
+                branching their own code.
+            auto_create: True for writes (`memoir remember --branch=new-bot`
+                bootstraps the branch off current HEAD). False for reads
+                (`memoir recall --branch=typo` errors instead of silently
+                returning empty).
+
+        Raises:
+            ServiceError: when the branch doesn't exist and auto_create is False,
+                or when the current branch can't be read (the contract requires
+                HEAD restoration on exit, which is impossible without it).
+        """
+        if branch is None:
+            yield
+            return
+
+        store = self._get_store()
+
+        # Capture HEAD up front. We must know what to restore to — if we
+        # can't read it, refuse to proceed rather than silently leaking the
+        # routed branch out of the with-block.
+        try:
+            current = store.tree.current_branch()
+        except Exception as e:
+            raise ServiceError(
+                f"Cannot route to '{branch}': failed to read current branch "
+                f"({e}). Run `memoir status` to inspect the store."
+            ) from e
+        original = current.decode("utf-8") if isinstance(current, bytes) else current
+
+        if original == branch:
+            # Already on the target; nothing to checkout and nothing to restore.
+            yield
+            return
+
+        branches_raw = store.tree.list_branches()
+        branches = [
+            b.decode("utf-8") if isinstance(b, bytes) else b for b in branches_raw
+        ]
+
+        if branch not in branches:
+            if not auto_create:
+                raise ServiceError(
+                    f"Branch '{branch}' does not exist. Create it explicitly with "
+                    f"`memoir branch {branch}`, or use a write command "
+                    f"(e.g. `memoir remember --branch={branch} ...`) to bootstrap it."
+                )
+            # prollytree's create_branch also checks out the new branch, so
+            # the subsequent checkout(branch) below is a cheap no-op.
+            store.tree.create_branch(branch)
+
+        try:
+            store.tree.checkout(branch)
+            yield
+        finally:
+            if original != branch:
+                try:
+                    store.tree.checkout(original)
+                except Exception as restore_err:
+                    # Don't re-raise: a finally-block exception would mask the
+                    # original wrapped-block exception (if any). Log loudly
+                    # instead so the operator knows the store is now stuck on
+                    # `branch` and how to recover.
+                    logger.error(
+                        "routed_to: failed to restore HEAD from '%s' to '%s': "
+                        "%s. Store is currently checked out on '%s' — restore "
+                        "manually with `memoir checkout %s`.",
+                        branch,
+                        original,
+                        restore_err,
+                        branch,
+                        original,
+                    )
 
     def checkout(
         self,

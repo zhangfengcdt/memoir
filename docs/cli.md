@@ -21,6 +21,7 @@ Add `--json` at the group level for machine-readable output (recommended when sc
 | `MEMOIR_STORE` | Default store path. Avoids `-s <path>` on every call. |
 | `MEMOIR_JSON` | If `1`, all commands output JSON (same as passing `--json`). |
 | `MEMOIR_QUIET` | If `1`, suppresses non-essential output. |
+| `MEMOIR_BRANCH` | Default target branch for `remember`, `recall`, `get`, `forget`, and `search` — per-call routing without changing the store's checked-out branch. Each command also accepts an explicit `--branch <name>` flag which overrides this variable. See [Per-call branch routing](#per-call-branch-routing-multi-agent) below. |
 
 ### Global flags
 
@@ -32,6 +33,63 @@ Flags accepted before the subcommand, on the `memoir` group itself:
 | `--json` | Machine-readable output for every subcommand. |
 | `-q, --quiet` | Suppress non-essential output. |
 | `-v, --verbose` | Enable verbose logging. |
+
+### Per-call branch routing (multi-agent)
+
+`remember`, `recall`, `get`, `forget`, and `search` accept `--branch <name>` (env: `MEMOIR_BRANCH`). When set, the call operates against that branch and the store's checked-out branch is restored on exit — no `memoir checkout` round-trip, no race window on shared deployments.
+
+**Set `MEMOIR_BRANCH` once at the runtime boundary** (LangGraph node, MCP client, agent shell). Each agent process injects its own identity once instead of threading a flag through every call site:
+
+```bash
+# In agent A's process
+export MEMOIR_BRANCH=agents/reviewer
+memoir remember "found N+1 query in /users migration"
+
+# In agent B's process
+export MEMOIR_BRANCH=agents/builder
+memoir remember "shipped pagination on /users"
+```
+
+**Or pass `--branch` per call.** Explicit flag wins over the env var:
+
+```bash
+memoir remember "API contract change" --branch=agents/reviewer
+memoir recall   "N+1"                 --branch=agents/reviewer
+memoir get      lessons.builder.api   --branch=agents/builder
+memoir forget   stale.note            --branch=agents/builder --force
+```
+
+**Reads are isolated.** Other branches and `main` don't see an agent's working memory until it's merged:
+
+```bash
+$ memoir get lessons.reviewer.sql --branch=agents/builder
+✗ default:lessons.reviewer.sql (not found)
+
+$ memoir get lessons.reviewer.sql --branch=typo-here
+✗ Failed to get: Branch 'typo-here' does not exist.
+  Create it explicitly with `memoir branch typo-here`, or use a write
+  command (e.g. `memoir remember --branch=typo-here ...`) to bootstrap it.
+```
+
+That last error matters — read commands refuse to silently return empty on a misspelled branch, so typos surface immediately instead of looking like "no results".
+
+**Auto-create on first write.** No separate `memoir branch <name>` is needed for a new agent:
+
+```bash
+memoir remember "first note" --branch=agents/new-bot   # branch is bootstrapped
+memoir branch                                          # → main, agents/new-bot
+```
+
+**Cross-agent synthesis** stays explicit — promote findings to the shared trunk with `memoir merge`:
+
+```bash
+memoir merge agents/reviewer --into main
+memoir recall "N+1"   # now visible on main
+```
+
+After every `--branch` call the store's checked-out branch is unchanged — routing is per-call, not a checkout.
+
+**Concurrency note.** Routing is per-process. Don't run multiple in-process writers concurrently against the same store on different branches. Separate CLI invocations are fine — they rely on the same prollytree file locking as today.
 
 ## Search commands
 

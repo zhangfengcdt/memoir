@@ -814,5 +814,230 @@ class TestExitCodes:
         assert result.exit_code != 0
 
 
+class TestPerCallBranchRouting:
+    """Tests for `--branch` / MEMOIR_BRANCH routing on memory + search commands.
+
+    Issue #123 — multi-agent deployments share one store but each agent gets
+    its own branch. A single call to ``memoir remember --branch=agents/X``
+    must write on X and leave the rest of the process on whatever was
+    checked out coming in.
+    """
+
+    PATH = "preferences.tools.editor"
+    NAMESPACE = "default"
+
+    def _current_branch(self, runner, store):
+        """Read the currently-checked-out branch as JSON."""
+        result = runner.invoke(cli, ["-s", store, "--json", "branch"])
+        assert result.exit_code == 0, result.output
+        return json.loads(result.output)["current"]
+
+    def _branches(self, runner, store):
+        """Read the full branch list as JSON."""
+        result = runner.invoke(cli, ["-s", store, "--json", "branch"])
+        assert result.exit_code == 0, result.output
+        return json.loads(result.output)["branches"]
+
+    def test_branch_flag_routes_write_and_restores_head(
+        self, runner, initialized_store
+    ):
+        """`remember --branch=X` writes on X; HEAD on main is unchanged after."""
+        before = self._current_branch(runner, initialized_store)
+
+        result = runner.invoke(
+            cli,
+            [
+                "-s",
+                initialized_store,
+                "remember",
+                "reviewer found N+1 query",
+                "-p",
+                self.PATH,
+                "--branch",
+                "agents/reviewer",
+            ],
+        )
+        assert result.exit_code == 0, result.output
+
+        # HEAD restored.
+        assert self._current_branch(runner, initialized_store) == before
+
+        # Branch was auto-created.
+        assert "agents/reviewer" in self._branches(runner, initialized_store)
+
+        # Value lives on agents/reviewer, not on main.
+        on_branch = runner.invoke(
+            cli,
+            [
+                "-s",
+                initialized_store,
+                "get",
+                self.PATH,
+                "--branch",
+                "agents/reviewer",
+            ],
+        )
+        assert on_branch.exit_code == 0
+        assert "N+1" in on_branch.output
+
+        on_main = runner.invoke(cli, ["-s", initialized_store, "get", self.PATH])
+        # `get` on main: key absent → exit code is EXIT_NOT_FOUND.
+        assert on_main.exit_code != 0
+        assert "not found" in on_main.output.lower()
+
+    def test_memoir_branch_env_var_routes_write(self, runner, initialized_store):
+        """MEMOIR_BRANCH alone (no --branch flag) routes the same way."""
+        result = runner.invoke(
+            cli,
+            [
+                "-s",
+                initialized_store,
+                "remember",
+                "builder shipped pagination",
+                "-p",
+                self.PATH,
+            ],
+            env={"MEMOIR_BRANCH": "agents/builder"},
+        )
+        assert result.exit_code == 0, result.output
+        assert "agents/builder" in self._branches(runner, initialized_store)
+
+        on_branch = runner.invoke(
+            cli,
+            ["-s", initialized_store, "get", self.PATH],
+            env={"MEMOIR_BRANCH": "agents/builder"},
+        )
+        assert on_branch.exit_code == 0
+        assert "pagination" in on_branch.output
+
+    def test_branch_flag_beats_env_var(self, runner, initialized_store):
+        """When both are set the explicit --branch flag wins (standard Click)."""
+        result = runner.invoke(
+            cli,
+            [
+                "-s",
+                initialized_store,
+                "remember",
+                "flag-wins content",
+                "-p",
+                self.PATH,
+                "--branch",
+                "agents/flag-target",
+            ],
+            env={"MEMOIR_BRANCH": "agents/env-target"},
+        )
+        assert result.exit_code == 0, result.output
+
+        branches = self._branches(runner, initialized_store)
+        assert "agents/flag-target" in branches
+        # The env-only branch should not have been created.
+        assert "agents/env-target" not in branches
+
+    def test_read_errors_on_missing_branch(self, runner, initialized_store):
+        """Reads against a non-existent branch must error, not return empty."""
+        result = runner.invoke(
+            cli,
+            [
+                "-s",
+                initialized_store,
+                "get",
+                self.PATH,
+                "--branch",
+                "agents/does-not-exist",
+            ],
+        )
+        assert result.exit_code != 0
+        # Message should name the bad branch so the user can fix the typo.
+        assert "agents/does-not-exist" in result.output
+
+    def test_multi_agent_isolation_and_merge(self, runner, initialized_store):
+        """End-to-end: two agents write on separate branches, then merge."""
+        # Agent A writes on agents/reviewer.
+        a = runner.invoke(
+            cli,
+            [
+                "-s",
+                initialized_store,
+                "remember",
+                "reviewer: missing WHERE in migration",
+                "-p",
+                "lessons.reviewer.sql",
+                "--branch",
+                "agents/reviewer",
+            ],
+        )
+        assert a.exit_code == 0, a.output
+
+        # Agent B writes on agents/builder. Same path, different content; the
+        # branches must not see each other.
+        b = runner.invoke(
+            cli,
+            [
+                "-s",
+                initialized_store,
+                "remember",
+                "builder: added retry to /users",
+                "-p",
+                "lessons.builder.api",
+                "--branch",
+                "agents/builder",
+            ],
+        )
+        assert b.exit_code == 0, b.output
+
+        # Reviewer's note is NOT visible from builder's branch.
+        on_builder = runner.invoke(
+            cli,
+            [
+                "-s",
+                initialized_store,
+                "get",
+                "lessons.reviewer.sql",
+                "--branch",
+                "agents/builder",
+            ],
+        )
+        assert on_builder.exit_code != 0
+        assert "not found" in on_builder.output.lower()
+
+        # …and not visible on main either.
+        on_main = runner.invoke(
+            cli,
+            ["-s", initialized_store, "get", "lessons.reviewer.sql"],
+        )
+        assert on_main.exit_code != 0
+
+        # Merge reviewer into main, then it's visible on main.
+        merge = runner.invoke(
+            cli,
+            [
+                "-s",
+                initialized_store,
+                "merge",
+                "agents/reviewer",
+                "--into",
+                "main",
+            ],
+        )
+        assert merge.exit_code == 0, merge.output
+
+        after_merge = runner.invoke(
+            cli,
+            ["-s", initialized_store, "get", "lessons.reviewer.sql"],
+        )
+        assert after_merge.exit_code == 0, after_merge.output
+        assert "WHERE" in after_merge.output
+
+    @pytest.mark.parametrize(
+        "command", ["remember", "recall", "get", "forget", "search"]
+    )
+    def test_all_data_op_commands_expose_branch_flag(self, runner, command):
+        """Every command in the routing scope must surface --branch in --help."""
+        result = runner.invoke(cli, [command, "--help"])
+        assert result.exit_code == 0, result.output
+        assert "--branch" in result.output
+        assert "MEMOIR_BRANCH" in result.output
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
