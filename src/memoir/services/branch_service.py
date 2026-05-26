@@ -260,7 +260,9 @@ class BranchService(BaseService):
                 returning empty).
 
         Raises:
-            ServiceError: when the branch doesn't exist and auto_create is False.
+            ServiceError: when the branch doesn't exist and auto_create is False,
+                or when the current branch can't be read (the contract requires
+                HEAD restoration on exit, which is impossible without it).
         """
         if branch is None:
             yield
@@ -268,16 +270,17 @@ class BranchService(BaseService):
 
         store = self._get_store()
 
-        # Capture HEAD up front — same idiom as create_branch
-        # (branch_service.py:382-389).
-        original: str | None = None
+        # Capture HEAD up front. We must know what to restore to — if we
+        # can't read it, refuse to proceed rather than silently leaking the
+        # routed branch out of the with-block.
         try:
             current = store.tree.current_branch()
-            original = (
-                current.decode("utf-8") if isinstance(current, bytes) else current
-            )
-        except Exception:
-            pass
+        except Exception as e:
+            raise ServiceError(
+                f"Cannot route to '{branch}': failed to read current branch "
+                f"({e}). Run `memoir status` to inspect the store."
+            ) from e
+        original = current.decode("utf-8") if isinstance(current, bytes) else current
 
         if original == branch:
             # Already on the target; nothing to checkout and nothing to restore.
@@ -304,9 +307,24 @@ class BranchService(BaseService):
             store.tree.checkout(branch)
             yield
         finally:
-            if original and original != branch:
-                with contextlib.suppress(Exception):
+            if original != branch:
+                try:
                     store.tree.checkout(original)
+                except Exception as restore_err:
+                    # Don't re-raise: a finally-block exception would mask the
+                    # original wrapped-block exception (if any). Log loudly
+                    # instead so the operator knows the store is now stuck on
+                    # `branch` and how to recover.
+                    logger.error(
+                        "routed_to: failed to restore HEAD from '%s' to '%s': "
+                        "%s. Store is currently checked out on '%s' — restore "
+                        "manually with `memoir checkout %s`.",
+                        branch,
+                        original,
+                        restore_err,
+                        branch,
+                        original,
+                    )
 
     def checkout(
         self,
