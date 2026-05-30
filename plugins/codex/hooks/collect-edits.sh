@@ -190,5 +190,14 @@ for payload in turn:
 if not entries:
     raise SystemExit(0)
 
-print(json.dumps({"user_prompt": user_prompt or None, "edits": entries}))
+# Extract unique file paths and estimate change size.
+file_paths = sorted(set(e["file_path"] for e in entries if e.get("file_path")))
+change_size = sum(len(e.get("snippet", "")) for e in entries)
+
+print(json.dumps({
+    "user_prompt": user_prompt or None,
+    "edits": entries,
+    "file_paths": file_paths,
+    "change_size": change_size,
+}))
 PY
