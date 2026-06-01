@@ -107,11 +107,16 @@ def _run_index_in_background(
                 entry = _INDEXING.get(abs_path, {})
                 entry["error"] = err
                 _INDEXING[abs_path] = entry
+
                 # Best-effort: drop the error marker after 30s so the
                 # UI doesn't show a stale "indexing failed" badge forever.
-                threading.Timer(
-                    30.0, lambda: _INDEXING.pop(abs_path, None)
-                ).start()
+                # The deferred pop runs on a Timer thread, so it must take
+                # the lock like every other ``_INDEXING`` mutation.
+                def _drop_error_marker() -> None:
+                    with _INDEXING_LOCK:
+                        _INDEXING.pop(abs_path, None)
+
+                threading.Timer(30.0, _drop_error_marker).start()
 
 
 def _run_scan_all_in_background(
@@ -136,9 +141,7 @@ def _run_scan_all_in_background(
             # If something else is already indexing this path, skip it.
             existing = _INDEXING.get(path)
             if existing and existing.get("error") is None:
-                logger.info(
-                    "scan-all: skipping %s (already in-flight)", path
-                )
+                logger.info("scan-all: skipping %s (already in-flight)", path)
                 continue
             _INDEXING[path] = {
                 "started_at": _dt.datetime.now(_dt.timezone.utc).isoformat(
@@ -177,9 +180,7 @@ class WatchHandler(BaseAPIHandler):
             for entry in data.get("entries") or []:
                 state = in_flight.get(entry["path"])
                 entry["indexing"] = state is not None and state.get("error") is None
-                entry["indexing_error"] = (
-                    state.get("error") if state else None
-                )
+                entry["indexing_error"] = state.get("error") if state else None
             for path, state in in_flight.items():
                 if path in persisted_paths:
                     continue
@@ -221,9 +222,7 @@ class WatchHandler(BaseAPIHandler):
             self.send_error_response("Missing 'file' parameter", 400)
             return
         if not Path(store_path).exists():
-            self.send_error_response(
-                f"Store path does not exist: {store_path}", 404
-            )
+            self.send_error_response(f"Store path does not exist: {store_path}", 404)
             return
         abs_file = Path(file_path).expanduser().resolve()
         if not abs_file.exists():
@@ -239,7 +238,10 @@ class WatchHandler(BaseAPIHandler):
 
         # Check if already in flight.
         with _INDEXING_LOCK:
-            if str(abs_file) in _INDEXING and _INDEXING[str(abs_file)].get("error") is None:
+            if (
+                str(abs_file) in _INDEXING
+                and _INDEXING[str(abs_file)].get("error") is None
+            ):
                 self.send_json_response(
                     {
                         "success": True,
@@ -296,9 +298,7 @@ class WatchHandler(BaseAPIHandler):
             self.send_error_response("Missing 'file' parameter", 400)
             return
         if not Path(store_path).exists():
-            self.send_error_response(
-                f"Store path does not exist: {store_path}", 404
-            )
+            self.send_error_response(f"Store path does not exist: {store_path}", 404)
             return
         abs_file = str(Path(file_path).expanduser().resolve())
 
@@ -357,9 +357,7 @@ class WatchHandler(BaseAPIHandler):
             self.send_error_response("Missing 'store' parameter", 400)
             return
         if not Path(store_path).exists():
-            self.send_error_response(
-                f"Store path does not exist: {store_path}", 404
-            )
+            self.send_error_response(f"Store path does not exist: {store_path}", 404)
             return
 
         from memoir.services.watch_service import WatchService
@@ -549,9 +547,7 @@ class WatchHandler(BaseAPIHandler):
             self.send_error_response("Missing 'file' parameter", 400)
             return
         if not Path(store_path).exists():
-            self.send_error_response(
-                f"Store path does not exist: {store_path}", 404
-            )
+            self.send_error_response(f"Store path does not exist: {store_path}", 404)
             return
         # ``WatchService.remove`` resolves the path itself, but we also clear
         # any in-flight indexing tracker so a removed file doesn't surface as
