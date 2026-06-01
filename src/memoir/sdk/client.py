@@ -5,18 +5,22 @@ Memoir SDK Client.
 Provides a Python API for AI agents to interact with memoir memory stores.
 """
 
+from __future__ import annotations
+
 import asyncio
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from memoir.services.models import (
-    BranchInfo,
-    CheckoutResult,
-    CommitInfo,
-    DeleteResult,
-    MergeResult,
-    RecallResult,
-    RememberResult,
-)
+if TYPE_CHECKING:
+    from memoir.services.models import (
+        BranchInfo,
+        CheckoutResult,
+        CommitInfo,
+        DeleteResult,
+        MergeResult,
+        RecallResult,
+        RememberResult,
+    )
 
 
 class BranchManager:
@@ -148,7 +152,7 @@ class MemoryClient:
         self._store_service = None
         self._branch = None
 
-    async def __aenter__(self) -> "MemoryClient":
+    async def __aenter__(self) -> MemoryClient:
         """Async context manager entry."""
         return self
 
@@ -156,7 +160,7 @@ class MemoryClient:
         """Async context manager exit."""
         pass
 
-    def __enter__(self) -> "MemoryClient":
+    def __enter__(self) -> MemoryClient:
         """Sync context manager entry."""
         return self
 
