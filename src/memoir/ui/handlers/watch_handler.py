@@ -107,9 +107,16 @@ def _run_index_in_background(
                 entry = _INDEXING.get(abs_path, {})
                 entry["error"] = err
                 _INDEXING[abs_path] = entry
+
                 # Best-effort: drop the error marker after 30s so the
                 # UI doesn't show a stale "indexing failed" badge forever.
-                threading.Timer(30.0, lambda: _INDEXING.pop(abs_path, None)).start()
+                # The deferred pop runs on a Timer thread, so it must take
+                # the lock like every other ``_INDEXING`` mutation.
+                def _drop_error_marker() -> None:
+                    with _INDEXING_LOCK:
+                        _INDEXING.pop(abs_path, None)
+
+                threading.Timer(30.0, _drop_error_marker).start()
 
 
 def _run_scan_all_in_background(
