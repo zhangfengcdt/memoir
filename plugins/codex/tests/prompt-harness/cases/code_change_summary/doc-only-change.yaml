@@ -16,5 +16,7 @@ expect:
     value: 1
   - kind: any_line_matches
     value: "(?i)\\b(document|docs|readme|guide|codex|capture)\\b"
+  - kind: any_line_matches
+    value: "^(feature|bugfix|refactor|docs|chore) \| "
   - kind: no_line_matches
     value: "(?i)^trivial$"

@@ -22,3 +22,5 @@ expect:
     value: 1
   - kind: any_line_matches
     value: "(?i)\\b(test|coverage|cover|regress|behaviou?r|baseline|verif)\\w*\\b"
+  - kind: any_line_matches
+    value: "^(feature|bugfix|refactor|docs|chore) \| "

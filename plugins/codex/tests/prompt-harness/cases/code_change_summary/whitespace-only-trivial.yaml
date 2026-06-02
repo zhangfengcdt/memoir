@@ -13,4 +13,4 @@ expect:
   - kind: exact_lines
     value: 1
   - kind: regex_each_line
-    value: "^trivial$"
+    value: "^(trivial|(feature|bugfix|refactor|docs|chore) \| trivial)$"

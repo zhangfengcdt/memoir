@@ -19,3 +19,5 @@ expect:
     value: 1
   - kind: any_line_matches
     value: "(?i)\\b(propagat|consisten|caller|update|rename|migrate|clarif)\\w*\\b"
+  - kind: any_line_matches
+    value: "^(feature|bugfix|refactor|docs|chore) \| "

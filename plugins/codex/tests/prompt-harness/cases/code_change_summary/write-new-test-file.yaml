@@ -21,3 +21,5 @@ expect:
     value: 1
   - kind: any_line_matches
     value: "(?i)\\b(added|wrote|created|new)\\b.*\\btest"
+  - kind: any_line_matches
+    value: "^(feature|bugfix|refactor|docs|chore) \| "
