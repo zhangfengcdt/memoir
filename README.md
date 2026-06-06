@@ -105,6 +105,8 @@ Memoir's CLI defaults to Anthropic **`claude-haiku-4-5`** as of v0.1.6 — set y
 export ANTHROPIC_API_KEY="sk-..."
 ```
 
+Note that if you do not set any model api keys, it will try to use the claude -p command to authenticate via claude code's subscription.
+
 Then create a store and round-trip a memory:
 
 ```bash
@@ -124,7 +126,13 @@ memoir get preferences.coding.style
 # 5. Semantic search (LLM-backed)
 memoir recall "what does Sarah prefer?"
 
-# 6. Open the visual explorer (auto-opens in your browser)
+# 6. Watch a file by indexing it on the fly
+memoir watch add ~/papers/transformer.pdf -n research
+
+# 7. Search the indexed content
+memoir search "transformer attention mechanism"
+
+# 8. Open the visual explorer (auto-opens in your browser)
 memoir ui
 ```
 

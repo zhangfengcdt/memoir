@@ -181,24 +181,3 @@ The Codex plugin is distributed by this repository's marketplace at `.agents/plu
    git push origin codex-plugin-vX.Y.Z
    ```
 
-## Rollback
-
-If a bad release reaches PyPI:
-
-- **Do not delete the version** (PyPI does not allow re-uploading a deleted version).
-- Instead, **yank** it: `https://pypi.org/manage/project/memoir-ai/release/X.Y.Z/` → Yank release. Yanked versions are still installable by exact pin but are skipped by default resolvers.
-- Cut `X.Y.(Z+1)` with the fix.
-
-## Troubleshooting
-
-- **403 Forbidden on publish** — Trusted publisher config mismatch. Most often the **PyPI project name** field doesn't match `[project] name` in `pyproject.toml` (currently `memoir-ai`). Also re-check owner / repo / workflow filename / environment name. Remember PyPI and TestPyPI have separate publisher configs.
-- **Missing data files in installed package** (`webapp/dist/`, `taxonomy/data/`) — hatchling includes them by default via `[tool.hatch.build.targets.wheel] packages = ["src/memoir"]`; the webapp bundle is force-included via `artifacts` because `dist/` is git-ignored. The workflow's `Inspect wheel contents` step fails fast if they're absent.
-- **Version extraction fails** — The workflow greps `^__version__` from `src/memoir/__init__.py`. Keep the assignment on a single line without leading whitespace.
-- **`twine check` fails on long description** — Most often a README rendering issue. Fix locally with `make release-check`.
-
-## Don't
-
-- Don't force-push a `release/*` branch once the workflow has started.
-- Don't edit the version in `pyproject.toml` directly — it's `dynamic`. Edit `src/memoir/__init__.py` only.
-- Don't skip the dry-run step — TestPyPI is free and catches most issues.
-- Don't bump only one of the three plugin manifests (`plugin.json`, `marketplace.json` metadata, `marketplace.json` plugin entry). `make check-versions` will fail in CI — run it locally first.
