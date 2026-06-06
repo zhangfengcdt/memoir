@@ -126,7 +126,13 @@ memoir get preferences.coding.style
 # 5. Semantic search (LLM-backed)
 memoir recall "what does Sarah prefer?"
 
-# 6. Open the visual explorer (auto-opens in your browser)
+# 6. Watch a file by indexing it on the fly
+memoir watch add ~/papers/transformer.pdf -n research
+
+# 7. Search the indexed content
+memoir search "transformer attention mechanism"
+
+# 8. Open the visual explorer (auto-opens in your browser)
 memoir ui
 ```
 
