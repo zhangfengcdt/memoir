@@ -105,6 +105,8 @@ Memoir's CLI defaults to Anthropic **`claude-haiku-4-5`** as of v0.1.6 — set y
 export ANTHROPIC_API_KEY="sk-..."
 ```
 
+Note that if you do not set any model api keys, it will try to use the claude -p command to authenticate via claude code's subscription.
+
 Then create a store and round-trip a memory:
 
 ```bash
