@@ -137,3 +137,22 @@ jobs:
         path: /tmp/memoir-prompt-tests
         if-no-files-found: ignore
         retention-days: 30
+
+  opencode-plugin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "22"
+
+    - name: Install dependencies
+      run: |
+        cd plugins/opencode && npm install
+
+    - name: Run OpenCode plugin tests
+      run: |
+        cd plugins/opencode && npm test

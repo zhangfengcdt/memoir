@@ -1,4 +1,4 @@
-.PHONY: help install install-dev clean test test-cov codex-plugin-test lint format type-check security benchmark docs docs-live docs-clean pre-commit build publish release-check release-test check-versions ui-install ui-dev ui-build ui-clean cc-smoke
+.PHONY: help install install-dev clean test test-cov codex-plugin-test opencode-plugin-test lint format type-check security benchmark docs docs-live docs-clean pre-commit build publish release-check release-test check-versions ui-install ui-dev ui-build ui-clean cc-smoke
 
 # Default target
 help:
@@ -8,7 +8,8 @@ help:
 	@echo "  clean           Remove build artifacts and cache"
 	@echo "  test            Run tests"
 	@echo "  test-cov        Run tests with coverage report"
-	@echo "  codex-plugin-test  Run Codex plugin pytest, prompt-gate, and shell hook tests"
+	@echo "  codex-plugin-test    Run Codex plugin pytest, prompt-gate, and shell hook tests"
+	@echo "  opencode-plugin-test Run OpenCode plugin TypeScript tests"
 	@echo "  lint            Run all linting checks"
 	@echo "  format          Format code with black and isort"
 	@echo "  type-check      Run type checking with mypy"
@@ -68,6 +69,9 @@ codex-plugin-test:
 		echo "== $$test_script =="; \
 		bash "$$test_script"; \
 	done
+
+opencode-plugin-test:
+	cd plugins/opencode && npm install && npm test
 
 lint: check-versions
 	ruff check src/ tests/ benchmarks/

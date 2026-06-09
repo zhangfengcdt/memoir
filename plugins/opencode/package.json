@@ -1,0 +1,48 @@
+{
+  "name": "memoir",
+  "version": "0.1.0",
+  "description": "Git-versioned, taxonomy-structured memory for OpenCode.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist/",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.ts"
+  },
+  "keywords": [
+    "opencode",
+    "memoir",
+    "memory",
+    "version-control",
+    "taxonomy"
+  ],
+  "author": "Dmitrii Safronov <dhameoelin@gmail.com>",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/zhangfengcdt/memoir",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zhangfengcdt/memoir.git",
+    "directory": "plugins/opencode"
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "typescript": "latest"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
