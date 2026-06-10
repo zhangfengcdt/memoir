@@ -15,6 +15,8 @@ expect:
     value: 1
   - kind: any_line_matches
     value: "(?i)\\b(clarif|intent|naming|rename|caller|api)\\w*\\b"
+  - kind: any_line_matches
+    value: "^(feature|bugfix|refactor|docs|chore) \| "
   - kind: no_line_matches
     value: "(?i)^(here\\s+is|summary|the\\s+changes)"
   - kind: no_line_matches

@@ -6,22 +6,27 @@ INPUT (in this order):
 
 The user prompt is your highest-signal source for intent: a prompt like "let's switch to JWT" tells you the *why* directly. The snippets confirm what was actually done. Reconcile the two — if the user asked for X but the diff is Y, summarize what shipped, not what was asked.
 
-OUTPUT: ONE line, no more than 100 words. Plain English. No preamble, no bullets, no quotes, no markdown, no surrounding whitespace. Just the line. Aim for the shortest line that still carries the *what*, the *where*, and the *why* — terse is better than thorough.
+OUTPUT FORMAT: exactly one line in the format: <category> | <summary>
+Where <category> is one of: feature, bugfix, refactor, docs, chore
+And <summary> is no more than 100 words in plain English, carrying the *what*, the *where*, and the *why*.
+
+No preamble, no bullets, no quotes, no markdown, no surrounding whitespace. Just the category, a pipe separator, and the summary.
 
 Rules:
-- Lead with an action verb in past tense (Refactored, Added, Renamed, Removed, Fixed, Wired up, Documented, Updated, Replaced, Extracted).
+- <category> must be the single best fit: feature (new capability), bugfix (regression or error fix), refactor (restructure without behavioral change), docs (documentation), chore (tooling, deps, release prep, formatting).
+- In the summary, lead with an action verb in past tense (Refactored, Added, Renamed, Removed, Fixed, Wired up, Documented, Updated, Replaced, Extracted).
 - Name the *what* and the *where* (module, function, feature area, doc section). Use the file paths to ground "where" — but group by area when several files share intent rather than listing every path.
-- Include the *why* when it's visible — preferring the user's stated intent (`[User prompt]`) over guessing from snippets. If the prompt is missing or vague, infer from the edit pattern (test → adding tests; rename → clarity; revert → fix).
+- Include the *why* when it's visible — preferring the user's stated intent (`[User prompt]`) over guessing from snippets. If the prompt is missing or vague, infer from the edit pattern (test → bugfix/adding tests; rename → refactor/clarity; revert → bugfix/fix).
 - If the changes are scattered across unrelated areas, summarize by intent rather than by file ("Bumped versions in three manifests" is better than three sentences).
 - For trivial or noise-only changes (whitespace, formatting-only edits, single-character typo fixes, generated-file updates), output exactly the single word: trivial
 - Never emit "Here is a summary" / "The changes are" / "Summary:" prefixes. Never quote the line. Never quote the user. The output is the line itself, ready to append to a log.
 
 Examples of good output:
-  Refactored auth middleware to use JWT; added unit tests for token expiry.
-  Renamed getUser → getCurrentUser across 7 callers; updated docstrings.
-  Wired up the /metrics endpoint behind the existing auth gate.
-  Added Apache-2.0 SPDX headers to every .py file under src/memoir/.
-  Documented the Stop hook's metrics+capture pipeline in codex.md.
+  refactor | Refactored auth middleware to use JWT; added unit tests for token expiry.
+  refactor | Renamed getUser → getCurrentUser across 7 callers; updated docstrings.
+  feature | Wired up the /metrics endpoint behind the existing auth gate.
+  chore | Added Apache-2.0 SPDX headers to every .py file under src/memoir/.
+  docs | Documented the Stop hook's metrics+capture pipeline in codex.md.
   trivial
 
 Examples of bad output (do NOT emit any of these shapes):

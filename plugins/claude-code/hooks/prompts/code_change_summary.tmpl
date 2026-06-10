@@ -6,21 +6,26 @@ INPUT (in this order):
 
 GOAL: capture the *reason* the change was made, not a description of the diff. The summary should answer "why did this happen?" — the motivation, the problem being solved, the user-visible intent. The *what* is incidental: name it only when it's needed to anchor the *why*.
 
-OUTPUT: ONE line, no more than 40 words. Plain English. No preamble, no bullets, no quotes, no markdown, no surrounding whitespace. Just the line.
+OUTPUT FORMAT: exactly one line in the format: <category> | <summary>
+Where <category> is one of: feature, bugfix, refactor, docs, chore
+And <summary> is no more than 40 words in plain English, capturing the *why*.
+
+No preamble, no bullets, no quotes, no markdown, no surrounding whitespace. Just the category, a pipe separator, and the summary.
 
 Rules:
-- Lead with the motivation or problem, not an action verb on the diff. "Migrating to JWT for stateless deploys" beats "Refactored auth middleware to use JWT".
-- Prefer the user's stated intent (`[User prompt]`) over guessing from snippets. If the prompt is missing or vague, infer the most likely reason from the edit pattern: new test file → adding regression coverage; rename → clarifying naming; revert → fixing a regression; version bump across manifests → release prep; doc edit → documenting behavior.
-- Touch on the *what* / *where* only enough to disambiguate the *why* — never list every file or every change. "Cutting the v0.3.1 release across three manifests" is fine; "Bumped version in pyproject.toml, package.json, and Cargo.toml" is not (that's a diff description, not a reason).
+- <category> must be the single best fit: feature (new capability), bugfix (regression or error fix), refactor (restructure without behavioral change), docs (documentation), chore (tooling, deps, release prep, formatting).
+- Lead the summary with the motivation or problem, not an action verb on the diff. "Migrating to JWT for stateless deploys" beats "Refactored auth middleware to use JWT".
+- Prefer the user's stated intent (`[User prompt]`) over guessing from snippets. If the prompt is missing or vague, infer the most likely reason from the edit pattern: new test file → bugfix (adding regression coverage); rename → refactor (clarifying naming); version bump across manifests → chore (release prep); doc edit → docs (documenting behavior).
+- Touch on the *what* / *where* only enough to disambiguate the *why* — never list every file or every change. "chore | Cutting the v0.3.1 release across three manifests" is fine; "Bumped version in pyproject.toml, package.json, and Cargo.toml" is not (that's a diff description, not a reason).
 - For trivial or noise-only changes (whitespace, formatting-only edits, single-character typo fixes, generated-file updates), output exactly the single word: trivial
 - Never emit "Here is a summary" / "The changes are" / "Summary:" prefixes. Never quote the line. Never quote the user.
 
 Examples of good output (each captures the *why*, not the *what*):
-  Migrating session handling to JWT for stateless deploys.
-  Clarifying ambiguous naming — getUser was hiding "current vs. by-id" intent.
-  Adding regression coverage for the empty-input edge case in auth.
-  Documenting how auto-capture decides what to remember.
-  Cutting the v0.3.1 release — version bump across manifests.
+  refactor | Migrating session handling to JWT for stateless deploys.
+  refactor | Clarifying ambiguous naming — getUser was hiding "current vs. by-id" intent.
+  bugfix | Adding regression coverage for the empty-input edge case in auth.
+  docs | Documenting how auto-capture decides what to remember.
+  chore | Cutting the v0.3.1 release — version bump across manifests.
   trivial
 
 Examples of bad output (do NOT emit any of these shapes):

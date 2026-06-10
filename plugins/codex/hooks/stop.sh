@@ -123,8 +123,9 @@ sys.stdout.write(''.join(parts))
       CC_SUMMARY_PROMPT=$(cat "$SCRIPT_DIR/prompts/code_change_summary.tmpl" 2>/dev/null || true)
       if [ -n "$CC_SUMMARY_PROMPT" ]; then
         SUMMARY=$(codex_exec_prompt "$CC_SUMMARY_PROMPT" "$EDITS_TEXT" 2>/dev/null || true)
-        # Strip surrounding whitespace and any preamble / quoting the model adds.
-        SUMMARY=$(printf '%s' "$SUMMARY" | python3 -c "
+        # Strip surrounding whitespace and any preamble / quoting the model adds,
+        # then parse the <category> | <summary> format emitted by the model.
+        CLEANED=$(printf '%s' "$SUMMARY" | python3 -c "
 import re, sys
 text = sys.stdin.read().strip()
 # Drop leading/trailing quotes if the whole thing is wrapped.
@@ -140,8 +141,21 @@ for ln in text.splitlines():
     if ln:
         text = ln
         break
-sys.stdout.write(text[:1000])
+# Parse category from '<category> | <summary>' format (strict list).
+category = 'other'
+summary = text
+if ' | ' in text:
+    parts = text.split(' | ', 1)
+    cat = parts[0].strip().lower()
+    if cat in ('feature', 'bugfix', 'refactor', 'docs', 'chore'):
+        category = cat
+    summary = parts[1].strip()
+# Output: first line is category, second line is summary.
+print(category)
+sys.stdout.write(summary[:1000])
 " 2>/dev/null || true)
+        CATEGORY=$(printf '%s' "$CLEANED" | head -n1)
+        SUMMARY=$(printf '%s' "$CLEANED" | tail -n +2)
         # Skip writes for trivial-only turns or empty/preamble outputs.
         if [ -n "$SUMMARY" ] \
            && [ "$(printf '%s' "$SUMMARY" | tr '[:upper:]' '[:lower:]')" != "trivial" ]; then
@@ -157,11 +171,22 @@ sys.stdout.write(text[:1000])
           # level (mirrors merge-metrics for metrics.turn).
           PREV_CC=$(memoir_json get "$CCKEY" 2>/dev/null \
             | python3 -c "import json,sys; d=json.loads(sys.stdin.read() or '{}'); items=d.get('items') or [{}]; v=items[0].get('value') or {}; c=v.get('content'); print(c if isinstance(c,str) else '')" 2>/dev/null)
-          MERGED_CC=$(SUMMARY="$SUMMARY" PREV_CC="$PREV_CC" \
+          FILE_PATHS=$(printf '%s' "$EDITS_JSON" | python3 -c "
+import json, sys
+try:
+    payload = json.loads(sys.stdin.read() or '{}')
+    fps = payload.get('file_paths') or []
+    print(json.dumps(fps))
+except Exception:
+    print('[]')
+" 2>/dev/null || echo '[]')
+          MERGED_CC=$(SUMMARY="$SUMMARY" CATEGORY="$CATEGORY" FILE_PATHS="$FILE_PATHS" PREV_CC="$PREV_CC" \
             MEMOIR_METRICS_CODE_MAX="${MEMOIR_METRICS_CODE_MAX:-1000}" python3 -c "
 import json, os, time
 prev_raw = os.environ.get('PREV_CC', '').strip()
 summary = os.environ.get('SUMMARY', '').strip()
+category = os.environ.get('CATEGORY', 'other').strip()
+file_paths_raw = os.environ.get('FILE_PATHS', '[]').strip()
 if not summary:
     raise SystemExit(0)
 try:
@@ -170,16 +195,34 @@ except ValueError:
     max_entries = 1000
 if max_entries < 1:
     max_entries = 1
-acc = {'schema_version': 1, 'entries': []}
+acc = {'schema_version': 2, 'entries': []}
 if prev_raw:
     try:
         parsed = json.loads(prev_raw)
         if isinstance(parsed, dict) and isinstance(parsed.get('entries'), list):
             acc = parsed
-            acc.setdefault('schema_version', 1)
+            # Backward compat: upgrade v1 entries to v2 shape with defaults.
+            if acc.get('schema_version', 1) < 2:
+                for e in acc['entries']:
+                    if 'category' not in e:
+                        e['category'] = 'other'
+                    if 'files' not in e:
+                        e['files'] = []
+                acc['schema_version'] = 2
     except (TypeError, ValueError):
         pass
-acc['entries'].append({'timestamp': time.time(), 'summary': summary})
+try:
+    file_paths = json.loads(file_paths_raw)
+    if not isinstance(file_paths, list):
+        file_paths = []
+except (TypeError, ValueError):
+    file_paths = []
+acc['entries'].append({
+    'timestamp': time.time(),
+    'summary': summary,
+    'category': category,
+    'files': file_paths,
+})
 # Retain only the most recent N entries — older summaries get dropped so the
 # stored value can't grow unbounded over months of use.
 if len(acc['entries']) > max_entries:
