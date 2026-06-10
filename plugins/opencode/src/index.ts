@@ -1,4 +1,4 @@
-import { execFile, spawn } from 'node:child_process';
+import { execFile, execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -10,6 +10,13 @@ const execFileAsync = promisify(execFile);
 
 export const SECRET_PATTERN = /(api[_-]?key|token|secret|password|passwd|private[_-]?key|-----BEGIN [A-Z ]*PRIVATE KEY-----)/i;
 const MEMOIR_PACKAGE = 'memoir-ai';
+
+/**
+ * Pinned memoir-ai version for uvx/uv fallbacks.
+ * Mirrors plugins/claude-code/scripts/resolve-memoir-cli.sh.
+ * Bump deliberately after verifying the new release works with this plugin.
+ */
+const MEMOIR_AI_PIN = '0.2.2';
 
 type CommandOutput = {
   parts: unknown[];
@@ -38,12 +45,86 @@ type MemoirGetArgs = {
   namespace?: string;
 };
 
-/** Derive `~/.memoir/<slug>` from cwd. Override via `store` plugin option or `MEMOIR_STORE` env var. */
+/**
+ * Resolve the main worktree root path for a git repository.
+ * Mirrors _main_worktree_root from plugins/claude-code/scripts/derive-store-path.sh.
+ *
+ * @returns The main worktree path, or empty string if not in a git repo.
+ */
+function _main_worktree_root(cwd: string): string {
+  try {
+    // Fast path: check if --git-dir and --git-common-dir resolve to the same path
+    const gitDir = execFileSync('git', ['rev-parse', '--git-dir'], { cwd, encoding: 'utf8', timeout: 3000 }).trim();
+    const gitCommonDir = execFileSync('git', ['rev-parse', '--git-common-dir'], { cwd, encoding: 'utf8', timeout: 3000 }).trim();
+    
+    // Resolve to absolute paths
+    const resolvePath = (path: string): string => {
+      if (path.startsWith('/')) return path;
+      return join(cwd, path);
+    };
+    const gitDirAbs = resolvePath(gitDir);
+    const gitCommonDirAbs = resolvePath(gitCommonDir);
+    
+    if (gitDirAbs === gitCommonDirAbs) {
+      // Main worktree or non-worktree repo
+      return execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd, encoding: 'utf8', timeout: 3000 }).trim();
+    }
+    
+    // Slow path: parse `git worktree list --porcelain` for the main worktree
+    const worktreeList = execFileSync('git', ['worktree', 'list', '--porcelain'], { cwd, encoding: 'utf8', timeout: 3000 });
+    const firstLine = worktreeList.split('\n')[0];
+    if (firstLine.startsWith('worktree ')) {
+      const mainWorktree = firstLine.substring('worktree '.length).trim();
+      if (mainWorktree && mainWorktree !== '(bare)') {
+        return mainWorktree;
+      }
+    }
+    
+    // Fallback: try --show-toplevel (bare repo or older git)
+    return execFileSync('git', ['rev-parse', '--show-toplevel'], { cwd, encoding: 'utf8', timeout: 3000 }).trim();
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Derive `~/.memoir/<slug>` from cwd.
+ * Override via `store` plugin option or `MEMOIR_STORE` env var.
+ *
+ * Resolution order (mirrors plugins/claude-code/scripts/derive-store-path.sh):
+ *   1. Plugin option override
+ *   2. MEMOIR_STORE env var
+ *   3. Git root (realpath) — all worktrees of a repo share one store
+ *   4. `realpath -m` of cwd — deterministic slug for non-git folders
+ *   5. Raw cwd fallback
+ */
 export function deriveStorePath(cwd: string = process.cwd()): string {
   if (pluginStoreOverride) return pluginStoreOverride;
   const configured = process.env.MEMOIR_STORE;
   if (configured) return configured;
-  const slug = cwd.replace(/[/.]/g, '-');
+
+  // Prefer git root so all subdirectories and worktrees share one store
+  let projectDir: string;
+  try {
+    const gitRoot = _main_worktree_root(cwd);
+    if (gitRoot) {
+      projectDir = gitRoot;
+    } else {
+      // Not in git — resolve to deterministic absolute path
+      try {
+        projectDir = execFileSync('realpath', ['-m', cwd], { encoding: 'utf8', timeout: 3000 }).trim();
+      } catch {
+        projectDir = cwd;
+      }
+    }
+  } catch {
+    // Fallback to raw cwd if everything else fails
+    projectDir = cwd;
+  }
+
+  // Slug = absolute path with '/' and '.' replaced by '-'
+  // Matches Claude Code's own ~/.claude/projects/ naming convention
+  const slug = projectDir.replace(/[/.]/g, '-');
   return join(homedir(), '.memoir', slug);
 }
 
@@ -70,9 +151,9 @@ async function runMemoir(args: string[], options: { cwd?: string } = {}): Promis
     });
     return stdout.trim();
   } catch (memoirError) {
-    // Fallbacks match the Claude Code plugin: uvx, then uv tool run.
+    // Fallbacks match the Claude Code plugin: uvx, then uv tool run (pinned).
     try {
-      const { stdout } = await execFileAsync('uvx', ['--from', MEMOIR_PACKAGE, 'memoir', ...args], {
+      const { stdout } = await execFileAsync('uvx', ['--from', `${MEMOIR_PACKAGE}==${MEMOIR_AI_PIN}`, 'memoir', ...args], {
         cwd: options.cwd ?? process.cwd(),
         env: process.env,
         maxBuffer: 1024 * 1024,
@@ -80,7 +161,7 @@ async function runMemoir(args: string[], options: { cwd?: string } = {}): Promis
       return stdout.trim();
     } catch {
       try {
-        const { stdout } = await execFileAsync('uv', ['tool', 'run', '--from', MEMOIR_PACKAGE, 'memoir', ...args], {
+        const { stdout } = await execFileAsync('uv', ['tool', 'run', '--from', `${MEMOIR_PACKAGE}==${MEMOIR_AI_PIN}`, 'memoir', ...args], {
           cwd: options.cwd ?? process.cwd(),
           env: process.env,
           maxBuffer: 1024 * 1024,
@@ -122,8 +203,8 @@ type SpawnSpec = { command: string; args: string[]; label: string };
 function memoirSpawnSpecs(args: string[]): SpawnSpec[] {
   return [
     { command: 'memoir', args, label: 'memoir' },
-    { command: 'uvx', args: ['--from', MEMOIR_PACKAGE, 'memoir', ...args], label: 'uvx' },
-    { command: 'uv', args: ['tool', 'run', '--from', MEMOIR_PACKAGE, 'memoir', ...args], label: 'uv tool run' },
+    { command: 'uvx', args: ['--from', `${MEMOIR_PACKAGE}==${MEMOIR_AI_PIN}`, 'memoir', ...args], label: 'uvx' },
+    { command: 'uv', args: ['tool', 'run', '--from', `${MEMOIR_PACKAGE}==${MEMOIR_AI_PIN}`, 'memoir', ...args], label: 'uv tool run' },
   ];
 }
 
@@ -296,9 +377,24 @@ const pendingEdits: EditRecord[] = [];
 /** Per-tool call and error counters for the session. */
 const toolMetrics = new Map<string, ToolMetrics>();
 
+/** Read the current memoir branch name for use in storage keys. */
+async function getCurrentBranch(store: string): Promise<string> {
+  try {
+    const raw = await runMemoir(['--json', '-s', store, 'status'], { cwd: store });
+    const data = JSON.parse(raw);
+    return data.branch || 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
 /**
  * Flush pending edits as a code change entry, then save metrics.
  * Called at each new user message (end of assistant turn) and at dispose.
+ *
+ * Key convention (mirrors Claude Code plugin):
+ *   metrics.turn.<branch>  — per-branch tool-call accumulator
+ *   metrics.code.<branch>  — per-branch edit summary
  */
 async function flushCapture(): Promise<void> {
   const edits = pendingEdits.splice(0);
@@ -310,11 +406,13 @@ async function flushCapture(): Promise<void> {
     if (!store) return;
     await ensureStore(store);
 
+    const branch = await getCurrentBranch(store);
+
     // Code change audit entry (cf. Claude Code metrics.code.<branch>)
     if (edits.length > 0) {
       const files = [...new Set(edits.map(e => e.filePath))];
       const summary = `Changed ${edits.length} block(s) across ${files.length} file(s): ${files.join(', ')}`;
-      await runMemoir(['-s', store, 'remember', '--replace', summary, '-p', 'metrics.code.changes'], { cwd: store });
+      await runMemoir(['-s', store, 'remember', '--replace', summary, '-p', `metrics.code.${branch}`], { cwd: store });
     }
 
     // Metrics accumulator entry (cf. Claude Code metrics.turn.<branch>)
@@ -322,7 +420,8 @@ async function flushCapture(): Promise<void> {
       const entries = [...toolMetrics.entries()].map(
         ([tool, m]) => `${tool}:${m.calls}:${m.errors}`
       );
-      await runMemoir(['-s', store, 'remember', '--replace', entries.join(' | '), '-p', 'metrics.turn'], { cwd: store });
+      await runMemoir(['-s', store, 'remember', '--replace', entries.join(' | '), '-p', `metrics.turn.${branch}`], { cwd: store });
+      toolMetrics.clear();
     }
   } catch {
     // Silent fail — capture is best-effort
@@ -457,6 +556,10 @@ const MemoirOpenCode: Plugin = async (_input, rawOptions) => {
   const opts = (rawOptions ?? {}) as { store?: string };
   if (opts.store) pluginStoreOverride = opts.store;
 
+  // Resolve store path once at init so shell.env doesn't call execFileSync
+  // on every shell command (mirrors Claude Code's MEMOIR_STORE_PATH caching).
+  const storeRoot = deriveStorePath();
+
   return ({
   name: 'memoir',
   tool: {
@@ -484,10 +587,12 @@ const MemoirOpenCode: Plugin = async (_input, rawOptions) => {
   /**
    * Inject MEMOIR_STORE into every shell command's environment so any memoir
    * invocation automatically targets the right store without manual -s flags.
+   * Uses the cached value resolved at init time (avoiding execFileSync overhead
+   * on every shell command).
    */
   'shell.env': async (input, output) => {
     try {
-      output.env.MEMOIR_STORE = deriveStorePath(input.cwd);
+      output.env.MEMOIR_STORE = storeRoot;
     } catch {
       // Silent fail — shell.env is best-effort
     }

@@ -12,7 +12,7 @@ The plugin uses the same environment variable as the Claude Code plugin:
 |---|---|
 | plugin option `store` | Highest-priority override when the plugin is loaded from `plugin[]` |
 | `MEMOIR_STORE` | Portable global/project override |
-| auto-derived path | `~/.memoir/<cwd-slug>`, where slug = cwd with `/` and `.` replaced by `-` |
+| auto-derived path | `~/.memoir/<slug>`, where slug = git root (or resolved cwd) with `/` and `.` replaced by `-`; all worktrees share one store |
 
 Example when loading through `plugin[]`:
 
@@ -49,8 +49,8 @@ Downloads, builds, and installs the plugin to `~/.config/opencode/plugins/memoir
 The TypeScript plugin resolves Memoir in this order:
 
 1. `memoir` on `PATH`
-2. `uvx --from memoir-ai memoir`
-3. `uv tool run --from memoir-ai memoir`
+2. `uvx --from memoir-ai==<pin> memoir` — ephemeral, pinned
+3. `uv tool run --from memoir-ai==<pin> memoir` — pinned fallback (older `uv` layouts)
 
 Every command passes an explicit `-s <store>` so the project-side git repository and the Memoir store are kept separate.
 
@@ -86,7 +86,7 @@ The plugin registers seven OpenCode hooks, mirroring the Claude Code plugin's li
 | `config` | — | Registers slash commands |
 | `command.execute.before` | — | Handles `/memoir:status` and `/memoir:ui` |
 | `shell.env` | — | Injects `MEMOIR_STORE` into shell env |
-| `tool.execute.after` | `Stop` (observation) | Accumulates per-tool metrics (`metrics.turn`) and tracks file edits for code change audit (`metrics.code.changes`) |
+| `tool.execute.after` | `Stop` (observation) | Accumulates per-tool metrics (`metrics.turn.<branch>`) and tracks file edits for code change audit (`metrics.code.<branch>`) |
 | `chat.message` | `UserPromptSubmit` | Recall gate — checks every user message for intent that needs Memoir context; fires `experimental.chat.system.transform` one-shot |
 | `experimental.chat.system.transform` | `UserPromptSubmit additionalContext` | Injects a recall instruction into the system prompt when the gate triggered |
 | `dispose` | `SessionEnd` | Flushes any remaining code changes and metrics on shutdown |
@@ -105,8 +105,8 @@ Every user message is checked through the same gate as Claude Code's `UserPrompt
 
 File edits and tool metrics are collected during each assistant turn and flushed at the next user message (or at plugin shutdown):
 
-- **`metrics.code.changes`** — replaced each flush: `Changed N block(s) across M file(s): file1, file2…`
-- **`metrics.turn`** — replaced each flush: `Tool1:calls:errors | Tool2:calls:errors | …`
+- **`metrics.code.<branch>`** — replaced each flush: `Changed N block(s) across M file(s): file1, file2…`
+- **`metrics.turn.<branch>`** — replaced each flush: `Tool1:calls:errors | Tool2:calls:errors | …`
 
 This mirrors the Claude Code `Stop` hook's metrics and code change accumulation — without the LLM-based fact extraction (no transcript or `claude -p` access in the OpenCode plugin runtime).
 
