@@ -85,6 +85,18 @@ else
   DISPLAY_BRANCH="${BRANCH}"
 fi
 
+# Auto-promote memoir branches whose code branch's work is merged into code
+# main — the work unit completed, so its memories belong on main. The promote
+# is additive-only and conflict-free, making unattended runs safe; the
+# heuristic in auto_promote_merged_branches only fires for true merge-commit
+# merges (never for branches whose tip is just an old mainline commit).
+# Runs before the unmerged scan so freshly promoted branches drop out of the
+# same session's suggestions. Opt out with MEMOIR_AUTO_PROMOTE_MERGED=0.
+auto_promoted=""
+if [ "$CODE_BRANCH" = "main" ] && [ "${MEMOIR_AUTO_PROMOTE_MERGED:-1}" = "1" ]; then
+  auto_promoted=$(auto_promote_merged_branches 2>/dev/null || true)
+fi
+
 # Unmerged-branch detector: surface any memoir branches ahead of main so the
 # user notices captured knowledge that hasn't been promoted. Stateless —
 # scans all branches each SessionStart. Filters to ≤30d active + not ignored.
@@ -93,7 +105,7 @@ fi
 # Gated on code branch == main: while the user is mid-flight on a feature
 # branch, other branches' unmerged work is noise. main is the natural sync
 # point, so we only nag there. (An empty CODE_BRANCH — no code repo — also
-# skips; users without a code repo can invoke /memoir-unmerged manually.)
+# skips; users without a code repo can invoke /memoir:sync manually.)
 unmerged=""
 if [ "$CODE_BRANCH" = "main" ]; then
   unmerged=$(list_unmerged_memoir_branches 2>/dev/null || true)
@@ -110,6 +122,15 @@ if [ -n "$unmerged" ]; then
     status+=" · 1 branch unmerged"
   else
     status+=" · ${unmerged_branch_count} branches unmerged"
+  fi
+fi
+
+if [ -n "$auto_promoted" ]; then
+  auto_promoted_count=$(printf '%s\n' "$auto_promoted" | grep -c .)
+  if [ "$auto_promoted_count" = "1" ]; then
+    status+=" · auto-promoted 1 merged branch"
+  else
+    status+=" · auto-promoted ${auto_promoted_count} merged branches"
   fi
 fi
 
@@ -161,14 +182,52 @@ if [ -n "$default_keys_block" ]; then
   fi
 fi
 
+if [ -n "$auto_promoted" ]; then
+  promo_block="# memoir — auto-promoted merged branches"$'\n'
+  promo_block+="These code branches are merged into main, so their memoir captures were promoted automatically (additive-only; source branches kept):"$'\n\n'
+  while IFS= read -r b; do
+    [ -z "$b" ] && continue
+    promo_block+="- memoir/${b} → main"$'\n'
+  done <<< "$auto_promoted"
+  promo_block+=$'\n'"Mention this briefly to the user. Disable with MEMOIR_AUTO_PROMOTE_MERGED=0; stale branches can be cleaned up via /memoir:sync."
+  if [ -n "$context" ]; then
+    context="${context}"$'\n\n'"${promo_block}"
+  else
+    context="$promo_block"
+  fi
+fi
+
 if [ -n "$unmerged" ]; then
   unmerged_block="# memoir — unmerged branches detected"$'\n'
-  unmerged_block+="You have captured memories on these branches that aren't on main yet:"$'\n\n'
+  unmerged_block+="Memories captured on these branches aren't on main yet:"$'\n\n'
+  unmerged_total_ahead=0
   while IFS=$'\t' read -r b n; do
     [ -z "$b" ] && continue
-    unmerged_block+="- memoir/${b}: ${n} unmerged commits → memoir:memoir-sync-branch ${b}"$'\n'
+    unmerged_block+="- memoir/${b}: ${n} unmerged commits"$'\n'
+    unmerged_total_ahead=$((unmerged_total_ahead + n))
   done <<< "$unmerged"
-  unmerged_block+=$'\n'"Run the suggested command to promote them to main (keeps the source branch)."
+  unmerged_block+=$'\n'"The user can review and promote them with /memoir:sync (keeps the source branches)."
+
+  # Tier-2 auto-offer: only when there's meaningful unmerged work (≥5 commits
+  # total) and the user hasn't snoozed it. The block carries a self-contained
+  # recipe because the agent can't invoke the slash command itself. The
+  # decline→snooze-1 rule is the anti-nag backstop; snooze suppresses only
+  # this offer, never the informational block or status-line count above.
+  SYNC_CMD="$(cd "$SCRIPT_DIR/.." && pwd)/scripts/sync-cmd.sh"
+  if [ "$unmerged_total_ahead" -ge 5 ] && ! merge_prompt_cooldown_active; then
+    unmerged_block+=$'\n\n'"## Auto-offer (this session only)"$'\n'
+    unmerged_block+="There is meaningful unmerged work (${unmerged_total_ahead} commits). Offer to sync ONCE this session:"$'\n'
+    unmerged_block+="- If the user's FIRST prompt is low-stakes or memoir-related (greeting, status/memory question), raise the offer immediately via AskUserQuestion."$'\n'
+    unmerged_block+="- Otherwise complete their task first and raise it at the END of that turn."$'\n'
+    unmerged_block+="- Never interrupt an in-flight task, and never offer more than once per session."$'\n'
+    unmerged_block+="Ask one question — \"Sync the unmerged memoir branches into main?\" — with options:"$'\n'
+    unmerged_block+="1. \"Yes, merge all\" → for each branch above: bash \"$SYNC_CMD\" dry-run <branch> (show a one-line summary), then bash \"$SYNC_CMD\" merge <branch>"$'\n'
+    unmerged_block+="2. \"Let me choose\" → ask a multiSelect follow-up listing the branches, then merge the selected ones the same way"$'\n'
+    unmerged_block+="3. \"Remind me in a week\" → bash \"$SYNC_CMD\" snooze 7"$'\n'
+    unmerged_block+="4. \"Stop asking about these\" → bash \"$SYNC_CMD\" ignore <branch> for each branch above"$'\n'
+    unmerged_block+="If the user dismisses or declines without picking an option, run bash \"$SYNC_CMD\" decline — escalating backoff (1d → 7d → 30d on repeated declines) so the next session doesn't immediately re-ask. Mention /memoir:sync exists for later."
+  fi
+
   if [ -n "$context" ]; then
     context="${context}"$'\n\n'"${unmerged_block}"
   else
