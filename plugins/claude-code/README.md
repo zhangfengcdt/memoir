@@ -38,12 +38,16 @@ Memory branches auto-track code branches — switching to `feature/x` forks a me
 
 ### Branch sync
 
-`/memoir:sync` walks you through promoting unmerged memoir branches into `main` with a select UI: merge all, choose branches, ignore branches permanently, or snooze reminders. State lives next to the store:
+`/memoir:sync` walks you through promoting unmerged memoir branches into `main` with a select UI: merge all, choose branches, ignore branches permanently, snooze reminders, or clean up stale branches. State lives next to the store:
 
 - `<store>/.git/plugin-ignored-branches` — one branch name per line; delete a line to unignore.
-- `<store>/.git/plugin-merge-prompt-cooldown` — "snoozed until" epoch written by the snooze option.
+- `<store>/.git/plugin-merge-prompt-cooldown` — "snoozed until" epoch + consecutive-decline count.
 
-When the total unmerged work reaches **5 commits** (and no snooze is active), SessionStart additionally asks the agent to offer the sync once that session — declining snoozes it for a day. The status-line count and the informational branch list always render regardless of snooze state.
+When the total unmerged work reaches **5 commits** (and no snooze is active), SessionStart additionally asks the agent to offer the sync once that session. Declining backs off automatically — 1 day, then 7, then 30 on repeated declines — while an explicit snooze resets the escalation. The status-line count and the informational branch list always render regardless of snooze state.
+
+**Auto-promotion.** When your code branch is merged into `main` via a merge commit, the next SessionStart on `main` promotes its memoir branch automatically (the promote is additive-only and conflict-free) and reports it in the status line. Squash- or rebase-merged branches aren't detected — promote those with `/memoir:sync`. Disable with `MEMOIR_AUTO_PROMOTE_MERGED=0`.
+
+**Stale-branch cleanup.** A memoir branch is *stale* once it has been inactive for 60 days (`MEMOIR_STALE_BRANCH_DAYS` to override) **and** is either already synced or its code branch is gone. `/memoir:sync` offers to delete stale branches — always behind an explicit pick, never automatically — so the store's branch list stays bounded over time.
 
 Disable per-turn auto-capture with `MEMOIR_NO_CAPTURE=1`.
 

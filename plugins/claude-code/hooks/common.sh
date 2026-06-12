@@ -430,11 +430,36 @@ ignore_branch() {
 # set_merge_prompt_cooldown <days> — snooze the SessionStart merge auto-offer
 # by writing a "snoozed until" epoch. Suppresses only the auto-offer; the
 # status-line count and the informational unmerged block keep rendering.
+# File format: line 1 = snoozed-until epoch, line 2 = consecutive-decline
+# count (an explicit snooze is a deliberate choice, so it resets the count).
 set_merge_prompt_cooldown() {
   local days="${1:-7}"
   [ ! -d "$MEMOIR_STORE_PATH/.git" ] && return 1
   case "$days" in ''|*[!0-9]*) return 1 ;; esac
-  printf '%s\n' "$(( $(date +%s) + days * 86400 ))" > "$(_merge_prompt_cooldown_file)"
+  printf '%s\n0\n' "$(( $(date +%s) + days * 86400 ))" > "$(_merge_prompt_cooldown_file)"
+}
+
+# escalate_merge_prompt_cooldown — decline path for the auto-offer. Each
+# consecutive decline backs off further (1 day → 7 → 30) so a user who keeps
+# saying no stops being asked, without them having to manage snoozes.
+# Emits "<days>\t<decline-count>" on stdout.
+escalate_merge_prompt_cooldown() {
+  [ ! -d "$MEMOIR_STORE_PATH/.git" ] && return 1
+  local f level days
+  f=$(_merge_prompt_cooldown_file)
+  level=0
+  if [ -f "$f" ]; then
+    level=$(sed -n '2p' "$f" 2>/dev/null || echo 0)
+    case "$level" in ''|*[!0-9]*) level=0 ;; esac
+  fi
+  level=$((level + 1))
+  case "$level" in
+    1) days=1 ;;
+    2) days=7 ;;
+    *) days=30 ;;
+  esac
+  printf '%s\n%s\n' "$(( $(date +%s) + days * 86400 ))" "$level" > "$f"
+  printf '%s\t%s' "$days" "$level"
 }
 
 # merge_prompt_cooldown_active — 0 while a snooze written by
@@ -447,6 +472,23 @@ merge_prompt_cooldown_active() {
   ts=$(head -n1 "$f" 2>/dev/null || echo "")
   case "$ts" in ''|*[!0-9]*) return 1 ;; esac
   [ "$(date +%s)" -lt "$ts" ]
+}
+
+# remove_branch_plugin_state <name> — delete the sync marker and ignore-list
+# entry for a branch. Called after the memoir branch itself is deleted so no
+# orphaned state lingers under .git/.
+remove_branch_plugin_state() {
+  local name="$1"
+  [ -z "$name" ] && return 1
+  rm -f "$(_synced_dir)/$name" 2>/dev/null || true
+  local f tmp
+  f=$(_ignored_branches_file)
+  if [ -f "$f" ]; then
+    tmp="${f}.tmp.$$"
+    grep -vxF "$name" "$f" > "$tmp" 2>/dev/null || true
+    mv "$tmp" "$f"
+  fi
+  return 0
 }
 
 # branch_exists_in_memoir <name> — returns 0 if the memoir branch exists.
@@ -552,6 +594,88 @@ except Exception:
     fi
 
     printf '%s\t%s\n' "$b" "$ahead"
+  done <<< "$all_branches"
+}
+
+# auto_promote_merged_branches — promote every unmerged memoir branch whose
+# code branch's work has landed in code main. "Merged" means the branch tip
+# is reachable from main but NOT on main's first-parent chain — i.e. the
+# branch's own commits entered main via a merge commit. A branch with no
+# unique commits (its tip is just an old mainline commit that main has moved
+# past) is NOT merged and is skipped; promoting it would leak in-progress
+# captures onto main. Squash- and rebase-merged branches don't satisfy the
+# ancestor test either — they fall through to /memoir:sync or stale GC.
+#
+# Promotion is additive-only and conflict-free (memoir's promote never
+# deletes keys), so running it unattended is safe. Emits one promoted branch
+# name per line. Opt-out is the caller's job (MEMOIR_AUTO_PROMOTE_MERGED).
+auto_promote_merged_branches() {
+  [ -z "$MEMOIR_CMD" ] && return 0
+  [ -z "$_GIT_ROOT" ] && return 0
+  local unmerged
+  unmerged=$(list_unmerged_memoir_branches 2>/dev/null || true)
+  [ -z "$unmerged" ] && return 0
+  # First-parent chain of code main, computed once and bounded for cheapness:
+  # candidate branches are ≤30d active, so a mainline tip is recent.
+  local mainline
+  mainline=$(git -C "$_GIT_ROOT" rev-list --first-parent -n 5000 main 2>/dev/null || true)
+  local b n tip
+  while IFS=$'\t' read -r b n; do
+    [ -z "$b" ] && continue
+    tip=$(git -C "$_GIT_ROOT" rev-parse "refs/heads/$b" 2>/dev/null) || continue
+    git -C "$_GIT_ROOT" merge-base --is-ancestor "$tip" main >/dev/null 2>&1 || continue
+    printf '%s\n' "$mainline" | grep -qxF "$tip" && continue
+    if ( cd "$MEMOIR_STORE_PATH" 2>/dev/null \
+         && "${MEMOIR_CMD_ARGV[@]}" --json -s "$MEMOIR_STORE_PATH" \
+              sync-branch "$b" --into main --yes ) >/dev/null 2>&1; then
+      printf '%s\n' "$b"
+    fi
+  done <<< "$unmerged"
+  return 0
+}
+
+# list_stale_memoir_branches — emit "<branch>\t<age-days>\t<synced>\t<code-exists>"
+# for memoir branches (other than main and the current one) inactive for at
+# least MEMOIR_STALE_BRANCH_DAYS (default 60) that are safe-or-moot to
+# delete: already synced, or their code branch is gone (work abandoned).
+# Unsynced branches whose code branch still exists are never listed — the
+# user might resume them. Ignored branches ARE listed: GC is an explicit
+# cleanup surface inside /memoir:sync, not a reminder.
+list_stale_memoir_branches() {
+  [ -z "$MEMOIR_CMD" ] && return 1
+  [ ! -d "$MEMOIR_STORE_PATH/.git" ] && return 1
+  local days="${MEMOIR_STALE_BRANCH_DAYS:-60}"
+  case "$days" in ''|*[!0-9]*) days=60 ;; esac
+  local now cutoff current all_branches
+  now=$(date +%s)
+  cutoff=$(( now - days * 86400 ))
+  current=$(memoir_json status 2>/dev/null | python3 -c "import json,sys; print(json.loads(sys.stdin.read() or '{}').get('branch',''))" 2>/dev/null)
+  all_branches=$(memoir_json branch 2>/dev/null | python3 -c "
+import json, sys
+try:
+    obj = json.loads(sys.stdin.read() or '{}')
+    for b in obj.get('branches', []) or []:
+        print(b)
+except Exception:
+    pass
+")
+  local b last_ts marker_ts synced code_exists
+  while IFS= read -r b; do
+    [ -z "$b" ] && continue
+    [ "$b" = "main" ] && continue
+    [ "$b" = "$current" ] && continue
+    last_ts=$(git -C "$MEMOIR_STORE_PATH" log -1 --format=%ct "$b" 2>/dev/null || echo 0)
+    [ "$last_ts" -gt "$cutoff" ] && continue  # still active
+    marker_ts=$(branch_sync_timestamp "$b")
+    synced=false
+    if [ "$marker_ts" != "0" ] && [ "$marker_ts" -ge "$last_ts" ]; then
+      synced=true
+    fi
+    code_exists=true
+    code_branch_exists "$b" || code_exists=false
+    if [ "$synced" = "true" ] || [ "$code_exists" = "false" ]; then
+      printf '%s\t%s\t%s\t%s\n' "$b" "$(( (now - last_ts) / 86400 ))" "$synced" "$code_exists"
+    fi
   done <<< "$all_branches"
 }
 

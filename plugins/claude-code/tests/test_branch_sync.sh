@@ -10,8 +10,12 @@
 #   - Fork-from-main when a matching memoir branch doesn't exist
 #   - Multi-branch unmerged detection (e.g. sequence main → a → b → main)
 #   - Sync markers suppress suggestions (sim helper + real scripts/sync-cmd.sh)
-#   - scripts/sync-cmd.sh subcommands: list / dry-run / merge / ignore / snooze
+#   - scripts/sync-cmd.sh subcommands: list / dry-run / merge / ignore /
+#     snooze / decline / prune
 #   - Auto-offer threshold (≥5 unmerged commits) and snooze cooldown gating
+#   - Auto-promotion of memoir branches whose code branch merged into main
+#   - Stale-branch GC (synced-or-abandoned + inactivity threshold)
+#   - Escalating decline backoff (1d → 7d → 30d)
 #   - New captures after sync correctly resurface the branch
 #   - Sticky opt-out and its auto-clear on return to code-matching branch
 #   - Concurrent-session heartbeat warning
@@ -430,6 +434,95 @@ assert_not_contains "snoozed: auto-offer suppressed" "## Auto-offer" "$context"
 echo "$(( $(date +%s) - 60 ))" > "$STORE/.git/plugin-merge-prompt-cooldown"
 context=$(session_start_context)
 assert_contains "expired snooze: auto-offer returns" "## Auto-offer" "$context"
+
+# -------- 18. Auto-promote when the code branch merges into main --------
+heading "Auto-promote memoir branch once its code branch is merged into main"
+# Real work on feature/merged: a code commit + a memoir capture.
+git -C "$PROJ" checkout -qb feature/merged
+git -C "$PROJ" commit --allow-empty -qm "feat: merged work"
+session_start_status >/dev/null
+assert "memoir matched feature/merged" "feature/merged" "$(memoir_current_branch)"
+memoir -s "$STORE" --json remember "merged-branch fact" -p preferences.coding.editor >/dev/null
+
+# Merge the code branch (merge commit, the workflow auto-promote detects).
+git -C "$PROJ" checkout -q main
+git -C "$PROJ" merge -q --no-ff feature/merged -m "merge feature/merged"
+
+# Opt-out: branch stays in the unmerged suggestions, nothing is promoted.
+ctx_off=$(MEMOIR_AUTO_PROMOTE_MERGED=0 bash "$CLAUDE_PLUGIN_ROOT/hooks/session-start.sh" </dev/null 2>&1 |
+  python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('hookSpecificOutput',{}).get('additionalContext',''))")
+assert_contains "opt-out: merged branch still listed unmerged" "memoir/feature/merged:" "$ctx_off"
+assert_not_contains "opt-out: no auto-promotion happened" "auto-promoted" "$ctx_off"
+
+# Default-on: SessionStart promotes it and reports what it did.
+raw=$(bash "$CLAUDE_PLUGIN_ROOT/hooks/session-start.sh" </dev/null 2>&1)
+status=$(printf '%s' "$raw" | python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('systemMessage',''))")
+context=$(printf '%s' "$raw" | python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('hookSpecificOutput',{}).get('additionalContext',''))")
+assert_contains "status reports the auto-promotion" "auto-promoted 1 merged branch" "$status"
+assert_contains "context names the promoted branch" "memoir/feature/merged → main" "$context"
+assert_not_contains "promoted branch gone from unmerged block" "memoir/feature/merged:" "$context"
+assert "sync marker written by auto-promotion" "0" \
+  "$([ -f "$STORE/.git/plugin-synced-branches/feature/merged" ]; echo $?)"
+# Branches with no unique code commits (tips are old mainline commits now
+# that main advanced) must NOT be swept up by the merged-branch heuristic.
+assert_contains "in-progress branch not auto-promoted" "memoir/feature/small:" "$context"
+
+# -------- 19. Stale-branch GC (sync-cmd.sh list/prune) --------
+heading "Stale-branch detection and prune"
+# Default 60-day threshold: everything in this test run is recent → no stale.
+stale_default=$(bash "$SYNC_CMD" list | python3 -c "
+import json, sys
+print(len(json.loads(sys.stdin.read())['stale']) == 0)
+")
+assert "no stale branches at the default 60d threshold" "True" "$stale_default"
+
+# Threshold 0 makes every inactive branch a candidate; only synced or
+# code-branch-gone branches qualify.
+stale_check=$(MEMOIR_STALE_BRANCH_DAYS=0 bash "$SYNC_CMD" list | python3 -c "
+import json, sys
+d = json.loads(sys.stdin.read())
+s = {e['branch'] for e in d['stale']}
+print('experiment' in s, 'feature/deletable' in s,
+      'feature/small' not in s, 'feature/b' not in s)
+")
+assert "stale = synced-or-abandoned only (no resumable branches)" \
+  "True True True True" "$stale_check"
+
+prune_json=$(bash "$SYNC_CMD" prune experiment)
+assert_contains "prune reports the deleted branch" '"pruned": "experiment"' "$prune_json"
+experiment_left=$(memoir --json -s "$STORE" branch |
+  python3 -c "import json,sys; print('experiment' in (json.loads(sys.stdin.read()).get('branches') or []))")
+assert "experiment branch deleted from the store" "False" "$experiment_left"
+
+out=$(bash "$SYNC_CMD" prune main 2>&1 || true)
+assert_contains "prune refuses to delete main" "ERROR" "$out"
+
+# Pruning cleans up the branch's plugin state (ignore entry + sync marker).
+bash "$SYNC_CMD" prune feature/b >/dev/null
+assert "pruned branch removed from ignore file" "0" \
+  "$(grep -cxF 'feature/b' "$STORE/.git/plugin-ignored-branches" || true)"
+assert "pruned branch's sync marker removed" "0" \
+  "$([ ! -f "$STORE/.git/plugin-synced-branches/feature/b" ]; echo $?)"
+
+# -------- 20. Escalating snooze on repeated declines --------
+heading "Escalating snooze (decline backoff 1d → 7d → 30d)"
+rm -f "$STORE/.git/plugin-merge-prompt-cooldown"
+d1=$(bash "$SYNC_CMD" decline)
+assert_contains "first decline snoozes 1 day" '"days": 1' "$d1"
+assert_contains "first decline count is 1" '"declines": 1' "$d1"
+d2=$(bash "$SYNC_CMD" decline)
+assert_contains "second decline escalates to 7 days" '"days": 7' "$d2"
+d3=$(bash "$SYNC_CMD" decline)
+assert_contains "third decline escalates to 30 days" '"days": 30' "$d3"
+# The decline cooldown suppresses the auto-offer (feature/small still has ≥5
+# unmerged commits) without hiding the informational block.
+context=$(session_start_context)
+assert_not_contains "declined: auto-offer suppressed" "## Auto-offer" "$context"
+assert_contains "declined: informational block still present" "memoir/feature/small:" "$context"
+# An explicit snooze is a deliberate choice — it resets the escalation.
+bash "$SYNC_CMD" snooze 7 >/dev/null
+d4=$(bash "$SYNC_CMD" decline)
+assert_contains "explicit snooze resets escalation" '"days": 1' "$d4"
 
 # -------- Summary --------
 printf '\n--------------------------------\n'

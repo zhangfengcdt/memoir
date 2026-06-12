@@ -14,18 +14,18 @@ Arguments passed by the user (may be empty): `$ARGUMENTS`
 
 - If the script output starts with `ERROR:` (or is not JSON): reply `[mode=error]` plus the error/install hint on the next line. Stop.
 - If `$ARGUMENTS` is non-empty: treat each whitespace-separated token as a branch name. Validate each against the `unmerged` list — warn about and skip unknown names. Jump straight to **Step 3** with the valid ones (no questions). Power-user fast path.
-- If `unmerged` is empty: reply `[mode=clean]` — "All memoir branches are merged into main." Add, when applicable: "N branch(es) are on your ignore list (delete a line in `<store>/.git/plugin-ignored-branches` to unignore)" and, if `snoozed_until` is a future epoch, when the session-start auto-offer resumes. Note that the currently-checked-out memoir branch is never listed. Stop.
+- If `unmerged` is empty: say "All memoir branches are merged into main." Add, when applicable: "N branch(es) are on your ignore list (delete a line in `<store>/.git/plugin-ignored-branches` to unignore)" and, if `snoozed_until` is a future epoch, when the session-start auto-offer resumes. Note that the currently-checked-out memoir branch is never listed. Then: if `stale` is also empty, reply `[mode=clean]` and stop; if `stale` is non-empty, ask one question (header "Stale branches"): `Clean up <N> stale memoir branches` → **Step 5**, or `Not now` → `[mode=clean]`.
 - If `concurrent_warning` is non-empty: print it as a one-line caution before any question (merging briefly moves the store's HEAD, which can collide with another live session).
 
 ## Step 1 — Ask what to do (AskUserQuestion, single-select, header "Memoir sync")
 
-Render the branch table in the question text, one line per branch: `memoir/<branch> — <ahead> commits, last capture <age_days>d ago` (if more than 6 branches, show the top 6 and "… (N more)").
+Render the branch table in the question text, one line per branch: `memoir/<branch> — <ahead> commits, last capture <age_days>d ago` (if more than 6 branches, show the top 6 and "… (N more)"). If `stale` is non-empty, append one line: "Also: N stale branch(es) can be cleaned up (option 3)."
 
 **Multiple branches** — options exactly:
 
 1. `Merge all (Recommended)` — promote every listed branch into main → Step 3 with all branches.
 2. `Choose branches` → Step 2.
-3. `Ignore or snooze` → Step 4.
+3. `Ignore, snooze, or clean up` → Step 4.
 4. `Not now` — reply `[mode=cancelled]`, mention `/memoir:sync` works any time, change nothing. Stop.
 
 **Exactly one branch** — skip Step 2; options instead:
@@ -56,22 +56,35 @@ bash "${CLAUDE_PLUGIN_ROOT}/scripts/sync-cmd.sh" merge "<branch>"
 
 Final reply: first line `[mode=synced]` (all succeeded) or `[mode=partial]` (some failed) or `[mode=error]` (all failed), then the per-branch result lines, then `N branches promoted to main, M failed.`
 
-## Step 4 — Ignore or snooze (AskUserQuestion, single-select, header "Quiet options")
+## Step 4 — Ignore, snooze, or clean up (AskUserQuestion, single-select, header "Quiet options")
 
 1. `Ignore branches permanently` — exactly one branch: run `ignore` directly. Several: ask one more multiSelect picker (same top-4 + Other pattern as Step 2), then per pick:
    ```bash
    bash "${CLAUDE_PLUGIN_ROOT}/scripts/sync-cmd.sh" ignore "<branch>"
    ```
    Reply `[mode=ignored]` listing the branches and the unignore path (`<store>/.git/plugin-ignored-branches`).
-2. `Snooze auto-offers for a week` → `bash "${CLAUDE_PLUGIN_ROOT}/scripts/sync-cmd.sh" snooze 7` → `[mode=snoozed]`.
-3. `Snooze for a month` → `… snooze 30` → `[mode=snoozed]`. Note to the user: the detector only surfaces branches active in the last 30 days, so a month-long snooze effectively silences the current set unless new captures land on them.
+2. `Snooze auto-offers for a week` → `bash "${CLAUDE_PLUGIN_ROOT}/scripts/sync-cmd.sh" snooze 7` → `[mode=snoozed]`. (Different duration? The user can pick Other and type a number of days; pass it as `snooze <days>`.)
+3. `Clean up <N> stale branches` → Step 5. If `stale` is empty, label it `Clean up stale branches (none found)` and on selection explain nothing qualifies yet (inactive ≥60 days and synced-or-abandoned), then re-ask Step 1.
 4. `Back` → re-ask Step 1.
 
 When replying `[mode=snoozed]`, clarify that snooze only suppresses the proactive session-start offer — the status-line count keeps showing, and `/memoir:sync` keeps working.
+
+## Step 5 — Clean up stale branches (AskUserQuestion, multiSelect, header "Stale branches")
+
+Stale = inactive ≥60 days **and** either already synced or its code branch is gone. Deletion is destructive for unsynced branches, so this step is always an explicit multiSelect pick — never automatic.
+
+Picker over `stale` (same top-4 + Other overflow pattern as Step 2). Label = branch name; description = `inactive <age_days>d · synced` or `inactive <age_days>d · code branch gone — unsynced captures will be DISCARDED`. Then per selected branch:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/scripts/sync-cmd.sh" prune "<branch>"
+```
+
+Reply `[mode=pruned]` listing deleted branches. On a failure, print the error and continue with the rest (`[mode=partial]` if mixed).
 
 ## Rules
 
 - At most 2 AskUserQuestion calls on the happy path (Stage 1 + optional picker). No extra confirmation between preview and apply — the promote is additive-only (never deletes keys), lands as one revertable commit on the store, and restores the prior branch.
 - Never invoke `memoir` directly — always go through `sync-cmd.sh` (it owns CLI resolution, store path, and `cd`-into-store).
-- Never hand-edit `plugin-ignored-branches` or `plugin-merge-prompt-cooldown` — only via the `ignore` / `snooze` subcommands.
-- First line of every final reply is the mode marker: `[mode=synced|partial|clean|ignored|snoozed|cancelled|error]`.
+- Never hand-edit `plugin-ignored-branches` or `plugin-merge-prompt-cooldown`, and never delete memoir branches yourself — only via the `ignore` / `snooze` / `decline` / `prune` subcommands.
+- Branch deletion (Step 5) only ever happens after an explicit user pick in the Stale-branches question — never bundle it into a merge flow.
+- First line of every final reply is the mode marker: `[mode=synced|partial|clean|ignored|snoozed|pruned|cancelled|error]`.

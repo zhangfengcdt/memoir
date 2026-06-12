@@ -138,6 +138,8 @@ assert_contains "[3.2] memoir-unmerged short-circuits with non-git message" "non
 sync_list=$(bash "$CLAUDE_PLUGIN_ROOT/scripts/sync-cmd.sh" list)
 assert_contains "[3.3] sync-cmd.sh list reports no unmerged branches in non-git folder" \
   '"unmerged": []' "$sync_list"
+assert_contains "[3.4] sync-cmd.sh list reports no stale branches in non-git folder" \
+  '"stale": []' "$sync_list"
 
 # ---------------------------------------------------------------------------
 # Step 4: Cold project:onboard pass on a writing+bookkeeping mix

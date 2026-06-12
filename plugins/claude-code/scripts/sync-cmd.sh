@@ -4,12 +4,15 @@
 # composes raw CLI plumbing or hand-edits plugin state files.
 #
 # Subcommands (each prints one-line JSON on stdout):
-#   list             — unmerged memoir branches + ignore/snooze state
+#   list             — unmerged + stale memoir branches + ignore/snooze state
 #   dry-run <branch> — preview promoting <branch> into main (CLI passthrough)
 #   merge <branch>   — promote <branch> into main (CLI passthrough; the CLI
 #                      writes the sync marker itself on success)
 #   ignore <branch>  — add <branch> to the silence list (idempotent)
-#   snooze [days]    — suppress the SessionStart auto-offer (default 7 days)
+#   snooze [days]    — suppress the SessionStart auto-offer (default 7 days;
+#                      resets the decline counter)
+#   decline          — auto-offer declined: escalating snooze (1d → 7d → 30d)
+#   prune <branch>   — delete a stale memoir branch + its plugin state
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -54,6 +57,7 @@ case "$cmd" in
       case "$snoozed_until" in ''|*[!0-9]*) snoozed_until=0 ;; esac
     fi
     warn=$(concurrent_session_warning 2>/dev/null || true)
+    stale=$(list_stale_memoir_branches 2>/dev/null || true)
 
     python3 -c "
 import json, sys, time
@@ -73,16 +77,28 @@ for line in sys.argv[1].splitlines():
         'age_days': max(0, (now - ts) // 86400) if ts else None,
     })
 unmerged.sort(key=lambda e: -(e['last_commit_ts'] or 0))
+stale = []
+for line in sys.argv[7].splitlines():
+    parts = line.split('\t')
+    if len(parts) != 4 or not parts[0]:
+        continue
+    stale.append({
+        'branch': parts[0],
+        'age_days': int(parts[1] or 0),
+        'synced': parts[2] == 'true',
+        'code_branch_exists': parts[3] == 'true',
+    })
 print(json.dumps({
     'store': sys.argv[2],
     'code_branch': sys.argv[3],
     'unmerged': unmerged,
     'total_ahead': total,
+    'stale': stale,
     'ignored': [l for l in sys.argv[4].splitlines() if l.strip()],
     'snoozed_until': int(sys.argv[5]),
     'concurrent_warning': sys.argv[6],
 }))
-" "$enriched" "$MEMOIR_STORE_PATH" "$(code_git_branch)" "$ignored" "$snoozed_until" "$warn"
+" "$enriched" "$MEMOIR_STORE_PATH" "$(code_git_branch)" "$ignored" "$snoozed_until" "$warn" "$stale"
     ;;
 
   dry-run|merge)
@@ -131,8 +147,46 @@ print(json.dumps({
     printf '{"snoozed_until": %s, "days": %s}\n' "$(head -n1 "$(_merge_prompt_cooldown_file)")" "$days"
     ;;
 
+  decline)
+    out=$(escalate_merge_prompt_cooldown) || {
+      echo "ERROR: failed to record decline (no store?)" >&2
+      exit 1
+    }
+    days="${out%%$'\t'*}"
+    declines="${out##*$'\t'}"
+    printf '{"snoozed_until": %s, "days": %s, "declines": %s}\n' \
+      "$(head -n1 "$(_merge_prompt_cooldown_file)")" "$days" "$declines"
+    ;;
+
+  prune)
+    branch="${2:-}"
+    if [ -z "$branch" ]; then
+      echo "ERROR: usage: sync-cmd.sh prune <branch>" >&2
+      exit 2
+    fi
+    if [ "$branch" = "main" ]; then
+      echo "ERROR: refusing to delete main" >&2
+      exit 2
+    fi
+    current=$(memoir_json status 2>/dev/null | python3 -c "import json,sys; print(json.loads(sys.stdin.read() or '{}').get('branch',''))" 2>/dev/null)
+    if [ "$branch" = "$current" ]; then
+      echo "ERROR: cannot delete the currently checked-out memoir branch '$branch'" >&2
+      exit 2
+    fi
+    rc=0
+    ( cd "$MEMOIR_STORE_PATH" 2>/dev/null \
+      && "${MEMOIR_CMD_ARGV[@]}" --json -s "$MEMOIR_STORE_PATH" \
+           branch "$branch" -D ) >/dev/null 2>&1 || rc=$?
+    if [ "$rc" -ne 0 ]; then
+      echo "ERROR: failed to delete memoir branch '$branch'" >&2
+      exit 1
+    fi
+    remove_branch_plugin_state "$branch"
+    printf '{"pruned": %s}\n' "$(_json_encode_str "$branch")"
+    ;;
+
   *)
-    echo "ERROR: unknown subcommand '$cmd' (expected: list, dry-run, merge, ignore, snooze)" >&2
+    echo "ERROR: unknown subcommand '$cmd' (expected: list, dry-run, merge, ignore, snooze, decline, prune)" >&2
     exit 2
     ;;
 esac
