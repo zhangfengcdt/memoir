@@ -97,6 +97,10 @@ While developing from a local checkout, use `codex plugin marketplace add /absol
 
 Enable Codex hooks with `[features].hooks = true` in `~/.codex/config.toml` or pass `--enable hooks` for a smoke run. The Codex plugin ships lifecycle hooks; `memory-recall`, `memoir-onboard`, `memoir-remember`, `memoir-status`, and `memoir-ui` skills; Codex-specific transcript parsing; and local marketplace metadata. See the [Codex plugin guide](https://zhangfengcdt.github.io/memoir/codex/) for setup, limitations, and the real Codex smoke-test flow.
 
+## Community plugins
+
+- **[opencode-memoir](https://github.com/disafronov/opencode-memoir)** brings Memoir's long-term memory workflows to OpenCode through its native plugin system.
+
 ## Quick look
 
 Memoir's CLI defaults to Anthropic **`claude-haiku-4-5`** as of v0.1.6 — set your key first:
