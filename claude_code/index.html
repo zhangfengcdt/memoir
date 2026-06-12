@@ -1243,6 +1243,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#branch-sync-memoirsync" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Branch sync (/memoir:sync)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#codebase-snapshot-codebaseonboard" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1966,6 +1977,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#branch-sync-memoirsync" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Branch sync (/memoir:sync)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#codebase-snapshot-codebaseonboard" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2117,8 +2139,8 @@
 <tbody>
 <tr>
 <td>Slash commands</td>
-<td>9</td>
-<td>Manual memory ops, admin, UI launch</td>
+<td>6</td>
+<td>Manual memory ops, branch sync, admin, UI launch</td>
 </tr>
 <tr>
 <td>Skills</td>
@@ -2132,8 +2154,8 @@
 </tr>
 <tr>
 <td>Helper scripts</td>
-<td>3</td>
-<td>Store path, UI control, status line</td>
+<td>4</td>
+<td>Store path, branch sync, UI control, status line</td>
 </tr>
 </tbody>
 </table>
@@ -2163,12 +2185,16 @@
 <td>Branch, commit count, memory count, namespaces.</td>
 </tr>
 <tr>
+<td><code>/memoir:sync [branch ...]</code></td>
+<td>Guided promotion of unmerged memoir branches into <code>main</code> (select UI: merge all / choose / ignore / snooze / delete branches). With arguments, merges those branches directly. See <a href="#branch-sync-memoirsync">Branch sync</a>.</td>
+</tr>
+<tr>
 <td><code>/memoir:ui</code></td>
 <td>Launch or re-open the web UI (readonly, LLM off by default).</td>
 </tr>
 </tbody>
 </table>
-<p>Admin operations (<code>forget</code>, <code>taxonomy</code>, <code>unmerged</code>, <code>sync-branch</code>) are available via the <code>memoir</code> CLI directly — they were dropped from the slash-command surface to keep the in-session UX focused on the five everyday actions.</p>
+<p>Admin operations (<code>forget</code>, <code>taxonomy</code>) are available via the <code>memoir</code> CLI directly — they were dropped from the slash-command surface to keep the in-session UX focused on the everyday actions.</p>
 <h2 id="skills">Skills<a class="headerlink" href="#skills" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2216,7 +2242,7 @@
 <td><code>session-start.sh</code></td>
 <td>15s</td>
 <td>—</td>
-<td>Inject store status, branch/commit state, onboard snapshot, and "memory available" hints.</td>
+<td>Inject store status, branch/commit state, onboard snapshot, and "memory available" hints. Auto-promotes memoir branches whose code branch merged into <code>main</code>; surfaces unmerged branches with a gated <code>/memoir:sync</code> offer.</td>
 </tr>
 <tr>
 <td><code>UserPromptSubmit</code></td>
@@ -2254,6 +2280,10 @@
 <tr>
 <td><code>derive-store-path.sh</code></td>
 <td>Maps the current cwd to <code>~/.memoir/&lt;slug&gt;</code> (linked worktrees collapse onto the main worktree's slug). Respects <code>$MEMOIR_STORE</code>.</td>
+</tr>
+<tr>
+<td><code>sync-cmd.sh</code></td>
+<td>Backing script for <code>/memoir:sync</code> and the session-start offer: <code>list</code> / <code>dry-run</code> / <code>merge</code> / <code>ignore</code> / <code>snooze</code> / <code>decline</code> / <code>prune</code> (branch deletion; refuses <code>main</code> and the current branch).</td>
 </tr>
 <tr>
 <td><code>memoir-ui-ctl.sh</code></td>
@@ -2299,7 +2329,7 @@
 <li><strong>Reads happen eagerly, writes happen lazily.</strong> Every prompt passes through <code>UserPromptSubmit</code> (step 2) and potentially fires <code>memory-recall</code> (step 3) — the agent pulls context without the user asking. Auto-capture is deferred to <code>Stop</code> (step 4), which is async so it never blocks the turn.</li>
 <li><strong>Namespaces split along read/write paths.</strong> <code>memory-recall</code> works against <code>default</code> (user-captured facts, written by the <code>Stop</code> hook or <code>/memoir:remember</code>). <code>memoir-onboard</code> works against <code>codebase:onboard</code> (repo snapshot, written by <code>/memoir:onboard</code>, replayed by the <code>SessionStart</code> hook). Two namespaces, two lifecycles, no overlap.</li>
 </ul>
-<p>The admin surface — <code>/memoir:ui</code>, <code>/memoir:status</code> (slash commands), plus <code>memoir taxonomy</code>, <code>memoir unmerged</code>, and <code>memoir sync-branch</code> (CLI) — sits outside this lifecycle: it's explicit user invocation, not hook-driven.</p>
+<p>The admin surface — <code>/memoir:ui</code>, <code>/memoir:status</code>, <code>/memoir:sync</code> (slash commands), plus <code>memoir taxonomy</code> and <code>memoir forget</code> (CLI) — sits outside this lifecycle: it's explicit user invocation, not hook-driven. (The exception is <code>/memoir:sync</code>'s session-start integration — auto-promotion and the gated offer — described in <a href="#branch-sync-memoirsync">Branch sync</a>.)</p>
 <h2 id="session-context-injection">Session context injection<a class="headerlink" href="#session-context-injection" title="Permanent link">&para;</a></h2>
 <p><code>SessionStart</code> writes a single JSON object to stdout that Claude Code reads as the session preamble: <code>{"systemMessage": ..., "hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": ...}}</code>. The <code>additionalContext</code> block is assembled in order from up to four parts, each conditional on having something to say. Every part comes from raw <code>memoir get</code>/<code>summarize</code> calls — no LLM is invoked at session start.</p>
 <table>
@@ -2322,9 +2352,14 @@
 <td>Yes (when default has keys). Capped at 200, grouped by L1 prefix.</td>
 </tr>
 <tr>
+<td>Auto-promotion report</td>
+<td><code>auto_promote_merged_branches</code> (runs before the unmerged scan)</td>
+<td>Only when a memoir branch's code branch merged into <code>main</code> since the last session. See <a href="#branch-sync-memoirsync">Branch sync</a>.</td>
+</tr>
+<tr>
 <td>Unmerged-branch detector</td>
-<td><code>git for-each-ref</code> on <code>refs/heads/memoir/*</code></td>
-<td>Only when the <strong>code branch is <code>main</code></strong>. Mid-flight on a feature branch, other branches' unmerged work is noise.</td>
+<td><code>git rev-list</code> + sync markers over the store's branches</td>
+<td>Only when the <strong>code branch is <code>main</code></strong>. Mid-flight on a feature branch, other branches' unmerged work is noise. Appends a gated <code>/memoir:sync</code> auto-offer at ≥5 unmerged commits.</td>
 </tr>
 <tr>
 <td>Codebase snapshot</td>
@@ -2333,7 +2368,7 @@
 </tr>
 </tbody>
 </table>
-<p>The status line itself follows the same conditional shape: <code>[memoir] &lt;branch&gt; · &lt;N&gt; memories [· capture disabled] [· N branches unmerged] [· concurrent session warning]</code>.</p>
+<p>The status line itself follows the same conditional shape: <code>[memoir] &lt;branch&gt; · &lt;N&gt; memories [· capture disabled] [· N branches unmerged] [· auto-promoted N merged branches] [· concurrent session warning]</code>.</p>
 <p>Shape of the default-keys block:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a># default namespace keys
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>(12 keys, grouped by L1 prefix)
@@ -2348,6 +2383,48 @@
 </span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>  - metrics.turn.main
 </span></code></pre></div>
 <p>This is just the index — agents <code>memoir get &lt;key&gt;</code> the ones they care about, paying for content only on demand.</p>
+<h2 id="branch-sync-memoirsync">Branch sync (<code>/memoir:sync</code>)<a class="headerlink" href="#branch-sync-memoirsync" title="Permanent link">&para;</a></h2>
+<p>Memory branches auto-track code branches, so unmerged captures accumulate on <code>feature/*</code> memoir branches until they're promoted to <code>main</code>. <code>/memoir:sync</code> is the guided promotion flow, and three lifecycle mechanisms keep the branch population from overwhelming users over time.</p>
+<p><strong>The command.</strong> <code>/memoir:sync</code> drives the whole flow through Claude Code's select UI (<code>AskUserQuestion</code>) — this is why it's a slash command rather than a hook or forked skill: the select UI is a model tool available only in the main conversation.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>┌─ Memoir sync ──────────────────────────────────────────────┐
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>│ You have 3 memoir branches with 12 unmerged commits:       │
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>│   memoir/feature/a — 7 commits, last capture 2d ago        │
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>│   memoir/feature/b — 4 commits, last capture 5d ago        │
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>│   ... What would you like to do?                           │
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>│ ❯ 1. Merge all (Recommended)                               │
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a>│   2. Choose branches        (multiSelect picker)           │
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>│   3. Ignore, snooze, or clean up                           │
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a>│   4. Not now                                               │
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a>└────────────────────────────────────────────────────────────┘
+</span></code></pre></div>
+<p>Merging shows a dry-run preview (<code>+N new keys, M updated</code>) and then applies — no second confirmation, because the promote is <strong>additive-only</strong> (never deletes keys, no conflicts) and lands as one revertable commit that restores the prior branch. <code>/memoir:sync feature/x</code> skips all questions and merges directly. All state reads/writes go through one backing script, <code>scripts/sync-cmd.sh</code> (<code>list</code> / <code>dry-run</code> / <code>merge</code> / <code>ignore</code> / <code>snooze</code> / <code>decline</code> / <code>prune</code>), so the agent never composes raw CLI plumbing or hand-edits state files.</p>
+<p><strong>Auto-promotion on code-branch merge.</strong> When a code branch's work lands in <code>main</code> via a <strong>merge commit</strong>, the work unit is complete — so the next <code>SessionStart</code> on <code>main</code> promotes its memoir branch automatically and reports it in the status line. The heuristic requires the branch tip to be reachable from <code>main</code> but <em>not</em> on <code>main</code>'s first-parent chain: a branch with no unique code commits (its tip is just an old mainline commit) is never swept up, so in-progress branches stay isolated. Squash- and rebase-merged branches aren't detectable this way; they fall through to <code>/memoir:sync</code> or stale cleanup. Disable with <code>MEMOIR_AUTO_PROMOTE_MERGED=0</code>.</p>
+<p><strong>Gated auto-offer.</strong> When total unmerged work reaches <strong>5 commits</strong> and no snooze is active, the <code>SessionStart</code> context asks the agent to offer the sync once that session — immediately if the first prompt is low-stakes, otherwise at the end of the turn. Declining backs off automatically: 1 day, then 7, then 30 on consecutive declines; an explicit snooze resets the escalation. Snooze suppresses only the offer — the status-line count and the informational branch list always render.</p>
+<p><strong>Branch deletion.</strong> <code>/memoir:sync</code> can delete any memoir branch except <code>main</code> and the currently-checked-out one (the backing script refuses both) — always behind an explicit multiSelect pick, never automatically. The picker flags risk per branch: <em>stale</em> entries — inactive ≥60 days (<code>MEMOIR_STALE_BRANCH_DAYS</code> to override) <strong>and</strong> either already synced or their code branch gone (work abandoned) — lead the list as safe to remove; unsynced branches carry a <code>DISCARDED</code> warning with their unmerged-commit count. Pruning also removes the branch's sync marker and ignore-list entry, so the store's branch population stays bounded over time.</p>
+<p><strong>Why a branch stops being flagged.</strong> Memoir's promote rewrites patches on <code>main</code> rather than creating a two-parent merge commit, so git-graph checks can't detect "already merged". Instead, every successful promote writes a timestamp marker to <code>&lt;store&gt;/.git/plugin-synced-branches/&lt;branch&gt;</code>; a branch is considered synced while the marker is newer than its last capture, and resurfaces automatically if new captures land afterwards.</p>
+<p><strong>State files</strong> (all local-only, under the store's <code>.git/</code>):</p>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Contents</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>plugin-synced-branches/&lt;branch&gt;</code></td>
+<td>Epoch of the last successful promote (written by the CLI).</td>
+</tr>
+<tr>
+<td><code>plugin-ignored-branches</code></td>
+<td>One branch name per line; delete a line to unignore.</td>
+</tr>
+<tr>
+<td><code>plugin-merge-prompt-cooldown</code></td>
+<td>Line 1: snoozed-until epoch. Line 2: consecutive-decline count.</td>
+</tr>
+</tbody>
+</table>
 <h2 id="codebase-snapshot-codebaseonboard">Codebase snapshot (<code>codebase:onboard</code>)<a class="headerlink" href="#codebase-snapshot-codebaseonboard" title="Permanent link">&para;</a></h2>
 <p>A persistent, high-level repo overview written by <code>/memoir:onboard</code> and replayed by <code>SessionStart</code> so fresh sessions start warm with a structured map of the codebase.</p>
 <p><strong>Layout.</strong> Keys live in the <code>codebase:onboard</code> namespace, grouped by L1 root:</p>
@@ -2443,9 +2520,9 @@
 <td>Captures to <code>main</code></td>
 </tr>
 <tr>
-<td><code>memoir sync-branch</code>, <code>memoir unmerged</code> (CLI)</td>
+<td><code>/memoir:sync</code>, <code>memoir sync-branch</code> (CLI)</td>
 <td>Operate normally</td>
-<td>Short-circuit with "non-git folder: only <code>main</code> exists"</td>
+<td>Nothing to do — only <code>main</code> exists, so the unmerged/stale lists are empty by construction</td>
 </tr>
 <tr>
 <td><code>/memoir:onboard</code></td>
@@ -2522,27 +2599,27 @@
 <li><strong>meta-only</strong> — snapshot hash unchanged. Bump <code>_meta.last_onboard.date</code> only.</li>
 </ul>
 <p><strong>Pluggable tool registry.</strong> v1 ships with <strong>zero tool entries</strong> — every cold and warm pass is free, offline, and stdlib-only. To add an external tool (e.g. Whisper for audio transcription, ExifTool for images, a vision LLM for image captioning), drop a YAML or JSON config:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="c1"># ~/.memoir/onboard-tools.yaml          (user-global)</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="c1"># &lt;project&gt;/.memoir/onboard-tools.yaml  (project-local; merged after global)</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="nt">audio</span><span class="p">:</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">whisper</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;whisper</span><span class="nv"> </span><span class="s">{path}</span><span class="nv"> </span><span class="s">--output-format</span><span class="nv"> </span><span class="s">json&quot;</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">timeout_s</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60</span>
-</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="nt">image</span><span class="p">:</span>
-</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">claude-vision</span>
-</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="w">    </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;vision-caption.sh</span><span class="nv"> </span><span class="s">{path}&quot;</span>
-</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="w">    </span><span class="nt">timeout_s</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="c1"># ~/.memoir/onboard-tools.yaml          (user-global)</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="c1"># &lt;project&gt;/.memoir/onboard-tools.yaml  (project-local; merged after global)</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="nt">audio</span><span class="p">:</span>
+</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">whisper</span>
+</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">    </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;whisper</span><span class="nv"> </span><span class="s">{path}</span><span class="nv"> </span><span class="s">--output-format</span><span class="nv"> </span><span class="s">json&quot;</span>
+</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="nt">timeout_s</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">60</span>
+</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="nt">image</span><span class="p">:</span>
+</span><span id="__span-3-8"><a id="__codelineno-3-8" name="__codelineno-3-8" href="#__codelineno-3-8"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">claude-vision</span>
+</span><span id="__span-3-9"><a id="__codelineno-3-9" name="__codelineno-3-9" href="#__codelineno-3-9"></a><span class="w">    </span><span class="nt">command</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;vision-caption.sh</span><span class="nv"> </span><span class="s">{path}&quot;</span>
+</span><span id="__span-3-10"><a id="__codelineno-3-10" name="__codelineno-3-10" href="#__codelineno-3-10"></a><span class="w">    </span><span class="nt">timeout_s</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">30</span>
 </span></code></pre></div>
 <p>Per <code>kind</code>, the stdlib extractor always runs first; configured tools then run and merge their JSON output under <code>extractor.&lt;tool_name&gt;.&lt;field&gt;</code> keys, so the consumer LLM can tell deterministic fields apart from tool-derived ones via the <code>extractor.stdlib.fields=[…]</code> provenance line. Results are cached at <code>&lt;store&gt;/.git/plugin-extractor-cache/&lt;sha256-of-file-content&gt;.&lt;tool&gt;.json</code> so warm-mode reuses tool output when file content is unchanged. Failures are silent — tool errors and timeouts are logged to <code>/tmp/memoir-hook.log</code>; the blob is emitted with stdlib fields only.</p>
 <p><strong>Excludes.</strong> Default exclusion globs cover OS / editor cruft (<code>.DS_Store</code>, <code>~$*</code>), code build artifacts (<code>node_modules</code>, <code>__pycache__</code>, <code>dist</code>, <code>.venv</code>), and video / audio editor caches (<code>Adobe Premiere Pro Auto-Save/</code>, <code>*.fcpcache/</code>, <code>Render Files/</code>). Add project-local entries via <code>.memoir/onboard-excludes.txt</code> (gitignore syntax, one glob per line).</p>
 <p><strong>Store-mode drift guardrail (warning-only).</strong> A folder that flips between non-git and git states (running <code>git init</code> on an existing project, or <code>rm -rf .git</code>-ing a tracked folder) keeps the same store path — they share <code>~/.memoir/&lt;slug&gt;</code>. The plugin records the mode at first store creation in <code>&lt;store&gt;/.git/plugin-store-mode</code>. Subsequent SessionStarts compare the marker to the current state; on mismatch, it surfaces a one-block warning alongside the normal status line:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>[memoir] note: store mode drift
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>  This store was created in `non-git` mode; the project directory is now `git`.
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>  Captures continue, but branch auto-matching and the SessionStart onboard
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>  injection now use the new mode — earlier non-git-mode data may be on a
-</span><span id="__span-3-5"><a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>  different memoir branch (run `memoir branch list` to inspect).
-</span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a>  To suppress: `memoir checkout main` and update the marker with
-</span><span id="__span-3-7"><a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a>  `echo git &gt; &lt;store&gt;/.git/plugin-store-mode`.
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>[memoir] note: store mode drift
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>  This store was created in `non-git` mode; the project directory is now `git`.
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>  Captures continue, but branch auto-matching and the SessionStart onboard
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>  injection now use the new mode — earlier non-git-mode data may be on a
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>  different memoir branch (run `memoir branch list` to inspect).
+</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>  To suppress: `memoir checkout main` and update the marker with
+</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>  `echo git &gt; &lt;store&gt;/.git/plugin-store-mode`.
 </span></code></pre></div>
 <p>Captures keep working through the warning — it's informational, not enforced. The marker is auto-backfilled the first time an old (pre-guardrail) store is observed, so no warning fires for stores that pre-date this feature.</p>
 <h2 id="how-auto-capture-decides-what-to-remember">How auto-capture decides what to remember<a class="headerlink" href="#how-auto-capture-decides-what-to-remember" title="Permanent link">&para;</a></h2>
@@ -2570,11 +2647,11 @@
 </ol>
 <p><strong>Toggles &amp; failure mode.</strong> <code>MEMOIR_NO_CAPTURE=1</code> disables only the capture stage; the metrics stage still runs. The whole pipeline is fail-silent — every subprocess uses <code>2&gt;/dev/null || true</code>, malformed haiku output is filtered out by the line-format check, and the hook always exits <code>0</code>. A failed turn is silent, not loud.</p>
 <p><strong>Testing.</strong> The system prompt is a first-class artifact — extracted to <code>hooks/prompts/stop_capture.tmpl</code> so the prompt-harness can test it in isolation:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Full LLM suite (~60s, costs LLM tokens)</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>plugins/claude-code/tests/prompt-harness/runner.py<span class="w"> </span>run<span class="w"> </span>--prompt<span class="w"> </span>stop_capture<span class="w"> </span>--model<span class="w"> </span>haiku
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1"># One case</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>plugins/claude-code/tests/prompt-harness/runner.py<span class="w"> </span><span class="k">case</span><span class="w"> </span>stop_capture/&lt;<span class="k">case</span>&gt;.yaml<span class="w"> </span>--model<span class="w"> </span>haiku
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># Full LLM suite (~60s, costs LLM tokens)</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>plugins/claude-code/tests/prompt-harness/runner.py<span class="w"> </span>run<span class="w"> </span>--prompt<span class="w"> </span>stop_capture<span class="w"> </span>--model<span class="w"> </span>haiku
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="c1"># One case</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>plugins/claude-code/tests/prompt-harness/runner.py<span class="w"> </span><span class="k">case</span><span class="w"> </span>stop_capture/&lt;<span class="k">case</span>&gt;.yaml<span class="w"> </span>--model<span class="w"> </span>haiku
 </span></code></pre></div>
 <p>The harness drops <code>system.txt</code>, <code>input.txt</code>, <code>output.txt</code>, <code>result.json</code>, and a replayable <code>command.sh</code> per case under <code>/tmp/memoir-prompt-tests/&lt;UTC-timestamp&gt;/</code>. Read <code>summary.md</code> for pass/fail. Assertion DSL: <code>plugins/claude-code/tests/prompt-harness/README.md</code>.</p>
 <h2 id="code-change-audit-log-metricscodebranch">Code-change audit log (<code>metrics.code.&lt;branch&gt;</code>)<a class="headerlink" href="#code-change-audit-log-metricscodebranch" title="Permanent link">&para;</a></h2>
@@ -2591,45 +2668,45 @@
 </ol>
 <p><strong>Key shape:</strong> <code>metrics.code.&lt;branch&gt;</code> — sibling to <code>metrics.turn.&lt;branch&gt;</code>. Branch names with <code>/</code> (e.g. <code>feature/x</code>) are kept literal.</p>
 <p><strong>Value shape:</strong></p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="w">  </span><span class="nt">&quot;schema_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span><span class="nt">&quot;entries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
-</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1714800000.0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;summary&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Refactored auth middleware to use JWT; added unit tests for token expiry.&quot;</span><span class="p">},</span>
-</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1714801200.0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;summary&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Renamed getUser → getCurrentUser across 7 callers; updated docstrings.&quot;</span><span class="p">}</span>
-</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span><span class="p">]</span>
-</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="p">}</span>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="nt">&quot;schema_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="nt">&quot;entries&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">[</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1714800000.0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;summary&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Refactored auth middleware to use JWT; added unit tests for token expiry.&quot;</span><span class="p">},</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="w">    </span><span class="p">{</span><span class="nt">&quot;timestamp&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">1714801200.0</span><span class="p">,</span><span class="w"> </span><span class="nt">&quot;summary&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Renamed getUser → getCurrentUser across 7 callers; updated docstrings.&quot;</span><span class="p">}</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="w">  </span><span class="p">]</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>Entries are append-forever — no decay. Bash-induced edits (<code>sed -i</code>, <code>mv</code>, refactor scripts) are <strong>not</strong> detected by design; the log reflects what the agent itself did via Edit/Write/MultiEdit/NotebookEdit.</p>
 <p><strong>Toggles &amp; failure mode.</strong> <code>MEMOIR_NO_CODE_SUMMARY=1</code> disables only this stage; capture and metrics still run. Every subprocess uses <code>2&gt;/dev/null || true</code> and the hook always exits <code>0</code> — same fail-silent design as the other stages. A failed turn is silent, not loud.</p>
 <p><strong>Branch identity &amp; merge.</strong> Source-branch identity lives in the key fragment, not the value. <code>BranchService.promote_branch</code> carries <code>metrics.code.feature/x</code> to <code>main</code> automatically when the user runs <code>memoir sync-branch feature/x</code>, preserving the per-source-branch view.</p>
 <p><strong>Testing.</strong> Unit + integration + prompt-harness cover the three layers separately:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Transcript-scan unit tests (no memoir, no haiku)</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>bash<span class="w"> </span>plugins/claude-code/tests/test_collect_edits.sh
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># Stop-hook integration (read-merge-write append, gating; no haiku)</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a>bash<span class="w"> </span>plugins/claude-code/tests/test_stop_code_summary.sh
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a><span class="c1"># Prompt cases (haiku-driven, costs LLM tokens)</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a>plugins/claude-code/tests/prompt-harness/runner.py<span class="w"> </span>run<span class="w"> </span>--prompt<span class="w"> </span>code_change_summary<span class="w"> </span>--model<span class="w"> </span>haiku
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1"># Transcript-scan unit tests (no memoir, no haiku)</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>bash<span class="w"> </span>plugins/claude-code/tests/test_collect_edits.sh
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># Stop-hook integration (read-merge-write append, gating; no haiku)</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>bash<span class="w"> </span>plugins/claude-code/tests/test_stop_code_summary.sh
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="c1"># Prompt cases (haiku-driven, costs LLM tokens)</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>plugins/claude-code/tests/prompt-harness/runner.py<span class="w"> </span>run<span class="w"> </span>--prompt<span class="w"> </span>code_change_summary<span class="w"> </span>--model<span class="w"> </span>haiku
 </span></code></pre></div>
 <h2 id="per-branch-turn-metrics-metricsturnbranch">Per-branch turn metrics (<code>metrics.turn.&lt;branch&gt;</code>)<a class="headerlink" href="#per-branch-turn-metrics-metricsturnbranch" title="Permanent link">&para;</a></h2>
 <p>The <code>Stop</code> hook accumulates per-turn statistics into one key per branch in the <code>default</code> namespace, alongside auto-captured memories.</p>
 <p><strong>Key shape:</strong> <code>metrics.turn.&lt;branch&gt;</code> — for example <code>metrics.turn.main</code>, <code>metrics.turn.feature/x</code>. Branch names with <code>/</code> are kept literal (memoir's <code>remember -p</code> accepts arbitrary path strings).</p>
 <p><strong>Value shape:</strong></p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="nt">&quot;schema_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="w">  </span><span class="nt">&quot;tokens&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="w">  </span><span class="nt">&quot;llms&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="w">  </span><span class="nt">&quot;turns_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="w">  </span><span class="nt">&quot;total_output_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">198432</span><span class="p">,</span>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a><span class="w">  </span><span class="nt">&quot;total_tool_input_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">24561</span><span class="p">,</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a><span class="w">  </span><span class="nt">&quot;total_tool_result_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">884201</span><span class="p">,</span>
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a><span class="w">  </span><span class="nt">&quot;total_tool_calls&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">187</span><span class="p">,</span>
-</span><span id="__span-7-10"><a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a><span class="w">  </span><span class="nt">&quot;total_tool_errors&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span>
-</span><span id="__span-7-11"><a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a><span class="w">  </span><span class="nt">&quot;total_repeated_tool_calls&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
-</span><span id="__span-7-12"><a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a><span class="w">  </span><span class="nt">&quot;total_latency_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1845300</span><span class="p">,</span>
-</span><span id="__span-7-13"><a id="__codelineno-7-13" name="__codelineno-7-13" href="#__codelineno-7-13"></a><span class="w">  </span><span class="nt">&quot;latency_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">31</span>
-</span><span id="__span-7-14"><a id="__codelineno-7-14" name="__codelineno-7-14" href="#__codelineno-7-14"></a><span class="p">}</span>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">&quot;schema_version&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1</span><span class="p">,</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">  </span><span class="nt">&quot;tokens&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">  </span><span class="nt">&quot;llms&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">null</span><span class="p">,</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span><span class="nt">&quot;turns_count&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">42</span><span class="p">,</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">  </span><span class="nt">&quot;total_output_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">198432</span><span class="p">,</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">  </span><span class="nt">&quot;total_tool_input_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">24561</span><span class="p">,</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">  </span><span class="nt">&quot;total_tool_result_chars&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">884201</span><span class="p">,</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">  </span><span class="nt">&quot;total_tool_calls&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">187</span><span class="p">,</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">  </span><span class="nt">&quot;total_tool_errors&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">6</span><span class="p">,</span>
+</span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">  </span><span class="nt">&quot;total_repeated_tool_calls&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">12</span><span class="p">,</span>
+</span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">  </span><span class="nt">&quot;total_latency_ms&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">1845300</span><span class="p">,</span>
+</span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">  </span><span class="nt">&quot;latency_samples&quot;</span><span class="p">:</span><span class="w"> </span><span class="mi">31</span>
+</span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="p">}</span>
 </span></code></pre></div>
 <p>Each turn the hook reads the existing accumulator, folds in deltas computed by <code>collect-metrics.sh</code>, and writes it back via <code>merge-metrics.py</code>. <code>tokens</code> and <code>llms</code> are reserved <code>null</code> until Claude Code exposes per-turn usage to hooks; today the proxies are char-count and tool-count fields. <code>latency_samples</code> only ticks for turns whose transcript line carries a user-message timestamp.</p>
 <p><strong>Toggles &amp; failure mode.</strong> <code>MEMOIR_NO_METRICS=1</code> disables the metrics path independently of <code>MEMOIR_NO_CAPTURE</code> — either can fail without affecting the other. The whole block is wrapped in <code>2&gt;/dev/null || true</code>, matching the rest of the Stop hook's fail-silent design.</p>
@@ -2677,6 +2754,16 @@
 <td><code>0</code> suppresses the <code>codebase:onboard</code> block in <code>SessionStart</code>'s <code>additionalContext</code>.</td>
 </tr>
 <tr>
+<td><code>MEMOIR_AUTO_PROMOTE_MERGED</code></td>
+<td><code>1</code></td>
+<td><code>0</code> disables <code>SessionStart</code> auto-promotion of memoir branches whose code branch merged into <code>main</code>.</td>
+</tr>
+<tr>
+<td><code>MEMOIR_STALE_BRANCH_DAYS</code></td>
+<td><code>60</code></td>
+<td>Inactivity threshold for <code>/memoir:sync</code>'s stale-branch cleanup.</td>
+</tr>
+<tr>
 <td><code>MEMOIR_LLM_MODEL</code></td>
 <td><code>haiku</code></td>
 <td>Model used for the <code>Stop</code> hook's fact extractor. Override only if you've validated alignment with the prompt-test harness.</td>
@@ -2691,36 +2778,36 @@
 <h3 id="where-to-set-them">Where to set them<a class="headerlink" href="#where-to-set-them" title="Permanent link">&para;</a></h3>
 <p>Pick the scope you want — Claude Code merges settings from all three layers, with project-local winning over user-global winning over the shell environment.</p>
 <p><strong>1. User-global (every Claude Code session, every project)</strong> — <code>~/.claude/settings.json</code>:</p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">&quot;env&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="nt">&quot;MEMOIR_NO_CAPTURE&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1&quot;</span><span class="p">,</span>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="w">    </span><span class="nt">&quot;MEMOIR_LLM_MODEL&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;claude-sonnet-4-6&quot;</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="w">  </span><span class="p">}</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="p">}</span>
-</span></code></pre></div>
-<p><strong>2. Per-project, committed (every collaborator on this repo)</strong> — <code>&lt;repo&gt;/.claude/settings.json</code>:</p>
 <div class="language-json highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="p">{</span>
 </span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nt">&quot;env&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="nt">&quot;MEMOIR_NO_CODE_SUMMARY&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1&quot;</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span><span class="p">}</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="p">}</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">    </span><span class="nt">&quot;MEMOIR_NO_CAPTURE&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1&quot;</span><span class="p">,</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">    </span><span class="nt">&quot;MEMOIR_LLM_MODEL&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;claude-sonnet-4-6&quot;</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="p">}</span>
+</span></code></pre></div>
+<p><strong>2. Per-project, committed (every collaborator on this repo)</strong> — <code>&lt;repo&gt;/.claude/settings.json</code>:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="p">{</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="w">  </span><span class="nt">&quot;env&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="w">    </span><span class="nt">&quot;MEMOIR_NO_CODE_SUMMARY&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1&quot;</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a><span class="w">  </span><span class="p">}</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a><span class="p">}</span>
 </span></code></pre></div>
 <p><strong>3. Per-project, local only (just you, gitignored)</strong> — <code>&lt;repo&gt;/.claude/settings.local.json</code>. Same shape as above. Use this for personal toggles you don't want to commit (e.g. <code>MEMOIR_STORE</code> pointing at a custom path).</p>
 <p><strong>4. One-off / shell session</strong> — export before launching <code>claude</code>:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nv">MEMOIR_NO_CAPTURE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>claude
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="c1"># or</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">MEMOIR_LLM_MODEL</span><span class="o">=</span>claude-sonnet-4-6
-</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>claude
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="nv">MEMOIR_NO_CAPTURE</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>claude
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="c1"># or</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="nb">export</span><span class="w"> </span><span class="nv">MEMOIR_LLM_MODEL</span><span class="o">=</span>claude-sonnet-4-6
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>claude
 </span></code></pre></div>
 <p>Persist by adding the <code>export</code> line to <code>~/.zshrc</code> / <code>~/.bashrc</code>, or use <code>direnv</code> with a per-project <code>.envrc</code>.</p>
 <p>After editing a <code>settings.json</code>, restart the Claude Code session for the change to take effect (the plugin reads env at hook fire time, but Claude Code reads settings at session start).</p>
 <h2 id="manifest">Manifest<a class="headerlink" href="#manifest" title="Permanent link">&para;</a></h2>
 <p><code>plugins/claude-code/.claude-plugin/plugin.json</code>:</p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="p">{</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;memoir&quot;</span><span class="p">,</span>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a><span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span><span class="p">,</span>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Git-versioned, taxonomy-structured memory for Claude Code — recall by path, branch to isolate, time-travel to audit.&quot;</span>
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="p">}</span>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="p">{</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="w">  </span><span class="nt">&quot;name&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;memoir&quot;</span><span class="p">,</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a><span class="w">  </span><span class="nt">&quot;version&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span><span class="p">,</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="w">  </span><span class="nt">&quot;description&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;Git-versioned, taxonomy-structured memory for Claude Code — recall by path, branch to isolate, time-travel to audit.&quot;</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a><span class="p">}</span>
 </span></code></pre></div>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
