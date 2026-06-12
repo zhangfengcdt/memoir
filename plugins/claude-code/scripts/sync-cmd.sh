@@ -4,7 +4,7 @@
 # composes raw CLI plumbing or hand-edits plugin state files.
 #
 # Subcommands (each prints one-line JSON on stdout):
-#   list             — unmerged + stale memoir branches + ignore/snooze state
+#   list             — unmerged + deletable/stale memoir branches + ignore/snooze state
 #   dry-run <branch> — preview promoting <branch> into main (CLI passthrough)
 #   merge <branch>   — promote <branch> into main (CLI passthrough; the CLI
 #                      writes the sync marker itself on success)
@@ -12,7 +12,7 @@
 #   snooze [days]    — suppress the SessionStart auto-offer (default 7 days;
 #                      resets the decline counter)
 #   decline          — auto-offer declined: escalating snooze (1d → 7d → 30d)
-#   prune <branch>   — delete a stale memoir branch + its plugin state
+#   prune <branch>   — delete a memoir branch (refuses main/current) + its plugin state
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -57,7 +57,7 @@ case "$cmd" in
       case "$snoozed_until" in ''|*[!0-9]*) snoozed_until=0 ;; esac
     fi
     warn=$(concurrent_session_warning 2>/dev/null || true)
-    stale=$(list_stale_memoir_branches 2>/dev/null || true)
+    deletable=$(list_deletable_memoir_branches 2>/dev/null || true)
 
     python3 -c "
 import json, sys, time
@@ -77,28 +77,37 @@ for line in sys.argv[1].splitlines():
         'age_days': max(0, (now - ts) // 86400) if ts else None,
     })
 unmerged.sort(key=lambda e: -(e['last_commit_ts'] or 0))
-stale = []
+deletable = []
 for line in sys.argv[7].splitlines():
     parts = line.split('\t')
-    if len(parts) != 4 or not parts[0]:
+    if len(parts) != 6 or not parts[0]:
         continue
-    stale.append({
+    deletable.append({
         'branch': parts[0],
         'age_days': int(parts[1] or 0),
         'synced': parts[2] == 'true',
         'code_branch_exists': parts[3] == 'true',
+        'ahead': int(parts[4] or 0),
+        'stale': parts[5] == 'true',
     })
+# Stale first (safe deletions lead the picker), then oldest first.
+deletable.sort(key=lambda e: (not e['stale'], -e['age_days']))
+stale = [
+    {k: e[k] for k in ('branch', 'age_days', 'synced', 'code_branch_exists')}
+    for e in deletable if e['stale']
+]
 print(json.dumps({
     'store': sys.argv[2],
     'code_branch': sys.argv[3],
     'unmerged': unmerged,
     'total_ahead': total,
     'stale': stale,
+    'deletable': deletable,
     'ignored': [l for l in sys.argv[4].splitlines() if l.strip()],
     'snoozed_until': int(sys.argv[5]),
     'concurrent_warning': sys.argv[6],
 }))
-" "$enriched" "$MEMOIR_STORE_PATH" "$(code_git_branch)" "$ignored" "$snoozed_until" "$warn" "$stale"
+" "$enriched" "$MEMOIR_STORE_PATH" "$(code_git_branch)" "$ignored" "$snoozed_until" "$warn" "$deletable"
     ;;
 
   dry-run|merge)

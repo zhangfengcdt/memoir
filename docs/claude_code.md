@@ -34,7 +34,7 @@ Each project gets its own memoir store under `~/.memoir/<slug>/`, derived from y
 | `/memoir:remember <fact>` | Capture a memory. `-p <path>` skips classification. |
 | `/memoir:recall <query>` | Recall from prior sessions (delegates to the `memory-recall` skill). |
 | `/memoir:status` | Branch, commit count, memory count, namespaces. |
-| `/memoir:sync [branch ...]` | Guided promotion of unmerged memoir branches into `main` (select UI: merge all / choose / ignore / snooze / clean up stale). With arguments, merges those branches directly. See [Branch sync](#branch-sync-memoirsync). |
+| `/memoir:sync [branch ...]` | Guided promotion of unmerged memoir branches into `main` (select UI: merge all / choose / ignore / snooze / delete branches). With arguments, merges those branches directly. See [Branch sync](#branch-sync-memoirsync). |
 | `/memoir:ui` | Launch or re-open the web UI (readonly, LLM off by default). |
 
 Admin operations (`forget`, `taxonomy`) are available via the `memoir` CLI directly — they were dropped from the slash-command surface to keep the in-session UX focused on the everyday actions.
@@ -73,7 +73,7 @@ Shared helpers: `hooks/common.sh`, `hooks/parse-transcript.sh`.
 | Script | Role |
 |---|---|
 | `derive-store-path.sh` | Maps the current cwd to `~/.memoir/<slug>` (linked worktrees collapse onto the main worktree's slug). Respects `$MEMOIR_STORE`. |
-| `sync-cmd.sh` | Backing script for `/memoir:sync` and the session-start offer: `list` / `dry-run` / `merge` / `ignore` / `snooze` / `decline` / `prune`. |
+| `sync-cmd.sh` | Backing script for `/memoir:sync` and the session-start offer: `list` / `dry-run` / `merge` / `ignore` / `snooze` / `decline` / `prune` (branch deletion; refuses `main` and the current branch). |
 | `memoir-ui-ctl.sh` | `start` / `stop` / `status` for the web UI, with pidfile bookkeeping so repeated `/memoir:ui` calls reuse the same server. |
 | `statusline.sh` | Renders memoir state into Claude Code's status line, e.g. `memoir: feature/foo · 14 memories`. |
 
@@ -175,7 +175,7 @@ Merging shows a dry-run preview (`+N new keys, M updated`) and then applies — 
 
 **Gated auto-offer.** When total unmerged work reaches **5 commits** and no snooze is active, the `SessionStart` context asks the agent to offer the sync once that session — immediately if the first prompt is low-stakes, otherwise at the end of the turn. Declining backs off automatically: 1 day, then 7, then 30 on consecutive declines; an explicit snooze resets the escalation. Snooze suppresses only the offer — the status-line count and the informational branch list always render.
 
-**Stale-branch cleanup.** A memoir branch is *stale* once it's been inactive for 60 days (`MEMOIR_STALE_BRANCH_DAYS` to override) **and** is either already synced or its code branch is gone (work abandoned). Unsynced branches with a live code branch are never considered stale — the user might resume them. `/memoir:sync` offers stale deletion behind an explicit multiSelect pick (never automatically); pruning also removes the branch's sync marker and ignore-list entry.
+**Branch deletion.** `/memoir:sync` can delete any memoir branch except `main` and the currently-checked-out one (the backing script refuses both) — always behind an explicit multiSelect pick, never automatically. The picker flags risk per branch: *stale* entries — inactive ≥60 days (`MEMOIR_STALE_BRANCH_DAYS` to override) **and** either already synced or their code branch gone (work abandoned) — lead the list as safe to remove; unsynced branches carry a `DISCARDED` warning with their unmerged-commit count. Pruning also removes the branch's sync marker and ignore-list entry, so the store's branch population stays bounded over time.
 
 **Why a branch stops being flagged.** Memoir's promote rewrites patches on `main` rather than creating a two-parent merge commit, so git-graph checks can't detect "already merged". Instead, every successful promote writes a timestamp marker to `<store>/.git/plugin-synced-branches/<branch>`; a branch is considered synced while the marker is newer than its last capture, and resurfaces automatically if new captures land afterwards.
 

@@ -38,7 +38,7 @@ Memory branches auto-track code branches — switching to `feature/x` forks a me
 
 ### Branch sync
 
-`/memoir:sync` walks you through promoting unmerged memoir branches into `main` with a select UI: merge all, choose branches, ignore branches permanently, snooze reminders, or clean up stale branches. State lives next to the store:
+`/memoir:sync` walks you through promoting unmerged memoir branches into `main` with a select UI: merge all, choose branches, ignore branches permanently, snooze reminders, or delete branches. State lives next to the store:
 
 - `<store>/.git/plugin-ignored-branches` — one branch name per line; delete a line to unignore.
 - `<store>/.git/plugin-merge-prompt-cooldown` — "snoozed until" epoch + consecutive-decline count.
@@ -47,7 +47,7 @@ When the total unmerged work reaches **5 commits** (and no snooze is active), Se
 
 **Auto-promotion.** When your code branch is merged into `main` via a merge commit, the next SessionStart on `main` promotes its memoir branch automatically (the promote is additive-only and conflict-free) and reports it in the status line. Squash- or rebase-merged branches aren't detected — promote those with `/memoir:sync`. Disable with `MEMOIR_AUTO_PROMOTE_MERGED=0`.
 
-**Stale-branch cleanup.** A memoir branch is *stale* once it has been inactive for 60 days (`MEMOIR_STALE_BRANCH_DAYS` to override) **and** is either already synced or its code branch is gone. `/memoir:sync` offers to delete stale branches — always behind an explicit pick, never automatically — so the store's branch list stays bounded over time.
+**Branch deletion.** `/memoir:sync` can delete any memoir branch except `main` and the currently-checked-out one — always behind an explicit pick, never automatically. The picker flags each branch's risk: *stale* branches (inactive 60 days, `MEMOIR_STALE_BRANCH_DAYS` to override, and either already synced or their code branch is gone) are marked safe to remove; unsynced branches carry a warning that their unmerged captures will be discarded. Deleting also cleans up the branch's sync marker and ignore-list entry, so the store's branch list stays bounded over time.
 
 Disable per-turn auto-capture with `MEMOIR_NO_CAPTURE=1`.
 

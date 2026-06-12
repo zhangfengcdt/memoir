@@ -524,6 +524,37 @@ bash "$SYNC_CMD" snooze 7 >/dev/null
 d4=$(bash "$SYNC_CMD" decline)
 assert_contains "explicit snooze resets escalation" '"days": 1' "$d4"
 
+# -------- 21. Delete-any-branch surface (deletable list + prune unsynced) --------
+heading "Deletable list covers all non-main branches; prune works on unsynced"
+del_check=$(bash "$SYNC_CMD" list | python3 -c "
+import json, sys
+d = json.loads(sys.stdin.read())
+m = {e['branch']: e for e in d['deletable']}
+print('main' not in m,
+      m['feature/small']['synced'] is False
+        and m['feature/small']['ahead'] >= 5
+        and m['feature/small']['stale'] is False,
+      m['feature/a']['synced'] is True,
+      all(e['stale'] for e in d['stale']) if d['stale'] else True)
+")
+assert "deletable lists non-main branches with sync/ahead/stale flags" \
+  "True True True True" "$del_check"
+
+# Deleting an unsynced branch is allowed — risk surfacing is the command
+# prompt's job (explicit pick + DISCARD warning); the script just refuses
+# main and the current branch.
+bash "$SYNC_CMD" prune feature/small >/dev/null
+small_left=$(memoir --json -s "$STORE" branch |
+  python3 -c "import json,sys; print('feature/small' in (json.loads(sys.stdin.read()).get('branches') or []))")
+assert "unsynced branch deleted via prune" "False" "$small_left"
+# Current-branch refusal, distinct from the main refusal: check out a
+# non-main branch and try to prune it.
+memoir -s "$STORE" checkout feature/a >/dev/null
+refuse_out=$(bash "$SYNC_CMD" prune feature/a 2>&1 || true)
+assert_contains "prune refuses the currently-checked-out branch" \
+  "currently checked-out" "$refuse_out"
+memoir -s "$STORE" checkout main >/dev/null
+
 # -------- Summary --------
 printf '\n--------------------------------\n'
 printf 'PASS: %d    FAIL: %d\n' "$PASS" "$FAIL"

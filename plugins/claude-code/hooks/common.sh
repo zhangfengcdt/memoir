@@ -634,14 +634,16 @@ auto_promote_merged_branches() {
   return 0
 }
 
-# list_stale_memoir_branches — emit "<branch>\t<age-days>\t<synced>\t<code-exists>"
-# for memoir branches (other than main and the current one) inactive for at
-# least MEMOIR_STALE_BRANCH_DAYS (default 60) that are safe-or-moot to
-# delete: already synced, or their code branch is gone (work abandoned).
-# Unsynced branches whose code branch still exists are never listed — the
-# user might resume them. Ignored branches ARE listed: GC is an explicit
-# cleanup surface inside /memoir:sync, not a reminder.
-list_stale_memoir_branches() {
+# list_deletable_memoir_branches — emit
+# "<branch>\t<age-days>\t<synced>\t<code-exists>\t<ahead>\t<stale>" for every
+# memoir branch except main and the currently-checked-out one (the two the
+# prune subcommand refuses to delete). `stale` flags the safe-or-moot subset:
+# inactive ≥ MEMOIR_STALE_BRANCH_DAYS (default 60) AND already synced or its
+# code branch is gone (work abandoned). Unsynced branches whose code branch
+# still exists are deletable but never stale — the /memoir:sync picker shows
+# a DISCARD warning for them instead. Ignored branches ARE listed: deletion
+# is an explicit cleanup surface inside /memoir:sync, not a reminder.
+list_deletable_memoir_branches() {
   [ -z "$MEMOIR_CMD" ] && return 1
   [ ! -d "$MEMOIR_STORE_PATH/.git" ] && return 1
   local days="${MEMOIR_STALE_BRANCH_DAYS:-60}"
@@ -659,13 +661,12 @@ try:
 except Exception:
     pass
 ")
-  local b last_ts marker_ts synced code_exists
+  local b last_ts marker_ts synced code_exists ahead stale
   while IFS= read -r b; do
     [ -z "$b" ] && continue
     [ "$b" = "main" ] && continue
     [ "$b" = "$current" ] && continue
     last_ts=$(git -C "$MEMOIR_STORE_PATH" log -1 --format=%ct "$b" 2>/dev/null || echo 0)
-    [ "$last_ts" -gt "$cutoff" ] && continue  # still active
     marker_ts=$(branch_sync_timestamp "$b")
     synced=false
     if [ "$marker_ts" != "0" ] && [ "$marker_ts" -ge "$last_ts" ]; then
@@ -673,9 +674,14 @@ except Exception:
     fi
     code_exists=true
     code_branch_exists "$b" || code_exists=false
-    if [ "$synced" = "true" ] || [ "$code_exists" = "false" ]; then
-      printf '%s\t%s\t%s\t%s\n' "$b" "$(( (now - last_ts) / 86400 ))" "$synced" "$code_exists"
+    ahead=$(git -C "$MEMOIR_STORE_PATH" rev-list --count "main..$b" 2>/dev/null || echo 0)
+    stale=false
+    if [ "$last_ts" -le "$cutoff" ]; then
+      if [ "$synced" = "true" ] || [ "$code_exists" = "false" ]; then
+        stale=true
+      fi
     fi
+    printf '%s\t%s\t%s\t%s\t%s\t%s\n' "$b" "$(( (now - last_ts) / 86400 ))" "$synced" "$code_exists" "$ahead" "$stale"
   done <<< "$all_branches"
 }
 

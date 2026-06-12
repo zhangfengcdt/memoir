@@ -140,6 +140,8 @@ assert_contains "[3.3] sync-cmd.sh list reports no unmerged branches in non-git 
   '"unmerged": []' "$sync_list"
 assert_contains "[3.4] sync-cmd.sh list reports no stale branches in non-git folder" \
   '"stale": []' "$sync_list"
+assert_contains "[3.5] sync-cmd.sh list reports no deletable branches in non-git folder" \
+  '"deletable": []' "$sync_list"
 
 # ---------------------------------------------------------------------------
 # Step 4: Cold project:onboard pass on a writing+bookkeeping mix

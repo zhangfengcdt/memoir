@@ -64,22 +64,29 @@ Final reply: first line `[mode=synced]` (all succeeded) or `[mode=partial]` (som
    ```
    Reply `[mode=ignored]` listing the branches and the unignore path (`<store>/.git/plugin-ignored-branches`).
 2. `Snooze auto-offers for a week` → `bash "${CLAUDE_PLUGIN_ROOT}/scripts/sync-cmd.sh" snooze 7` → `[mode=snoozed]`. (Different duration? The user can pick Other and type a number of days; pass it as `snooze <days>`.)
-3. `Clean up <N> stale branches` → Step 5. If `stale` is empty, label it `Clean up stale branches (none found)` and on selection explain nothing qualifies yet (inactive ≥60 days and synced-or-abandoned), then re-ask Step 1.
+3. `Delete branches` → Step 5. Description: `<total> branch(es) can be deleted` plus, when `stale` is non-empty, `— <N> stale (safe to remove)`. If `deletable` is empty, label it `Delete branches (none)` and on selection explain only `main` and the current branch exist, then re-ask Step 1.
 4. `Back` → re-ask Step 1.
 
 When replying `[mode=snoozed]`, clarify that snooze only suppresses the proactive session-start offer — the status-line count keeps showing, and `/memoir:sync` keeps working.
 
-## Step 5 — Clean up stale branches (AskUserQuestion, multiSelect, header "Stale branches")
+## Step 5 — Delete branches (AskUserQuestion, multiSelect, header "Delete branches")
 
-Stale = inactive ≥60 days **and** either already synced or its code branch is gone. Deletion is destructive for unsynced branches, so this step is always an explicit multiSelect pick — never automatic.
+Picker over `deletable` — every memoir branch except `main` and the currently-checked-out one (the backing script refuses both). The array is pre-sorted stale-first, then oldest-first; use the same top-4 + Other overflow pattern as Step 2. Deletion is destructive for unsynced branches, so this step is always an explicit multiSelect pick — never automatic, and never bundled into a merge flow.
 
-Picker over `stale` (same top-4 + Other overflow pattern as Step 2). Label = branch name; description = `inactive <age_days>d · synced` or `inactive <age_days>d · code branch gone — unsynced captures will be DISCARDED`. Then per selected branch:
+Label = branch name; description states the risk, derived per entry:
+
+- `stale: true`, `synced: true` → `stale · inactive <age_days>d · synced — safe to delete`
+- `stale: true`, `synced: false` → `stale · inactive <age_days>d · code branch gone — <ahead> unsynced commits will be DISCARDED`
+- `stale: false`, `synced: true` → `synced — safe to delete`
+- `stale: false`, `synced: false` → `UNSYNCED — <ahead> commits not on main will be DISCARDED (merge first via Step 3 if in doubt)`
+
+Then per selected branch:
 
 ```bash
 bash "${CLAUDE_PLUGIN_ROOT}/scripts/sync-cmd.sh" prune "<branch>"
 ```
 
-Reply `[mode=pruned]` listing deleted branches. On a failure, print the error and continue with the rest (`[mode=partial]` if mixed).
+Reply `[mode=pruned]` listing deleted branches (call out any that were deleted unsynced). On a failure, print the error and continue with the rest (`[mode=partial]` if mixed).
 
 ## Rules
 
