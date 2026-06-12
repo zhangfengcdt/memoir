@@ -163,12 +163,35 @@ fi
 
 if [ -n "$unmerged" ]; then
   unmerged_block="# memoir — unmerged branches detected"$'\n'
-  unmerged_block+="You have captured memories on these branches that aren't on main yet:"$'\n\n'
+  unmerged_block+="Memories captured on these branches aren't on main yet:"$'\n\n'
+  unmerged_total_ahead=0
   while IFS=$'\t' read -r b n; do
     [ -z "$b" ] && continue
-    unmerged_block+="- memoir/${b}: ${n} unmerged commits → memoir:memoir-sync-branch ${b}"$'\n'
+    unmerged_block+="- memoir/${b}: ${n} unmerged commits"$'\n'
+    unmerged_total_ahead=$((unmerged_total_ahead + n))
   done <<< "$unmerged"
-  unmerged_block+=$'\n'"Run the suggested command to promote them to main (keeps the source branch)."
+  unmerged_block+=$'\n'"The user can review and promote them with /memoir:sync (keeps the source branches)."
+
+  # Tier-2 auto-offer: only when there's meaningful unmerged work (≥5 commits
+  # total) and the user hasn't snoozed it. The block carries a self-contained
+  # recipe because the agent can't invoke the slash command itself. The
+  # decline→snooze-1 rule is the anti-nag backstop; snooze suppresses only
+  # this offer, never the informational block or status-line count above.
+  SYNC_CMD="$(cd "$SCRIPT_DIR/.." && pwd)/scripts/sync-cmd.sh"
+  if [ "$unmerged_total_ahead" -ge 5 ] && ! merge_prompt_cooldown_active; then
+    unmerged_block+=$'\n\n'"## Auto-offer (this session only)"$'\n'
+    unmerged_block+="There is meaningful unmerged work (${unmerged_total_ahead} commits). Offer to sync ONCE this session:"$'\n'
+    unmerged_block+="- If the user's FIRST prompt is low-stakes or memoir-related (greeting, status/memory question), raise the offer immediately via AskUserQuestion."$'\n'
+    unmerged_block+="- Otherwise complete their task first and raise it at the END of that turn."$'\n'
+    unmerged_block+="- Never interrupt an in-flight task, and never offer more than once per session."$'\n'
+    unmerged_block+="Ask one question — \"Sync the unmerged memoir branches into main?\" — with options:"$'\n'
+    unmerged_block+="1. \"Yes, merge all\" → for each branch above: bash \"$SYNC_CMD\" dry-run <branch> (show a one-line summary), then bash \"$SYNC_CMD\" merge <branch>"$'\n'
+    unmerged_block+="2. \"Let me choose\" → ask a multiSelect follow-up listing the branches, then merge the selected ones the same way"$'\n'
+    unmerged_block+="3. \"Remind me in a week\" → bash \"$SYNC_CMD\" snooze 7"$'\n'
+    unmerged_block+="4. \"Stop asking about these\" → bash \"$SYNC_CMD\" ignore <branch> for each branch above"$'\n'
+    unmerged_block+="If the user dismisses or declines without picking an option, run bash \"$SYNC_CMD\" snooze 1 so the next session doesn't immediately re-ask. Mention /memoir:sync exists for later."
+  fi
+
   if [ -n "$context" ]; then
     context="${context}"$'\n\n'"${unmerged_block}"
   else

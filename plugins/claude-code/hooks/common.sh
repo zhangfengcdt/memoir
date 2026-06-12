@@ -353,6 +353,7 @@ _sticky_file() { printf '%s' "$MEMOIR_STORE_PATH/.git/plugin-sticky-branch"; }
 _ignored_branches_file() { printf '%s' "$MEMOIR_STORE_PATH/.git/plugin-ignored-branches"; }
 _heartbeats_dir() { printf '%s' "$MEMOIR_STORE_PATH/.git/plugin-active-sessions"; }
 _synced_dir() { printf '%s' "$MEMOIR_STORE_PATH/.git/plugin-synced-branches"; }
+_merge_prompt_cooldown_file() { printf '%s' "$MEMOIR_STORE_PATH/.git/plugin-merge-prompt-cooldown"; }
 
 # record_branch_synced <branch> — called by /memoir-sync-branch after a successful
 # merge. Records the Unix timestamp of the sync. The detector uses this to
@@ -413,6 +414,39 @@ is_branch_ignored() {
   f=$(_ignored_branches_file)
   [ -f "$f" ] || return 1
   grep -qxF "$name" "$f" 2>/dev/null
+}
+
+# ignore_branch <name> — add a branch to the silence list (idempotent).
+# Counterpart to is_branch_ignored; written via scripts/sync-cmd.sh so the
+# ignore file is never hand-composed by the agent.
+ignore_branch() {
+  local name="$1"
+  [ -z "$name" ] && return 1
+  [ ! -d "$MEMOIR_STORE_PATH/.git" ] && return 1
+  is_branch_ignored "$name" && return 0
+  printf '%s\n' "$name" >> "$(_ignored_branches_file)"
+}
+
+# set_merge_prompt_cooldown <days> — snooze the SessionStart merge auto-offer
+# by writing a "snoozed until" epoch. Suppresses only the auto-offer; the
+# status-line count and the informational unmerged block keep rendering.
+set_merge_prompt_cooldown() {
+  local days="${1:-7}"
+  [ ! -d "$MEMOIR_STORE_PATH/.git" ] && return 1
+  case "$days" in ''|*[!0-9]*) return 1 ;; esac
+  printf '%s\n' "$(( $(date +%s) + days * 86400 ))" > "$(_merge_prompt_cooldown_file)"
+}
+
+# merge_prompt_cooldown_active — 0 while a snooze written by
+# set_merge_prompt_cooldown is still in the future. Missing or garbage file
+# counts as inactive.
+merge_prompt_cooldown_active() {
+  local f ts
+  f=$(_merge_prompt_cooldown_file)
+  [ -f "$f" ] || return 1
+  ts=$(head -n1 "$f" 2>/dev/null || echo "")
+  case "$ts" in ''|*[!0-9]*) return 1 ;; esac
+  [ "$(date +%s)" -lt "$ts" ]
 }
 
 # branch_exists_in_memoir <name> — returns 0 if the memoir branch exists.

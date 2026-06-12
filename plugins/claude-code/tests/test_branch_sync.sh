@@ -9,7 +9,9 @@
 #   - Auto-matching memoir branch to current code branch on SessionStart
 #   - Fork-from-main when a matching memoir branch doesn't exist
 #   - Multi-branch unmerged detection (e.g. sequence main → a → b → main)
-#   - memoir:memoir-sync-branch writes the sync marker and suppresses suggestions
+#   - Sync markers suppress suggestions (sim helper + real scripts/sync-cmd.sh)
+#   - scripts/sync-cmd.sh subcommands: list / dry-run / merge / ignore / snooze
+#   - Auto-offer threshold (≥5 unmerged commits) and snooze cooldown gating
 #   - New captures after sync correctly resurface the branch
 #   - Sticky opt-out and its auto-clear on return to code-matching branch
 #   - Concurrent-session heartbeat warning
@@ -38,7 +40,9 @@ trap cleanup EXIT
 
 git init -q "$PROJ"
 git -C "$PROJ" commit --allow-empty -q -m init
-memoir new "$STORE" --taxonomy-builtin --no-connect >/dev/null
+# No --no-connect: the flag was removed from `memoir new` (stores no longer
+# auto-connect; see scripts/ensure-store.sh).
+memoir new "$STORE" --taxonomy-builtin >/dev/null
 export MEMOIR_STORE="$STORE"
 
 # Avoid calling the LLM-backed classifier during the test — pass --path on
@@ -101,7 +105,9 @@ memoir_current_branch() {
     python3 -c "import json,sys; print(json.loads(sys.stdin.read()).get('branch',''))"
 }
 sync_branch() {
-  # Simulate what memoir:memoir-sync-branch <name> does.
+  # Simulate a branch sync (merge + marker) without going through the CLI's
+  # sync-branch — kept for the older sections; section 15 exercises the real
+  # path via scripts/sync-cmd.sh.
   local target="$1" current
   current=$(memoir_current_branch)
   memoir -s "$STORE" checkout main >/dev/null
@@ -152,8 +158,9 @@ heading "Back to code main — expect BOTH feature/a and feature/b in suggestion
 git -C "$PROJ" checkout -q main
 session_start_status >/dev/null
 context=$(session_start_context)
-assert_contains "suggestions list feature/a" "memoir:memoir-sync-branch feature/a" "$context"
-assert_contains "suggestions list feature/b" "memoir:memoir-sync-branch feature/b" "$context"
+assert_contains "suggestions list feature/a" "memoir/feature/a:" "$context"
+assert_contains "suggestions list feature/b" "memoir/feature/b:" "$context"
+assert_contains "suggestions point at /memoir:sync" "/memoir:sync" "$context"
 
 # -------- 6. Sync feature/a --------
 heading "Sync feature/a"
@@ -163,14 +170,14 @@ assert "sync marker exists for feature/a" "0" "$([ -f "$STORE/.git/plugin-synced
 # -------- 7. After sync: only feature/b remains --------
 heading "Re-run SessionStart after syncing feature/a"
 context=$(session_start_context)
-assert_not_contains "feature/a gone from suggestions" "memoir:memoir-sync-branch feature/a" "$context"
-assert_contains "feature/b still in suggestions" "memoir:memoir-sync-branch feature/b" "$context"
+assert_not_contains "feature/a gone from suggestions" "memoir/feature/a:" "$context"
+assert_contains "feature/b still in suggestions" "memoir/feature/b:" "$context"
 
 # -------- 8. Sync feature/b, suggestions empty --------
 heading "Sync feature/b"
 sync_branch feature/b
 context=$(session_start_context)
-assert_not_contains "no suggestions after both synced" "memoir:memoir-sync-branch" "$context"
+assert_not_contains "no suggestions after both synced" "unmerged branches detected" "$context"
 
 # -------- 9. New capture resurfaces branch --------
 heading "New capture on feature/a resurfaces it"
@@ -179,7 +186,7 @@ sleep 2  # ensure commit timestamp strictly > sync-marker timestamp
 memoir -s "$STORE" --json remember "A follow-up" -p preferences.coding.style >/dev/null
 memoir -s "$STORE" checkout main >/dev/null
 context=$(session_start_context)
-assert_contains "feature/a resurfaces after new capture" "memoir:memoir-sync-branch feature/a" "$context"
+assert_contains "feature/a resurfaces after new capture" "memoir/feature/a:" "$context"
 
 # Clean state for the remaining tests — sync feature/a again.
 sync_branch feature/a
@@ -194,12 +201,12 @@ memoir -s "$STORE" --json remember "captured on deletable" -p context.project.da
 git -C "$PROJ" checkout -q main
 context=$(session_start_context)
 assert_contains "feature/deletable initially listed while code branch exists" \
-  "memoir:memoir-sync-branch feature/deletable" "$context"
+  "memoir/feature/deletable:" "$context"
 
 git -C "$PROJ" branch -D feature/deletable >/dev/null
 context=$(session_start_context)
 assert_not_contains "feature/deletable suppressed after its code branch is deleted" \
-  "memoir:memoir-sync-branch feature/deletable" "$context"
+  "memoir/feature/deletable:" "$context"
 
 # -------- 9c. Unmerged detection only fires while code branch is main --------
 heading "Unmerged detection suppressed when code branch != main"
@@ -214,13 +221,13 @@ memoir -s "$STORE" checkout main >/dev/null
 git -C "$PROJ" checkout -q feature/a
 context=$(session_start_context)
 assert_not_contains "no unmerged suggestions while on code feature/a" \
-  "memoir:memoir-sync-branch" "$context"
+  "unmerged branches detected" "$context"
 
 # Returning to main resurfaces feature/b.
 git -C "$PROJ" checkout -q main
 context=$(session_start_context)
 assert_contains "feature/b surfaces once code returns to main" \
-  "memoir:memoir-sync-branch feature/b" "$context"
+  "memoir/feature/b:" "$context"
 
 # Clean up so later tests start from a quiet state.
 sync_branch feature/b
@@ -326,6 +333,103 @@ memoir -s "$STORE" checkout feature/a >/dev/null
 echo "{\"transcript_path\":\"$TRANSCRIPT\"}" | bash "$CLAUDE_PLUGIN_ROOT/hooks/stop.sh" >/dev/null 2>&1
 assert "Stop hook re-matched memoir to feature/b before capture" "feature/b" "$(memoir_current_branch)"
 rm -f "$TRANSCRIPT"
+
+# -------- 14. sync-cmd.sh list --------
+heading "sync-cmd.sh list emits unmerged JSON"
+SYNC_CMD="$CLAUDE_PLUGIN_ROOT/scripts/sync-cmd.sh"
+# Back to code main; re-match memoir to main, then put fresh captures on a and b.
+git -C "$PROJ" checkout -q main
+session_start_status >/dev/null
+memoir -s "$STORE" checkout feature/a >/dev/null
+sleep 2  # commit ts must exceed the sync-marker ts from earlier sections
+memoir -s "$STORE" --json remember "list-test fact A" -p preferences.coding.style >/dev/null
+memoir -s "$STORE" checkout feature/b >/dev/null
+memoir -s "$STORE" --json remember "list-test fact B" -p context.project.database >/dev/null
+memoir -s "$STORE" checkout main >/dev/null
+
+list_json=$(bash "$SYNC_CMD" list)
+list_check=$(printf '%s' "$list_json" | python3 -c "
+import json, sys
+d = json.loads(sys.stdin.read())
+branches = sorted(e['branch'] for e in d['unmerged'])
+total_ok = d['total_ahead'] == sum(e['ahead'] for e in d['unmerged'])
+ahead_ok = all(e['ahead'] >= 1 for e in d['unmerged'])
+print(','.join(branches), total_ok, ahead_ok)
+")
+assert "list reports both branches, total_ahead consistent" \
+  "feature/a,feature/b True True" "$list_check"
+
+# -------- 15. sync-cmd.sh dry-run + merge (real CLI path) --------
+heading "sync-cmd.sh dry-run previews without marker write; merge promotes"
+marker_before=$(cat "$STORE/.git/plugin-synced-branches/feature/a")
+dry_json=$(bash "$SYNC_CMD" dry-run feature/a)
+assert_contains "dry-run reports dry_run: true" '"dry_run": true' "$dry_json"
+assert "dry-run does not touch the sync marker" \
+  "$marker_before" "$(cat "$STORE/.git/plugin-synced-branches/feature/a")"
+
+merge_json=$(bash "$SYNC_CMD" merge feature/a)
+assert_contains "merge reports success" '"success": true' "$merge_json"
+marker_after=$(cat "$STORE/.git/plugin-synced-branches/feature/a")
+assert "merge advanced the sync marker" "0" \
+  "$([ "$marker_after" -gt "$marker_before" ]; echo $?)"
+assert "merge restored memoir branch main" "main" "$(memoir_current_branch)"
+context=$(session_start_context)
+assert_not_contains "feature/a gone from suggestions after real merge" \
+  "memoir/feature/a:" "$context"
+
+# -------- 16. sync-cmd.sh ignore (idempotent, suppresses suggestions) --------
+heading "sync-cmd.sh ignore"
+ig1=$(bash "$SYNC_CMD" ignore feature/b)
+assert_contains "first ignore reports already: false" '"already": false' "$ig1"
+ig2=$(bash "$SYNC_CMD" ignore feature/b)
+assert_contains "second ignore reports already: true" '"already": true' "$ig2"
+assert "ignore file holds exactly one feature/b line" "1" \
+  "$(grep -cxF 'feature/b' "$STORE/.git/plugin-ignored-branches")"
+list_json=$(bash "$SYNC_CMD" list)
+ignore_check=$(printf '%s' "$list_json" | python3 -c "
+import json, sys
+d = json.loads(sys.stdin.read())
+print('feature/b' not in {e['branch'] for e in d['unmerged']},
+      'feature/b' in d['ignored'])
+")
+assert "ignored branch absent from unmerged, present in ignored" "True True" "$ignore_check"
+context=$(session_start_context)
+assert_not_contains "ignored branch absent from suggestions" "memoir/feature/b:" "$context"
+
+# -------- 17. Auto-offer threshold + snooze cooldown --------
+heading "Auto-offer gating (≥5 commits) and snooze"
+# A fresh branch with a single capture stays below the threshold.
+git -C "$PROJ" checkout -qb feature/small
+session_start_status >/dev/null
+memoir -s "$STORE" --json remember "small fact 1" -p preferences.coding.style >/dev/null
+git -C "$PROJ" checkout -q main
+context=$(session_start_context)
+assert_contains "below threshold: informational block present" "memoir/feature/small:" "$context"
+assert_not_contains "below threshold: no auto-offer" "## Auto-offer" "$context"
+
+# Four more captures push the branch to 5 unmerged commits.
+memoir -s "$STORE" checkout feature/small >/dev/null
+for i in 2 3 4 5; do
+  memoir -s "$STORE" --json remember "small fact $i" -p preferences.coding.style >/dev/null
+done
+memoir -s "$STORE" checkout main >/dev/null
+context=$(session_start_context)
+assert_contains "at threshold: auto-offer present" "## Auto-offer" "$context"
+assert_contains "auto-offer recipe references sync-cmd.sh" "sync-cmd.sh" "$context"
+
+# Snooze suppresses the auto-offer but not the count or the info block.
+snooze_json=$(bash "$SYNC_CMD" snooze 7)
+assert_contains "snooze emits snoozed_until" '"snoozed_until"' "$snooze_json"
+status=$(session_start_status)
+context=$(session_start_context)
+assert_contains "snoozed: status line still counts unmerged" "branch unmerged" "$status"
+assert_contains "snoozed: informational block still present" "memoir/feature/small:" "$context"
+assert_not_contains "snoozed: auto-offer suppressed" "## Auto-offer" "$context"
+
+# An expired cooldown reactivates the auto-offer.
+echo "$(( $(date +%s) - 60 ))" > "$STORE/.git/plugin-merge-prompt-cooldown"
+context=$(session_start_context)
+assert_contains "expired snooze: auto-offer returns" "## Auto-offer" "$context"
 
 # -------- Summary --------
 printf '\n--------------------------------\n'

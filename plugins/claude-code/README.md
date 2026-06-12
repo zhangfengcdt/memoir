@@ -29,12 +29,21 @@ LLM calls inherit Claude Code's auth automatically (`MEMOIR_LLM_BACKEND=claude-c
 
 | Component | Role |
 |---|---|
-| **Slash commands** | `/memoir:onboard`, `/memoir:remember`, `/memoir:recall`, `/memoir:status`, `/memoir:ui`. (Admin operations like sync-branch, unmerged, taxonomy, and forget are available via the `memoir` CLI.) |
+| **Slash commands** | `/memoir:onboard`, `/memoir:remember`, `/memoir:recall`, `/memoir:status`, `/memoir:sync`, `/memoir:ui`. (Admin operations like taxonomy and forget are available via the `memoir` CLI.) |
 | **Skills** | `memory-recall` (user facts, auto-triggered, runs in a forked context) and `memoir-onboard` (maintains the `codebase:onboard` snapshot). |
-| **Lifecycle hooks** | `SessionStart` (inject status + taxonomy + unmerged-branch suggestions), `UserPromptSubmit` (surface matching hints), `Stop` (async auto-capture of durable facts), `SessionEnd` (cleanup). |
+| **Lifecycle hooks** | `SessionStart` (inject status + taxonomy + unmerged-branch suggestions, with a guided `/memoir:sync` offer when there's meaningful unmerged work), `UserPromptSubmit` (surface matching hints), `Stop` (async auto-capture of durable facts), `SessionEnd` (cleanup). |
 | **Status line** | `[memoir] <branch> · N memories`, with warnings for concurrent sessions or sticky-branch mode. |
 
-Memory branches auto-track code branches — switching to `feature/x` forks a memoir branch from `main` so you inherit all prior captures but keep new ones isolated until you promote them with `memoir sync-branch`. For deeper git operations (branch, checkout, merge, time-travel, blame, proof, verify, diff, get, keys), use the `memoir` CLI directly.
+Memory branches auto-track code branches — switching to `feature/x` forks a memoir branch from `main` so you inherit all prior captures but keep new ones isolated until you promote them with `/memoir:sync` (or `memoir sync-branch` from a terminal). For deeper git operations (branch, checkout, merge, time-travel, blame, proof, verify, diff, get, keys), use the `memoir` CLI directly.
+
+### Branch sync
+
+`/memoir:sync` walks you through promoting unmerged memoir branches into `main` with a select UI: merge all, choose branches, ignore branches permanently, or snooze reminders. State lives next to the store:
+
+- `<store>/.git/plugin-ignored-branches` — one branch name per line; delete a line to unignore.
+- `<store>/.git/plugin-merge-prompt-cooldown` — "snoozed until" epoch written by the snooze option.
+
+When the total unmerged work reaches **5 commits** (and no snooze is active), SessionStart additionally asks the agent to offer the sync once that session — declining snoozes it for a day. The status-line count and the informational branch list always render regardless of snooze state.
 
 Disable per-turn auto-capture with `MEMOIR_NO_CAPTURE=1`.
 
