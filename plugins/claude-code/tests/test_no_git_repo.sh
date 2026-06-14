@@ -26,7 +26,9 @@ rm -rf "$STORE"
 cleanup() { rm -rf "$PROJ" "$STORE"; }
 trap cleanup EXIT
 
-memoir new "$STORE" --taxonomy-builtin --no-connect >/dev/null 2>&1
+# No --no-connect: the flag was removed from `memoir new` (stores no longer
+# auto-connect; see scripts/ensure-store.sh).
+memoir new "$STORE" --taxonomy-builtin >/dev/null 2>&1
 export MEMOIR_STORE="$STORE"
 
 cd "$PROJ"
@@ -130,6 +132,16 @@ fi
 echo "should not reach here"
 ')
 assert_contains "[3.2] memoir-unmerged short-circuits with non-git message" "non-git folder" "$unmerged_out"
+
+# /memoir:sync's backing script must run cleanly with no code repo: only the
+# main memoir branch exists, so the unmerged list is empty by construction.
+sync_list=$(bash "$CLAUDE_PLUGIN_ROOT/scripts/sync-cmd.sh" list)
+assert_contains "[3.3] sync-cmd.sh list reports no unmerged branches in non-git folder" \
+  '"unmerged": []' "$sync_list"
+assert_contains "[3.4] sync-cmd.sh list reports no stale branches in non-git folder" \
+  '"stale": []' "$sync_list"
+assert_contains "[3.5] sync-cmd.sh list reports no deletable branches in non-git folder" \
+  '"deletable": []' "$sync_list"
 
 # ---------------------------------------------------------------------------
 # Step 4: Cold project:onboard pass on a writing+bookkeeping mix

@@ -21,10 +21,10 @@ Each project gets its own memoir store under `~/.memoir/<slug>/`, derived from y
 
 | Component | Count | Role |
 |---|---|---|
-| Slash commands | 9 | Manual memory ops, admin, UI launch |
+| Slash commands | 6 | Manual memory ops, branch sync, admin, UI launch |
 | Skills | 2 | Auto-invoked: recall + codebase onboarding |
 | Lifecycle hooks | 4 | Context injection + auto-capture |
-| Helper scripts | 3 | Store path, UI control, status line |
+| Helper scripts | 4 | Store path, branch sync, UI control, status line |
 
 ## Slash commands
 
@@ -34,9 +34,10 @@ Each project gets its own memoir store under `~/.memoir/<slug>/`, derived from y
 | `/memoir:remember <fact>` | Capture a memory. `-p <path>` skips classification. |
 | `/memoir:recall <query>` | Recall from prior sessions (delegates to the `memory-recall` skill). |
 | `/memoir:status` | Branch, commit count, memory count, namespaces. |
+| `/memoir:sync [branch ...]` | Guided promotion of unmerged memoir branches into `main` (select UI: merge all / choose / ignore / snooze / delete branches). With arguments, merges those branches directly. See [Branch sync](#branch-sync-memoirsync). |
 | `/memoir:ui` | Launch or re-open the web UI (readonly, LLM off by default). |
 
-Admin operations (`forget`, `taxonomy`, `unmerged`, `sync-branch`) are available via the `memoir` CLI directly — they were dropped from the slash-command surface to keep the in-session UX focused on the five everyday actions.
+Admin operations (`forget`, `taxonomy`) are available via the `memoir` CLI directly — they were dropped from the slash-command surface to keep the in-session UX focused on the everyday actions.
 
 ## Skills
 
@@ -60,7 +61,7 @@ Configured in `plugins/claude-code/hooks/hooks.json`:
 
 | Event | Script | Timeout | Async | Purpose |
 |---|---|---|---|---|
-| `SessionStart` | `session-start.sh` | 15s | — | Inject store status, branch/commit state, onboard snapshot, and "memory available" hints. |
+| `SessionStart` | `session-start.sh` | 15s | — | Inject store status, branch/commit state, onboard snapshot, and "memory available" hints. Auto-promotes memoir branches whose code branch merged into `main`; surfaces unmerged branches with a gated `/memoir:sync` offer. |
 | `UserPromptSubmit` | `user-prompt-submit.sh` | 10s | — | Surface matching memory hints for the current prompt. |
 | `Stop` | `stop.sh` | 180s | yes | Parse the transcript and auto-capture durable facts into the taxonomy. |
 | `SessionEnd` | `session-end.sh` | 5s | yes | Cleanup. |
@@ -72,6 +73,7 @@ Shared helpers: `hooks/common.sh`, `hooks/parse-transcript.sh`.
 | Script | Role |
 |---|---|
 | `derive-store-path.sh` | Maps the current cwd to `~/.memoir/<slug>` (linked worktrees collapse onto the main worktree's slug). Respects `$MEMOIR_STORE`. |
+| `sync-cmd.sh` | Backing script for `/memoir:sync` and the session-start offer: `list` / `dry-run` / `merge` / `ignore` / `snooze` / `decline` / `prune` (branch deletion; refuses `main` and the current branch). |
 | `memoir-ui-ctl.sh` | `start` / `stop` / `status` for the web UI, with pidfile bookkeeping so repeated `/memoir:ui` calls reuse the same server. |
 | `statusline.sh` | Renders memoir state into Claude Code's status line, e.g. `memoir: feature/foo · 14 memories`. |
 
@@ -114,7 +116,7 @@ Two properties to notice:
 - **Reads happen eagerly, writes happen lazily.** Every prompt passes through `UserPromptSubmit` (step 2) and potentially fires `memory-recall` (step 3) — the agent pulls context without the user asking. Auto-capture is deferred to `Stop` (step 4), which is async so it never blocks the turn.
 - **Namespaces split along read/write paths.** `memory-recall` works against `default` (user-captured facts, written by the `Stop` hook or `/memoir:remember`). `memoir-onboard` works against `codebase:onboard` (repo snapshot, written by `/memoir:onboard`, replayed by the `SessionStart` hook). Two namespaces, two lifecycles, no overlap.
 
-The admin surface — `/memoir:ui`, `/memoir:status` (slash commands), plus `memoir taxonomy`, `memoir unmerged`, and `memoir sync-branch` (CLI) — sits outside this lifecycle: it's explicit user invocation, not hook-driven.
+The admin surface — `/memoir:ui`, `/memoir:status`, `/memoir:sync` (slash commands), plus `memoir taxonomy` and `memoir forget` (CLI) — sits outside this lifecycle: it's explicit user invocation, not hook-driven. (The exception is `/memoir:sync`'s session-start integration — auto-promotion and the gated offer — described in [Branch sync](#branch-sync-memoirsync).)
 
 ## Session context injection
 
@@ -124,10 +126,11 @@ The admin surface — `/memoir:ui`, `/memoir:status` (slash commands), plus `mem
 |---|---|---|
 | Store summary | `memoir status` + `memoir summarize taxonomy` | Yes — branch, user-memory count, namespace counts. |
 | Default-namespace keys | `memoir summarize --keys "*" -n default` | Yes (when default has keys). Capped at 200, grouped by L1 prefix. |
-| Unmerged-branch detector | `git for-each-ref` on `refs/heads/memoir/*` | Only when the **code branch is `main`**. Mid-flight on a feature branch, other branches' unmerged work is noise. |
+| Auto-promotion report | `auto_promote_merged_branches` (runs before the unmerged scan) | Only when a memoir branch's code branch merged into `main` since the last session. See [Branch sync](#branch-sync-memoirsync). |
+| Unmerged-branch detector | `git rev-list` + sync markers over the store's branches | Only when the **code branch is `main`**. Mid-flight on a feature branch, other branches' unmerged work is noise. Appends a gated `/memoir:sync` auto-offer at ≥5 unmerged commits. |
 | Codebase snapshot | `memoir summarize --keys "*" -n codebase:onboard` + batched `get` | Default on (`MEMOIR_ONBOARD_INJECT=1`). See [Codebase snapshot](#codebase-snapshot-codebaseonboard) below. |
 
-The status line itself follows the same conditional shape: `[memoir] <branch> · <N> memories [· capture disabled] [· N branches unmerged] [· concurrent session warning]`.
+The status line itself follows the same conditional shape: `[memoir] <branch> · <N> memories [· capture disabled] [· N branches unmerged] [· auto-promoted N merged branches] [· concurrent session warning]`.
 
 Shape of the default-keys block:
 
@@ -146,6 +149,43 @@ metrics (1):
 ```
 
 This is just the index — agents `memoir get <key>` the ones they care about, paying for content only on demand.
+
+## Branch sync (`/memoir:sync`)
+
+Memory branches auto-track code branches, so unmerged captures accumulate on `feature/*` memoir branches until they're promoted to `main`. `/memoir:sync` is the guided promotion flow, and three lifecycle mechanisms keep the branch population from overwhelming users over time.
+
+**The command.** `/memoir:sync` drives the whole flow through Claude Code's select UI (`AskUserQuestion`) — this is why it's a slash command rather than a hook or forked skill: the select UI is a model tool available only in the main conversation.
+
+```text
+┌─ Memoir sync ──────────────────────────────────────────────┐
+│ You have 3 memoir branches with 12 unmerged commits:       │
+│   memoir/feature/a — 7 commits, last capture 2d ago        │
+│   memoir/feature/b — 4 commits, last capture 5d ago        │
+│   ... What would you like to do?                           │
+│ ❯ 1. Merge all (Recommended)                               │
+│   2. Choose branches        (multiSelect picker)           │
+│   3. Ignore, snooze, or clean up                           │
+│   4. Not now                                               │
+└────────────────────────────────────────────────────────────┘
+```
+
+Merging shows a dry-run preview (`+N new keys, M updated`) and then applies — no second confirmation, because the promote is **additive-only** (never deletes keys, no conflicts) and lands as one revertable commit that restores the prior branch. `/memoir:sync feature/x` skips all questions and merges directly. All state reads/writes go through one backing script, `scripts/sync-cmd.sh` (`list` / `dry-run` / `merge` / `ignore` / `snooze` / `decline` / `prune`), so the agent never composes raw CLI plumbing or hand-edits state files.
+
+**Auto-promotion on code-branch merge.** When a code branch's work lands in `main` via a **merge commit**, the work unit is complete — so the next `SessionStart` on `main` promotes its memoir branch automatically and reports it in the status line. The heuristic requires the branch tip to be reachable from `main` but *not* on `main`'s first-parent chain: a branch with no unique code commits (its tip is just an old mainline commit) is never swept up, so in-progress branches stay isolated. Squash- and rebase-merged branches aren't detectable this way; they fall through to `/memoir:sync` or stale cleanup. Disable with `MEMOIR_AUTO_PROMOTE_MERGED=0`.
+
+**Gated auto-offer.** When total unmerged work reaches **5 commits** and no snooze is active, the `SessionStart` context asks the agent to offer the sync once that session — immediately if the first prompt is low-stakes, otherwise at the end of the turn. Declining backs off automatically: 1 day, then 7, then 30 on consecutive declines; an explicit snooze resets the escalation. Snooze suppresses only the offer — the status-line count and the informational branch list always render.
+
+**Branch deletion.** `/memoir:sync` can delete any memoir branch except `main` and the currently-checked-out one (the backing script refuses both) — always behind an explicit multiSelect pick, never automatically. The picker flags risk per branch: *stale* entries — inactive ≥60 days (`MEMOIR_STALE_BRANCH_DAYS` to override) **and** either already synced or their code branch gone (work abandoned) — lead the list as safe to remove; unsynced branches carry a `DISCARDED` warning with their unmerged-commit count. Pruning also removes the branch's sync marker and ignore-list entry, so the store's branch population stays bounded over time.
+
+**Why a branch stops being flagged.** Memoir's promote rewrites patches on `main` rather than creating a two-parent merge commit, so git-graph checks can't detect "already merged". Instead, every successful promote writes a timestamp marker to `<store>/.git/plugin-synced-branches/<branch>`; a branch is considered synced while the marker is newer than its last capture, and resurfaces automatically if new captures land afterwards.
+
+**State files** (all local-only, under the store's `.git/`):
+
+| File | Contents |
+|---|---|
+| `plugin-synced-branches/<branch>` | Epoch of the last successful promote (written by the CLI). |
+| `plugin-ignored-branches` | One branch name per line; delete a line to unignore. |
+| `plugin-merge-prompt-cooldown` | Line 1: snoozed-until epoch. Line 2: consecutive-decline count. |
 
 ## Codebase snapshot (`codebase:onboard`)
 
@@ -192,7 +232,7 @@ The plugin treats non-git folders as a first-class case rather than a degraded g
 | Branches | Auto-tracks code branch | Locked to `main` |
 | Status line | `[memoir] <branch> · N memories` | `[memoir] main · N memories` |
 | Stop auto-capture | Captures to current memoir branch | Captures to `main` |
-| `memoir sync-branch`, `memoir unmerged` (CLI) | Operate normally | Short-circuit with "non-git folder: only `main` exists" |
+| `/memoir:sync`, `memoir sync-branch` (CLI) | Operate normally | Nothing to do — only `main` exists, so the unmerged/stale lists are empty by construction |
 | `/memoir:onboard` | `codebase:onboard` cold/warm based on **code SHA** | `project:onboard` cold/warm based on **filesystem snapshot hash** |
 | `SessionStart` injection | Renders `codebase:onboard` block | Renders `project:onboard` block |
 | Stats / `memoir log`, `graph`, `tree` | Identical | Identical |
@@ -393,6 +433,8 @@ All optional.
 | `MEMOIR_NO_METRICS` | unset | `1` disables the per-branch turn-metrics accumulator. Auto-capture still runs. |
 | `MEMOIR_NO_CODE_SUMMARY` | unset | `1` disables the per-branch code-change audit log (`metrics.code.<branch>`). Capture and metrics still run. |
 | `MEMOIR_ONBOARD_INJECT` | `1` | `0` suppresses the `codebase:onboard` block in `SessionStart`'s `additionalContext`. |
+| `MEMOIR_AUTO_PROMOTE_MERGED` | `1` | `0` disables `SessionStart` auto-promotion of memoir branches whose code branch merged into `main`. |
+| `MEMOIR_STALE_BRANCH_DAYS` | `60` | Inactivity threshold for `/memoir:sync`'s stale-branch cleanup. |
 | `MEMOIR_LLM_MODEL` | `haiku` | Model used for the `Stop` hook's fact extractor. Override only if you've validated alignment with the prompt-test harness. |
 | `MEMOIR_MAX_RESULT_CHARS` | `1000` | Per-tool-result truncation in `parse-transcript.sh`. |
 
