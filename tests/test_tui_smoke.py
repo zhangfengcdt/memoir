@@ -51,6 +51,37 @@ def test_dataloader_handles_empty_store(temp_store):
     assert loader.get_memories() == []
 
 
+def test_dataloader_reads_existing_memories(temp_store):
+    """A store with memories must be readable by a FRESH DataLoader.
+
+    Regression: the loader opened the raw store with the bare
+    ``VersionedKvStore(data_dir)`` constructor (no backend), which
+    re-initialized the tree and read back zero keys ("Failed to load tree
+    from saved root hash"). It must use ``.open(data_dir, backend)`` like
+    ProllyTreeStore so previously-committed memories load.
+    """
+    import asyncio
+
+    from memoir.services.memory_service import MemoryService
+
+    svc = MemoryService(temp_store)
+    res = asyncio.run(
+        svc.remember(
+            "Prefers dark roast coffee", "default", paths=["preferences.food.beverages"]
+        )
+    )
+    assert res.success
+
+    # Fresh loader = the real-world path (a separate process opening the
+    # store the capture subprocess wrote to).
+    loader = DataLoader(temp_store)
+    mems = loader.get_memories()
+    paths = {m.path for m in mems}
+    assert "preferences.food.beverages" in paths
+    body = loader.get_memory("preferences.food.beverages")
+    assert body and "dark roast coffee" in body
+
+
 @pytest.mark.asyncio
 async def test_app_mounts_and_switches_tabs(temp_store):
     """End-to-end: app mounts on an empty store, tabs switch, quit cleans up."""

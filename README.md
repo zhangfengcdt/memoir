@@ -97,6 +97,17 @@ While developing from a local checkout, use `codex plugin marketplace add /absol
 
 Enable Codex hooks with `[features].hooks = true` in `~/.codex/config.toml` or pass `--enable hooks` for a smoke run. The Codex plugin ships lifecycle hooks; `memory-recall`, `memoir-onboard`, `memoir-remember`, `memoir-status`, and `memoir-ui` skills; Codex-specific transcript parsing; and local marketplace metadata. See the [Codex plugin guide](https://zhangfengcdt.github.io/memoir/codex/) for setup, limitations, and the real Codex smoke-test flow.
 
+## Install for Hermes
+
+Memoir is a memory provider for [Hermes](https://github.com/NousResearch/hermes-agent), the Nous Research personal-assistant agent. Install the plugin into your Hermes home and activate it:
+
+```bash
+hermes plugins install zhangfengcdt/memoir/plugins/hermes   # or: cp -r plugins/hermes ~/.hermes/plugins/memoir
+hermes memory setup                                         # choose "memoir"
+```
+
+Hermes then auto-captures durable facts (people, schedule, preferences, standing instructions) each turn and exposes `memoir_recall` / `memoir_remember` / `memoir_status` tools. Capture/classification run on your host-selected model via direct provider APIs (never the `claude` CLI). See the [Hermes plugin guide](https://zhangfengcdt.github.io/memoir/hermes/) for install, configuration, model selection, and proxy routing.
+
 ## Community plugins
 
 - **[opencode-memoir](https://github.com/disafronov/opencode-memoir)** brings Memoir's long-term memory workflows to OpenCode through its native plugin system.

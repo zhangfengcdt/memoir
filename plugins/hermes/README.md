@@ -60,6 +60,7 @@ self-resolve in the Prolly-tree (no locking).
 | `store_path` | `<hermes_home>/memoir-store` | store location                       |
 | `capture`    | `true`                       | auto-capture facts from each turn    |
 | `model`      | host's selected model        | pin the capture/classification model; empty = follow Hermes `model.default` |
+| `base_url`   | provider default             | custom provider endpoint (LLM gateway/proxy); empty = call the provider directly |
 
 ## LLM backend
 
@@ -70,6 +71,12 @@ tracked across mid-session switches), or an explicit `model` pin. memoir reads
 the provider credentials from the Hermes process environment (e.g.
 `ANTHROPIC_API_KEY` in `<hermes_home>/.env`); if the selected model's provider
 key is missing, capture fails loudly rather than silently switching backends.
+
+By default memoir calls the provider directly (e.g. `api.anthropic.com`) and
+does **not** route through any gateway Hermes itself uses. To send memoir's
+calls through a proxy/gateway too, set `base_url` in `memoir.json` (the bridge
+exports it as `MEMOIR_LLM_BASE_URL`); the credential in the environment must be
+valid for that endpoint.
 
 ## Verify
 

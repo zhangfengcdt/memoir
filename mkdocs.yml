@@ -105,6 +105,7 @@ nav:
   - UI: ui.md
   - Claude Code: claude_code.md
   - Codex: codex.md
+  - Hermes: hermes.md
   - API:
       - Memoir: api/memoir.md
       - Classifier: api/classifier.md

@@ -270,6 +270,14 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
                     "(Hermes model.default)."
                 ),
             },
+            {
+                "key": "base_url",
+                "description": (
+                    "Custom provider endpoint (LLM gateway/proxy) for "
+                    "capture/classification. Empty = call the provider "
+                    "directly (e.g. api.anthropic.com)."
+                ),
+            },
         ]
 
     def save_config(self, values: dict[str, Any], hermes_home: str) -> None:
@@ -301,7 +309,11 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
         self._config_model = cfg.get("model") or None
         model = self._config_model or self._host_model()
 
-        self._bridge = MemoirBridge(self._store_path, model=model)
+        # Optional custom provider endpoint (LLM gateway/proxy). Without it
+        # memoir calls the provider directly (e.g. api.anthropic.com).
+        base_url = cfg.get("base_url") or None
+
+        self._bridge = MemoirBridge(self._store_path, model=model, base_url=base_url)
         if not self._bridge.available():
             logger.warning("memoir provider: %s", INSTALL_HINT)
             return

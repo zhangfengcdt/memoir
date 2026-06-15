@@ -55,3 +55,20 @@ def test_forced_litellm_with_key_builds_litellm(monkeypatch):
     _pretend_claude_installed(monkeypatch)
     llm = get_llm(model="claude-haiku-4-5")
     assert not isinstance(llm, ClaudeCLIWrapper)  # litellm wrapper
+
+
+def test_base_url_from_env_threads_to_wrapper(monkeypatch):
+    monkeypatch.setenv("MEMOIR_LLM_BACKEND", "litellm")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
+    monkeypatch.setenv("MEMOIR_LLM_BASE_URL", "https://proxy.example/v1")
+    llm = get_llm(model="claude-haiku-4-5")
+    # MEMOIR_LLM_BASE_URL is picked up centrally and threaded to the wrapper.
+    assert llm.base_url == "https://proxy.example/v1"
+
+
+def test_explicit_base_url_arg_overrides_env(monkeypatch):
+    monkeypatch.setenv("MEMOIR_LLM_BACKEND", "litellm")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test")
+    monkeypatch.setenv("MEMOIR_LLM_BASE_URL", "https://env.example/v1")
+    llm = get_llm(model="claude-haiku-4-5", base_url="https://arg.example/v1")
+    assert llm.base_url == "https://arg.example/v1"

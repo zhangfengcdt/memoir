@@ -49,12 +49,21 @@ _STORE_CREATE_TIMEOUT = 60
 class MemoirBridge:
     """Thin, resilient wrapper around the memoir CLI for one store."""
 
-    def __init__(self, store_path: str, *, model: str | None = None):
+    def __init__(
+        self,
+        store_path: str,
+        *,
+        model: str | None = None,
+        base_url: str | None = None,
+    ):
         self.store_path = store_path
         # The host-selected LLM model memoir should use for extraction /
         # classification. Mutable so the provider can track mid-session model
         # switches (on_turn_start). None → memoir's own default.
         self.model = model
+        # Optional custom provider endpoint (LLM gateway/proxy). None → the
+        # provider's default endpoint (e.g. api.anthropic.com).
+        self.base_url = base_url
         self._argv: list[str] | None = None
         self._resolved = False
 
@@ -69,11 +78,16 @@ class MemoirBridge:
         binary. The provider's credentials are inherited from the Hermes
         process env. ``MEMOIR_LLM_MODEL`` carries the host-selected model so
         capture/classification use it rather than memoir's built-in default.
+        ``MEMOIR_LLM_BASE_URL``, when configured, points memoir at a custom
+        provider endpoint (e.g. an LLM gateway/proxy) so it can share the
+        host's routing instead of calling the provider directly.
         """
         env = os.environ.copy()
         env["MEMOIR_LLM_BACKEND"] = "litellm"
         if self.model:
             env["MEMOIR_LLM_MODEL"] = self.model
+        if self.base_url:
+            env["MEMOIR_LLM_BASE_URL"] = self.base_url
         return env
 
     # -- CLI resolution ------------------------------------------------------

@@ -396,20 +396,25 @@ class TestBridgeResolution:
         assert ok is False
         assert "error" in payload
 
-    def test_env_forces_litellm_and_passes_model(self, plugin):
+    def test_env_forces_litellm_and_passes_model_and_base_url(self, plugin):
         _, bridge_mod = plugin
-        b = bridge_mod.MemoirBridge("/tmp/x", model="claude-opus-4-8")
+        b = bridge_mod.MemoirBridge(
+            "/tmp/x", model="claude-opus-4-8", base_url="https://proxy.example/v1"
+        )
         env = b._build_env()
         # Never claude-cli; always direct provider API.
         assert env["MEMOIR_LLM_BACKEND"] == "litellm"
         assert env["MEMOIR_LLM_MODEL"] == "claude-opus-4-8"
+        assert env["MEMOIR_LLM_BASE_URL"] == "https://proxy.example/v1"
 
-    def test_env_omits_model_when_unset(self, plugin):
+    def test_env_omits_model_and_base_url_when_unset(self, plugin):
         _, bridge_mod = plugin
         b = bridge_mod.MemoirBridge("/tmp/x")
         env = b._build_env()
         assert env["MEMOIR_LLM_BACKEND"] == "litellm"
-        assert "MEMOIR_LLM_MODEL" not in env  # falls through to memoir default
+        # Both fall through to memoir's own defaults / provider default.
+        assert "MEMOIR_LLM_MODEL" not in env
+        assert "MEMOIR_LLM_BASE_URL" not in env
 
 
 class TestModelSelection:
@@ -449,3 +454,13 @@ class TestModelSelection:
         p._bridge.model = "gpt-4o-mini"
         p.on_turn_start(1, "hi", model="claude-opus-4-8")
         assert p._bridge.model == "gpt-4o-mini"  # pin not overridden
+
+    def test_base_url_from_config_flows_to_bridge(self, plugin, monkeypatch, tmp_path):
+        mod, bridge_mod = plugin
+        monkeypatch.setattr(bridge_mod.shutil, "which", lambda name: None)
+        (tmp_path / "memoir.json").write_text(
+            json.dumps({"base_url": "https://proxy.example/v1"})
+        )
+        p = mod.MemoirProvider()
+        p.initialize("s", hermes_home=str(tmp_path), agent_context="primary")
+        assert p._bridge.base_url == "https://proxy.example/v1"

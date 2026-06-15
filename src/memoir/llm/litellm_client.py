@@ -379,6 +379,13 @@ def get_llm(
         >>> print(response.content)
         Paris
     """
+    # Allow a custom provider endpoint via env (e.g. an LLM gateway/proxy)
+    # without every call site threading base_url through. An explicit base_url
+    # argument still wins. Applies to all LLM call sites (capture, classifier,
+    # search).
+    if base_url is None:
+        base_url = os.getenv("MEMOIR_LLM_BASE_URL", "").strip() or None
+
     # Route to the claude-cli backend if requested. This is the zero-API-key
     # path for running memoir under Claude Code; see ClaudeCLIWrapper docstring.
     backend = os.getenv("MEMOIR_LLM_BACKEND", "").strip().lower()

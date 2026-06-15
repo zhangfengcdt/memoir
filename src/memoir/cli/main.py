@@ -348,6 +348,8 @@ def cli(
       MEMOIR_QUIET         Suppress non-essential output (set to 1)
       MEMOIR_LLM_MODEL     Default LLM model (see LLM RESOLUTION below)
       MEMOIR_LLM_BACKEND   Force LLM backend: 'claude-cli' or 'litellm'
+      MEMOIR_LLM_BASE_URL  Custom provider endpoint (LLM gateway/proxy) for
+                           the litellm backend; unset = provider default
 
     \b
     LLM RESOLUTION (shared by `remember`, `watch add`, `watch scan`, ...):
