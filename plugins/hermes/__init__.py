@@ -173,6 +173,30 @@ _REMEMBER_SCHEMA = {
     },
 }
 
+_FORGET_SCHEMA = {
+    "name": "memoir_forget",
+    "description": (
+        "Delete a stored fact when the user asks to forget or remove "
+        "something about them. Takes the exact taxonomy path — first call "
+        "memoir_recall to find the path, then forget it. The fact stops "
+        "appearing in recall; prior versions remain in the store's git "
+        "history (recoverable)."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "path": {
+                "type": "string",
+                "description": (
+                    "Exact taxonomy path to delete (e.g. "
+                    "profile.personal.pets), as returned by memoir_recall."
+                ),
+            },
+        },
+        "required": ["path"],
+    },
+}
+
 _STATUS_SCHEMA = {
     "name": "memoir_status",
     "description": (
@@ -356,7 +380,7 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
     # -- tools --------------------------------------------------------------
 
     def get_tool_schemas(self) -> list[dict[str, Any]]:
-        return [_RECALL_SCHEMA, _REMEMBER_SCHEMA, _STATUS_SCHEMA]
+        return [_RECALL_SCHEMA, _REMEMBER_SCHEMA, _FORGET_SCHEMA, _STATUS_SCHEMA]
 
     def handle_tool_call(self, tool_name: str, args: dict[str, Any], **kwargs) -> str:
         if not (self._bridge and self._bridge.available()):
@@ -399,6 +423,25 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
                 return json.dumps(payload)
             key = payload.get("key") if isinstance(payload, dict) else None
             return json.dumps({"stored": True, "key": key})
+
+        if tool_name == "memoir_forget":
+            path = (args.get("path") or "").strip()
+            if not path:
+                return json.dumps({"error": "Missing required parameter: path"})
+            ok, payload = self._bridge.forget(path)
+            if not ok:
+                return json.dumps(payload)
+            if isinstance(payload, dict) and payload.get("found") is False:
+                return json.dumps(
+                    {"forgotten": False, "error": f"No memory found at '{path}'."}
+                )
+            return json.dumps(
+                {
+                    "forgotten": True,
+                    "key": payload.get("key", path),
+                    "commit": payload.get("commit_hash"),
+                }
+            )
 
         if tool_name == "memoir_status":
             _ok, payload = self._bridge.status()

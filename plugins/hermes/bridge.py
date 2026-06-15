@@ -276,6 +276,22 @@ class MemoirBridge:
             args.append("--replace")
         return self.run(args)
 
+    def forget(self, path: str, *, namespace: str = "default") -> tuple[bool, Any]:
+        """Delete a memory by exact path via `memoir forget`.
+
+        Pre-checks existence first: `memoir forget` reports success (and
+        creates a no-op delete commit) even for a key that was never
+        present, so a wrong/hallucinated path would otherwise pollute
+        history. Returns ``(True, {"found": False, "key": path})`` without
+        committing when the key isn't there.
+        """
+        ok, payload = self.get([path], namespace=namespace)
+        if ok and isinstance(payload, dict):
+            items = payload.get("items") or []
+            if items and not items[0].get("found"):
+                return True, {"found": False, "key": path}
+        return self.run(["forget", path, "-n", namespace, "--force"])
+
     def status(self) -> tuple[bool, Any]:
         """Store status via `memoir status`."""
         return self.run(["status"])

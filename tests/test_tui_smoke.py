@@ -79,7 +79,8 @@ def test_dataloader_reads_existing_memories(temp_store):
     paths = {m.path for m in mems}
     assert "preferences.food.beverages" in paths
     body = loader.get_memory("preferences.food.beverages")
-    assert body and "dark roast coffee" in body
+    assert body is not None
+    assert "dark roast coffee" in body
 
 
 @pytest.mark.asyncio

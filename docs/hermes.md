@@ -53,7 +53,7 @@ The store is created automatically on first run at `<hermes_home>/memoir-store` 
 
 | Component | Count | Role |
 |---|---|---|
-| Tools (model-facing) | 3 | `memoir_recall`, `memoir_remember`, `memoir_status` |
+| Tools (model-facing) | 4 | `memoir_recall`, `memoir_remember`, `memoir_forget`, `memoir_status` |
 | Lifecycle hooks | 5 | Auto-capture, recall context, store mirroring |
 | CLI subcommands | 2 | `hermes memoir status`, `hermes memoir ui` |
 
@@ -67,6 +67,7 @@ The model decides when to call these (guided by their descriptions and the injec
 |---|---|
 | `memoir_recall` | Fetch stored facts about the user (preferences, people, schedule, standing instructions). LLM-free: `summarize` → batched `get`, ranked by lexical overlap with the query. |
 | `memoir_remember` | Store an explicit durable fact. Classified into a semantic path and committed. Guarded against obvious secrets. |
+| `memoir_forget` | Delete a fact by its exact taxonomy path (the model finds the path via `memoir_recall` first). Pre-checks existence so a wrong path can't create a no-op delete commit; prior versions remain in git history (recoverable). |
 | `memoir_status` | Store status: branch, commit count, memory count. |
 
 ## Lifecycle hooks

@@ -48,6 +48,7 @@ class FakeBridge:
         self.captures = []
         self.remembers = []
         self.recalls = []
+        self.forgets = []
 
     def available(self):
         return self._avail
@@ -83,6 +84,10 @@ class FakeBridge:
     def remember(self, content, *, path=None, replace=False):
         self.remembers.append((content, path, replace))
         return True, {"key": path or "auto.path.here"}
+
+    def forget(self, path, *, namespace="default"):
+        self.forgets.append((path, namespace))
+        return True, {"key": path, "commit_hash": "abc123de"}
 
     def status(self):
         return True, {"branch": "main", "commit_count": 3, "memory_count": 5}
@@ -180,7 +185,12 @@ class TestTools:
     def test_tool_schemas(self, plugin):
         p = _make_provider(plugin)
         names = {s["name"] for s in p.get_tool_schemas()}
-        assert names == {"memoir_recall", "memoir_remember", "memoir_status"}
+        assert names == {
+            "memoir_recall",
+            "memoir_remember",
+            "memoir_forget",
+            "memoir_status",
+        }
 
     def test_recall_tool(self, plugin):
         p = _make_provider(plugin)
@@ -216,6 +226,29 @@ class TestTools:
         )
         assert "error" in out
         assert p._bridge.remembers == []  # nothing stored
+
+    def test_forget_tool(self, plugin):
+        p = _make_provider(plugin)
+        out = json.loads(
+            p.handle_tool_call("memoir_forget", {"path": "profile.personal.pets"})
+        )
+        assert out["forgotten"] is True
+        assert out["key"] == "profile.personal.pets"
+        assert p._bridge.forgets == [("profile.personal.pets", "default")]
+
+    def test_forget_requires_path(self, plugin):
+        p = _make_provider(plugin)
+        out = json.loads(p.handle_tool_call("memoir_forget", {}))
+        assert "error" in out
+        assert p._bridge.forgets == []
+
+    def test_forget_not_found(self, plugin):
+        p = _make_provider(plugin)
+        # Bridge reports the key was absent (no commit created).
+        p._bridge.forget = lambda path, **kw: (True, {"found": False, "key": path})
+        out = json.loads(p.handle_tool_call("memoir_forget", {"path": "no.such.key"}))
+        assert out["forgotten"] is False
+        assert "error" in out
 
     def test_status_tool(self, plugin):
         p = _make_provider(plugin)
@@ -385,6 +418,43 @@ class TestBridgeResolution:
         ok, payload = b.recall()
         assert ok is True
         assert payload == {"items": []}
+
+    def test_forget_existing_key_deletes(self, plugin, monkeypatch):
+        _, bridge_mod = plugin
+        b = bridge_mod.MemoirBridge("/tmp/x")
+        calls = []
+
+        def fake_run(args, **kw):
+            calls.append(args)
+            if args[0] == "get":
+                return True, {"items": [{"key": args[1], "found": True}]}
+            if args[0] == "forget":
+                return True, {"success": True, "key": args[1], "commit_hash": "c0ffee"}
+            return True, {}
+
+        monkeypatch.setattr(b, "run", fake_run)
+        ok, payload = b.forget("profile.personal.pets")
+        assert ok is True
+        assert payload["commit_hash"] == "c0ffee"
+        assert any(c[0] == "forget" for c in calls)
+
+    def test_forget_missing_key_skips_commit(self, plugin, monkeypatch):
+        _, bridge_mod = plugin
+        b = bridge_mod.MemoirBridge("/tmp/x")
+        calls = []
+
+        def fake_run(args, **kw):
+            calls.append(args)
+            if args[0] == "get":
+                return True, {"items": [{"key": args[1], "found": False}]}
+            return True, {}
+
+        monkeypatch.setattr(b, "run", fake_run)
+        ok, payload = b.forget("no.such.key")
+        assert ok is True
+        assert payload == {"found": False, "key": "no.such.key"}
+        # No `forget` subprocess — we don't create no-op delete commits.
+        assert not any(c[0] == "forget" for c in calls)
 
     def test_unavailable_when_nothing_resolves(self, plugin, monkeypatch):
         _, bridge_mod = plugin
