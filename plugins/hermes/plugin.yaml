@@ -1,0 +1,7 @@
+name: memoir
+version: 0.1.0
+description: "Memoir — versioned, semantic long-term memory with git-like branch/commit/merge and cryptographic provenance. Shells out to the memoir CLI; no Python deps."
+author: "memoir"
+# No pip_dependencies: this provider talks to the `memoir` CLI over a
+# subprocess bridge (PATH `memoir`, else a pinned `uvx --from memoir-ai`).
+# Install the CLI separately: `pip install memoir-ai` (or pipx / uv tool).

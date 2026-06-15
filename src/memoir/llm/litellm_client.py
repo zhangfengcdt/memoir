@@ -382,6 +382,13 @@ def get_llm(
     # Route to the claude-cli backend if requested. This is the zero-API-key
     # path for running memoir under Claude Code; see ClaudeCLIWrapper docstring.
     backend = os.getenv("MEMOIR_LLM_BACKEND", "").strip().lower()
+    # An explicit litellm/direct request is honored STRICTLY: the claude-cli
+    # auto-fallback below is suppressed so a caller that opted into direct
+    # provider APIs (e.g. the Hermes plugin, which must use the host's
+    # configured provider — never shell out to `claude`) gets a clear error
+    # if the key is missing instead of silently switching backends. An unset
+    # backend (the default) keeps the convenient auto-fallback.
+    force_litellm = backend in ("litellm", "direct", "api")
     if backend in ("claude-cli", "claude_cli", "cli"):
         from memoir.llm.claude_cli_client import ClaudeCLIWrapper
 
@@ -413,9 +420,10 @@ def get_llm(
             # Claude Code's auth (subscription OAuth or keychain) so memoir
             # works out of the box under Claude Code without an API key.
             # Slower per call (subprocess overhead) but functionally correct.
+            # Suppressed when the caller explicitly forced the litellm backend.
             import shutil
 
-            if shutil.which("claude"):
+            if not force_litellm and shutil.which("claude"):
                 from memoir.llm.claude_cli_client import ClaudeCLIWrapper
 
                 logger.info(
@@ -432,10 +440,15 @@ def get_llm(
                     enable_prompt_cache=enable_prompt_cache,
                     debug_cache=debug_cache,
                 )
+            hint = (
+                "Set it with: export ANTHROPIC_API_KEY=your-api-key-here"
+                if force_litellm
+                else "Set it with: export ANTHROPIC_API_KEY=your-api-key-here, "
+                "or install the `claude` CLI to use Claude Code auth."
+            )
             raise ValueError(
                 "ANTHROPIC_API_KEY environment variable is required for Claude models. "
-                "Set it with: export ANTHROPIC_API_KEY=your-api-key-here, "
-                "or install the `claude` CLI to use Claude Code auth."
+                + hint
             )
     elif model_lower.startswith("gemini/"):
         if not os.getenv("GEMINI_API_KEY") and not api_key:

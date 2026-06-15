@@ -166,7 +166,7 @@ def get_cli_schema(group: click.Group) -> dict[str, Any]:
     # Extract commands by group
     command_groups = {
         "store": ["new", "status", "refresh"],
-        "memory": ["remember", "recall", "forget"],
+        "memory": ["remember", "recall", "forget", "capture"],
         "branch": [
             "branch",
             "checkout",
@@ -377,6 +377,7 @@ def cli(
 from memoir.cli.commands import (  # noqa: E402
     analysis,
     branch,
+    capture,
     crypto,
     memory,
     search,
@@ -400,6 +401,7 @@ cli.add_command(memory.remember)
 cli.add_command(memory.recall)
 cli.add_command(memory.get_memory)
 cli.add_command(memory.forget)
+cli.add_command(capture.capture)
 
 # Branch commands
 cli.add_command(branch.branch)
