@@ -50,7 +50,11 @@ class FakeBridge:
         self.recalls = []
         self.forgets = []
         self.checkouts = []
-        self.branches = {"main"}  # branches that "exist" in this fake store
+        self.syncs = []
+        self.existing_branches = {"main"}  # branches that "exist" here
+        self.current = "main"
+        # Per-branch dry-run preview override: {branch: {"added_keys":[...]}}.
+        self.sync_previews: dict = {}
 
     def available(self):
         return self._avail
@@ -97,11 +101,31 @@ class FakeBridge:
     def checkout(self, branch, *, create=False):
         self.checkouts.append((branch, create))
         if create:
-            self.branches.add(branch)
+            self.existing_branches.add(branch)
+        self.current = branch
         return True, {"branch": branch}
 
     def has_branch(self, branch):
-        return branch in self.branches
+        return branch in self.existing_branches
+
+    def branches(self):
+        return True, {
+            "branches": sorted(self.existing_branches),
+            "current": self.current,
+        }
+
+    def sync_branch(self, source, *, into="main", dry_run=False):
+        self.syncs.append((source, into, dry_run))
+        prev = self.sync_previews.get(source, {"added_keys": ["a.b.c"]})
+        out = {
+            "success": True,
+            "added_keys": prev.get("added_keys", []),
+            "updated_keys": prev.get("updated_keys", []),
+            "restored_branch": "main",
+        }
+        if not dry_run:
+            out["commit_hash"] = "sync1234"
+        return True, out
 
 
 def _make_provider(plugin, **overrides):
@@ -200,6 +224,7 @@ class TestTools:
             "memoir_recall",
             "memoir_remember",
             "memoir_forget",
+            "memoir_sync",
             "memoir_status",
         }
 
@@ -260,6 +285,47 @@ class TestTools:
         out = json.loads(p.handle_tool_call("memoir_forget", {"path": "no.such.key"}))
         assert out["forgotten"] is False
         assert "error" in out
+
+    def test_sync_lists_unmerged_branches(self, plugin):
+        p = _make_provider(plugin)
+        p._bridge.existing_branches.update({"hermes/f1", "hermes/f2"})
+        p._bridge.sync_previews = {
+            "hermes/f1": {"added_keys": ["a.b.c", "d.e.f"], "updated_keys": []},
+            "hermes/f2": {"added_keys": [], "updated_keys": []},  # nothing to merge
+        }
+        out = json.loads(p.handle_tool_call("memoir_sync", {}))
+        # Only f1 has changes; f2 (and main/current) are excluded.
+        assert out["count"] == 1
+        assert out["unmerged"][0]["branch"] == "hermes/f1"
+        assert out["unmerged"][0]["added"] == 2
+
+    def test_sync_excludes_main_and_current(self, plugin):
+        p = _make_provider(plugin)
+        p._bridge.existing_branches.update({"hermes/cur"})
+        p._bridge.current = "hermes/cur"  # checked-out branch is skipped
+        p._bridge.sync_previews = {"hermes/cur": {"added_keys": ["x.y.z"]}}
+        out = json.loads(p.handle_tool_call("memoir_sync", {}))
+        assert out["count"] == 0
+
+    def test_sync_dry_run_preview(self, plugin):
+        p = _make_provider(plugin)
+        p._bridge.sync_previews = {"hermes/f1": {"added_keys": ["a.b.c"]}}
+        out = json.loads(
+            p.handle_tool_call("memoir_sync", {"branch": "hermes/f1", "dry_run": True})
+        )
+        assert out["dry_run"] is True
+        assert out["added"] == 1
+        assert p._bridge.syncs == [("hermes/f1", "main", True)]
+
+    def test_sync_merges_branch(self, plugin):
+        p = _make_provider(plugin)
+        p._bridge.sync_previews = {"hermes/f1": {"added_keys": ["a.b.c", "d.e.f"]}}
+        out = json.loads(p.handle_tool_call("memoir_sync", {"branch": "hermes/f1"}))
+        assert out["merged"] is True
+        assert out["into"] == "main"
+        assert out["added"] == 2
+        assert out["commit"] == "sync1234"
+        assert p._bridge.syncs == [("hermes/f1", "main", False)]
 
     def test_status_tool(self, plugin):
         p = _make_provider(plugin)
@@ -562,7 +628,7 @@ class TestSessionBranching:
 
     def test_resume_existing_fork_checks_out_its_branch(self, plugin):
         p = _make_provider(plugin)
-        p._bridge.branches.add("hermes/fork1")  # fork branch already exists
+        p._bridge.existing_branches.add("hermes/fork1")  # fork branch exists
         p.on_session_switch("fork1", parent_session_id="root", reason="resume")
         assert p._bridge.checkouts == [("hermes/fork1", False)]
 

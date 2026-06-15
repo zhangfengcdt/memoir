@@ -198,6 +198,35 @@ _FORGET_SCHEMA = {
     },
 }
 
+_SYNC_SCHEMA = {
+    "name": "memoir_sync",
+    "description": (
+        "Promote memories captured on session-fork branches into the main "
+        "timeline. Call with NO arguments to list fork branches that have "
+        "memories not yet in main (with a preview count for each). Call with "
+        "a branch to merge it into main; set dry_run=true to preview first. "
+        "Merging is additive — it inserts/updates keys on main and never "
+        "deletes. Use when the user wants to keep a fork's memories."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "branch": {
+                "type": "string",
+                "description": (
+                    "Fork branch to promote into main (e.g. "
+                    "hermes/<session-id>). Omit to list unmerged branches."
+                ),
+            },
+            "dry_run": {
+                "type": "boolean",
+                "description": "Preview what would change without writing.",
+            },
+        },
+        "required": [],
+    },
+}
+
 _STATUS_SCHEMA = {
     "name": "memoir_status",
     "description": (
@@ -431,7 +460,13 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
     # -- tools --------------------------------------------------------------
 
     def get_tool_schemas(self) -> list[dict[str, Any]]:
-        return [_RECALL_SCHEMA, _REMEMBER_SCHEMA, _FORGET_SCHEMA, _STATUS_SCHEMA]
+        return [
+            _RECALL_SCHEMA,
+            _REMEMBER_SCHEMA,
+            _FORGET_SCHEMA,
+            _SYNC_SCHEMA,
+            _STATUS_SCHEMA,
+        ]
 
     def handle_tool_call(self, tool_name: str, args: dict[str, Any], **kwargs) -> str:
         if not (self._bridge and self._bridge.available()):
@@ -494,11 +529,74 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
                 }
             )
 
+        if tool_name == "memoir_sync":
+            return self._handle_sync(args)
+
         if tool_name == "memoir_status":
             _ok, payload = self._bridge.status()
             return json.dumps(payload)
 
         return json.dumps({"error": f"Unknown tool: {tool_name}"})
+
+    def _handle_sync(self, args: dict[str, Any]) -> str:
+        """memoir_sync: list fork branches with unmerged memories, or promote
+        one into main (additive). The agent drives the choose/confirm flow."""
+        branch = (args.get("branch") or "").strip()
+
+        if not branch:
+            # List branches (excluding main + the currently checked-out one)
+            # and preview each with a dry-run; surface only those with changes.
+            ok, payload = self._bridge.branches()
+            if not ok:
+                return json.dumps(payload)
+            current = payload.get("current") if isinstance(payload, dict) else None
+            candidates = [
+                b for b in (payload.get("branches") or []) if b not in ("main", current)
+            ]
+            unmerged = []
+            for b in candidates:
+                ok2, prev = self._bridge.sync_branch(b, dry_run=True)
+                if not (ok2 and isinstance(prev, dict)):
+                    continue
+                added = prev.get("added_keys") or []
+                updated = prev.get("updated_keys") or []
+                if added or updated:
+                    unmerged.append(
+                        {
+                            "branch": b,
+                            "added": len(added),
+                            "updated": len(updated),
+                            "keys": (added + updated)[:5],
+                        }
+                    )
+            return json.dumps({"unmerged": unmerged, "count": len(unmerged)})
+
+        dry = bool(args.get("dry_run"))
+        ok, payload = self._bridge.sync_branch(branch, dry_run=dry)
+        if not ok:
+            return json.dumps(payload)
+        added = payload.get("added_keys") or []
+        updated = payload.get("updated_keys") or []
+        if dry:
+            return json.dumps(
+                {
+                    "branch": branch,
+                    "dry_run": True,
+                    "added": len(added),
+                    "updated": len(updated),
+                    "keys": (added + updated)[:10],
+                }
+            )
+        return json.dumps(
+            {
+                "merged": True,
+                "branch": branch,
+                "into": "main",
+                "added": len(added),
+                "updated": len(updated),
+                "commit": payload.get("commit_hash"),
+            }
+        )
 
     # -- capture (write) paths ----------------------------------------------
 

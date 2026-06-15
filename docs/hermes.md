@@ -53,7 +53,7 @@ The store is created automatically on first run at `<hermes_home>/memoir-store` 
 
 | Component | Count | Role |
 |---|---|---|
-| Tools (model-facing) | 4 | `memoir_recall`, `memoir_remember`, `memoir_forget`, `memoir_status` |
+| Tools (model-facing) | 5 | `memoir_recall`, `memoir_remember`, `memoir_forget`, `memoir_sync`, `memoir_status` |
 | Lifecycle hooks | 5 | Auto-capture, recall context, store mirroring |
 | CLI subcommands | 2 | `hermes memoir status`, `hermes memoir ui` |
 
@@ -68,6 +68,7 @@ The model decides when to call these (guided by their descriptions and the injec
 | `memoir_recall` | Fetch stored facts about the user (preferences, people, schedule, standing instructions). LLM-free: `summarize` → batched `get`, ranked by lexical overlap with the query. |
 | `memoir_remember` | Store an explicit durable fact. Classified into a semantic path and committed. Guarded against obvious secrets. |
 | `memoir_forget` | Delete a fact by its exact taxonomy path (the model finds the path via `memoir_recall` first). Pre-checks existence so a wrong path can't create a no-op delete commit; prior versions remain in git history (recoverable). |
+| `memoir_sync` | Promote a session fork's memories into `main`. No args → list fork branches with un-merged memories (preview counts); `branch` → merge it into `main` (`dry_run` to preview). Additive (insert/update, never delete). |
 | `memoir_status` | Store status: branch, commit count, memory count. |
 
 ## Lifecycle hooks
@@ -150,6 +151,15 @@ branches with the `memoir` CLI (`memoir branch`, `memoir merge`,
 
 Set `session_branching: false` in `memoir.json` to disable this and keep all
 captures on `main`.
+
+**Promoting a fork's memories back to main.** A fork's captures stay isolated
+on its branch. When the user wants to keep them, the `memoir_sync` tool
+promotes them into `main`: with no arguments it lists fork branches that have
+un-merged memories (with a preview of what each would add); with a branch it
+merges that branch into `main`. The merge is **additive** — it inserts/updates
+keys and never deletes — and the model drives the choose/confirm flow in
+conversation. (This mirrors the Claude Code plugin's `/memoir:sync`.) On exit
+the store is left on `main`, so forks don't accumulate as the active branch.
 
 > Single-store caveat: branch state is the store's checked-out branch, so this
 > assumes one active session per store at a time (the personal-assistant CLI

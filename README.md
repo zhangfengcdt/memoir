@@ -106,7 +106,7 @@ hermes plugins install zhangfengcdt/memoir/plugins/hermes   # or: cp -r plugins/
 hermes memory setup                                         # choose "memoir"
 ```
 
-Hermes then auto-captures durable facts (people, schedule, preferences, standing instructions) each turn and exposes `memoir_recall` / `memoir_remember` / `memoir_forget` / `memoir_status` tools. Capture/classification run on your host-selected model via direct provider APIs (never the `claude` CLI). See the [Hermes plugin guide](https://zhangfengcdt.github.io/memoir/hermes/) for install, configuration, model selection, and proxy routing.
+Hermes then auto-captures durable facts (people, schedule, preferences, standing instructions) each turn and exposes `memoir_recall` / `memoir_remember` / `memoir_forget` / `memoir_sync` / `memoir_status` tools. Capture/classification run on your host-selected model via direct provider APIs (never the `claude` CLI). See the [Hermes plugin guide](https://zhangfengcdt.github.io/memoir/hermes/) for install, configuration, model selection, and proxy routing.
 
 ## Community plugins
 

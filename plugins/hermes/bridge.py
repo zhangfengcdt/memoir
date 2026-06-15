@@ -315,6 +315,24 @@ class MemoirBridge:
             return branch in (payload.get("branches") or [])
         return False
 
+    def branches(self) -> tuple[bool, Any]:
+        """List branches via `memoir branch` → {branches, current}."""
+        return self.run(["branch"])
+
+    def sync_branch(
+        self, source: str, *, into: str = "main", dry_run: bool = False
+    ) -> tuple[bool, Any]:
+        """Promote ``source``'s default-namespace memories into ``into`` via
+        `memoir sync-branch` (additive: inserts/updates only, never deletes).
+
+        ``dry_run`` previews the diff without writing; otherwise ``--yes``
+        applies it. The CLI restores the original checked-out branch after.
+        """
+        args = ["sync-branch", source, "--into", into]
+        args.append("--dry-run" if dry_run else "--yes")
+        # Merges read+write the whole default namespace; give them headroom.
+        return self.run(args, timeout=30)
+
     def summarize(self, depth: int = 3, namespace: str = "default") -> tuple[bool, Any]:
         """Taxonomy/overview summary via `memoir summarize`."""
         return self.run(["summarize", "--depth", str(depth), "-n", namespace])
