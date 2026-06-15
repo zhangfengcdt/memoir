@@ -49,6 +49,8 @@ class FakeBridge:
         self.remembers = []
         self.recalls = []
         self.forgets = []
+        self.checkouts = []
+        self.branches = {"main"}  # branches that "exist" in this fake store
 
     def available(self):
         return self._avail
@@ -91,6 +93,15 @@ class FakeBridge:
 
     def status(self):
         return True, {"branch": "main", "commit_count": 3, "memory_count": 5}
+
+    def checkout(self, branch, *, create=False):
+        self.checkouts.append((branch, create))
+        if create:
+            self.branches.add(branch)
+        return True, {"branch": branch}
+
+    def has_branch(self, branch):
+        return branch in self.branches
 
 
 def _make_provider(plugin, **overrides):
@@ -534,3 +545,93 @@ class TestModelSelection:
         p = mod.MemoirProvider()
         p.initialize("s", hermes_home=str(tmp_path), agent_context="primary")
         assert p._bridge.base_url == "https://proxy.example/v1"
+
+
+class TestSessionBranching:
+    def test_branch_for_session_sanitizes(self, plugin):
+        mod, _ = plugin
+        assert mod.MemoirProvider._branch_for_session("abc-123") == "hermes/abc-123"
+        # Unsafe ref chars collapse to '-'.
+        assert mod.MemoirProvider._branch_for_session("a b:c~/..") == "hermes/a-b-c"
+        assert mod.MemoirProvider._branch_for_session("") == "hermes/session"
+
+    def test_fork_creates_and_checks_out_branch(self, plugin):
+        p = _make_provider(plugin)
+        p.on_session_switch("fork1", parent_session_id="root", reason="branch")
+        assert p._bridge.checkouts == [("hermes/fork1", True)]
+
+    def test_resume_existing_fork_checks_out_its_branch(self, plugin):
+        p = _make_provider(plugin)
+        p._bridge.branches.add("hermes/fork1")  # fork branch already exists
+        p.on_session_switch("fork1", parent_session_id="root", reason="resume")
+        assert p._bridge.checkouts == [("hermes/fork1", False)]
+
+    def test_resume_non_forked_session_returns_to_main(self, plugin):
+        p = _make_provider(plugin)
+        p.on_session_switch("plain", parent_session_id="root", reason="resume")
+        assert p._bridge.checkouts == [("main", False)]
+
+    def test_compression_does_not_switch_branch(self, plugin):
+        p = _make_provider(plugin)
+        p.on_session_switch(
+            "rolled-over-id", parent_session_id="root", reason="compression"
+        )
+        assert p._bridge.checkouts == []  # continuation — stay put
+
+    def test_reset_returns_to_main(self, plugin):
+        p = _make_provider(plugin)
+        p.on_session_switch("whatever", reset=True, reason="resume")
+        assert p._bridge.checkouts == [("main", False)]
+        assert p._captured_through == 0  # capture cursor reset
+
+    def test_disabled_branching_never_checks_out(self, plugin):
+        p = _make_provider(plugin)
+        p._branching_enabled = False
+        p.on_session_switch("fork1", reason="branch")
+        assert p._bridge.checkouts == []
+
+    def test_shutdown_resets_to_main(self, plugin):
+        # Exiting a session (e.g. a fork) must leave the store on main.
+        p = _make_provider(plugin)
+        p._store_path = ""  # avoid real event-file writes
+        p.shutdown()
+        assert ("main", False) in p._bridge.checkouts
+
+    def test_disabled_branching_shutdown_no_reset(self, plugin):
+        p = _make_provider(plugin)
+        p._store_path = ""
+        p._branching_enabled = False
+        p.shutdown()
+        assert p._bridge.checkouts == []
+
+    def test_switch_is_visible_in_session(self, plugin, capsys):
+        p = _make_provider(plugin)
+        p.on_session_switch("fork1", parent_session_id="root", reason="branch")
+        err = capsys.readouterr().err
+        assert "memoir" in err
+        assert "hermes/fork1" in err
+
+    def test_failed_switch_surfaces_error(self, plugin, capsys):
+        p = _make_provider(plugin)
+        p._bridge.checkout = lambda branch, **kw: (False, {"error": "boom"})
+        p.on_session_switch("fork1", parent_session_id="root", reason="branch")
+        err = capsys.readouterr().err
+        assert "failed" in err
+        assert "boom" in err
+
+    def test_bridge_checkout_and_has_branch(self, plugin, monkeypatch):
+        _, bridge_mod = plugin
+        b = bridge_mod.MemoirBridge("/tmp/x")
+
+        def fake_run(args, **kw):
+            if args[0] == "checkout":
+                return True, {"branch": args[1]}
+            if args[0] == "branch":
+                return True, {"branches": ["main", "hermes/fork1"], "current": "main"}
+            return True, {}
+
+        monkeypatch.setattr(b, "run", fake_run)
+        ok, _ = b.checkout("hermes/fork1", create=True)
+        assert ok is True
+        assert b.has_branch("hermes/fork1") is True
+        assert b.has_branch("hermes/nope") is False

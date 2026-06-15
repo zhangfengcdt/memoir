@@ -296,6 +296,25 @@ class MemoirBridge:
         """Store status via `memoir status`."""
         return self.run(["status"])
 
+    def checkout(self, branch: str, *, create: bool = False) -> tuple[bool, Any]:
+        """Switch the store's checked-out branch via `memoir checkout`.
+
+        With ``create`` the branch is created off the current branch if it
+        doesn't exist (`--create`) — used when forking a session.
+        """
+        args = ["checkout", branch]
+        if create:
+            args.append("--create")
+        return self.run(args)
+
+    def has_branch(self, branch: str) -> bool:
+        """True if ``branch`` exists in the store. Best-effort (False on any
+        failure)."""
+        ok, payload = self.run(["branch"])
+        if ok and isinstance(payload, dict):
+            return branch in (payload.get("branches") or [])
+        return False
+
     def summarize(self, depth: int = 3, namespace: str = "default") -> tuple[bool, Any]:
         """Taxonomy/overview summary via `memoir summarize`."""
         return self.run(["summarize", "--depth", str(depth), "-n", namespace])

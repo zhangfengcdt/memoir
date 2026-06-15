@@ -33,6 +33,7 @@ import json
 import logging
 import os
 import re
+import sys
 import threading
 from typing import Any
 
@@ -226,6 +227,10 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
         # wins; otherwise we follow the host's selected model and track
         # mid-session switches via on_turn_start.
         self._config_model: str | None = None
+        # Mirror Hermes session forks onto memoir branches: a /branch fork
+        # gets its own ``hermes/<session>`` branch; resuming a non-forked
+        # session returns to ``main``.
+        self._branching_enabled: bool = True
         self._agent_context: str = "primary"
         # Index into the live `messages` list that we've already captured, so
         # the on_pre_compress / on_session_end boundaries only sweep the tail.
@@ -302,6 +307,15 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
                     "directly (e.g. api.anthropic.com)."
                 ),
             },
+            {
+                "key": "session_branching",
+                "description": (
+                    "Mirror Hermes session forks onto memoir branches "
+                    "(/branch → hermes/<session>; resume non-fork → main)."
+                ),
+                "default": "true",
+                "choices": ["true", "false"],
+            },
         ]
 
     def save_config(self, values: dict[str, Any], hermes_home: str) -> None:
@@ -326,6 +340,9 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
             hermes_home, "memoir-store"
         )
         self._capture_enabled = str(cfg.get("capture", "true")).lower() != "false"
+        self._branching_enabled = (
+            str(cfg.get("session_branching", "true")).lower() != "false"
+        )
 
         # Model: explicit memoir.json pin → host-selected model → memoir's
         # own default. memoir is always driven by litellm (direct provider
@@ -338,6 +355,10 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
         base_url = cfg.get("base_url") or None
 
         self._bridge = MemoirBridge(self._store_path, model=model, base_url=base_url)
+        self._event(
+            f"initialize session={session_id} ctx={self._agent_context} "
+            f"avail={self._bridge.available()} branching={self._branching_enabled}"
+        )
         if not self._bridge.available():
             logger.warning("memoir provider: %s", INSTALL_HINT)
             return
@@ -347,6 +368,25 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
                 "memoir provider: failed to create store at %s", self._store_path
             )
             return
+
+        # Align the store's branch with this session at agent-init time. This
+        # is the safety net for the lazy-agent path: Hermes builds the agent
+        # (and activates this provider) on the first turn, so a `/resume`
+        # issued before any message can't notify us — but when the agent does
+        # init, we land on the right branch. A session with its own fork
+        # branch → that branch; any other session → main.
+        if self._branching_enabled:
+            target = self._branch_for_session(session_id)
+            try:
+                dest = target if self._bridge.has_branch(target) else "main"
+                ok, payload = self._bridge.checkout(dest)
+                if ok:
+                    self._event(f"init checkout → {dest}")
+                else:
+                    err = payload.get("error") if isinstance(payload, dict) else payload
+                    self._event(f"init checkout → {dest} failed: {err}")
+            except Exception as e:  # pragma: no cover - defensive
+                self._event(f"init checkout error: {e}")
 
         # Cache a lightweight overview for the system prompt. Best-effort —
         # never let a slow/failed summary block agent startup.
@@ -358,6 +398,17 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
                     self._overview = f"{count} memories stored."
         except Exception:
             self._overview = ""
+
+    @staticmethod
+    def _branch_for_session(session_id: str) -> str:
+        """Deterministic memoir branch name for a Hermes session.
+
+        Sanitized to a git-safe ref under the ``hermes/`` namespace. A
+        session that was never forked simply has no such branch, so the
+        resume path falls back to ``main``.
+        """
+        slug = re.sub(r"[^A-Za-z0-9._-]", "-", session_id or "").strip("-./")
+        return f"hermes/{slug[:64]}" if slug else "hermes/session"
 
     def system_prompt_block(self) -> str:
         if not (self._bridge and self._bridge.available()):
@@ -524,10 +575,111 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
     def on_session_switch(
         self, new_session_id: str, *, reset: bool = False, **kwargs
     ) -> None:
+        """Route the memoir store's branch to match the session.
+
+        Hermes rotates ``session_id`` on ``/branch`` (fork), ``/resume``,
+        ``/reset``/``/new``, and context compression — distinguished by the
+        ``reason`` kwarg. We mirror forks onto memoir branches so a forked
+        conversation's captures stay isolated, and resuming a non-forked
+        session returns to ``main``:
+
+          - ``reason="branch"`` (fork) → create+checkout ``hermes/<id>`` off
+            the current branch; the fork's captures land there.
+          - ``reason="resume"`` / reset / other → checkout ``hermes/<id>`` if
+            that branch exists, else ``main`` (a session that was never
+            forked has no branch → main).
+          - ``reason="compression"`` → no-op: the logical conversation
+            continues, only the id rolled over; keep the current branch.
+        """
+        # Entry trace — lands in ~/.hermes/logs/agent.log so we can confirm
+        # the hook fires and which path it takes, regardless of whether the
+        # CLI surfaces stderr.
+        logger.info(
+            "memoir: on_session_switch new=%s reason=%s reset=%s branching=%s avail=%s",
+            new_session_id,
+            kwargs.get("reason"),
+            reset,
+            self._branching_enabled,
+            bool(self._bridge and self._bridge.available()),
+        )
+        self._event(
+            f"on_session_switch new={new_session_id} reason={kwargs.get('reason')} "
+            f"reset={reset} branching={self._branching_enabled}"
+        )
+
         self._session_id = new_session_id or self._session_id
         if reset:
             # New conversation — reset the per-session capture cursor.
             self._captured_through = 0
+
+        if not (self._branching_enabled and new_session_id):
+            return
+        if not (self._bridge and self._bridge.available()):
+            return
+
+        reason = kwargs.get("reason", "")
+        if reason == "compression":
+            return  # continuation of the same conversation — keep the branch
+
+        # Let any in-flight fire-and-forget captures from the preceding turns
+        # finish before we switch branches — otherwise a background `memoir
+        # capture` writing to the current branch can race the checkout (and
+        # we'd also want those writes to land pre-fork, not on the new fork).
+        self._drain_captures(timeout=10.0)
+
+        # Decide the target branch and whether to create it.
+        if reason == "branch" and not reset:
+            target, create = self._branch_for_session(new_session_id), True
+        elif not reset and self._bridge.has_branch(
+            self._branch_for_session(new_session_id)
+        ):
+            target, create = self._branch_for_session(new_session_id), False
+        else:
+            # Resume of a never-forked session, or a reset/new → main.
+            target, create = "main", False
+
+        try:
+            ok, payload = self._bridge.checkout(target, create=create)
+        except Exception as e:  # pragma: no cover - defensive
+            self._notice(f"branch switch to {target} failed: {e}")
+            return
+        if ok:
+            self._notice(f"memory branch → {target}")
+        else:
+            err = payload.get("error") if isinstance(payload, dict) else payload
+            self._notice(f"branch switch to {target} failed: {err}")
+
+    def _notice(self, msg: str) -> None:
+        """Surface a short memoir status line to the user.
+
+        Memory providers have no first-class channel to the chat UI, so we
+        write a concise line to stderr (visible in the Hermes CLI terminal)
+        and also log it. Used for branch switches so the user can see when
+        the memoir store follows a session fork/resume.
+        """
+        import contextlib
+
+        logger.info("memoir: %s", msg)
+        self._event(msg)
+        with contextlib.suppress(Exception):
+            print(f"  ⑂ memoir: {msg}", file=sys.stderr, flush=True)
+
+    def _event(self, msg: str) -> None:
+        """Append a timestamped provider event to a fixed file in the store
+        (``<store>/.git/memoir-hermes-events.log``).
+
+        This is a logging-independent diagnostic channel: it does not rely on
+        Hermes's log routing, so it reliably records whether the provider's
+        hooks fire in the live session.
+        """
+        if not self._store_path:
+            return
+        import contextlib
+        import time
+
+        path = os.path.join(self._store_path, ".git", "memoir-hermes-events.log")
+        with contextlib.suppress(Exception), open(path, "a", encoding="utf-8") as f:
+            f.write(f"{time.time():.0f} pid={os.getpid()} {msg}\n")
 
     def on_memory_write(
         self,
@@ -555,12 +707,34 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
 
         threading.Thread(target=_run, daemon=True, name="memoir-mirror").start()
 
-    def shutdown(self) -> None:
+    def _drain_captures(self, timeout: float = 5.0) -> None:
+        """Block until in-flight fire-and-forget capture threads finish (each
+        up to ``timeout`` seconds). Used before a branch switch and at
+        shutdown so pending writes land before the store changes underfoot."""
         with self._lock:
-            threads = list(self._threads)
+            threads = [t for t in self._threads if t.is_alive()]
         for t in threads:
-            if t.is_alive():
-                t.join(timeout=5.0)
+            t.join(timeout=timeout)
+
+    def shutdown(self) -> None:
+        # Finish any in-flight captures first so they land on the *current*
+        # branch (e.g. the fork being torn down)...
+        self._drain_captures(timeout=5.0)
+        # ...then leave the store on `main`, so exiting a fork session never
+        # strands the store on a fork branch — the next session starts clean.
+        # The fork's data stays safe on its own branch and is restored if the
+        # fork is resumed. (Reset on exit; initialize() is the restart-side
+        # backstop.)
+        if self._branching_enabled and self._bridge and self._bridge.available():
+            import contextlib
+
+            with contextlib.suppress(Exception):
+                ok, payload = self._bridge.checkout("main")
+                if ok:
+                    self._event("shutdown checkout → main")
+                else:
+                    err = payload.get("error") if isinstance(payload, dict) else payload
+                    self._event(f"shutdown checkout → main failed: {err}")
 
 
 def register(ctx) -> None:

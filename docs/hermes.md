@@ -80,6 +80,7 @@ These are called by Hermes automatically — they don't depend on the model invo
 | `system_prompt_block` | prompt assembly | Inject recall guidance + a short store overview. |
 | `sync_turn` | after every turn | Fire-and-forget `memoir capture --profile assistant` over the turn. |
 | `on_pre_compress` / `on_session_end` | compression / session end | Capture the uncaptured message tail. |
+| `on_session_switch` | `/branch`, `/resume`, `/reset` | Route the store's branch to match the session — see [Session branching](#session-branching). |
 | `on_memory_write` | built-in memory edit | Mirror Hermes's `MEMORY.md` / `USER.md` writes into versioned memoir paths. |
 
 Capture runs on a background thread and never blocks the response. Writes are skipped for non-primary agent contexts (subagent / cron / flush) so they can't corrupt the user's representation.
@@ -94,6 +95,7 @@ Config lives in `<hermes_home>/memoir.json` (all keys optional). Set it via `her
 | `capture` | `true` | Auto-capture facts from each turn. `false` disables the `sync_turn` / boundary capture; recall and tools still work. |
 | `model` | host's selected model | Pin the LLM model for capture/classification. Empty = follow Hermes `model.default`. See [Model selection](#model-selection). |
 | `base_url` | provider default | Custom provider endpoint (LLM gateway/proxy). Empty = call the provider directly. See [Routing through a proxy](#routing-through-a-proxy). |
+| `session_branching` | `true` | Mirror Hermes session forks onto memoir branches. `false` keeps everything on `main`. See [Session branching](#session-branching). |
 
 Example — pin cheap Haiku for per-turn capture regardless of your chat model:
 
@@ -123,6 +125,35 @@ memoir routes by **model name**, not by which keys are present — so setting bo
 | `ollama/*`, or any model with `base_url` set | that endpoint (no key check) |
 
 Each key is consulted only when a model of its provider is selected. memoir's default model is `claude-haiku-4-5` (Anthropic), so with no model specified anywhere it uses `ANTHROPIC_API_KEY`.
+
+## Session branching
+
+Hermes lets you fork a conversation (`/branch`), jump between conversations
+(`/resume`), and start fresh (`/reset` / `/new`). With `session_branching`
+enabled (the default), the plugin mirrors that onto memoir branches so a
+fork's memories stay isolated from your main timeline:
+
+- **`/branch` (fork)** → creates and checks out `hermes/<session-id>` *off the
+  current branch*. Everything captured in the fork lands there, not on `main`.
+- **`/resume`** → checks out that session's branch if it has one, otherwise
+  returns to `main`. So resuming a normal (never-forked) conversation always
+  comes back to your main timeline.
+- **`/reset` / `/new`** → back to `main`.
+- **context compression** → no branch change (it's the same conversation
+  continuing under a rolled-over id, so captures stay on the current branch).
+
+The mapping is stateless — it's derived from the session id and the branches
+that exist in the store — so it survives Hermes restarts. Forks branch off
+whatever is currently checked out, so nested forks work too. Inspect or merge
+branches with the `memoir` CLI (`memoir branch`, `memoir merge`,
+`memoir -s <store> summarize` per branch).
+
+Set `session_branching: false` in `memoir.json` to disable this and keep all
+captures on `main`.
+
+> Single-store caveat: branch state is the store's checked-out branch, so this
+> assumes one active session per store at a time (the personal-assistant CLI
+> case). Concurrent sessions sharing one store would contend on the checkout.
 
 ## LLM backend
 
