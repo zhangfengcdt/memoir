@@ -45,6 +45,10 @@ def test_default_backend_still_falls_back(monkeypatch):
 
 def test_explicit_claude_cli_backend_unaffected(monkeypatch):
     monkeypatch.setenv("MEMOIR_LLM_BACKEND", "claude-cli")
+    # ClaudeCLIWrapper.__init__ resolves the `claude` binary and raises if it's
+    # absent (as in CI). Pretend it's installed so this test exercises backend
+    # selection, not host binary presence.
+    _pretend_claude_installed(monkeypatch)
     llm = get_llm(model="claude-haiku-4-5")
     assert isinstance(llm, ClaudeCLIWrapper)
 
