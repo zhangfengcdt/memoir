@@ -56,8 +56,11 @@ The store is created automatically on first run at `<hermes_home>/memoir-store` 
 | Tools (model-facing) | 5 | `memoir_recall`, `memoir_remember`, `memoir_forget`, `memoir_sync`, `memoir_status` |
 | Lifecycle hooks | 5 | Auto-capture, recall context, store mirroring |
 | CLI subcommands | 2 | `hermes memoir status`, `hermes memoir ui` |
+| Slash command | 1 (opt-in) | `/memoir …` — in-session passthrough to the memoir CLI |
 
-There are no in-chat slash commands — Hermes has no plugin slash-command mechanism for memory providers. The equivalents are the auto-capture hook plus the three tools the model invokes on its own.
+The model-facing tools above are the primary in-chat surface (the model calls
+them). There's also an **opt-in `/memoir` slash command** for power users —
+see [The `/memoir` command](#the-memoir-command).
 
 ## Tools
 
@@ -85,6 +88,36 @@ These are called by Hermes automatically — they don't depend on the model invo
 | `on_memory_write` | built-in memory edit | Mirror Hermes's `MEMORY.md` / `USER.md` writes into versioned memoir paths. |
 
 Capture runs on a background thread and never blocks the response. Writes are skipped for non-primary agent contexts (subagent / cron / flush) so they can't corrupt the user's representation.
+
+## The `/memoir` command
+
+An optional in-session slash command that passes through to the memoir CLI on
+your store — handy for inspecting memory without leaving the chat:
+
+```
+/memoir status
+/memoir summarize --depth 3
+/memoir recall "travel plans"
+/memoir branch
+/memoir blame profile.personal.identity
+```
+
+`/memoir` with no args prints usage. It's user-invoked (not the model), so it
+simply runs `memoir -s <store> <your args>` and returns the output.
+
+**It's opt-in and separate from the memory provider.** Hermes loads in-session
+slash commands only for plugins listed in `plugins.enabled`, which is distinct
+from `memory.provider`. So to get `/memoir`, enable the plugin as well:
+
+```bash
+hermes memory setup          # activates the provider (tools + auto-capture)
+hermes plugins enable memoir # additionally registers the /memoir command
+```
+
+Without the `enable` step everything else still works — you just won't have the
+slash command. (Mechanism: the plugin ships `kind: standalone` so the general
+plugin manager can load it for the command; its `register()` feature-detects
+the load context and registers the provider or the command accordingly.)
 
 ## Configuration
 

@@ -169,6 +169,81 @@ class TestImportHygiene:
         assert captured["provider"].name == "memoir"
 
 
+class TestSlashCommand:
+    def test_register_is_context_aware(self, plugin):
+        mod, _ = plugin
+
+        # Memory-provider context (no register_command): provider only.
+        class MemCtx:
+            def __init__(self):
+                self.provider = None
+
+            def register_memory_provider(self, p):
+                self.provider = p
+
+        m = MemCtx()
+        mod.register(m)
+        assert isinstance(m.provider, mod.MemoirProvider)
+
+        # General PluginManager context (no register_memory_provider):
+        # the /memoir command only. register() must not raise on either.
+        class CmdCtx:
+            def __init__(self):
+                self.commands = {}
+
+            def register_command(self, name, handler, **kw):
+                self.commands[name] = handler
+
+        c = CmdCtx()
+        mod.register(c)
+        assert "memoir" in c.commands
+        assert callable(c.commands["memoir"])
+
+    def test_memoir_command_help(self, plugin):
+        mod, _ = plugin
+        for raw in ("", "help"):
+            out = mod._memoir_command(raw)
+            assert "/memoir" in out
+            assert "memoir CLI" in out
+
+    def test_memoir_command_passthrough(self, plugin, monkeypatch):
+        mod, _ = plugin
+        calls = {}
+
+        class FakeBridge:
+            def __init__(self, store):
+                calls["store"] = store
+
+            def available(self):
+                return True
+
+            def run(self, args, *, json_out=True, timeout=15):
+                calls["args"] = args
+                calls["json_out"] = json_out
+                return True, "branch: main\nmemories: 7\n"
+
+        monkeypatch.setattr(mod, "MemoirBridge", FakeBridge)
+        monkeypatch.setattr(mod, "_resolve_store_path", lambda: "/tmp/x")
+        out = mod._memoir_command("summarize --depth 3")
+        assert calls["args"] == ["summarize", "--depth", "3"]
+        assert calls["json_out"] is False  # human-readable for in-chat display
+        assert "branch: main" in out
+
+    def test_memoir_command_unavailable(self, plugin, monkeypatch):
+        mod, _ = plugin
+
+        class Down:
+            def __init__(self, store):
+                pass
+
+            def available(self):
+                return False
+
+        monkeypatch.setattr(mod, "MemoirBridge", Down)
+        monkeypatch.setattr(mod, "_resolve_store_path", lambda: "/tmp/x")
+        assert "memoir CLI not found" in mod._memoir_command("status")
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------

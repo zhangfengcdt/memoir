@@ -910,6 +910,75 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
                     self._event(f"shutdown checkout → main failed: {err}")
 
 
+def _resolve_store_path() -> str:
+    """Resolve the store path the `/memoir` slash command operates on.
+
+    Mirrors :mod:`cli`'s resolution (config ``store_path`` →
+    ``<hermes_home>/memoir-store``). Used by the module-level slash handler,
+    which has no provider instance to read from.
+    """
+    try:
+        from hermes_constants import get_hermes_home  # type: ignore
+
+        home = str(get_hermes_home())
+    except Exception:
+        home = os.environ.get("HERMES_HOME") or os.path.expanduser("~/.hermes")
+    cfg_path = os.path.join(home, "memoir.json")
+    if os.path.exists(cfg_path):
+        try:
+            with open(cfg_path, encoding="utf-8") as f:
+                cfg = json.load(f) or {}
+            if cfg.get("store_path"):
+                return cfg["store_path"]
+        except Exception:
+            pass
+    return os.path.join(home, "memoir-store")
+
+
+def _memoir_command(raw_args: str):
+    """`/memoir <command…>` — run the memoir CLI against the user's store and
+    return its output in-session. A passthrough to the CLI (status, summarize,
+    recall, blame, branch, …); with no args it prints usage. User-invoked, so
+    it inherits whatever the user types — it's their own store."""
+    import shlex
+
+    args = shlex.split(raw_args or "")
+    if not args or args[0] in ("help", "-h", "--help"):
+        return (
+            "Usage: `/memoir <command>` — runs the memoir CLI on your memory "
+            "store.\nExamples: `/memoir status`, `/memoir summarize --depth 3`, "
+            '`/memoir recall "travel plans"`, `/memoir branch`, '
+            "`/memoir blame profile.personal.identity`."
+        )
+    bridge = MemoirBridge(_resolve_store_path())
+    if not bridge.available():
+        return INSTALL_HINT
+    ok, out = bridge.run(args, json_out=False, timeout=30)
+    if ok:
+        return out.strip() if isinstance(out, str) else str(out)
+    err = out.get("error") if isinstance(out, dict) else out
+    return f"memoir: {err}"
+
+
 def register(ctx) -> None:
-    """Register memoir as a Hermes memory provider."""
-    ctx.register_memory_provider(MemoirProvider())
+    """Register the plugin's capabilities, feature-detecting the load context.
+
+    Hermes may load this plugin two ways, each exposing only its own
+    registration method, so we probe rather than assume:
+
+    - **Memory-provider loader** (``plugins.memory``, via ``memory.provider:
+      memoir``) → ``register_memory_provider``.
+    - **General PluginManager** (when the plugin is in ``plugins.enabled`` with
+      ``kind: standalone``) → ``register_command`` for the in-session
+      ``/memoir`` slash command. This is opt-in and independent of the memory
+      provider; without it, everything else still works.
+    """
+    if hasattr(ctx, "register_memory_provider"):
+        ctx.register_memory_provider(MemoirProvider())
+    if hasattr(ctx, "register_command"):
+        ctx.register_command(
+            "memoir",
+            _memoir_command,
+            description="Inspect your memoir memory store (status, recall, branch, …).",
+            args_hint="status | recall <q> | summarize | branch",
+        )
