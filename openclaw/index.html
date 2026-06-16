@@ -1417,6 +1417,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#storage-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Storage model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#scoped-memory" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1424,6 +1435,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Scoped memory">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-lands-in-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What lands in default?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2140,6 +2168,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#storage-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Storage model
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#scoped-memory" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2147,6 +2186,23 @@
       
     </span>
   </a>
+  
+    <nav class="md-nav" aria-label="Scoped memory">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-lands-in-default" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What lands in default?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -2415,8 +2471,8 @@
 </tr>
 <tr>
 <td><code>scope</code></td>
-<td><code>chat</code></td>
-<td>Isolation: <code>off</code> (one shared store), <code>chat</code> (per-conversation), <code>profile</code> (per-agent). Recall always also reads the shared <code>default</code> namespace. See <a href="#scoped-memory">Scoped memory</a>.</td>
+<td><code>profile</code></td>
+<td>Isolation: <code>profile</code> (per-agent — shared across all that agent's sessions, the default), <code>chat</code> (per-conversation), <code>off</code> (one shared store). Recall always also reads the shared <code>default</code> namespace. See <a href="#scoped-memory">Scoped memory</a>.</td>
 </tr>
 <tr>
 <td><code>model</code></td>
@@ -2471,8 +2527,53 @@
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>systemctl<span class="w"> </span>--user<span class="w"> </span>restart<span class="w"> </span>openclaw-gateway
 </span></code></pre></div>
 <p>Either way, <strong>auto-capture, passive recall injection, and the <code>/memoir</code> command don't depend on the tool profile</strong> — they keep working under <code>coding</code>. The tools only add on-demand recall/remember/forget for the model.</p>
+<h2 id="storage-model">Storage model<a class="headerlink" href="#storage-model" title="Permanent link">&para;</a></h2>
+<p>OpenClaw maps onto memoir on <strong>two axes</strong>: an <strong>agent</strong> selects the <em>store</em> (a whole Prolly-tree), and the <strong>scope</strong> setting selects the <em>namespace</em> (a partition inside that store).</p>
+<p><strong>Store ← agent</strong></p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>&lt;state-dir&gt;/memoir/&lt;agentId&gt;
+</span></code></pre></div>
+<ul>
+<li><code>&lt;state-dir&gt;</code> = <code>OPENCLAW_STATE_DIR</code>, else <code>~/.openclaw</code> — so it follows <code>--profile</code> / <code>--dev</code> (e.g. <code>~/.openclaw-work/memoir/…</code>). See <a href="#store-location">Store location</a>.</li>
+<li><code>&lt;agentId&gt;</code> = the conversation's agent (recovered from the <code>agent:&lt;id&gt;:&lt;session&gt;</code> session key), default <code>main</code>. Each agent gets a <strong>separate tree</strong>.</li>
+<li>Override the whole path with the <code>store</code> config or <code>MEMOIR_STORE</code>.</li>
+</ul>
+<p><strong>Namespace ← scope</strong> (details in <a href="#scoped-memory">Scoped memory</a>)</p>
+<table>
+<thead>
+<tr>
+<th><code>scope</code></th>
+<th>Namespace</th>
+<th>One namespace per…</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>profile</code> (default)</td>
+<td><code>profile-&lt;agentId&gt;</code></td>
+<td>agent (all its sessions)</td>
+</tr>
+<tr>
+<td><code>chat</code></td>
+<td><code>chat-&lt;sessionKey&gt;</code></td>
+<td>conversation / launch</td>
+</tr>
+<tr>
+<td><code>off</code></td>
+<td><code>default</code></td>
+<td>the whole store</td>
+</tr>
+</tbody>
+</table>
+<p>Two namespaces always exist alongside the scope one: <strong><code>default</code></strong> (shared facts — recall reads <code>scope ⊕ default</code>) and <strong><code>taxonomy</code></strong> (memoir's built-in path taxonomy, not user data — it's the "8 memories" you see on a fresh store).</p>
+<p>The axes compose: <strong>agent → tree, scope → partition</strong>. Under the default <code>scope=profile</code> the store and namespace both key on the agent (1:1); the namespace layer only fans out under <code>scope=chat</code>.</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>~/.openclaw/memoir/main            # agent &quot;main&quot;        (store)
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>  ├── profile-main                 # scope=profile       (your facts)
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>  ├── default                      # shared across scopes
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4" href="#__codelineno-10-4"></a>  └── taxonomy                     # built-in
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5" href="#__codelineno-10-5"></a>~/.openclaw/memoir/research        # a second agent  →   separate store
+</span></code></pre></div>
 <h2 id="scoped-memory">Scoped memory<a class="headerlink" href="#scoped-memory" title="Permanent link">&para;</a></h2>
-<p>OpenClaw is multi-conversation, so memory is isolated per chat by default — the headline fix for cross-chat pollution. Set <code>scope</code> to change the granularity:</p>
+<p>By default memory is shared across all of an agent's sessions, so the assistant remembers you across launches. <strong>OpenClaw mints a new session id per TUI launch</strong>, so <code>chat</code> scope would isolate every launch (no cross-session continuity) — opt into it only when you genuinely want per-conversation separation. Set <code>scope</code> to change the granularity:</p>
 <table>
 <thead>
 <tr>
@@ -2483,38 +2584,70 @@
 </thead>
 <tbody>
 <tr>
+<td><code>profile</code> (default)</td>
+<td>an agent (all its sessions)</td>
+<td><code>profile-&lt;agentId&gt;</code></td>
+</tr>
+<tr>
+<td><code>chat</code></td>
+<td>a single conversation/launch</td>
+<td><code>chat-&lt;sessionKey&gt;</code></td>
+</tr>
+<tr>
 <td><code>off</code></td>
 <td>one shared store</td>
 <td><code>default</code></td>
 </tr>
-<tr>
-<td><code>chat</code> (default)</td>
-<td>a conversation</td>
-<td><code>chat-&lt;sessionKey&gt;</code></td>
-</tr>
-<tr>
-<td><code>profile</code></td>
-<td>an agent</td>
-<td><code>profile-&lt;agentId&gt;</code></td>
-</tr>
 </tbody>
 </table>
 <p>Captures and <code>memoir_remember</code> write to the scope's namespace; <code>memoir_recall</code> reads the scope namespace <strong>⊕</strong> <code>default</code>, so global facts are visible everywhere but a scoped fact never leaks into another scope (default-deny, not an injection-time filter). Scoping uses memoir <strong>namespaces</strong> (parallel partitions) — distinct from branches.</p>
+<h3 id="what-lands-in-default">What lands in <code>default</code>?<a class="headerlink" href="#what-lands-in-default" title="Permanent link">&para;</a></h3>
+<p>Every write (auto-capture, <code>memoir_remember</code>, <code>/memoir remember</code>) targets the <strong>scope namespace</strong>, which is <code>default</code> <em>only</em> when <code>scope=off</code>:</p>
+<table>
+<thead>
+<tr>
+<th><code>scope</code></th>
+<th>Writes land in</th>
+<th>Does <code>default</code> fill up?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>off</code></td>
+<td><code>default</code></td>
+<td>✅ everything</td>
+</tr>
+<tr>
+<td><code>profile</code> (default)</td>
+<td><code>profile-&lt;agentId&gt;</code></td>
+<td>❌ nothing automatic</td>
+</tr>
+<tr>
+<td><code>chat</code></td>
+<td><code>chat-&lt;sessionKey&gt;</code></td>
+<td>❌ nothing automatic</td>
+</tr>
+</tbody>
+</table>
+<p>So under the default <code>profile</code> scope, <strong>nothing the plugin writes goes to <code>default</code></strong> — it stays empty. <code>default</code> is the cross-scope <em>shared/read</em> layer (recall always merges it in); it only fills when you run <code>scope=off</code>, or write to it deliberately:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>memoir<span class="w"> </span>-s<span class="w"> </span>~/.openclaw/memoir/&lt;agent&gt;<span class="w"> </span>remember<span class="w"> </span><span class="s2">&quot;&lt;fact&gt;&quot;</span><span class="w"> </span>-p<span class="w"> </span>&lt;path&gt;<span class="w"> </span>-n<span class="w"> </span>default
+</span></code></pre></div>
+<p>(So if you want a fact visible in <em>every</em> scope while running <code>profile</code>/<code>chat</code>, put it in <code>default</code> by hand.)</p>
 <h2 id="store-location">Store location<a class="headerlink" href="#store-location" title="Permanent link">&para;</a></h2>
 <p>The store is anchored under OpenClaw's state dir, mirroring OpenClaw's own resolution: <code>OPENCLAW_STATE_DIR</code> if set, else <code>&lt;HOME&gt;/.openclaw</code>. So it <strong>follows <code>--profile</code> / <code>--dev</code> isolation</strong> — <code>--profile work</code> puts the store under <code>~/.openclaw-work/memoir/&lt;agent&gt;</code>. Default:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>~/.openclaw/memoir/&lt;agent&gt;          # e.g. ~/.openclaw/memoir/main
+<div class="language-text highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>~/.openclaw/memoir/&lt;agent&gt;          # e.g. ~/.openclaw/memoir/main
 </span></code></pre></div>
 <p>Override with the <code>store</code> config or <code>MEMOIR_STORE</code>.</p>
 <h2 id="versioning">Versioning<a class="headerlink" href="#versioning" title="Permanent link">&para;</a></h2>
 <p>OpenClaw has no conversation-fork event, so (unlike Hermes) there's no automatic fork→branch mapping. Per-chat <strong>scoping</strong> covers the isolation case; for divergent, mergeable timelines use the manual branch commands:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>/memoir branch &lt;name&gt;      # diverge off main
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>/memoir checkout &lt;name&gt;
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>/memoir sync               # additively merge the current branch back into main
+<div class="language-text highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>/memoir branch &lt;name&gt;      # diverge off main
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>/memoir checkout &lt;name&gt;
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>/memoir sync               # additively merge the current branch back into main
 </span></code></pre></div>
 <h2 id="verify">Verify<a class="headerlink" href="#verify" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>openclaw<span class="w"> </span>memoir<span class="w"> </span>status<span class="w">                                   </span><span class="c1"># branch / memory count / scope</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>memoir<span class="w"> </span>-s<span class="w"> </span>~/.openclaw/memoir/main<span class="w"> </span>summarize<span class="w"> </span>--depth<span class="w"> </span><span class="m">3</span><span class="w">    </span><span class="c1"># captured paths</span>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>memoir<span class="w"> </span>-s<span class="w"> </span>~/.openclaw/memoir/main<span class="w"> </span>blame<span class="w"> </span>&lt;path&gt;<span class="w">           </span><span class="c1"># provenance</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>openclaw<span class="w"> </span>memoir<span class="w"> </span>status<span class="w">                                   </span><span class="c1"># branch / memory count / scope</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a>memoir<span class="w"> </span>-s<span class="w"> </span>~/.openclaw/memoir/main<span class="w"> </span>summarize<span class="w"> </span>--depth<span class="w"> </span><span class="m">3</span><span class="w">    </span><span class="c1"># captured paths</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>memoir<span class="w"> </span>-s<span class="w"> </span>~/.openclaw/memoir/main<span class="w"> </span>blame<span class="w"> </span>&lt;path&gt;<span class="w">           </span><span class="c1"># provenance</span>
 </span></code></pre></div>
 <p>End-to-end: in a chat, state a durable fact ("remember my daughter Mia has piano on Tuesdays"). Capture runs in the background (a few seconds); <code>summarize</code> then shows it under a sensible path. A debug trace of capture attempts is written to <code>&lt;store&gt;/.git/memoir-openclaw-events.log</code>.</p>
 <h2 id="parity-with-the-hermes-plugin">Parity with the Hermes plugin<a class="headerlink" href="#parity-with-the-hermes-plugin" title="Permanent link">&para;</a></h2>
