@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://zhangfengcdt.github.io/memoir/hermes/">
+        <link rel="canonical" href="https://zhangfengcdt.github.io/memoir/openclaw/">
       
       
-        <link rel="prev" href="../codex/">
+        <link rel="prev" href="../hermes/">
       
       
-        <link rel="next" href="../openclaw/">
+        <link rel="next" href="../api/memoir/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Hermes - Memoir</title>
+        <title>OpenClaw - Memoir</title>
       
     
     
@@ -82,7 +82,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#hermes-plugin" class="md-skip">
+        <a href="#openclaw-plugin" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Hermes
+              OpenClaw
             
           </span>
         </div>
@@ -411,11 +411,9 @@
   
   
   
-    
   
-  
-    <li class="md-tabs__item md-tabs__item--active">
-      <a href="./" class="md-tabs__link">
+    <li class="md-tabs__item">
+      <a href="../hermes/" class="md-tabs__link">
         
   
   
@@ -432,9 +430,11 @@
   
   
   
+    
   
-    <li class="md-tabs__item">
-      <a href="../openclaw/" class="md-tabs__link">
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
         
   
   
@@ -1167,6 +1167,33 @@
       
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../hermes/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Hermes
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -1186,7 +1213,7 @@
   <span class="md-ellipsis">
     
   
-    Hermes
+    OpenClaw
   
 
     
@@ -1204,7 +1231,7 @@
   <span class="md-ellipsis">
     
   
-    Hermes
+    OpenClaw
   
 
     
@@ -1230,10 +1257,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#how-it-fits-hermes" class="md-nav__link">
+  <a href="#how-it-fits-openclaw" class="md-nav__link">
     <span class="md-ellipsis">
       
-        How it fits Hermes
+        How it fits OpenClaw
       
     </span>
   </a>
@@ -1275,10 +1302,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#3-activate-it" class="md-nav__link">
+  <a href="#3-allow-conversation-access-for-auto-capture" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Activate it
+        3. Allow conversation access (for auto-capture)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-restart-the-gateway" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Restart the gateway
       
     </span>
   </a>
@@ -1313,10 +1351,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#lifecycle-hooks" class="md-nav__link">
+  <a href="#automatic-behavior" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Lifecycle hooks
+        Automatic behavior
       
     </span>
   </a>
@@ -1335,6 +1373,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1346,38 +1395,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#model-selection" class="md-nav__link">
+  <a href="#model-api-key" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Model selection
+        Model &amp; API key
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Model selection">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#which-provider-key-is-used" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Which provider key is used?
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#session-branching" class="md-nav__link">
+  <a href="#tool-exposure" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Session branching
+        Tool exposure
       
     </span>
   </a>
@@ -1396,30 +1428,24 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#llm-backend" class="md-nav__link">
+  <a href="#store-location" class="md-nav__link">
     <span class="md-ellipsis">
       
-        LLM backend
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="LLM backend">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#routing-through-a-proxy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Routing through a proxy
+        Store location
       
     </span>
   </a>
   
 </li>
-        
-      </ul>
-    </nav>
+      
+        <li class="md-nav__item">
+  <a href="#versioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Versioning
+      
+    </span>
+  </a>
   
 </li>
       
@@ -1435,21 +1461,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#environment-variables" class="md-nav__link">
+  <a href="#parity-with-the-hermes-plugin" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Environment variables
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#manifest" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Manifest
+        Parity with the Hermes plugin
       
     </span>
   </a>
@@ -1482,33 +1497,6 @@
   
 </nav>
       
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../openclaw/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    OpenClaw
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -1992,10 +1980,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#how-it-fits-hermes" class="md-nav__link">
+  <a href="#how-it-fits-openclaw" class="md-nav__link">
     <span class="md-ellipsis">
       
-        How it fits Hermes
+        How it fits OpenClaw
       
     </span>
   </a>
@@ -2037,10 +2025,21 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#3-activate-it" class="md-nav__link">
+  <a href="#3-allow-conversation-access-for-auto-capture" class="md-nav__link">
     <span class="md-ellipsis">
       
-        3. Activate it
+        3. Allow conversation access (for auto-capture)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#4-restart-the-gateway" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        4. Restart the gateway
       
     </span>
   </a>
@@ -2075,10 +2074,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#lifecycle-hooks" class="md-nav__link">
+  <a href="#automatic-behavior" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Lifecycle hooks
+        Automatic behavior
       
     </span>
   </a>
@@ -2097,6 +2096,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#cli" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        CLI
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2108,38 +2118,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#model-selection" class="md-nav__link">
+  <a href="#model-api-key" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Model selection
+        Model &amp; API key
       
     </span>
   </a>
-  
-    <nav class="md-nav" aria-label="Model selection">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#which-provider-key-is-used" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Which provider key is used?
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
   
 </li>
       
         <li class="md-nav__item">
-  <a href="#session-branching" class="md-nav__link">
+  <a href="#tool-exposure" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Session branching
+        Tool exposure
       
     </span>
   </a>
@@ -2158,30 +2151,24 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#llm-backend" class="md-nav__link">
+  <a href="#store-location" class="md-nav__link">
     <span class="md-ellipsis">
       
-        LLM backend
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="LLM backend">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#routing-through-a-proxy" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Routing through a proxy
+        Store location
       
     </span>
   </a>
   
 </li>
-        
-      </ul>
-    </nav>
+      
+        <li class="md-nav__item">
+  <a href="#versioning" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Versioning
+      
+    </span>
+  </a>
   
 </li>
       
@@ -2197,21 +2184,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#environment-variables" class="md-nav__link">
+  <a href="#parity-with-the-hermes-plugin" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Environment variables
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#manifest" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Manifest
+        Parity with the Hermes plugin
       
     </span>
   </a>
@@ -2257,7 +2233,7 @@
 
 
   
-    <a href="https://github.com/zhangfengcdt/memoir/edit/main/docs/hermes.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/zhangfengcdt/memoir/edit/main/docs/openclaw.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -2265,34 +2241,39 @@
   
 
 
-<h1 id="hermes-plugin">Hermes Plugin<a class="headerlink" href="#hermes-plugin" title="Permanent link">&para;</a></h1>
-<p>Memoir ships a memory-provider plugin for <a href="https://github.com/NousResearch/hermes-agent">Hermes</a>, the Nous Research personal-assistant agent. Activate it and Hermes gains <strong>versioned, semantic long-term memory</strong>: a git-like store (branch / commit / merge) over a Prolly-tree with semantic paths and cryptographic provenance. Unlike vector-only backends (Mem0, Zep, Letta), every write is a commit you can inspect (<code>memoir log</code>), attribute (<code>memoir blame</code>), and time-travel.</p>
-<p>The plugin lives in the repo at <code>plugins/hermes/</code>.</p>
-<h2 id="how-it-fits-hermes">How it fits Hermes<a class="headerlink" href="#how-it-fits-hermes" title="Permanent link">&para;</a></h2>
-<p>Hermes has a pluggable <code>MemoryProvider</code> slot — exactly one external provider is active at a time, selected by <code>memory.provider</code> in <code>~/.hermes/config.yaml</code>. The built-in <code>MEMORY.md</code> / <code>USER.md</code> layer stays active alongside it. Memoir fills that slot.</p>
-<p>It is a <strong>directory plugin</strong>, not a pip/entry-point package: Hermes loads memory providers by scanning <code>$HERMES_HOME/plugins/&lt;name&gt;/</code>, so the plugin is installed as a directory there. It holds no memoir code in-process — it shells out to the <code>memoir</code> CLI over a stdlib-only subprocess bridge, so the Prolly-tree self-resolves concurrent (fire-and-forget) writes with no locking.</p>
+<h1 id="openclaw-plugin">OpenClaw Plugin<a class="headerlink" href="#openclaw-plugin" title="Permanent link">&para;</a></h1>
+<p>Memoir ships a memory plugin for <a href="https://github.com/openclaw/openclaw">OpenClaw</a>, the personal-assistant gateway. Activate it and OpenClaw gains <strong>versioned, semantic long-term memory</strong>: a git-like store (branch / commit / merge) over a Prolly-tree with semantic paths and cryptographic provenance. Unlike vector-only backends (Mem0, Zep, Letta), every write is a commit you can inspect (<code>memoir log</code>), attribute (<code>memoir blame</code>), and time-travel — and each conversation is isolated by default, so a side chat never pollutes your global profile.</p>
+<p>The plugin lives in its <strong>own repository</strong>: <a href="https://github.com/zhangfengcdt/openclaw-memoir"><code>zhangfengcdt/openclaw-memoir</code></a> (OpenClaw's <code>plugins install</code> for git sources expects the plugin at the repo root). It is the OpenClaw counterpart of the in-repo <a href="../hermes/">Hermes plugin</a> and shares its conventions.</p>
+<h2 id="how-it-fits-openclaw">How it fits OpenClaw<a class="headerlink" href="#how-it-fits-openclaw" title="Permanent link">&para;</a></h2>
+<p>OpenClaw has a single-select <strong>memory slot</strong> (<code>plugins.slots.memory</code>, default <code>memory-core</code>). Installing this plugin claims that slot with <code>memory-memoir</code>. It holds no memoir code in-process — it shells out to the <code>memoir</code> CLI over a zero-dependency subprocess bridge, so the Prolly-tree self-resolves concurrent (fire-and-forget) writes with no locking.</p>
+<p>It registers through OpenClaw's native seams: <code>registerTool</code> (model-facing tools), <code>registerMemoryCapability</code> (memory-guidance prompt section + disabling the MEMORY.md flush), <code>api.on(...)</code> hooks (capture + recall), <code>registerCommand</code> (the in-chat <code>/memoir</code>), and <code>registerCli</code> (<code>openclaw memoir …</code>).</p>
 <h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
-<p>The plugin needs two things on the machine: the <strong>plugin directory</strong> in your Hermes home, and the <strong><code>memoir</code> CLI</strong> reachable on <code>PATH</code>.</p>
+<p>You need three things: the <strong><code>memoir</code> CLI</strong>, the <strong>plugin</strong> in the memory slot, and a <strong>provider key + capture model</strong> in the plugin's config (OpenClaw keeps its own keys in a secret store and does not export them to subprocesses — see <a href="#model-api-key">Model &amp; API key</a>).</p>
 <h3 id="1-install-the-memoir-cli">1. Install the memoir CLI<a class="headerlink" href="#1-install-the-memoir-cli" title="Permanent link">&para;</a></h3>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>memoir-ai<span class="w">        </span><span class="c1"># or: pipx install memoir-ai / uv tool install memoir-ai</span>
 </span></code></pre></div>
 <blockquote>
-<p>The bridge resolves <code>memoir</code> on <code>PATH</code> first, falling back to a pinned <code>uvx --from memoir-ai==&lt;pin&gt; memoir</code> (then <code>uv tool run</code>) when it isn't installed. A direct install is faster (no warmup).</p>
+<p>The bridge resolves <code>memoir</code> on <code>PATH</code> first, falling back to a pinned <code>uvx --from memoir-ai==&lt;pin&gt; memoir</code> (then <code>uv tool run</code>) when it isn't installed.</p>
 </blockquote>
 <h3 id="2-install-the-plugin">2. Install the plugin<a class="headerlink" href="#2-install-the-plugin" title="Permanent link">&para;</a></h3>
-<p><strong>Via the Hermes CLI</strong> (once the plugin is on the repo's default branch):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>hermes<span class="w"> </span>plugins<span class="w"> </span>install<span class="w"> </span>zhangfengcdt/memoir/plugins/hermes
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># from the git repo root (no subdir form — the plugin is a root-level repo)</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>openclaw<span class="w"> </span>plugins<span class="w"> </span>install<span class="w"> </span>https://github.com/zhangfengcdt/openclaw-memoir
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># …or link a local checkout while developing</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>openclaw<span class="w"> </span>plugins<span class="w"> </span>install<span class="w"> </span>--link<span class="w"> </span>/path/to/openclaw-memoir
 </span></code></pre></div>
-<p>Hermes clones the repo, takes the <code>plugins/hermes</code> subdirectory, reads its <code>plugin.yaml</code> (<code>name: memoir</code>), and installs it to <code>~/.hermes/plugins/memoir/</code>.</p>
-<p><strong>By copy</strong> (works today, from a local checkout):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>cp<span class="w"> </span>-r<span class="w"> </span>plugins/hermes<span class="w"> </span>~/.hermes/plugins/memoir
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>rm<span class="w"> </span>-rf<span class="w"> </span>~/.hermes/plugins/memoir/tests<span class="w"> </span>~/.hermes/plugins/memoir/__pycache__
+<p>Installing auto-switches the memory slot to <code>memory-memoir</code> (you'll see <em>"Exclusive slot 'memory' switched from 'memory-core' to 'memory-memoir'"</em>). To set it by hand:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>openclaw<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>plugins.slots.memory<span class="w"> </span>memory-memoir
 </span></code></pre></div>
-<h3 id="3-activate-it">3. Activate it<a class="headerlink" href="#3-activate-it" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>hermes<span class="w"> </span>memory<span class="w"> </span>setup<span class="w">        </span><span class="c1"># interactive picker — choose &quot;memoir&quot;</span>
+<h3 id="3-allow-conversation-access-for-auto-capture">3. Allow conversation access (for auto-capture)<a class="headerlink" href="#3-allow-conversation-access-for-auto-capture" title="Permanent link">&para;</a></h3>
+<p>Non-bundled plugins must opt in before their hooks can read conversation content:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>openclaw<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>plugins.entries.memory-memoir.hooks.allowConversationAccess<span class="w"> </span><span class="nb">true</span>
 </span></code></pre></div>
-<p><code>hermes memory setup</code> writes <code>memory.provider: memoir</code> to <code>~/.hermes/config.yaml</code>. (You can also set that key by hand.) Activating memoir <strong>displaces any other external provider</strong> (<code>mem0</code>, <code>honcho</code>, …) — only one runs at a time.</p>
-<p>The store is created automatically on first run at <code>&lt;hermes_home&gt;/memoir-store</code> (override with <code>store_path</code> in config). You'll need a provider API key in the Hermes environment — see <a href="#llm-backend">LLM backend</a>.</p>
+<p>Without this the tools and <code>/memoir</code> still work, but automatic capture and recall-injection are disabled.</p>
+<h3 id="4-restart-the-gateway">4. Restart the gateway<a class="headerlink" href="#4-restart-the-gateway" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>systemctl<span class="w"> </span>--user<span class="w"> </span>restart<span class="w"> </span>openclaw-gateway<span class="w">      </span><span class="c1"># or: openclaw gateway restart</span>
+</span></code></pre></div>
+<p>The store is created automatically on first use under OpenClaw's state dir (see <a href="#store-location">Store location</a>).</p>
 <h2 id="what-ships">What ships<a class="headerlink" href="#what-ships" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2305,31 +2286,33 @@
 <tbody>
 <tr>
 <td>Tools (model-facing)</td>
-<td>5</td>
-<td><code>memoir_recall</code>, <code>memoir_remember</code>, <code>memoir_forget</code>, <code>memoir_sync</code>, <code>memoir_status</code></td>
+<td>4</td>
+<td><code>memoir_recall</code>, <code>memoir_remember</code>, <code>memoir_forget</code>, <code>memoir_status</code></td>
 </tr>
 <tr>
 <td>Lifecycle hooks</td>
-<td>5</td>
-<td>Auto-capture, recall context, store mirroring</td>
+<td>4</td>
+<td>Auto-capture, recall-context injection, store bootstrap</td>
+</tr>
+<tr>
+<td>Memory capability</td>
+<td>1</td>
+<td>Tool-aware guidance section; disables the MEMORY.md flush</td>
+</tr>
+<tr>
+<td>In-chat command</td>
+<td>1</td>
+<td><code>/memoir …</code></td>
 </tr>
 <tr>
 <td>CLI subcommands</td>
 <td>2</td>
-<td><code>hermes memoir status</code>, <code>hermes memoir ui</code></td>
-</tr>
-<tr>
-<td>Slash command</td>
-<td>1 (opt-in)</td>
-<td><code>/memoir …</code> — in-session passthrough to the memoir CLI</td>
+<td><code>openclaw memoir status</code>, <code>openclaw memoir ui</code></td>
 </tr>
 </tbody>
 </table>
-<p>The model-facing tools above are the primary in-chat surface (the model calls
-them). There's also an <strong>opt-in <code>/memoir</code> slash command</strong> for power users —
-see <a href="#the-memoir-command">The <code>/memoir</code> command</a>.</p>
 <h2 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h2>
-<p>The model decides when to call these (guided by their descriptions and the injected system-prompt block); they are not typed by the user.</p>
+<p>The model decides when to call these (guided by the memory-guidance prompt section). They are exposed to the agent <strong>only when its tool profile allows memory tools</strong> — see <a href="#tool-exposure">Tool exposure</a>.</p>
 <table>
 <thead>
 <tr>
@@ -2340,28 +2323,24 @@ see <a href="#the-memoir-command">The <code>/memoir</code> command</a>.</p>
 <tbody>
 <tr>
 <td><code>memoir_recall</code></td>
-<td>Fetch stored facts about the user (preferences, people, schedule, standing instructions). LLM-free: <code>summarize</code> → batched <code>get</code>, ranked by lexical overlap with the query.</td>
+<td>Fetch stored facts about the user (preferences, people, commitments, decisions). LLM-free: <code>summarize --depth 3</code> → batched <code>get</code>; <code>metrics.*</code> excluded.</td>
 </tr>
 <tr>
 <td><code>memoir_remember</code></td>
-<td>Store an explicit durable fact. Classified into a semantic path and committed. Guarded against obvious secrets.</td>
+<td>Store an explicit durable fact. Routed through <code>memoir capture</code> so the taxonomy classifier picks a valid semantic path (never a guessed key); guarded against obvious secrets.</td>
 </tr>
 <tr>
 <td><code>memoir_forget</code></td>
-<td>Delete a fact by its exact taxonomy path (the model finds the path via <code>memoir_recall</code> first). Pre-checks existence so a wrong path can't create a no-op delete commit; prior versions remain in git history (recoverable).</td>
-</tr>
-<tr>
-<td><code>memoir_sync</code></td>
-<td>Promote a session fork's memories into <code>main</code>. No args → list fork branches with un-merged memories (preview counts); <code>branch</code> → merge it into <code>main</code> (<code>dry_run</code> to preview). Additive (insert/update, never delete).</td>
+<td>Delete a fact by its exact taxonomy path (find it with <code>memoir_recall</code> first). Pre-checks existence so a wrong path can't create a no-op delete; prior versions stay in git history.</td>
 </tr>
 <tr>
 <td><code>memoir_status</code></td>
-<td>Store status: branch, commit count, memory count.</td>
+<td>Store status: branch, memory count, scope.</td>
 </tr>
 </tbody>
 </table>
-<h2 id="lifecycle-hooks">Lifecycle hooks<a class="headerlink" href="#lifecycle-hooks" title="Permanent link">&para;</a></h2>
-<p>These are called by Hermes automatically — they don't depend on the model invoking a tool, so <strong>capture is guaranteed</strong> even if the model never calls <code>memoir_remember</code>.</p>
+<h2 id="automatic-behavior">Automatic behavior<a class="headerlink" href="#automatic-behavior" title="Permanent link">&para;</a></h2>
+<p>These don't depend on the model invoking a tool, so the memory loop works even when the tools are filtered out of the agent's profile:</p>
 <table>
 <thead>
 <tr>
@@ -2372,61 +2351,44 @@ see <a href="#the-memoir-command">The <code>/memoir</code> command</a>.</p>
 </thead>
 <tbody>
 <tr>
-<td><code>initialize</code></td>
-<td>agent startup</td>
-<td>Derive + ensure the store, resolve the model, cache an overview.</td>
+<td><code>session_start</code></td>
+<td>new session</td>
+<td>Ensure the store exists.</td>
 </tr>
 <tr>
-<td><code>system_prompt_block</code></td>
+<td><code>before_prompt_build</code></td>
 <td>prompt assembly</td>
-<td>Inject recall guidance + a short store overview.</td>
+<td>Inject a <code>&lt;memoir-memory&gt;</code> block of relevant facts (passive recall).</td>
 </tr>
 <tr>
-<td><code>sync_turn</code></td>
+<td><code>agent_end</code></td>
 <td>after every turn</td>
 <td>Fire-and-forget <code>memoir capture --profile assistant</code> over the turn.</td>
 </tr>
 <tr>
-<td><code>on_pre_compress</code> / <code>on_session_end</code></td>
-<td>compression / session end</td>
-<td>Capture the uncaptured message tail.</td>
-</tr>
-<tr>
-<td><code>on_session_switch</code></td>
-<td><code>/branch</code>, <code>/resume</code>, <code>/reset</code></td>
-<td>Route the store's branch to match the session — see <a href="#session-branching">Session branching</a>.</td>
-</tr>
-<tr>
-<td><code>on_memory_write</code></td>
-<td>built-in memory edit</td>
-<td>Mirror Hermes's <code>MEMORY.md</code> / <code>USER.md</code> writes into versioned memoir paths.</td>
+<td><code>before_compaction</code></td>
+<td>before summarization</td>
+<td>Capture the message tail before it's discarded.</td>
 </tr>
 </tbody>
 </table>
-<p>Capture runs on a background thread and never blocks the response. Writes are skipped for non-primary agent contexts (subagent / cron / flush) so they can't corrupt the user's representation.</p>
+<p>Capture runs in the background and never blocks the reply. The memory-capability <code>promptBuilder</code> adds a short guidance line that names <code>memoir_recall</code> / <code>memoir_remember</code> <strong>only when those tools are actually exposed</strong> — otherwise it points the user at <code>/memoir</code>.</p>
 <h2 id="the-memoir-command">The <code>/memoir</code> command<a class="headerlink" href="#the-memoir-command" title="Permanent link">&para;</a></h2>
-<p>An optional in-session slash command that passes through to the memoir CLI on
-your store — handy for inspecting memory without leaving the chat:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>/memoir status
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>/memoir summarize --depth 3
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>/memoir recall &quot;travel plans&quot;
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>/memoir branch
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>/memoir blame profile.personal.identity
+<p>An in-chat command (not a tool, so it's never filtered by the tool profile):</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>/memoir status
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>/memoir recall [query]
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>/memoir remember &lt;fact&gt;
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>/memoir forget &lt;key&gt;
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>/memoir branch [name]      # versioning: diverge a timeline
+</span><span id="__span-5-6"><a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a>/memoir checkout &lt;name&gt;
+</span><span id="__span-5-7"><a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>/memoir sync               # promote the current branch into main
 </span></code></pre></div>
-<p><code>/memoir</code> with no args prints usage. It's user-invoked (not the model), so it
-simply runs <code>memoir -s &lt;store&gt; &lt;your args&gt;</code> and returns the output.</p>
-<p><strong>It's opt-in and separate from the memory provider.</strong> Hermes loads in-session
-slash commands only for plugins listed in <code>plugins.enabled</code>, which is distinct
-from <code>memory.provider</code>. So to get <code>/memoir</code>, enable the plugin as well:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>hermes<span class="w"> </span>memory<span class="w"> </span>setup<span class="w">          </span><span class="c1"># activates the provider (tools + auto-capture)</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>hermes<span class="w"> </span>plugins<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>memoir<span class="w"> </span><span class="c1"># additionally registers the /memoir command</span>
+<h2 id="cli">CLI<a class="headerlink" href="#cli" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>openclaw<span class="w"> </span>memoir<span class="w"> </span>status<span class="w">     </span><span class="c1"># branch / memory count / scope</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>openclaw<span class="w"> </span>memoir<span class="w"> </span>ui<span class="w">         </span><span class="c1"># open the memoir web UI for the store</span>
 </span></code></pre></div>
-<p>Without the <code>enable</code> step everything else still works — you just won't have the
-slash command. (Mechanism: the plugin ships <code>kind: standalone</code> so the general
-plugin manager can load it for the command; its <code>register()</code> feature-detects
-the load context and registers the provider or the command accordingly.)</p>
 <h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
-<p>Config lives in <code>&lt;hermes_home&gt;/memoir.json</code> (all keys optional). Set it via <code>hermes memory setup</code> or by hand.</p>
+<p>Config lives under <code>plugins.entries.memory-memoir.config.*</code> (set with <code>openclaw config set …</code>). All keys optional.</p>
 <table>
 <thead>
 <tr>
@@ -2437,50 +2399,48 @@ the load context and registers the provider or the command accordingly.)</p>
 </thead>
 <tbody>
 <tr>
-<td><code>store_path</code></td>
-<td><code>&lt;hermes_home&gt;/memoir-store</code></td>
-<td>Store location.</td>
+<td><code>store</code></td>
+<td><code>&lt;state-dir&gt;/memoir/&lt;agent&gt;</code></td>
+<td>Store path override.</td>
 </tr>
 <tr>
 <td><code>capture</code></td>
 <td><code>true</code></td>
-<td>Auto-capture facts from each turn. <code>false</code> disables the <code>sync_turn</code> / boundary capture; recall and tools still work.</td>
+<td>Auto-capture facts from each turn.</td>
 </tr>
 <tr>
-<td><code>model</code></td>
-<td>host's selected model</td>
-<td>Pin the LLM model for capture/classification. Empty = follow Hermes <code>model.default</code>. See <a href="#model-selection">Model selection</a>.</td>
-</tr>
-<tr>
-<td><code>base_url</code></td>
-<td>provider default</td>
-<td>Custom provider endpoint (LLM gateway/proxy). Empty = call the provider directly. See <a href="#routing-through-a-proxy">Routing through a proxy</a>.</td>
-</tr>
-<tr>
-<td><code>session_branching</code></td>
+<td><code>recall</code></td>
 <td><code>true</code></td>
-<td>Mirror Hermes session forks onto memoir branches. <code>false</code> keeps everything on <code>main</code>. See <a href="#session-branching">Session branching</a>.</td>
+<td>Inject the memory overview into the prompt.</td>
 </tr>
 <tr>
 <td><code>scope</code></td>
-<td><code>off</code></td>
-<td>Isolate memory per chat/profile via a namespace: <code>chat</code> (per platform+chat), <code>profile</code> (per Hermes profile), <code>off</code> (one shared store). See <a href="#scoped-memory">Scoped memory</a>.</td>
+<td><code>chat</code></td>
+<td>Isolation: <code>off</code> (one shared store), <code>chat</code> (per-conversation), <code>profile</code> (per-agent). Recall always also reads the shared <code>default</code> namespace. See <a href="#scoped-memory">Scoped memory</a>.</td>
+</tr>
+<tr>
+<td><code>model</code></td>
+<td>—</td>
+<td>Model for capture/remember extraction. <strong>Required</strong> in practice — see below.</td>
+</tr>
+<tr>
+<td><code>apiKey</code></td>
+<td>—</td>
+<td>Provider API key for capture extraction. <strong>Required</strong> — see below.</td>
+</tr>
+<tr>
+<td><code>baseUrl</code></td>
+<td>—</td>
+<td>Custom provider endpoint (proxy). Sets <code>MEMOIR_LLM_BASE_URL</code>.</td>
 </tr>
 </tbody>
 </table>
-<p>Example — pin cheap Haiku for per-turn capture regardless of your chat model:</p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;model&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;claude-haiku-4-5&quot;</span><span class="w"> </span><span class="p">}</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>openclaw<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>plugins.entries.memory-memoir.config.model<span class="w">  </span>anthropic/claude-haiku-4-5
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>openclaw<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>plugins.entries.memory-memoir.config.apiKey<span class="w">  </span><span class="s2">&quot;</span><span class="nv">$ANTHROPIC_API_KEY</span><span class="s2">&quot;</span>
 </span></code></pre></div>
-<h2 id="model-selection">Model selection<a class="headerlink" href="#model-selection" title="Permanent link">&para;</a></h2>
-<p>memoir resolves the capture/classification model in this order:</p>
-<ol>
-<li><strong><code>model</code> pin</strong> in <code>memoir.json</code> — always wins.</li>
-<li><strong>Host-selected model</strong> — Hermes <code>model.default</code>, tracked across mid-session model switches (<code>on_turn_start</code>).</li>
-<li><strong>memoir's built-in default</strong> — <code>claude-haiku-4-5</code>.</li>
-</ol>
-<p>So out of the box, capture runs on the <em>same model your Hermes session uses</em>. That can be expensive: if your session model is Opus, every per-turn extraction is an Opus call. Pin a cheaper model (e.g. <code>claude-haiku-4-5</code>) in <code>memoir.json</code> to decouple capture cost from your chat model.</p>
-<h3 id="which-provider-key-is-used">Which provider key is used?<a class="headerlink" href="#which-provider-key-is-used" title="Permanent link">&para;</a></h3>
-<p>memoir routes by <strong>model name</strong>, not by which keys are present — so setting both <code>OPENAI_API_KEY</code> and <code>ANTHROPIC_API_KEY</code> is unambiguous:</p>
+<h2 id="model-api-key">Model &amp; API key<a class="headerlink" href="#model-api-key" title="Permanent link">&para;</a></h2>
+<p>Capture/remember run an extraction step through memoir's litellm client. Two things matter:</p>
+<p><strong>1. The key must be in the plugin config.</strong> OpenClaw authenticates providers through its own secret store and does <strong>not</strong> export <code>ANTHROPIC_API_KEY</code> (etc.) into subprocesses. So memoir — a separate process — can't see it unless you provide it via <code>apiKey</code>. The plugin routes it to the right env var based on the model:</p>
 <table>
 <thead>
 <tr>
@@ -2494,60 +2454,25 @@ the load context and registers the provider or the command accordingly.)</p>
 <td>Anthropic → <code>ANTHROPIC_API_KEY</code></td>
 </tr>
 <tr>
-<td><code>gpt-*</code></td>
+<td><code>gpt-*</code> / <code>openai/*</code></td>
 <td>OpenAI → <code>OPENAI_API_KEY</code></td>
 </tr>
 <tr>
-<td><code>gemini/*</code></td>
+<td><code>gemini*</code></td>
 <td>Gemini → <code>GEMINI_API_KEY</code></td>
-</tr>
-<tr>
-<td><code>ollama/*</code>, or any model with <code>base_url</code> set</td>
-<td>that endpoint (no key check)</td>
 </tr>
 </tbody>
 </table>
-<p>Each key is consulted only when a model of its provider is selected. memoir's default model is <code>claude-haiku-4-5</code> (Anthropic), so with no model specified anywhere it uses <code>ANTHROPIC_API_KEY</code>.</p>
-<h2 id="session-branching">Session branching<a class="headerlink" href="#session-branching" title="Permanent link">&para;</a></h2>
-<p>Hermes lets you fork a conversation (<code>/branch</code>), jump between conversations
-(<code>/resume</code>), and start fresh (<code>/reset</code> / <code>/new</code>). With <code>session_branching</code>
-enabled (the default), the plugin mirrors that onto memoir branches so a
-fork's memories stay isolated from your main timeline:</p>
-<ul>
-<li><strong><code>/branch</code> (fork)</strong> → creates and checks out <code>hermes/&lt;session-id&gt;</code> <em>off the
-  current branch</em>. Everything captured in the fork lands there, not on <code>main</code>.</li>
-<li><strong><code>/resume</code></strong> → checks out that session's branch if it has one, otherwise
-  returns to <code>main</code>. So resuming a normal (never-forked) conversation always
-  comes back to your main timeline.</li>
-<li><strong><code>/reset</code> / <code>/new</code></strong> → back to <code>main</code>.</li>
-<li><strong>context compression</strong> → no branch change (it's the same conversation
-  continuing under a rolled-over id, so captures stay on the current branch).</li>
-</ul>
-<p>The mapping is stateless — it's derived from the session id and the branches
-that exist in the store — so it survives Hermes restarts. Forks branch off
-whatever is currently checked out, so nested forks work too. Inspect or merge
-branches with the <code>memoir</code> CLI (<code>memoir branch</code>, <code>memoir merge</code>,
-<code>memoir -s &lt;store&gt; summarize</code> per branch).</p>
-<p>Set <code>session_branching: false</code> in <code>memoir.json</code> to disable this and keep all
-captures on <code>main</code>.</p>
-<p><strong>Promoting a fork's memories back to main.</strong> A fork's captures stay isolated
-on its branch. When the user wants to keep them, the <code>memoir_sync</code> tool
-promotes them into <code>main</code>: with no arguments it lists fork branches that have
-un-merged memories (with a preview of what each would add); with a branch it
-merges that branch into <code>main</code>. The merge is <strong>additive</strong> — it inserts/updates
-keys and never deletes — and the model drives the choose/confirm flow in
-conversation. (This mirrors the Claude Code plugin's <code>/memoir:sync</code>.) On exit
-the store is left on <code>main</code>, so forks don't accumulate as the active branch.</p>
-<blockquote>
-<p>Single-store caveat: branch state is the store's checked-out branch, so this
-assumes one active session per store at a time (the personal-assistant CLI
-case). Concurrent sessions sharing one store would contend on the checkout.</p>
-</blockquote>
+<p><strong>2. The model must support <code>temperature=0</code>.</strong> memoir's extraction uses <code>temperature=0</code> for determinism. Reasoning models that force <code>temperature=1</code> (e.g. <code>claude-opus-4-8</code>) will fail capture with an <code>UnsupportedParamsError</code>. Use a standard model — <code>anthropic/claude-haiku-4-5</code> is ideal for background extraction (fast and cheap), and decouples capture cost from whatever model your chats run on.</p>
+<p>Recall is LLM-free, so it works with no key. Only capture and explicit <code>memoir_remember</code> need one.</p>
+<h2 id="tool-exposure">Tool exposure<a class="headerlink" href="#tool-exposure" title="Permanent link">&para;</a></h2>
+<p>OpenClaw filters each agent's toolset by its <strong>tools profile</strong> (<code>tools.profile</code>). The <code>coding</code> profile is an allowlist that strips memory tools (it would strip <code>memory-core</code>'s tools too) — so on a coding-configured gateway the <code>memoir_*</code> tools won't appear in the model's tool list, even though they registered fine. To expose them, use a profile that includes memory tools:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>openclaw<span class="w"> </span>config<span class="w"> </span><span class="nb">set</span><span class="w"> </span>tools.profile<span class="w"> </span>full<span class="w">     </span><span class="c1"># or any profile that includes memory tools</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>systemctl<span class="w"> </span>--user<span class="w"> </span>restart<span class="w"> </span>openclaw-gateway
+</span></code></pre></div>
+<p>Either way, <strong>auto-capture, passive recall injection, and the <code>/memoir</code> command don't depend on the tool profile</strong> — they keep working under <code>coding</code>. The tools only add on-demand recall/remember/forget for the model.</p>
 <h2 id="scoped-memory">Scoped memory<a class="headerlink" href="#scoped-memory" title="Permanent link">&para;</a></h2>
-<p>If you run Hermes across multiple chats/platforms/profiles (e.g. a private DM
-and a public group on the same gateway), global memory is a privacy foot-gun:
-a fact captured in the DM would otherwise be injected into the group. Set
-<code>scope</code> in <code>memoir.json</code> to isolate memory <strong>structurally</strong>:</p>
+<p>OpenClaw is multi-conversation, so memory is isolated per chat by default — the headline fix for cross-chat pollution. Set <code>scope</code> to change the granularity:</p>
 <table>
 <thead>
 <tr>
@@ -2558,108 +2483,57 @@ a fact captured in the DM would otherwise be injected into the group. Set
 </thead>
 <tbody>
 <tr>
-<td><code>off</code> (default)</td>
+<td><code>off</code></td>
 <td>one shared store</td>
 <td><code>default</code></td>
 </tr>
 <tr>
-<td><code>chat</code></td>
-<td>a platform + chat/channel</td>
-<td><code>scope_&lt;platform&gt;_&lt;chat_id&gt;</code></td>
+<td><code>chat</code> (default)</td>
+<td>a conversation</td>
+<td><code>chat-&lt;sessionKey&gt;</code></td>
 </tr>
 <tr>
 <td><code>profile</code></td>
-<td>a Hermes profile</td>
-<td><code>scope_profile_&lt;name&gt;</code></td>
+<td>an agent</td>
+<td><code>profile-&lt;agentId&gt;</code></td>
 </tr>
 </tbody>
 </table>
-<p>How it works:</p>
-<ul>
-<li>Hermes already passes <code>platform</code>, <code>chat_id</code>, and <code>agent_identity</code> (profile)
-  into the provider's <code>initialize()</code>, so the scope key needs no extra config.</li>
-<li>Captures and <code>memoir_remember</code> write to the <strong>scope's namespace</strong>.</li>
-<li><code>memoir_recall</code> reads the scope namespace <strong>⊕</strong> <code>default</code> — so global
-  (unscoped) facts are visible everywhere, but a scoped fact never appears in
-  another scope. Cross-scope leakage is impossible by construction
-  (default-deny), not dependent on an injection-time filter.</li>
-<li><code>memoir_forget</code> deletes from the scope namespace, falling back to <code>default</code>.</li>
-</ul>
-<p><strong>Namespace vs. branch.</strong> Scoping uses memoir <strong>namespaces</strong> (parallel,
-composable partitions), which is the right primitive here — distinct from
-<a href="#session-branching">session branching</a>, which uses <strong>branches</strong> (divergent
-timelines you can merge). They compose: a scoped session can still <code>/fork</code>.
-Namespaces are also routed per call (no shared checkout), so concurrent
-scoped sessions don't contend.</p>
-<blockquote>
-<p>v1 resolves the scope once at <code>initialize()</code> (the session's chat/profile).
-Per-message re-scoping for a single provider serving many concurrent gateway
-sessions is future work — the namespace primitive supports it.</p>
-</blockquote>
-<h2 id="llm-backend">LLM backend<a class="headerlink" href="#llm-backend" title="Permanent link">&para;</a></h2>
-<p>The plugin drives memoir with its <strong>litellm (direct provider API) backend only</strong> — it <strong>never</strong> shells out to the <code>claude</code> CLI, even when a <code>claude</code> binary is on <code>PATH</code>. A Hermes host has its own configured provider, and a typical Hermes box has no Claude Code install.</p>
-<p>memoir reads the provider credentials from the Hermes process environment (e.g. <code>ANTHROPIC_API_KEY</code> in <code>&lt;hermes_home&gt;/.env</code>). If the selected model's provider key is missing, capture <strong>fails loudly</strong> ("ANTHROPIC_API_KEY required") rather than silently switching backends.</p>
-<p>Recall is LLM-free, so it works even without a provider key. Auto-capture and explicit <code>memoir_remember</code> classification do need one.</p>
-<h3 id="routing-through-a-proxy">Routing through a proxy<a class="headerlink" href="#routing-through-a-proxy" title="Permanent link">&para;</a></h3>
-<p>By default memoir calls the provider directly (e.g. <code>api.anthropic.com</code>) and does <strong>not</strong> route through any gateway Hermes itself uses — Hermes keeps its gateway/base-URL internal to its own client and never exports it to the environment. To send memoir's calls through a proxy/gateway too, set <code>base_url</code> in <code>memoir.json</code>:</p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;base_url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://your-gateway/v1&quot;</span><span class="w"> </span><span class="p">}</span>
+<p>Captures and <code>memoir_remember</code> write to the scope's namespace; <code>memoir_recall</code> reads the scope namespace <strong>⊕</strong> <code>default</code>, so global facts are visible everywhere but a scoped fact never leaks into another scope (default-deny, not an injection-time filter). Scoping uses memoir <strong>namespaces</strong> (parallel partitions) — distinct from branches.</p>
+<h2 id="store-location">Store location<a class="headerlink" href="#store-location" title="Permanent link">&para;</a></h2>
+<p>The store is anchored under OpenClaw's state dir, mirroring OpenClaw's own resolution: <code>OPENCLAW_STATE_DIR</code> if set, else <code>&lt;HOME&gt;/.openclaw</code>. So it <strong>follows <code>--profile</code> / <code>--dev</code> isolation</strong> — <code>--profile work</code> puts the store under <code>~/.openclaw-work/memoir/&lt;agent&gt;</code>. Default:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>~/.openclaw/memoir/&lt;agent&gt;          # e.g. ~/.openclaw/memoir/main
 </span></code></pre></div>
-<p>The bridge exports this as <code>MEMOIR_LLM_BASE_URL</code>; the credential in the environment must be valid for that endpoint.</p>
+<p>Override with the <code>store</code> config or <code>MEMOIR_STORE</code>.</p>
+<h2 id="versioning">Versioning<a class="headerlink" href="#versioning" title="Permanent link">&para;</a></h2>
+<p>OpenClaw has no conversation-fork event, so (unlike Hermes) there's no automatic fork→branch mapping. Per-chat <strong>scoping</strong> covers the isolation case; for divergent, mergeable timelines use the manual branch commands:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>/memoir branch &lt;name&gt;      # diverge off main
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>/memoir checkout &lt;name&gt;
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a>/memoir sync               # additively merge the current branch back into main
+</span></code></pre></div>
 <h2 id="verify">Verify<a class="headerlink" href="#verify" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>hermes<span class="w"> </span>memory<span class="w"> </span>status<span class="w">            </span><span class="c1"># provider: memoir</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>hermes<span class="w"> </span>memoir<span class="w"> </span>status<span class="w">            </span><span class="c1"># store branch / commit count / memory count</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>memoir<span class="w"> </span>capture<span class="w"> </span>--help<span class="w">           </span><span class="c1"># confirms the CLI on PATH has `capture`</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>openclaw<span class="w"> </span>memoir<span class="w"> </span>status<span class="w">                                   </span><span class="c1"># branch / memory count / scope</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>memoir<span class="w"> </span>-s<span class="w"> </span>~/.openclaw/memoir/main<span class="w"> </span>summarize<span class="w"> </span>--depth<span class="w"> </span><span class="m">3</span><span class="w">    </span><span class="c1"># captured paths</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>memoir<span class="w"> </span>-s<span class="w"> </span>~/.openclaw/memoir/main<span class="w"> </span>blame<span class="w"> </span>&lt;path&gt;<span class="w">           </span><span class="c1"># provenance</span>
 </span></code></pre></div>
-<p>End-to-end: start a Hermes session and state a durable fact ("from now on call me Captain; my dog Rex sees the vet every March"). Capture runs in the background (a few seconds), then:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>memoir<span class="w"> </span>-s<span class="w"> </span>&lt;hermes_home&gt;/memoir-store<span class="w"> </span>summarize<span class="w"> </span>--depth<span class="w"> </span><span class="m">3</span><span class="w">     </span><span class="c1"># captured paths</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>memoir<span class="w"> </span>-s<span class="w"> </span>&lt;hermes_home&gt;/memoir-store<span class="w"> </span>blame<span class="w"> </span>&lt;path&gt;<span class="w">            </span><span class="c1"># provenance</span>
-</span></code></pre></div>
-<p>In a new session, ask "what's my name?" — the agent should call <code>memoir_recall</code> and answer from memory.</p>
-<h2 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
-<p>The bridge sets these for the memoir subprocess automatically from <code>memoir.json</code>; you normally don't set them by hand.</p>
-<table>
-<thead>
-<tr>
-<th>Variable</th>
-<th>Set from</th>
-<th>Effect</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><code>MEMOIR_LLM_BACKEND</code></td>
-<td>always <code>litellm</code></td>
-<td>Forces direct provider APIs; suppresses the claude-cli fallback.</td>
-</tr>
-<tr>
-<td><code>MEMOIR_LLM_MODEL</code></td>
-<td>resolved model</td>
-<td>Model for capture/classification.</td>
-</tr>
-<tr>
-<td><code>MEMOIR_LLM_BASE_URL</code></td>
-<td><code>base_url</code> config</td>
-<td>Custom provider endpoint, when set.</td>
-</tr>
-</tbody>
-</table>
-<p>Provider keys (<code>ANTHROPIC_API_KEY</code>, <code>OPENAI_API_KEY</code>, …) are inherited from the Hermes process environment — set them in <code>&lt;hermes_home&gt;/.env</code>.</p>
-<h2 id="manifest">Manifest<a class="headerlink" href="#manifest" title="Permanent link">&para;</a></h2>
-<p><code>plugins/hermes/plugin.yaml</code>:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">memoir</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1.0</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Memoir</span><span class="nv"> </span><span class="s">—</span><span class="nv"> </span><span class="s">versioned,</span><span class="nv"> </span><span class="s">semantic</span><span class="nv"> </span><span class="s">long-term</span><span class="nv"> </span><span class="s">memory</span><span class="nv"> </span><span class="s">with</span><span class="nv"> </span><span class="s">git-like</span><span class="nv"> </span><span class="s">branch/commit/merge</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">cryptographic</span><span class="nv"> </span><span class="s">provenance.</span><span class="nv"> </span><span class="s">Shells</span><span class="nv"> </span><span class="s">out</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">memoir</span><span class="nv"> </span><span class="s">CLI;</span><span class="nv"> </span><span class="s">no</span><span class="nv"> </span><span class="s">Python</span><span class="nv"> </span><span class="s">deps.&quot;</span>
-</span></code></pre></div>
-<p>No <code>pip_dependencies</code>: the provider talks to the <code>memoir</code> CLI over a subprocess bridge (PATH <code>memoir</code>, else a pinned <code>uvx --from memoir-ai</code>).</p>
+<p>End-to-end: in a chat, state a durable fact ("remember my daughter Mia has piano on Tuesdays"). Capture runs in the background (a few seconds); <code>summarize</code> then shows it under a sensible path. A debug trace of capture attempts is written to <code>&lt;store&gt;/.git/memoir-openclaw-events.log</code>.</p>
+<h2 id="parity-with-the-hermes-plugin">Parity with the Hermes plugin<a class="headerlink" href="#parity-with-the-hermes-plugin" title="Permanent link">&para;</a></h2>
+<p>This plugin mirrors the <a href="../hermes/">Hermes provider</a>: the same tools, capture/recall flow, secret guard, model routing, per-chat scoping, <code>/memoir</code> command, and CLI. The differences come from OpenClaw's API:</p>
+<ul>
+<li><strong>No session-fork event</strong> → manual <code>/memoir branch | checkout | sync</code> instead of automatic fork→branch.</li>
+<li><strong>Provider key in config</strong> (<code>apiKey</code>) → OpenClaw doesn't export keys to subprocesses, where Hermes inherits them from its process environment.</li>
+<li><strong>Tool-profile filtering</strong> can hide the tools (the <code>coding</code> profile); the passive path always works.</li>
+</ul>
 <h2 id="limitations-v1">Limitations (v1)<a class="headerlink" href="#limitations-v1" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Local store only.</strong> Multi-device sync (the merge-based wedge) is future work; it needs a <code>memoir remote</code> story.</li>
-<li><strong>One external provider at a time.</strong> Activating memoir displaces any other Hermes memory provider.</li>
+<li><strong>Local store only.</strong> Multi-device sync (the merge-based wedge) is future work.</li>
+<li><strong>Capture needs a config key + a <code>temperature=0</code>-capable model</strong> (see <a href="#model-api-key">Model &amp; API key</a>).</li>
+<li><strong>One memory provider at a time.</strong> Claiming the slot displaces <code>memory-core</code>.</li>
 </ul>
 <h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
 <ul>
+<li><a href="../hermes/">Hermes</a> — the in-repo personal-assistant counterpart.</li>
 <li><a href="../cli/">CLI</a> — the underlying <code>memoir</code> commands the plugin wraps (including <code>capture</code>).</li>
-<li><a href="../claude_code/">Claude Code</a> — the coding-agent plugin (slash commands, hooks).</li>
 <li><a href="../architecture/">Architecture</a> — how memoir is structured under the hood.</li>
 </ul>
 
