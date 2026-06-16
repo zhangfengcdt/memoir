@@ -1,25 +1,27 @@
 # SPDX-License-Identifier: Apache-2.0
 """
-Memoir MCP Server.
+Memoir MCP server.
 
-Model Context Protocol server for exposing memoir functionality
-to Claude Desktop and other MCP-compatible AI tools.
+Model Context Protocol server (built on the official ``mcp`` SDK / FastMCP) that
+exposes memoir to Claude Desktop, Cursor, Cline, Windsurf, Zed, Continue,
+LibreChat, and other MCP hosts.
 
 Usage:
-    # Set the store path and run the server
+    # Run the server (stdio)
     MEMOIR_STORE=/path/to/store memoir-mcp
 
-    # Or use programmatically
-    from memoir.mcp import create_server, run_stdio_server
+    # Or build it programmatically
+    from memoir.mcp import build_server, ensure_store
 
-    server = create_server("/path/to/store")
-    tools = server.get_tools()
+    ensure_store("/path/to/store")
+    server = build_server("/path/to/store")  # a FastMCP instance
 """
 
-from memoir.mcp.server import MemoirMCPServer, create_server, run_stdio_server
+from memoir.mcp.server import build_server, ensure_store, main, resolve_store_path
 
 __all__ = [
-    "MemoirMCPServer",
-    "create_server",
-    "run_stdio_server",
+    "build_server",
+    "ensure_store",
+    "main",
+    "resolve_store_path",
 ]

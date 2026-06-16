@@ -48,6 +48,11 @@ memoir = "memoir.cli.main:main"
 memoir-mcp = "memoir.mcp.server:main"
 
 [project.optional-dependencies]
+mcp = [
+    # Official Model Context Protocol SDK (FastMCP). Optional: only needed to
+    # run the `memoir-mcp` server. Install with `pip install "memoir-ai[mcp]"`.
+    "mcp>=1.2.0",
+]
 dev = [
     "pytest>=7.0.0",
     "pytest-asyncio>=0.21.0",
