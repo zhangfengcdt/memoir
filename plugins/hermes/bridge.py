@@ -34,7 +34,7 @@ from typing import Any
 # already on PATH always wins and is used unpinned (we trust the user's
 # install). Bump deliberately after verifying a new release works with this
 # provider. Mirrors MEMOIR_AI_PIN in the Codex plugin's resolver.
-MEMOIR_AI_PIN = "0.2.2"
+MEMOIR_AI_PIN = "0.2.3"
 
 INSTALL_HINT = (
     "memoir CLI not found. Install one of: `pip install memoir-ai`, "
