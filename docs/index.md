@@ -20,6 +20,8 @@ Memoir ships first-class plugins that give agents versioned memory natively:
 * **[Hermes](hermes.md)** — a memory provider for the Nous Research personal-assistant agent: auto-capture, recall/remember/forget/sync tools, and session-fork branching.
 * **[OpenClaw](openclaw.md)** — a memory plugin for the OpenClaw personal-assistant gateway: auto-capture, recall/remember/forget tools, cross-session memory (per-agent scope), and an in-chat `/memoir` command.
 
+Any other MCP host: the **[MCP server](mcp.md)** (`memoir-mcp`) plugs memoir into Claude Desktop, Cursor, Cline, Windsurf, VS Code, Zed, Continue, LibreChat, and more — one store across every tool.
+
 Community: **[opencode-memoir](https://github.com/disafronov/opencode-memoir)** brings memoir to OpenCode.
 
 ## Quick Example

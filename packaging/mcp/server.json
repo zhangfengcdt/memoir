@@ -1,0 +1,27 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-09-29/server.schema.json",
+  "name": "io.github.zhangfengcdt/memoir",
+  "description": "Git-versioned, taxonomy-structured long-term memory (MCP server) with branch/commit/blame provenance.",
+  "version": "0.2.3",
+  "repository": {
+    "url": "https://github.com/zhangfengcdt/memoir",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registry_type": "pypi",
+      "registry_base_url": "https://pypi.org",
+      "identifier": "memoir-ai",
+      "version": "0.2.3",
+      "runtime_hint": "uvx",
+      "transport": { "type": "stdio" },
+      "environment_variables": [
+        {
+          "name": "MEMOIR_STORE",
+          "description": "Path to the memoir store (created automatically; defaults to ~/.memoir/mcp).",
+          "is_required": false
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "manifest_version": "0.2",
+  "name": "memoir",
+  "display_name": "Memoir Memory",
+  "version": "0.2.3",
+  "description": "Git-versioned, taxonomy-structured long-term memory with branch/commit/blame provenance.",
+  "long_description": "Memoir gives the assistant a versioned memory store: every fact is committed (inspect with memoir_commits), memory can branch and check out (memoir_branches / memoir_checkout), and recall is fast and LLM-free. One store can be shared across every MCP host.",
+  "author": {
+    "name": "memoir",
+    "url": "https://github.com/zhangfengcdt/memoir"
+  },
+  "homepage": "https://zhangfengcdt.github.io/memoir/mcp/",
+  "documentation": "https://zhangfengcdt.github.io/memoir/mcp/",
+  "license": "Apache-2.0",
+  "keywords": ["memory", "versioned", "git", "taxonomy", "provenance"],
+  "server": {
+    "type": "binary",
+    "entry_point": "uvx",
+    "mcp_config": {
+      "command": "uvx",
+      "args": ["--from", "memoir-ai[mcp]", "memoir-mcp", "--store", "${user_config.store}"],
+      "env": {}
+    }
+  },
+  "tools": [
+    { "name": "memoir_recall", "description": "Recall stored facts (LLM-free by default)." },
+    { "name": "memoir_remember", "description": "Store a fact, auto-classified into a semantic path." },
+    { "name": "memoir_forget", "description": "Delete a memory by key." },
+    { "name": "memoir_status", "description": "Store status: branch, commit/memory count." },
+    { "name": "memoir_branches", "description": "List branches (versioned memory)." },
+    { "name": "memoir_checkout", "description": "Switch/create a branch or commit." },
+    { "name": "memoir_commits", "description": "Commit history (provenance / blame)." }
+  ],
+  "user_config": {
+    "store": {
+      "type": "directory",
+      "title": "Memory store path",
+      "description": "Where memoir keeps its versioned store (created automatically).",
+      "default": "${HOME}/.memoir/mcp",
+      "required": false
+    }
+  }
+}

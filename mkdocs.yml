@@ -107,6 +107,7 @@ nav:
   - Codex: codex.md
   - Hermes: hermes.md
   - OpenClaw: openclaw.md
+  - MCP Server: mcp.md
   - API:
       - Memoir: api/memoir.md
       - Classifier: api/classifier.md

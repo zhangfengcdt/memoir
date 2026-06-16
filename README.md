@@ -145,6 +145,27 @@ OpenClaw then auto-captures durable facts each turn (remembered across your sess
 
 </details>
 
+<details>
+<summary><b>Any MCP host</b> (Claude Desktop, Cursor, Cline, Windsurf, VS Code, Zed, …)</summary>
+
+Memoir ships an MCP server (`memoir-mcp`) on the official Model Context Protocol SDK, so any MCP-compatible host gets git-versioned memory — including the `memoir_branches` / `memoir_checkout` / `memoir_commits` versioning tools no other memory server has. No install needed if you have `uv`; add to your host's `mcpServers` config:
+
+```json
+{
+  "mcpServers": {
+    "memoir": {
+      "command": "uvx",
+      "args": ["--from", "memoir-ai[mcp]", "memoir-mcp"],
+      "env": { "MEMOIR_STORE": "~/.memoir/mcp" }
+    }
+  }
+}
+```
+
+Recall is LLM-free (no key needed); the store auto-creates on first use. See the [MCP server guide](https://zhangfengcdt.github.io/memoir/mcp/) for per-host config (VS Code/Zed/Continue/LibreChat differ slightly), remote HTTP for ChatGPT/Claude.ai connectors, and the one-click Claude Desktop `.mcpb`.
+
+</details>
+
 ## Quick look
 
 Memoir's CLI defaults to Anthropic **`claude-haiku-4-5`** as of v0.1.6 — set your key first:
