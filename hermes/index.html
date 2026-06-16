@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://zhangfengcdt.github.io/memoir/codex/">
+        <link rel="canonical" href="https://zhangfengcdt.github.io/memoir/hermes/">
       
       
-        <link rel="prev" href="../claude_code/">
+        <link rel="prev" href="../codex/">
       
       
-        <link rel="next" href="../hermes/">
+        <link rel="next" href="../api/memoir/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Codex - Memoir</title>
+        <title>Hermes - Memoir</title>
       
     
     
@@ -82,7 +82,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#codex-plugin" class="md-skip">
+        <a href="#hermes-plugin" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Codex
+              Hermes
             
           </span>
         </div>
@@ -392,11 +392,9 @@
   
   
   
-    
   
-  
-    <li class="md-tabs__item md-tabs__item--active">
-      <a href="./" class="md-tabs__link">
+    <li class="md-tabs__item">
+      <a href="../codex/" class="md-tabs__link">
         
   
   
@@ -413,9 +411,11 @@
   
   
   
+    
   
-    <li class="md-tabs__item">
-      <a href="../hermes/" class="md-tabs__link">
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
         
   
   
@@ -1121,6 +1121,33 @@
       
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../codex/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Codex
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
     
   
   
@@ -1140,7 +1167,7 @@
   <span class="md-ellipsis">
     
   
-    Codex
+    Hermes
   
 
     
@@ -1158,7 +1185,7 @@
   <span class="md-ellipsis">
     
   
-    Codex
+    Hermes
   
 
     
@@ -1184,6 +1211,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#how-it-fits-hermes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it fits Hermes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#install" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1192,16 +1230,44 @@
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#cli-resolution" class="md-nav__link">
+    <nav class="md-nav" aria-label="Install">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-install-the-memoir-cli" class="md-nav__link">
     <span class="md-ellipsis">
       
-        CLI resolution
+        1. Install the memoir CLI
       
     </span>
   </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-install-the-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Install the plugin
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-activate-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Activate it
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1217,10 +1283,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#readwrite-asymmetry" class="md-nav__link">
+  <a href="#tools" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Read/write asymmetry
+        Tools
       
     </span>
   </a>
@@ -1228,10 +1294,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#llm-extraction" class="md-nav__link">
+  <a href="#lifecycle-hooks" class="md-nav__link">
     <span class="md-ellipsis">
       
-        LLM extraction
+        Lifecycle hooks
       
     </span>
   </a>
@@ -1239,10 +1305,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#real-codex-smoke-test" class="md-nav__link">
+  <a href="#configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Real Codex smoke test
+        Configuration
       
     </span>
   </a>
@@ -1250,10 +1316,121 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#parity-notes" class="md-nav__link">
+  <a href="#model-selection" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Parity notes
+        Model selection
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Model selection">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#which-provider-key-is-used" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Which provider key is used?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#session-branching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Session branching
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#llm-backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LLM backend
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="LLM backend">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#routing-through-a-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Routing through a proxy
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verify
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment variables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#manifest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manifest
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#limitations-v1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limitations (v1)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
       
     </span>
   </a>
@@ -1264,33 +1441,6 @@
   
 </nav>
       
-    </li>
-  
-
-    
-      
-      
-  
-  
-  
-  
-    <li class="md-nav__item">
-      <a href="../hermes/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Hermes
-  
-
-    
-  </span>
-  
-  
-
-      </a>
     </li>
   
 
@@ -1774,6 +1924,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#how-it-fits-hermes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        How it fits Hermes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#install" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1782,16 +1943,44 @@
     </span>
   </a>
   
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#cli-resolution" class="md-nav__link">
+    <nav class="md-nav" aria-label="Install">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#1-install-the-memoir-cli" class="md-nav__link">
     <span class="md-ellipsis">
       
-        CLI resolution
+        1. Install the memoir CLI
       
     </span>
   </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#2-install-the-plugin" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        2. Install the plugin
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#3-activate-it" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        3. Activate it
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
   
 </li>
       
@@ -1807,10 +1996,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#readwrite-asymmetry" class="md-nav__link">
+  <a href="#tools" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Read/write asymmetry
+        Tools
       
     </span>
   </a>
@@ -1818,10 +2007,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#llm-extraction" class="md-nav__link">
+  <a href="#lifecycle-hooks" class="md-nav__link">
     <span class="md-ellipsis">
       
-        LLM extraction
+        Lifecycle hooks
       
     </span>
   </a>
@@ -1829,10 +2018,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#real-codex-smoke-test" class="md-nav__link">
+  <a href="#configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Real Codex smoke test
+        Configuration
       
     </span>
   </a>
@@ -1840,10 +2029,121 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#parity-notes" class="md-nav__link">
+  <a href="#model-selection" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Parity notes
+        Model selection
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Model selection">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#which-provider-key-is-used" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Which provider key is used?
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#session-branching" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Session branching
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#llm-backend" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        LLM backend
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="LLM backend">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#routing-through-a-proxy" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Routing through a proxy
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verify" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Verify
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment variables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#manifest" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Manifest
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#limitations-v1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Limitations (v1)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        See also
       
     </span>
   </a>
@@ -1867,7 +2167,7 @@
 
 
   
-    <a href="https://github.com/zhangfengcdt/memoir/edit/main/docs/codex.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/zhangfengcdt/memoir/edit/main/docs/hermes.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -1875,147 +2175,317 @@
   
 
 
-<h1 id="codex-plugin">Codex Plugin<a class="headerlink" href="#codex-plugin" title="Permanent link">&para;</a></h1>
-<p>Memoir ships a Codex plugin that brings branch-aware, taxonomy-structured memory into Codex sessions. It is the Codex port of the existing Claude Code integration: session context is injected at startup, recall is nudged before substantive work, and durable facts are captured at turn end when possible.</p>
-<p>The plugin lives in the repo at <code>plugins/codex/</code>.</p>
+<h1 id="hermes-plugin">Hermes Plugin<a class="headerlink" href="#hermes-plugin" title="Permanent link">&para;</a></h1>
+<p>Memoir ships a memory-provider plugin for <a href="https://github.com/NousResearch/hermes-agent">Hermes</a>, the Nous Research personal-assistant agent. Activate it and Hermes gains <strong>versioned, semantic long-term memory</strong>: a git-like store (branch / commit / merge) over a Prolly-tree with semantic paths and cryptographic provenance. Unlike vector-only backends (Mem0, Zep, Letta), every write is a commit you can inspect (<code>memoir log</code>), attribute (<code>memoir blame</code>), and time-travel.</p>
+<p>The plugin lives in the repo at <code>plugins/hermes/</code>.</p>
+<h2 id="how-it-fits-hermes">How it fits Hermes<a class="headerlink" href="#how-it-fits-hermes" title="Permanent link">&para;</a></h2>
+<p>Hermes has a pluggable <code>MemoryProvider</code> slot — exactly one external provider is active at a time, selected by <code>memory.provider</code> in <code>~/.hermes/config.yaml</code>. The built-in <code>MEMORY.md</code> / <code>USER.md</code> layer stays active alongside it. Memoir fills that slot.</p>
+<p>It is a <strong>directory plugin</strong>, not a pip/entry-point package: Hermes loads memory providers by scanning <code>$HERMES_HOME/plugins/&lt;name&gt;/</code>, so the plugin is installed as a directory there. It holds no memoir code in-process — it shells out to the <code>memoir</code> CLI over a stdlib-only subprocess bridge, so the Prolly-tree self-resolves concurrent (fire-and-forget) writes with no locking.</p>
 <h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
-<p>Memoir's Codex plugin is distributed through the repository marketplace in <code>zhangfengcdt/memoir</code>. In Codex, run <code>/plugins</code>, add the <code>memoir</code> marketplace from <code>zhangfengcdt/memoir</code>, restart Codex if prompted, then choose <strong>Memoir Plugins</strong> and install <code>memoir</code>.</p>
-<p>You can also register the marketplace from the CLI:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>codex<span class="w"> </span>plugin<span class="w"> </span>marketplace<span class="w"> </span>add<span class="w"> </span>zhangfengcdt/memoir
+<p>The plugin needs two things on the machine: the <strong>plugin directory</strong> in your Hermes home, and the <strong><code>memoir</code> CLI</strong> reachable on <code>PATH</code>.</p>
+<h3 id="1-install-the-memoir-cli">1. Install the memoir CLI<a class="headerlink" href="#1-install-the-memoir-cli" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>pip<span class="w"> </span>install<span class="w"> </span>memoir-ai<span class="w">        </span><span class="c1"># or: pipx install memoir-ai / uv tool install memoir-ai</span>
 </span></code></pre></div>
-<p>The repository marketplace lives at <code>.agents/plugins/marketplace.json</code>; its <code>source.path</code> is <code>./plugins/codex</code>, resolved relative to the repository root.</p>
-<p>For local development or PR validation from a checkout, register that checkout as the marketplace root instead:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>codex<span class="w"> </span>plugin<span class="w"> </span>marketplace<span class="w"> </span>add<span class="w"> </span>/absolute/path/to/memoir
+<blockquote>
+<p>The bridge resolves <code>memoir</code> on <code>PATH</code> first, falling back to a pinned <code>uvx --from memoir-ai==&lt;pin&gt; memoir</code> (then <code>uv tool run</code>) when it isn't installed. A direct install is faster (no warmup).</p>
+</blockquote>
+<h3 id="2-install-the-plugin">2. Install the plugin<a class="headerlink" href="#2-install-the-plugin" title="Permanent link">&para;</a></h3>
+<p><strong>Via the Hermes CLI</strong> (once the plugin is on the repo's default branch):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>hermes<span class="w"> </span>plugins<span class="w"> </span>install<span class="w"> </span>zhangfengcdt/memoir/plugins/hermes
 </span></code></pre></div>
-<p>Codex installs plugins from marketplace entries into its plugin cache, so after changing local plugin files, restart Codex or refresh the marketplace before retesting.</p>
-<p>Enable hooks in Codex:</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[features]</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">hooks</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="kc">true</span>
+<p>Hermes clones the repo, takes the <code>plugins/hermes</code> subdirectory, reads its <code>plugin.yaml</code> (<code>name: memoir</code>), and installs it to <code>~/.hermes/plugins/memoir/</code>.</p>
+<p><strong>By copy</strong> (works today, from a local checkout):</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>cp<span class="w"> </span>-r<span class="w"> </span>plugins/hermes<span class="w"> </span>~/.hermes/plugins/memoir
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>rm<span class="w"> </span>-rf<span class="w"> </span>~/.hermes/plugins/memoir/tests<span class="w"> </span>~/.hermes/plugins/memoir/__pycache__
 </span></code></pre></div>
-<p>For one-off tests, pass <code>--enable hooks</code>. Codex v0.129.0 warns that <code>[features].codex_hooks</code> is deprecated; use <code>[features].hooks</code> for new installs.</p>
-<p>Codex installs plugin skills today, but does not yet activate lifecycle hooks bundled by marketplace plugins (tracked upstream in <a href="https://github.com/openai/codex/issues/16430">openai/codex#16430</a>). Until plugin-bundled hooks are loaded by Codex itself, install Memoir's bundled hooks into your user hooks file after installing the plugin:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nv">PLUGIN_ROOT</span><span class="o">=</span><span class="k">$(</span>find<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">CODEX_HOME</span><span class="k">:-</span><span class="nv">$HOME</span><span class="p">/.codex</span><span class="si">}</span><span class="s2">/plugins/cache&quot;</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span>-path<span class="w"> </span><span class="s1">&#39;*/memoir/memoir/*/.codex-plugin/plugin.json&#39;</span><span class="w"> </span>-print<span class="w"> </span>-quit<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="w">  </span><span class="p">|</span><span class="w"> </span>sed<span class="w"> </span><span class="s1">&#39;s#/.codex-plugin/plugin.json$##&#39;</span><span class="k">)</span>
-</span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a>bash<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$PLUGIN_ROOT</span><span class="s2">/scripts/install-codex-hooks.sh&quot;</span>
+<h3 id="3-activate-it">3. Activate it<a class="headerlink" href="#3-activate-it" title="Permanent link">&para;</a></h3>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>hermes<span class="w"> </span>memory<span class="w"> </span>setup<span class="w">        </span><span class="c1"># interactive picker — choose &quot;memoir&quot;</span>
 </span></code></pre></div>
-<p>This writes <code>SessionStart</code>, <code>UserPromptSubmit</code>, and <code>Stop</code> hooks to <code>~/.codex/hooks.json</code>. To remove them:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>bash<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$PLUGIN_ROOT</span><span class="s2">/scripts/install-codex-hooks.sh&quot;</span><span class="w"> </span>uninstall
-</span></code></pre></div>
-<p>After installing the bridge, Codex may show:</p>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>⚠ 3 hooks need review before they can run. Open /hooks to review them.
-</span></code></pre></div>
-<p>Open <code>/hooks</code>, review each Memoir hook, and press <code>t</code> to trust it. Hooks do not run until they are trusted.</p>
-<p>Each project gets a store under <code>~/.memoir/&lt;slug&gt;/</code>, derived from the session cwd. Override with <code>MEMOIR_STORE=/path/to/store</code>.</p>
-<p>To inspect the same store the plugin uses, resolve the store first instead of running bare <code>memoir status</code> from the project directory:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="nv">PLUGIN_ROOT</span><span class="o">=</span>/path/to/memoir/plugins/codex
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nv">STORE</span><span class="o">=</span><span class="k">$(</span><span class="s2">&quot;</span><span class="nv">$PLUGIN_ROOT</span><span class="s2">/scripts/derive-store-path.sh&quot;</span><span class="w"> </span>/path/to/project<span class="k">)</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="s2">&quot;</span><span class="nv">$PLUGIN_ROOT</span><span class="s2">/scripts/memoir-cli.sh&quot;</span><span class="w"> </span>-s<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$STORE</span><span class="s2">&quot;</span><span class="w"> </span>status
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="s2">&quot;</span><span class="nv">$PLUGIN_ROOT</span><span class="s2">/scripts/memoir-cli.sh&quot;</span><span class="w"> </span>--json<span class="w"> </span>-s<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$STORE</span><span class="s2">&quot;</span><span class="w"> </span>summarize<span class="w"> </span>--keys<span class="w"> </span><span class="s2">&quot;*&quot;</span><span class="w"> </span>-n<span class="w"> </span>default
-</span></code></pre></div>
-<h2 id="cli-resolution">CLI resolution<a class="headerlink" href="#cli-resolution" title="Permanent link">&para;</a></h2>
-<p>The plugin shells out to the <code>memoir</code> CLI through <code>scripts/memoir-cli.sh</code>. It picks, in order:</p>
-<ol>
-<li><strong><code>memoir</code> on <code>PATH</code></strong> — install with <code>pip install memoir-ai</code>, <code>pipx install memoir-ai</code>, or <code>uv tool install memoir-ai</code>.</li>
-<li><strong><code>uvx</code> on <code>PATH</code></strong> — transparent fallback as <code>uvx --from memoir-ai==&lt;pinned&gt; memoir ...</code> with zero manual install. The pin is set in <code>scripts/resolve-memoir-cli.sh</code> (<code>MEMOIR_AI_PIN</code>) so a silent PyPI publish cannot change behavior under you.</li>
-<li><strong><code>uv</code> on <code>PATH</code></strong> — fallback as <code>uv tool run --from memoir-ai==&lt;pinned&gt; memoir ...</code> for environments without the <code>uvx</code> shim.</li>
-<li><strong>Neither</strong> — the plugin disables capture/recall and surfaces an install hint in the status line.</li>
-</ol>
-<p>LLM extraction uses Codex auth through <code>codex exec</code>, not Claude Code's <code>MEMOIR_LLM_BACKEND=claude-cli</code> path. Override the nested extraction model with <code>MEMOIR_CODEX_MODEL</code>; otherwise the hook inherits Codex's active model from hook input and falls back to <code>gpt-5.4</code>.</p>
+<p><code>hermes memory setup</code> writes <code>memory.provider: memoir</code> to <code>~/.hermes/config.yaml</code>. (You can also set that key by hand.) Activating memoir <strong>displaces any other external provider</strong> (<code>mem0</code>, <code>honcho</code>, …) — only one runs at a time.</p>
+<p>The store is created automatically on first run at <code>&lt;hermes_home&gt;/memoir-store</code> (override with <code>store_path</code> in config). You'll need a provider API key in the Hermes environment — see <a href="#llm-backend">LLM backend</a>.</p>
 <h2 id="what-ships">What ships<a class="headerlink" href="#what-ships" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
 <th>Component</th>
+<th>Count</th>
 <th>Role</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>memory-recall</code> skill</td>
-<td>Recalls default-namespace facts by semantic path.</td>
+<td>Tools (model-facing)</td>
+<td>5</td>
+<td><code>memoir_recall</code>, <code>memoir_remember</code>, <code>memoir_forget</code>, <code>memoir_sync</code>, <code>memoir_status</code></td>
 </tr>
 <tr>
-<td><code>memoir-onboard</code> skill</td>
-<td>Populates <code>codebase:onboard</code> for git repos or <code>project:onboard</code> for non-git folders.</td>
+<td>Lifecycle hooks</td>
+<td>5</td>
+<td>Auto-capture, recall context, store mirroring</td>
 </tr>
 <tr>
-<td><code>memoir-remember</code> skill</td>
-<td>Explicit manual capture, replacing Claude Code's <code>/memoir:remember</code> with Codex-side path selection and <code>remember -p</code> writes.</td>
-</tr>
-<tr>
-<td><code>memoir-status</code> skill</td>
-<td>Shows the active store, branch, commits, memory count, and namespaces.</td>
-</tr>
-<tr>
-<td><code>memoir-ui</code> skill</td>
-<td>Launches or reopens the readonly Memoir UI for the active store.</td>
-</tr>
-<tr>
-<td><code>SessionStart</code> hook</td>
-<td>Ensures the store exists and injects memory status, keys, unmerged hints, and onboarding snapshots.</td>
-</tr>
-<tr>
-<td><code>UserPromptSubmit</code> hook</td>
-<td>Keeps the memoir branch aligned with the code branch and injects recall-before-acting guidance.</td>
-</tr>
-<tr>
-<td><code>Stop</code> hook</td>
-<td>Best-effort metrics, code-change summaries, and durable-fact extraction from Codex transcript JSONL.</td>
+<td>CLI subcommands</td>
+<td>2</td>
+<td><code>hermes memoir status</code>, <code>hermes memoir ui</code></td>
 </tr>
 </tbody>
 </table>
-<h2 id="readwrite-asymmetry">Read/write asymmetry<a class="headerlink" href="#readwrite-asymmetry" title="Permanent link">&para;</a></h2>
-<p>The Codex plugin keeps the same read/write split as the Claude Code integration:</p>
+<p>There are no in-chat slash commands — Hermes has no plugin slash-command mechanism for memory providers. The equivalents are the auto-capture hook plus the three tools the model invokes on its own.</p>
+<h2 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h2>
+<p>The model decides when to call these (guided by their descriptions and the injected system-prompt block); they are not typed by the user.</p>
+<table>
+<thead>
+<tr>
+<th>Tool</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>memoir_recall</code></td>
+<td>Fetch stored facts about the user (preferences, people, schedule, standing instructions). LLM-free: <code>summarize</code> → batched <code>get</code>, ranked by lexical overlap with the query.</td>
+</tr>
+<tr>
+<td><code>memoir_remember</code></td>
+<td>Store an explicit durable fact. Classified into a semantic path and committed. Guarded against obvious secrets.</td>
+</tr>
+<tr>
+<td><code>memoir_forget</code></td>
+<td>Delete a fact by its exact taxonomy path (the model finds the path via <code>memoir_recall</code> first). Pre-checks existence so a wrong path can't create a no-op delete commit; prior versions remain in git history (recoverable).</td>
+</tr>
+<tr>
+<td><code>memoir_sync</code></td>
+<td>Promote a session fork's memories into <code>main</code>. No args → list fork branches with un-merged memories (preview counts); <code>branch</code> → merge it into <code>main</code> (<code>dry_run</code> to preview). Additive (insert/update, never delete).</td>
+</tr>
+<tr>
+<td><code>memoir_status</code></td>
+<td>Store status: branch, commit count, memory count.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="lifecycle-hooks">Lifecycle hooks<a class="headerlink" href="#lifecycle-hooks" title="Permanent link">&para;</a></h2>
+<p>These are called by Hermes automatically — they don't depend on the model invoking a tool, so <strong>capture is guaranteed</strong> even if the model never calls <code>memoir_remember</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Hook</th>
+<th>When</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>initialize</code></td>
+<td>agent startup</td>
+<td>Derive + ensure the store, resolve the model, cache an overview.</td>
+</tr>
+<tr>
+<td><code>system_prompt_block</code></td>
+<td>prompt assembly</td>
+<td>Inject recall guidance + a short store overview.</td>
+</tr>
+<tr>
+<td><code>sync_turn</code></td>
+<td>after every turn</td>
+<td>Fire-and-forget <code>memoir capture --profile assistant</code> over the turn.</td>
+</tr>
+<tr>
+<td><code>on_pre_compress</code> / <code>on_session_end</code></td>
+<td>compression / session end</td>
+<td>Capture the uncaptured message tail.</td>
+</tr>
+<tr>
+<td><code>on_session_switch</code></td>
+<td><code>/branch</code>, <code>/resume</code>, <code>/reset</code></td>
+<td>Route the store's branch to match the session — see <a href="#session-branching">Session branching</a>.</td>
+</tr>
+<tr>
+<td><code>on_memory_write</code></td>
+<td>built-in memory edit</td>
+<td>Mirror Hermes's <code>MEMORY.md</code> / <code>USER.md</code> writes into versioned memoir paths.</td>
+</tr>
+</tbody>
+</table>
+<p>Capture runs on a background thread and never blocks the response. Writes are skipped for non-primary agent contexts (subagent / cron / flush) so they can't corrupt the user's representation.</p>
+<h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
+<p>Config lives in <code>&lt;hermes_home&gt;/memoir.json</code> (all keys optional). Set it via <code>hermes memory setup</code> or by hand.</p>
+<table>
+<thead>
+<tr>
+<th>Key</th>
+<th>Default</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>store_path</code></td>
+<td><code>&lt;hermes_home&gt;/memoir-store</code></td>
+<td>Store location.</td>
+</tr>
+<tr>
+<td><code>capture</code></td>
+<td><code>true</code></td>
+<td>Auto-capture facts from each turn. <code>false</code> disables the <code>sync_turn</code> / boundary capture; recall and tools still work.</td>
+</tr>
+<tr>
+<td><code>model</code></td>
+<td>host's selected model</td>
+<td>Pin the LLM model for capture/classification. Empty = follow Hermes <code>model.default</code>. See <a href="#model-selection">Model selection</a>.</td>
+</tr>
+<tr>
+<td><code>base_url</code></td>
+<td>provider default</td>
+<td>Custom provider endpoint (LLM gateway/proxy). Empty = call the provider directly. See <a href="#routing-through-a-proxy">Routing through a proxy</a>.</td>
+</tr>
+<tr>
+<td><code>session_branching</code></td>
+<td><code>true</code></td>
+<td>Mirror Hermes session forks onto memoir branches. <code>false</code> keeps everything on <code>main</code>. See <a href="#session-branching">Session branching</a>.</td>
+</tr>
+</tbody>
+</table>
+<p>Example — pin cheap Haiku for per-turn capture regardless of your chat model:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;model&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;claude-haiku-4-5&quot;</span><span class="w"> </span><span class="p">}</span>
+</span></code></pre></div>
+<h2 id="model-selection">Model selection<a class="headerlink" href="#model-selection" title="Permanent link">&para;</a></h2>
+<p>memoir resolves the capture/classification model in this order:</p>
+<ol>
+<li><strong><code>model</code> pin</strong> in <code>memoir.json</code> — always wins.</li>
+<li><strong>Host-selected model</strong> — Hermes <code>model.default</code>, tracked across mid-session model switches (<code>on_turn_start</code>).</li>
+<li><strong>memoir's built-in default</strong> — <code>claude-haiku-4-5</code>.</li>
+</ol>
+<p>So out of the box, capture runs on the <em>same model your Hermes session uses</em>. That can be expensive: if your session model is Opus, every per-turn extraction is an Opus call. Pin a cheaper model (e.g. <code>claude-haiku-4-5</code>) in <code>memoir.json</code> to decouple capture cost from your chat model.</p>
+<h3 id="which-provider-key-is-used">Which provider key is used?<a class="headerlink" href="#which-provider-key-is-used" title="Permanent link">&para;</a></h3>
+<p>memoir routes by <strong>model name</strong>, not by which keys are present — so setting both <code>OPENAI_API_KEY</code> and <code>ANTHROPIC_API_KEY</code> is unambiguous:</p>
+<table>
+<thead>
+<tr>
+<th>Model</th>
+<th>Provider → key</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>claude-*</code> / <code>anthropic/*</code></td>
+<td>Anthropic → <code>ANTHROPIC_API_KEY</code></td>
+</tr>
+<tr>
+<td><code>gpt-*</code></td>
+<td>OpenAI → <code>OPENAI_API_KEY</code></td>
+</tr>
+<tr>
+<td><code>gemini/*</code></td>
+<td>Gemini → <code>GEMINI_API_KEY</code></td>
+</tr>
+<tr>
+<td><code>ollama/*</code>, or any model with <code>base_url</code> set</td>
+<td>that endpoint (no key check)</td>
+</tr>
+</tbody>
+</table>
+<p>Each key is consulted only when a model of its provider is selected. memoir's default model is <code>claude-haiku-4-5</code> (Anthropic), so with no model specified anywhere it uses <code>ANTHROPIC_API_KEY</code>.</p>
+<h2 id="session-branching">Session branching<a class="headerlink" href="#session-branching" title="Permanent link">&para;</a></h2>
+<p>Hermes lets you fork a conversation (<code>/branch</code>), jump between conversations
+(<code>/resume</code>), and start fresh (<code>/reset</code> / <code>/new</code>). With <code>session_branching</code>
+enabled (the default), the plugin mirrors that onto memoir branches so a
+fork's memories stay isolated from your main timeline:</p>
 <ul>
-<li>Reads are skill-driven. Codex can use <code>memory-recall</code> when existing memories may help, and <code>UserPromptSubmit</code> only injects a recall-before-acting hint.</li>
-<li>Onboarding is explicit. <code>memoir-onboard</code> is a user-invoked project indexing workflow that writes scoped <code>codebase:onboard</code> or <code>project:onboard</code> snapshots.</li>
-<li>General manual writes are explicit. <code>memoir-remember</code> is the Codex replacement for Claude Code's <code>/memoir:remember</code>; it writes with <code>memoir remember -p</code> so classification is done by Codex rather than Memoir's package-level LLM default. The <code>Stop</code> hook still handles best-effort auto-capture.</li>
-<li><code>memoir-status</code> and <code>memoir-ui</code> replace the read-only Claude Code <code>/memoir:status</code> and <code>/memoir:ui</code> command surfaces.</li>
-<li>Deletion remains CLI-only through <code>memoir forget</code>.</li>
+<li><strong><code>/branch</code> (fork)</strong> → creates and checks out <code>hermes/&lt;session-id&gt;</code> <em>off the
+  current branch</em>. Everything captured in the fork lands there, not on <code>main</code>.</li>
+<li><strong><code>/resume</code></strong> → checks out that session's branch if it has one, otherwise
+  returns to <code>main</code>. So resuming a normal (never-forked) conversation always
+  comes back to your main timeline.</li>
+<li><strong><code>/reset</code> / <code>/new</code></strong> → back to <code>main</code>.</li>
+<li><strong>context compression</strong> → no branch change (it's the same conversation
+  continuing under a rolled-over id, so captures stay on the current branch).</li>
 </ul>
-<p>Codex plugin slash commands, deprecated custom prompt surfaces, Claude Code statusline behavior, and <code>SessionEnd</code> cleanup are not included in v1. Use the Memoir CLI for administrative operations:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nv">STORE</span><span class="o">=</span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">MEMOIR_STORE</span><span class="k">:-$(</span>bash<span class="w"> </span>/path/to/memoir/plugins/codex/scripts/derive-store-path.sh<span class="k">)</span><span class="si">}</span><span class="s2">&quot;</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nv">MEMOIR</span><span class="o">=</span><span class="s2">&quot;/path/to/memoir/plugins/codex/scripts/memoir-cli.sh&quot;</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="o">(</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$STORE</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$MEMOIR</span><span class="s2">&quot;</span><span class="w"> </span>-s<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$STORE</span><span class="s2">&quot;</span><span class="w"> </span>remember<span class="w"> </span><span class="s2">&quot;Prefer pytest for Python tests&quot;</span><span class="w"> </span>-p<span class="w"> </span>preferences.coding.testing<span class="w"> </span><span class="o">)</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="o">(</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$STORE</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$MEMOIR</span><span class="s2">&quot;</span><span class="w"> </span>--json<span class="w"> </span>-s<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$STORE</span><span class="s2">&quot;</span><span class="w"> </span>status<span class="w"> </span><span class="o">)</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="o">(</span><span class="w"> </span><span class="nb">cd</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$STORE</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="s2">&quot;</span><span class="nv">$MEMOIR</span><span class="s2">&quot;</span><span class="w"> </span>-s<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$STORE</span><span class="s2">&quot;</span><span class="w"> </span>ui<span class="w"> </span><span class="o">)</span>
+<p>The mapping is stateless — it's derived from the session id and the branches
+that exist in the store — so it survives Hermes restarts. Forks branch off
+whatever is currently checked out, so nested forks work too. Inspect or merge
+branches with the <code>memoir</code> CLI (<code>memoir branch</code>, <code>memoir merge</code>,
+<code>memoir -s &lt;store&gt; summarize</code> per branch).</p>
+<p>Set <code>session_branching: false</code> in <code>memoir.json</code> to disable this and keep all
+captures on <code>main</code>.</p>
+<p><strong>Promoting a fork's memories back to main.</strong> A fork's captures stay isolated
+on its branch. When the user wants to keep them, the <code>memoir_sync</code> tool
+promotes them into <code>main</code>: with no arguments it lists fork branches that have
+un-merged memories (with a preview of what each would add); with a branch it
+merges that branch into <code>main</code>. The merge is <strong>additive</strong> — it inserts/updates
+keys and never deletes — and the model drives the choose/confirm flow in
+conversation. (This mirrors the Claude Code plugin's <code>/memoir:sync</code>.) On exit
+the store is left on <code>main</code>, so forks don't accumulate as the active branch.</p>
+<blockquote>
+<p>Single-store caveat: branch state is the store's checked-out branch, so this
+assumes one active session per store at a time (the personal-assistant CLI
+case). Concurrent sessions sharing one store would contend on the checkout.</p>
+</blockquote>
+<h2 id="llm-backend">LLM backend<a class="headerlink" href="#llm-backend" title="Permanent link">&para;</a></h2>
+<p>The plugin drives memoir with its <strong>litellm (direct provider API) backend only</strong> — it <strong>never</strong> shells out to the <code>claude</code> CLI, even when a <code>claude</code> binary is on <code>PATH</code>. A Hermes host has its own configured provider, and a typical Hermes box has no Claude Code install.</p>
+<p>memoir reads the provider credentials from the Hermes process environment (e.g. <code>ANTHROPIC_API_KEY</code> in <code>&lt;hermes_home&gt;/.env</code>). If the selected model's provider key is missing, capture <strong>fails loudly</strong> ("ANTHROPIC_API_KEY required") rather than silently switching backends.</p>
+<p>Recall is LLM-free, so it works even without a provider key. Auto-capture and explicit <code>memoir_remember</code> classification do need one.</p>
+<h3 id="routing-through-a-proxy">Routing through a proxy<a class="headerlink" href="#routing-through-a-proxy" title="Permanent link">&para;</a></h3>
+<p>By default memoir calls the provider directly (e.g. <code>api.anthropic.com</code>) and does <strong>not</strong> route through any gateway Hermes itself uses — Hermes keeps its gateway/base-URL internal to its own client and never exports it to the environment. To send memoir's calls through a proxy/gateway too, set <code>base_url</code> in <code>memoir.json</code>:</p>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;base_url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://your-gateway/v1&quot;</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
-<h2 id="llm-extraction">LLM extraction<a class="headerlink" href="#llm-extraction" title="Permanent link">&para;</a></h2>
-<p>The Stop hook uses <code>codex exec</code> for fact extraction and code-change summaries. It runs nested Codex with hooks disabled, read-only sandboxing, ignored rules, and <code>--skip-git-repo-check</code> so extraction does not recurse into Memoir capture. It uses <code>MEMOIR_CODEX_MODEL</code> when set, otherwise the active Codex model from hook input, otherwise <code>gpt-5.4</code>.</p>
-<p>If <code>codex</code> is unavailable or the nested call fails, the hook fails open and the user turn continues. Metrics and explicit-path CLI writes still work without nested LLM extraction.</p>
-<p>Stop capture runs only after Codex completes a turn. If the turn is interrupted or aborted before the final assistant message, there may be no Stop hook run and no auto-captured memory for that turn.</p>
-<h2 id="real-codex-smoke-test">Real Codex smoke test<a class="headerlink" href="#real-codex-smoke-test" title="Permanent link">&para;</a></h2>
-<p>Use a disposable project and store:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>rm<span class="w"> </span>-rf<span class="w"> </span>/tmp/memoir-smoke<span class="w"> </span>/tmp/memoir-smoke-store
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>mkdir<span class="w"> </span>-p<span class="w"> </span>/tmp/memoir-smoke
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="nb">cd</span><span class="w"> </span>/tmp/memoir-smoke
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="nv">MEMOIR_STORE</span><span class="o">=</span>/tmp/memoir-smoke-store<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="nv">MEMOIR_CODEX_MODEL</span><span class="o">=</span>gpt-5.4<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a>codex<span class="w"> </span><span class="nb">exec</span><span class="w"> </span>--enable<span class="w"> </span>hooks<span class="w"> </span>--skip-git-repo-check<span class="w"> </span>-m<span class="w"> </span>gpt-5.4<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">  </span><span class="s2">&quot;Use Memoir, remember that this smoke project prefers pytest, then report Memoir status.&quot;</span>
+<p>The bridge exports this as <code>MEMOIR_LLM_BASE_URL</code>; the credential in the environment must be valid for that endpoint.</p>
+<h2 id="verify">Verify<a class="headerlink" href="#verify" title="Permanent link">&para;</a></h2>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>hermes<span class="w"> </span>memory<span class="w"> </span>status<span class="w">            </span><span class="c1"># provider: memoir</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>hermes<span class="w"> </span>memoir<span class="w"> </span>status<span class="w">            </span><span class="c1"># store branch / commit count / memory count</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>memoir<span class="w"> </span>capture<span class="w"> </span>--help<span class="w">           </span><span class="c1"># confirms the CLI on PATH has `capture`</span>
 </span></code></pre></div>
-<p>Export evidence before cleanup:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="o">{</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="w">  </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;# Memoir Codex Smoke Evidence&quot;</span>
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a><span class="w">  </span><span class="nb">echo</span>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="w">  </span>codex<span class="w"> </span>--version
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="w">  </span><span class="nb">echo</span>
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="w">  </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;model: gpt-5.4&quot;</span>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="w">  </span><span class="nb">echo</span><span class="w"> </span><span class="s2">&quot;store: /tmp/memoir-smoke-store&quot;</span>
-</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="w">  </span><span class="nb">echo</span>
-</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="w">  </span>/path/to/memoir/plugins/codex/scripts/memoir-cli.sh<span class="w"> </span>--json<span class="w"> </span>-s<span class="w"> </span>/tmp/memoir-smoke-store<span class="w"> </span>status
-</span><span id="__span-9-10"><a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="w">  </span>/path/to/memoir/plugins/codex/scripts/memoir-cli.sh<span class="w"> </span>--json<span class="w"> </span>-s<span class="w"> </span>/tmp/memoir-smoke-store<span class="w"> </span>summarize<span class="w"> </span>--keys<span class="w"> </span><span class="s2">&quot;*&quot;</span><span class="w"> </span>-n<span class="w"> </span>default
-</span><span id="__span-9-11"><a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="o">}</span><span class="w"> </span>&gt;<span class="w"> </span>/tmp/memoir-smoke/evidence.md
+<p>End-to-end: start a Hermes session and state a durable fact ("from now on call me Captain; my dog Rex sees the vet every March"). Capture runs in the background (a few seconds), then:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>memoir<span class="w"> </span>-s<span class="w"> </span>&lt;hermes_home&gt;/memoir-store<span class="w"> </span>summarize<span class="w"> </span>--depth<span class="w"> </span><span class="m">3</span><span class="w">     </span><span class="c1"># captured paths</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>memoir<span class="w"> </span>-s<span class="w"> </span>&lt;hermes_home&gt;/memoir-store<span class="w"> </span>blame<span class="w"> </span>&lt;path&gt;<span class="w">            </span><span class="c1"># provenance</span>
 </span></code></pre></div>
-<p>Clean up after recording evidence:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>rm<span class="w"> </span>-rf<span class="w"> </span>/tmp/memoir-smoke<span class="w"> </span>/tmp/memoir-smoke-store
+<p>In a new session, ask "what's my name?" — the agent should call <code>memoir_recall</code> and answer from memory.</p>
+<h2 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
+<p>The bridge sets these for the memoir subprocess automatically from <code>memoir.json</code>; you normally don't set them by hand.</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Set from</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MEMOIR_LLM_BACKEND</code></td>
+<td>always <code>litellm</code></td>
+<td>Forces direct provider APIs; suppresses the claude-cli fallback.</td>
+</tr>
+<tr>
+<td><code>MEMOIR_LLM_MODEL</code></td>
+<td>resolved model</td>
+<td>Model for capture/classification.</td>
+</tr>
+<tr>
+<td><code>MEMOIR_LLM_BASE_URL</code></td>
+<td><code>base_url</code> config</td>
+<td>Custom provider endpoint, when set.</td>
+</tr>
+</tbody>
+</table>
+<p>Provider keys (<code>ANTHROPIC_API_KEY</code>, <code>OPENAI_API_KEY</code>, …) are inherited from the Hermes process environment — set them in <code>&lt;hermes_home&gt;/.env</code>.</p>
+<h2 id="manifest">Manifest<a class="headerlink" href="#manifest" title="Permanent link">&para;</a></h2>
+<p><code>plugins/hermes/plugin.yaml</code>:</p>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">memoir</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1.0</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Memoir</span><span class="nv"> </span><span class="s">—</span><span class="nv"> </span><span class="s">versioned,</span><span class="nv"> </span><span class="s">semantic</span><span class="nv"> </span><span class="s">long-term</span><span class="nv"> </span><span class="s">memory</span><span class="nv"> </span><span class="s">with</span><span class="nv"> </span><span class="s">git-like</span><span class="nv"> </span><span class="s">branch/commit/merge</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">cryptographic</span><span class="nv"> </span><span class="s">provenance.</span><span class="nv"> </span><span class="s">Shells</span><span class="nv"> </span><span class="s">out</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">memoir</span><span class="nv"> </span><span class="s">CLI;</span><span class="nv"> </span><span class="s">no</span><span class="nv"> </span><span class="s">Python</span><span class="nv"> </span><span class="s">deps.&quot;</span>
 </span></code></pre></div>
-<p>Do not commit generated stores, local Codex config, or <code>/tmp</code> evidence unless a maintainer asks for a sanitized artifact.</p>
-<h2 id="parity-notes">Parity notes<a class="headerlink" href="#parity-notes" title="Permanent link">&para;</a></h2>
-<p>The Codex plugin intentionally mirrors the Claude Code plugin where Codex has equivalent surfaces: <code>SessionStart</code>, <code>UserPromptSubmit</code>, <code>Stop</code>, skill-driven recall/onboarding/manual remember/status/UI, store derivation, branch auto-match, and onboarding namespaces. It does not port Claude-only slash-command markdown, deprecated custom prompt surfaces, statusline behavior, or <code>SessionEnd</code> cleanup. The first Codex-specific divergence is transcript parsing: Codex records messages and tools as <code>response_item.payload</code> objects, so the parser, metrics collector, and edit collector are separate from the Claude JSONL versions.</p>
+<p>No <code>pip_dependencies</code>: the provider talks to the <code>memoir</code> CLI over a subprocess bridge (PATH <code>memoir</code>, else a pinned <code>uvx --from memoir-ai</code>).</p>
+<h2 id="limitations-v1">Limitations (v1)<a class="headerlink" href="#limitations-v1" title="Permanent link">&para;</a></h2>
+<ul>
+<li><strong>Local store only.</strong> Multi-device sync (the merge-based wedge) is future work; it needs a <code>memoir remote</code> story.</li>
+<li><strong>One external provider at a time.</strong> Activating memoir displaces any other Hermes memory provider.</li>
+</ul>
+<h2 id="see-also">See also<a class="headerlink" href="#see-also" title="Permanent link">&para;</a></h2>
+<ul>
+<li><a href="../cli/">CLI</a> — the underlying <code>memoir</code> commands the plugin wraps (including <code>capture</code>).</li>
+<li><a href="../claude_code/">Claude Code</a> — the coding-agent plugin (slash commands, hooks).</li>
+<li><a href="../architecture/">Architecture</a> — how memoir is structured under the hood.</li>
+</ul>
 
 
 
