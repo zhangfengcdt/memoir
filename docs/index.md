@@ -11,6 +11,16 @@
 * **Clean Architecture**: Proper separation of storage, classification, and search layers
 * **Multiple Search Engines**: Choose between fast keyword-based or intelligent LLM-powered search
 
+## Integrations
+
+Memoir ships first-class plugins that give agents versioned memory natively:
+
+* **[Claude Code](claude_code.md)** — slash commands, auto-capture hooks, and codebase onboarding for coding sessions.
+* **[Codex](codex.md)** — the same memory workflows for OpenAI Codex.
+* **[Hermes](hermes.md)** — a memory provider for the Nous Research personal-assistant agent: auto-capture, recall/remember/forget/sync tools, and session-fork branching.
+
+Community: **[opencode-memoir](https://github.com/disafronov/opencode-memoir)** brings memoir to OpenCode.
+
 ## Quick Example
 
 ```python

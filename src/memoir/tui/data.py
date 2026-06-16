@@ -322,19 +322,43 @@ class DataLoader:
     # ------------------------------------------------------------------
 
     def _ensure_raw_tree(self) -> None:
-        """Open the raw ``VersionedKvStore`` once; idempotent."""
+        """Open the raw ``VersionedKvStore`` once; idempotent.
+
+        Mirrors :class:`ProllyTreeStore`'s open path: an *existing* store
+        (its ``prolly_config_tree_config`` already present) must be opened
+        with ``VersionedKvStore.open(data_dir, backend)``. The bare
+        ``VersionedKvStore(data_dir)`` constructor *re-initializes* the tree
+        — running an "Initial commit" that overwrites the saved root hash and
+        reads back an empty store (the "Failed to load tree from saved root
+        hash" warning, then zero keys). It also omits the resolved storage
+        backend, so even the load attempt targets the wrong backend.
+        """
         if self._raw_tree_cache is not None:
             return
         import os as _os
 
         from prollytree import VersionedKvStore
 
-        data_dir = Path(self.store_path) / "data"
+        from memoir.store.backend import resolve_backend
+        from memoir.store.prolly_adapter import _native_stderr_quiet
+
+        store_path = Path(self.store_path)
+        data_dir = store_path / "data"
+        prolly_config = data_dir / "prolly_config_tree_config"
         saved = _os.getcwd()
         try:
             _os.chdir(self.store_path)
             try:
-                self._raw_tree_cache = VersionedKvStore(str(data_dir))
+                backend = resolve_backend(store_path)
+                with _native_stderr_quiet():
+                    if prolly_config.exists():
+                        # Existing store — open without re-initializing.
+                        self._raw_tree_cache = VersionedKvStore.open(
+                            str(data_dir), backend
+                        )
+                    else:
+                        # Brand-new dataset dir — constructor initializes it.
+                        self._raw_tree_cache = VersionedKvStore(str(data_dir), backend)
             except Exception:
                 self._raw_tree_cache = None
         finally:
