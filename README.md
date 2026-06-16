@@ -64,7 +64,12 @@ pip install memoir-ai
 
 > The distribution name on PyPI is `memoir-ai`. The Python import is `import memoir` and the CLI is `memoir`.
 
-## Install for Claude Code
+## Install a plugin for your agent
+
+Memoir ships as a plugin for several coding and personal-assistant agents. Expand the one you use:
+
+<details>
+<summary><b>Claude Code</b></summary>
 
 Inside a Claude Code session, run:
 
@@ -81,7 +86,10 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 That's enough — the plugin handles the rest. It registers hooks for session start, user-prompt-submit, and stop, so your project gets automatic context injection and auto-captured memories. See the [Claude Code plugin guide](https://zhangfengcdt.github.io/memoir/claude_code/) for the full slash-command and hook reference.
 
-## Install for Codex
+</details>
+
+<details>
+<summary><b>Codex</b></summary>
 
 Memoir's Codex plugin is distributed from this repository's Codex marketplace. In Codex, run `/plugins`, add the `memoir` marketplace from `zhangfengcdt/memoir`, restart Codex if prompted, then choose **Memoir Plugins** and install `memoir`.
 
@@ -97,7 +105,10 @@ While developing from a local checkout, use `codex plugin marketplace add /absol
 
 Enable Codex hooks with `[features].hooks = true` in `~/.codex/config.toml` or pass `--enable hooks` for a smoke run. The Codex plugin ships lifecycle hooks; `memory-recall`, `memoir-onboard`, `memoir-remember`, `memoir-status`, and `memoir-ui` skills; Codex-specific transcript parsing; and local marketplace metadata. See the [Codex plugin guide](https://zhangfengcdt.github.io/memoir/codex/) for setup, limitations, and the real Codex smoke-test flow.
 
-## Install for Hermes
+</details>
+
+<details>
+<summary><b>Hermes</b></summary>
 
 Memoir is a memory provider for [Hermes](https://github.com/NousResearch/hermes-agent), the Nous Research personal-assistant agent. Install the plugin into your Hermes home and activate it:
 
@@ -108,9 +119,14 @@ hermes memory setup                                         # choose "memoir"
 
 Hermes then auto-captures durable facts (people, schedule, preferences, standing instructions) each turn and exposes `memoir_recall` / `memoir_remember` / `memoir_forget` / `memoir_sync` / `memoir_status` tools. Capture/classification run on your host-selected model via direct provider APIs (never the `claude` CLI). See the [Hermes plugin guide](https://zhangfengcdt.github.io/memoir/hermes/) for install, configuration, model selection, and proxy routing.
 
-## Community plugins
+</details>
 
-- **[opencode-memoir](https://github.com/disafronov/opencode-memoir)** brings Memoir's long-term memory workflows to OpenCode through its native plugin system.
+<details>
+<summary><b>OpenCode</b> (community)</summary>
+
+**[opencode-memoir](https://github.com/disafronov/opencode-memoir)** is a community-maintained plugin that brings Memoir's long-term memory workflows to [OpenCode](https://github.com/sst/opencode) through its native plugin system. Follow the install instructions in that repository.
+
+</details>
 
 ## Quick look
 
