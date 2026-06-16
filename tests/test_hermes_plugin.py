@@ -38,6 +38,21 @@ def plugin():
         sys.path.remove(str(_PLUGIN_DIR))
 
 
+_DEFAULT_RECALL_ITEMS = [
+    {
+        "key": "preferences.food.dietary",
+        "found": True,
+        "value": {"content": "vegetarian"},
+    },
+    {
+        "key": "schedule.recurring.hobbies",
+        "found": True,
+        "value": {"content": "yoga on Mondays"},
+    },
+    {"key": "missing.key.here", "found": False, "value": None},
+]
+
+
 class FakeBridge:
     """Records calls; returns canned (ok, payload) tuples — no subprocess."""
 
@@ -55,6 +70,10 @@ class FakeBridge:
         self.current = "main"
         # Per-branch dry-run preview override: {branch: {"added_keys":[...]}}.
         self.sync_previews: dict = {}
+        # Per-namespace recall items override: {namespace: [items]}.
+        self.recall_items: dict = {}
+        # Namespaces where forget reports the key absent (for fallback tests).
+        self.forget_absent: set = set()
 
     def available(self):
         return self._avail
@@ -65,34 +84,23 @@ class FakeBridge:
     def summarize(self, depth=3, namespace="default"):
         return True, {"total_memories": 7}
 
-    def capture(self, transcript, *, profile="assistant"):
-        self.captures.append((transcript, profile))
+    def capture(self, transcript, *, profile="assistant", namespace="default"):
+        self.captures.append((transcript, profile, namespace))
         return True, {"captured": []}
 
     def recall(self, *, namespace="default", max_keys=50):
         self.recalls.append((namespace, max_keys))
-        return True, {
-            "items": [
-                {
-                    "key": "preferences.food.dietary",
-                    "found": True,
-                    "value": {"content": "vegetarian"},
-                },
-                {
-                    "key": "schedule.recurring.hobbies",
-                    "found": True,
-                    "value": {"content": "yoga on Mondays"},
-                },
-                {"key": "missing.key.here", "found": False, "value": None},
-            ]
-        }
+        items = self.recall_items.get(namespace, _DEFAULT_RECALL_ITEMS)
+        return True, {"items": items}
 
-    def remember(self, content, *, path=None, replace=False):
-        self.remembers.append((content, path, replace))
+    def remember(self, content, *, path=None, replace=False, namespace="default"):
+        self.remembers.append((content, path, replace, namespace))
         return True, {"key": path or "auto.path.here"}
 
     def forget(self, path, *, namespace="default"):
         self.forgets.append((path, namespace))
+        if namespace in self.forget_absent:
+            return True, {"found": False, "key": path}
         return True, {"key": path, "commit_hash": "abc123de"}
 
     def status(self):
@@ -159,6 +167,81 @@ class TestImportHygiene:
         mod.register(Ctx())
         assert isinstance(captured["provider"], mod.MemoirProvider)
         assert captured["provider"].name == "memoir"
+
+
+class TestSlashCommand:
+    def test_register_is_context_aware(self, plugin):
+        mod, _ = plugin
+
+        # Memory-provider context (no register_command): provider only.
+        class MemCtx:
+            def __init__(self):
+                self.provider = None
+
+            def register_memory_provider(self, p):
+                self.provider = p
+
+        m = MemCtx()
+        mod.register(m)
+        assert isinstance(m.provider, mod.MemoirProvider)
+
+        # General PluginManager context (no register_memory_provider):
+        # the /memoir command only. register() must not raise on either.
+        class CmdCtx:
+            def __init__(self):
+                self.commands = {}
+
+            def register_command(self, name, handler, **kw):
+                self.commands[name] = handler
+
+        c = CmdCtx()
+        mod.register(c)
+        assert "memoir" in c.commands
+        assert callable(c.commands["memoir"])
+
+    def test_memoir_command_help(self, plugin):
+        mod, _ = plugin
+        for raw in ("", "help"):
+            out = mod._memoir_command(raw)
+            assert "/memoir" in out
+            assert "memoir CLI" in out
+
+    def test_memoir_command_passthrough(self, plugin, monkeypatch):
+        mod, _ = plugin
+        calls = {}
+
+        class FakeBridge:
+            def __init__(self, store):
+                calls["store"] = store
+
+            def available(self):
+                return True
+
+            def run(self, args, *, json_out=True, timeout=15):
+                calls["args"] = args
+                calls["json_out"] = json_out
+                return True, "branch: main\nmemories: 7\n"
+
+        monkeypatch.setattr(mod, "MemoirBridge", FakeBridge)
+        monkeypatch.setattr(mod, "_resolve_store_path", lambda: "/tmp/x")
+        out = mod._memoir_command("summarize --depth 3")
+        assert calls["args"] == ["summarize", "--depth", "3"]
+        assert calls["json_out"] is False  # human-readable for in-chat display
+        assert "branch: main" in out
+
+    def test_memoir_command_unavailable(self, plugin, monkeypatch):
+        mod, _ = plugin
+
+        class Down:
+            def __init__(self, store):
+                pass
+
+            def available(self):
+                return False
+
+        monkeypatch.setattr(mod, "MemoirBridge", Down)
+        monkeypatch.setattr(mod, "_resolve_store_path", lambda: "/tmp/x")
+        assert "memoir CLI not found" in mod._memoir_command("status")
 
 
 # ---------------------------------------------------------------------------
@@ -251,7 +334,7 @@ class TestTools:
             p.handle_tool_call("memoir_remember", {"content": "Prefers tea"})
         )
         assert out["stored"] is True
-        assert p._bridge.remembers == [("Prefers tea", None, False)]
+        assert p._bridge.remembers == [("Prefers tea", None, False, "default")]
 
     def test_remember_refuses_secret(self, plugin):
         p = _make_provider(plugin)
@@ -354,10 +437,11 @@ class TestCapture:
         p.sync_turn("I'm vegetarian", "Noted.", messages=[{}, {}])
         p.shutdown()  # join the background capture thread
         assert len(p._bridge.captures) == 1
-        transcript, profile = p._bridge.captures[0]
+        transcript, profile, ns = p._bridge.captures[0]
         assert "[Human]\nI'm vegetarian" in transcript
         assert "[Assistant]\nNoted." in transcript
         assert profile == "assistant"
+        assert ns == "default"  # unscoped by default
         assert p._captured_through == 2
 
     def test_sync_turn_skips_non_primary_context(self, plugin):
@@ -404,7 +488,7 @@ class TestCapture:
                 break
             time.sleep(0.02)
         assert p._bridge.remembers
-        _content, path, replace = p._bridge.remembers[0]
+        _content, path, replace, _ns = p._bridge.remembers[0]
         assert path == "profile.assistant.user_profile"
         assert replace is True
 
@@ -701,3 +785,99 @@ class TestSessionBranching:
         assert ok is True
         assert b.has_branch("hermes/fork1") is True
         assert b.has_branch("hermes/nope") is False
+
+
+class TestScopedMemory:
+    def test_derive_scope_ns(self, plugin):
+        mod, _ = plugin
+        d = mod.MemoirProvider._derive_scope_ns
+        assert (
+            d("chat", {"platform": "telegram", "chat_id": "123456789"})
+            == "scope_telegram_123456789"
+        )
+        assert d("profile", {"agent_identity": "work"}) == "scope_profile_work"
+        # Off, or missing scope key → shared default (current behavior).
+        assert d("off", {"chat_id": "123"}) == "default"
+        assert d("chat", {}) == "default"
+        assert d("profile", {}) == "default"
+
+    def test_derive_scope_ns_sanitizes(self, plugin):
+        mod, _ = plugin
+        # Namespaces can't contain ':' — everything non-alphanumeric collapses.
+        ns = mod.MemoirProvider._derive_scope_ns(
+            "chat", {"platform": "Tele Gram", "chat_id": "abc-123:x"}
+        )
+        assert ns == "scope_tele_gram_abc_123_x"
+        assert ":" not in ns
+
+    def test_initialize_resolves_scope(self, plugin, monkeypatch, tmp_path):
+        mod, bridge_mod = plugin
+        monkeypatch.setattr(bridge_mod.shutil, "which", lambda name: None)
+        (tmp_path / "memoir.json").write_text(json.dumps({"scope": "chat"}))
+        p = mod.MemoirProvider()
+        p.initialize(
+            "s",
+            hermes_home=str(tmp_path),
+            agent_context="primary",
+            platform="telegram",
+            chat_id="98765",
+        )
+        assert p._scope_mode == "chat"
+        assert p._scope_ns == "scope_telegram_98765"
+
+    def test_scope_off_reads_only_default(self, plugin):
+        p = _make_provider(plugin)  # scope off → _scope_ns == "default"
+        assert p._recall_namespaces() == ["default"]
+
+    def test_scoped_capture_and_remember_use_scope_ns(self, plugin):
+        p = _make_provider(plugin)
+        p._scope_ns = "scope_telegram_123"
+        p.sync_turn("I'm vegetarian", "Noted.", messages=[{}, {}])
+        p.shutdown()
+        assert p._bridge.captures[0][2] == "scope_telegram_123"  # capture namespace
+        p.handle_tool_call("memoir_remember", {"content": "Prefers tea"})
+        assert p._bridge.remembers[0][3] == "scope_telegram_123"  # remember namespace
+
+    def test_scoped_recall_merges_default_and_scope(self, plugin):
+        p = _make_provider(plugin)
+        p._scope_ns = "scope_x"
+        p._bridge.recall_items = {
+            "scope_x": [
+                {
+                    "key": "goals.personal.travel",
+                    "found": True,
+                    "value": {"content": "Japan (private)"},
+                },
+            ],
+            "default": [
+                {
+                    "key": "profile.personal.identity",
+                    "found": True,
+                    "value": {"content": "Jordan"},
+                },
+                {
+                    "key": "goals.personal.travel",
+                    "found": True,
+                    "value": {"content": "GLOBAL"},
+                },
+            ],
+        }
+        out = json.loads(
+            p.handle_tool_call("memoir_recall", {"query": "travel identity"})
+        )
+        # Reads both namespaces; scope shadows the same-key global entry.
+        assert {n for n, _ in p._bridge.recalls} == {"scope_x", "default"}
+        by_path = {r["path"]: r["content"] for r in out["results"]}
+        assert by_path["goals.personal.travel"] == "Japan (private)"
+        assert by_path["profile.personal.identity"] == "Jordan"
+
+    def test_scoped_forget_falls_back_to_default(self, plugin):
+        p = _make_provider(plugin)
+        p._scope_ns = "scope_x"
+        p._bridge.forget_absent = {"scope_x"}  # key isn't in the scope ns
+        out = json.loads(
+            p.handle_tool_call("memoir_forget", {"path": "profile.personal.identity"})
+        )
+        assert out["forgotten"] is True
+        # Tried scope first, then default.
+        assert [ns for _, ns in p._bridge.forgets] == ["scope_x", "default"]

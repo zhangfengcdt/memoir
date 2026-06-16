@@ -1,5 +1,11 @@
 name: memoir
 version: 0.1.0
+# `standalone` (not auto-coerced to a memory-only plugin) so the general
+# PluginManager can also load it — when listed in `plugins.enabled` — to
+# register the in-session `/memoir` slash command. Memory-provider activation
+# is independent (memory.provider: memoir); the directory scan finds it
+# regardless of kind.
+kind: standalone
 description: "Memoir — versioned, semantic long-term memory with git-like branch/commit/merge and cryptographic provenance. Shells out to the memoir CLI; no Python deps."
 author: "memoir"
 # No pip_dependencies: this provider talks to the `memoir` CLI over a

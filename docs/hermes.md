@@ -56,8 +56,11 @@ The store is created automatically on first run at `<hermes_home>/memoir-store` 
 | Tools (model-facing) | 5 | `memoir_recall`, `memoir_remember`, `memoir_forget`, `memoir_sync`, `memoir_status` |
 | Lifecycle hooks | 5 | Auto-capture, recall context, store mirroring |
 | CLI subcommands | 2 | `hermes memoir status`, `hermes memoir ui` |
+| Slash command | 1 (opt-in) | `/memoir …` — in-session passthrough to the memoir CLI |
 
-There are no in-chat slash commands — Hermes has no plugin slash-command mechanism for memory providers. The equivalents are the auto-capture hook plus the three tools the model invokes on its own.
+The model-facing tools above are the primary in-chat surface (the model calls
+them). There's also an **opt-in `/memoir` slash command** for power users —
+see [The `/memoir` command](#the-memoir-command).
 
 ## Tools
 
@@ -86,6 +89,36 @@ These are called by Hermes automatically — they don't depend on the model invo
 
 Capture runs on a background thread and never blocks the response. Writes are skipped for non-primary agent contexts (subagent / cron / flush) so they can't corrupt the user's representation.
 
+## The `/memoir` command
+
+An optional in-session slash command that passes through to the memoir CLI on
+your store — handy for inspecting memory without leaving the chat:
+
+```
+/memoir status
+/memoir summarize --depth 3
+/memoir recall "travel plans"
+/memoir branch
+/memoir blame profile.personal.identity
+```
+
+`/memoir` with no args prints usage. It's user-invoked (not the model), so it
+simply runs `memoir -s <store> <your args>` and returns the output.
+
+**It's opt-in and separate from the memory provider.** Hermes loads in-session
+slash commands only for plugins listed in `plugins.enabled`, which is distinct
+from `memory.provider`. So to get `/memoir`, enable the plugin as well:
+
+```bash
+hermes memory setup          # activates the provider (tools + auto-capture)
+hermes plugins enable memoir # additionally registers the /memoir command
+```
+
+Without the `enable` step everything else still works — you just won't have the
+slash command. (Mechanism: the plugin ships `kind: standalone` so the general
+plugin manager can load it for the command; its `register()` feature-detects
+the load context and registers the provider or the command accordingly.)
+
 ## Configuration
 
 Config lives in `<hermes_home>/memoir.json` (all keys optional). Set it via `hermes memory setup` or by hand.
@@ -97,6 +130,7 @@ Config lives in `<hermes_home>/memoir.json` (all keys optional). Set it via `her
 | `model` | host's selected model | Pin the LLM model for capture/classification. Empty = follow Hermes `model.default`. See [Model selection](#model-selection). |
 | `base_url` | provider default | Custom provider endpoint (LLM gateway/proxy). Empty = call the provider directly. See [Routing through a proxy](#routing-through-a-proxy). |
 | `session_branching` | `true` | Mirror Hermes session forks onto memoir branches. `false` keeps everything on `main`. See [Session branching](#session-branching). |
+| `scope` | `off` | Isolate memory per chat/profile via a namespace: `chat` (per platform+chat), `profile` (per Hermes profile), `off` (one shared store). See [Scoped memory](#scoped-memory). |
 
 Example — pin cheap Haiku for per-turn capture regardless of your chat model:
 
@@ -164,6 +198,41 @@ the store is left on `main`, so forks don't accumulate as the active branch.
 > Single-store caveat: branch state is the store's checked-out branch, so this
 > assumes one active session per store at a time (the personal-assistant CLI
 > case). Concurrent sessions sharing one store would contend on the checkout.
+
+## Scoped memory
+
+If you run Hermes across multiple chats/platforms/profiles (e.g. a private DM
+and a public group on the same gateway), global memory is a privacy foot-gun:
+a fact captured in the DM would otherwise be injected into the group. Set
+`scope` in `memoir.json` to isolate memory **structurally**:
+
+| `scope` | Each scope is… | Namespace |
+|---|---|---|
+| `off` (default) | one shared store | `default` |
+| `chat` | a platform + chat/channel | `scope_<platform>_<chat_id>` |
+| `profile` | a Hermes profile | `scope_profile_<name>` |
+
+How it works:
+
+- Hermes already passes `platform`, `chat_id`, and `agent_identity` (profile)
+  into the provider's `initialize()`, so the scope key needs no extra config.
+- Captures and `memoir_remember` write to the **scope's namespace**.
+- `memoir_recall` reads the scope namespace **⊕** `default` — so global
+  (unscoped) facts are visible everywhere, but a scoped fact never appears in
+  another scope. Cross-scope leakage is impossible by construction
+  (default-deny), not dependent on an injection-time filter.
+- `memoir_forget` deletes from the scope namespace, falling back to `default`.
+
+**Namespace vs. branch.** Scoping uses memoir **namespaces** (parallel,
+composable partitions), which is the right primitive here — distinct from
+[session branching](#session-branching), which uses **branches** (divergent
+timelines you can merge). They compose: a scoped session can still `/fork`.
+Namespaces are also routed per call (no shared checkout), so concurrent
+scoped sessions don't contend.
+
+> v1 resolves the scope once at `initialize()` (the session's chat/profile).
+> Per-message re-scoping for a single provider serving many concurrent gateway
+> sessions is future work — the namespace primitive supports it.
 
 ## LLM backend
 

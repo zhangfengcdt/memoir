@@ -223,11 +223,11 @@ class MemoirBridge:
     # -- Convenience wrappers ------------------------------------------------
 
     def capture(
-        self, transcript: str, *, profile: str = "assistant"
+        self, transcript: str, *, profile: str = "assistant", namespace: str = "default"
     ) -> tuple[bool, Any]:
-        """Run `memoir capture --profile <profile>` over a turn transcript."""
+        """Run `memoir capture --profile <profile> -n <namespace>` over a turn."""
         return self.run(
-            ["capture", "--profile", profile],
+            ["capture", "--profile", profile, "-n", namespace],
             stdin=transcript,
             timeout=_DEFAULT_TIMEOUT,
         )
@@ -266,10 +266,15 @@ class MemoirBridge:
         return self.get(keys[:max_keys], namespace=namespace)
 
     def remember(
-        self, content: str, *, path: str | None = None, replace: bool = False
+        self,
+        content: str,
+        *,
+        path: str | None = None,
+        replace: bool = False,
+        namespace: str = "default",
     ) -> tuple[bool, Any]:
         """Store a fact via `memoir remember` (pre-classified if ``path`` given)."""
-        args = ["remember", content]
+        args = ["remember", content, "-n", namespace]
         if path:
             args += ["-p", path]
         if replace:
