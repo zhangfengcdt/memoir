@@ -166,7 +166,7 @@ def get_cli_schema(group: click.Group) -> dict[str, Any]:
     # Extract commands by group
     command_groups = {
         "store": ["new", "status", "refresh"],
-        "memory": ["remember", "recall", "forget"],
+        "memory": ["remember", "recall", "forget", "capture"],
         "branch": [
             "branch",
             "checkout",
@@ -348,6 +348,8 @@ def cli(
       MEMOIR_QUIET         Suppress non-essential output (set to 1)
       MEMOIR_LLM_MODEL     Default LLM model (see LLM RESOLUTION below)
       MEMOIR_LLM_BACKEND   Force LLM backend: 'claude-cli' or 'litellm'
+      MEMOIR_LLM_BASE_URL  Custom provider endpoint (LLM gateway/proxy) for
+                           the litellm backend; unset = provider default
 
     \b
     LLM RESOLUTION (shared by `remember`, `watch add`, `watch scan`, ...):
@@ -377,6 +379,7 @@ def cli(
 from memoir.cli.commands import (  # noqa: E402
     analysis,
     branch,
+    capture,
     crypto,
     memory,
     search,
@@ -400,6 +403,7 @@ cli.add_command(memory.remember)
 cli.add_command(memory.recall)
 cli.add_command(memory.get_memory)
 cli.add_command(memory.forget)
+cli.add_command(capture.capture)
 
 # Branch commands
 cli.add_command(branch.branch)

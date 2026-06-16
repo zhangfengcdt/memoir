@@ -443,6 +443,50 @@ class TaxonomyLoader:
 
         return "\n".join(parts)
 
+    def render_prompt_snippet(self, max_examples: int = 500) -> str:
+        """Render the persisted taxonomy as a CATEGORIES / EXAMPLES block.
+
+        Output mirrors the structure used by memoir's own classifier
+        (``_build_fast_classification_prompt``), so out-of-process
+        extractors — the Claude Code Stop hook and ``memoir capture`` —
+        classify against the same taxonomy grounding as ``memoir
+        remember``. Returns an empty string when the store has no
+        taxonomy; callers fall back to their own hardcoded default.
+
+        This is the single source of truth for both the ``taxonomy
+        prompt-snippet`` CLI command and the ``capture`` extraction
+        prompt — keep them sharing it so they cannot drift.
+        """
+        if not self.has_taxonomy_in_store():
+            return ""
+
+        descriptions = self.get_descriptions_from_store() or {}
+        examples = self.get_examples_from_store() or []
+        if not descriptions and not examples:
+            return ""
+
+        # Deterministic ordering (path, then input text) — matches
+        # _build_fast_classification_prompt's limit=500 behavior.
+        selected = sorted(examples, key=lambda e: (e[1], e[0]))[:max_examples]
+
+        lines: list[str] = []
+        if descriptions:
+            lines.append("CATEGORIES:")
+            for cat, desc in sorted(descriptions.items()):
+                lines.append(f"  {cat}: {desc}")
+            lines.append("")
+
+        if selected:
+            lines.append(
+                "EXAMPLES (paths MUST be exactly 3 levels: "
+                "category.subcategory.type):"
+            )
+            for input_text, path, _reason in selected:
+                lines.append(f'  "{input_text}" → {path}')
+            lines.append("")
+
+        return "\n".join(lines).rstrip()
+
     # -------------------------------------------------------------------------
     # Utility methods
     # -------------------------------------------------------------------------

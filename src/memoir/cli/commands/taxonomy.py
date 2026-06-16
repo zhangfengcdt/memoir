@@ -308,36 +308,11 @@ def prompt_snippet(ctx: MemoirContext, max_examples: int):
         store = ProllyTreeStore(ctx.store_path)
         loader = TaxonomyLoader(store)
 
-        if not loader.has_taxonomy_in_store():
-            # Caller falls back to its hardcoded default.
-            return
-
-        descriptions = loader.get_descriptions_from_store() or {}
-        examples = loader.get_examples_from_store() or []
-
-        if not descriptions and not examples:
-            return
-
-        # Include all examples sorted deterministically (path, then text) —
-        # matches _build_fast_classification_prompt's limit=500 behavior.
-        selected = sorted(examples, key=lambda e: (e[1], e[0]))[:max_examples]
-
-        lines: list[str] = []
-        if descriptions:
-            lines.append("CATEGORIES:")
-            for cat, desc in sorted(descriptions.items()):
-                lines.append(f"  {cat}: {desc}")
-            lines.append("")
-
-        if selected:
-            lines.append(
-                "EXAMPLES (paths MUST be exactly 3 levels: "
-                "category.subcategory.type):"
-            )
-            for input_text, path, _reason in selected:
-                lines.append(f'  "{input_text}" → {path}')
-            lines.append("")
-
-        click.echo("\n".join(lines).rstrip())
+        # Single source of truth shared with `memoir capture` (loader.py) —
+        # emits nothing when the store has no taxonomy, so the caller falls
+        # back to its own hardcoded default.
+        snippet = loader.render_prompt_snippet(max_examples=max_examples)
+        if snippet:
+            click.echo(snippet)
     except Exception as e:
         ctx.error(f"Failed to render taxonomy snippet: {e}", EXIT_ERROR)
