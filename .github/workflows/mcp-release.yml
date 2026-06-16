@@ -1,0 +1,120 @@
+name: MCP Release
+
+# Ships the MCP distribution artifacts for a memoir release:
+#   1. builds the version-stamped Claude Desktop extension (memoir-<v>.mcpb)
+#      and attaches it to the GitHub Release, and
+#   2. publishes server.json to the official MCP Registry (GitHub OIDC).
+#
+# Runs automatically when a GitHub Release is published (by release.yml), and
+# can be dispatched manually (dry-run by default: build + validate only).
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (build + validate the .mcpb only; do not attach or publish)'
+        type: boolean
+        default: true
+  release:
+    types: [published]
+
+jobs:
+  setup:
+    name: Resolve version
+    # Owner-only — avoids forks attempting OIDC publishes. Downstream jobs need this.
+    if: ${{ github.repository_owner == 'zhangfengcdt' }}
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+      dry_run: ${{ steps.meta.outputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: meta
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            V="${{ github.event.release.tag_name }}"; V="${V#v}"
+            DR="false"
+          else
+            V=$(grep '^__version__' src/memoir/__init__.py | head -1 | cut -d'"' -f2)
+            DR="${{ inputs.dry_run }}"
+          fi
+          [ -n "$V" ] || { echo "could not resolve version"; exit 1; }
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "dry_run=$DR" >> "$GITHUB_OUTPUT"
+          echo "Resolved version=$V dry_run=$DR (event=${{ github.event_name }})"
+
+  build-mcpb:
+    name: Build .mcpb
+    needs: setup
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Stamp version into MCP metadata
+        run: python scripts/stamp_mcp_version.py "${{ needs.setup.outputs.version }}"
+
+      - name: Validate + pack .mcpb
+        working-directory: packaging/mcp
+        run: |
+          npx -y @anthropic-ai/mcpb@latest validate manifest.json
+          npx -y @anthropic-ai/mcpb@latest pack . "memoir-${{ needs.setup.outputs.version }}.mcpb"
+
+      - name: Upload .mcpb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcpb
+          path: packaging/mcp/memoir-*.mcpb
+
+  attach-to-release:
+    name: Attach .mcpb to GitHub Release
+    needs: [setup, build-mcpb]
+    if: ${{ needs.setup.outputs.dry_run == 'false' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: mcpb
+          path: mcpb
+      - name: Upload to release v${{ needs.setup.outputs.version }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "v${{ needs.setup.outputs.version }}" mcpb/memoir-*.mcpb \
+            --repo "${{ github.repository }}" --clobber
+
+  publish-registry:
+    name: Publish to MCP Registry
+    needs: [setup, build-mcpb]
+    if: ${{ needs.setup.outputs.dry_run == 'false' }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # GitHub OIDC proves ownership of the io.github.* namespace
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Stamp version into server.json
+        run: python scripts/stamp_mcp_version.py "${{ needs.setup.outputs.version }}"
+
+      - name: Install mcp-publisher
+        # Official MCP Registry CLI. If the module path changes, see
+        # https://github.com/modelcontextprotocol/registry (cmd/mcp-publisher).
+        run: |
+          go install github.com/modelcontextprotocol/registry/cmd/mcp-publisher@latest
+          echo "$HOME/go/bin" >> "$GITHUB_PATH"
+
+      - name: Publish (GitHub OIDC)
+        working-directory: packaging/mcp
+        run: |
+          mcp-publisher login github-oidc
+          mcp-publisher publish

@@ -127,6 +127,55 @@ memoir-mcp --http --host 0.0.0.0 --port 8000     # serves at /mcp
 Then add it as a custom/remote connector with the URL `http://<host>:8000/mcp`.
 (For anything internet-facing, terminate TLS and add auth at your proxy.)
 
+## LLM-driven remember & recall
+
+Memoir's edge is **intelligent** memory: `remember` classifies content into the
+right semantic taxonomy path with an LLM, and recall can do LLM **semantic**
+search — not just keyword matching. The MCP server uses these the moment you
+give it a model + key in its environment.
+
+**To enable it, add the provider key (and optionally the model) to the server's
+`env`** in your host config:
+
+```json
+{
+  "mcpServers": {
+    "memoir": {
+      "command": "uvx",
+      "args": ["--from", "memoir-ai[mcp]", "memoir-mcp"],
+      "env": {
+        "MEMOIR_STORE": "~/.memoir/mcp",
+        "ANTHROPIC_API_KEY": "sk-ant-…",
+        "MEMOIR_LLM_MODEL": "claude-haiku-4-5",
+        "MEMOIR_MCP_SEMANTIC_RECALL": "1"
+      }
+    }
+  }
+}
+```
+
+What each does:
+
+| Env var | Effect |
+|---|---|
+| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / … | The provider key memoir uses for classification + semantic search. **`memoir_remember` requires one** (it classifies into a taxonomy path); without it, remember fails. memoir routes by model name. |
+| `MEMOIR_LLM_MODEL` | Which model does the classification/search (default `claude-haiku-4-5` — fast + cheap, ideal for this). |
+| `MEMOIR_LLM_BASE_URL` | Route the LLM calls through a proxy/gateway. |
+| `MEMOIR_MCP_SEMANTIC_RECALL` | `1` makes `memoir_recall` default to **LLM semantic search**. Otherwise recall is LLM-free (lexical) by default and the model opts in per call with `semantic=true`. |
+
+So:
+
+- **`memoir_remember` is always LLM-driven** — give the server a key and it
+  classifies + commits to a semantic path. No key → it errors (by design, rather
+  than storing under a guessed path).
+- **`memoir_recall` is LLM-free by default** (fast, keyless), and becomes
+  LLM-semantic either per-call (`semantic=true`) or globally
+  (`MEMOIR_MCP_SEMANTIC_RECALL=1`).
+
+> The key lives in your host's MCP config (often plaintext on disk) — use a
+> least-privilege key. The default `claude-haiku-4-5` keeps classification cost
+> negligible.
+
 ## Tools
 
 | Tool | Read-only | Purpose |

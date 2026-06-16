@@ -74,6 +74,25 @@ def test_forget_removes_fact(store):
     assert all(m["key"] != "profile.personal.health" for m in out["memories"])
 
 
+def test_semantic_recall_env_flips_default(monkeypatch, tmp_path):
+    store = str(tmp_path / "s")
+    S.ensure_store(store)
+
+    def recall_default(srv):
+        async def run():
+            tools = await srv.list_tools()
+            recall = next(t for t in tools if t.name == "memoir_recall")
+            return recall.inputSchema["properties"]["semantic"].get("default")
+
+        return asyncio.run(run())
+
+    monkeypatch.delenv("MEMOIR_MCP_SEMANTIC_RECALL", raising=False)
+    assert recall_default(S.build_server(store)) is False
+
+    monkeypatch.setenv("MEMOIR_MCP_SEMANTIC_RECALL", "1")
+    assert recall_default(S.build_server(store)) is True
+
+
 def test_fastmcp_registration_and_dispatch(store):
     srv = S.build_server(store)
 

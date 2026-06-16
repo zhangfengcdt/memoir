@@ -235,12 +235,24 @@ def build_server(store_path: str):
     ro = ToolAnnotations(readOnlyHint=True)
     destructive = ToolAnnotations(readOnlyHint=False, destructiveHint=True)
 
+    # When MEMOIR_MCP_SEMANTIC_RECALL is truthy, memoir_recall defaults to the
+    # LLM-backed semantic search (needs a provider key); otherwise it defaults
+    # to the LLM-free lexical path. Callers can always override per call.
+    default_semantic = os.environ.get(
+        "MEMOIR_MCP_SEMANTIC_RECALL", ""
+    ).strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
     @server.tool(
         name="memoir_recall",
         description=(
-            "Recall stored memories. LLM-free by default (fast, no API key): "
-            "ranks stored facts by lexical overlap with the query. Set semantic=true "
-            "for LLM-backed search."
+            "Recall stored memories. By default uses fast LLM-free lexical ranking; "
+            "set semantic=true for LLM-backed semantic search (needs a provider key). "
+            "The default mode can be flipped to semantic via MEMOIR_MCP_SEMANTIC_RECALL."
         ),
         annotations=ro,
     )
@@ -248,7 +260,7 @@ def build_server(store_path: str):
         query: str,
         limit: int = 10,
         namespace: str | None = None,
-        semantic: bool = False,
+        semantic: bool = default_semantic,
     ) -> dict:
         if semantic:
             return await recall_semantic(

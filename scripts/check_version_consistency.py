@@ -61,6 +61,35 @@ def collect_sources() -> dict[str, list[VersionSource]]:
         ),
     ]
 
+    # The MCP server ships inside the memoir-ai package, so its distribution
+    # metadata pins the same version as the package.
+    mcp_manifest = REPO_ROOT / "packaging" / "mcp" / "manifest.json"
+    mcp_server = REPO_ROOT / "packaging" / "mcp" / "server.json"
+    if mcp_manifest.exists():
+        python_group.append(
+            VersionSource(
+                label="packaging/mcp/manifest.json:version",
+                path=mcp_manifest,
+                version=_read_json(mcp_manifest)["version"],
+            )
+        )
+    if mcp_server.exists():
+        server_json = _read_json(mcp_server)
+        python_group.append(
+            VersionSource(
+                label="packaging/mcp/server.json:version",
+                path=mcp_server,
+                version=server_json["version"],
+            )
+        )
+        python_group.append(
+            VersionSource(
+                label="packaging/mcp/server.json:packages[0].version",
+                path=mcp_server,
+                version=server_json["packages"][0]["version"],
+            )
+        )
+
     claude_plugin_group: list[VersionSource] = []
     codex_plugin_group: list[VersionSource] = []
 

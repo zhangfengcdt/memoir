@@ -94,6 +94,43 @@ jobs:
       run: |
         bandit -r src/ --skip B101,B110,B404,B601,B603,B607,B608
 
+  mcp:
+    name: MCP server + packaging
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.11"
+
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+
+    - name: Install dependencies (with the mcp extra)
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev,mcp]"
+
+    - name: Configure git for tests
+      run: |
+        git config --global user.email "test@example.com"
+        git config --global user.name "Test User"
+
+    - name: Validate .mcpb manifest
+      run: npx -y @anthropic-ai/mcpb@latest validate packaging/mcp/manifest.json
+
+    - name: Validate server.json (parseable JSON)
+      run: python -c "import json; json.load(open('packaging/mcp/server.json'))"
+
+    - name: Run MCP server tests
+      env:
+        PYTHONWARNINGS: ignore
+      run: pytest tests/test_mcp_server.py -v
+
   codex-plugin:
     runs-on: ubuntu-latest
     timeout-minutes: 15
