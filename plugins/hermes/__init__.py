@@ -260,6 +260,13 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
         # gets its own ``hermes/<session>`` branch; resuming a non-forked
         # session returns to ``main``.
         self._branching_enabled: bool = True
+        # Scoped memory (namespace per chat/profile) for multi-chat isolation.
+        # mode ∈ {"off", "chat", "profile"}; _scope_ns is the resolved memoir
+        # namespace ("default" when off / unresolved). Captures and tool
+        # writes land in _scope_ns; recall reads `default` ⊕ _scope_ns.
+        # Orthogonal to branching: a scope is a partition, a fork is a branch.
+        self._scope_mode: str = "off"
+        self._scope_ns: str = "default"
         self._agent_context: str = "primary"
         # Index into the live `messages` list that we've already captured, so
         # the on_pre_compress / on_session_end boundaries only sweep the tail.
@@ -345,6 +352,16 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
                 "default": "true",
                 "choices": ["true", "false"],
             },
+            {
+                "key": "scope",
+                "description": (
+                    "Isolate memory per chat/profile via a memoir namespace "
+                    "(multi-chat privacy). 'chat' = per platform+chat, "
+                    "'profile' = per Hermes profile, 'off' = one shared store."
+                ),
+                "default": "off",
+                "choices": ["off", "chat", "profile"],
+            },
         ]
 
     def save_config(self, values: dict[str, Any], hermes_home: str) -> None:
@@ -372,6 +389,12 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
         self._branching_enabled = (
             str(cfg.get("session_branching", "true")).lower() != "false"
         )
+
+        # Scoped memory: resolve the namespace this session writes to. When
+        # off (or the scope key is unavailable), this is "default" and the
+        # provider behaves exactly as before.
+        self._scope_mode = str(cfg.get("scope", "off")).strip().lower()
+        self._scope_ns = self._derive_scope_ns(self._scope_mode, kwargs)
 
         # Model: explicit memoir.json pin → host-selected model → memoir's
         # own default. memoir is always driven by litellm (direct provider
@@ -439,6 +462,40 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
         slug = re.sub(r"[^A-Za-z0-9._-]", "-", session_id or "").strip("-./")
         return f"hermes/{slug[:64]}" if slug else "hermes/session"
 
+    @staticmethod
+    def _derive_scope_ns(mode: str, kwargs: dict[str, Any]) -> str:
+        """Resolve the memoir namespace for this session's scope.
+
+        ``chat``  → ``scope_<platform>_<chat_id>`` (per chat/channel)
+        ``profile`` → ``scope_profile_<agent_identity>`` (per Hermes profile)
+        Anything else, or a missing scope key, → ``default`` (shared store,
+        i.e. current behavior). Namespaces can't contain ``:`` (it separates
+        namespace from path in a full key), so the parts are sanitized to
+        ``[a-z0-9_]``.
+        """
+
+        def _slug(v: object) -> str:
+            return re.sub(r"[^a-z0-9]+", "_", str(v or "").lower()).strip("_")
+
+        if mode == "chat":
+            chat = _slug(kwargs.get("chat_id"))
+            if chat:
+                platform = _slug(kwargs.get("platform")) or "chat"
+                return f"scope_{platform}_{chat}"[:96]
+        elif mode == "profile":
+            prof = _slug(kwargs.get("agent_identity"))
+            if prof:
+                return f"scope_profile_{prof}"[:96]
+        return "default"
+
+    def _recall_namespaces(self) -> list[str]:
+        """Namespaces recall reads, most-specific first: the scope namespace
+        (if scoped) plus the shared ``default``. Global (unscoped) facts in
+        ``default`` are visible in every scope; scoped facts are not."""
+        if self._scope_ns and self._scope_ns != "default":
+            return [self._scope_ns, "default"]
+        return ["default"]
+
     def system_prompt_block(self) -> str:
         if not (self._bridge and self._bridge.available()):
             return ""
@@ -477,18 +534,24 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
             if not query:
                 return json.dumps({"error": "Missing required parameter: query"})
             limit = int(args.get("limit") or 10)
-            ok, payload = self._bridge.recall()
-            if not ok:
-                return json.dumps(payload)
-            items = payload.get("items", []) if isinstance(payload, dict) else []
-            results = []
-            for it in items:
-                if not it.get("found"):
-                    continue
-                value = it.get("value")
-                content = value.get("content") if isinstance(value, dict) else value
-                results.append({"path": it.get("key"), "content": content})
-            results = _rank_by_query(results, query)[:limit]
+            # Read the scope namespace (if any) plus the shared `default`,
+            # merging by key — a scoped fact shadows a same-key global one.
+            merged: dict[str, dict] = {}
+            for ns in self._recall_namespaces():
+                ok, payload = self._bridge.recall(namespace=ns)
+                if not ok:
+                    return json.dumps(payload)
+                items = payload.get("items", []) if isinstance(payload, dict) else []
+                for it in items:
+                    if not it.get("found"):
+                        continue
+                    key = it.get("key")
+                    if key in merged:
+                        continue  # most-specific namespace already won
+                    value = it.get("value")
+                    content = value.get("content") if isinstance(value, dict) else value
+                    merged[key] = {"path": key, "content": content}
+            results = _rank_by_query(list(merged.values()), query)[:limit]
             return json.dumps({"results": results, "count": len(results)})
 
         if tool_name == "memoir_remember":
@@ -504,7 +567,9 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
                         )
                     }
                 )
-            ok, payload = self._bridge.remember(content, path=args.get("path") or None)
+            ok, payload = self._bridge.remember(
+                content, path=args.get("path") or None, namespace=self._scope_ns
+            )
             if not ok:
                 return json.dumps(payload)
             key = payload.get("key") if isinstance(payload, dict) else None
@@ -514,19 +579,23 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
             path = (args.get("path") or "").strip()
             if not path:
                 return json.dumps({"error": "Missing required parameter: path"})
-            ok, payload = self._bridge.forget(path)
-            if not ok:
-                return json.dumps(payload)
-            if isinstance(payload, dict) and payload.get("found") is False:
-                return json.dumps(
-                    {"forgotten": False, "error": f"No memory found at '{path}'."}
-                )
+            # Try the scope namespace first; fall back to `default` so the
+            # user can forget a global fact while in a scoped session.
+            payload = None
+            for ns in self._recall_namespaces():
+                ok, payload = self._bridge.forget(path, namespace=ns)
+                if not ok:
+                    return json.dumps(payload)
+                if not (isinstance(payload, dict) and payload.get("found") is False):
+                    return json.dumps(
+                        {
+                            "forgotten": True,
+                            "key": payload.get("key", path),
+                            "commit": payload.get("commit_hash"),
+                        }
+                    )
             return json.dumps(
-                {
-                    "forgotten": True,
-                    "key": payload.get("key", path),
-                    "commit": payload.get("commit_hash"),
-                }
+                {"forgotten": False, "error": f"No memory found at '{path}'."}
             )
 
         if tool_name == "memoir_sync":
@@ -624,7 +693,11 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
 
         def _run() -> None:
             try:
-                self._bridge.capture(transcript, profile=self._capture_profile)  # type: ignore[union-attr]
+                self._bridge.capture(  # type: ignore[union-attr]
+                    transcript,
+                    profile=self._capture_profile,
+                    namespace=self._scope_ns,
+                )
             except Exception as e:  # pragma: no cover - defensive
                 logger.debug("memoir capture failed: %s", e)
 
@@ -799,7 +872,9 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
 
         def _run() -> None:
             try:
-                self._bridge.remember(content, path=path, replace=True)  # type: ignore[union-attr]
+                self._bridge.remember(  # type: ignore[union-attr]
+                    content, path=path, replace=True, namespace=self._scope_ns
+                )
             except Exception as e:  # pragma: no cover - defensive
                 logger.debug("memoir on_memory_write mirror failed: %s", e)
 
