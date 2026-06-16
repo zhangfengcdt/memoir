@@ -1305,6 +1305,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-memoir-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The /memoir command
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1348,6 +1359,17 @@
     <span class="md-ellipsis">
       
         Session branching
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scoped-memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scoped memory
       
     </span>
   </a>
@@ -2018,6 +2040,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#the-memoir-command" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The /memoir command
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#configuration" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2061,6 +2094,17 @@
     <span class="md-ellipsis">
       
         Session branching
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#scoped-memory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Scoped memory
       
     </span>
   </a>
@@ -2228,9 +2272,16 @@
 <td>2</td>
 <td><code>hermes memoir status</code>, <code>hermes memoir ui</code></td>
 </tr>
+<tr>
+<td>Slash command</td>
+<td>1 (opt-in)</td>
+<td><code>/memoir …</code> — in-session passthrough to the memoir CLI</td>
+</tr>
 </tbody>
 </table>
-<p>There are no in-chat slash commands — Hermes has no plugin slash-command mechanism for memory providers. The equivalents are the auto-capture hook plus the three tools the model invokes on its own.</p>
+<p>The model-facing tools above are the primary in-chat surface (the model calls
+them). There's also an <strong>opt-in <code>/memoir</code> slash command</strong> for power users —
+see <a href="#the-memoir-command">The <code>/memoir</code> command</a>.</p>
 <h2 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h2>
 <p>The model decides when to call these (guided by their descriptions and the injected system-prompt block); they are not typed by the user.</p>
 <table>
@@ -2307,6 +2358,27 @@
 </tbody>
 </table>
 <p>Capture runs on a background thread and never blocks the response. Writes are skipped for non-primary agent contexts (subagent / cron / flush) so they can't corrupt the user's representation.</p>
+<h2 id="the-memoir-command">The <code>/memoir</code> command<a class="headerlink" href="#the-memoir-command" title="Permanent link">&para;</a></h2>
+<p>An optional in-session slash command that passes through to the memoir CLI on
+your store — handy for inspecting memory without leaving the chat:</p>
+<div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>/memoir status
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>/memoir summarize --depth 3
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>/memoir recall &quot;travel plans&quot;
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>/memoir branch
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>/memoir blame profile.personal.identity
+</span></code></pre></div>
+<p><code>/memoir</code> with no args prints usage. It's user-invoked (not the model), so it
+simply runs <code>memoir -s &lt;store&gt; &lt;your args&gt;</code> and returns the output.</p>
+<p><strong>It's opt-in and separate from the memory provider.</strong> Hermes loads in-session
+slash commands only for plugins listed in <code>plugins.enabled</code>, which is distinct
+from <code>memory.provider</code>. So to get <code>/memoir</code>, enable the plugin as well:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>hermes<span class="w"> </span>memory<span class="w"> </span>setup<span class="w">          </span><span class="c1"># activates the provider (tools + auto-capture)</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>hermes<span class="w"> </span>plugins<span class="w"> </span><span class="nb">enable</span><span class="w"> </span>memoir<span class="w"> </span><span class="c1"># additionally registers the /memoir command</span>
+</span></code></pre></div>
+<p>Without the <code>enable</code> step everything else still works — you just won't have the
+slash command. (Mechanism: the plugin ships <code>kind: standalone</code> so the general
+plugin manager can load it for the command; its <code>register()</code> feature-detects
+the load context and registers the provider or the command accordingly.)</p>
 <h2 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h2>
 <p>Config lives in <code>&lt;hermes_home&gt;/memoir.json</code> (all keys optional). Set it via <code>hermes memory setup</code> or by hand.</p>
 <table>
@@ -2343,10 +2415,15 @@
 <td><code>true</code></td>
 <td>Mirror Hermes session forks onto memoir branches. <code>false</code> keeps everything on <code>main</code>. See <a href="#session-branching">Session branching</a>.</td>
 </tr>
+<tr>
+<td><code>scope</code></td>
+<td><code>off</code></td>
+<td>Isolate memory per chat/profile via a namespace: <code>chat</code> (per platform+chat), <code>profile</code> (per Hermes profile), <code>off</code> (one shared store). See <a href="#scoped-memory">Scoped memory</a>.</td>
+</tr>
 </tbody>
 </table>
 <p>Example — pin cheap Haiku for per-turn capture regardless of your chat model:</p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;model&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;claude-haiku-4-5&quot;</span><span class="w"> </span><span class="p">}</span>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;model&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;claude-haiku-4-5&quot;</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
 <h2 id="model-selection">Model selection<a class="headerlink" href="#model-selection" title="Permanent link">&para;</a></h2>
 <p>memoir resolves the capture/classification model in this order:</p>
@@ -2420,23 +2497,76 @@ the store is left on <code>main</code>, so forks don't accumulate as the active 
 assumes one active session per store at a time (the personal-assistant CLI
 case). Concurrent sessions sharing one store would contend on the checkout.</p>
 </blockquote>
+<h2 id="scoped-memory">Scoped memory<a class="headerlink" href="#scoped-memory" title="Permanent link">&para;</a></h2>
+<p>If you run Hermes across multiple chats/platforms/profiles (e.g. a private DM
+and a public group on the same gateway), global memory is a privacy foot-gun:
+a fact captured in the DM would otherwise be injected into the group. Set
+<code>scope</code> in <code>memoir.json</code> to isolate memory <strong>structurally</strong>:</p>
+<table>
+<thead>
+<tr>
+<th><code>scope</code></th>
+<th>Each scope is…</th>
+<th>Namespace</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>off</code> (default)</td>
+<td>one shared store</td>
+<td><code>default</code></td>
+</tr>
+<tr>
+<td><code>chat</code></td>
+<td>a platform + chat/channel</td>
+<td><code>scope_&lt;platform&gt;_&lt;chat_id&gt;</code></td>
+</tr>
+<tr>
+<td><code>profile</code></td>
+<td>a Hermes profile</td>
+<td><code>scope_profile_&lt;name&gt;</code></td>
+</tr>
+</tbody>
+</table>
+<p>How it works:</p>
+<ul>
+<li>Hermes already passes <code>platform</code>, <code>chat_id</code>, and <code>agent_identity</code> (profile)
+  into the provider's <code>initialize()</code>, so the scope key needs no extra config.</li>
+<li>Captures and <code>memoir_remember</code> write to the <strong>scope's namespace</strong>.</li>
+<li><code>memoir_recall</code> reads the scope namespace <strong>⊕</strong> <code>default</code> — so global
+  (unscoped) facts are visible everywhere, but a scoped fact never appears in
+  another scope. Cross-scope leakage is impossible by construction
+  (default-deny), not dependent on an injection-time filter.</li>
+<li><code>memoir_forget</code> deletes from the scope namespace, falling back to <code>default</code>.</li>
+</ul>
+<p><strong>Namespace vs. branch.</strong> Scoping uses memoir <strong>namespaces</strong> (parallel,
+composable partitions), which is the right primitive here — distinct from
+<a href="#session-branching">session branching</a>, which uses <strong>branches</strong> (divergent
+timelines you can merge). They compose: a scoped session can still <code>/fork</code>.
+Namespaces are also routed per call (no shared checkout), so concurrent
+scoped sessions don't contend.</p>
+<blockquote>
+<p>v1 resolves the scope once at <code>initialize()</code> (the session's chat/profile).
+Per-message re-scoping for a single provider serving many concurrent gateway
+sessions is future work — the namespace primitive supports it.</p>
+</blockquote>
 <h2 id="llm-backend">LLM backend<a class="headerlink" href="#llm-backend" title="Permanent link">&para;</a></h2>
 <p>The plugin drives memoir with its <strong>litellm (direct provider API) backend only</strong> — it <strong>never</strong> shells out to the <code>claude</code> CLI, even when a <code>claude</code> binary is on <code>PATH</code>. A Hermes host has its own configured provider, and a typical Hermes box has no Claude Code install.</p>
 <p>memoir reads the provider credentials from the Hermes process environment (e.g. <code>ANTHROPIC_API_KEY</code> in <code>&lt;hermes_home&gt;/.env</code>). If the selected model's provider key is missing, capture <strong>fails loudly</strong> ("ANTHROPIC_API_KEY required") rather than silently switching backends.</p>
 <p>Recall is LLM-free, so it works even without a provider key. Auto-capture and explicit <code>memoir_remember</code> classification do need one.</p>
 <h3 id="routing-through-a-proxy">Routing through a proxy<a class="headerlink" href="#routing-through-a-proxy" title="Permanent link">&para;</a></h3>
 <p>By default memoir calls the provider directly (e.g. <code>api.anthropic.com</code>) and does <strong>not</strong> route through any gateway Hermes itself uses — Hermes keeps its gateway/base-URL internal to its own client and never exports it to the environment. To send memoir's calls through a proxy/gateway too, set <code>base_url</code> in <code>memoir.json</code>:</p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;base_url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://your-gateway/v1&quot;</span><span class="w"> </span><span class="p">}</span>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;base_url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://your-gateway/v1&quot;</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
 <p>The bridge exports this as <code>MEMOIR_LLM_BASE_URL</code>; the credential in the environment must be valid for that endpoint.</p>
 <h2 id="verify">Verify<a class="headerlink" href="#verify" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a>hermes<span class="w"> </span>memory<span class="w"> </span>status<span class="w">            </span><span class="c1"># provider: memoir</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a>hermes<span class="w"> </span>memoir<span class="w"> </span>status<span class="w">            </span><span class="c1"># store branch / commit count / memory count</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>memoir<span class="w"> </span>capture<span class="w"> </span>--help<span class="w">           </span><span class="c1"># confirms the CLI on PATH has `capture`</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a>hermes<span class="w"> </span>memory<span class="w"> </span>status<span class="w">            </span><span class="c1"># provider: memoir</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>hermes<span class="w"> </span>memoir<span class="w"> </span>status<span class="w">            </span><span class="c1"># store branch / commit count / memory count</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>memoir<span class="w"> </span>capture<span class="w"> </span>--help<span class="w">           </span><span class="c1"># confirms the CLI on PATH has `capture`</span>
 </span></code></pre></div>
 <p>End-to-end: start a Hermes session and state a durable fact ("from now on call me Captain; my dog Rex sees the vet every March"). Capture runs in the background (a few seconds), then:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>memoir<span class="w"> </span>-s<span class="w"> </span>&lt;hermes_home&gt;/memoir-store<span class="w"> </span>summarize<span class="w"> </span>--depth<span class="w"> </span><span class="m">3</span><span class="w">     </span><span class="c1"># captured paths</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>memoir<span class="w"> </span>-s<span class="w"> </span>&lt;hermes_home&gt;/memoir-store<span class="w"> </span>blame<span class="w"> </span>&lt;path&gt;<span class="w">            </span><span class="c1"># provenance</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>memoir<span class="w"> </span>-s<span class="w"> </span>&lt;hermes_home&gt;/memoir-store<span class="w"> </span>summarize<span class="w"> </span>--depth<span class="w"> </span><span class="m">3</span><span class="w">     </span><span class="c1"># captured paths</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>memoir<span class="w"> </span>-s<span class="w"> </span>&lt;hermes_home&gt;/memoir-store<span class="w"> </span>blame<span class="w"> </span>&lt;path&gt;<span class="w">            </span><span class="c1"># provenance</span>
 </span></code></pre></div>
 <p>In a new session, ask "what's my name?" — the agent should call <code>memoir_recall</code> and answer from memory.</p>
 <h2 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
@@ -2470,9 +2600,9 @@ case). Concurrent sessions sharing one store would contend on the checkout.</p>
 <p>Provider keys (<code>ANTHROPIC_API_KEY</code>, <code>OPENAI_API_KEY</code>, …) are inherited from the Hermes process environment — set them in <code>&lt;hermes_home&gt;/.env</code>.</p>
 <h2 id="manifest">Manifest<a class="headerlink" href="#manifest" title="Permanent link">&para;</a></h2>
 <p><code>plugins/hermes/plugin.yaml</code>:</p>
-<div class="language-yaml highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">memoir</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1.0</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Memoir</span><span class="nv"> </span><span class="s">—</span><span class="nv"> </span><span class="s">versioned,</span><span class="nv"> </span><span class="s">semantic</span><span class="nv"> </span><span class="s">long-term</span><span class="nv"> </span><span class="s">memory</span><span class="nv"> </span><span class="s">with</span><span class="nv"> </span><span class="s">git-like</span><span class="nv"> </span><span class="s">branch/commit/merge</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">cryptographic</span><span class="nv"> </span><span class="s">provenance.</span><span class="nv"> </span><span class="s">Shells</span><span class="nv"> </span><span class="s">out</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">memoir</span><span class="nv"> </span><span class="s">CLI;</span><span class="nv"> </span><span class="s">no</span><span class="nv"> </span><span class="s">Python</span><span class="nv"> </span><span class="s">deps.&quot;</span>
+<div class="language-yaml highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">memoir</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1.0</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Memoir</span><span class="nv"> </span><span class="s">—</span><span class="nv"> </span><span class="s">versioned,</span><span class="nv"> </span><span class="s">semantic</span><span class="nv"> </span><span class="s">long-term</span><span class="nv"> </span><span class="s">memory</span><span class="nv"> </span><span class="s">with</span><span class="nv"> </span><span class="s">git-like</span><span class="nv"> </span><span class="s">branch/commit/merge</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">cryptographic</span><span class="nv"> </span><span class="s">provenance.</span><span class="nv"> </span><span class="s">Shells</span><span class="nv"> </span><span class="s">out</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">memoir</span><span class="nv"> </span><span class="s">CLI;</span><span class="nv"> </span><span class="s">no</span><span class="nv"> </span><span class="s">Python</span><span class="nv"> </span><span class="s">deps.&quot;</span>
 </span></code></pre></div>
 <p>No <code>pip_dependencies</code>: the provider talks to the <code>memoir</code> CLI over a subprocess bridge (PATH <code>memoir</code>, else a pinned <code>uvx --from memoir-ai</code>).</p>
 <h2 id="limitations-v1">Limitations (v1)<a class="headerlink" href="#limitations-v1" title="Permanent link">&para;</a></h2>
