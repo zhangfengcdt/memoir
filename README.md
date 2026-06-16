@@ -134,7 +134,7 @@ openclaw config set plugins.entries.memory-memoir.hooks.allowConversationAccess 
 systemctl --user restart openclaw-gateway
 ```
 
-OpenClaw then auto-captures durable facts each turn (isolated per chat by default) and exposes `memoir_recall` / `memoir_remember` / `memoir_forget` / `memoir_status` tools plus an in-chat `/memoir` command. Set a capture model + provider key in config — `plugins.entries.memory-memoir.config.{model,apiKey}` (OpenClaw keeps its own keys in a secret store; use a `temperature=0`-capable model like `anthropic/claude-haiku-4-5`). See the [OpenClaw plugin guide](https://zhangfengcdt.github.io/memoir/openclaw/) for configuration, scoping, model selection, and tool-profile notes.
+OpenClaw then auto-captures durable facts each turn (remembered across your sessions by default) and exposes `memoir_recall` / `memoir_remember` / `memoir_forget` / `memoir_status` tools plus an in-chat `/memoir` command. Set a capture model + provider key in config — `plugins.entries.memory-memoir.config.{model,apiKey}` (OpenClaw keeps its own keys in a secret store; use a `temperature=0`-capable model like `anthropic/claude-haiku-4-5`). See the [OpenClaw plugin guide](https://zhangfengcdt.github.io/memoir/openclaw/) for configuration, scoping, model selection, and tool-profile notes.
 
 </details>
 

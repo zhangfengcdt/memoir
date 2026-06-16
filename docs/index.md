@@ -18,7 +18,7 @@ Memoir ships first-class plugins that give agents versioned memory natively:
 * **[Claude Code](claude_code.md)** — slash commands, auto-capture hooks, and codebase onboarding for coding sessions.
 * **[Codex](codex.md)** — the same memory workflows for OpenAI Codex.
 * **[Hermes](hermes.md)** — a memory provider for the Nous Research personal-assistant agent: auto-capture, recall/remember/forget/sync tools, and session-fork branching.
-* **[OpenClaw](openclaw.md)** — a memory plugin for the OpenClaw personal-assistant gateway: auto-capture, recall/remember/forget tools, per-chat isolation, and an in-chat `/memoir` command.
+* **[OpenClaw](openclaw.md)** — a memory plugin for the OpenClaw personal-assistant gateway: auto-capture, recall/remember/forget tools, cross-session memory (per-agent scope), and an in-chat `/memoir` command.
 
 Community: **[opencode-memoir](https://github.com/disafronov/opencode-memoir)** brings memoir to OpenCode.
 

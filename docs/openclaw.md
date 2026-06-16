@@ -120,7 +120,7 @@ Config lives under `plugins.entries.memory-memoir.config.*` (set with `openclaw 
 | `store` | `<state-dir>/memoir/<agent>` | Store path override. |
 | `capture` | `true` | Auto-capture facts from each turn. |
 | `recall` | `true` | Inject the memory overview into the prompt. |
-| `scope` | `chat` | Isolation: `off` (one shared store), `chat` (per-conversation), `profile` (per-agent). Recall always also reads the shared `default` namespace. See [Scoped memory](#scoped-memory). |
+| `scope` | `profile` | Isolation: `profile` (per-agent — shared across all that agent's sessions, the default), `chat` (per-conversation), `off` (one shared store). Recall always also reads the shared `default` namespace. See [Scoped memory](#scoped-memory). |
 | `model` | — | Model for capture/remember extraction. **Required** in practice — see below. |
 | `apiKey` | — | Provider API key for capture extraction. **Required** — see below. |
 | `baseUrl` | — | Custom provider endpoint (proxy). Sets `MEMOIR_LLM_BASE_URL`. |
@@ -157,17 +157,69 @@ systemctl --user restart openclaw-gateway
 
 Either way, **auto-capture, passive recall injection, and the `/memoir` command don't depend on the tool profile** — they keep working under `coding`. The tools only add on-demand recall/remember/forget for the model.
 
+## Storage model
+
+OpenClaw maps onto memoir on **two axes**: an **agent** selects the *store* (a whole Prolly-tree), and the **scope** setting selects the *namespace* (a partition inside that store).
+
+**Store ← agent**
+
+```
+<state-dir>/memoir/<agentId>
+```
+
+- `<state-dir>` = `OPENCLAW_STATE_DIR`, else `~/.openclaw` — so it follows `--profile` / `--dev` (e.g. `~/.openclaw-work/memoir/…`). See [Store location](#store-location).
+- `<agentId>` = the conversation's agent (recovered from the `agent:<id>:<session>` session key), default `main`. Each agent gets a **separate tree**.
+- Override the whole path with the `store` config or `MEMOIR_STORE`.
+
+**Namespace ← scope** (details in [Scoped memory](#scoped-memory))
+
+| `scope` | Namespace | One namespace per… |
+|---|---|---|
+| `profile` (default) | `profile-<agentId>` | agent (all its sessions) |
+| `chat` | `chat-<sessionKey>` | conversation / launch |
+| `off` | `default` | the whole store |
+
+Two namespaces always exist alongside the scope one: **`default`** (shared facts — recall reads `scope ⊕ default`) and **`taxonomy`** (memoir's built-in path taxonomy, not user data — it's the "8 memories" you see on a fresh store).
+
+The axes compose: **agent → tree, scope → partition**. Under the default `scope=profile` the store and namespace both key on the agent (1:1); the namespace layer only fans out under `scope=chat`.
+
+```
+~/.openclaw/memoir/main            # agent "main"        (store)
+  ├── profile-main                 # scope=profile       (your facts)
+  ├── default                      # shared across scopes
+  └── taxonomy                     # built-in
+~/.openclaw/memoir/research        # a second agent  →   separate store
+```
+
 ## Scoped memory
 
-OpenClaw is multi-conversation, so memory is isolated per chat by default — the headline fix for cross-chat pollution. Set `scope` to change the granularity:
+By default memory is shared across all of an agent's sessions, so the assistant remembers you across launches. **OpenClaw mints a new session id per TUI launch**, so `chat` scope would isolate every launch (no cross-session continuity) — opt into it only when you genuinely want per-conversation separation. Set `scope` to change the granularity:
 
 | `scope` | Each scope is… | Namespace |
 |---|---|---|
+| `profile` (default) | an agent (all its sessions) | `profile-<agentId>` |
+| `chat` | a single conversation/launch | `chat-<sessionKey>` |
 | `off` | one shared store | `default` |
-| `chat` (default) | a conversation | `chat-<sessionKey>` |
-| `profile` | an agent | `profile-<agentId>` |
 
 Captures and `memoir_remember` write to the scope's namespace; `memoir_recall` reads the scope namespace **⊕** `default`, so global facts are visible everywhere but a scoped fact never leaks into another scope (default-deny, not an injection-time filter). Scoping uses memoir **namespaces** (parallel partitions) — distinct from branches.
+
+### What lands in `default`?
+
+Every write (auto-capture, `memoir_remember`, `/memoir remember`) targets the **scope namespace**, which is `default` *only* when `scope=off`:
+
+| `scope` | Writes land in | Does `default` fill up? |
+|---|---|---|
+| `off` | `default` | ✅ everything |
+| `profile` (default) | `profile-<agentId>` | ❌ nothing automatic |
+| `chat` | `chat-<sessionKey>` | ❌ nothing automatic |
+
+So under the default `profile` scope, **nothing the plugin writes goes to `default`** — it stays empty. `default` is the cross-scope *shared/read* layer (recall always merges it in); it only fills when you run `scope=off`, or write to it deliberately:
+
+```bash
+memoir -s ~/.openclaw/memoir/<agent> remember "<fact>" -p <path> -n default
+```
+
+(So if you want a fact visible in *every* scope while running `profile`/`chat`, put it in `default` by hand.)
 
 ## Store location
 
