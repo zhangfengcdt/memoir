@@ -81,8 +81,28 @@ class FakeBridge:
     def ensure_store(self):
         return True
 
+    def _items_for(self, namespace):
+        return self.recall_items.get(namespace, _DEFAULT_RECALL_ITEMS)
+
     def summarize(self, depth=3, namespace="default"):
-        return True, {"total_memories": 7}
+        keys = [it["key"] for it in self._items_for(namespace) if it.get("found")]
+        counts: dict = {}
+        for k in keys:
+            segs = k.split(".")
+            pre = ".".join(segs[:depth]) if len(segs) >= depth else k
+            counts[pre] = counts.get(pre, 0) + 1
+        return True, {"prefix_counts": {namespace: counts}, "total_memories": len(keys)}
+
+    def get(self, keys, *, namespace="default"):
+        by_key = {it["key"]: it for it in self._items_for(namespace)}
+        items = []
+        for k in keys:
+            it = by_key.get(k)
+            if it and it.get("found"):
+                items.append({"key": k, "found": True, "value": it.get("value")})
+            else:
+                items.append({"key": k, "found": False, "value": None})
+        return True, {"items": items}
 
     def capture(self, transcript, *, profile="assistant", namespace="default"):
         self.captures.append((transcript, profile, namespace))
@@ -304,12 +324,52 @@ class TestTools:
         p = _make_provider(plugin)
         names = {s["name"] for s in p.get_tool_schemas()}
         assert names == {
+            "memoir_summarize",
+            "memoir_get",
             "memoir_recall",
             "memoir_remember",
             "memoir_forget",
             "memoir_sync",
             "memoir_status",
         }
+
+    def test_summarize_tool(self, plugin):
+        p = _make_provider(plugin)
+        out = json.loads(p.handle_tool_call("memoir_summarize", {"depth": 3}))
+        keys = out["namespaces"]["default"]
+        # depth-3 groups are full keys; the not-found item is excluded.
+        assert "preferences.food.dietary" in keys
+        assert "schedule.recurring.hobbies" in keys
+        assert "missing.key.here" not in keys
+
+    def test_summarize_prefix_narrows(self, plugin):
+        p = _make_provider(plugin)
+        out = json.loads(
+            p.handle_tool_call(
+                "memoir_summarize", {"depth": 3, "prefix": "preferences"}
+            )
+        )
+        keys = out["namespaces"]["default"]
+        assert all(k.startswith("preferences") for k in keys)
+
+    def test_get_tool(self, plugin):
+        p = _make_provider(plugin)
+        out = json.loads(
+            p.handle_tool_call("memoir_get", {"keys": ["preferences.food.dietary"]})
+        )
+        assert out["count"] == 1
+        assert out["results"][0]["path"] == "preferences.food.dietary"
+        assert out["results"][0]["content"] == "vegetarian"
+
+    def test_get_requires_keys(self, plugin):
+        p = _make_provider(plugin)
+        out = json.loads(p.handle_tool_call("memoir_get", {}))
+        assert "error" in out
+
+    def test_get_missing_key_omitted(self, plugin):
+        p = _make_provider(plugin)
+        out = json.loads(p.handle_tool_call("memoir_get", {"keys": ["no.such.key"]}))
+        assert out["count"] == 0
 
     def test_recall_tool(self, plugin):
         p = _make_provider(plugin)

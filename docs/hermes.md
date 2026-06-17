@@ -53,7 +53,7 @@ The store is created automatically on first run at `<hermes_home>/memoir-store` 
 
 | Component | Count | Role |
 |---|---|---|
-| Tools (model-facing) | 5 | `memoir_recall`, `memoir_remember`, `memoir_forget`, `memoir_sync`, `memoir_status` |
+| Tools (model-facing) | 7 | `memoir_summarize`, `memoir_get`, `memoir_recall`, `memoir_remember`, `memoir_forget`, `memoir_sync`, `memoir_status` |
 | Lifecycle hooks | 5 | Auto-capture, recall context, store mirroring |
 | CLI subcommands | 2 | `hermes memoir status`, `hermes memoir ui` |
 | Slash command | 1 (opt-in) | `/memoir …` — in-session passthrough to the memoir CLI |
@@ -66,9 +66,13 @@ see [The `/memoir` command](#the-memoir-command).
 
 The model decides when to call these (guided by their descriptions and the injected system-prompt block); they are not typed by the user.
 
+**Recall is caller-driven by default**: the model calls `memoir_summarize` to see the stored paths, picks the relevant ones, then `memoir_get`s them — the model selects what to read, with no in-memoir LLM call. `memoir_recall` remains as a one-shot keyword shortcut.
+
 | Tool | Purpose |
 |---|---|
-| `memoir_recall` | Fetch stored facts about the user (preferences, people, schedule, standing instructions). LLM-free: `summarize` → batched `get`, ranked by lexical overlap with the query. |
+| `memoir_summarize` | **Step 1 of recall.** List stored paths as a histogram grouped by the first `depth` taxonomy segments; `prefix` narrows a branch. The model reads this and picks paths. LLM-free. |
+| `memoir_get` | **Step 2 of recall.** Fetch the exact memories at the paths the model chose. Missing keys are omitted. LLM-free. |
+| `memoir_recall` | One-shot recall shortcut: `summarize` → batched `get`, ranked by lexical overlap with the query. LLM-free. |
 | `memoir_remember` | Store an explicit durable fact. Classified into a semantic path and committed. Guarded against obvious secrets. |
 | `memoir_forget` | Delete a fact by its exact taxonomy path (the model finds the path via `memoir_recall` first). Pre-checks existence so a wrong path can't create a no-op delete commit; prior versions remain in git history (recoverable). |
 | `memoir_sync` | Promote a session fork's memories into `main`. No args → list fork branches with un-merged memories (preview counts); `branch` → merge it into `main` (`dry_run` to preview). Additive (insert/update, never delete). |

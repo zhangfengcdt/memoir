@@ -236,6 +236,51 @@ _STATUS_SCHEMA = {
     "parameters": {"type": "object", "properties": {}, "required": []},
 }
 
+_SUMMARIZE_SCHEMA = {
+    "name": "memoir_summarize",
+    "description": (
+        "List the user's stored memory paths as a histogram grouped by the first "
+        "`depth` taxonomy segments. STEP 1 of recall: read this, choose the paths "
+        "relevant to the question, then call memoir_get on them. depth=3 returns "
+        "full keys; for a large store use depth=1, pick a top-level prefix, then "
+        "call again with that `prefix` to narrow."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "depth": {
+                "type": "integer",
+                "description": "Group by the first N path segments (default 3 = full keys).",
+            },
+            "prefix": {
+                "type": "string",
+                "description": "Optional path prefix to narrow to one branch (e.g. 'preferences').",
+            },
+        },
+        "required": [],
+    },
+}
+
+_GET_SCHEMA = {
+    "name": "memoir_get",
+    "description": (
+        "Fetch the exact stored memories at the given taxonomy paths/keys. STEP 2 "
+        "of recall — pass the keys you chose from memoir_summarize. Missing keys "
+        "are omitted from the result."
+    ),
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "keys": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Exact taxonomy paths to fetch (e.g. ['preferences.ui.theme']).",
+            },
+        },
+        "required": ["keys"],
+    },
+}
+
 
 # ---------------------------------------------------------------------------
 # Provider
@@ -502,9 +547,11 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
         block = (
             "# Memoir Memory\n"
             "You have persistent, versioned long-term memory of this user.\n"
-            "- Call `memoir_recall` to retrieve preferences, people, schedule, "
-            "and standing instructions before answering when past context "
-            "could matter.\n"
+            "- To recall: call `memoir_summarize` to see the stored paths, pick "
+            "the ones relevant to the question, then `memoir_get` them. For a "
+            "large store, summarize at depth 1, pick a top-level prefix, then "
+            "summarize that prefix before getting keys. (`memoir_recall` is a "
+            "one-shot keyword shortcut if you don't want to drill.)\n"
             "- Call `memoir_remember` to store a NEW durable fact the user "
             "shares (stable preferences, relationships, recurring commitments, "
             "standing instructions). Never store secrets or one-off details — "
@@ -518,6 +565,8 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
 
     def get_tool_schemas(self) -> list[dict[str, Any]]:
         return [
+            _SUMMARIZE_SCHEMA,
+            _GET_SCHEMA,
             _RECALL_SCHEMA,
             _REMEMBER_SCHEMA,
             _FORGET_SCHEMA,
@@ -528,6 +577,54 @@ class MemoirProvider(_Base):  # type: ignore[misc, valid-type]
     def handle_tool_call(self, tool_name: str, args: dict[str, Any], **kwargs) -> str:
         if not (self._bridge and self._bridge.available()):
             return json.dumps({"error": INSTALL_HINT})
+
+        if tool_name == "memoir_summarize":
+            depth = int(args.get("depth") or 3)
+            prefix = (args.get("prefix") or "").strip() or None
+            # Histogram across the scope namespace(s) ⊕ default, metrics excluded.
+            out: dict[str, dict[str, int]] = {}
+            for ns in self._recall_namespaces():
+                ok, payload = self._bridge.summarize(depth=depth, namespace=ns)
+                if not ok:
+                    continue  # namespace may not exist yet — treat as empty
+                counts = (
+                    payload.get("prefix_counts", {}).get(ns, {})
+                    if isinstance(payload, dict)
+                    else {}
+                )
+                groups = {
+                    k: v
+                    for k, v in counts.items()
+                    if not k.startswith("metrics.")
+                    and (not prefix or k == prefix or k.startswith(prefix + "."))
+                }
+                if groups:
+                    out[ns] = dict(sorted(groups.items()))
+            return json.dumps({"depth": depth, "prefix": prefix, "namespaces": out})
+
+        if tool_name == "memoir_get":
+            keys = args.get("keys")
+            if isinstance(keys, str):
+                keys = [keys]
+            keys = [str(k).strip() for k in (keys or []) if str(k).strip()]
+            if not keys:
+                return json.dumps({"error": "Missing required parameter: keys"})
+            results: list[dict] = []
+            seen: set = set()
+            for ns in self._recall_namespaces():
+                ok, payload = self._bridge.get(keys, namespace=ns)
+                if not ok:
+                    continue
+                items = payload.get("items", []) if isinstance(payload, dict) else []
+                for it in items:
+                    key = it.get("key")
+                    if not it.get("found") or key in seen:
+                        continue
+                    seen.add(key)
+                    value = it.get("value")
+                    content = value.get("content") if isinstance(value, dict) else value
+                    results.append({"path": key, "content": content})
+            return json.dumps({"results": results, "count": len(results)})
 
         if tool_name == "memoir_recall":
             query = (args.get("query") or "").strip()
