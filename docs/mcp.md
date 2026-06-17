@@ -196,7 +196,7 @@ memoir recall "what's my testing setup?" --mode tiered  # multi-level drill-down
 
 | Env var | Effect |
 |---|---|
-| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / … | Provider key for classification + LLM recall. **`memoir_remember` requires one** (no key → it errors rather than guessing a path). Routed by model name. |
+| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / … | Provider key for classification + LLM recall. **`memoir_remember` needs one** to auto-classify (or pass an explicit `path` to skip it, keyless). Routed by model name. |
 | `MEMOIR_LLM_MODEL` | Model for classification/recall (default `claude-haiku-4-5` — fast + cheap). |
 | `MEMOIR_LLM_BASE_URL` | Route LLM calls through a proxy/gateway. |
 | `MEMOIR_MCP_RECALL_MODE` | Default recall mode: `lexical` (default), `single`, or `tiered`. |
@@ -211,7 +211,7 @@ memoir recall "what's my testing setup?" --mode tiered  # multi-level drill-down
 | `memoir_summarize` | ✓ | List stored paths as a histogram grouped by the first `depth` taxonomy segments. **Step 1 of recall** — the model reads this and picks relevant paths. `prefix` narrows a branch. LLM-free. |
 | `memoir_get` | ✓ | Fetch the exact memories at the given paths/keys. **Step 2 of recall** — the model passes the keys it chose. LLM-free. |
 | `memoir_recall` | ✓ | One-shot recall shortcut. `mode`: `lexical` (default, keyless keyword ranking) · `single` (LLM path-selection) · `tiered` (multi-level LLM drill-down). |
-| `memoir_remember` | | Store a fact; auto-classified into a semantic path and committed. Needs a provider key. |
+| `memoir_remember` | | Store a durable fact **verbatim**, committed with versioning. Auto-classified into a semantic path (needs a key), or pass an explicit `path` to skip classification (keyless). Secrets/credentials are refused. |
 | `memoir_forget` | | Delete a memory by key (prior versions stay in git history). |
 | `memoir_status` | ✓ | Branch, commit count, memory count. |
 | `memoir_branches` | ✓ | List branches — **versioned memory**. |

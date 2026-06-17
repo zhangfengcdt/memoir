@@ -129,6 +129,30 @@ def test_summarize_and_get_drill(store):
     assert miss["items"][0]["found"] is False
 
 
+def test_remember_refuses_secret(store):
+    res = asyncio.run(
+        S.remember(store, "password=supersecretvalue123", namespace="default")
+    )
+    assert res["success"] is False
+    assert "Refused" in res.get("error", "")
+
+
+def test_remember_explicit_path_is_llm_free(store):
+    # An explicit path skips classification, so this works without an API key.
+    res = asyncio.run(
+        S.remember(
+            store,
+            "uses the vim editor",
+            namespace="default",
+            path="preferences.tools.editor",
+        )
+    )
+    assert res["success"] is True
+    assert res["key"] == "preferences.tools.editor"
+    got = S.get_memories(store, ["preferences.tools.editor"], namespace="default")
+    assert got["items"][0]["found"] is True
+
+
 def test_fastmcp_registration_and_dispatch(store):
     srv = S.build_server(store)
 

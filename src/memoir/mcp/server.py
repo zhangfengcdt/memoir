@@ -26,6 +26,7 @@ import argparse
 import contextlib
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Any, Literal
 
@@ -36,6 +37,23 @@ DEFAULT_STORE = os.path.join(os.path.expanduser("~"), ".memoir", "mcp")
 
 #: Namespaces excluded from recall (internal, not user facts).
 _RECALL_EXCLUDE_NS = {"taxonomy"}
+
+#: Secret-content guard for memoir_remember (mirrors the Hermes/OpenClaw plugins).
+#: Memory is versioned plaintext — refuse obvious credentials.
+_SECRET_PATTERNS = [
+    re.compile(r"\b(sk|pk|rk)-[A-Za-z0-9]{16,}\b"),  # OpenAI/Stripe-style keys
+    re.compile(r"\bAKIA[0-9A-Z]{16}\b"),  # AWS access key id
+    re.compile(r"\bgh[pousr]_[A-Za-z0-9]{20,}\b"),  # GitHub tokens
+    re.compile(r"\bxox[baprs]-[A-Za-z0-9-]{10,}\b"),  # Slack tokens
+    re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),  # PEM private keys
+    re.compile(r"\b\d{13,16}\b"),  # bare long digit runs (card-ish)
+    re.compile(r"(?i)\b(password|passwd|secret|api[_-]?key|token)\b\s*[:=]\s*\S+"),
+]
+
+
+def _looks_like_secret(content: str) -> bool:
+    return any(p.search(content) for p in _SECRET_PATTERNS)
+
 
 #: Recall modes: lexical (LLM-free), single (one LLM call), tiered (multi-level
 #: LLM drill-down). single/tiered map to memoir's IntelligentSearchEngine.
@@ -258,9 +276,22 @@ async def recall_semantic(
     }
 
 
-async def remember(store_path: str, content: str, namespace: str = "default") -> dict:
-    """Store content, auto-classified into a semantic path (needs a provider key)."""
-    result = await _memory_service(store_path).remember(content, namespace)
+async def remember(
+    store_path: str, content: str, namespace: str = "default", path: str | None = None
+) -> dict:
+    """Store content as a durable fact. Auto-classified into a semantic path
+    (needs a provider key) unless an explicit ``path`` is given (no LLM).
+    Refuses obvious secrets — memory is versioned plaintext.
+    """
+    if _looks_like_secret(content):
+        return {
+            "success": False,
+            "error": (
+                "Refused: the content looks like a secret/credential. Memory is "
+                "versioned and stored in plaintext — use a secrets manager instead."
+            ),
+        }
+    result = await _memory_service(store_path).remember(content, namespace, path=path)
     return {
         "success": result.success,
         "key": result.key,
@@ -404,12 +435,16 @@ def build_server(store_path: str):
     @server.tool(
         name="memoir_remember",
         description=(
-            "Store content in memory. It is auto-classified into a semantic path and "
-            "committed with git versioning. Requires a provider API key for classification."
+            "Store a durable fact in memory, committed with git versioning. It is "
+            "auto-classified into a semantic path (needs a provider key), or pass an "
+            "explicit `path` to skip classification. Secrets/credentials are refused — "
+            "do not store passwords, API keys, or tokens."
         ),
     )
-    async def memoir_remember(content: str, namespace: str = "default") -> dict:
-        return await remember(store_path, content, namespace=namespace)
+    async def memoir_remember(
+        content: str, namespace: str = "default", path: str | None = None
+    ) -> dict:
+        return await remember(store_path, content, namespace=namespace, path=path)
 
     @server.tool(
         name="memoir_forget",
