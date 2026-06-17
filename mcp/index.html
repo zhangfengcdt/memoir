@@ -1394,6 +1394,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="LLM-driven remember &amp; recall">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#recommended-recall-flow-caller-driven-drill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommended recall flow (caller-driven drill)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recall-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recall modes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#env-vars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Env vars
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2018,6 +2057,45 @@
     </span>
   </a>
   
+    <nav class="md-nav" aria-label="LLM-driven remember &amp; recall">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#recommended-recall-flow-caller-driven-drill" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recommended recall flow (caller-driven drill)
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recall-modes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Recall modes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#env-vars" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Env vars
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
 </li>
       
         <li class="md-nav__item">
@@ -2113,10 +2191,10 @@ fetches and runs it on demand:</p>
 <li><strong>Store path</strong> — <code>MEMOIR_STORE</code>, or <code>--store &lt;path&gt;</code>, defaulting to
   <code>~/.memoir/mcp</code>. The store is <strong>created automatically</strong> on first use, so a
   fresh install works with zero setup.</li>
-<li><strong>Recall is LLM-free by default</strong> (fast, no API key). <code>memoir_remember</code>
-  classifies content with an LLM, so it needs a provider key
-  (e.g. <code>ANTHROPIC_API_KEY</code>) in the server's environment; <code>memoir_recall</code> with
-  <code>semantic=true</code> also does.</li>
+<li><strong>Recall is keyless by default</strong> (<code>mode="lexical"</code>) — fast LLM-free keyword
+  ranking, no API key needed (consistent with the Hermes/OpenClaw plugins). For
+  smarter recall on large stores, opt into the LLM modes <code>single</code> / <code>tiered</code>
+  (need a provider key). See <a href="#llm-driven-remember-recall">LLM-driven remember &amp; recall</a>.</li>
 </ul>
 <h2 id="connect-your-host">Connect your host<a class="headerlink" href="#connect-your-host" title="Permanent link">&para;</a></h2>
 <p>Most hosts use the same <code>mcpServers</code> block — only the <strong>file</strong> and a couple of
@@ -2204,12 +2282,12 @@ Streamable HTTP and point the connector at it:</p>
 <p>Then add it as a custom/remote connector with the URL <code>http://&lt;host&gt;:8000/mcp</code>.
 (For anything internet-facing, terminate TLS and add auth at your proxy.)</p>
 <h2 id="llm-driven-remember-recall">LLM-driven remember &amp; recall<a class="headerlink" href="#llm-driven-remember-recall" title="Permanent link">&para;</a></h2>
-<p>Memoir's edge is <strong>intelligent</strong> memory: <code>remember</code> classifies content into the
-right semantic taxonomy path with an LLM, and recall can do LLM <strong>semantic</strong>
-search — not just keyword matching. The MCP server uses these the moment you
-give it a model + key in its environment.</p>
-<p><strong>To enable it, add the provider key (and optionally the model) to the server's
-<code>env</code></strong> in your host config:</p>
+<p>Memoir's edge is <strong>intelligent</strong> memory: <code>memoir_remember</code> classifies each fact
+into the right semantic taxonomy path with an LLM, and <code>memoir_recall</code> can use
+the LLM to navigate that taxonomy — not just keyword matching.</p>
+<p><code>memoir_remember</code> is <strong>always</strong> LLM-driven, so it needs a provider key in the
+server's <code>env</code>. <code>memoir_recall</code> defaults to keyless <code>lexical</code>; to make the LLM
+modes the default, set <code>MEMOIR_MCP_RECALL_MODE</code> (or pass <code>mode</code> per call):</p>
 <div class="language-json highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="p">{</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="w">  </span><span class="nt">&quot;mcpServers&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
 </span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a><span class="w">    </span><span class="nt">&quot;memoir&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
@@ -2219,13 +2297,66 @@ give it a model + key in its environment.</p>
 </span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">        </span><span class="nt">&quot;MEMOIR_STORE&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;~/.memoir/mcp&quot;</span><span class="p">,</span>
 </span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">        </span><span class="nt">&quot;ANTHROPIC_API_KEY&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;sk-ant-…&quot;</span><span class="p">,</span>
 </span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="w">        </span><span class="nt">&quot;MEMOIR_LLM_MODEL&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;claude-haiku-4-5&quot;</span><span class="p">,</span>
-</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">        </span><span class="nt">&quot;MEMOIR_MCP_SEMANTIC_RECALL&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1&quot;</span>
+</span><span id="__span-8-10"><a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a><span class="w">        </span><span class="nt">&quot;MEMOIR_MCP_RECALL_MODE&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;single&quot;</span>
 </span><span id="__span-8-11"><a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="w">      </span><span class="p">}</span>
 </span><span id="__span-8-12"><a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="w">    </span><span class="p">}</span>
 </span><span id="__span-8-13"><a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="w">  </span><span class="p">}</span>
 </span><span id="__span-8-14"><a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="p">}</span>
 </span></code></pre></div>
-<p>What each does:</p>
+<h3 id="recommended-recall-flow-caller-driven-drill">Recommended recall flow (caller-driven drill)<a class="headerlink" href="#recommended-recall-flow-caller-driven-drill" title="Permanent link">&para;</a></h3>
+<p>The default, most accurate recall lets <strong>the host model pick what to read</strong> — no
+extra LLM inside memoir, no API key:</p>
+<ol>
+<li><code>memoir_summarize</code> → see the stored taxonomy paths (a histogram).</li>
+<li>The model chooses the paths relevant to the question.</li>
+<li><code>memoir_get</code> those exact paths → the values.</li>
+</ol>
+<p>For a large store, summarize at <code>depth=1</code>, pick a top-level prefix, then
+<code>memoir_summarize(prefix="…")</code> to narrow before getting keys. This mirrors
+memoir's <code>[mode=drill]</code> and the Hermes/OpenClaw plugins, and the server's
+<code>instructions</code> steer hosts to it by default.</p>
+<p><code>memoir_recall</code> is the one-shot shortcut when you don't want to drill — its modes
+are below.</p>
+<h3 id="recall-modes">Recall modes<a class="headerlink" href="#recall-modes" title="Permanent link">&para;</a></h3>
+<p><code>memoir_recall</code> takes a <code>mode</code> (the model can pass it per call; the default is
+set by <code>MEMOIR_MCP_RECALL_MODE</code>):</p>
+<table>
+<thead>
+<tr>
+<th><code>mode</code></th>
+<th>How it works</th>
+<th>Latency</th>
+<th>Key?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lexical</code> (default)</td>
+<td>LLM-free keyword ranking over the structured paths. The calling agent (already an LLM) reasons over the results — same approach as the plugins.</td>
+<td>instant</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>single</code></td>
+<td>One LLM call selects the most relevant taxonomy paths, then fetches them.</td>
+<td>~500–800ms</td>
+<td>yes</td>
+</tr>
+<tr>
+<td><code>tiered</code></td>
+<td><strong>Multi-level LLM drill-down</strong> (L1 histogram → L1 pick → optional L2 → key pick → fetch). Narrower prompts; scales to large/noisy stores.</td>
+<td>~1–2s</td>
+<td>yes</td>
+</tr>
+</tbody>
+</table>
+<p>The two LLM modes mirror the <code>memoir recall</code> CLI:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>memoir<span class="w"> </span>recall<span class="w"> </span><span class="s2">&quot;what&#39;s my testing setup?&quot;</span><span class="w">                </span><span class="c1"># single (default)</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>memoir<span class="w"> </span>recall<span class="w"> </span><span class="s2">&quot;what&#39;s my testing setup?&quot;</span><span class="w"> </span>--mode<span class="w"> </span>tiered<span class="w">  </span><span class="c1"># multi-level drill-down</span>
+</span></code></pre></div>
+<p><code>single</code>/<code>tiered</code> need a provider key; if none is available they <strong>fall back to
+<code>lexical</code></strong>, so recall never hard-fails (and a keyless install still works).</p>
+<h3 id="env-vars">Env vars<a class="headerlink" href="#env-vars" title="Permanent link">&para;</a></h3>
 <table>
 <thead>
 <tr>
@@ -2236,35 +2367,25 @@ give it a model + key in its environment.</p>
 <tbody>
 <tr>
 <td><code>ANTHROPIC_API_KEY</code> / <code>OPENAI_API_KEY</code> / …</td>
-<td>The provider key memoir uses for classification + semantic search. <strong><code>memoir_remember</code> requires one</strong> (it classifies into a taxonomy path); without it, remember fails. memoir routes by model name.</td>
+<td>Provider key for classification + LLM recall. <strong><code>memoir_remember</code> needs one</strong> to auto-classify (or pass an explicit <code>path</code> to skip it, keyless). Routed by model name.</td>
 </tr>
 <tr>
 <td><code>MEMOIR_LLM_MODEL</code></td>
-<td>Which model does the classification/search (default <code>claude-haiku-4-5</code> — fast + cheap, ideal for this).</td>
+<td>Model for classification/recall (default <code>claude-haiku-4-5</code> — fast + cheap).</td>
 </tr>
 <tr>
 <td><code>MEMOIR_LLM_BASE_URL</code></td>
-<td>Route the LLM calls through a proxy/gateway.</td>
+<td>Route LLM calls through a proxy/gateway.</td>
 </tr>
 <tr>
-<td><code>MEMOIR_MCP_SEMANTIC_RECALL</code></td>
-<td><code>1</code> makes <code>memoir_recall</code> default to <strong>LLM semantic search</strong>. Otherwise recall is LLM-free (lexical) by default and the model opts in per call with <code>semantic=true</code>.</td>
+<td><code>MEMOIR_MCP_RECALL_MODE</code></td>
+<td>Default recall mode: <code>lexical</code> (default), <code>single</code>, or <code>tiered</code>.</td>
 </tr>
 </tbody>
 </table>
-<p>So:</p>
-<ul>
-<li><strong><code>memoir_remember</code> is always LLM-driven</strong> — give the server a key and it
-  classifies + commits to a semantic path. No key → it errors (by design, rather
-  than storing under a guessed path).</li>
-<li><strong><code>memoir_recall</code> is LLM-free by default</strong> (fast, keyless), and becomes
-  LLM-semantic either per-call (<code>semantic=true</code>) or globally
-  (<code>MEMOIR_MCP_SEMANTIC_RECALL=1</code>).</li>
-</ul>
 <blockquote>
 <p>The key lives in your host's MCP config (often plaintext on disk) — use a
-least-privilege key. The default <code>claude-haiku-4-5</code> keeps classification cost
-negligible.</p>
+least-privilege key. <code>claude-haiku-4-5</code> keeps cost negligible.</p>
 </blockquote>
 <h2 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h2>
 <table>
@@ -2277,14 +2398,24 @@ negligible.</p>
 </thead>
 <tbody>
 <tr>
+<td><code>memoir_summarize</code></td>
+<td>✓</td>
+<td>List stored paths as a histogram grouped by the first <code>depth</code> taxonomy segments. <strong>Step 1 of recall</strong> — the model reads this and picks relevant paths. <code>prefix</code> narrows a branch. LLM-free.</td>
+</tr>
+<tr>
+<td><code>memoir_get</code></td>
+<td>✓</td>
+<td>Fetch the exact memories at the given paths/keys. <strong>Step 2 of recall</strong> — the model passes the keys it chose. LLM-free.</td>
+</tr>
+<tr>
 <td><code>memoir_recall</code></td>
 <td>✓</td>
-<td>Recall stored facts. LLM-free by default (lexical ranking); <code>semantic=true</code> for LLM search.</td>
+<td>One-shot recall shortcut. <code>mode</code>: <code>lexical</code> (default, keyless keyword ranking) · <code>single</code> (LLM path-selection) · <code>tiered</code> (multi-level LLM drill-down).</td>
 </tr>
 <tr>
 <td><code>memoir_remember</code></td>
 <td></td>
-<td>Store a fact; auto-classified into a semantic path and committed. Needs a provider key.</td>
+<td>Store a durable fact <strong>verbatim</strong>, committed with versioning. Auto-classified into a semantic path (needs a key), or pass an explicit <code>path</code> to skip classification (keyless). Secrets/credentials are refused.</td>
 </tr>
 <tr>
 <td><code>memoir_forget</code></td>

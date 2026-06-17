@@ -2351,8 +2351,8 @@
 <tbody>
 <tr>
 <td>Tools (model-facing)</td>
-<td>5</td>
-<td><code>memoir_recall</code>, <code>memoir_remember</code>, <code>memoir_forget</code>, <code>memoir_sync</code>, <code>memoir_status</code></td>
+<td>7</td>
+<td><code>memoir_summarize</code>, <code>memoir_get</code>, <code>memoir_recall</code>, <code>memoir_remember</code>, <code>memoir_forget</code>, <code>memoir_sync</code>, <code>memoir_status</code></td>
 </tr>
 <tr>
 <td>Lifecycle hooks</td>
@@ -2376,6 +2376,7 @@ them). There's also an <strong>opt-in <code>/memoir</code> slash command</strong
 see <a href="#the-memoir-command">The <code>/memoir</code> command</a>.</p>
 <h2 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h2>
 <p>The model decides when to call these (guided by their descriptions and the injected system-prompt block); they are not typed by the user.</p>
+<p><strong>Recall is caller-driven by default</strong>: the model calls <code>memoir_summarize</code> to see the stored paths, picks the relevant ones, then <code>memoir_get</code>s them — the model selects what to read, with no in-memoir LLM call. <code>memoir_recall</code> remains as a one-shot keyword shortcut.</p>
 <table>
 <thead>
 <tr>
@@ -2385,8 +2386,16 @@ see <a href="#the-memoir-command">The <code>/memoir</code> command</a>.</p>
 </thead>
 <tbody>
 <tr>
+<td><code>memoir_summarize</code></td>
+<td><strong>Step 1 of recall.</strong> List stored paths as a histogram grouped by the first <code>depth</code> taxonomy segments; <code>prefix</code> narrows a branch. The model reads this and picks paths. LLM-free.</td>
+</tr>
+<tr>
+<td><code>memoir_get</code></td>
+<td><strong>Step 2 of recall.</strong> Fetch the exact memories at the paths the model chose. Missing keys are omitted. LLM-free.</td>
+</tr>
+<tr>
 <td><code>memoir_recall</code></td>
-<td>Fetch stored facts about the user (preferences, people, schedule, standing instructions). LLM-free: <code>summarize</code> → batched <code>get</code>, ranked by lexical overlap with the query.</td>
+<td>One-shot recall shortcut: <code>summarize</code> → batched <code>get</code>, ranked by lexical overlap with the query. LLM-free.</td>
 </tr>
 <tr>
 <td><code>memoir_remember</code></td>
