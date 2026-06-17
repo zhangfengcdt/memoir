@@ -124,7 +124,7 @@ Hermes then auto-captures durable facts (people, schedule, preferences, standing
 </details>
 
 <details>
-<summary><b>OpenClaw</b></summary>
+<summary><b>OpenClaw</b> (community)</summary>
 
 Memoir is a memory plugin for [OpenClaw](https://github.com/openclaw/openclaw), the personal-assistant gateway. It lives in its own repo, [`zhangfengcdt/openclaw-memoir`](https://github.com/zhangfengcdt/openclaw-memoir). Install it into the memory slot, allow conversation access, and restart the gateway:
 
