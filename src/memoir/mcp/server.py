@@ -11,10 +11,13 @@ Install:  pip install "memoir-ai[mcp]"
 Run:      MEMOIR_STORE=/path/to/store memoir-mcp          # stdio (default)
           memoir-mcp --http --host 127.0.0.1 --port 8000  # Streamable HTTP
 
-Recall is **LLM-free by default** (enumerate keys → batched direct get →
-lexical ranking), so it's fast and needs no API key. ``semantic=true`` opts into
-the LLM-backed search. ``memoir_remember`` classifies content with the LLM, so
-it needs a provider key (e.g. ``ANTHROPIC_API_KEY``) in the server environment.
+Recall has three modes: ``lexical`` (default) — LLM-free keyword ranking,
+instant and keyless; ``single`` — one LLM call to pick the most relevant
+taxonomy paths; ``tiered`` — multi-level LLM drill-down for large stores.
+single/tiered use memoir's IntelligentSearchEngine and need a provider key (e.g.
+``ANTHROPIC_API_KEY``), falling back to lexical if none is available. Set the
+default with ``MEMOIR_MCP_RECALL_MODE``. ``memoir_remember`` always classifies
+content with the LLM, so it needs a key.
 """
 
 from __future__ import annotations
@@ -24,7 +27,7 @@ import contextlib
 import logging
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +36,31 @@ DEFAULT_STORE = os.path.join(os.path.expanduser("~"), ".memoir", "mcp")
 
 #: Namespaces excluded from recall (internal, not user facts).
 _RECALL_EXCLUDE_NS = {"taxonomy"}
+
+#: Recall modes: lexical (LLM-free), single (one LLM call), tiered (multi-level
+#: LLM drill-down). single/tiered map to memoir's IntelligentSearchEngine.
+RECALL_MODES = ("lexical", "single", "tiered")
+
+
+def default_recall_mode() -> str:
+    """Default recall mode, from MEMOIR_MCP_RECALL_MODE (else 'lexical').
+
+    Defaults to the LLM-free 'lexical' path — keyless, instant, and consistent
+    with the Hermes/OpenClaw plugins (the calling agent is already an LLM, so an
+    in-memoir LLM pass is usually redundant). 'single'/'tiered' are opt-in.
+    """
+    m = os.environ.get("MEMOIR_MCP_RECALL_MODE", "").strip().lower()
+    if m in RECALL_MODES:
+        return m
+    # Back-compat: the earlier boolean knob meant "use LLM semantic recall".
+    if os.environ.get("MEMOIR_MCP_SEMANTIC_RECALL", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    ):
+        return "single"
+    return "lexical"
 
 
 def _version() -> str:
@@ -149,16 +177,84 @@ def recall(
     }
 
 
-async def recall_semantic(
-    store_path: str, query: str, limit: int = 10, namespace: str | None = None
+def summarize(
+    store_path: str,
+    depth: int = 3,
+    namespace: str | None = None,
+    prefix: str | None = None,
+    include_metrics: bool = False,
 ) -> dict:
-    """LLM-backed semantic recall (opt-in; needs a provider key)."""
+    """Taxonomy histogram for caller-driven drill: keys grouped by the first
+    ``depth`` segments. At depth 3 (memoir paths are 3 levels) the groups are the
+    full keys, ready to pass to ``memoir_get``. ``prefix`` narrows to one branch
+    (e.g. ``"preferences"``). LLM-free.
+    """
+    svc = _store_service(store_path)
+    all_ns: dict[str, list[str]] = svc.read_store().get("namespaces", {})
+    targets = (
+        {namespace: all_ns.get(namespace, [])}
+        if namespace
+        else {ns: keys for ns, keys in all_ns.items() if ns not in _RECALL_EXCLUDE_NS}
+    )
+    out: dict[str, dict[str, int]] = {}
+    for ns, keys in targets.items():
+        if prefix:
+            keys = [k for k in keys if k == prefix or k.startswith(prefix + ".")]
+        if not include_metrics:
+            keys = [k for k in keys if not k.startswith("metrics.")]
+        if not keys:
+            continue
+        counts: dict[str, int] = {}
+        for k in keys:
+            segs = k.split(".")
+            group = ".".join(segs[:depth]) if len(segs) >= depth else k
+            counts[group] = counts.get(group, 0) + 1
+        out[ns] = dict(sorted(counts.items()))
+    total = sum(sum(c.values()) for c in out.values())
+    return {"depth": depth, "prefix": prefix, "total": total, "namespaces": out}
+
+
+def get_memories(store_path: str, keys: list[str], namespace: str = "default") -> dict:
+    """Batched exact-path lookup (LLM-free). Missing keys come back found=False."""
+    res = _memory_service(store_path).get(keys, namespace=namespace)
+    items = getattr(res, "items", None) or []
+    return {
+        "items": [
+            {
+                "key": it["key"],
+                "namespace": namespace,
+                "found": bool(it.get("found")),
+                "content": _content_of(it.get("value")) if it.get("found") else None,
+            }
+            for it in items
+        ]
+    }
+
+
+async def recall_semantic(
+    store_path: str,
+    query: str,
+    limit: int = 10,
+    namespace: str | None = None,
+    mode: str = "single",
+) -> dict:
+    """LLM-driven recall via memoir's IntelligentSearchEngine.
+
+    ``mode="single"`` — one LLM call (path discovery → LLM path selection →
+    fetch), ~500-800ms. ``mode="tiered"`` — multi-level drill-down (L1 histogram
+    → L1 pick → optional L2 → key pick → fetch), narrower prompts, ~1-2s, scales
+    to large stores. Both need a provider key in the environment.
+    """
     mem = _memory_service(store_path)
-    result = await mem.recall(query, limit=limit, namespace=namespace)
+    result = await mem.recall(query, limit=limit, namespace=namespace, mode=mode)
+    if not result.success:
+        # e.g. missing provider key — raise so the caller can fall back to lexical.
+        raise RuntimeError(getattr(result, "error", None) or "recall failed")
     return {
         "success": result.success,
         "memories": result.memories,
         "timing_ms": result.timing_ms,
+        "mode": mode,
     }
 
 
@@ -224,9 +320,14 @@ def build_server(store_path: str):
     server = FastMCP(
         "memoir",
         instructions=(
-            "Git-versioned, taxonomy-structured long-term memory. Recall stored facts "
-            "before answering when prior context helps; remember durable new facts. "
-            "Memory is branchable and every write is a commit (provenance via memoir_commits)."
+            "Git-versioned, taxonomy-structured long-term memory.\n"
+            "RECALL — preferred flow (you pick what to read): call memoir_summarize to "
+            "see the stored taxonomy paths, choose the ones relevant to the question, then "
+            "memoir_get those exact paths. For a large store, summarize at depth 1 first, "
+            "pick a top-level prefix, then summarize that prefix before getting keys. "
+            "memoir_recall is a one-shot shortcut when you don't want to drill.\n"
+            "Remember durable new facts with memoir_remember. Memory is branchable and "
+            "every write is a commit (provenance via memoir_commits)."
         ),
     )
     # FastMCP reports the SDK version by default; surface memoir's instead.
@@ -235,24 +336,17 @@ def build_server(store_path: str):
     ro = ToolAnnotations(readOnlyHint=True)
     destructive = ToolAnnotations(readOnlyHint=False, destructiveHint=True)
 
-    # When MEMOIR_MCP_SEMANTIC_RECALL is truthy, memoir_recall defaults to the
-    # LLM-backed semantic search (needs a provider key); otherwise it defaults
-    # to the LLM-free lexical path. Callers can always override per call.
-    default_semantic = os.environ.get(
-        "MEMOIR_MCP_SEMANTIC_RECALL", ""
-    ).strip().lower() in (
-        "1",
-        "true",
-        "yes",
-        "on",
-    )
+    default_mode = default_recall_mode()
 
     @server.tool(
         name="memoir_recall",
         description=(
-            "Recall stored memories. By default uses fast LLM-free lexical ranking; "
-            "set semantic=true for LLM-backed semantic search (needs a provider key). "
-            "The default mode can be flipped to semantic via MEMOIR_MCP_SEMANTIC_RECALL."
+            "One-shot recall shortcut. Prefer memoir_summarize → memoir_get (you pick the "
+            "paths) for best results; use this when you just want a quick lookup. Modes: "
+            "'lexical' (default) — LLM-free keyword ranking, instant, no key; 'single' — one "
+            "LLM call picks paths, ~500-800ms; 'tiered' — multi-level LLM drill-down for "
+            "large/noisy stores, ~1-2s. single/tiered need a provider key and fall back to "
+            "lexical if unavailable. Default settable via MEMOIR_MCP_RECALL_MODE."
         ),
         annotations=ro,
     )
@@ -260,13 +354,52 @@ def build_server(store_path: str):
         query: str,
         limit: int = 10,
         namespace: str | None = None,
-        semantic: bool = default_semantic,
+        mode: Literal["lexical", "single", "tiered"] = default_mode,
     ) -> dict:
-        if semantic:
+        if mode == "lexical":
+            return recall(store_path, query, limit=limit, namespace=namespace)
+        try:
             return await recall_semantic(
-                store_path, query, limit=limit, namespace=namespace
+                store_path, query, limit=limit, namespace=namespace, mode=mode
             )
-        return recall(store_path, query, limit=limit, namespace=namespace)
+        except Exception as e:
+            # Graceful degradation (e.g. no provider key): fall back to the
+            # LLM-free path so recall always works.
+            logger.warning(
+                "semantic recall (%s) failed, falling back to lexical: %s", mode, e
+            )
+            out = recall(store_path, query, limit=limit, namespace=namespace)
+            out["mode"] = "lexical"
+            out["fellback_from"] = mode
+            return out
+
+    @server.tool(
+        name="memoir_summarize",
+        description=(
+            "List stored memory paths as a histogram grouped by the first `depth` "
+            "taxonomy segments (LLM-free, instant). Step 1 of the preferred recall flow: "
+            "read this, pick the paths relevant to the question, then memoir_get them. "
+            "depth=3 returns full keys; for a large store use depth=1, pick a top-level "
+            "prefix, then call again with that `prefix` to narrow before getting keys."
+        ),
+        annotations=ro,
+    )
+    def memoir_summarize(
+        depth: int = 3, namespace: str | None = None, prefix: str | None = None
+    ) -> dict:
+        return summarize(store_path, depth=depth, namespace=namespace, prefix=prefix)
+
+    @server.tool(
+        name="memoir_get",
+        description=(
+            "Fetch the exact memories at the given taxonomy paths/keys (LLM-free, instant). "
+            "Step 2 of the preferred recall flow — pass keys you chose from memoir_summarize. "
+            "Missing keys come back found=false."
+        ),
+        annotations=ro,
+    )
+    def memoir_get(keys: list[str], namespace: str = "default") -> dict:
+        return get_memories(store_path, keys, namespace=namespace)
 
     @server.tool(
         name="memoir_remember",

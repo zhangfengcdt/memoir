@@ -162,7 +162,7 @@ Memoir ships an MCP server (`memoir-mcp`) on the official Model Context Protocol
 }
 ```
 
-Recall is LLM-free (no key needed); the store auto-creates on first use. See the [MCP server guide](https://zhangfengcdt.github.io/memoir/mcp/) for per-host config (VS Code/Zed/Continue/LibreChat differ slightly), remote HTTP for ChatGPT/Claude.ai connectors, and the one-click Claude Desktop `.mcpb`.
+Recall is LLM-free by default (keyless), with opt-in single-call or multi-level `tiered` LLM modes; the store auto-creates on first use. See the [MCP server guide](https://zhangfengcdt.github.io/memoir/mcp/) for per-host config (VS Code/Zed/Continue/LibreChat differ slightly), recall modes + LLM setup, remote HTTP for ChatGPT/Claude.ai connectors, and the one-click Claude Desktop `.mcpb`.
 
 </details>
 

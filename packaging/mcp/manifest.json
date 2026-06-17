@@ -23,7 +23,9 @@
     }
   },
   "tools": [
-    { "name": "memoir_recall", "description": "Recall stored facts (LLM-free by default)." },
+    { "name": "memoir_summarize", "description": "List stored paths (histogram) — step 1 of caller-driven recall." },
+    { "name": "memoir_get", "description": "Fetch memories at exact paths — step 2 of caller-driven recall." },
+    { "name": "memoir_recall", "description": "One-shot recall shortcut (lexical default; single/tiered LLM modes)." },
     { "name": "memoir_remember", "description": "Store a fact, auto-classified into a semantic path." },
     { "name": "memoir_forget", "description": "Delete a memory by key." },
     { "name": "memoir_status", "description": "Store status: branch, commit/memory count." },

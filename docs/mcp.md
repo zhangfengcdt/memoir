@@ -34,10 +34,10 @@ uvx --from "memoir-ai[mcp]" memoir-mcp
 - **Store path** — `MEMOIR_STORE`, or `--store <path>`, defaulting to
   `~/.memoir/mcp`. The store is **created automatically** on first use, so a
   fresh install works with zero setup.
-- **Recall is LLM-free by default** (fast, no API key). `memoir_remember`
-  classifies content with an LLM, so it needs a provider key
-  (e.g. `ANTHROPIC_API_KEY`) in the server's environment; `memoir_recall` with
-  `semantic=true` also does.
+- **Recall is keyless by default** (`mode="lexical"`) — fast LLM-free keyword
+  ranking, no API key needed (consistent with the Hermes/OpenClaw plugins). For
+  smarter recall on large stores, opt into the LLM modes `single` / `tiered`
+  (need a provider key). See [LLM-driven remember & recall](#llm-driven-remember-recall).
 
 ## Connect your host
 
@@ -129,13 +129,13 @@ Then add it as a custom/remote connector with the URL `http://<host>:8000/mcp`.
 
 ## LLM-driven remember & recall
 
-Memoir's edge is **intelligent** memory: `remember` classifies content into the
-right semantic taxonomy path with an LLM, and recall can do LLM **semantic**
-search — not just keyword matching. The MCP server uses these the moment you
-give it a model + key in its environment.
+Memoir's edge is **intelligent** memory: `memoir_remember` classifies each fact
+into the right semantic taxonomy path with an LLM, and `memoir_recall` can use
+the LLM to navigate that taxonomy — not just keyword matching.
 
-**To enable it, add the provider key (and optionally the model) to the server's
-`env`** in your host config:
+`memoir_remember` is **always** LLM-driven, so it needs a provider key in the
+server's `env`. `memoir_recall` defaults to keyless `lexical`; to make the LLM
+modes the default, set `MEMOIR_MCP_RECALL_MODE` (or pass `mode` per call):
 
 ```json
 {
@@ -147,40 +147,70 @@ give it a model + key in its environment.
         "MEMOIR_STORE": "~/.memoir/mcp",
         "ANTHROPIC_API_KEY": "sk-ant-…",
         "MEMOIR_LLM_MODEL": "claude-haiku-4-5",
-        "MEMOIR_MCP_SEMANTIC_RECALL": "1"
+        "MEMOIR_MCP_RECALL_MODE": "single"
       }
     }
   }
 }
 ```
 
-What each does:
+### Recommended recall flow (caller-driven drill)
+
+The default, most accurate recall lets **the host model pick what to read** — no
+extra LLM inside memoir, no API key:
+
+1. `memoir_summarize` → see the stored taxonomy paths (a histogram).
+2. The model chooses the paths relevant to the question.
+3. `memoir_get` those exact paths → the values.
+
+For a large store, summarize at `depth=1`, pick a top-level prefix, then
+`memoir_summarize(prefix="…")` to narrow before getting keys. This mirrors
+memoir's `[mode=drill]` and the Hermes/OpenClaw plugins, and the server's
+`instructions` steer hosts to it by default.
+
+`memoir_recall` is the one-shot shortcut when you don't want to drill — its modes
+are below.
+
+### Recall modes
+
+`memoir_recall` takes a `mode` (the model can pass it per call; the default is
+set by `MEMOIR_MCP_RECALL_MODE`):
+
+| `mode` | How it works | Latency | Key? |
+|---|---|---|---|
+| `lexical` (default) | LLM-free keyword ranking over the structured paths. The calling agent (already an LLM) reasons over the results — same approach as the plugins. | instant | no |
+| `single` | One LLM call selects the most relevant taxonomy paths, then fetches them. | ~500–800ms | yes |
+| `tiered` | **Multi-level LLM drill-down** (L1 histogram → L1 pick → optional L2 → key pick → fetch). Narrower prompts; scales to large/noisy stores. | ~1–2s | yes |
+
+The two LLM modes mirror the `memoir recall` CLI:
+
+```bash
+memoir recall "what's my testing setup?"                # single (default)
+memoir recall "what's my testing setup?" --mode tiered  # multi-level drill-down
+```
+
+`single`/`tiered` need a provider key; if none is available they **fall back to
+`lexical`**, so recall never hard-fails (and a keyless install still works).
+
+### Env vars
 
 | Env var | Effect |
 |---|---|
-| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / … | The provider key memoir uses for classification + semantic search. **`memoir_remember` requires one** (it classifies into a taxonomy path); without it, remember fails. memoir routes by model name. |
-| `MEMOIR_LLM_MODEL` | Which model does the classification/search (default `claude-haiku-4-5` — fast + cheap, ideal for this). |
-| `MEMOIR_LLM_BASE_URL` | Route the LLM calls through a proxy/gateway. |
-| `MEMOIR_MCP_SEMANTIC_RECALL` | `1` makes `memoir_recall` default to **LLM semantic search**. Otherwise recall is LLM-free (lexical) by default and the model opts in per call with `semantic=true`. |
-
-So:
-
-- **`memoir_remember` is always LLM-driven** — give the server a key and it
-  classifies + commits to a semantic path. No key → it errors (by design, rather
-  than storing under a guessed path).
-- **`memoir_recall` is LLM-free by default** (fast, keyless), and becomes
-  LLM-semantic either per-call (`semantic=true`) or globally
-  (`MEMOIR_MCP_SEMANTIC_RECALL=1`).
+| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / … | Provider key for classification + LLM recall. **`memoir_remember` requires one** (no key → it errors rather than guessing a path). Routed by model name. |
+| `MEMOIR_LLM_MODEL` | Model for classification/recall (default `claude-haiku-4-5` — fast + cheap). |
+| `MEMOIR_LLM_BASE_URL` | Route LLM calls through a proxy/gateway. |
+| `MEMOIR_MCP_RECALL_MODE` | Default recall mode: `lexical` (default), `single`, or `tiered`. |
 
 > The key lives in your host's MCP config (often plaintext on disk) — use a
-> least-privilege key. The default `claude-haiku-4-5` keeps classification cost
-> negligible.
+> least-privilege key. `claude-haiku-4-5` keeps cost negligible.
 
 ## Tools
 
 | Tool | Read-only | Purpose |
 |---|---|---|
-| `memoir_recall` | ✓ | Recall stored facts. LLM-free by default (lexical ranking); `semantic=true` for LLM search. |
+| `memoir_summarize` | ✓ | List stored paths as a histogram grouped by the first `depth` taxonomy segments. **Step 1 of recall** — the model reads this and picks relevant paths. `prefix` narrows a branch. LLM-free. |
+| `memoir_get` | ✓ | Fetch the exact memories at the given paths/keys. **Step 2 of recall** — the model passes the keys it chose. LLM-free. |
+| `memoir_recall` | ✓ | One-shot recall shortcut. `mode`: `lexical` (default, keyless keyword ranking) · `single` (LLM path-selection) · `tiered` (multi-level LLM drill-down). |
 | `memoir_remember` | | Store a fact; auto-classified into a semantic path and committed. Needs a provider key. |
 | `memoir_forget` | | Delete a memory by key (prior versions stay in git history). |
 | `memoir_status` | ✓ | Branch, commit count, memory count. |

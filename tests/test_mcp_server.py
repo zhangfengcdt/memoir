@@ -74,23 +74,59 @@ def test_forget_removes_fact(store):
     assert all(m["key"] != "profile.personal.health" for m in out["memories"])
 
 
-def test_semantic_recall_env_flips_default(monkeypatch, tmp_path):
+def test_recall_mode_default_and_env(monkeypatch, tmp_path):
     store = str(tmp_path / "s")
     S.ensure_store(store)
 
-    def recall_default(srv):
+    def recall_mode_default(srv):
         async def run():
             tools = await srv.list_tools()
             recall = next(t for t in tools if t.name == "memoir_recall")
-            return recall.inputSchema["properties"]["semantic"].get("default")
+            return recall.inputSchema["properties"]["mode"].get("default")
 
         return asyncio.run(run())
 
+    monkeypatch.delenv("MEMOIR_MCP_RECALL_MODE", raising=False)
     monkeypatch.delenv("MEMOIR_MCP_SEMANTIC_RECALL", raising=False)
-    assert recall_default(S.build_server(store)) is False
+    assert S.default_recall_mode() == "lexical"
+    assert recall_mode_default(S.build_server(store)) == "lexical"
 
+    monkeypatch.setenv("MEMOIR_MCP_RECALL_MODE", "tiered")
+    assert recall_mode_default(S.build_server(store)) == "tiered"
+
+    monkeypatch.setenv("MEMOIR_MCP_RECALL_MODE", "single")
+    assert recall_mode_default(S.build_server(store)) == "single"
+
+    # Back-compat: the old boolean knob still selects single.
+    monkeypatch.delenv("MEMOIR_MCP_RECALL_MODE", raising=False)
     monkeypatch.setenv("MEMOIR_MCP_SEMANTIC_RECALL", "1")
-    assert recall_default(S.build_server(store)) is True
+    assert S.default_recall_mode() == "single"
+
+
+def test_summarize_and_get_drill(store):
+    # depth 3 → full keys; the model would pick from these then memoir_get.
+    s = S.summarize(store, depth=3)
+    keys = list(s["namespaces"]["default"].keys())
+    assert "preferences.ui.theme" in keys
+    assert all(not k.startswith("metrics.") for k in keys)  # metrics excluded
+
+    # depth 1 → top-level prefixes (drill step for large stores)
+    s1 = S.summarize(store, depth=1)
+    assert "preferences" in s1["namespaces"]["default"]
+
+    # prefix narrows the branch
+    sp = S.summarize(store, depth=3, prefix="preferences")
+    assert all(k.startswith("preferences") for k in sp["namespaces"]["default"])
+
+    # get fetches the chosen keys
+    got = S.get_memories(store, ["preferences.ui.theme"], namespace="default")
+    found = [i for i in got["items"] if i["found"]]
+    assert found
+    assert "dark mode" in found[0]["content"].lower()
+
+    # missing key → found=False
+    miss = S.get_memories(store, ["does.not.exist"], namespace="default")
+    assert miss["items"][0]["found"] is False
 
 
 def test_fastmcp_registration_and_dispatch(store):
@@ -101,6 +137,8 @@ def test_fastmcp_registration_and_dispatch(store):
         names = {t.name for t in tools}
         assert {
             "memoir_recall",
+            "memoir_summarize",
+            "memoir_get",
             "memoir_remember",
             "memoir_forget",
             "memoir_status",
@@ -108,6 +146,9 @@ def test_fastmcp_registration_and_dispatch(store):
             "memoir_checkout",
             "memoir_commits",
         } <= names
+        ann = {t.name: t.annotations for t in tools}
+        assert ann["memoir_summarize"].readOnlyHint is True
+        assert ann["memoir_get"].readOnlyHint is True
         ann = {t.name: t.annotations for t in tools}
         assert ann["memoir_recall"].readOnlyHint is True
         assert ann["memoir_forget"].destructiveHint is True
