@@ -22,6 +22,9 @@ Add `--json` at the group level for machine-readable output (recommended when sc
 | `MEMOIR_JSON` | If `1`, all commands output JSON (same as passing `--json`). |
 | `MEMOIR_QUIET` | If `1`, suppresses non-essential output. |
 | `MEMOIR_BRANCH` | Default target branch for `remember`, `recall`, `get`, `forget`, and `search` — per-call routing without changing the store's checked-out branch. Each command also accepts an explicit `--branch <name>` flag which overrides this variable. See [Per-call branch routing](#per-call-branch-routing-multi-agent) below. |
+| `MEMOIR_MERGE_POLICY` | Global conflict-resolution strategy for `remember` when a key already exists, overriding the per-type default but below an explicit `--merge-policy`. `=replace` restores the old overwrite-everywhere behaviour. See [Conflict resolution](#memoir-remember-conflict-resolution). |
+| `MEMOIR_FACET_MAX_ENTRIES` | Cap on facet entries per key for append-style writes (oldest pruned). Default `50`; `0`/`none` disables capping. |
+| `MEMOIR_RECALL_MERGE` | If `llm`, enables merge-on-read: a multi-entry key's content is LLM-consolidated at read time. Off by default (the deterministic projection is used). |
 
 ### Global flags
 
@@ -168,6 +171,42 @@ export MEMOIR_LLM_MODEL=gpt-4o-mini
 As of v0.1.7, `litellm` is a default dependency, so `pip install
 memoir-ai` enables both LLM-backed and direct-path commands. (Prior
 to v0.1.7 you had to add the `[litellm]` extra explicitly.)
+
+### `memoir remember` — conflict resolution
+
+When a write lands on a key that already exists, `remember` resolves the conflict with a **merge policy**. By default the policy is derived from the key's memory type; `--merge-policy` overrides it per call. See [Conflict & Merge theory](theory/conflict-merge.md) for the full model.
+
+| Flag | Effect |
+|---|---|
+| `--merge-policy <strategy>` | Force a strategy for this write: `append`, `replace`, `confidence_gated`, `llm_merge`, `merge_on_read`, or `reject`. |
+| `-i, --interactive` | On a conflict, show existing vs. incoming and prompt (`replace` / `append` / `merge` / `skip`) per key. Not valid with `--json`. |
+| `--replace` | Back-compat alias for `--merge-policy replace`. |
+
+Resolution order (first one set wins): `--merge-policy` flag → `MEMOIR_MERGE_POLICY` env → **per-type default**:
+
+| Memory type | Example keys | Default strategy |
+|---|---|---|
+| Episodic | `experience.*`, `metrics.code.*` | `append` |
+| Semantic | `knowledge.*`, `preferences.*`, `profile.*`, `context.project.*` | `confidence_gated` |
+| Procedural | `workflow.*`, `behavior.*` | `llm_merge` |
+| Working | `context.current.*`, `metrics.turn.*` | `replace` |
+
+```bash
+# No flag → the key's memory type decides.
+memoir remember "use spaces" -p knowledge.coding.style     # semantic → confidence_gated
+memoir remember "deployed v2 at 14:00" -p experience.releases.log  # episodic → append
+
+# Override the type default for this call only.
+memoir remember "use spaces" -p knowledge.coding.style --merge-policy append
+memoir remember "draft note"  -p experience.releases.log --merge-policy replace
+
+# Resolve interactively, or refuse to clobber and inspect the conflict (JSON).
+memoir remember "new value" -p knowledge.coding.style --interactive
+memoir --json remember "new value" -p knowledge.coding.style --merge-policy reject
+```
+
+!!! note
+    `confidence_gated` only changes behaviour for sub-1.0 confidence (LLM classifications). Caller-supplied `-p` writes are confidence `1.0`, so on a semantic key they pass the gate and effectively replace — pass `--merge-policy append`/`llm_merge` to accumulate or consolidate instead.
 
 ### `memoir get` — direct lookup by taxonomy path
 

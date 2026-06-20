@@ -153,6 +153,43 @@ The global escape hatch `MEMOIR_MERGE_POLICY=replace` restores the old
 append/overwrite-flavoured behaviour wholesale for any caller depending on the prior
 semantics.
 
+### Defaults vs. overrides
+
+The two ideas above are the **same dial** at different levels of this chain, so they
+never conflict:
+
+* **"[Memory type decides the merge](#memory-type-decides-the-merge)" is level 3** — the
+  *automatic* strategy used when nobody says otherwise. It is the floor.
+* **`--merge-policy` (or the `merge_policy` arg) is level 1** — a *one-off exception*
+  that forces a strategy for a single write. It does not change the key, the memory
+  type, or the storage shape; it only substitutes which strategy runs this time.
+* **`MEMOIR_MERGE_POLICY` is level 2** — a *global* override ("always do this") that the
+  per-call flag can still beat, and `=replace` is the escape hatch that turns the whole
+  per-type policy off.
+
+```bash
+# No flag → the key's memory type decides.
+memoir remember "use spaces" -p knowledge.coding.style
+#   knowledge.* is semantic → default confidence_gated
+
+memoir remember "deployed v2 at 14:00" -p experience.releases.log
+#   experience.* is episodic → default append
+
+# --merge-policy overrides the type default for this call only.
+memoir remember "use spaces" -p knowledge.coding.style --merge-policy append
+#   still a semantic key, but THIS write appends instead of gating
+
+memoir remember "scratch note" -p experience.releases.log --merge-policy replace
+#   still episodic, but THIS write replaces instead of appending
+```
+
+!!! note "Why a semantic `-p` write often *looks* like replace"
+    `confidence_gated` only changes behaviour when incoming confidence is `< 1.0`.
+    Caller-supplied `-p` writes are hard-set to confidence `1.0`, so on a semantic key
+    they pass the gate and effectively replace the prior value. Pass
+    `--merge-policy append` or `--merge-policy llm_merge` when you want a `-p` write to
+    accumulate or consolidate instead.
+
 ## The Write Path
 
 End to end, a `remember()` write resolves like this:
