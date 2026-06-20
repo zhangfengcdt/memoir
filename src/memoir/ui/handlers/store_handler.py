@@ -114,7 +114,14 @@ def _extract_content(value: object) -> object:
     possible so the UI can render structured fields without re-parsing.
     """
     if isinstance(value, dict) and "content" in value:
-        inner = value["content"]
+        # v2 facet blobs: project active entries (respects superseded) rather
+        # than trusting a possibly-stale top-level content. v1 blobs use it as-is.
+        if isinstance(value.get("entries"), list) and value["entries"]:
+            from memoir.services.merge_policy import read_project
+
+            inner = read_project(value)
+        else:
+            inner = value["content"]
         if isinstance(inner, str):
             stripped = inner.strip()
             if stripped.startswith("{") or stripped.startswith("["):

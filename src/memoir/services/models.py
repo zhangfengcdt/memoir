@@ -29,6 +29,10 @@ class RememberResult:
     namespace: str = "default"
     content: str = ""  # Original content
     error: str | None = None
+    # Conflicts surfaced by the REJECT strategy (key already occupied). Each is
+    # a ConflictInfo dict; None when there were no conflicts. When present,
+    # ``success`` is False and nothing was written for those keys.
+    conflicts: list[dict] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -50,6 +54,7 @@ class RememberResult:
             "namespace": self.namespace,
             "content": self.content,
             "error": self.error,
+            "conflicts": self.conflicts,
         }
 
 

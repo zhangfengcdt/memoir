@@ -19,6 +19,99 @@ from memoir.cli.main import (
     MemoirContext,
     pass_context,
 )
+from memoir.services.merge_policy import ConflictStrategy
+
+_MERGE_POLICY_CHOICES = [s.value for s in ConflictStrategy]
+
+
+def _truncate(text: str, limit: int = 280) -> str:
+    text = text or ""
+    return text if len(text) <= limit else text[:limit] + "…"
+
+
+def _print_conflict(conflict: dict) -> None:
+    """Render an existing-vs-incoming conflict for the interactive resolver."""
+    click.echo(
+        click.style(f"\n● Conflict at {conflict['key']}", fg="yellow", bold=True)
+    )
+    click.echo(
+        click.style("  existing", dim=True)
+        + f" (conf {conflict['existing_confidence']:.2f}): "
+        + _truncate(conflict["existing_content"])
+    )
+    click.echo(
+        click.style("  incoming", dim=True)
+        + f" (conf {conflict['incoming_confidence']:.2f}): "
+        + _truncate(conflict["incoming_content"])
+    )
+
+
+def _handle_interactive(service, namespace, content, paths_list, replace):
+    """Probe with REJECT (fresh keys are written, occupied keys come back as
+    conflicts), then prompt per conflict and re-issue the chosen write."""
+    result = asyncio.run(
+        service.remember(
+            content,
+            namespace,
+            paths=paths_list,
+            replace=replace,
+            merge_policy="reject",
+        )
+    )
+    conflict_keys = {c["key"] for c in (result.conflicts or [])}
+    for key in result.keys:
+        if key not in conflict_keys:
+            click.echo(click.style("✓ ", fg="green") + f"Stored at: {key}")
+
+    for conflict in result.conflicts or []:
+        _print_conflict(conflict)
+        choice = click.prompt(
+            "  Resolve",
+            type=click.Choice(
+                ["replace", "append", "merge", "skip"], case_sensitive=False
+            ),
+            default="skip",
+        )
+        if choice == "skip":
+            click.echo(click.style("  ↳ kept existing", fg="yellow"))
+            continue
+        policy = "llm_merge" if choice == "merge" else choice
+        resolved = asyncio.run(
+            service.remember(
+                content, namespace, paths=[conflict["key"]], merge_policy=policy
+            )
+        )
+        if resolved.success:
+            click.echo(
+                click.style("  ↳ ", fg="green") + f"{choice} → {conflict['key']}"
+            )
+        else:
+            click.echo(click.style("  ↳ failed to resolve", fg="red"))
+
+
+def _render_remember_result(ctx, result) -> None:
+    """Render a non-interactive RememberResult (success or unresolved conflict)."""
+    if result.success:
+        click.echo(click.style("✓ ", fg="green") + f"Stored at: {result.key}")
+        if len(result.keys) > 1:
+            siblings = ", ".join(result.keys[1:])
+            click.echo(f"  Also saved under: {siblings}")
+        if result.reasoning and ctx.verbose:
+            click.echo(f"  Reasoning: {result.reasoning}")
+        if result.confidence:
+            click.echo(f"  Confidence: {result.confidence:.2f}")
+        if result.commit_hash:
+            click.echo(f"  Commit: {result.commit_hash[:8]}")
+    elif result.conflicts:
+        for conflict in result.conflicts:
+            click.echo(
+                click.style("! ", fg="yellow")
+                + f"Conflict at {conflict['key']} — not written. Re-run with "
+                "--merge-policy <strategy> or --interactive to resolve."
+            )
+        ctx.error("Unresolved conflict(s); nothing written for those keys.", EXIT_ERROR)
+    else:
+        ctx.error(result.error or "Failed to store memory", EXIT_CLASSIFICATION_FAILED)
 
 
 @click.command()
@@ -65,10 +158,32 @@ from memoir.cli.main import (
     is_flag=True,
     default=False,
     help=(
-        "Overwrite the existing value at each -p target instead of appending "
-        "the new content as an '[update]' paragraph. Use for callers that own "
-        "their own read-merge-write cycle (per-branch metrics, scalar pointers). "
-        "No effect without -p — the LLM-classifier path always replaces."
+        "Alias for --merge-policy replace: overwrite the existing value at each "
+        "target instead of the per-type default. Use for callers that own their "
+        "own read-merge-write cycle (per-branch metrics, scalar pointers)."
+    ),
+)
+@click.option(
+    "--merge-policy",
+    "merge_policy",
+    type=click.Choice(_MERGE_POLICY_CHOICES, case_sensitive=False),
+    default=None,
+    help=(
+        "Conflict-resolution strategy when the target key is already occupied. "
+        "Precedence: this flag > MEMOIR_MERGE_POLICY env > per-type default "
+        "(semantic→confidence_gated, episodic→append, procedural→llm_merge, "
+        "working→replace)."
+    ),
+)
+@click.option(
+    "-i",
+    "--interactive",
+    "interactive",
+    is_flag=True,
+    default=False,
+    help=(
+        "On a conflict (key already occupied), show existing vs incoming and "
+        "prompt for how to resolve each one. Not available with --json."
     ),
 )
 @click.option(
@@ -91,6 +206,8 @@ def remember(
     paths: tuple,
     model: str | None,
     replace: bool,
+    merge_policy: str | None,
+    interactive: bool,
     branch: str | None,
 ):
     """Store content in memory with intelligent classification.
@@ -166,6 +283,9 @@ def remember(
         )
     effective_namespace = namespace or inferred_ns or "default"
 
+    if interactive and ctx.json_output:
+        ctx.error("--interactive cannot be combined with --json.", EXIT_ERROR)
+
     from memoir.services.branch_service import BranchService
 
     service = MemoryService(ctx.store_path, llm_model=model)
@@ -173,30 +293,26 @@ def remember(
 
     try:
         with branch_service.routed_to(branch, auto_create=True):
+            if interactive:
+                _handle_interactive(
+                    service, effective_namespace, content, paths_list, replace
+                )
+                return
+
             result = asyncio.run(
                 service.remember(
-                    content, effective_namespace, paths=paths_list, replace=replace
+                    content,
+                    effective_namespace,
+                    paths=paths_list,
+                    replace=replace,
+                    merge_policy=merge_policy,
                 )
             )
 
         if ctx.json_output:
             ctx.output(result.to_dict())
         else:
-            if result.success:
-                click.echo(click.style("✓ ", fg="green") + f"Stored at: {result.key}")
-                if len(result.keys) > 1:
-                    siblings = ", ".join(result.keys[1:])
-                    click.echo(f"  Also saved under: {siblings}")
-                if result.reasoning and ctx.verbose:
-                    click.echo(f"  Reasoning: {result.reasoning}")
-                if result.confidence:
-                    click.echo(f"  Confidence: {result.confidence:.2f}")
-                if result.commit_hash:
-                    click.echo(f"  Commit: {result.commit_hash[:8]}")
-            else:
-                ctx.error(
-                    result.error or "Failed to store memory", EXIT_CLASSIFICATION_FAILED
-                )
+            _render_remember_result(ctx, result)
     except Exception as e:
         ctx.error(f"Failed to remember: {e}", EXIT_ERROR)
 

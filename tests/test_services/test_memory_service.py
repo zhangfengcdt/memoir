@@ -221,8 +221,10 @@ class TestMemoryServiceRemember:
             paths=["preferences.coding.methodology", "preferences.tooling.terminal"],
         )
         # Subsequent path-only write to one key should not clobber siblings,
-        # and content should be appended (not replaced).
-        await memory_service.remember("v2", paths=["preferences.coding.methodology"])
+        # and content should be appended (not replaced) under the append policy.
+        await memory_service.remember(
+            "v2", paths=["preferences.coding.methodology"], merge_policy="append"
+        )
 
         get_a = memory_service.get(["preferences.coding.methodology"], "default")
         blob_a = get_a.items[0]["value"]
@@ -231,24 +233,23 @@ class TestMemoryServiceRemember:
 
     @pytest.mark.asyncio
     async def test_remember_path_appends_on_existing(self, memory_service):
-        """Second -p write to an existing key appends with [update] marker."""
+        """Second write under the append policy appends with [update] marker."""
+        path = "context.project.append_test"
+        await memory_service.remember("first fact", paths=[path])
         await memory_service.remember(
-            "first fact", paths=["context.project.append_test"]
-        )
-        await memory_service.remember(
-            "second fact", paths=["context.project.append_test"]
+            "second fact", paths=[path], merge_policy="append"
         )
 
-        blob = memory_service.get(["context.project.append_test"]).items[0]["value"]
+        blob = memory_service.get([path]).items[0]["value"]
         assert blob["content"] == "first fact\n\n[update] second fact"
 
     @pytest.mark.asyncio
     async def test_remember_path_appends_repeatedly(self, memory_service):
-        """Three writes stack two [update] paragraphs onto the original."""
+        """Three append-policy writes stack two [update] paragraphs."""
         path = "context.project.stack_test"
         await memory_service.remember("a", paths=[path])
-        await memory_service.remember("b", paths=[path])
-        await memory_service.remember("c", paths=[path])
+        await memory_service.remember("b", paths=[path], merge_policy="append")
+        await memory_service.remember("c", paths=[path], merge_policy="append")
 
         blob = memory_service.get([path]).items[0]["value"]
         assert blob["content"] == "a\n\n[update] b\n\n[update] c"
@@ -258,20 +259,22 @@ class TestMemoryServiceRemember:
         """Identical content submitted twice is appended verbatim (no dedup)."""
         path = "context.project.dup_test"
         await memory_service.remember("same", paths=[path])
-        await memory_service.remember("same", paths=[path])
+        await memory_service.remember("same", paths=[path], merge_policy="append")
 
         blob = memory_service.get([path]).items[0]["value"]
         assert blob["content"] == "same\n\n[update] same"
 
     @pytest.mark.asyncio
     async def test_remember_path_mixed_existing_independent(self, memory_service):
-        """Multi-path -p with one existing and one fresh path: each behaves
-        independently (existing appends, fresh stores plain)."""
+        """Multi-path append-policy write with one existing and one fresh path:
+        each behaves independently (existing appends, fresh stores plain)."""
         existing_path = "context.project.mixed_existing"
         fresh_path = "context.project.mixed_fresh"
 
         await memory_service.remember("orig", paths=[existing_path])
-        await memory_service.remember("new", paths=[existing_path, fresh_path])
+        await memory_service.remember(
+            "new", paths=[existing_path, fresh_path], merge_policy="append"
+        )
 
         existing_blob = memory_service.get([existing_path]).items[0]["value"]
         fresh_blob = memory_service.get([fresh_path]).items[0]["value"]
@@ -297,6 +300,159 @@ class TestMemoryServiceRemember:
 
         blob = memory_service.get([path]).items[0]["value"]
         assert blob["content"] == "second"
+
+    # --- Phase 2: timestamped-facet storage (schema_version 2) ---------------
+
+    @pytest.mark.asyncio
+    async def test_remember_writes_v2_facet_blob(self, memory_service):
+        """A write stores a v2 blob: projected top-level content + entries list."""
+        path = "context.project.facet_shape"
+        await memory_service.remember("hello", paths=[path])
+
+        blob = memory_service.get([path]).items[0]["value"]
+        assert blob["schema_version"] == 2
+        assert isinstance(blob["entries"], list)
+        assert len(blob["entries"]) == 1
+        assert blob["entries"][0]["content"] == "hello"
+        assert blob["entries"][0]["status"] == "active"
+        # legacy readers keep working via the projected top-level content
+        assert blob["content"] == "hello"
+
+    @pytest.mark.asyncio
+    async def test_remember_append_accumulates_entries(self, memory_service):
+        """Append adds a second active entry; projection stays byte-identical."""
+        path = "context.project.facet_append"
+        await memory_service.remember("a", paths=[path])
+        await memory_service.remember("b", paths=[path], merge_policy="append")
+
+        blob = memory_service.get([path]).items[0]["value"]
+        assert [e["content"] for e in blob["entries"]] == ["a", "b"]
+        assert blob["content"] == "a\n\n[update] b"
+
+    @pytest.mark.asyncio
+    async def test_remember_replace_collapses_to_single_entry(self, memory_service):
+        """replace=True keeps the blob at a single entry (flat-key safety)."""
+        path = "context.project.facet_replace"
+        await memory_service.remember("first", paths=[path])
+        await memory_service.remember("second", paths=[path], replace=True)
+
+        blob = memory_service.get([path]).items[0]["value"]
+        assert len(blob["entries"]) == 1
+        assert blob["entries"][0]["content"] == "second"
+
+    @pytest.mark.asyncio
+    async def test_remember_upgrades_legacy_v1_blob_on_write(self, memory_service):
+        """A pre-existing v1 blob (bare content, no entries) is lifted to v2 on
+        the next write, preserving the old content as the first entry."""
+        path = "context.project.legacy_upgrade"
+        store = memory_service._get_store()
+        ns = memory_service.namespace_to_tuple("default")
+        # Simulate a legacy v1 blob written before the facet migration.
+        store.put(ns, path, {"content": "legacy", "confidence": 1.0, "timestamp": 1.0})
+
+        await memory_service.remember("new", paths=[path], merge_policy="append")
+
+        blob = memory_service.get([path]).items[0]["value"]
+        assert blob["schema_version"] == 2
+        assert [e["content"] for e in blob["entries"]] == ["legacy", "new"]
+        assert blob["content"] == "legacy\n\n[update] new"
+
+    # --- Phase 3: per-type default policies + strategies ---------------------
+
+    @pytest.mark.asyncio
+    async def test_default_semantic_is_confidence_gated(self, memory_service):
+        """Semantic keys (knowledge.*) default to confidence_gated: two equal
+        (1.0) -p writes collapse to the latest (gate passes, replaces)."""
+        path = "knowledge.technical.gate_default"
+        await memory_service.remember("old", paths=[path])
+        await memory_service.remember("new", paths=[path])
+
+        blob = memory_service.get([path]).items[0]["value"]
+        assert len(blob["entries"]) == 1
+        assert blob["content"] == "new"
+
+    @pytest.mark.asyncio
+    async def test_default_episodic_appends(self, memory_service):
+        """Episodic keys (experience.*) default to append (the event log)."""
+        path = "experience.work.projects"
+        await memory_service.remember("p1", paths=[path])
+        await memory_service.remember("p2", paths=[path])
+
+        blob = memory_service.get([path]).items[0]["value"]
+        assert [e["content"] for e in blob["entries"]] == ["p1", "p2"]
+
+    @pytest.mark.asyncio
+    async def test_default_working_replaces(self, memory_service):
+        """Working keys (context.current.*) default to replace (single entry)."""
+        path = "context.current.session"
+        await memory_service.remember("a", paths=[path])
+        await memory_service.remember("b", paths=[path])
+
+        blob = memory_service.get([path]).items[0]["value"]
+        assert len(blob["entries"]) == 1
+        assert blob["content"] == "b"
+
+    @pytest.mark.asyncio
+    async def test_default_procedural_llm_merges(self, memory_service, monkeypatch):
+        """Procedural keys (workflow.*) default to llm_merge: the consolidation
+        helper is invoked and its output becomes the single entry."""
+
+        async def fake_consolidate(existing, new):
+            return f"MERGED({existing}|{new})"
+
+        monkeypatch.setattr(memory_service, "_llm_consolidate", fake_consolidate)
+        path = "workflow.coding.style"
+        await memory_service.remember("use tabs", paths=[path])
+        await memory_service.remember("use spaces", paths=[path])
+
+        blob = memory_service.get([path]).items[0]["value"]
+        assert len(blob["entries"]) == 1
+        assert blob["content"] == "MERGED(use tabs|use spaces)"
+
+    @pytest.mark.asyncio
+    async def test_merge_policy_reject_surfaces_conflict_without_writing(
+        self, memory_service
+    ):
+        """merge_policy='reject' on an occupied key: nothing written, conflict
+        returned, success False."""
+        path = "knowledge.technical.reject_test"
+        await memory_service.remember("first", paths=[path])
+        result = await memory_service.remember(
+            "second", paths=[path], merge_policy="reject"
+        )
+
+        assert result.success is False
+        assert result.conflicts
+        assert result.conflicts[0]["existing_content"] == "first"
+        assert result.conflicts[0]["incoming_content"] == "second"
+        # store unchanged
+        blob = memory_service.get([path]).items[0]["value"]
+        assert blob["content"] == "first"
+
+    @pytest.mark.asyncio
+    async def test_env_merge_policy_overrides_default(
+        self, memory_service, monkeypatch
+    ):
+        """MEMOIR_MERGE_POLICY forces a strategy across the per-type default."""
+        monkeypatch.setenv("MEMOIR_MERGE_POLICY", "append")
+        path = "knowledge.technical.env_override"  # semantic -> normally gated
+        await memory_service.remember("one", paths=[path])
+        await memory_service.remember("two", paths=[path])
+
+        blob = memory_service.get([path]).items[0]["value"]
+        assert blob["content"] == "one\n\n[update] two"
+
+    @pytest.mark.asyncio
+    async def test_facet_cap_prunes_oldest(self, memory_service, monkeypatch):
+        """MEMOIR_FACET_MAX_ENTRIES bounds append growth, dropping oldest."""
+        monkeypatch.setenv("MEMOIR_FACET_MAX_ENTRIES", "2")
+        path = "experience.work.capped"
+        await memory_service.remember("1", paths=[path])
+        await memory_service.remember("2", paths=[path])
+        await memory_service.remember("3", paths=[path])
+
+        blob = memory_service.get([path]).items[0]["value"]
+        assert [e["content"] for e in blob["entries"]] == ["2", "3"]
 
     @pytest.mark.asyncio
     async def test_remember_path_replace_preserves_related_keys(self, memory_service):

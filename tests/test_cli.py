@@ -1039,5 +1039,131 @@ class TestPerCallBranchRouting:
         assert "MEMOIR_BRANCH" in result.output
 
 
+class TestRememberMergePolicy:
+    """Conflict-resolution flags on `remember` (uses -p to skip the LLM)."""
+
+    def _seed(self, runner, store, content, path):
+        r = runner.invoke(cli, ["-s", store, "remember", content, "-p", path])
+        assert r.exit_code == 0, r.output
+
+    def test_merge_policy_replace_collapses(self, runner, initialized_store):
+        path = "knowledge.technical.cli_replace"
+        self._seed(runner, initialized_store, "old", path)
+        r = runner.invoke(
+            cli,
+            [
+                "-s",
+                initialized_store,
+                "remember",
+                "new",
+                "-p",
+                path,
+                "--merge-policy",
+                "replace",
+            ],
+        )
+        assert r.exit_code == 0, r.output
+        got = runner.invoke(cli, ["-s", initialized_store, "get", path])
+        assert "new" in got.output
+        assert "old" not in got.output
+
+    def test_merge_policy_append_accumulates(self, runner, initialized_store):
+        path = "knowledge.technical.cli_append"
+        self._seed(runner, initialized_store, "one", path)
+        r = runner.invoke(
+            cli,
+            [
+                "-s",
+                initialized_store,
+                "remember",
+                "two",
+                "-p",
+                path,
+                "--merge-policy",
+                "append",
+            ],
+        )
+        assert r.exit_code == 0, r.output
+        got = runner.invoke(cli, ["-s", initialized_store, "get", path])
+        assert "one" in got.output
+        assert "two" in got.output
+
+    def test_merge_policy_reject_conflict_exits_nonzero(
+        self, runner, initialized_store
+    ):
+        path = "knowledge.technical.cli_reject"
+        self._seed(runner, initialized_store, "first", path)
+        r = runner.invoke(
+            cli,
+            [
+                "-s",
+                initialized_store,
+                "remember",
+                "second",
+                "-p",
+                path,
+                "--merge-policy",
+                "reject",
+            ],
+        )
+        assert r.exit_code != 0
+        assert "Conflict" in r.output
+        got = runner.invoke(cli, ["-s", initialized_store, "get", path])
+        assert "first" in got.output
+        assert "second" not in got.output
+
+    def test_reject_json_emits_conflicts(self, runner, initialized_store):
+        path = "knowledge.technical.cli_reject_json"
+        self._seed(runner, initialized_store, "first", path)
+        r = runner.invoke(
+            cli,
+            [
+                "--json",
+                "-s",
+                initialized_store,
+                "remember",
+                "second",
+                "-p",
+                path,
+                "--merge-policy",
+                "reject",
+            ],
+        )
+        data = json.loads(r.output)
+        assert data["success"] is False
+        assert data["conflicts"]
+        assert data["conflicts"][0]["existing_content"] == "first"
+
+    def test_interactive_json_mutually_exclusive(self, runner, initialized_store):
+        r = runner.invoke(
+            cli,
+            [
+                "--json",
+                "-s",
+                initialized_store,
+                "remember",
+                "x",
+                "-p",
+                "knowledge.technical.cli_ix",
+                "--interactive",
+            ],
+        )
+        assert r.exit_code != 0
+        assert "interactive" in r.output.lower()
+
+    def test_interactive_resolves_with_replace(self, runner, initialized_store):
+        path = "knowledge.technical.cli_interactive"
+        self._seed(runner, initialized_store, "old", path)
+        r = runner.invoke(
+            cli,
+            ["-s", initialized_store, "remember", "new", "-p", path, "--interactive"],
+            input="replace\n",
+        )
+        assert r.exit_code == 0, r.output
+        assert "Conflict" in r.output
+        got = runner.invoke(cli, ["-s", initialized_store, "get", path])
+        assert "new" in got.output
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

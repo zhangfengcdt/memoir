@@ -21,6 +21,14 @@ def _extract_content(value_data):
     if not isinstance(value_data, dict):
         return str(value_data)
 
+    # v2 facet format: project active entries to a single string (respects
+    # superseded status). v1 blobs (no entries) fall through to the legacy
+    # content / memories handling below.
+    if isinstance(value_data.get("entries"), list) and value_data["entries"]:
+        from memoir.services.merge_policy import read_project
+
+        return read_project(value_data)
+
     # If content is directly available
     if "content" in value_data:
         content = value_data["content"]

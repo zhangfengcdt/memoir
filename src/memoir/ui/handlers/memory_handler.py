@@ -15,6 +15,14 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from memoir.classifier.intelligent import IntelligentClassifier
 from memoir.memento.timeline import TimelineMemento
+from memoir.services.merge_policy import (
+    SCHEMA_VERSION,
+    apply_strategy,
+    make_entry,
+    project_entries,
+    resolve_policy,
+    upgrade_blob,
+)
 from memoir.store.prolly_adapter import ProllyTreeStore
 from memoir.taxonomy.loader import TaxonomyLoader
 
@@ -349,27 +357,53 @@ class MemoryHandler(BaseAPIHandler):
 
             step_timings["step2_classification"] = round(time.time() - step2_start, 3)
 
-            # Step 3: Memory Storage
+            # Step 3: Memory Storage — write timestamped-facet blobs (v2) via the
+            # shared merge-policy primitives so UI writes respect the same
+            # per-type defaults as the CLI/MCP (single source of strategy logic).
+            # LLM_MERGE degrades to replace on this synchronous path (no
+            # consolidation call); manual UI edits are typically semantic
+            # (confidence-gated) or working (replace) anyway.
             step3_start = time.time()
-            # Store in memory
             namespace_tuple = (
                 tuple(namespace.split(":")) if ":" in namespace else (namespace,)
             )
-
-            # Prepare memory item
-            memory_item = {
-                "content": content,
-                "key": key,
-                "namespace": namespace,
-                "confidence": confidence,
-                "timestamp": time.time(),
-            }
-
-            # Store the memory using sync method - under all classified paths
+            ts = time.time()
             for storage_key in keys:
-                memory_item_copy = memory_item.copy()
-                memory_item_copy["key"] = storage_key
-                store.put(namespace_tuple, storage_key, memory_item_copy)
+                try:
+                    existing = store.get(namespace_tuple, storage_key)
+                except Exception:
+                    existing = None
+                existing_v2 = (
+                    upgrade_blob(existing) if isinstance(existing, dict) else None
+                )
+                strategy = resolve_policy(None, storage_key, path_provided=False)
+                new_entry = make_entry(
+                    content=content, confidence=confidence, timestamp=ts
+                )
+                outcome = apply_strategy(
+                    strategy,
+                    existing_v2,
+                    new_entry,
+                    key=storage_key,
+                    namespace=namespace,
+                )
+                if outcome.action != "write":
+                    continue
+                proj = project_entries(outcome.entries)
+                store.put(
+                    namespace_tuple,
+                    storage_key,
+                    {
+                        "content": proj["content"],
+                        "key": storage_key,
+                        "namespace": namespace,
+                        "confidence": proj["confidence"],
+                        "timestamp": proj["timestamp"],
+                        "related_keys": [k for k in keys if k != storage_key],
+                        "entries": outcome.entries,
+                        "schema_version": SCHEMA_VERSION,
+                    },
+                )
 
             # Get commit information after storage
             commit_hash = None
