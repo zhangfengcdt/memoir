@@ -18,6 +18,7 @@ from memoir.memento.timeline import TimelineMemento
 from memoir.services.merge_policy import (
     SCHEMA_VERSION,
     apply_strategy,
+    facet_max_entries,
     make_entry,
     project_entries,
     resolve_policy,
@@ -368,6 +369,7 @@ class MemoryHandler(BaseAPIHandler):
                 tuple(namespace.split(":")) if ":" in namespace else (namespace,)
             )
             ts = time.time()
+            max_entries = facet_max_entries()
             for storage_key in keys:
                 try:
                     existing = store.get(namespace_tuple, storage_key)
@@ -386,6 +388,7 @@ class MemoryHandler(BaseAPIHandler):
                     new_entry,
                     key=storage_key,
                     namespace=namespace,
+                    max_entries=max_entries,
                 )
                 if outcome.action != "write":
                     continue

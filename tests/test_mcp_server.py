@@ -153,6 +153,24 @@ def test_remember_explicit_path_is_llm_free(store):
     assert got["items"][0]["found"] is True
 
 
+def test_content_of_gates_non_blob_dicts():
+    # v2 facet blob → projected; v1 content blob → content; a dict that is not
+    # memory-blob-shaped must stringify whole (not collapse to "") so recall
+    # text and lexical ranking are preserved.
+    v2 = {
+        "entries": [
+            {"content": "a", "status": "active", "timestamp": 1.0},
+            {"content": "b", "status": "active", "timestamp": 2.0},
+        ],
+        "content": "a\n\n[update] b",
+    }
+    assert S._content_of(v2) == "a\n\n[update] b"
+    assert S._content_of({"content": "plain"}) == "plain"
+    non_blob = {"value": {"nested": "record"}}
+    assert S._content_of(non_blob) == str(non_blob)
+    assert S._content_of("raw string") == "raw string"
+
+
 def test_fastmcp_registration_and_dispatch(store):
     srv = S.build_server(store)
 

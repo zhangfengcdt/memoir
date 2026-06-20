@@ -1154,6 +1154,45 @@ class TestRememberMergePolicy:
         assert r.exit_code != 0
         assert "only one" in r.output.lower()
 
+    def test_interactive_and_merge_policy_mutually_exclusive(
+        self, runner, initialized_store
+    ):
+        r = runner.invoke(
+            cli,
+            [
+                "-s",
+                initialized_store,
+                "remember",
+                "x",
+                "-p",
+                "knowledge.technical.ix",
+                "--interactive",
+                "--merge-policy",
+                "append",
+            ],
+        )
+        assert r.exit_code != 0
+        assert "interactive" in r.output.lower()
+
+    def test_interactive_and_replace_mutually_exclusive(
+        self, runner, initialized_store
+    ):
+        r = runner.invoke(
+            cli,
+            [
+                "-s",
+                initialized_store,
+                "remember",
+                "x",
+                "-p",
+                "knowledge.technical.ixr",
+                "--interactive",
+                "--replace",
+            ],
+        )
+        assert r.exit_code != 0
+        assert "interactive" in r.output.lower()
+
     def test_interactive_json_mutually_exclusive(self, runner, initialized_store):
         r = runner.invoke(
             cli,

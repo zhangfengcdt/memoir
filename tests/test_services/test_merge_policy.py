@@ -4,12 +4,14 @@
 import pytest
 
 from memoir.services.merge_policy import (
+    DEFAULT_FACET_MAX_ENTRIES,
     SCHEMA_VERSION,
     ConflictInfo,
     ConflictStrategy,
     MemoryType,
     apply_strategy,
     default_strategy_for_key,
+    facet_max_entries,
     make_entry,
     memory_type_for_key,
     project_entries,
@@ -189,6 +191,29 @@ def test_resolve_legacy_behaviour_neutral_split():
 def test_resolve_invalid_value_raises():
     with pytest.raises(ValueError, match="bogus"):
         resolve_policy("bogus", "knowledge.x.y", path_provided=False, env="")
+
+
+# --------------------------------------------------------------------------- #
+# facet_max_entries — the shared cap resolver
+# --------------------------------------------------------------------------- #
+
+
+def test_facet_max_entries_default(monkeypatch):
+    monkeypatch.delenv("MEMOIR_FACET_MAX_ENTRIES", raising=False)
+    assert facet_max_entries() == DEFAULT_FACET_MAX_ENTRIES
+
+
+@pytest.mark.parametrize("disable", ["0", "none", "off", "unlimited"])
+def test_facet_max_entries_disabled(monkeypatch, disable):
+    monkeypatch.setenv("MEMOIR_FACET_MAX_ENTRIES", disable)
+    assert facet_max_entries() is None
+
+
+def test_facet_max_entries_custom_and_invalid(monkeypatch):
+    monkeypatch.setenv("MEMOIR_FACET_MAX_ENTRIES", "5")
+    assert facet_max_entries() == 5
+    monkeypatch.setenv("MEMOIR_FACET_MAX_ENTRIES", "notanumber")
+    assert facet_max_entries() == DEFAULT_FACET_MAX_ENTRIES
 
 
 # --------------------------------------------------------------------------- #

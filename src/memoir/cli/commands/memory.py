@@ -250,6 +250,15 @@ def remember(
             EXIT_ERROR,
         )
 
+    # --interactive resolves conflicts by prompting, so a preset strategy would
+    # be silently ignored. Reject the combination rather than pick one quietly.
+    if interactive and (merge_policy is not None or replace):
+        ctx.error(
+            "--interactive resolves conflicts by prompting; don't combine it "
+            "with --merge-policy or --replace.",
+            EXIT_ERROR,
+        )
+
     from memoir.services.memory_service import MemoryService
 
     # Parse optional `<namespace>:<path>` prefix on each -p value. Taxonomy

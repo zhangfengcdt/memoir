@@ -145,12 +145,16 @@ def _content_of(value: Any) -> str:
     """Extract the human-readable content from a stored value.
 
     Projects v2 facet blobs (respects active/superseded) and falls back to the
-    top-level content for v1 blobs.
+    top-level content for v1 blobs. Dicts that aren't memory-blob-shaped (no
+    ``entries``/``content`` — e.g. taxonomy/internal records) stringify whole,
+    preserving the prior behaviour so recall text isn't silently dropped.
     """
     if isinstance(value, dict):
-        from memoir.services.merge_policy import read_project
+        if "entries" in value or "content" in value:
+            from memoir.services.merge_policy import read_project
 
-        return read_project(value)
+            return read_project(value)
+        return str(value)
     return str(value)
 
 

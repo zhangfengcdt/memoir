@@ -39,6 +39,30 @@ _UPDATE_SEP = "\n\n[update] "
 #: Env var selecting a global merge policy (overrides per-type defaults).
 ENV_MERGE_POLICY = "MEMOIR_MERGE_POLICY"
 
+#: Env var capping facet entries per key (bounds append-style growth).
+ENV_FACET_MAX_ENTRIES = "MEMOIR_FACET_MAX_ENTRIES"
+
+#: Default cap on facet entries per key (oldest pruned). 0/none/off disables.
+DEFAULT_FACET_MAX_ENTRIES = 50
+
+
+def facet_max_entries() -> int | None:
+    """Resolve the per-key facet cap from ``MEMOIR_FACET_MAX_ENTRIES``.
+
+    Returns the default when unset, ``None`` (uncapped) for ``0``/``none``/
+    ``off``/``unlimited``, and a positive int otherwise. Shared by every writer
+    so the cap is applied consistently."""
+    raw = os.environ.get(ENV_FACET_MAX_ENTRIES, "").strip().lower()
+    if not raw:
+        return DEFAULT_FACET_MAX_ENTRIES
+    if raw in {"0", "none", "off", "unlimited"}:
+        return None
+    try:
+        val = int(raw)
+    except ValueError:
+        return DEFAULT_FACET_MAX_ENTRIES
+    return val if val > 0 else None
+
 
 class ConflictStrategy(str, Enum):
     """How a write resolves against an already-occupied key."""

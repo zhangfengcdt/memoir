@@ -18,6 +18,7 @@ from memoir.services.merge_policy import (
     SCHEMA_VERSION,
     ConflictStrategy,
     apply_strategy,
+    facet_max_entries,
     make_entry,
     project_entries,
     resolve_policy,
@@ -32,24 +33,6 @@ from memoir.services.models import (
 )
 
 logger = logging.getLogger(__name__)
-
-#: Default cap on facet entries per key (bounds append-style growth; oldest
-#: pruned). Override with MEMOIR_FACET_MAX_ENTRIES; 0/none/off disables capping.
-DEFAULT_FACET_MAX_ENTRIES = 50
-
-
-def _facet_max_entries() -> int | None:
-    """Resolve the per-key facet cap from MEMOIR_FACET_MAX_ENTRIES."""
-    raw = os.environ.get("MEMOIR_FACET_MAX_ENTRIES", "").strip().lower()
-    if not raw:
-        return DEFAULT_FACET_MAX_ENTRIES
-    if raw in {"0", "none", "off", "unlimited"}:
-        return None
-    try:
-        val = int(raw)
-    except ValueError:
-        return DEFAULT_FACET_MAX_ENTRIES
-    return val if val > 0 else None
 
 
 class MemoryService(BaseService):
@@ -404,7 +387,7 @@ class MemoryService(BaseService):
         if explicit_policy is None and replace:
             explicit_policy = ConflictStrategy.REPLACE
 
-        max_entries = _facet_max_entries()
+        max_entries = facet_max_entries()
         conflicts: list[dict] = []
         wrote_any = False
         for storage_key in keys:
