@@ -454,6 +454,87 @@ class TestMemoryServiceRemember:
         blob = memory_service.get([path]).items[0]["value"]
         assert [e["content"] for e in blob["entries"]] == ["2", "3"]
 
+    # --- Phase 4: merge-on-read (opt-in LLM consolidation) -------------------
+
+    def _seed_two_entry_blob(self, memory_service, path):
+        from memoir.services.merge_policy import (
+            SCHEMA_VERSION,
+            make_entry,
+            project_entries,
+        )
+
+        store = memory_service._get_store()
+        ns = memory_service.namespace_to_tuple("default")
+        entries = [make_entry("p1", timestamp=1.0), make_entry("p2", timestamp=2.0)]
+        proj = project_entries(entries)
+        store.put(
+            ns,
+            path,
+            {
+                "content": proj["content"],
+                "confidence": proj["confidence"],
+                "timestamp": proj["timestamp"],
+                "key": path,
+                "namespace": "default",
+                "related_keys": [],
+                "entries": entries,
+                "schema_version": SCHEMA_VERSION,
+            },
+        )
+
+    def test_merge_on_read_consolidates_outside_event_loop(
+        self, memory_service, monkeypatch
+    ):
+        """A sync get(consolidate=True) with no running loop runs the LLM
+        consolidation and overwrites the returned content."""
+        path = "experience.work.read_merge"
+        self._seed_two_entry_blob(memory_service, path)
+        monkeypatch.setattr(
+            memory_service, "_consolidate_read", lambda contents: " | ".join(contents)
+        )
+
+        res = memory_service.get([path], consolidate=True)
+        assert res.items[0]["value"]["content"] == "p1 | p2"
+
+    def test_merge_on_read_env_enables(self, memory_service, monkeypatch):
+        """MEMOIR_RECALL_MERGE enables consolidation without an explicit flag."""
+        path = "experience.work.read_merge_env"
+        self._seed_two_entry_blob(memory_service, path)
+        monkeypatch.setenv("MEMOIR_RECALL_MERGE", "llm")
+        monkeypatch.setattr(
+            memory_service, "_consolidate_read", lambda contents: "MERGED"
+        )
+
+        res = memory_service.get([path])  # consolidate=None -> env decides
+        assert res.items[0]["value"]["content"] == "MERGED"
+
+    def test_get_default_keeps_deterministic_projection(self, memory_service):
+        """Default get() does not consolidate — projection content is returned."""
+        path = "experience.work.read_plain"
+        self._seed_two_entry_blob(memory_service, path)
+
+        res = memory_service.get([path])
+        assert res.items[0]["value"]["content"] == "p1\n\n[update] p2"
+
+    @pytest.mark.asyncio
+    async def test_merge_on_read_falls_back_inside_event_loop(
+        self, memory_service, monkeypatch
+    ):
+        """Inside a running loop the sync LLM call can't run; get() returns the
+        deterministic projection without invoking consolidation."""
+        path = "experience.work.read_merge_loop"
+        self._seed_two_entry_blob(memory_service, path)
+        called: list[int] = []
+        monkeypatch.setattr(
+            memory_service,
+            "_consolidate_read",
+            lambda contents: called.append(1) or "X",
+        )
+
+        res = memory_service.get([path], consolidate=True)
+        assert not called  # loop-guard prevented the sync LLM call
+        assert res.items[0]["value"]["content"] == "p1\n\n[update] p2"
+
     @pytest.mark.asyncio
     async def test_remember_path_replace_preserves_related_keys(self, memory_service):
         """Even with replace=True, sibling related_keys from earlier multi-key

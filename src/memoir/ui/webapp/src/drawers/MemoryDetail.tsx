@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { marked } from "marked";
-import type { BlameEntry, Memory } from "../api/types";
+import type { BlameEntry, FacetEntry, Memory } from "../api/types";
 import { api, MemoirApiError } from "../api/client";
 import { useStore } from "../state/storeSlice";
 import { useConfig } from "../state/configSlice";
@@ -353,6 +353,10 @@ export default function MemoryDetail({ memory }: MemoryDetailProps) {
        * via the same path the graph uses. */}
       <RelatedKeysSection memory={memory} />
 
+      {/* Facet history — the timestamped entries that roll up into the content
+       * above (v2 blobs). Hidden for single-entry / legacy v1 memories. */}
+      <FacetsSection memory={memory} />
+
       {viewingMarkdown && (
         <div
           className="md-viewer-backdrop"
@@ -445,6 +449,69 @@ function normalizeRelatedKeys(value: Record<string, unknown>): string[] {
   const raw = value?.related_keys;
   if (!Array.isArray(raw)) return [];
   return raw.filter((k): k is string => typeof k === "string" && k.length > 0);
+}
+
+function normalizeFacets(value: Record<string, unknown>): FacetEntry[] {
+  const raw = value?.entries;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter(
+    (e): e is FacetEntry =>
+      typeof e === "object" &&
+      e !== null &&
+      typeof (e as { content?: unknown }).content === "string",
+  );
+}
+
+/**
+ * Facet history for v2 blobs: the timestamped entries that the editable
+ * content above is a projection of. Each entry shows its confidence, time, and
+ * a "superseded" badge when it no longer participates in the projection. Hidden
+ * for single-entry and legacy (v1) memories, which the editor fully represents.
+ */
+function FacetsSection({ memory }: { memory: Memory }) {
+  const facets = useMemo(() => normalizeFacets(memory.value), [memory.value]);
+
+  if (facets.length <= 1) return null;
+
+  return (
+    <section className="drawer-panel-section memory-facets">
+      <div className="memory-facets-header">
+        <span className="memory-meta-label">History (facets)</span>
+        <span className="memory-history-count">{facets.length}</span>
+      </div>
+      <ol className="memory-facets-list">
+        {facets.map((f, i) => {
+          const superseded = f.status === "superseded";
+          return (
+            <li
+              key={i}
+              className={
+                "memory-facet" + (superseded ? " memory-facet-superseded" : "")
+              }
+            >
+              <div className="memory-facet-meta">
+                <span className="memory-facet-index">#{i + 1}</span>
+                {typeof f.confidence === "number" && (
+                  <span className="memory-facet-conf">
+                    conf {f.confidence.toFixed(2)}
+                  </span>
+                )}
+                {typeof f.timestamp === "number" && f.timestamp > 0 && (
+                  <span className="memory-facet-time">
+                    {new Date(f.timestamp * 1000).toLocaleString()}
+                  </span>
+                )}
+                {superseded && (
+                  <span className="memory-facet-badge">superseded</span>
+                )}
+              </div>
+              <div className="memory-facet-content">{f.content}</div>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+  );
 }
 
 function HistorySection({ memory }: { memory: Memory }) {

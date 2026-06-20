@@ -150,6 +150,63 @@ class MemoryService(BaseService):
             logger.warning("LLM_MERGE consolidation failed (%s); replacing instead", e)
             return new_content
 
+    @staticmethod
+    def _recall_merge_enabled() -> bool:
+        """Whether merge-on-read LLM consolidation is on (MEMOIR_RECALL_MERGE)."""
+        return os.environ.get("MEMOIR_RECALL_MERGE", "").strip().lower() in {
+            "llm",
+            "1",
+            "true",
+            "on",
+        }
+
+    def _consolidate_read(self, contents: list[str]) -> str:
+        """Consolidate several facet contents into one string for retrieval.
+
+        Synchronous (uses the LLM's sync invoke). Best-effort: returns "" on any
+        error so the caller falls back to the deterministic projection.
+        """
+        try:
+            import memoir.llm as _llm_pkg
+
+            tmpl = (
+                Path(_llm_pkg.__file__).parent / "prompts" / "consolidate_read.tmpl"
+            ).read_text(encoding="utf-8")
+            numbered = "\n".join(f"{i + 1}. {c}" for i, c in enumerate(contents))
+            prompt = tmpl.replace("<<ENTRIES>>", numbered)
+            resp = self._get_llm().invoke(prompt)
+            return (getattr(resp, "content", None) or "").strip()
+        except Exception as e:
+            logger.warning("merge-on-read consolidation failed (%s)", e)
+            return ""
+
+    def _maybe_consolidate_value(self, value):
+        """Overwrite a v2 blob's projected content with an LLM consolidation of
+        its active entries. No-op for v1 / single-entry blobs, and a safe
+        deterministic fallback when already inside an event loop (the sync LLM
+        call can't run there)."""
+        if not isinstance(value, dict):
+            return value
+        entries = value.get("entries")
+        if not isinstance(entries, list):
+            return value
+        active = [e for e in entries if e.get("status", "active") == "active"]
+        if len(active) <= 1:
+            return value
+        try:
+            import asyncio
+
+            asyncio.get_running_loop()
+            return value  # inside a loop — keep deterministic projection
+        except RuntimeError:
+            pass  # no running loop; safe to call the sync LLM
+        merged = self._consolidate_read([e.get("content", "") for e in active])
+        if merged:
+            consolidated = dict(value)
+            consolidated["content"] = merged
+            return consolidated
+        return value
+
     def _get_search_engine(self):
         """Lazily initialize and return the search engine."""
         if self._search_engine is None:
@@ -569,6 +626,7 @@ class MemoryService(BaseService):
         self,
         keys: list[str],
         namespace: str = "default",
+        consolidate: bool | None = None,
     ) -> GetResult:
         """
         Directly fetch one or more memories by key.
@@ -580,6 +638,12 @@ class MemoryService(BaseService):
         Args:
             keys: List of taxonomy paths to fetch (e.g. ["preferences.coding.style"]).
             namespace: Namespace to look in. Defaults to "default".
+            consolidate: Merge-on-read. When True (or None and
+                MEMOIR_RECALL_MERGE is set), a multi-entry facet blob's returned
+                ``content`` is replaced with an LLM consolidation of its active
+                entries. Off by default — the deterministic projection is
+                already a coherent read. Falls back to the projection inside an
+                event loop or on LLM error.
 
         Returns:
             GetResult with one entry per requested key. Missing keys are marked
@@ -589,6 +653,9 @@ class MemoryService(BaseService):
             raise StoreNotFoundError(self.store_path)
 
         start = time.time()
+        do_consolidate = (
+            self._recall_merge_enabled() if consolidate is None else consolidate
+        )
 
         try:
             store = self._get_store()
@@ -597,6 +664,8 @@ class MemoryService(BaseService):
             items = []
             for key in keys:
                 value = store.get(namespace_tuple, key)
+                if do_consolidate and value is not None:
+                    value = self._maybe_consolidate_value(value)
                 items.append(
                     {
                         "key": key,

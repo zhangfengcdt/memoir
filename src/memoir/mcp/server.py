@@ -142,9 +142,15 @@ def _store_service(store_path: str | None = None):
 
 
 def _content_of(value: Any) -> str:
-    """Extract the human-readable content from a stored value."""
+    """Extract the human-readable content from a stored value.
+
+    Projects v2 facet blobs (respects active/superseded) and falls back to the
+    top-level content for v1 blobs.
+    """
     if isinstance(value, dict):
-        return str(value.get("content", value))
+        from memoir.services.merge_policy import read_project
+
+        return read_project(value)
     return str(value)
 
 
@@ -277,11 +283,20 @@ async def recall_semantic(
 
 
 async def remember(
-    store_path: str, content: str, namespace: str = "default", path: str | None = None
+    store_path: str,
+    content: str,
+    namespace: str = "default",
+    path: str | None = None,
+    merge_policy: str | None = None,
 ) -> dict:
     """Store content as a durable fact. Auto-classified into a semantic path
     (needs a provider key) unless an explicit ``path`` is given (no LLM).
     Refuses obvious secrets — memory is versioned plaintext.
+
+    ``merge_policy`` selects conflict resolution when the key is already
+    occupied (append/replace/confidence_gated/llm_merge/merge_on_read/reject).
+    Pass ``reject`` to drive your own read-merge-write: nothing is written and
+    the response carries ``conflicts`` describing the existing value.
     """
     if _looks_like_secret(content):
         return {
@@ -291,13 +306,16 @@ async def remember(
                 "versioned and stored in plaintext — use a secrets manager instead."
             ),
         }
-    result = await _memory_service(store_path).remember(content, namespace, path=path)
+    result = await _memory_service(store_path).remember(
+        content, namespace, path=path, merge_policy=merge_policy
+    )
     return {
         "success": result.success,
         "key": result.key,
         "confidence": result.confidence,
         "reasoning": result.reasoning,
         "commit": result.commit_hash,
+        "conflicts": result.conflicts,
     }
 
 
@@ -438,13 +456,25 @@ def build_server(store_path: str):
             "Store a durable fact in memory, committed with git versioning. It is "
             "auto-classified into a semantic path (needs a provider key), or pass an "
             "explicit `path` to skip classification. Secrets/credentials are refused — "
-            "do not store passwords, API keys, or tokens."
+            "do not store passwords, API keys, or tokens. Optional `merge_policy` "
+            "controls what happens when the key already exists (append, replace, "
+            "confidence_gated, llm_merge, merge_on_read, reject); `reject` returns "
+            "the existing value as `conflicts` without writing, for read-merge-write."
         ),
     )
     async def memoir_remember(
-        content: str, namespace: str = "default", path: str | None = None
+        content: str,
+        namespace: str = "default",
+        path: str | None = None,
+        merge_policy: str | None = None,
     ) -> dict:
-        return await remember(store_path, content, namespace=namespace, path=path)
+        return await remember(
+            store_path,
+            content,
+            namespace=namespace,
+            path=path,
+            merge_policy=merge_policy,
+        )
 
     @server.tool(
         name="memoir_forget",
