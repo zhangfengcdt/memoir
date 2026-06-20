@@ -242,6 +242,14 @@ def remember(
             EXIT_NO_STORE,
         )
 
+    # --replace is just an alias for --merge-policy replace; accepting both is
+    # ambiguous (the explicit policy would silently win), so reject the combo.
+    if replace and merge_policy is not None:
+        ctx.error(
+            "--replace is an alias for --merge-policy replace; pass only one.",
+            EXIT_ERROR,
+        )
+
     from memoir.services.memory_service import MemoryService
 
     # Parse optional `<namespace>:<path>` prefix on each -p value. Taxonomy

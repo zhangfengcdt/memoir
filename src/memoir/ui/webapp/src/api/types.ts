@@ -16,8 +16,9 @@ export interface StoreCommit {
 }
 
 // A single timestamped facet entry inside a v2 memory blob. These ride inside
-// `Memory.value.entries` (schema_version 2); v1 blobs have none. `content` is
-// the projected roll-up of the active entries.
+// `Memory.value.entries` (schema_version 2); v1 blobs have none. `content` here
+// is this one entry's text — the projected roll-up of all active entries is the
+// top-level `Memory.content` (a.k.a. `Memory.value.content`).
 export interface FacetEntry {
   content: string;
   confidence?: number;

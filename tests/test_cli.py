@@ -1134,6 +1134,26 @@ class TestRememberMergePolicy:
         assert data["conflicts"]
         assert data["conflicts"][0]["existing_content"] == "first"
 
+    def test_replace_and_merge_policy_mutually_exclusive(
+        self, runner, initialized_store
+    ):
+        r = runner.invoke(
+            cli,
+            [
+                "-s",
+                initialized_store,
+                "remember",
+                "x",
+                "-p",
+                "knowledge.technical.both",
+                "--replace",
+                "--merge-policy",
+                "append",
+            ],
+        )
+        assert r.exit_code != 0
+        assert "only one" in r.output.lower()
+
     def test_interactive_json_mutually_exclusive(self, runner, initialized_store):
         r = runner.invoke(
             cli,

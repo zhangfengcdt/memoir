@@ -27,6 +27,7 @@ from __future__ import annotations
 import os
 from dataclasses import asdict, dataclass
 from enum import Enum
+from typing import Any
 
 SCHEMA_VERSION = 2
 
@@ -164,12 +165,14 @@ def project_entries(entries: list[dict]) -> dict:
     return {"content": content, "confidence": confidence, "timestamp": timestamp}
 
 
-def upgrade_blob(existing: dict | None) -> dict | None:
+def upgrade_blob(existing: Any) -> Any:
     """Lazily lift a v1 blob (bare ``content``) to the v2 facet shape.
 
     Idempotent: a blob already at ``schema_version >= 2`` with an ``entries``
-    list is returned unchanged. ``None`` stays ``None``. Non-dicts pass through
-    defensively. Preserves ``related_keys`` and any extra metadata.
+    list is returned unchanged. ``None`` stays ``None``, and non-dicts pass
+    through unchanged (hence the permissive ``Any`` typing) so a defensive
+    caller can route any stored value through here. For a dict v1 blob it
+    returns a new v2 dict, preserving ``related_keys`` and any extra metadata.
     """
     if not isinstance(existing, dict):
         return existing

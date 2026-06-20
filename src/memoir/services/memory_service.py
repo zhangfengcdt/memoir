@@ -259,8 +259,10 @@ class MemoryService(BaseService):
                 already occupied (one of ``ConflictStrategy``: append, replace,
                 confidence_gated, llm_merge, merge_on_read, reject). Precedence:
                 this arg > ``MEMOIR_MERGE_POLICY`` env > per-type default. When
-                unset, the behaviour-neutral legacy split is used for now
-                (path-provided → append, LLM classifier → replace). Writes are
+                unset, the default is derived from the key's memory type
+                (semantic → confidence_gated, episodic → append, procedural →
+                llm_merge, working → replace); ``MEMOIR_MERGE_POLICY=replace``
+                restores the old overwrite-everywhere behaviour. Writes are
                 stored as a timestamped-facet list (``schema_version`` 2) with a
                 projected top-level ``content`` so legacy readers are unaffected.
             extra_metadata: Optional caller-supplied metadata dict merged into
