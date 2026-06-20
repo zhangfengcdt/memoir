@@ -31,7 +31,7 @@ Each project gets its own memoir store under `~/.memoir/<slug>/`, derived from y
 | Command | Purpose |
 |---|---|
 | `/memoir:onboard [--force]` | Populate or refresh the `codebase:onboard` snapshot. |
-| `/memoir:remember <fact>` | Capture a memory. `-p <path>` skips classification. |
+| `/memoir:remember <fact>` | Capture a memory. `-p <path>` skips classification. Prompts you to resolve conflicts when the key already exists (see [Interactive conflict resolution](#interactive-conflict-resolution)). |
 | `/memoir:recall <query>` | Recall from prior sessions (delegates to the `memory-recall` skill). |
 | `/memoir:status` | Branch, commit count, memory count, namespaces. |
 | `/memoir:sync [branch ...]` | Guided promotion of unmerged memoir branches into `main` (select UI: merge all / choose / ignore / snooze / delete branches). With arguments, merges those branches directly. See [Branch sync](#branch-sync-memoirsync). |
@@ -54,6 +54,30 @@ By design:
 
 - **Reads are auto-triggered via skills.** The agent pulls context when it thinks it might need to, without the user asking.
 - **Writes are an explicit slash command.** `/memoir:remember` stays as a command — not a skill — because the `Stop` hook already handles auto-capture; this command is the manual escape hatch. Deletion (`memoir forget`) lives on the CLI rather than as a slash command, kept explicit for safety.
+
+### Interactive conflict resolution
+
+`/memoir:remember` resolves write conflicts **interactively by default**. When the target key is already occupied, the command does not silently overwrite or append — it surfaces the existing value and lets you decide.
+
+Mechanically, the command issues its write with `--merge-policy reject`: fresh keys are written immediately, but an occupied key is refused and returned as a conflict (nothing is clobbered). The agent then shows you the comparison and the options, and waits:
+
+```
+● Conflict at knowledge.coding.style
+  existing: use spaces
+  incoming: use tabs
+How should I save this? [replace / append / merge / skip]
+```
+
+- **replace** — overwrite with the new value (keep only the latest)
+- **append** — keep both (the new value becomes another entry)
+- **merge** — LLM-consolidate old and new into one statement (slower; needs a model)
+- **skip** — leave the existing memory unchanged
+
+Your choice is applied as a second, explicit write. Notes:
+
+- Conflict-free captures are unaffected — a write to a new key just succeeds.
+- To capture **without** prompting, pass an explicit policy, e.g. `/memoir:remember "…" -p <path> --merge-policy replace`; the command forwards it and skips the prompt.
+- This applies only to the manual command. The `Stop`-hook **auto-capture** stays non-interactive (it can't prompt mid-turn) and resolves conflicts by the per-type default — see [How auto-capture decides what to remember](#how-auto-capture-decides-what-to-remember).
 
 ## Lifecycle hooks
 
