@@ -9,11 +9,12 @@ These documents provide comprehensive explanations of the algorithms, design dec
 - [Classifier](classifier.md)
 - [Search](search.md)
 - [Memento](memento.md)
+- [Conflict & Merge](conflict-merge.md)
 - [Related Work](related-work.md)
 
 ## Overview
 
-The theory documentation explores three fundamental aspects of Memoir:
+The theory documentation explores the fundamental aspects of Memoir:
 
 ### Classifier Theory
 Detailed analysis of the two classifier approaches (`SemanticClassifier` in `classifier/semantic.py` and `IntelligentClassifier` in `classifier/intelligent.py`), including their algorithms, performance characteristics, and use cases.
@@ -34,6 +35,13 @@ Comprehensive examination of the memento pattern implementation for ProfileMemen
 - **ProfileMemento**: Identity and biographical information with replacement semantics
 - **TimelineMemento**: Chronological event organization by date
 - **LocationMemento**: Spatial memory management with geographic normalization
+
+### Conflict & Merge Theory
+How Memoir resolves a write onto an already-occupied key: the timestamped-facet storage model (`schema_version: 2`) and the pluggable conflict-resolution strategies in `services/merge_policy.py`, whose default is derived from the key's memory type.
+
+- **Strategies**: `append`, `replace`, `confidence_gated`, `llm_merge`, `merge_on_read`, `reject`
+- **Per-type defaults**: episodic→append, semantic→confidence-gated, procedural→llm-merge, working→replace
+- **Facet projection**: a rolled-up top-level `content` keeps every legacy reader and the UI working unchanged
 
 ### Related Work
 Pointers to the academic and industry research that grounds Memoir's design — hierarchical text classification, agent memory architectures, episodic/semantic memory frameworks, and content-addressed storage. Use this page when situating Memoir against MemGPT, A-MEM, CoALA, Generative Agents, and related lines of work.

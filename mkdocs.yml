@@ -99,6 +99,7 @@ nav:
       - Classifier: theory/classifier.md
       - Search: theory/search.md
       - Memento: theory/memento.md
+      - Conflict & Merge: theory/conflict-merge.md
       - Related Work: theory/related-work.md
   - CLI: cli.md
   - Watch & Search: watch.md
