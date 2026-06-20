@@ -103,13 +103,24 @@ def _render_remember_result(ctx, result) -> None:
         if result.commit_hash:
             click.echo(f"  Commit: {result.commit_hash[:8]}")
     elif result.conflicts:
+        # A multi-key write can partially succeed: keys not in `conflicts` were
+        # written. Report those before erroring so the user knows what landed.
+        conflict_keys = {c["key"] for c in result.conflicts}
+        written = [k for k in result.keys if k not in conflict_keys]
+        for key in written:
+            click.echo(click.style("✓ ", fg="green") + f"Stored at: {key}")
+        if written and result.commit_hash:
+            click.echo(f"  Commit: {result.commit_hash[:8]}")
         for conflict in result.conflicts:
             click.echo(
                 click.style("! ", fg="yellow")
                 + f"Conflict at {conflict['key']} — not written. Re-run with "
                 "--merge-policy <strategy> or --interactive to resolve."
             )
-        ctx.error("Unresolved conflict(s); nothing written for those keys.", EXIT_ERROR)
+        ctx.error(
+            "Unresolved conflict(s); the conflicting keys above were not written.",
+            EXIT_ERROR,
+        )
     else:
         ctx.error(result.error or "Failed to store memory", EXIT_CLASSIFICATION_FAILED)
 

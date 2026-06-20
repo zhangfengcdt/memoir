@@ -153,7 +153,10 @@ def _content_of(value: Any) -> str:
         if "entries" in value or "content" in value:
             from memoir.services.merge_policy import read_project
 
-            return read_project(value)
+            # Coerce to str: a v1 blob's top-level `content` may itself be a
+            # dict (e.g. timeline/location records), and MCP callers expect a
+            # string here (matches the prior str(...) behaviour).
+            return str(read_project(value))
         return str(value)
     return str(value)
 

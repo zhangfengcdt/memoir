@@ -169,6 +169,11 @@ def test_content_of_gates_non_blob_dicts():
     non_blob = {"value": {"nested": "record"}}
     assert S._content_of(non_blob) == str(non_blob)
     assert S._content_of("raw string") == "raw string"
+    # A v1 blob whose top-level content is itself a dict must still return a
+    # string (MCP callers expect content: str), matching the prior str(...).
+    dict_content = {"content": {"raw_text": "x"}}
+    assert S._content_of(dict_content) == str({"raw_text": "x"})
+    assert isinstance(S._content_of(dict_content), str)
 
 
 def test_fastmcp_registration_and_dispatch(store):

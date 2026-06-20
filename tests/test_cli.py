@@ -1112,6 +1112,36 @@ class TestRememberMergePolicy:
         assert "first" in got.output
         assert "second" not in got.output
 
+    def test_reject_multikey_reports_written_and_conflict(
+        self, runner, initialized_store
+    ):
+        # One key exists, one is fresh. A reject write should store the fresh
+        # key, report it as stored, AND surface the conflict, exiting nonzero.
+        self._seed(runner, initialized_store, "existing", "knowledge.technical.kept")
+        r = runner.invoke(
+            cli,
+            [
+                "-s",
+                initialized_store,
+                "remember",
+                "newval",
+                "-p",
+                "knowledge.technical.kept",
+                "-p",
+                "knowledge.technical.fresh",
+                "--merge-policy",
+                "reject",
+            ],
+        )
+        assert r.exit_code != 0
+        assert "Stored at: knowledge.technical.fresh" in r.output  # partial success
+        assert "Conflict at knowledge.technical.kept" in r.output
+        # the fresh key really landed
+        got = runner.invoke(
+            cli, ["-s", initialized_store, "get", "knowledge.technical.fresh"]
+        )
+        assert "newval" in got.output
+
     def test_reject_json_emits_conflicts(self, runner, initialized_store):
         path = "knowledge.technical.cli_reject_json"
         self._seed(runner, initialized_store, "first", path)
