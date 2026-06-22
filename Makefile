@@ -14,6 +14,7 @@ help:
 	@echo "  type-check      Run type checking with mypy"
 	@echo "  security        Run security checks"
 	@echo "  benchmark       Run classifier benchmark"
+	@echo "  benchmark-locomo Run LoCoMo / LoCoMo-Plus benchmark (needs a local Locomo-Plus checkout)"
 	@echo "  docs            Build HTML documentation"
 	@echo "  docs-live       Build docs with auto-reload for development"
 	@echo "  docs-clean      Clean documentation build directory"
@@ -93,6 +94,14 @@ security:
 
 benchmark:
 	python benchmarks/classifier.py --help
+
+REPO_DIR ?= /tmp/locomo-bench/Locomo-Plus
+OUT ?= /tmp/locomo-bench/runA
+benchmark-locomo:
+	python benchmarks/locomo/run.py --repo-dir $(REPO_DIR) \
+		--conversations 0 --max-factual-per-category 3 \
+		--cognitive-limit 8 --modes raw --baseline \
+		--concurrency 10 --out $(OUT)
 
 docs:
 	@echo "Building documentation..."
