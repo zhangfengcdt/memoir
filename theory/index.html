@@ -876,6 +876,8 @@
       
         
       
+        
+      
     
     
     
@@ -1004,6 +1006,34 @@
     
   
     Memento
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="conflict-merge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Conflict & Merge
   
 
     
@@ -1803,6 +1833,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#conflict-merge-theory" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conflict &amp; Merge Theory
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#related-work" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1884,10 +1925,11 @@
 <li><a href="classifier/">Classifier</a></li>
 <li><a href="search/">Search</a></li>
 <li><a href="memento/">Memento</a></li>
+<li><a href="conflict-merge/">Conflict &amp; Merge</a></li>
 <li><a href="related-work/">Related Work</a></li>
 </ul>
 <h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
-<p>The theory documentation explores three fundamental aspects of Memoir:</p>
+<p>The theory documentation explores the fundamental aspects of Memoir:</p>
 <h3 id="classifier-theory">Classifier Theory<a class="headerlink" href="#classifier-theory" title="Permanent link">&para;</a></h3>
 <p>Detailed analysis of the two classifier approaches (<code>SemanticClassifier</code> in <code>classifier/semantic.py</code> and <code>IntelligentClassifier</code> in <code>classifier/intelligent.py</code>), including their algorithms, performance characteristics, and use cases.</p>
 <ul>
@@ -1907,6 +1949,13 @@
 <li><strong>ProfileMemento</strong>: Identity and biographical information with replacement semantics</li>
 <li><strong>TimelineMemento</strong>: Chronological event organization by date</li>
 <li><strong>LocationMemento</strong>: Spatial memory management with geographic normalization</li>
+</ul>
+<h3 id="conflict-merge-theory">Conflict &amp; Merge Theory<a class="headerlink" href="#conflict-merge-theory" title="Permanent link">&para;</a></h3>
+<p>How Memoir resolves a write onto an already-occupied key: the timestamped-facet storage model (<code>schema_version: 2</code>) and the pluggable conflict-resolution strategies in <code>services/merge_policy.py</code>, whose default is derived from the key's memory type.</p>
+<ul>
+<li><strong>Strategies</strong>: <code>append</code>, <code>replace</code>, <code>confidence_gated</code>, <code>llm_merge</code>, <code>merge_on_read</code>, <code>reject</code></li>
+<li><strong>Per-type defaults</strong>: episodic→append, semantic→confidence-gated, procedural→llm-merge, working→replace</li>
+<li><strong>Facet projection</strong>: a rolled-up top-level <code>content</code> keeps every legacy reader and the UI working unchanged</li>
 </ul>
 <h3 id="related-work">Related Work<a class="headerlink" href="#related-work" title="Permanent link">&para;</a></h3>
 <p>Pointers to the academic and industry research that grounds Memoir's design — hierarchical text classification, agent memory architectures, episodic/semantic memory frameworks, and content-addressed storage. Use this page when situating Memoir against MemGPT, A-MEM, CoALA, Generative Agents, and related lines of work.</p>

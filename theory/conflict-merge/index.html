@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://zhangfengcdt.github.io/memoir/theory/related-work/">
+        <link rel="canonical" href="https://zhangfengcdt.github.io/memoir/theory/conflict-merge/">
       
       
-        <link rel="prev" href="../conflict-merge/">
+        <link rel="prev" href="../memento/">
       
       
-        <link rel="next" href="../../cli/">
+        <link rel="next" href="../related-work/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Related Work - Memoir</title>
+        <title>Conflict & Merge - Memoir</title>
       
     
     
@@ -82,7 +82,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#related-work" class="md-skip">
+        <a href="#memoir-conflict-merge-theory" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Related Work
+              Conflict & Merge
             
           </span>
         </div>
@@ -1023,34 +1023,6 @@
                 
   
   
-  
-  
-    <li class="md-nav__item">
-      <a href="../conflict-merge/" class="md-nav__link">
-        
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Conflict & Merge
-  
-
-    
-  </span>
-  
-  
-
-      </a>
-    </li>
-  
-
-              
-            
-              
-                
-  
-  
     
   
   
@@ -1070,7 +1042,7 @@
   <span class="md-ellipsis">
     
   
-    Related Work
+    Conflict & Merge
   
 
     
@@ -1088,7 +1060,7 @@
   <span class="md-ellipsis">
     
   
-    Related Work
+    Conflict & Merge
   
 
     
@@ -1114,10 +1086,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#classifier-hierarchical-text-classification-with-llms" class="md-nav__link">
+  <a href="#summary" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Classifier — Hierarchical Text Classification with LLMs
+        Summary
       
     </span>
   </a>
@@ -1125,10 +1097,49 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#long-term-memory-architecture-for-llm-agents" class="md-nav__link">
+  <a href="#core-philosophy" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Long-Term Memory Architecture for LLM Agents
+        Core Philosophy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Core Philosophy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#memory-type-decides-the-merge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Memory type decides the merge
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#detection-is-intentionally-narrow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detection is intentionally narrow
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-facet-storage-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Facet Storage Model
       
     </span>
   </a>
@@ -1136,10 +1147,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#versioned-structured-data-and-content-addressed-storage" class="md-nav__link">
+  <a href="#the-strategy-menu" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Versioned Structured Data and Content-Addressed Storage
+        The Strategy Menu
       
     </span>
   </a>
@@ -1147,10 +1158,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#memento-pattern-episodic-semantic-and-spatial-memory" class="md-nav__link">
+  <a href="#fit-into-the-four-memory-types" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Memento Pattern — Episodic, Semantic, and Spatial Memory
+        Fit Into the Four Memory Types
       
     </span>
   </a>
@@ -1158,10 +1169,121 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#notable-gaps" class="md-nav__link">
+  <a href="#resolution-precedence" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Notable Gaps
+        Resolution Precedence
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Resolution Precedence">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#defaults-vs-overrides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Defaults vs. overrides
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-write-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Write Path
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interfaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interfaces
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#merge-on-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Merge-on-Read
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#theoretical-foundation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Theoretical Foundation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Theoretical Foundation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#last-write-wins-is-a-policy-not-a-law" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Last-write-wins is a policy, not a law
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cognitive-grounding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cognitive grounding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bounded-growth-as-an-invariant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bounded growth as an invariant
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conclusion
       
     </span>
   </a>
@@ -1172,6 +1294,34 @@
   
 </nav>
       
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../related-work/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Related Work
+  
+
+    
+  </span>
+  
+  
+
+      </a>
     </li>
   
 
@@ -1879,10 +2029,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#classifier-hierarchical-text-classification-with-llms" class="md-nav__link">
+  <a href="#summary" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Classifier — Hierarchical Text Classification with LLMs
+        Summary
       
     </span>
   </a>
@@ -1890,10 +2040,49 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#long-term-memory-architecture-for-llm-agents" class="md-nav__link">
+  <a href="#core-philosophy" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Long-Term Memory Architecture for LLM Agents
+        Core Philosophy
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Core Philosophy">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#memory-type-decides-the-merge" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Memory type decides the merge
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#detection-is-intentionally-narrow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Detection is intentionally narrow
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-facet-storage-model" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Facet Storage Model
       
     </span>
   </a>
@@ -1901,10 +2090,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#versioned-structured-data-and-content-addressed-storage" class="md-nav__link">
+  <a href="#the-strategy-menu" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Versioned Structured Data and Content-Addressed Storage
+        The Strategy Menu
       
     </span>
   </a>
@@ -1912,10 +2101,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#memento-pattern-episodic-semantic-and-spatial-memory" class="md-nav__link">
+  <a href="#fit-into-the-four-memory-types" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Memento Pattern — Episodic, Semantic, and Spatial Memory
+        Fit Into the Four Memory Types
       
     </span>
   </a>
@@ -1923,10 +2112,121 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#notable-gaps" class="md-nav__link">
+  <a href="#resolution-precedence" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Notable Gaps
+        Resolution Precedence
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Resolution Precedence">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#defaults-vs-overrides" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Defaults vs. overrides
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#the-write-path" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        The Write Path
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interfaces" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Interfaces
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#merge-on-read" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Merge-on-Read
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#theoretical-foundation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Theoretical Foundation
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Theoretical Foundation">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#last-write-wins-is-a-policy-not-a-law" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Last-write-wins is a policy, not a law
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#cognitive-grounding" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Cognitive grounding
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bounded-growth-as-an-invariant" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Bounded growth as an invariant
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#conclusion" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Conclusion
       
     </span>
   </a>
@@ -1950,7 +2250,7 @@
 
 
   
-    <a href="https://github.com/zhangfengcdt/memoir/edit/main/docs/theory/related-work.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/zhangfengcdt/memoir/edit/main/docs/theory/conflict-merge.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -1958,47 +2258,314 @@
   
 
 
-<h1 id="related-work">Related Work<a class="headerlink" href="#related-work" title="Permanent link">&para;</a></h1>
-<p>This page maps Memoir's design choices to the research that informs them. Sections are organized by which Memoir component the citation grounds, with a short note on relevance — not a literature review, just enough to point a curious reader at the strongest prior art.</p>
-<h2 id="classifier-hierarchical-text-classification-with-llms">Classifier — Hierarchical Text Classification with LLMs<a class="headerlink" href="#classifier-hierarchical-text-classification-with-llms" title="Permanent link">&para;</a></h2>
-<p>Memoir's <code>IntelligentClassifier</code> performs zero/few-shot hierarchical multi-label classification with a single LLM call against a structured taxonomy prompt. This is a quietly active subfield (2024–2025) with several papers describing nearly the same construction.</p>
+<h1 id="memoir-conflict-merge-theory">Memoir Conflict &amp; Merge Theory<a class="headerlink" href="#memoir-conflict-merge-theory" title="Permanent link">&para;</a></h1>
+<h2 id="summary">Summary<a class="headerlink" href="#summary" title="Permanent link">&para;</a></h2>
+<p>When a write lands on a taxonomy key that is <strong>already occupied</strong>, Memoir must decide
+what happens to the prior value. Historically the answer was implicit and lossy: the
+LLM classifier silently overwrote (last-write-wins), while caller-supplied <code>-p</code> paths
+blindly appended an <code>[update]</code> paragraph that grew without bound. There was no merge,
+no deduplication, and no notion that different <em>kinds</em> of memory want different
+behaviour.</p>
+<p>The conflict-and-merge subsystem replaces that with two cooperating ideas:</p>
+<ol>
+<li><strong>A timestamped-facet storage model</strong> (<code>schema_version: 2</code>) — a key holds a <em>list</em>
+   of dated entries instead of one opaque string, with a projected top-level
+   <code>content</code> so every existing reader keeps working.</li>
+<li><strong>A pluggable set of conflict-resolution strategies</strong>, selected by a precedence
+   chain whose default is <strong>derived from the memory type</strong> of the key.</li>
+</ol>
+<p>The result mirrors how human memory behaves: episodic logs accumulate, semantic facts
+consolidate, procedures are refined, and working scratch is overwritten. The
+implementation lives in <code>src/memoir/services/merge_policy.py</code> (pure, side-effect-free)
+and is consumed by <code>MemoryService.remember()</code>, the CLI, the MCP server, and the UI.</p>
+<h2 id="core-philosophy">Core Philosophy<a class="headerlink" href="#core-philosophy" title="Permanent link">&para;</a></h2>
+<h3 id="memory-type-decides-the-merge">Memory type decides the merge<a class="headerlink" href="#memory-type-decides-the-merge" title="Permanent link">&para;</a></h3>
+<p>A conflict is never resolved "in general" — it is resolved <em>for a kind of fact</em>. The
+key insight is that a taxonomy path already encodes its memory type, so the <strong>default</strong>
+strategy can be read straight off the key's L1 prefix. A write to <code>experience.*</code> is an
+event (append); a write to <code>knowledge.*</code> is a fact (consolidate); a write to
+<code>workflow.*</code> is a procedure (merge); a write to <code>context.current.*</code> is scratch
+(replace).</p>
+<pre class="mermaid"><code>flowchart LR
+    K["taxonomy key"] --&gt; T{"memory type&lt;br/&gt;from L1 prefix"}
+    T --&gt;|"experience.* / metrics.code.*"| EP["Episodic"]
+    T --&gt;|"knowledge / preferences / profile / context.project"| SE["Semantic"]
+    T --&gt;|"workflow.* / behavior.*"| PR["Procedural"]
+    T --&gt;|"context.current.* / metrics.turn.*"| WK["Working"]
+    EP --&gt; A["append"]
+    SE --&gt; C["confidence_gated"]
+    PR --&gt; M["llm_merge"]
+    WK --&gt; R["replace"]</code></pre>
+<h3 id="detection-is-intentionally-narrow">Detection is intentionally narrow<a class="headerlink" href="#detection-is-intentionally-narrow" title="Permanent link">&para;</a></h3>
+<p>Memoir detects only <strong>key collisions</strong>: a write whose target path already holds a
+non-empty value. A single <code>store.get</code> is the detector. It deliberately does <em>not</em>
+attempt cross-key <em>semantic</em> collision detection (the same fact arriving under a
+different path) — that would require a search/embedding pass on every write and was
+left out of scope. The classifier remains write-blind for latency; resolution happens
+at the storage boundary, not at classification time.</p>
+<h2 id="the-facet-storage-model">The Facet Storage Model<a class="headerlink" href="#the-facet-storage-model" title="Permanent link">&para;</a></h2>
+<p>A v2 blob keeps the legacy top-level fields <strong>and</strong> adds an <code>entries</code> list. The
+top-level <code>content</code>/<code>confidence</code>/<code>timestamp</code> are a deterministic <strong>projection</strong> of the
+active entries, so the 22+ existing readers and the entire web UI continue to read a
+plain string unchanged. <code>entries</code> is purely additive.</p>
+<pre class="mermaid"><code>flowchart TB
+    subgraph Blob["v2 memory blob (schema_version: 2)"]
+        direction TB
+        P["projected top-level:&lt;br/&gt;content · confidence · timestamp&lt;br/&gt;(legacy-compatible)"]
+        E["entries[]:&lt;br/&gt;{content, confidence, timestamp, status}"]
+    end
+    E --&gt;|"project_entries()"| P</code></pre>
 <ul>
-<li><strong>TELEClass: "Taxonomy Enrichment and LLM-Enhanced Hierarchical Text Classification with Minimal Supervision", 2024.</strong> Minimally-supervised hierarchical classification that uses LLM-generated class-indicative terms to augment the taxonomy. Closest match to Memoir's <code>LLMIterativeTaxonomy</code> expansion logic, where the taxonomy itself grows from observed content. <a href="https://arxiv.org/html/2403.00165">arXiv:2403.00165</a></li>
-<li><strong>TaxMorph: "Hierarchical Text Classification with LLM-Refined Taxonomies".</strong> Frames the LLM as a <em>taxonomist</em> — the model can reshape an input hierarchy into a more semantically coherent one. Justifies Memoir's stance that the taxonomy is a living artifact, not a fixed schema. <a href="https://arxiv.org/html/2601.18375">arXiv:2601.18375</a></li>
-<li><strong>Single-pass Hierarchical Text Classification with LLMs (Payberah, 2024).</strong> Single-call hierarchical classification, mirroring Memoir's "one prompt, full taxonomy in context, structured JSON out" approach. Compares flat vs. hierarchical vs. discriminative baselines. <a href="https://payberah.github.io/files/download/papers/llm_classification.pdf">PDF</a></li>
-<li><strong>HierPrompt: "Zero-Shot Hierarchical Text Classification", EMNLP Findings 2025.</strong> Pure zero-shot hierarchical classification — relevant because Memoir's taxonomy can be deployed cold against new domains without labelled data. <a href="https://aclanthology.org/2025.findings-emnlp.207.pdf">PDF</a></li>
-<li><strong>KG-HTC: "Integrating Knowledge Graphs into LLMs for Effective Zero-shot Hierarchical Text Classification", 2025.</strong> Treating the taxonomy as a structured prompt input. Same intuition Memoir uses when injecting <code>${TAXONOMY_BLOCK}</code> into the classifier and Stop-hook prompts. <a href="https://arxiv.org/html/2505.05583">arXiv:2505.05583</a></li>
-<li><strong>"Effective Hierarchical Text Classification with Large Language Models", SN Computer Science, 2025.</strong> Survey-style empirical comparison of LLM-based HTC approaches. Useful background. <a href="https://link.springer.com/article/10.1007/s42979-025-04435-x">Springer</a></li>
+<li><strong><code>status</code></strong> is <code>active</code> (participates in the projection) or <code>superseded</code> (retained
+  for audit, excluded from the projection).</li>
+<li><strong>Projection</strong> joins active entries with the legacy <code>"\n\n[update] "</code> separator, so a
+  two-entry append is <em>byte-identical</em> to the old behaviour — existing snapshots and
+  the UI's change-detection are unaffected.</li>
+<li><strong>Lazy upgrade</strong>: a legacy v1 blob (bare <code>content</code>) is lifted to a single-entry v2
+  blob on its next write via <code>upgrade_blob()</code>. There is no bulk migration; read-only
+  paths project on the fly.</li>
 </ul>
-<h2 id="long-term-memory-architecture-for-llm-agents">Long-Term Memory Architecture for LLM Agents<a class="headerlink" href="#long-term-memory-architecture-for-llm-agents" title="Permanent link">&para;</a></h2>
-<p>The broader frame Memoir competes in: how should an agent's persistent memory be organized, retrieved, and pruned. Memoir's distinguishing claim — <em>versionable, branchable, taxonomy-keyed memory with cryptographic proofs</em> — sits adjacent to but not duplicated by these systems.</p>
+<div class="admonition note">
+<p class="admonition-title">Why a projection?</p>
+<p>Keeping a rolled-up <code>content</code> string at the top level is the single lever that lets
+a deep storage change ship without touching dozens of readers, the proof system, or
+the frontend. New code reads <code>entries</code>; old code reads <code>content</code>; both stay correct.</p>
+</div>
+<h2 id="the-strategy-menu">The Strategy Menu<a class="headerlink" href="#the-strategy-menu" title="Permanent link">&para;</a></h2>
+<p>Six strategies, defined as <code>ConflictStrategy</code> in <code>merge_policy.py</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Strategy</th>
+<th>On an occupied key</th>
+<th>Loses data?</th>
+<th>LLM?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>append</code></td>
+<td>adds a new active entry (subject to a cap)</td>
+<td>no</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>replace</code></td>
+<td>drops prior actives, keeps only the new entry</td>
+<td>working-tree yes; git history no</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>confidence_gated</code></td>
+<td>writes only if <code>new.confidence ≥ max(existing active)</code>, else no-op</td>
+<td>no (keeps the more confident value)</td>
+<td>no</td>
+</tr>
+<tr>
+<td><code>llm_merge</code></td>
+<td>consolidates prior + new into one entry, supersedes priors</td>
+<td>no (consolidated)</td>
+<td>yes (haiku)</td>
+</tr>
+<tr>
+<td><code>merge_on_read</code></td>
+<td>stored like <code>append</code>; consolidation deferred to read time</td>
+<td>no</td>
+<td>at read, opt-in</td>
+</tr>
+<tr>
+<td><code>reject</code></td>
+<td>does not write; returns a <code>ConflictInfo</code></td>
+<td>no (nothing changes)</td>
+<td>no</td>
+</tr>
+</tbody>
+</table>
+<p>A few properties worth calling out:</p>
 <ul>
-<li><strong>Packer et al., "MemGPT: Towards LLMs as Operating Systems", 2023.</strong> The foundational hierarchical-memory-tier paper (main / recall / archival). Memoir's branches and namespaces are an <em>alternative topology</em> for the same problem — same goal of fitting unbounded history into a bounded working set, different solution. <a href="https://arxiv.org/abs/2310.08560">arXiv:2310.08560</a></li>
-<li><strong>Xu et al., "A-MEM: Agentic Memory for LLM Agents", 2025.</strong> Current SOTA on multi-hop memory benchmarks, reporting 85–93% token-usage reduction vs. MemGPT. A-MEM's self-organized note-linking is the closest published analog to Memoir's <code>related_keys</code> cross-references. <a href="https://arxiv.org/pdf/2502.12110">arXiv:2502.12110</a></li>
-<li><strong>Mem0: "Building Production-Ready AI Agents with Scalable Long-Term Memory", 2025.</strong> The production-systems framing Memoir competes with most directly. Useful as a comparison point on operational concerns (latency, cost, retrieval quality). <a href="https://arxiv.org/pdf/2504.19413">arXiv:2504.19413</a></li>
-<li><strong>"Hierarchical Memory for High-Efficiency Long-Term Reasoning in LLM Agents", July 2025.</strong> Direct support for the hierarchical-taxonomy-as-memory thesis Memoir advances.</li>
-<li><strong>"Memory in the Age of AI Agents: A Survey", 2025.</strong> The survey to cite when framing Memoir's place in the landscape; identifies five mechanism families (context-resident compression, retrieval-augmented stores, reflective self-improvement, hierarchical virtual context, policy-learned management). Memoir is primarily <em>retrieval-augmented + hierarchical virtual context</em> with a versioning twist. <a href="https://github.com/Shichun-Liu/Agent-Memory-Paper-List">Paper list</a></li>
-<li><strong>"Memory for Autonomous LLM Agents: Mechanisms, Evaluation, and Emerging Frontiers", 2026.</strong> Recent companion survey covering evaluation methodology — useful for grounding Memoir's benchmark choices. <a href="https://arxiv.org/html/2603.07670v1">arXiv:2603.07670</a></li>
+<li><strong><code>confidence_gated</code> only "bites" the LLM branch.</strong> Caller-supplied <code>-p</code> writes hard-set
+  confidence to <code>1.0</code>, so the gate always passes there (it behaves as replace). It only
+  changes behaviour when incoming confidence is <code>&lt; 1.0</code>, i.e. an LLM classification —
+  exactly where a low-confidence auto-capture should not clobber a high-confidence fact.</li>
+<li><strong><code>reject</code> is the machine-readable conflict signal.</strong> It is what powers interactive
+  resolution in the CLI and read-merge-write loops over MCP — the caller inspects the
+  returned <code>conflicts</code> and re-issues the write with a chosen strategy.</li>
+<li><strong><code>replace</code> collapses to a single entry by design</strong>, which is what keeps "flat" keys
+  (<code>metrics.turn.*</code>, scalar onboard pointers, <code>memoir watch</code> re-scans) bounded.</li>
 </ul>
-<h2 id="versioned-structured-data-and-content-addressed-storage">Versioned Structured Data and Content-Addressed Storage<a class="headerlink" href="#versioned-structured-data-and-content-addressed-storage" title="Permanent link">&para;</a></h2>
-<p>Memoir's git-like-versioning-for-memory thesis sits on a body of systems work, much of it grey literature, but with one foundational academic citation.</p>
+<h2 id="fit-into-the-four-memory-types">Fit Into the Four Memory Types<a class="headerlink" href="#fit-into-the-four-memory-types" title="Permanent link">&para;</a></h2>
+<p>The classical cognitive taxonomy maps cleanly onto Memoir constructs, and each type
+has a natural default strategy. The facet <code>entries</code> list is the shared substrate;
+the <em>strategy</em> and <em>projection</em> are what differ.</p>
+<table>
+<thead>
+<tr>
+<th>Memory type</th>
+<th>"What is it?"</th>
+<th>Memoir paths / construct</th>
+<th>Facet behaviour</th>
+<th>Default strategy</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Working</strong></td>
+<td>transient task scratch</td>
+<td><code>context.current.*</code>, <code>metrics.turn.*</code></td>
+<td>one active entry, aggressively replaced/capped</td>
+<td><code>replace</code></td>
+</tr>
+<tr>
+<td><strong>Episodic</strong></td>
+<td>time-stamped events; "what happened, when"</td>
+<td><code>experience.*</code>, <code>TimelineMemento</code>, <code>metrics.code.*</code></td>
+<td>ordered log; all entries active, none superseded</td>
+<td><code>append</code></td>
+</tr>
+<tr>
+<td><strong>Semantic</strong></td>
+<td>facts, preferences, decisions; "what is true"</td>
+<td><code>knowledge.*</code>, <code>preferences.*</code>, <code>profile.*</code>, <code>context.project.*</code>, <code>relationships.*</code>, <code>ProfileMemento</code></td>
+<td>one consolidated active entry; contradictions resolved</td>
+<td><code>confidence_gated</code></td>
+</tr>
+<tr>
+<td><strong>Procedural</strong></td>
+<td>skills, how-to, workflows; "how to do X"</td>
+<td><code>workflow.*</code>, <code>behavior.*</code></td>
+<td>one current procedure, refined; old versions retained</td>
+<td><code>llm_merge</code></td>
+</tr>
+</tbody>
+</table>
+<p>This is also <em>why</em> the unbounded-growth problem disappears: only <strong>episodic</strong> keys
+default to <code>append</code> (a log is <em>supposed</em> to grow, and is still bounded by
+<code>MEMOIR_FACET_MAX_ENTRIES</code>). Semantic and procedural keys consolidate; working keys
+replace. The append-everywhere pathology is gone by construction.</p>
+<div class="admonition tip">
+<p class="admonition-title">Memoir generalizes the Memento pattern</p>
+<p><code>TimelineMemento</code> (episodic) and <code>ProfileMemento</code> (semantic) already encoded the
+episodic-vs-semantic split as <em>separate subsystems</em>. The facet model + per-type
+policy expresses the same distinction as <strong>one substrate with different policies</strong>,
+extending it to working and procedural memory.</p>
+</div>
+<h2 id="resolution-precedence">Resolution Precedence<a class="headerlink" href="#resolution-precedence" title="Permanent link">&para;</a></h2>
+<p>The effective strategy for any write is resolved by <code>resolve_policy()</code> along a strict
+precedence chain. An explicit choice always wins; the per-type default is the floor.</p>
+<pre class="mermaid"><code>flowchart TD
+    A["--merge-policy / merge_policy arg"] --&gt;|set| USE["use it"]
+    A --&gt;|unset| B["MEMOIR_MERGE_POLICY env"]
+    B --&gt;|set| USE
+    B --&gt;|unset| C["per-type default&lt;br/&gt;(L1 prefix → memory type → strategy)"]
+    C --&gt; USE</code></pre>
+<p>The global escape hatch <code>MEMOIR_MERGE_POLICY=replace</code> restores the old
+append/overwrite-flavoured behaviour wholesale for any caller depending on the prior
+semantics.</p>
+<h3 id="defaults-vs-overrides">Defaults vs. overrides<a class="headerlink" href="#defaults-vs-overrides" title="Permanent link">&para;</a></h3>
+<p>The two ideas above are the <strong>same dial</strong> at different levels of this chain, so they
+never conflict:</p>
 <ul>
-<li><strong>Benet, "IPFS — Content Addressed, Versioned, P2P File System", 2014.</strong> The canonical content-addressed-DAG paper. Memoir applies the same construction (immutable content-addressed chunks → Merkle DAG of revisions) to memory blobs rather than files. <a href="https://arxiv.org/pdf/1407.3561">arXiv:1407.3561</a></li>
+<li><strong>"<a href="#memory-type-decides-the-merge">Memory type decides the merge</a>" is level 3</strong> — the
+  <em>automatic</em> strategy used when nobody says otherwise. It is the floor.</li>
+<li><strong><code>--merge-policy</code> (or the <code>merge_policy</code> arg) is level 1</strong> — a <em>one-off exception</em>
+  that forces a strategy for a single write. It does not change the key, the memory
+  type, or the storage shape; it only substitutes which strategy runs this time.</li>
+<li><strong><code>MEMOIR_MERGE_POLICY</code> is level 2</strong> — a <em>global</em> override ("always do this") that the
+  per-call flag can still beat, and <code>=replace</code> is the escape hatch that turns the whole
+  per-type policy off.</li>
 </ul>
-<h2 id="memento-pattern-episodic-semantic-and-spatial-memory">Memento Pattern — Episodic, Semantic, and Spatial Memory<a class="headerlink" href="#memento-pattern-episodic-semantic-and-spatial-memory" title="Permanent link">&para;</a></h2>
-<p>Memoir's three Memento containers (<code>ProfileMemento</code>, <code>TimelineMemento</code>, the location-keyed equivalent) map cleanly onto the cognitive-science distinction between <em>semantic</em>, <em>episodic</em>, and <em>spatial</em> memory that has been formalized for LLM agents over the last two years. This is the most direct theoretical alignment in Memoir.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="c1"># No flag → the key&#39;s memory type decides.</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>memoir<span class="w"> </span>remember<span class="w"> </span><span class="s2">&quot;use spaces&quot;</span><span class="w"> </span>-p<span class="w"> </span>knowledge.coding.style
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1">#   knowledge.* is semantic → default confidence_gated</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>memoir<span class="w"> </span>remember<span class="w"> </span><span class="s2">&quot;deployed v2 at 14:00&quot;</span><span class="w"> </span>-p<span class="w"> </span>experience.releases.log
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="c1">#   experience.* is episodic → default append</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a><span class="c1"># --merge-policy overrides the type default for this call only.</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>memoir<span class="w"> </span>remember<span class="w"> </span><span class="s2">&quot;use spaces&quot;</span><span class="w"> </span>-p<span class="w"> </span>knowledge.coding.style<span class="w"> </span>--merge-policy<span class="w"> </span>append
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="c1">#   still a semantic key, but THIS write appends instead of gating</span>
+</span><span id="__span-0-11"><a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>
+</span><span id="__span-0-12"><a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>memoir<span class="w"> </span>remember<span class="w"> </span><span class="s2">&quot;scratch note&quot;</span><span class="w"> </span>-p<span class="w"> </span>experience.releases.log<span class="w"> </span>--merge-policy<span class="w"> </span>replace
+</span><span id="__span-0-13"><a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a><span class="c1">#   still episodic, but THIS write replaces instead of appending</span>
+</span></code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Why a semantic <code>-p</code> write often <em>looks</em> like replace</p>
+<p><code>confidence_gated</code> only changes behaviour when incoming confidence is <code>&lt; 1.0</code>.
+Caller-supplied <code>-p</code> writes are hard-set to confidence <code>1.0</code>, so on a semantic key
+they pass the gate and effectively replace the prior value. Pass
+<code>--merge-policy append</code> or <code>--merge-policy llm_merge</code> when you want a <code>-p</code> write to
+accumulate or consolidate instead.</p>
+</div>
+<h2 id="the-write-path">The Write Path<a class="headerlink" href="#the-write-path" title="Permanent link">&para;</a></h2>
+<p>End to end, a <code>remember()</code> write resolves like this:</p>
+<pre class="mermaid"><code>flowchart TD
+    W["remember(content, key)"] --&gt; G["store.get(key)"]
+    G --&gt;|"no existing"| WR["write single entry"]
+    G --&gt;|"existing"| U["upgrade_blob → v2"]
+    U --&gt; S["resolve_policy()"]
+    S --&gt; AP{"apply_strategy"}
+    AP --&gt;|"write"| PJ["project_entries → top-level"]
+    PJ --&gt; PUT["store.put (git commit)"]
+    AP --&gt;|"noop"| SKIP["skip; keep existing"]
+    AP --&gt;|"reject"| CF["return ConflictInfo;&lt;br/&gt;nothing written"]</code></pre>
+<p>Prior values are never truly lost: every <code>store.put</code> is a git commit, so even a
+<code>replace</code> leaves the old value recoverable from history.</p>
+<h2 id="interfaces">Interfaces<a class="headerlink" href="#interfaces" title="Permanent link">&para;</a></h2>
+<p>The same strategy machinery is exposed at every layer:</p>
 <ul>
-<li><strong>Park et al., "Generative Agents: Interactive Simulacra of Human Behavior", UIST 2023.</strong> Introduces the episodic-event-stream + reflection-into-semantic-memory pattern that Memoir's Timeline → Profile flow mirrors. Their three retrieval scores (recency, importance, relevance) define the design space Memoir's search engine operates in. <a href="https://arxiv.org/abs/2304.03442">arXiv:2304.03442</a></li>
-<li><strong>Sumers et al., "Cognitive Architectures for Language Agents" (CoALA), 2023.</strong> The canonical academic taxonomy for agent memory; episodic / semantic / procedural categories are CoALA's. Letta, Mem0, and LangChain all use CoALA as their framing — Memoir's Mementos sit in the same ontology. <a href="https://arxiv.org/pdf/2309.02427">arXiv:2309.02427</a></li>
-<li><strong>"Synapse: Empowering LLM Agents with Episodic-Semantic Memory via Spreading Activation", 2025.</strong> Activation-based retrieval across the episodic ↔ semantic boundary. Closest prior art for Memoir's <code>related_keys</code> cross-reference design, which is structurally a static spreading-activation graph. <a href="https://arxiv.org/html/2601.02744v2">arXiv:2601.02744</a></li>
+<li><strong>CLI</strong> — <code>memoir remember … --merge-policy &lt;strategy&gt;</code> overrides per call;
+  <code>--interactive</code> (<code>-i</code>) probes with <code>reject</code>, renders existing-vs-incoming, and prompts
+  <code>replace / append / merge / skip</code> per conflict. <code>--replace</code> remains as a back-compat
+  alias for <code>--merge-policy replace</code>.</li>
+<li><strong>Environment</strong> — <code>MEMOIR_MERGE_POLICY</code> (global default override),
+  <code>MEMOIR_FACET_MAX_ENTRIES</code> (cap on append growth; <code>0</code>/<code>none</code> disables),
+  <code>MEMOIR_RECALL_MERGE=llm</code> (enable merge-on-read consolidation).</li>
+<li><strong>MCP</strong> — the <code>memoir_remember</code> tool accepts <code>merge_policy</code>; passing <code>reject</code> returns
+  the existing value under <code>conflicts</code> without writing, so an agent can run its own
+  read-merge-write loop.</li>
+<li><strong>UI</strong> — the memory detail drawer shows a <strong>facet history</strong> of the timestamped entries
+  that roll up into the displayed content, with <code>superseded</code> badges.</li>
 </ul>
-<h2 id="notable-gaps">Notable Gaps<a class="headerlink" href="#notable-gaps" title="Permanent link">&para;</a></h2>
-<p>Two parts of Memoir's design currently sit ahead of the published literature, worth flagging honestly:</p>
-<ul>
-<li><strong>"Memory worthiness" filtering</strong> — the should-this-turn-become-a-memory? decision Memoir's Stop hook performs. Generative Agents and A-MEM both touch importance scoring, but no paper is dedicated to this filter.</li>
-<li><strong>Multi-key sibling backlinks at storage time</strong> — A-MEM's note-linking is the closest analog, but it is computed at retrieval time, not frozen into the blob at write. Memoir's design (write-time <code>related_keys</code>, edit-preserved) appears to be novel.</li>
-</ul>
-<p>These are reasonable areas for a future Memoir whitepaper to claim contribution.</p>
+<h2 id="merge-on-read">Merge-on-Read<a class="headerlink" href="#merge-on-read" title="Permanent link">&para;</a></h2>
+<p>Because the top-level <code>content</code> is always a deterministic projection, <em>consolidated
+reads are free</em> — every reader already sees a coherent string. <code>merge_on_read</code> adds an
+<strong>opt-in</strong> LLM consolidation at retrieval time: when <code>MEMOIR_RECALL_MERGE=llm</code> (or
+<code>get(consolidate=True)</code>), a multi-entry blob's returned content is replaced by an LLM
+consolidation of its active entries. It is best-effort and falls back to the
+deterministic projection inside an event loop or on any LLM error, so it can never
+break a read.</p>
+<h2 id="theoretical-foundation">Theoretical Foundation<a class="headerlink" href="#theoretical-foundation" title="Permanent link">&para;</a></h2>
+<h3 id="last-write-wins-is-a-policy-not-a-law">Last-write-wins is a policy, not a law<a class="headerlink" href="#last-write-wins-is-a-policy-not-a-law" title="Permanent link">&para;</a></h3>
+<p>A content-addressed, git-backed store gives Memoir a spectrum of conflict semantics
+that a flat key-value store lacks. <code>replace</code> is plain last-write-wins; <code>append</code> is an
+ever-growing log; <code>confidence_gated</code> is a priority-merge keyed on a metadata field;
+<code>llm_merge</code> is a semantic three-way-style consolidation (without a base); <code>supersede</code>
+(via <code>status</code>) is a tombstone that preserves history. The facet list is what makes all
+of these expressible over the <em>same</em> stored value, rather than requiring different
+storage shapes.</p>
+<h3 id="cognitive-grounding">Cognitive grounding<a class="headerlink" href="#cognitive-grounding" title="Permanent link">&para;</a></h3>
+<p>The four-type taxonomy (working / episodic / semantic / procedural) is the standard
+decomposition of long-term and short-term memory in cognitive science and in agent
+memory architectures (CoALA, MemGPT, Generative Agents — see
+<a href="../related-work/">Related Work</a>). Memoir's contribution is to make the <em>merge policy</em> a
+function of the memory type, so retention behaviour is correct <strong>by default</strong> rather
+than something every caller must configure. Episodic memory accumulates because
+forgetting an event corrupts the record; semantic memory consolidates because a newer,
+higher-confidence fact should supersede a stale one; procedural memory merges because a
+refinement should fold into the procedure, not fork it.</p>
+<h3 id="bounded-growth-as-an-invariant">Bounded growth as an invariant<a class="headerlink" href="#bounded-growth-as-an-invariant" title="Permanent link">&para;</a></h3>
+<p>The pathology of the old append-everywhere default was unbounded blob growth. Three
+mechanisms now bound it: (1) only episodic keys append by default; (2)
+<code>MEMOIR_FACET_MAX_ENTRIES</code> prunes the oldest entries past a cap; (3) <code>replace</code> and
+<code>llm_merge</code> collapse to a single entry. Growth is now a <em>deliberate</em> property of
+episodic logs, not an accident of every write.</p>
+<h2 id="conclusion">Conclusion<a class="headerlink" href="#conclusion" title="Permanent link">&para;</a></h2>
+<p>Conflict and merge in Memoir is the point where "Git for AI memory" earns its name: a
+write is not a blind overwrite but a typed merge against history. The timestamped-facet
+model provides the substrate, the strategy enum provides the vocabulary, and the
+per-type default table provides the judgement — so that working memory stays fresh,
+episodic memory stays complete, semantic memory stays current, and procedural memory
+stays coherent, all without the caller having to think about it.</p>
 
 
 

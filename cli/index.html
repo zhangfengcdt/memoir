@@ -874,6 +874,8 @@
       
         
       
+        
+      
     
     
     
@@ -999,6 +1001,34 @@
     
   
     Memento
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../theory/conflict-merge/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Conflict & Merge
   
 
     
@@ -1200,6 +1230,17 @@
         
       </ul>
     </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#memoir-remember-conflict-resolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        memoir remember — conflict resolution
+      
+    </span>
+  </a>
   
 </li>
         
@@ -2018,6 +2059,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#memoir-remember-conflict-resolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        memoir remember — conflict resolution
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#memoir-get-direct-lookup-by-taxonomy-path" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2123,6 +2175,18 @@
 <tr>
 <td><code>MEMOIR_BRANCH</code></td>
 <td>Default target branch for <code>remember</code>, <code>recall</code>, <code>get</code>, <code>forget</code>, and <code>search</code> — per-call routing without changing the store's checked-out branch. Each command also accepts an explicit <code>--branch &lt;name&gt;</code> flag which overrides this variable. See <a href="#per-call-branch-routing-multi-agent">Per-call branch routing</a> below.</td>
+</tr>
+<tr>
+<td><code>MEMOIR_MERGE_POLICY</code></td>
+<td>Global conflict-resolution strategy for <code>remember</code> when a key already exists, overriding the per-type default but below an explicit <code>--merge-policy</code>. <code>=replace</code> restores the old overwrite-everywhere behaviour. See <a href="#memoir-remember-conflict-resolution">Conflict resolution</a>.</td>
+</tr>
+<tr>
+<td><code>MEMOIR_FACET_MAX_ENTRIES</code></td>
+<td>Cap on facet entries per key for append-style writes (oldest pruned). Default <code>50</code>; <code>0</code>/<code>none</code> disables capping.</td>
+</tr>
+<tr>
+<td><code>MEMOIR_RECALL_MERGE</code></td>
+<td>If <code>llm</code>, enables merge-on-read: a multi-entry key's content is LLM-consolidated at read time. Off by default (the deterministic projection is used).</td>
 </tr>
 </tbody>
 </table>
@@ -2251,47 +2315,119 @@
 <p>As of v0.1.7, <code>litellm</code> is a default dependency, so <code>pip install
 memoir-ai</code> enables both LLM-backed and direct-path commands. (Prior
 to v0.1.7 you had to add the <code>[litellm]</code> extra explicitly.)</p>
+<h3 id="memoir-remember-conflict-resolution"><code>memoir remember</code> — conflict resolution<a class="headerlink" href="#memoir-remember-conflict-resolution" title="Permanent link">&para;</a></h3>
+<p>When a write lands on a key that already exists, <code>remember</code> resolves the conflict with a <strong>merge policy</strong>. By default the policy is derived from the key's memory type; <code>--merge-policy</code> overrides it per call. See <a href="../theory/conflict-merge/">Conflict &amp; Merge theory</a> for the full model.</p>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>--merge-policy &lt;strategy&gt;</code></td>
+<td>Force a strategy for this write: <code>append</code>, <code>replace</code>, <code>confidence_gated</code>, <code>llm_merge</code>, <code>merge_on_read</code>, or <code>reject</code>.</td>
+</tr>
+<tr>
+<td><code>-i, --interactive</code></td>
+<td>On a conflict, show existing vs. incoming and prompt (<code>replace</code> / <code>append</code> / <code>merge</code> / <code>skip</code>) per key. Not valid with <code>--json</code>.</td>
+</tr>
+<tr>
+<td><code>--replace</code></td>
+<td>Back-compat alias for <code>--merge-policy replace</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>Resolution order (first one set wins): <code>--merge-policy</code> flag → <code>MEMOIR_MERGE_POLICY</code> env → <strong>per-type default</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Memory type</th>
+<th>Example keys</th>
+<th>Default strategy</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Episodic</td>
+<td><code>experience.*</code>, <code>metrics.code.*</code></td>
+<td><code>append</code></td>
+</tr>
+<tr>
+<td>Semantic</td>
+<td><code>knowledge.*</code>, <code>preferences.*</code>, <code>profile.*</code>, <code>context.project.*</code></td>
+<td><code>confidence_gated</code></td>
+</tr>
+<tr>
+<td>Procedural</td>
+<td><code>workflow.*</code>, <code>behavior.*</code></td>
+<td><code>llm_merge</code></td>
+</tr>
+<tr>
+<td>Working</td>
+<td><code>context.current.*</code>, <code>metrics.turn.*</code></td>
+<td><code>replace</code></td>
+</tr>
+</tbody>
+</table>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># No flag → the key&#39;s memory type decides.</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>memoir<span class="w"> </span>remember<span class="w"> </span><span class="s2">&quot;use spaces&quot;</span><span class="w"> </span>-p<span class="w"> </span>knowledge.coding.style<span class="w">     </span><span class="c1"># semantic → confidence_gated</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>memoir<span class="w"> </span>remember<span class="w"> </span><span class="s2">&quot;deployed v2 at 14:00&quot;</span><span class="w"> </span>-p<span class="w"> </span>experience.releases.log<span class="w">  </span><span class="c1"># episodic → append</span>
+</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a>
+</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a><span class="c1"># Override the type default for this call only.</span>
+</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>memoir<span class="w"> </span>remember<span class="w"> </span><span class="s2">&quot;use spaces&quot;</span><span class="w"> </span>-p<span class="w"> </span>knowledge.coding.style<span class="w"> </span>--merge-policy<span class="w"> </span>append
+</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a>memoir<span class="w"> </span>remember<span class="w"> </span><span class="s2">&quot;draft note&quot;</span><span class="w">  </span>-p<span class="w"> </span>experience.releases.log<span class="w"> </span>--merge-policy<span class="w"> </span>replace
+</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>
+</span><span id="__span-11-9"><a id="__codelineno-11-9" name="__codelineno-11-9" href="#__codelineno-11-9"></a><span class="c1"># Resolve interactively, or refuse to clobber and inspect the conflict (JSON).</span>
+</span><span id="__span-11-10"><a id="__codelineno-11-10" name="__codelineno-11-10" href="#__codelineno-11-10"></a>memoir<span class="w"> </span>remember<span class="w"> </span><span class="s2">&quot;new value&quot;</span><span class="w"> </span>-p<span class="w"> </span>knowledge.coding.style<span class="w"> </span>--interactive
+</span><span id="__span-11-11"><a id="__codelineno-11-11" name="__codelineno-11-11" href="#__codelineno-11-11"></a>memoir<span class="w"> </span>--json<span class="w"> </span>remember<span class="w"> </span><span class="s2">&quot;new value&quot;</span><span class="w"> </span>-p<span class="w"> </span>knowledge.coding.style<span class="w"> </span>--merge-policy<span class="w"> </span>reject
+</span></code></pre></div>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p><code>confidence_gated</code> only changes behaviour for sub-1.0 confidence (LLM classifications). Caller-supplied <code>-p</code> writes are confidence <code>1.0</code>, so on a semantic key they pass the gate and effectively replace — pass <code>--merge-policy append</code>/<code>llm_merge</code> to accumulate or consolidate instead.</p>
+</div>
 <h3 id="memoir-get-direct-lookup-by-taxonomy-path"><code>memoir get</code> — direct lookup by taxonomy path<a class="headerlink" href="#memoir-get-direct-lookup-by-taxonomy-path" title="Permanent link">&para;</a></h3>
 <p>No LLM, no search. Pass one or more exact keys; missing keys come back as <code>found: false</code> so you can batch speculative candidates without branching. Latency is typically &lt;10ms.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="c1"># Single lookup</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a>memoir<span class="w"> </span>get<span class="w"> </span>preferences.coding.style
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4" href="#__codelineno-11-4"></a><span class="c1"># Batched lookup in one call</span>
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5" href="#__codelineno-11-5"></a>memoir<span class="w"> </span>get<span class="w"> </span>preferences.coding.style<span class="w"> </span>profile.professional.skills
-</span><span id="__span-11-6"><a id="__codelineno-11-6" name="__codelineno-11-6" href="#__codelineno-11-6"></a>
-</span><span id="__span-11-7"><a id="__codelineno-11-7" name="__codelineno-11-7" href="#__codelineno-11-7"></a><span class="c1"># Scope to a namespace, JSON output</span>
-</span><span id="__span-11-8"><a id="__codelineno-11-8" name="__codelineno-11-8" href="#__codelineno-11-8"></a>memoir<span class="w"> </span>--json<span class="w"> </span>get<span class="w"> </span>preferences.coding.style<span class="w"> </span>-n<span class="w"> </span>default
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Single lookup</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>memoir<span class="w"> </span>get<span class="w"> </span>preferences.coding.style
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1"># Batched lookup in one call</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>memoir<span class="w"> </span>get<span class="w"> </span>preferences.coding.style<span class="w"> </span>profile.professional.skills
+</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
+</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="c1"># Scope to a namespace, JSON output</span>
+</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>memoir<span class="w"> </span>--json<span class="w"> </span>get<span class="w"> </span>preferences.coding.style<span class="w"> </span>-n<span class="w"> </span>default
 </span></code></pre></div>
 <p>This is the primitive an outer-LLM caller-driven flow uses once it has narrowed to exact keys. From the CLI it's also the fastest way to read a known memory.</p>
 <h3 id="memoir-summarize-taxonomy-surveys"><code>memoir summarize</code> — taxonomy surveys<a class="headerlink" href="#memoir-summarize-taxonomy-surveys" title="Permanent link">&para;</a></h3>
 <p>Pure-compute taxonomy inspection. The building blocks behind the caller-driven <code>[mode=drill]</code> / <code>[mode=flat]</code> / <code>[mode=get]</code> patterns are directly usable from the shell when you want to understand the layout of a store without invoking any LLM.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="c1"># Full store breakdown</span>
-</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>memoir<span class="w"> </span>summarize
-</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3" href="#__codelineno-12-3"></a>
-</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4" href="#__codelineno-12-4"></a><span class="c1"># Taxonomy-only view, scoped to one namespace</span>
-</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5" href="#__codelineno-12-5"></a>memoir<span class="w"> </span>summarize<span class="w"> </span>taxonomy<span class="w"> </span>-n<span class="w"> </span>default
-</span><span id="__span-12-6"><a id="__codelineno-12-6" name="__codelineno-12-6" href="#__codelineno-12-6"></a>
-</span><span id="__span-12-7"><a id="__codelineno-12-7" name="__codelineno-12-7" href="#__codelineno-12-7"></a><span class="c1"># Keys matching a glob</span>
-</span><span id="__span-12-8"><a id="__codelineno-12-8" name="__codelineno-12-8" href="#__codelineno-12-8"></a>memoir<span class="w"> </span>summarize<span class="w"> </span>--keys<span class="w"> </span><span class="s2">&quot;preferences.*&quot;</span>
-</span><span id="__span-12-9"><a id="__codelineno-12-9" name="__codelineno-12-9" href="#__codelineno-12-9"></a>
-</span><span id="__span-12-10"><a id="__codelineno-12-10" name="__codelineno-12-10" href="#__codelineno-12-10"></a><span class="c1"># Top-level prefix histogram (L1 survey)</span>
-</span><span id="__span-12-11"><a id="__codelineno-12-11" name="__codelineno-12-11" href="#__codelineno-12-11"></a>memoir<span class="w"> </span>summarize<span class="w"> </span>--depth<span class="w"> </span><span class="m">1</span>
-</span><span id="__span-12-12"><a id="__codelineno-12-12" name="__codelineno-12-12" href="#__codelineno-12-12"></a>
-</span><span id="__span-12-13"><a id="__codelineno-12-13" name="__codelineno-12-13" href="#__codelineno-12-13"></a><span class="c1"># Glob + depth: L2 breakdown under preferences.*</span>
-</span><span id="__span-12-14"><a id="__codelineno-12-14" name="__codelineno-12-14" href="#__codelineno-12-14"></a>memoir<span class="w"> </span>summarize<span class="w"> </span>--keys<span class="w"> </span><span class="s2">&quot;preferences.*&quot;</span><span class="w"> </span>--depth<span class="w"> </span><span class="m">2</span>
-</span><span id="__span-12-15"><a id="__codelineno-12-15" name="__codelineno-12-15" href="#__codelineno-12-15"></a>
-</span><span id="__span-12-16"><a id="__codelineno-12-16" name="__codelineno-12-16" href="#__codelineno-12-16"></a><span class="c1"># JSON for scripting</span>
-</span><span id="__span-12-17"><a id="__codelineno-12-17" name="__codelineno-12-17" href="#__codelineno-12-17"></a>memoir<span class="w"> </span>--json<span class="w"> </span>summarize<span class="w"> </span>--depth<span class="w"> </span><span class="m">1</span><span class="w"> </span>-n<span class="w"> </span>default
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="c1"># Full store breakdown</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a>memoir<span class="w"> </span>summarize
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="c1"># Taxonomy-only view, scoped to one namespace</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>memoir<span class="w"> </span>summarize<span class="w"> </span>taxonomy<span class="w"> </span>-n<span class="w"> </span>default
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="c1"># Keys matching a glob</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a>memoir<span class="w"> </span>summarize<span class="w"> </span>--keys<span class="w"> </span><span class="s2">&quot;preferences.*&quot;</span>
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="c1"># Top-level prefix histogram (L1 survey)</span>
+</span><span id="__span-13-11"><a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a>memoir<span class="w"> </span>summarize<span class="w"> </span>--depth<span class="w"> </span><span class="m">1</span>
+</span><span id="__span-13-12"><a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a>
+</span><span id="__span-13-13"><a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="c1"># Glob + depth: L2 breakdown under preferences.*</span>
+</span><span id="__span-13-14"><a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a>memoir<span class="w"> </span>summarize<span class="w"> </span>--keys<span class="w"> </span><span class="s2">&quot;preferences.*&quot;</span><span class="w"> </span>--depth<span class="w"> </span><span class="m">2</span>
+</span><span id="__span-13-15"><a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a>
+</span><span id="__span-13-16"><a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="c1"># JSON for scripting</span>
+</span><span id="__span-13-17"><a id="__codelineno-13-17" name="__codelineno-13-17" href="#__codelineno-13-17"></a>memoir<span class="w"> </span>--json<span class="w"> </span>summarize<span class="w"> </span>--depth<span class="w"> </span><span class="m">1</span><span class="w"> </span>-n<span class="w"> </span>default
 </span></code></pre></div>
 <p>A shell-only drill-down — mirror of the skill's <code>[mode=drill]</code> — is just three calls:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a>memoir<span class="w"> </span>--json<span class="w"> </span>summarize<span class="w"> </span>--depth<span class="w"> </span><span class="m">1</span><span class="w"> </span>-n<span class="w"> </span>default
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="c1"># → pick L1 prefixes from prefix_counts</span>
-</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>
-</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a>memoir<span class="w"> </span>--json<span class="w"> </span>summarize<span class="w"> </span>--keys<span class="w"> </span><span class="s2">&quot;preferences.*&quot;</span><span class="w"> </span>-n<span class="w"> </span>default
-</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="c1"># → pick 3-7 exact keys from matching_keys</span>
-</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a>
-</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a>memoir<span class="w"> </span>--json<span class="w"> </span>get<span class="w"> </span>preferences.coding.style<span class="w"> </span>preferences.tools.editor
-</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="c1"># → stored values, &lt;10ms</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a>memoir<span class="w"> </span>--json<span class="w"> </span>summarize<span class="w"> </span>--depth<span class="w"> </span><span class="m">1</span><span class="w"> </span>-n<span class="w"> </span>default
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="c1"># → pick L1 prefixes from prefix_counts</span>
+</span><span id="__span-14-3"><a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a>
+</span><span id="__span-14-4"><a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a>memoir<span class="w"> </span>--json<span class="w"> </span>summarize<span class="w"> </span>--keys<span class="w"> </span><span class="s2">&quot;preferences.*&quot;</span><span class="w"> </span>-n<span class="w"> </span>default
+</span><span id="__span-14-5"><a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="c1"># → pick 3-7 exact keys from matching_keys</span>
+</span><span id="__span-14-6"><a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a>
+</span><span id="__span-14-7"><a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a>memoir<span class="w"> </span>--json<span class="w"> </span>get<span class="w"> </span>preferences.coding.style<span class="w"> </span>preferences.tools.editor
+</span><span id="__span-14-8"><a id="__codelineno-14-8" name="__codelineno-14-8" href="#__codelineno-14-8"></a><span class="c1"># → stored values, &lt;10ms</span>
 </span></code></pre></div>
 <h3 id="when-to-reach-for-which-cli-command">When to reach for which CLI command<a class="headerlink" href="#when-to-reach-for-which-cli-command" title="Permanent link">&para;</a></h3>
 <ul>

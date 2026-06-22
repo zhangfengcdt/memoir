@@ -2,122 +2,126 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/architecture/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/basic_usage/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/claude_code/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/cli/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/codex/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/examples/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/faq/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/hermes/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/installation/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/mcp/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/openclaw/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/quickstart/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/ui/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/watch/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/api/classifier/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/api/memento/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/api/memoir/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/api/search/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/api/store/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/api/taxonomy/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/examples/context_branching/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/examples/memory_debugging/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/examples/production_debugging/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/examples/reproducible_testing/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/theory/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/theory/classifier/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
+    </url>
+    <url>
+         <loc>https://zhangfengcdt.github.io/memoir/theory/conflict-merge/</loc>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/theory/memento/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/theory/related-work/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
     <url>
          <loc>https://zhangfengcdt.github.io/memoir/theory/search/</loc>
-         <lastmod>2026-06-17</lastmod>
+         <lastmod>2026-06-22</lastmod>
     </url>
 </urlset>
