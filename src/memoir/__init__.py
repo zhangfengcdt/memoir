@@ -4,7 +4,7 @@ Memoir
 High-performance semantic memory system for AI agents.
 """
 
-__version__ = "0.2.3"  # Single source of truth; read by hatch + release workflow (keep on one line)
+__version__ = "0.2.4"  # Single source of truth; read by hatch + release workflow (keep on one line)
 
 from .classifier.semantic import (
     ClassificationResult,

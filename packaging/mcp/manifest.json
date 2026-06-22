@@ -2,7 +2,7 @@
   "manifest_version": "0.2",
   "name": "memoir",
   "display_name": "Memoir Memory",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "Git-versioned, taxonomy-structured long-term memory with branch/commit/blame provenance.",
   "long_description": "Memoir gives the assistant a versioned memory store: every fact is committed (inspect with memoir_commits), memory can branch and check out (memoir_branches / memoir_checkout), and recall is fast and LLM-free. One store can be shared across every MCP host.",
   "author": {
