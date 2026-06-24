@@ -61,11 +61,65 @@ call per utterance; keep conversation counts small. `raw` ingest is instant.
 
 - `--conversations N [N ...]` — factual conversation indices (default: all 10).
 - `--max-factual-per-category N` — sample at most N factual queries per category.
-- `--cognitive-limit N` — first N cognitive instances.
+- `--cognitive-limit N` / `--cognitive-offset N` — take N cognitive instances after
+  skipping N (use the pair to **chunk** the 401-instance set).
 - `--modes raw native` — which ingest modes to run.
+- `--native-merge-policy append` — stop native's lossy default merge so colliding
+  facts coexist (fixes native temporal/recall loss). Pair with `--facet-cap 1000`
+  so long conversations aren't truncated.
 - `--baseline` — also run the full-context (no-memoir) anchor.
 - `--recall-limit K` — memories retrieved per query (default 8).
-- `--concurrency N` — max concurrent claude-cli subprocesses.
+- `--concurrency N` — max concurrent claude-cli subprocesses (20 is fine; I/O-bound).
+- `--judge-model M` — judge LLM, decoupled from the generator (default
+  `claude-opus-4-8`). Keeping judge ≠ generator avoids self-evaluation inflation.
+- `--judge-batch N` — predictions per judge call (default 10; `1` = per-item,
+  byte-identical to the official judge). Batching cuts the (pricey) judge calls ~Nx.
+- `--prompt-style unified|disclosed` — `unified` (default) presents the query as a
+  plain continuation with no task disclosure (paper sec 5.1/5.3); `disclosed` uses
+  the official memory-aware instruction.
+- `--resume` — reuse `predictions.json` / `judged.json` in `--out`; only run
+  what's missing. Makes long runs interruption-safe and **chunkable**.
+
+### Recommended config
+
+Decoupled Opus judge + Haiku generator, unified input, native uses `append`:
+
+```bash
+python benchmarks/locomo/run.py --repo-dir /tmp/locomo-bench/Locomo-Plus \
+    --modes raw native --native-merge-policy append --facet-cap 1000 \
+    --baseline --judge-model claude-opus-4-8 --judge-batch 10 \
+    --prompt-style unified --concurrency 20 --resume --out OUT_DIR
+```
+
+### Full run (chunked, ~4–4.5 h on claude-cli @ conc 20)
+
+The full set is 1,986 factual QA + 401 cognitive instances. Run it in chunks into
+**one** `--out` dir with `--resume`; each chunk merges into the cumulative
+`summary.md`, so results accrue as chunks finish and a crash only loses the
+current chunk. Native ingest (~1 classify/turn) is the slow pole, so native is
+factual-only — **native-cognitive is infeasible (~days)** and intentionally skipped.
+
+```bash
+OUT=/tmp/locomo-bench/full
+# Factual: one chunk per conversation (raw + native + baseline)
+for c in 0 1 2 3 4 5 6 7 8 9; do
+  python benchmarks/locomo/run.py --repo-dir /tmp/locomo-bench/Locomo-Plus \
+    --conversations $c --no-cognitive \
+    --modes raw native --native-merge-policy append --facet-cap 1000 \
+    --baseline --judge-model claude-opus-4-8 --judge-batch 10 \
+    --prompt-style unified --concurrency 20 --resume --out $OUT
+done
+# Cognitive: raw + baseline only, in chunks of 100
+for off in 0 100 200 300; do
+  python benchmarks/locomo/run.py --repo-dir /tmp/locomo-bench/Locomo-Plus \
+    --no-factual --cognitive-offset $off --cognitive-limit 100 \
+    --modes raw --baseline --judge-model claude-opus-4-8 --judge-batch 10 \
+    --prompt-style unified --concurrency 20 --resume --out $OUT
+done
+```
+
+For a cheaper but statistically solid signal, run all 401 cognitive + a balanced
+factual sample (`--max-factual-per-category 8`) — roughly 1 h.
 
 ## Output
 

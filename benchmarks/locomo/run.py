@@ -88,7 +88,9 @@ async def _ingest_all(tasks, modes, stores_dir, sem, native_merge_policy=None):
     return services, stats
 
 
-async def _predict(task, system, mode, services, llm, recall_limit, sem, unified):
+async def _predict(
+    task, system, mode, services, llm, recall_limit, sem, unified, recall_mode
+):
     """Produce one prediction record for (task, system)."""
     rec = {
         "task_id": task["task_id"],
@@ -121,6 +123,7 @@ async def _predict(task, system, mode, services, llm, recall_limit, sem, unified
         mode,
         recall_limit,
         sem,
+        recall_mode=recall_mode,
     )
     prompt = mr.build_memoir_prompt(
         task["query"],
@@ -204,6 +207,7 @@ async def main_async(args):
         conversations=args.conversations,
         max_factual_per_category=args.max_factual_per_category,
         cognitive_limit=args.cognitive_limit,
+        cognitive_offset=args.cognitive_offset,
         include_factual=not args.no_factual,
         include_cognitive=not args.no_cognitive,
     )
@@ -243,26 +247,40 @@ async def main_async(args):
             pred_cache[(r["system"], r["task_id"])] = r
         print(f"  resume: {len(pred_cache)} cached predictions", flush=True)
 
-    jobs, job_keys = [], []
+    jobs = []
     for task in tasks:
         for sysname, mode in systems:
             if (sysname, task["task_id"]) in pred_cache:
                 continue
             jobs.append(
                 _predict(
-                    task, sysname, mode, services, llm, args.recall_limit, sem, unified
+                    task,
+                    sysname,
+                    mode,
+                    services,
+                    llm,
+                    args.recall_limit,
+                    sem,
+                    unified,
+                    args.recall_mode,
                 )
             )
-            job_keys.append((sysname, task["task_id"]))
-    for rec in await asyncio.gather(*jobs):
+
+    def _flush_predictions():
+        # Cumulative union (all prior chunks + done-so-far this chunk), so a
+        # killed/timed-out chunk still persists progress and --resume continues.
+        pred_path.write_text(
+            json.dumps(list(pred_cache.values()), indent=2, ensure_ascii=False)
+        )
+
+    for done, fut in enumerate(asyncio.as_completed(jobs), start=1):
+        rec = await fut
         pred_cache[(rec["system"], rec["task_id"])] = rec
-    records = [
-        pred_cache[(s, t["task_id"])]
-        for t in tasks
-        for s, _ in systems
-        if (s, t["task_id"]) in pred_cache
-    ]
-    pred_path.write_text(json.dumps(records, indent=2, ensure_ascii=False))
+        if done % 25 == 0:
+            _flush_predictions()
+            print(f"  ... {done}/{len(jobs)} new predictions", flush=True)
+    records = list(pred_cache.values())
+    _flush_predictions()
     print(f"  {len(records)} predictions ({len(jobs)} new)", flush=True)
 
     print("== Judging ==", flush=True)
@@ -284,12 +302,14 @@ async def main_async(args):
         )
     for r in newly:
         judged_cache[(r["system"], r["task_id"])] = r
-    judged = [judged_cache[(r["system"], r["task_id"])] for r in records]
+    judged = list(judged_cache.values())
     judged_path.write_text(json.dumps(judged, indent=2, ensure_ascii=False))
     print(f"  {len(judged)} judged ({len(to_judge)} new)", flush=True)
 
+    # Summarize every system present in the cumulative judged set (not just this
+    # chunk's), so the running summary covers all chunks completed so far.
     summaries = {}
-    for sysname, _ in systems:
+    for sysname in sorted({r["system"] for r in judged}):
         recs = [r for r in judged if r["system"] == sysname]
         summaries[sysname] = judge_mod.summarize(recs)
 
@@ -338,7 +358,13 @@ def parse_args():
         "--cognitive-limit",
         type=int,
         default=None,
-        help="Use only the first N cognitive instances",
+        help="Use only N cognitive instances (after --cognitive-offset)",
+    )
+    p.add_argument(
+        "--cognitive-offset",
+        type=int,
+        default=0,
+        help="Skip the first N cognitive instances (for chunked runs)",
     )
     p.add_argument("--modes", nargs="+", default=["raw"], choices=["raw", "native"])
     p.add_argument(
@@ -347,6 +373,13 @@ def parse_args():
     p.add_argument("--no-factual", action="store_true")
     p.add_argument("--no-cognitive", action="store_true")
     p.add_argument("--recall-limit", type=int, default=8)
+    p.add_argument(
+        "--recall-mode",
+        choices=["single", "tiered"],
+        default="single",
+        help="memoir search pipeline: single (flat, O(n)) or tiered "
+        "(hierarchical L1/L2 drill-down; scalable, needs native taxonomy paths)",
+    )
     p.add_argument("--concurrency", type=int, default=8)
     p.add_argument(
         "--gen-model", default="haiku", help="claude-cli model for memoir + generation"

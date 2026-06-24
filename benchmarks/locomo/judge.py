@@ -123,14 +123,19 @@ async def judge_batch(
     async def _run_batch(cat: str, idxs: list[int]):
         batch = [records[i] for i in idxs]
         prompt = _build_batch_prompt(cat, batch, templates)
-        async with sem:
-            resp = await llm.ainvoke(prompt)
-        labels = _parse_batch(resp.content or "", len(batch))
+        try:
+            async with sem:
+                resp = await llm.ainvoke(prompt)
+            raw = resp.content or ""
+        except Exception as e:  # don't let one batch crash the whole judge pass
+            print(f"  judge batch ({cat}, {len(idxs)} items) failed: {str(e)[:80]}")
+            raw = ""
+        labels = _parse_batch(raw, len(batch))
         for local_i, global_i in enumerate(idxs):
             label = labels[local_i]
             if not label:
-                # Fall back to the official single-item keyword parser on retry.
-                label, _ = parse(resp.content or "")
+                # Fall back to the official single-item keyword parser.
+                label, _ = parse(raw)
             out[global_i]["judge_label"] = label
             out[global_i]["judge_score"] = to_score(label)
 

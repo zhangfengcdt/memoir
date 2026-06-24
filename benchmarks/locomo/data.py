@@ -33,6 +33,24 @@ def _add_repo_to_path(repo_dir: Path) -> None:
             sys.path.insert(0, p)
 
 
+def _session_turns(conv: dict) -> list[dict]:
+    """All session utterances of a LoCoMo conversation, in order, with dates."""
+    sessions = sorted(
+        (k for k in conv if k.startswith("session_") and not k.endswith("_date_time")),
+        key=lambda x: int(x.split("_")[-1]),
+    )
+    turns = []
+    for s in sessions:
+        date = conv.get(f"{s}_date_time", "")
+        for d in conv.get(s, []):
+            text = (d.get("text") or "").strip()
+            if text:
+                turns.append(
+                    {"speaker": d.get("speaker", "?"), "text": text, "date": date}
+                )
+    return turns
+
+
 def _factual_tasks(repo_dir: Path, conversations: list[int] | None) -> list[dict]:
     import json
 
@@ -53,27 +71,7 @@ def _factual_tasks(repo_dir: Path, conversations: list[int] | None) -> list[dict
         speaker_b = conv.get("speaker_b", "B")
 
         # Turns to ingest: every session utterance, in session order.
-        sessions = sorted(
-            (
-                k
-                for k in conv
-                if k.startswith("session_") and not k.endswith("_date_time")
-            ),
-            key=lambda x: int(x.split("_")[-1]),
-        )
-        turns = []
-        for s in sessions:
-            date = conv.get(f"{s}_date_time", "")
-            for d in conv.get(s, []):
-                text = (d.get("text") or "").strip()
-                if text:
-                    turns.append(
-                        {
-                            "speaker": d.get("speaker", "?"),
-                            "text": text,
-                            "date": date,
-                        }
-                    )
+        turns = _session_turns(conv)
 
         ingest_key = f"conv{conv_idx}"
         # Keep full-context baseline material alongside the task.
@@ -106,7 +104,7 @@ def _factual_tasks(repo_dir: Path, conversations: list[int] | None) -> list[dict
     return tasks
 
 
-def _cognitive_tasks(repo_dir: Path, limit: int | None) -> list[dict]:
+def _cognitive_tasks(repo_dir: Path, limit: int | None, offset: int = 0) -> list[dict]:
     import json
 
     from build_conv import build_context  # official stitcher
@@ -115,12 +113,13 @@ def _cognitive_tasks(repo_dir: Path, limit: int | None) -> list[dict]:
     plus = json.loads((repo_dir / "data" / "locomo_plus.json").read_text())
     locomo = json.loads((repo_dir / "data" / "locomo10.json").read_text())
 
-    if limit is not None:
-        plus = plus[:limit]
+    end = None if limit is None else offset + limit
+    sliced = list(enumerate(plus))[offset:end]
 
     tasks: list[dict] = []
-    for i, p in enumerate(plus):
-        locomo_item = locomo[i % len(locomo)]
+    for i, p in sliced:
+        base_index = i % len(locomo)
+        locomo_item = locomo[base_index]
         ctx = build_context(p, locomo_item)
         dialogue = ctx.get("dialogue") or []
         query_turns = ctx.get("query_turns") or []
@@ -130,6 +129,20 @@ def _cognitive_tasks(repo_dir: Path, limit: int | None) -> list[dict]:
         turns = [
             {"speaker": t.get("speaker", "?"), "text": (t.get("text") or "").strip()}
             for t in ingest_turns
+            if (t.get("text") or "").strip()
+        ]
+        # Branching optimization: the base conversation (shared by all instances
+        # on this base_index) vs the per-instance cue turns (the cheap delta).
+        # base_turns = the LoCoMo conversation's session turns (dated); cue_turns
+        # = the implicit-constraint turns this instance plants.
+        base_turns = _session_turns(locomo_item.get("conversation") or {})
+        cue_turns = [
+            {
+                "speaker": t.get("speaker", "?"),
+                "text": (t.get("text") or "").strip(),
+                "date": ctx.get("cue_time", ""),
+            }
+            for t in (ctx.get("cue_turns") or [])
             if (t.get("text") or "").strip()
         ]
         evidence = _cue_dialogue_to_evidence(p.get("cue_dialogue", ""), locomo_item)
@@ -143,6 +156,9 @@ def _cognitive_tasks(repo_dir: Path, limit: int | None) -> list[dict]:
                 "task_id": f"cog{i}",
                 "ingest_key": f"cog{i}",
                 "conversation_id": f"cog{i}",
+                "base_index": base_index,
+                "base_turns": base_turns,
+                "cue_turns": cue_turns,
                 "speakers": [ctx.get("speaker_a", "A"), ctx.get("speaker_b", "B")],
                 "turns": turns,
                 "full_context": full_ctx,
@@ -163,6 +179,7 @@ def load_tasks(
     conversations: list[int] | None = None,
     max_factual_per_category: int | None = None,
     cognitive_limit: int | None = None,
+    cognitive_offset: int = 0,
     include_factual: bool = True,
     include_cognitive: bool = True,
 ) -> list[dict]:
@@ -191,5 +208,5 @@ def load_tasks(
             factual = capped
         tasks.extend(factual)
     if include_cognitive:
-        tasks.extend(_cognitive_tasks(repo, cognitive_limit))
+        tasks.extend(_cognitive_tasks(repo, cognitive_limit, cognitive_offset))
     return tasks
