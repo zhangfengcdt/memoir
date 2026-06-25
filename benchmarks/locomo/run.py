@@ -48,7 +48,16 @@ def _make_service(store_path: str):
     return MemoryService(store_path)
 
 
-async def _ingest_all(tasks, modes, stores_dir, sem, native_merge_policy=None):
+async def _ingest_all(
+    tasks,
+    modes,
+    stores_dir,
+    sem,
+    native_merge_policy=None,
+    taxonomy_dir=None,
+    closed_set_llm=None,
+    build_vectors=False,
+):
     """Ingest each (ingest_key, mode) store once. Returns (services, stats)."""
     from memoir.services.memory_service import MemoryService
     from memoir.services.store_service import StoreService
@@ -61,6 +70,7 @@ async def _ingest_all(tasks, modes, stores_dir, sem, native_merge_policy=None):
         )
 
     services: dict[tuple, object] = {}
+    vector_services: dict[tuple, object] = {}
     stats: list[dict] = []
     for mode in modes:
         for key, info in by_key.items():
@@ -69,6 +79,14 @@ async def _ingest_all(tasks, modes, stores_dir, sem, native_merge_policy=None):
             StoreService(store_path).create_store(store_path)
             svc = MemoryService(store_path)
             services[(key, mode)] = svc
+            # Native vector index over the turns (for hybrid recall). Local
+            # embeddings, cheap; idempotent upsert so safe to rebuild on resume.
+            if build_vectors:
+                from memoir.services.vector_service import VectorService
+
+                vsvc = VectorService(store_path)
+                mr.build_vector_index(vsvc, info["turns"], mr.ns_for(key, mode))
+                vector_services[(key, mode)] = vsvc
             # Idempotent: skip re-ingest if this store is already populated, so a
             # resumed run doesn't re-classify every turn (wasted requests/cost) or
             # append duplicate memories.
@@ -95,28 +113,51 @@ async def _ingest_all(tasks, modes, stores_dir, sem, native_merge_policy=None):
                     }
                 )
                 continue
+            if taxonomy_dir:
+                n_paths = mr.seed_taxonomy(svc, taxonomy_dir)
+                print(
+                    f"  ingest {key} [{mode}]: seeded custom taxonomy "
+                    f"({n_paths} paths) from {taxonomy_dir}",
+                    flush=True,
+                )
             print(
                 f"  ingest {key} [{mode}] ({len(info['turns'])} turns)...", flush=True
             )
-            st = await mr.ingest_turns(
-                svc,
-                info["turns"],
-                key,
-                mode,
-                sem,
-                native_merge_policy=native_merge_policy,
-            )
+            if closed_set_llm is not None and taxonomy_dir:
+                leaves = mr.load_preset_leaves(taxonomy_dir)
+                st = await mr.ingest_turns_closed_set(
+                    svc, info["turns"], key, mode, leaves, closed_set_llm, sem
+                )
+            else:
+                st = await mr.ingest_turns(
+                    svc,
+                    info["turns"],
+                    key,
+                    mode,
+                    sem,
+                    native_merge_policy=native_merge_policy,
+                )
             print(
                 f"    -> {st['distinct_keys']} keys, "
                 f"collision={st['collision_ratio']}, {st['ingest_seconds']}s",
                 flush=True,
             )
             stats.append(st)
-    return services, stats
+    return services, vector_services, stats
 
 
 async def _predict(
-    task, system, mode, services, llm, recall_limit, sem, unified, recall_mode
+    task,
+    system,
+    mode,
+    services,
+    llm,
+    recall_limit,
+    sem,
+    unified,
+    recall_mode,
+    recall_strategy="native",
+    vector_services=None,
 ):
     """Produce one prediction record for (task, system)."""
     rec = {
@@ -143,15 +184,35 @@ async def _predict(
         return rec
 
     svc = services[(task["ingest_key"], mode)]
-    r = await mr.recall_context(
-        svc,
-        task["query"],
-        task["ingest_key"],
-        mode,
-        recall_limit,
-        sem,
-        recall_mode=recall_mode,
-    )
+    if recall_strategy == "hybrid":
+        # Union of taxonomy path-selection + memoir native vector search.
+        vsvc = (vector_services or {})[(task["ingest_key"], mode)]
+        r = await mr.recall_hybrid(
+            svc,
+            vsvc,
+            task["query"],
+            task["ingest_key"],
+            mode,
+            recall_limit,
+            task["turns"],
+            sem,
+            recall_mode=recall_mode,
+        )
+    elif recall_strategy == "ranked":
+        # Lexical prefilter + LLM rerank over stored turns — never empty.
+        r = await mr.recall_turns_ranked(
+            svc, task["query"], task["ingest_key"], mode, recall_limit, sem
+        )
+    else:
+        r = await mr.recall_context(
+            svc,
+            task["query"],
+            task["ingest_key"],
+            mode,
+            recall_limit,
+            sem,
+            recall_mode=recall_mode,
+        )
     prompt = mr.build_memoir_prompt(
         task["query"],
         r["memories"],
@@ -259,8 +320,15 @@ async def main_async(args):
     t_start = time.time()
 
     print("== Ingesting ==", flush=True)
-    services, ingest_stats = await _ingest_all(
-        tasks, args.modes, stores_dir, sem, native_merge_policy=args.native_merge_policy
+    services, vector_services, ingest_stats = await _ingest_all(
+        tasks,
+        args.modes,
+        stores_dir,
+        sem,
+        native_merge_policy=args.native_merge_policy,
+        taxonomy_dir=args.taxonomy_dir,
+        closed_set_llm=(llm if args.closed_set else None),
+        build_vectors=(args.recall_strategy == "hybrid"),
     )
 
     systems = []
@@ -294,6 +362,8 @@ async def main_async(args):
                     sem,
                     unified,
                     args.recall_mode,
+                    args.recall_strategy,
+                    vector_services,
                 )
             )
 
@@ -410,6 +480,29 @@ def parse_args():
         default="single",
         help="memoir search pipeline: single (flat, O(n)) or tiered "
         "(hierarchical L1/L2 drill-down; scalable, needs native taxonomy paths)",
+    )
+    p.add_argument(
+        "--recall-strategy",
+        choices=["native", "ranked", "hybrid"],
+        default="native",
+        help="native = memoir taxonomy path-selection; ranked = lexical "
+        "prefilter + LLM rerank over stored turns; hybrid = union of taxonomy "
+        "path-selection + memoir native vector search (never-empty, best "
+        "factual recall).",
+    )
+    p.add_argument(
+        "--taxonomy-dir",
+        default=None,
+        help="Directory with a custom taxonomy (presets.md [+ descriptions.md / "
+        "examples.md]) to use instead of memoir's default coding-oriented "
+        "taxonomy. Seeded per store before ingest.",
+    )
+    p.add_argument(
+        "--closed-set",
+        action="store_true",
+        help="Closed-set ingest: classify each turn into one preset leaf path "
+        "(no taxonomy expansion), so related turns co-locate. Requires "
+        "--taxonomy-dir.",
     )
     p.add_argument("--concurrency", type=int, default=8)
     p.add_argument(

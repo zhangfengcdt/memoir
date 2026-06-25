@@ -67,6 +67,172 @@ def ns_for(ingest_key: str, mode: str) -> str:
     return f"lc_{ingest_key}_{mode}"
 
 
+def load_preset_leaves(taxonomy_dir: str) -> list[str]:
+    """Parse presets.md into full `category.subcategory.type` leaf paths."""
+    from pathlib import Path as _P
+
+    text = (_P(taxonomy_dir) / "presets.md").read_text()
+    # strip frontmatter
+    if text.startswith("---"):
+        text = text.split("---", 2)[-1]
+    leaves, cat = [], None
+    for line in text.splitlines():
+        s = line.strip()
+        if s.startswith("## "):
+            cat = s[3:].strip()
+        elif s.startswith("- ") and cat:
+            leaves.append(f"{cat}.{s[2:].strip()}")
+    return leaves
+
+
+CLOSED_SET_PROMPT = """\
+Classify each conversation utterance into the SINGLE best-fitting path from this
+fixed taxonomy. You MUST choose from these paths only — do not invent new ones:
+{paths}
+
+Utterances:
+{numbered}
+
+Return ONLY a JSON array, one object per utterance in order:
+[{{"i": 0, "path": "<one path from the list>"}}, ...]"""
+
+
+async def classify_closed_set(llm, turns, leaves, sem, batch=12):
+    """Assign each turn exactly one preset leaf path (batched). Closed-set: no
+    taxonomy expansion, so related turns co-locate instead of fragmenting."""
+    import json
+
+    paths_block = "\n".join(f"- {p}" for p in leaves)
+    leafset = set(leaves)
+    out = [leaves[0]] * len(turns)  # safe default
+
+    async def _one(start, chunk):
+        numbered = "\n".join(f"{i}: {turn_content(t)}" for i, t in enumerate(chunk))
+        prompt = CLOSED_SET_PROMPT.format(paths=paths_block, numbered=numbered)
+        raw = ""
+        for attempt in range(8):
+            try:
+                async with sem:
+                    resp = await llm.ainvoke(prompt)
+                raw = (resp.content or "").strip()
+                break
+            except Exception:
+                if attempt == 7:
+                    return
+                await asyncio.sleep(min(30, 4 * (attempt + 1)))
+        m = re.search(r"\[.*\]", raw, re.DOTALL)
+        if not m:
+            return
+        try:
+            arr = json.loads(m.group(0))
+        except Exception:
+            return
+        for o in arr:
+            if isinstance(o, dict) and "i" in o:
+                idx = int(o["i"])
+                p = str(o.get("path", "")).strip()
+                if 0 <= idx < len(chunk) and p in leafset:
+                    out[start + idx] = p
+
+    chunks = [(i, turns[i : i + batch]) for i in range(0, len(turns), batch)]
+    await asyncio.gather(*(_one(s, c) for s, c in chunks))
+    return out
+
+
+async def ingest_turns_closed_set(svc, turns, ingest_key, mode, leaves, llm, sem):
+    """Closed-set ingest: classify each turn into a preset leaf, store at that
+    explicit path (append) — bypasses memoir's expanding classifier."""
+    t0 = time.time()
+    namespace = ns_for(ingest_key, mode)
+    paths = await classify_closed_set(llm, turns, leaves, sem)
+
+    async def _one(turn, path):
+        async with sem:
+            await svc.remember(
+                turn_content(turn),
+                namespace=namespace,
+                path=path,
+                merge_policy="append",
+                extra_metadata={"speaker": turn["speaker"]},
+            )
+
+    await asyncio.gather(*(_one(t, p) for t, p in zip(turns, paths, strict=False)))
+    distinct = len(set(paths))
+    return {
+        "ingest_key": ingest_key,
+        "mode": mode,
+        "n_turns": len(turns),
+        "distinct_keys": distinct,
+        "collision_ratio": round(1 - distinct / max(1, len(turns)), 3),
+        "ingest_seconds": round(time.time() - t0, 2),
+        "mean_write_ms": 0.0,
+    }
+
+
+def build_vector_index(vsvc, turns, namespace):
+    """Index each turn into memoir's native vector index (doc_id ``v<i>``), so
+    recall can fetch turns by embedding similarity. Local embeddings — no API."""
+    import contextlib
+
+    for i, t in enumerate(turns):
+        vsvc.index(namespace, f"v{i}".encode(), turn_content(t))
+    with contextlib.suppress(Exception):
+        vsvc.commit("vector index")
+
+
+async def recall_hybrid(
+    svc, vsvc, query, ingest_key, mode, limit, turns, sem, recall_mode="single"
+):
+    """Hybrid factual recall = union of memoir's taxonomy path-selection and its
+    native vector (embedding) search, deduped. Each covers the other's blind
+    spot: path-selection adds structure (clusters of related/dated turns), vector
+    adds never-empty semantic recall. Vector doc_ids ``v<i>`` map back to
+    ``turns[i]``."""
+    t0 = time.time()
+    ns = ns_for(ingest_key, mode)
+    async with sem:
+        rc = await svc.recall(query, namespace=ns, mode=recall_mode, limit=limit)
+    tax = [m.content for m in rc.memories if m.content]
+    vec = []
+    for did, _ in vsvc.search(ns, query, k=limit):
+        try:
+            i = int(did.decode().lstrip("v"))
+        except Exception:
+            continue
+        if 0 <= i < len(turns):
+            vec.append(turn_content(turns[i]))
+    merged = list(dict.fromkeys(vec + tax))[: 2 * limit]
+    return {
+        "memories": [{"content": c} for c in merged],
+        "n_retrieved": len(merged),
+        "recall_seconds": round(time.time() - t0, 2),
+    }
+
+
+def seed_taxonomy(svc, taxonomy_dir: str) -> int:
+    """Replace the store's default (coding-oriented) taxonomy with a custom one
+    loaded from ``taxonomy_dir`` (presets.md [+ descriptions.md/examples.md]).
+
+    Must run before the first ``remember`` so classification uses these paths.
+    Returns the number of preset paths loaded.
+    """
+    from pathlib import Path as _P
+
+    loader = svc._get_taxonomy_loader()
+    files = [
+        str(p)
+        for name in ("descriptions.md", "examples.md", "presets.md")
+        if (p := _P(taxonomy_dir) / name).exists()
+    ]
+    loader.init_store(
+        include_builtin=False, external_paths=files, merge_strategy="replace"
+    )
+    try:
+        return len(loader.get_preset_paths_from_store())
+    except Exception:
+        return 0
+
+
 async def ingest_turns(svc, turns, ingest_key, mode, sem, native_merge_policy=None):
     """Ingest one conversation's turns; return per-speaker stats.
 
@@ -142,6 +308,175 @@ async def recall_context(
     return {
         "memories": [{"path": m.path, "content": m.content} for m in top],
         "n_retrieved": len(top),
+        "recall_seconds": round(time.time() - t0, 2),
+    }
+
+
+# Stopwords for the lexical prefilter — drop high-frequency tokens that carry no
+# retrieval signal so overlap scoring keys on content words (names, nouns, dates).
+_STOP = {
+    "the",
+    "a",
+    "an",
+    "is",
+    "are",
+    "was",
+    "were",
+    "be",
+    "been",
+    "being",
+    "of",
+    "to",
+    "in",
+    "on",
+    "at",
+    "and",
+    "or",
+    "but",
+    "for",
+    "with",
+    "as",
+    "by",
+    "from",
+    "this",
+    "that",
+    "these",
+    "those",
+    "it",
+    "its",
+    "i",
+    "you",
+    "he",
+    "she",
+    "we",
+    "they",
+    "them",
+    "my",
+    "your",
+    "his",
+    "her",
+    "our",
+    "their",
+    "me",
+    "him",
+    "us",
+    "do",
+    "does",
+    "did",
+    "have",
+    "has",
+    "had",
+    "will",
+    "would",
+    "can",
+    "could",
+    "what",
+    "when",
+    "where",
+    "who",
+    "whom",
+    "which",
+    "how",
+    "why",
+    "about",
+    "there",
+    "here",
+    "not",
+    "no",
+    "yes",
+    "if",
+    "then",
+    "so",
+    "up",
+    "out",
+    "off",
+    "over",
+    "under",
+    "again",
+    "more",
+    "most",
+    "some",
+    "any",
+    "all",
+    "each",
+}
+
+
+def _toks(s: str) -> list[str]:
+    return [
+        t for t in re.split(r"[^a-z0-9]+", s.lower()) if len(t) > 1 and t not in _STOP
+    ]
+
+
+def _read_turns(svc, namespace) -> list[dict]:
+    """Read every stored turn (verbatim content) for a conversation namespace."""
+    store = svc._get_search_engine().store
+    out = []
+    for _, path, data in store.search((namespace,), limit=100000):
+        if isinstance(data, dict) and "memories" in data:
+            entries = data["memories"]
+        elif isinstance(data, dict):
+            entries = [data]
+        else:
+            entries = [{"content": str(data)}]
+        for e in entries:
+            if isinstance(e, dict) and (e.get("content") or "").strip():
+                out.append({"path": path, "content": e["content"].strip()})
+    return out
+
+
+def _lexical_topn(query: str, items: list[dict], n: int) -> list[dict]:
+    """Token-overlap prefilter: top-n turns by shared content words (never empty
+    while the store is non-empty — pads with remaining turns if overlap is thin)."""
+    q = set(_toks(query))
+    scored = sorted(
+        ((len(q & set(_toks(it["content"]))), i, it) for i, it in enumerate(items)),
+        key=lambda x: (-x[0], x[1]),
+    )
+    pos = [it for s, _, it in scored if s > 0]
+    if len(pos) >= n:
+        return pos[:n]
+    rest = [it for s, _, it in scored if s == 0]
+    return (pos + rest)[:n]
+
+
+TURN_RANK_PROMPT = """\
+You are selecting which conversation excerpts are most relevant to ANSWERING \
+the question — excerpts that contain the answer or directly bear on it.
+
+Question:
+{query}
+
+Conversation excerpts (numbered):
+{numbered}
+
+Return ONLY a JSON array of the 0-based indices of the most relevant excerpts, \
+most-relevant first, at most {limit}. Always return at least one index. \
+Example: [3, 7, 1]"""
+
+
+async def recall_turns_ranked(svc, query, ingest_key, mode, limit, sem, prefilter=30):
+    """Factual recall that never comes back empty: a cheap lexical prefilter over
+    the stored turns (surface overlap is a strong signal for factual QA) followed
+    by an LLM rerank to the top-k. Replaces taxonomy path-selection, which returns
+    nothing for a large fraction of factual queries."""
+    t0 = time.time()
+    items = _read_turns(svc, ns_for(ingest_key, mode))
+    cands = _lexical_topn(query, items, prefilter)
+    if len(cands) <= limit:
+        chosen = cands
+    else:
+        chosen = await _rank_constraints(
+            svc._get_search_engine().llm,
+            query,
+            cands,
+            limit,
+            sem,
+            template=TURN_RANK_PROMPT,
+        )
+    return {
+        "memories": [{"path": m["path"], "content": m["content"]} for m in chosen],
+        "n_retrieved": len(chosen),
         "recall_seconds": round(time.time() - t0, 2),
     }
 
@@ -224,12 +559,14 @@ Always return at least one index (your single best guess) even if the link is \
 weak. Example: [3, 7, 1]"""
 
 
-async def _rank_constraints(rank_llm, query, items, limit, sem):
-    """One LLM call ranking constraint entries by implication; never empty."""
+async def _rank_constraints(
+    rank_llm, query, items, limit, sem, template=CONSTRAINT_RANK_PROMPT
+):
+    """One LLM call ranking items by relevance to the query; never empty."""
     import json
 
     numbered = "\n".join(f"{i}: {it['content']}" for i, it in enumerate(items))
-    prompt = CONSTRAINT_RANK_PROMPT.format(query=query, numbered=numbered, limit=limit)
+    prompt = template.format(query=query, numbered=numbered, limit=limit)
     raw = ""
     for attempt in range(8):
         try:
