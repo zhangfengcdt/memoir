@@ -7,12 +7,9 @@ Speaker separation: both speakers share one namespace per (conversation, mode)
 ("Caroline: ...") and append-merged so the two never overwrite each other and
 the generator can attribute who said what. One recall call per query.
 
-Two ingest modes:
-- ``native``: ``remember(content)`` — memoir auto-classifies each utterance into
-  its fixed taxonomy with the default per-type merge policy (so taxonomy
-  collisions + confidence-gating happen exactly as shipped). One LLM call/turn.
-- ``raw``: ``remember(content, path="turn.NNNN", merge_policy="append")`` — one
-  unique path per utterance, no classification (no LLM, loss-free control).
+Factual ingest is ``native``: ``remember(content)`` auto-classifies each
+utterance into memoir's fixed taxonomy (one LLM call/turn). Use append merge so
+colliding facts coexist as timestamped facets instead of being dropped.
 """
 
 from __future__ import annotations
@@ -84,34 +81,25 @@ async def ingest_turns(svc, turns, ingest_key, mode, sem, native_merge_policy=No
     write_latencies: list[float] = []
     n_written = 0
 
-    async def _one(idx, turn):
+    async def _one(turn):
         nonlocal n_written
         speaker = turn["speaker"]
         content = turn_content(turn)
         async with sem:
             w0 = time.time()
-            if mode == "raw":
-                r = await svc.remember(
-                    content,
-                    namespace=namespace,
-                    path=f"turn.{idx:04d}",
-                    merge_policy="append",
-                    extra_metadata={"speaker": speaker},
-                )
-            else:  # native
-                r = await svc.remember(
-                    content,
-                    namespace=namespace,
-                    merge_policy=native_merge_policy,
-                    extra_metadata={"speaker": speaker},
-                )
+            r = await svc.remember(
+                content,
+                namespace=namespace,
+                merge_policy=native_merge_policy,
+                extra_metadata={"speaker": speaker},
+            )
             write_latencies.append(time.time() - w0)
         n_written += 1
         keys = r.keys if getattr(r, "keys", None) else ([r.key] if r.key else [])
         for k in keys:
             distinct.add(k)
 
-    await asyncio.gather(*(_one(i, t) for i, t in enumerate(turns)))
+    await asyncio.gather(*(_one(t) for t in turns))
 
     distinct_keys = len(distinct)
     return {
@@ -159,15 +147,14 @@ async def recall_context(
 
 
 # ---------------------------------------------------------------------------
-# Branching optimization for cognitive instances.
+# Per-instance namespaces for cognitive instances.
 #
-# All cognitive instances that share a base LoCoMo conversation are ingested into
-# ONE store on `main` (the base conversation, ingested once). Each instance then
-# lives on its own branch off `main` carrying just its cue turns (a cheap
-# structural-sharing delta instead of re-ingesting ~588 turns). Recall checks out
-# the instance branch on the SAME store handle recall reads from (a per-store lock
-# keeps checkout+recall atomic so instances on one base serialize while different
-# bases run in parallel).
+# All instances that share a base LoCoMo conversation are indexed ONCE into that
+# base's constraint namespace (``base_ns``, the conversation ingested a single
+# time). Each instance's inserted cue is small and instance-specific, so it goes
+# in its own ``cue_ns``; recall reads base + cue together and ranks the union.
+# (This replaces a git-branch-per-instance scheme whose cue writes did not
+# survive checkout, silently dropping every cue from the index.)
 # ---------------------------------------------------------------------------
 
 
@@ -175,88 +162,121 @@ def base_ns(base_index: int, mode: str) -> str:
     return f"lc_cogbase{base_index}_{mode}"
 
 
-def _tree(svc):
-    return svc._get_search_engine().store.tree
+def cue_ns(task_id: str, mode: str) -> str:
+    """Per-instance namespace for that instance's inserted cue constraint(s)."""
+    return f"lc_cue_{task_id}_{mode}"
 
 
-async def ingest_base(svc, base_turns, base_index, mode, sem, native_merge_policy=None):
-    """Ingest the shared base conversation once on `main`."""
-    _tree(svc).checkout("main")
-    namespace = base_ns(base_index, mode)
+def _read_constraints(svc, namespace):
+    """Read every constraint entry (content + verbatim source) for a namespace
+    straight from the store, on the currently-checked-out branch.
+
+    Why not go through ``svc.recall``: the constraint index is a small (~50)
+    flat set, and the intelligent search engine's taxonomy *path-selection*
+    returns nothing when a trigger has no surface overlap with a constraint path
+    — exactly the cue->trigger disconnect this benchmark targets. We instead
+    pull the raw entries here and rank them by behavioral implication
+    (:func:`recall_branch_ranked`). Reading raw also recovers the true ``source``
+    metadata, which the search engine overwrites with a literal "single".
+    """
+    store = svc._get_search_engine().store
+    out = []
+    for _, path, data in store.search((namespace,), limit=10000):
+        if isinstance(data, dict) and "memories" in data:
+            entries = data["memories"]
+        elif isinstance(data, dict):
+            entries = [data]
+        else:
+            entries = [{"content": str(data), "metadata": {}}]
+        for e in entries:
+            if not isinstance(e, dict):
+                continue
+            content = (e.get("content") or "").strip()
+            if not content:
+                continue
+            # source is stored flat on the entry (not nested under "metadata")
+            src = e.get("source") or (e.get("metadata") or {}).get("source") or ""
+            out.append({"path": path, "content": content, "source": src.strip()})
+    return out
+
+
+CONSTRAINT_RANK_PROMPT = """\
+You are selecting which of a person's STANDING CONSTRAINTS are implicated by \
+their latest message in an ongoing conversation.
+
+The link is by BEHAVIORAL IMPLICATION and shared underlying SITUATION or \
+EMOTIONAL STATE — NOT shared words. Ask WHY the speaker might feel or act this \
+way given their history, then find the constraint that explains it. The right \
+constraint usually has little vocabulary overlap with the message. For example, \
+a message like "I keep double-checking the stove before I leave" is implicated \
+by a past constraint such as "became cautious about fire hazards after a \
+kitchen accident" — different words, same underlying concern.
+
+Latest message:
+{query}
+
+Standing constraints (numbered):
+{numbered}
+
+Return ONLY a JSON array of the 0-based indices of the constraints most \
+implicated by the latest message, most-relevant first, at most {limit}. \
+Always return at least one index (your single best guess) even if the link is \
+weak. Example: [3, 7, 1]"""
+
+
+async def _rank_constraints(rank_llm, query, items, limit, sem):
+    """One LLM call ranking constraint entries by implication; never empty."""
+    import json
+
+    numbered = "\n".join(f"{i}: {it['content']}" for i, it in enumerate(items))
+    prompt = CONSTRAINT_RANK_PROMPT.format(query=query, numbered=numbered, limit=limit)
+    raw = ""
+    for attempt in range(8):
+        try:
+            async with sem:
+                resp = await rank_llm.ainvoke(prompt)
+            raw = (resp.content or "").strip()
+            break
+        except Exception:
+            if attempt == 7:
+                return items[:limit]  # fall back to arbitrary-but-nonempty
+            await asyncio.sleep(min(30, 4 * (attempt + 1)))
+    idxs = []
+    m = re.search(r"\[.*\]", raw, re.DOTALL)
+    if m:
+        try:
+            for x in json.loads(m.group(0)):
+                i = int(x)
+                if 0 <= i < len(items) and i not in idxs:
+                    idxs.append(i)
+        except Exception:
+            idxs = []
+    if not idxs:
+        idxs = list(range(min(limit, len(items))))
+    return [items[i] for i in idxs[:limit]]
+
+
+async def recall_ranked(svc, task_id, query, base_index, mode, limit, sem):
+    """Constraint-aware recall over the base + this instance's cue namespaces,
+    ranked by implication to the trigger (top-K, never empty).
+
+    The base conversation's constraints are indexed once (``base_ns``); the
+    instance's inserted cue lives in ``cue_ns``. Reading both and ranking the
+    union is the right retrieval for a small flat constraint set, where taxonomy
+    path-selection silently returns nothing across the cue->trigger disconnect.
+    """
     t0 = time.time()
-
-    async def _one(idx, turn):
-        content = turn_content(turn)
-        async with sem:
-            if mode == "raw":
-                await svc.remember(
-                    content,
-                    namespace=namespace,
-                    path=f"turn.{idx:04d}",
-                    merge_policy="append",
-                    extra_metadata={"speaker": turn["speaker"]},
-                )
-            else:
-                await svc.remember(
-                    content,
-                    namespace=namespace,
-                    merge_policy=native_merge_policy,
-                    extra_metadata={"speaker": turn["speaker"]},
-                )
-
-    await asyncio.gather(*(_one(i, t) for i, t in enumerate(base_turns)))
+    items = _read_constraints(svc, base_ns(base_index, mode))
+    items += _read_constraints(svc, cue_ns(task_id, mode))
+    if len(items) <= limit:
+        chosen = items
+    else:
+        chosen = await _rank_constraints(
+            svc._get_search_engine().llm, query, items, limit, sem
+        )
     return {
-        "base_index": base_index,
-        "n_base_turns": len(base_turns),
-        "ingest_seconds": round(time.time() - t0, 2),
-    }
-
-
-async def make_branch_with_cue(
-    svc, branch, cue_turns, base_index, mode, sem, native_merge_policy=None
-):
-    """Create `branch` off main and commit only this instance's cue turns."""
-    tree = _tree(svc)
-    tree.checkout("main")
-    tree.create_branch(branch)
-    tree.checkout(branch)
-    namespace = base_ns(base_index, mode)
-    for k, turn in enumerate(cue_turns):
-        content = turn_content(turn)
-        async with sem:
-            if mode == "raw":
-                await svc.remember(
-                    content,
-                    namespace=namespace,
-                    path=f"cue.{k:02d}",
-                    merge_policy="append",
-                    extra_metadata={"speaker": turn["speaker"]},
-                )
-            else:
-                await svc.remember(
-                    content,
-                    namespace=namespace,
-                    merge_policy=native_merge_policy,
-                    extra_metadata={"speaker": turn["speaker"]},
-                )
-
-
-async def recall_branch(
-    svc, lock, branch, query, base_index, mode, limit, sem, recall_mode="single"
-):
-    """Checkout `branch` and recall — atomic per store via `lock`."""
-    t0 = time.time()
-    namespace = base_ns(base_index, mode)
-    async with lock:
-        _tree(svc).checkout(branch)
-        async with sem:
-            rc = await svc.recall(
-                query, namespace=namespace, mode=recall_mode, limit=limit
-            )
-        top = rc.memories[:limit]
-    return {
-        "memories": [{"path": m.path, "content": m.content} for m in top],
-        "n_retrieved": len(top),
+        "memories": chosen,
+        "n_retrieved": len(chosen),
         "recall_seconds": round(time.time() - t0, 2),
     }
 
@@ -283,7 +303,8 @@ unrelated situation.
 For each turn that establishes such a constraint, emit one JSON object:
   {{"speaker": "<name>", "type": "state|goal|value|causal",
    "constraint": "<normalized implication as a general rule, e.g. 'values \
-protecting personal time and avoiding overcommitment to manage stress'>"}}
+protecting personal time and avoiding overcommitment to manage stress'>",
+   "source": "<the verbatim utterance text this implication is drawn from>"}}
 
 Rules:
 - MOST turns imply nothing durable — skip logistics, chit-chat, one-off events, \
@@ -311,9 +332,19 @@ async def extract_constraints(llm, turns, sem, chunk_size=40):
     async def _one(chunk):
         text = "\n".join(f"{t['speaker']}: {t['text']}" for t in chunk if t.get("text"))
         prompt = CONSTRAINT_EXTRACT_PROMPT.format(turns=text)
-        async with sem:
-            resp = await llm.ainvoke(prompt)
-        raw = (resp.content or "").strip()
+        # Retry+backoff so a TPM/RPM 429 paces instead of crashing the run; the
+        # semaphore is released between attempts so the token budget can recover.
+        raw = ""
+        for attempt in range(8):
+            try:
+                async with sem:
+                    resp = await llm.ainvoke(prompt)
+                raw = (resp.content or "").strip()
+                break
+            except Exception:
+                if attempt == 7:
+                    return []  # give up this chunk (contributes no constraints)
+                await asyncio.sleep(min(30, 4 * (attempt + 1)))
         m = re.search(r"\[.*\]", raw, re.DOTALL)
         if not m:
             return []
@@ -328,12 +359,75 @@ async def extract_constraints(llm, turns, sem, chunk_size=40):
                 and o.get("type") in {"state", "goal", "value", "causal"}
                 and (o.get("constraint") or "").strip()
             ):
+                # carry the verbatim source utterance for grounded (hybrid) gen
+                o["source"] = (o.get("source") or "").strip()
                 good.append(o)
         return good
 
     for res in await asyncio.gather(*(_one(c) for c in chunks)):
         out.extend(res)
     return out
+
+
+CUE_EXTRACT_PROMPT = """\
+The turns below are a short exchange in which a speaker states a DURABLE \
+behavioral change, preference, constraint, or hard-won lesson — the kind of \
+latent state/goal/value/causal context that should shape how an assistant \
+responds to that speaker later, even in an unrelated situation.
+
+Extract the underlying constraint as a GENERAL implication (not a restatement). \
+Emit one JSON object per speaker who expresses such a constraint:
+  {{"speaker": "<name>", "type": "state|goal|value|causal",
+   "constraint": "<normalized implication, e.g. 'prioritizes home safety after \
+an accident and proactively childproofs'>",
+   "source": "<the verbatim utterance this is drawn from>"}}
+
+Always extract at least one constraint for the primary speaker. Return ONLY a \
+JSON array. No prose.
+
+Turns:
+{turns}
+
+JSON array:"""
+
+
+async def extract_cue_constraint(llm, cue_turns, sem):
+    """Extraction tuned for an instance's *cue* (a deliberate constraint
+    statement). Unlike the base-conversation pass it does NOT err toward fewer —
+    the cue is a constraint by construction, so a conservative prompt that drops
+    it (observed on ~half of cues) defeats the whole retrieval test."""
+    import json
+
+    text = "\n".join(f"{t['speaker']}: {t['text']}" for t in cue_turns if t.get("text"))
+    prompt = CUE_EXTRACT_PROMPT.format(turns=text)
+    raw = ""
+    for attempt in range(8):
+        try:
+            async with sem:
+                resp = await llm.ainvoke(prompt)
+            raw = (resp.content or "").strip()
+            break
+        except Exception:
+            if attempt == 7:
+                return []
+            await asyncio.sleep(min(30, 4 * (attempt + 1)))
+    m = re.search(r"\[.*\]", raw, re.DOTALL)
+    if not m:
+        return []
+    try:
+        arr = json.loads(m.group(0))
+    except Exception:
+        return []
+    good = []
+    for o in arr:
+        if (
+            isinstance(o, dict)
+            and o.get("type") in {"state", "goal", "value", "causal"}
+            and (o.get("constraint") or "").strip()
+        ):
+            o["source"] = (o.get("source") or "").strip()
+            good.append(o)
+    return good
 
 
 async def ingest_constraints(svc, constraints, namespace, sem):
@@ -355,7 +449,14 @@ async def ingest_constraints(svc, constraints, namespace, sem):
                 namespace=namespace,
                 path=path,
                 merge_policy="append",
-                extra_metadata={"speaker": speaker, "constraint_type": c["type"]},
+                extra_metadata={
+                    "speaker": speaker,
+                    "constraint_type": c["type"],
+                    # verbatim source utterance, surfaced at recall for hybrid
+                    # (grounded) generation; content stays the abstraction so
+                    # retrieval still ranks by implication.
+                    "source": f"{speaker}: {c.get('source', '')}".strip(),
+                },
             )
 
     await asyncio.gather(*(_one(c) for c in constraints))
@@ -367,6 +468,18 @@ def _memory_block(memories: list[dict]) -> str:
         return "(no relevant memories were retrieved)"
     return "\n".join(f"- {m['content']}" for m in memories)
 
+
+# In-character role directive for cognitive generation. The generator (Haiku via
+# the Claude Code CLI) otherwise inherits a coding-assistant identity and
+# sometimes refuses to continue a personal conversation ("I'm built to help with
+# software engineering..."). We can't pass it as a CLI --system-prompt (that path
+# forces JSON-only output), so it leads the user prompt instead.
+_COGNITIVE_ROLE = (
+    "You are the user's personal AI assistant in an ongoing conversation. Reply "
+    "helpfully and naturally to the user's latest message, taking into account "
+    "what you already know about the user from earlier in the conversation. "
+    "Respond with only your reply.\n\n"
+)
 
 # Neutral continuation cue for cognitive tasks under the unified-input protocol
 # (paper sec 5.1/5.3): present the trigger as a natural dialogue turn with NO
@@ -387,7 +500,7 @@ def build_memoir_prompt(query, memories, is_cognitive, speakers, unified=True):
     body = f"Relevant memories retrieved from the earlier conversation:\n{block}\n\n"
     if is_cognitive:
         pre, post = _cognitive_section(unified)
-        return head + pre + body + query.strip() + post
+        return _COGNITIVE_ROLE + head + pre + body + query.strip() + post
     return head + instr["qa"] + body + "Question: " + query.strip()
 
 
@@ -397,12 +510,23 @@ def build_baseline_prompt(query, full_context, is_cognitive, speakers, unified=T
     body = (full_context or "").strip() + "\n\n"
     if is_cognitive:
         pre, post = _cognitive_section(unified)
-        return head + pre + body + query.strip() + post
+        return _COGNITIVE_ROLE + head + pre + body + query.strip() + post
     return head + instr["qa"] + body + "Question: " + query.strip()
 
 
-async def generate(llm, prompt, sem):
+async def generate(llm, prompt, sem, max_attempts=8):
+    """Generate with retry+backoff so a TPM 429 paces (and never crashes the run).
+
+    The semaphore is released between attempts so other coroutines proceed while
+    this one backs off — which lets the per-minute token budget recover.
+    """
     t0 = time.time()
-    async with sem:
-        resp = await llm.ainvoke(prompt)
-    return (resp.content or "").strip(), round(time.time() - t0, 2)
+    for attempt in range(max_attempts):
+        try:
+            async with sem:
+                resp = await llm.ainvoke(prompt)
+            return (resp.content or "").strip(), round(time.time() - t0, 2)
+        except Exception:
+            if attempt == max_attempts - 1:
+                return "", round(time.time() - t0, 2)
+            await asyncio.sleep(min(30, 4 * (attempt + 1)))

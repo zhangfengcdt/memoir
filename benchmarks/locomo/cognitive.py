@@ -1,20 +1,22 @@
 # SPDX-License-Identifier: Apache-2.0
 """
-Cognitive (LoCoMo-Plus) runner with the branching + context-aware layers.
+Cognitive (LoCoMo-Plus) runner with the context-aware constraint layer.
 
 Why a separate runner from run.py: the cognitive set needs machinery the flat
 factual fan-out doesn't —
-  * branching: each base LoCoMo conversation is ingested ONCE; every instance is
-    a branch off it carrying only its cue (structural sharing, not re-ingest);
+  * shared base index: each base LoCoMo conversation's constraints are indexed
+    ONCE (``base_ns``); every instance only adds its own small cue (``cue_ns``),
+    not a re-ingest of the whole conversation;
   * context-aware ("constraint") ingest: a write-time LLM pass indexes each
     speaker's durable state/goal/value/causal constraints instead of raw turns,
     so the deliberately-disconnected cue is retrievable by implication;
-  * branch-pinned recall: checkout the instance branch on the same store handle
-    recall reads from (serialized per base store, parallel across bases).
+  * ranked recall: read base + cue constraints and rank them by behavioral
+    implication to the trigger (top-K, never empty), since taxonomy
+    path-selection silently returns nothing across the cue->trigger disconnect.
 
-Two cognitive ingest modes:
-  --cog-mode raw         : base turns + cue turns as raw memories (control).
+Cognitive ingest modes:
   --cog-mode constraint  : extracted constraints for base + cue (context-aware).
+  --cog-mode hybrid      : constraint retrieval, generation from cue source text.
 
 Systems scored: `baseline` (full stitched context, no memoir) and
 `memoir_<cog-mode>`. Output schema matches run.py so judged.json is comparable.
@@ -30,8 +32,11 @@ import time
 from collections import defaultdict
 from pathlib import Path
 
-os.environ.setdefault("MEMOIR_LLM_BACKEND", "claude-cli")
-os.environ.setdefault("MEMOIR_LLM_MODEL", "claude-haiku-4-5")
+# All LLMs go through litellm (OpenAI key), no claude-cli. Internal recall runs
+# on gpt-4o-mini — recall sends the whole store per query, so big prompts make a
+# pricier model the dominant cost.
+os.environ.setdefault("MEMOIR_LLM_BACKEND", "litellm")
+os.environ.setdefault("MEMOIR_LLM_MODEL", "gpt-4o-mini")
 os.environ.setdefault("MEMOIR_NO_CAPTURE", "1")
 
 import data as data_mod
@@ -57,93 +62,102 @@ def _ns_count(svc, ns):
 
 
 async def _ingest_base_layer(svc, base_turns, base_index, cog_mode, llm, sem):
-    """Populate `main` with the base conversation (raw turns or constraints).
+    """Index the base conversation's constraints once (shared by all instances).
 
     Idempotent: if the base namespace is already populated (a prior run that was
     interrupted), skip re-ingest/re-extract so --resume doesn't duplicate or
     re-pay the extraction cost.
     """
     ns = mr.base_ns(base_index, cog_mode)
-    mr._tree(svc).checkout("main")
     existing = _ns_count(svc, ns)
     if existing:
         return existing
-    if cog_mode == "constraint":
-        cons = await mr.extract_constraints(llm, base_turns, sem)
-        await mr.ingest_constraints(svc, cons, ns, sem)
-        return len(cons)
-    await mr.ingest_base(svc, base_turns, base_index, "raw", sem)
-    return len(base_turns)
+    cons = await mr.extract_constraints(llm, base_turns, sem)
+    await mr.ingest_constraints(svc, cons, ns, sem)
+    return len(cons)
 
 
-async def _add_instance_branch(svc, branch, cue_turns, base_index, cog_mode, llm, sem):
-    """Branch off main and add this instance's cue (raw turns or constraints)."""
-    tree = mr._tree(svc)
-    tree.checkout("main")
-    # Idempotent: a prior interrupted run may have left this branch (with its cue
-    # already committed). Recreate only when fresh; otherwise just check it out.
-    try:
-        tree.create_branch(branch)
-        tree.checkout(branch)
-        fresh = True
-    except Exception:
-        tree.checkout(branch)
-        fresh = False
-    if not fresh:
+async def _add_instance_cue(svc, task_id, cue_turns, cog_mode, llm, sem):
+    """Index this instance's inserted cue in its own namespace (idempotent)."""
+    ns = mr.cue_ns(task_id, cog_mode)
+    if _ns_count(svc, ns):
         return
-    ns = mr.base_ns(base_index, cog_mode)
-    if cog_mode == "constraint":
-        cons = await mr.extract_constraints(llm, cue_turns, sem)
-        await mr.ingest_constraints(svc, cons, ns, sem)
-    else:
-        for k, turn in enumerate(cue_turns):
-            async with sem:
-                await svc.remember(
-                    mr.turn_content(turn),
-                    namespace=ns,
-                    path=f"cue.{k:02d}",
-                    merge_policy="append",
-                    extra_metadata={"speaker": turn["speaker"]},
-                )
+    cons = await mr.extract_cue_constraint(llm, cue_turns, sem)
+    await mr.ingest_constraints(svc, cons, ns, sem)
 
 
-async def _process_base(b, group, cog_mode, llm, sem, recall_limit, recall_mode, done):
-    """Ingest one base + all its instances (serial: branch checkout is stateful)."""
+async def _process_base(
+    b,
+    group,
+    cog_mode,
+    gen_llm,
+    extract_llm,
+    sem,
+    recall_limit,
+    done,
+    run_systems,
+):
+    """Index one base + score all its instances (serial within a base store).
+
+    ``extract_llm`` does write-time constraint extraction; ``gen_llm`` produces
+    the answer (both gpt-4o-mini).
+    """
     from pathlib import Path as _P
 
-    store_path = str(_P(group["stores_dir"]) / f"cogbase{b}_{cog_mode}")
-    svc = _make_service(store_path)
-    lock = asyncio.Lock()
-    n_index = await _ingest_base_layer(svc, group["base_turns"], b, cog_mode, llm, sem)
+    run_memoir = "memoir" in run_systems
+    run_baseline = "baseline" in run_systems
+
+    # Only the memoir path needs the constraint store / base layer. Decoupling
+    # the two systems into separate passes keeps each pass's per-call token
+    # volume low: baseline's full-context prompts (~20K tokens) would otherwise
+    # saturate the shared TPM budget and starve the small recall calls.
+    n_index = 0
+    if run_memoir:
+        store_path = str(_P(group["stores_dir"]) / f"cogbase{b}_{cog_mode}")
+        svc = _make_service(store_path)
+        n_index = await _ingest_base_layer(
+            svc, group["base_turns"], b, cog_mode, extract_llm, sem
+        )
     records = []
     for task in group["instances"]:
         if task["task_id"] in done:
             continue
-        await _add_instance_branch(
-            svc, task["task_id"], task["cue_turns"], b, cog_mode, llm, sem
-        )
-        r = await mr.recall_branch(
-            svc,
-            lock,
-            task["task_id"],
-            task["query"],
-            b,
-            cog_mode,
-            recall_limit,
-            sem,
-            recall_mode=recall_mode,
-        )
-        m_prompt = mr.build_memoir_prompt(
-            task["query"], r["memories"], True, task["speakers"], unified=True
-        )
-        pred, gs = await mr.generate(llm, m_prompt, sem)
-        records.append(_rec(task, f"memoir_{cog_mode}", pred, r, gs))
+        if run_memoir:
+            await _add_instance_cue(
+                svc, task["task_id"], task["cue_turns"], cog_mode, extract_llm, sem
+            )
+            r = await mr.recall_ranked(
+                svc,
+                task["task_id"],
+                task["query"],
+                b,
+                cog_mode,
+                recall_limit,
+                sem,
+            )
+            # Hybrid: retrieve via the constraint index (ranks by implication)
+            # but generate from each retrieved item's verbatim source utterance,
+            # so the answer is grounded in concrete evidence not the abstraction.
+            if cog_mode == "hybrid":
+                for m in r["memories"]:
+                    if m.get("source"):
+                        m["content"] = m["source"]
+            m_prompt = mr.build_memoir_prompt(
+                task["query"], r["memories"], True, task["speakers"], unified=True
+            )
+            pred, gs = await mr.generate(gen_llm, m_prompt, sem)
+            records.append(_rec(task, f"memoir_{cog_mode}", pred, r, gs))
 
-        b_prompt = mr.build_baseline_prompt(
-            task["query"], task["full_context"], True, task["speakers"], unified=True
-        )
-        bpred, bgs = await mr.generate(llm, b_prompt, sem)
-        records.append(_rec(task, "baseline", bpred, None, bgs))
+        if run_baseline:
+            b_prompt = mr.build_baseline_prompt(
+                task["query"],
+                task["full_context"],
+                True,
+                task["speakers"],
+                unified=True,
+            )
+            bpred, bgs = await mr.generate(gen_llm, b_prompt, sem)
+            records.append(_rec(task, "baseline", bpred, None, bgs))
     return records, {
         "base_index": b,
         "index_size": n_index,
@@ -168,8 +182,6 @@ def _rec(task, system, prediction, r, gen_s):
 
 
 async def main_async(args):
-    from memoir.llm.claude_cli_client import ClaudeCLIWrapper
-
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
     stores_dir = out_dir / "stores"
@@ -193,7 +205,14 @@ async def main_async(args):
         flush=True,
     )
 
-    # Resume: skip task_ids already predicted (both systems present).
+    run_systems = {"memoir", "baseline"} if args.systems == "both" else {args.systems}
+    required = set()
+    if "memoir" in run_systems:
+        required.add(f"memoir_{args.cog_mode}")
+    if "baseline" in run_systems:
+        required.add("baseline")
+
+    # Resume: skip task_ids already predicted for every system this pass runs.
     pred_cache = {}
     pred_path = out_dir / "cog_predictions.json"
     if args.resume and pred_path.exists():
@@ -202,30 +221,41 @@ async def main_async(args):
     done = {
         t
         for t in {r[1] for r in pred_cache}
-        if (f"memoir_{args.cog_mode}", t) in pred_cache
-        and ("baseline", t) in pred_cache
+        if all((sysname, t) in pred_cache for sysname in required)
     }
 
-    llm = ClaudeCLIWrapper(model=args.gen_model)
-    # Judge can be a non-Claude model (e.g. gpt-4o): route those through litellm
-    # (OpenAI) directly, bypassing the claude-cli backend used by the generator.
-    if "gpt" in args.judge_model.lower():
-        import litellm
+    import litellm
 
-        from memoir.llm.litellm_client import LiteLLMWrapper
+    from memoir.llm.litellm_client import LiteLLMWrapper
 
-        # OpenAI tier limits (e.g. 30K TPM) → let litellm retry 429s with backoff.
-        litellm.num_retries = 10
-        judge_llm = LiteLLMWrapper(model=args.judge_model)
-    else:
-        judge_llm = ClaudeCLIWrapper(model=args.judge_model)
+    # OpenAI 30K-TPM tier (gpt-4o judge) → let litellm retry 429s with backoff.
+    litellm.num_retries = 3
+
+    # Everything via litellm API: generator (gpt-4o-mini, no persona refusals),
+    # extractor (haiku-4.5), judge (gpt-4o).
+    gen_llm = LiteLLMWrapper(model=args.gen_model)
+    extract_llm = LiteLLMWrapper(model=args.extract_model)
+    judge_llm = LiteLLMWrapper(model=args.judge_model)
+    print(
+        f"gen={args.gen_model} · extract={args.extract_model} · "
+        f"judge={args.judge_model}",
+        flush=True,
+    )
     sem = asyncio.Semaphore(args.concurrency)
     t0 = time.time()
 
     base_tasks = [
         asyncio.ensure_future(
             _process_base(
-                b, g, args.cog_mode, llm, sem, args.recall_limit, args.recall_mode, done
+                b,
+                g,
+                args.cog_mode,
+                gen_llm,
+                extract_llm,
+                sem,
+                args.recall_limit,
+                done,
+                run_systems,
             )
         )
         for b, g in groups.items()
@@ -252,8 +282,12 @@ async def main_async(args):
         flush=True,
     )
 
+    # gpt-4o judge has a tight 30K TPM budget and corrupts (empty labels) when
+    # batches fire concurrently — judge on its own (serial-by-default) semaphore,
+    # independent of the generation concurrency above.
+    judge_sem = asyncio.Semaphore(args.judge_concurrency)
     judged = await judge_mod.judge_batch(
-        judge_llm, records, sem, batch_size=args.judge_batch
+        judge_llm, records, judge_sem, batch_size=args.judge_batch
     )
     (out_dir / "cog_judged.json").write_text(
         json.dumps(judged, indent=2, ensure_ascii=False)
@@ -295,13 +329,29 @@ def parse_args():
     p.add_argument("--out", required=True)
     p.add_argument("--offset", type=int, default=0)
     p.add_argument("--limit", type=int, default=None)
-    p.add_argument("--cog-mode", choices=["raw", "constraint"], default="constraint")
+    p.add_argument("--cog-mode", choices=["constraint", "hybrid"], default="hybrid")
+    p.add_argument(
+        "--systems",
+        choices=["both", "memoir", "baseline"],
+        default="both",
+        help="Run memoir + baseline together (default) or one in isolation. "
+        "Splitting into two passes keeps baseline's heavy full-context prompts "
+        "from starving memoir recall on a shared per-minute token budget.",
+    )
     p.add_argument("--recall-mode", choices=["single", "tiered"], default="single")
     p.add_argument("--recall-limit", type=int, default=6)
     p.add_argument("--concurrency", type=int, default=10)
-    p.add_argument("--gen-model", default="haiku")
-    p.add_argument("--judge-model", default="claude-opus-4-8")
+    p.add_argument("--gen-model", default="gpt-4o-mini")
+    p.add_argument("--extract-model", default="gpt-4o-mini")
+    p.add_argument("--judge-model", default="gpt-4o")
     p.add_argument("--judge-batch", type=int, default=10)
+    p.add_argument(
+        "--judge-concurrency",
+        type=int,
+        default=1,
+        help="Concurrent judge batches (default 1 — gpt-4o's 30K TPM corrupts "
+        "labels above 1).",
+    )
     p.add_argument("--resume", action="store_true")
     return p.parse_args()
 

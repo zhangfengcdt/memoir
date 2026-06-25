@@ -7,131 +7,88 @@ Measures memoir's conversational memory against the
 memoir slots into the paper's **Memory Systems** family: instead of feeding the
 full dialogue to the model, we **ingest the dialogue into a memoir store, recall
 per query, and generate the answer from the retrieved context**. A **full-context
-baseline** (no memoir) is the within-backbone comparison anchor. Answers are
-scored with the paper's own constraint-consistency LLM-judge (correct=1,
-partial=0.5, wrong=0), reused verbatim.
+baseline** (no memoir) is the comparison anchor. Answers are scored with the
+paper's own constraint-consistency LLM-judge (correct=1, partial=0.5, wrong=0),
+reused verbatim.
 
-## What it covers
+The two regimes use the representation suited to each (memory is not one-size):
 
-- **Factual LoCoMo** — five categories (single-hop, multi-hop, temporal,
-  common-sense, adversarial) from `locomo10.json`.
-- **Cognitive LoCoMo-Plus** — implicit cue->trigger instances from
-  `locomo_plus.json`, stitched into long dialogues by the official
-  `build_conv.build_context`.
+- **Factual LoCoMo** (`run.py`) — five categories (single-hop, multi-hop,
+  temporal, common-sense, adversarial). memoir uses **native** ingest: each
+  utterance is classified into memoir's taxonomy (`append` merge so colliding
+  facts coexist). System row: `memoir_native`.
+- **Cognitive LoCoMo-Plus** (`cognitive.py`) — implicit cue→trigger instances.
+  memoir uses **constraint-aware** ingest: a write-time pass indexes each
+  utterance's latent state/goal/value/causal implication. System row:
+  `memoir_hybrid` (constraint retrieval, generation grounded in the cue's source
+  text). Uses git-like **branching** so each base conversation is ingested once
+  and every instance is a cheap branch carrying only its cue.
+
+## Models
+
+All LLM calls go through litellm (no claude-cli):
+
+- **Generation** (the answer) and **memoir-internal recall/extraction**:
+  `gpt-4o-mini`.
+- **Judge**: `gpt-4o` (paper-aligned).
+
+Set `OPENAI_API_KEY` (e.g. in a local `.env.local` and `source` it). Note: recall
+sends the whole store per query, so the recall model is the dominant token cost —
+keep it cheap (`gpt-4o-mini`).
 
 ## Setup
 
-1. Clone the official repo (ships both datasets):
-
-   ```bash
-   git clone https://github.com/xjtuleeyf/Locomo-Plus.git /tmp/locomo-bench/Locomo-Plus
-   ```
-
-2. All LLM calls use memoir's **claude-cli backend** — no API key, rides your
-   Claude Code auth. Make sure `claude` is on `PATH`.
+```bash
+git clone https://github.com/xjtuleeyf/Locomo-Plus.git /tmp/locomo-bench/Locomo-Plus
+source venv/bin/activate
+export OPENAI_API_KEY=...      # or: set -a && . .env.local && set +a
+```
 
 ## Run
 
-Diagnostic subset (one factual conversation, sampled queries, a few cognitive
-instances, both ingest modes, plus the baseline):
-
-```bash
-source venv/bin/activate
-python benchmarks/locomo/run.py \
-    --repo-dir /tmp/locomo-bench/Locomo-Plus \
-    --conversations 0 --max-factual-per-category 3 \
-    --cognitive-limit 8 --modes raw --baseline \
-    --concurrency 10 --out /tmp/locomo-bench/runA
-```
-
-`make benchmark-locomo` runs this subset (set `REPO_DIR=...` / `OUT=...` to
-override).
-
-### Ingest modes
-
-| mode     | how                                              | LLM at ingest | what it tests |
-|----------|--------------------------------------------------|---------------|---------------|
-| `raw`    | one unique path per utterance, `append` merge    | none          | memoir as a pure semantic KV+search store (loss-free) |
-| `native` | `remember()` auto-classifies into the taxonomy   | 1 call/turn   | memoir as shipped — surfaces taxonomy collisions + confidence-gating |
-
-`native` is slow (~2.5s/turn at concurrency 10) and costs one classification
-call per utterance; keep conversation counts small. `raw` ingest is instant.
-
-### Key flags
-
-- `--conversations N [N ...]` — factual conversation indices (default: all 10).
-- `--max-factual-per-category N` — sample at most N factual queries per category.
-- `--cognitive-limit N` / `--cognitive-offset N` — take N cognitive instances after
-  skipping N (use the pair to **chunk** the 401-instance set).
-- `--modes raw native` — which ingest modes to run.
-- `--native-merge-policy append` — stop native's lossy default merge so colliding
-  facts coexist (fixes native temporal/recall loss). Pair with `--facet-cap 1000`
-  so long conversations aren't truncated.
-- `--baseline` — also run the full-context (no-memoir) anchor.
-- `--recall-limit K` — memories retrieved per query (default 8).
-- `--concurrency N` — max concurrent claude-cli subprocesses (20 is fine; I/O-bound).
-- `--judge-model M` — judge LLM, decoupled from the generator (default
-  `claude-opus-4-8`). Keeping judge ≠ generator avoids self-evaluation inflation.
-- `--judge-batch N` — predictions per judge call (default 10; `1` = per-item,
-  byte-identical to the official judge). Batching cuts the (pricey) judge calls ~Nx.
-- `--prompt-style unified|disclosed` — `unified` (default) presents the query as a
-  plain continuation with no task disclosure (paper sec 5.1/5.3); `disclosed` uses
-  the official memory-aware instruction.
-- `--resume` — reuse `predictions.json` / `judged.json` in `--out`; only run
-  what's missing. Makes long runs interruption-safe and **chunkable**.
-
-### Recommended config
-
-Decoupled Opus judge + Haiku generator, unified input, native uses `append`:
+**Factual** (all 10 conversations, `memoir_native` + baseline):
 
 ```bash
 python benchmarks/locomo/run.py --repo-dir /tmp/locomo-bench/Locomo-Plus \
-    --modes raw native --native-merge-policy append --facet-cap 1000 \
-    --baseline --judge-model claude-opus-4-8 --judge-batch 10 \
-    --prompt-style unified --concurrency 20 --resume --out OUT_DIR
+    --no-cognitive --modes native --native-merge-policy append --facet-cap 1000 \
+    --baseline --gen-model gpt-4o-mini --judge-model gpt-4o --judge-batch 10 \
+    --prompt-style unified --concurrency 4 --resume --out OUT/factual
 ```
 
-### Full run (chunked, ~4–4.5 h on claude-cli @ conc 20)
-
-The full set is 1,986 factual QA + 401 cognitive instances. Run it in chunks into
-**one** `--out` dir with `--resume`; each chunk merges into the cumulative
-`summary.md`, so results accrue as chunks finish and a crash only loses the
-current chunk. Native ingest (~1 classify/turn) is the slow pole, so native is
-factual-only — **native-cognitive is infeasible (~days)** and intentionally skipped.
+**Cognitive** (full 401 instances, `memoir_hybrid` + baseline):
 
 ```bash
-OUT=/tmp/locomo-bench/full
-# Factual: one chunk per conversation (raw + native + baseline)
-for c in 0 1 2 3 4 5 6 7 8 9; do
-  python benchmarks/locomo/run.py --repo-dir /tmp/locomo-bench/Locomo-Plus \
-    --conversations $c --no-cognitive \
-    --modes raw native --native-merge-policy append --facet-cap 1000 \
-    --baseline --judge-model claude-opus-4-8 --judge-batch 10 \
-    --prompt-style unified --concurrency 20 --resume --out $OUT
-done
-# Cognitive: raw + baseline only, in chunks of 100
-for off in 0 100 200 300; do
-  python benchmarks/locomo/run.py --repo-dir /tmp/locomo-bench/Locomo-Plus \
-    --no-factual --cognitive-offset $off --cognitive-limit 100 \
-    --modes raw --baseline --judge-model claude-opus-4-8 --judge-batch 10 \
-    --prompt-style unified --concurrency 20 --resume --out $OUT
-done
+python benchmarks/locomo/cognitive.py --repo-dir /tmp/locomo-bench/Locomo-Plus \
+    --limit 401 --cog-mode hybrid --gen-model gpt-4o-mini --judge-model gpt-4o \
+    --concurrency 2 --resume --out OUT/cognitive
 ```
 
-For a cheaper but statistically solid signal, run all 401 cognitive + a balanced
-factual sample (`--max-factual-per-category 8`) — roughly 1 h.
+Run the two **sequentially** — the `gpt-4o` judge shares a per-minute token limit,
+so two judge streams at once throttle each other.
+
+`make benchmark-locomo` runs a small factual subset (set `REPO_DIR=` / `OUT=`).
+
+### Key flags
+
+- `--conversations N [...]` — factual conversation indices (default: all 10).
+- `--max-factual-per-category N` — sample at most N factual queries per category.
+- `--cognitive-limit N` / `--cognitive-offset N` — chunk the 401 cognitive set.
+- `--cog-mode constraint|hybrid` — cognitive ingest (hybrid grounds generation in
+  the cue's source text).
+- `--native-merge-policy append` + `--facet-cap 1000` — keep colliding native
+  facts as coexisting facets (loss-free) over long conversations.
+- `--gen-model` / `--judge-model` — litellm models (default gpt-4o-mini / gpt-4o).
+- `--judge-batch N` — predictions per judge call (default 10; cuts judge calls).
+- `--prompt-style unified|disclosed` — `unified` (default) = no task disclosure
+  (paper sec 5.1/5.3).
+- `--recall-mode single|tiered` — memoir search pipeline.
+- `--concurrency N` — concurrent calls. Keep low (≈2–4) when judging with `gpt-4o`
+  to respect its token-per-minute limit.
+- `--resume` — reuse predictions/judgments already in `--out`; only run what's
+  missing. Both runners flush incrementally, so runs are interruption-safe.
 
 ## Output
 
-Written to `--out`:
-- `summary.md` — score-by-category table + ingest stats.
-- `summary.json` — machine-readable summaries + ingest metrics.
-- `predictions.json` — every prediction with retrieval/timing.
-- `judged.json` — predictions + judge label/reason/score.
-
-## Comparability caveat
-
-Because we run on the claude-cli backend (Claude, no key), scores are comparable
-to the **baseline we run here**, not directly to the paper's GPT-4o "Memory
-Systems" rows. The paper reports judge scores are stable across judge backbones,
-so the *relative* picture transfers.
+Per `--out`: `summary.md` / `summary.json` (factual) or `cog_summary.json`
+(cognitive) — score-by-category tables; plus `predictions.json` / `judged.json`
+(per-item predictions, retrieval/timing, judge label+reason+score).

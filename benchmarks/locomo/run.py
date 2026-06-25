@@ -7,17 +7,16 @@ conversation x mode), recall memories for the query, generate an answer from the
 retrieved context, and score it with the official constraint-consistency judge.
 A full-context baseline (no memoir) is the within-backbone comparison anchor.
 
-All LLM calls (memoir's internal classify/recall, answer generation, and the
-judge) run on the claude-cli backend — no API key required. Numbers are
-therefore comparable to the baseline we run here, NOT directly to the paper's
-GPT-4o "Memory Systems" rows.
+All LLM calls go through litellm: memoir-internal classify/recall and answer
+generation default to gpt-4o-mini, the judge to gpt-4o (paper-aligned). Set
+OPENAI_API_KEY.
 
-Usage (diagnostic subset):
+Usage (factual; cognitive lives in cognitive.py):
     python benchmarks/locomo/run.py \
-        --repo-dir /tmp/locomo-bench/Locomo-Plus \
-        --conversations 0 --max-factual-per-category 3 \
-        --cognitive-limit 8 --modes raw native --baseline \
-        --concurrency 8 --out /tmp/locomo-bench/out
+        --repo-dir /tmp/locomo-bench/Locomo-Plus --no-cognitive \
+        --modes native --native-merge-policy append --facet-cap 1000 --baseline \
+        --gen-model gpt-4o-mini --judge-model gpt-4o \
+        --concurrency 4 --out /tmp/locomo-bench/out
 """
 
 from __future__ import annotations
@@ -29,8 +28,10 @@ import os
 import time
 from pathlib import Path
 
-os.environ.setdefault("MEMOIR_LLM_BACKEND", "claude-cli")
-os.environ.setdefault("MEMOIR_LLM_MODEL", "claude-haiku-4-5")
+os.environ.setdefault("MEMOIR_LLM_BACKEND", "litellm")
+# Internal recall runs on gpt-4o-mini: recall sends the whole store per query, so
+# the big prompts make a pricier model (e.g. haiku) the dominant cost.
+os.environ.setdefault("MEMOIR_LLM_MODEL", "gpt-4o-mini")
 os.environ.setdefault("MEMOIR_NO_CAPTURE", "1")
 
 import data as data_mod
@@ -68,6 +69,32 @@ async def _ingest_all(tasks, modes, stores_dir, sem, native_merge_policy=None):
             StoreService(store_path).create_store(store_path)
             svc = MemoryService(store_path)
             services[(key, mode)] = svc
+            # Idempotent: skip re-ingest if this store is already populated, so a
+            # resumed run doesn't re-classify every turn (wasted requests/cost) or
+            # append duplicate memories.
+            ns = mr.ns_for(key, mode)
+            try:
+                already = len(
+                    svc._get_search_engine().store.search((ns,), limit=100000)
+                )
+            except Exception:
+                already = 0
+            if already:
+                print(
+                    f"  ingest {key} [{mode}]: reuse {already} keys (skip)", flush=True
+                )
+                stats.append(
+                    {
+                        "ingest_key": key,
+                        "mode": mode,
+                        "n_turns": len(info["turns"]),
+                        "distinct_keys": already,
+                        "collision_ratio": None,
+                        "ingest_seconds": 0.0,
+                        "mean_write_ms": 0.0,
+                    }
+                )
+                continue
             print(
                 f"  ingest {key} [{mode}] ({len(info['turns'])} turns)...", flush=True
             )
@@ -191,7 +218,11 @@ def _markdown(summaries: dict, ingest_stats: list[dict], meta: dict) -> str:
 
 
 async def main_async(args):
-    from memoir.llm.claude_cli_client import ClaudeCLIWrapper
+    import litellm
+
+    from memoir.llm.litellm_client import LiteLLMWrapper
+
+    litellm.num_retries = 3
 
     # Raise the facet cap so long conversations aren't truncated when native mode
     # uses an append policy (default cap is 50; a 400-turn conversation needs more).
@@ -218,8 +249,8 @@ async def main_async(args):
     )
 
     sem = asyncio.Semaphore(args.concurrency)
-    llm = ClaudeCLIWrapper(model=args.gen_model)
-    judge_llm = ClaudeCLIWrapper(model=args.judge_model)
+    llm = LiteLLMWrapper(model=args.gen_model)
+    judge_llm = LiteLLMWrapper(model=args.judge_model)
     unified = args.prompt_style == "unified"
     print(
         f"gen/memoir model: {args.gen_model} · judge model: {args.judge_model} "
@@ -366,7 +397,7 @@ def parse_args():
         default=0,
         help="Skip the first N cognitive instances (for chunked runs)",
     )
-    p.add_argument("--modes", nargs="+", default=["raw"], choices=["raw", "native"])
+    p.add_argument("--modes", nargs="+", default=["native"], choices=["native"])
     p.add_argument(
         "--baseline", action="store_true", help="Also run full-context baseline"
     )
@@ -382,12 +413,12 @@ def parse_args():
     )
     p.add_argument("--concurrency", type=int, default=8)
     p.add_argument(
-        "--gen-model", default="haiku", help="claude-cli model for memoir + generation"
+        "--gen-model", default="gpt-4o-mini", help="litellm model for answer generation"
     )
     p.add_argument(
         "--judge-model",
-        default="claude-opus-4-8",
-        help="claude-cli model for the judge (decoupled from the generator)",
+        default="gpt-4o",
+        help="litellm model for the judge (paper-aligned: gpt-4o)",
     )
     p.add_argument(
         "--prompt-style",

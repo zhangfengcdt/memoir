@@ -99,9 +99,9 @@ REPO_DIR ?= /tmp/locomo-bench/Locomo-Plus
 OUT ?= /tmp/locomo-bench/runA
 benchmark-locomo:
 	python benchmarks/locomo/run.py --repo-dir $(REPO_DIR) \
-		--conversations 0 --max-factual-per-category 3 \
-		--cognitive-limit 8 --modes raw --baseline \
-		--concurrency 10 --out $(OUT)
+		--conversations 0 --max-factual-per-category 3 --no-cognitive \
+		--modes native --native-merge-policy append --facet-cap 1000 --baseline \
+		--gen-model gpt-4o-mini --judge-model gpt-4o --concurrency 4 --out $(OUT)
 
 docs:
 	@echo "Building documentation..."
