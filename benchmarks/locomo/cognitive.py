@@ -61,18 +61,20 @@ def _ns_count(svc, ns):
         return 0
 
 
-async def _ingest_base_layer(svc, base_turns, base_index, cog_mode, llm, sem):
+async def _ingest_base_layer(
+    svc, base_turns, base_index, cog_mode, llm, sem, chunk_size=40
+):
     """Index the base conversation's constraints once (shared by all instances).
 
     Idempotent: if the base namespace is already populated (a prior run that was
     interrupted), skip re-ingest/re-extract so --resume doesn't duplicate or
-    re-pay the extraction cost.
+    re-pay the extraction cost. ``chunk_size`` controls extraction granularity.
     """
     ns = mr.base_ns(base_index, cog_mode)
     existing = _ns_count(svc, ns)
     if existing:
         return existing
-    cons = await mr.extract_constraints(llm, base_turns, sem)
+    cons = await mr.extract_constraints(llm, base_turns, sem, chunk_size=chunk_size)
     await mr.ingest_constraints(svc, cons, ns, sem)
     return len(cons)
 
@@ -96,6 +98,7 @@ async def _process_base(
     recall_limit,
     done,
     run_systems,
+    chunk_size=40,
 ):
     """Index one base + score all its instances (serial within a base store).
 
@@ -116,7 +119,7 @@ async def _process_base(
         store_path = str(_P(group["stores_dir"]) / f"cogbase{b}_{cog_mode}")
         svc = _make_service(store_path)
         n_index = await _ingest_base_layer(
-            svc, group["base_turns"], b, cog_mode, extract_llm, sem
+            svc, group["base_turns"], b, cog_mode, extract_llm, sem, chunk_size
         )
     records = []
     for task in group["instances"]:
@@ -256,6 +259,7 @@ async def main_async(args):
                 args.recall_limit,
                 done,
                 run_systems,
+                args.chunk_size,
             )
         )
         for b, g in groups.items()
@@ -340,6 +344,13 @@ def parse_args():
     )
     p.add_argument("--recall-mode", choices=["single", "tiered"], default="single")
     p.add_argument("--recall-limit", type=int, default=6)
+    p.add_argument(
+        "--chunk-size",
+        type=int,
+        default=40,
+        help="Turns per base-extraction LLM call (granularity knob: smaller "
+        "chunk -> more, finer constraints).",
+    )
     p.add_argument("--concurrency", type=int, default=10)
     p.add_argument("--gen-model", default="gpt-4o-mini")
     p.add_argument("--extract-model", default="gpt-4o-mini")
