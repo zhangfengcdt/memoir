@@ -17,6 +17,7 @@ benchmarks, tests) keep observability parity.
 
 import fnmatch
 import logging
+import re
 from dataclasses import dataclass
 from typing import Any
 
@@ -47,6 +48,49 @@ def _group_by_depth(keys: list[str], n: int) -> dict[str, int]:
         prefix = ".".join(segments[:n]) if len(segments) >= n else key
         counts[prefix] = counts.get(prefix, 0) + 1
     return dict(sorted(counts.items()))
+
+
+def _extract_known_tokens(
+    response_text: str, valid, limit: int | None = None
+) -> list[str]:
+    """Extract known path/prefix tokens from an LLM path-selection response.
+
+    Tolerant of the response shapes seen across LLM backends:
+    - newline-separated names (litellm default, optionally with a "- " bullet),
+    - JSON arrays / objects (the claude-cli backend wraps structured output as
+      ``{"selectedPaths": [...]}`` because of its JSON-discipline preamble),
+    - fenced code blocks around either of the above.
+
+    Line-based exact matching stays primary, so plain line outputs behave
+    exactly as before; the embedded-token scan is a fallback that only runs when
+    no whole-line match is found. Matching uses a dot/word boundary so
+    ``turn.0000`` never matches inside ``turn.00001``. Result order follows the
+    order tokens first appear in the response.
+    """
+    text = (response_text or "").strip()
+    if not text or text.upper() == "NONE":
+        return []
+    valid_set = set(valid)
+
+    picked: list[str] = []
+    for line in text.split("\n"):
+        line = line.strip()
+        if line.startswith("- "):
+            line = line[2:].strip()
+        if line in valid_set and line not in picked:
+            picked.append(line)
+
+    if not picked:
+        positions = []
+        for tok in valid_set:
+            m = re.search(r"(?<![\w.])" + re.escape(tok) + r"(?![\w.])", text)
+            if m:
+                positions.append((m.start(), tok))
+        picked = [tok for _, tok in sorted(positions)]
+
+    if limit is not None:
+        picked = picked[:limit]
+    return picked
 
 
 @dataclass
@@ -689,14 +733,7 @@ Selected prefixes (up to {limit}):"""
             else:
                 response = self.llm.invoke(messages)
             response_text = response.content.strip()
-            if response_text.upper() == "NONE":
-                return []
-            valid = set(l1_counts.keys())
-            picked: list[str] = []
-            for line in response_text.split("\n"):
-                line = line.strip().lstrip("- ").strip()
-                if line and line in valid and line not in picked:
-                    picked.append(line)
+            picked = _extract_known_tokens(response_text, l1_counts.keys(), limit)
             logger.info(f"Tiered: L1 picked {picked} for query '{query}'")
             return picked
         except Exception as e:
@@ -751,14 +788,7 @@ Selected prefixes (up to {limit}):"""
             else:
                 response = self.llm.invoke(messages)
             response_text = response.content.strip()
-            if response_text.upper() == "NONE":
-                return []
-            valid = set(l2_counts.keys())
-            picked: list[str] = []
-            for line in response_text.split("\n"):
-                line = line.strip().lstrip("- ").strip()
-                if line and line in valid and line not in picked:
-                    picked.append(line)
+            picked = _extract_known_tokens(response_text, l2_counts.keys(), limit)
             logger.info(f"Tiered: L2 picked {picked} under '{l1}'")
             return picked
         except Exception as e:
@@ -822,21 +852,11 @@ Selected paths (up to {limit}):"""
             else:
                 response = self.llm.invoke(messages)
 
-            # Parse the response
+            # Parse the response (tolerant of line / JSON / fenced outputs)
             response_text = response.content.strip()
-
-            if response_text.upper() == "NONE":
-                return []
-
-            # Extract path names from response
-            selected_paths = []
-            for line in response_text.split("\n"):
-                line = line.strip()
-                # Handle potential formatting like "- path.name" or "path.name"
-                if line.startswith("- "):
-                    line = line[2:]
-                if line and line in paths_info:
-                    selected_paths.append(line)
+            selected_paths = _extract_known_tokens(
+                response_text, paths_info.keys(), limit
+            )
 
             logger.info(
                 f"LLM selected {len(selected_paths)} paths for query '{query}': {selected_paths}"
