@@ -283,7 +283,7 @@ async def recall_semantic(
         raise RuntimeError(getattr(result, "error", None) or "recall failed")
     return {
         "success": result.success,
-        "memories": result.memories,
+        "memories": [m.to_dict() for m in result.memories],
         "timing_ms": result.timing_ms,
         "mode": mode,
     }
