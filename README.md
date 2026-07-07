@@ -1,3 +1,5 @@
+[![MseeP.ai Security Assessment Badge](https://mseep.net/pr/zhangfengcdt-memoir-badge.png)](https://mseep.ai/app/zhangfengcdt-memoir)
+
 # Memoir
 
 <div align="center">
