@@ -321,12 +321,12 @@ def cli(
 
     \b
     COMMAND GROUPS:
-      Store:    new, status, refresh
+      Store:    new, status, refresh, store-path, ensure-store
       Memory:   remember, recall, get, forget
       Branch:   branch, checkout, merge, sync-branch, time-travel, diff
       Crypto:   proof, verify, blame
       Analysis: summarize
-      Utility:  ui, tui
+      Utility:  ui, ui-start, ui-status, ui-stop, tui
 
     \b
     STORE RESOLUTION (no hidden global default):
@@ -394,6 +394,8 @@ from memoir.cli.commands import (  # noqa: E402
 cli.add_command(store.new)
 cli.add_command(store.status)
 cli.add_command(store.refresh)
+cli.add_command(store.store_path)
+cli.add_command(store.ensure_store)
 
 # Taxonomy commands
 cli.add_command(taxonomy.taxonomy)
@@ -427,6 +429,9 @@ cli.add_command(search.search)
 
 # Utility commands
 cli.add_command(ui.ui)
+cli.add_command(ui.ui_start)
+cli.add_command(ui.ui_status)
+cli.add_command(ui.ui_stop)
 cli.add_command(tui.tui)
 
 
