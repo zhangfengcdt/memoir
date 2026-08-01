@@ -125,6 +125,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         elif parsed_path.path == "/api/branches-status":
             self._ensure_handlers_initialized()
             self.branch_handler.handle_branches_status_api(parsed_path)
+        elif parsed_path.path == "/api/branch-match-config":
+            self._ensure_handlers_initialized()
+            self.branch_handler.handle_branch_match_config_api(parsed_path)
         elif parsed_path.path == "/api/timeline":
             self.handle_timeline_get_api(parsed_path)
         elif parsed_path.path == "/api/location":
@@ -231,6 +234,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         elif parsed_path.path == "/api/delete-branch":
             self._ensure_handlers_initialized()
             self.branch_handler.handle_delete_branch_api()
+        elif parsed_path.path == "/api/branch-match-config":
+            self._ensure_handlers_initialized()
+            self.branch_handler.handle_set_branch_match_config_api()
         elif parsed_path.path == "/api/timeline":
             self.handle_timeline_post_api()
         elif parsed_path.path == "/api/location":

@@ -6,6 +6,7 @@ import CommitList from "../views/commits/CommitList";
 import TaxonomyTree from "../views/tree/TaxonomyTree";
 import TaxonomyGraph from "../views/graph/TaxonomyGraph";
 import WatchView from "../views/watch/WatchView";
+import HistoryView from "../views/history/HistoryView";
 import TimelineView from "../views/timeline/TimelineView";
 import PlacesView from "../views/places/PlacesView";
 import ViewToolbar from "./ViewToolbar";
@@ -17,8 +18,9 @@ const VIEW_LABELS: Record<ViewKey, { label: string; shortcut: string }> = {
   tree: { label: "Outline", shortcut: "⌘2" },
   graph: { label: "Map", shortcut: "⌘3" },
   watch: { label: "Watch", shortcut: "⌘4" },
-  timeline: { label: "Timeline", shortcut: "⌘5" },
-  places: { label: "Places", shortcut: "⌘6" },
+  history: { label: "History", shortcut: "⌘5" },
+  timeline: { label: "Timeline", shortcut: "⌘6" },
+  places: { label: "Places", shortcut: "⌘7" },
 };
 
 // Octicon-style inline icons. Sized via currentColor so they inherit tab color.
@@ -56,6 +58,14 @@ const VIEW_ICONS: Record<ViewKey, JSX.Element> = {
       <path
         fill="currentColor"
         d="M1.75 1h7.5c.966 0 1.75.784 1.75 1.75v4.553c-.391-.166-.812-.279-1.25-.331l-.001-4.222a.25.25 0 0 0-.25-.25h-7.5a.25.25 0 0 0-.25.25v9.5c0 .138.112.25.25.25h2.225a4.737 4.737 0 0 0-.005 1.5H1.75A1.75 1.75 0 0 1 0 12.75v-10C0 1.784.784 1 1.75 1ZM11.5 13.25a3.25 3.25 0 1 1 6.5 0 3.25 3.25 0 0 1-6.5 0Zm5-1.5L13.5 14.75l-1.5-1.5"
+      />
+    </svg>
+  ),
+  history: (
+    <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M8 1a7 7 0 1 0 4.95 2.05.75.75 0 0 1 1.06-1.06A8.5 8.5 0 1 1 8 0a.75.75 0 0 1 0 1.5V1Zm.75 3.75a.75.75 0 0 0-1.5 0v3.75c0 .2.08.39.22.53l2.5 2.5a.75.75 0 0 0 1.06-1.06L8.75 8.19V4.75ZM2 2.75A.75.75 0 0 1 2.75 2h2a.75.75 0 0 1 0 1.5H3.5v1.25a.75.75 0 0 1-1.5 0v-2Z"
       />
     </svg>
   ),
@@ -137,6 +147,7 @@ function tabCount(
   if (!data) return null;
   switch (key) {
     case "commits":
+    case "history":
       return data.commits.length;
     case "tree":
     case "graph":
@@ -156,6 +167,8 @@ function ViewBody({ view }: { view: ViewKey }) {
       return <TaxonomyGraph />;
     case "watch":
       return <WatchView />;
+    case "history":
+      return <HistoryView />;
     case "timeline":
       return <TimelineView />;
     case "places":

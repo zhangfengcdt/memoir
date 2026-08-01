@@ -263,6 +263,14 @@ export interface CommitsResponse {
   branch: string;
 }
 
+// --- /api/branch-match-config ------------------------------------------
+// Whether memoir-branch-follows-code-branch enforcement (the Claude
+// Code / Codex hooks' auto-match behavior) is on for this store.
+export interface BranchMatchConfigResponse {
+  success: boolean;
+  enabled: boolean;
+}
+
 // --- /api/blame ------------------------------------------------------------
 // Pydantic-shaped via BlameEntry.to_dict() in services/models.py.
 export interface BlameEntry {

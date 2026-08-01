@@ -8,6 +8,7 @@ import json
 import os
 import shutil
 import tempfile
+from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
@@ -323,6 +324,38 @@ class TestBranchCommands:
     def test_time_travel_requires_target(self, runner, initialized_store):
         """Test 'time-travel' command requires target."""
         result = runner.invoke(cli, ["-s", initialized_store, "time-travel"])
+        assert result.exit_code != 0
+
+    def test_branch_match_defaults_to_enabled(self, runner, initialized_store):
+        """No args reports status; a fresh store has no marker file, so
+        enforcement defaults to enabled."""
+        result = runner.invoke(cli, ["-s", initialized_store, "branch-match"])
+        assert result.exit_code == 0
+        assert "enabled" in result.output.lower()
+
+    def test_branch_match_off_then_status(self, runner, initialized_store):
+        result = runner.invoke(cli, ["-s", initialized_store, "branch-match", "off"])
+        assert result.exit_code == 0
+        assert "disabled" in result.output.lower()
+
+        result = runner.invoke(
+            cli, ["--json", "-s", initialized_store, "branch-match", "status"]
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["enabled"] is False
+
+    def test_branch_match_on_removes_marker(self, runner, initialized_store):
+        runner.invoke(cli, ["-s", initialized_store, "branch-match", "off"])
+        result = runner.invoke(cli, ["-s", initialized_store, "branch-match", "on"])
+        assert result.exit_code == 0
+        assert "enabled" in result.output.lower()
+        assert not (
+            Path(initialized_store) / ".git" / "plugin-auto-match-disabled"
+        ).exists()
+
+    def test_branch_match_rejects_unknown_action(self, runner, initialized_store):
+        result = runner.invoke(cli, ["-s", initialized_store, "branch-match", "maybe"])
         assert result.exit_code != 0
 
 

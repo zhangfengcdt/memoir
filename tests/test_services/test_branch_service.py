@@ -77,6 +77,28 @@ class TestBranchServiceCreate:
         assert result is not None
         assert hasattr(result, "success")
 
+    def test_create_branch_does_not_switch_checkout(self, branch_service):
+        """Regression: `create_branch(name)` with no `from_ref` used to
+        leave the caller checked out on the *new* branch instead of the
+        original one — `store.tree.create_branch()` (the prollytree Rust
+        binding) actually behaves like `git checkout -b`, not plain
+        `git branch`, and the old restore logic was gated on `if
+        original_branch and from_ref`, so it never fired for this exact
+        case. Confirmed present on `main` before the fix. The documented
+        contract (SDK's `create()`/`checkout()` split, CLI's separate
+        `branch`/`checkout` commands) is that creating a branch never
+        switches to it — only `checkout()` does."""
+        original, _ = branch_service.get_current_branch()
+        result = branch_service.create_branch("no-switch-test")
+        assert result.success is True, result.error
+
+        after, _ = branch_service.get_current_branch()
+        assert after == original
+
+        # The branch was still actually created, just not checked out.
+        info = branch_service.list_branches()
+        assert "no-switch-test" in info.branches
+
     def test_create_branch_with_special_chars(self, branch_service):
         """Test creating branch with special characters."""
         result = branch_service.create_branch("feature/test-123")
@@ -1071,6 +1093,130 @@ class TestBranchServiceRoutedTo:
         # The log must identify both branches so the operator can recover.
         assert "agents/leaky" in joined
         assert default in joined
+
+
+class TestBranchServiceCreateFromCommitHash:
+    """Regression tests for creating a branch rooted at a bare commit hash.
+
+    VersionedKvStore.checkout() only resolves branch names despite its
+    `branch_or_commit` parameter name — `create_branch(name, from_ref=<hash>)`
+    used to call `store.tree.checkout(from_ref)` first, which raised
+    "Branch not found: <hash>" for any commit-ish that wasn't already a
+    branch. This is the primitive behind `memoir time-travel <commit>`, the
+    web UI's `/time-travel` command, and the History view's "Branch from
+    here" action — all three were silently broken. The fix creates the
+    branch directly via `git branch <name> <ref>`, which accepts any
+    commit-ish without needing a prior checkout.
+    """
+
+    @pytest.fixture
+    def service_with_history(self, temp_dir):
+        store_service = StoreService(temp_dir)
+        store_service.create_store(temp_dir)
+        service = BranchService(temp_dir)
+        store = service._get_store()
+        store.put(("default",), "a", {"v": 1})
+        c1 = store.commit("commit 1")
+        store.put(("default",), "b", {"v": 2})
+        store.commit("commit 2")
+        return service, c1
+
+    @staticmethod
+    def _hex(commit_hash):
+        return commit_hash.hex() if isinstance(commit_hash, bytes) else commit_hash
+
+    def test_create_branch_from_full_commit_hash(self, service_with_history):
+        service, c1 = service_with_history
+        result = service.create_branch("from-hash", from_ref=self._hex(c1))
+        assert result.success is True, result.error
+        info = service.list_branches()
+        assert "from-hash" in info.branches
+
+    def test_new_branch_is_checked_out_at_that_commit(self, service_with_history):
+        """The new branch must only see state as of the target commit, not
+        later commits made after it — proving it's rooted correctly, not
+        just created as an alias for HEAD."""
+        service, c1 = service_with_history
+        service.create_branch("from-hash-2", from_ref=self._hex(c1))
+        service.checkout("from-hash-2")
+        service._store = None
+        store = service._get_store()
+        assert store.get(("default",), "a") == {"v": 1}
+        assert store.get(("default",), "b") is None
+
+    def test_original_branch_untouched(self, service_with_history):
+        """Creating from a commit hash must not disturb the caller's
+        current checkout (unlike the old checkout-then-restore dance,
+        this never leaves HEAD moving at all)."""
+        service, c1 = service_with_history
+        original, _ = service.get_current_branch()
+        service.create_branch("from-hash-3", from_ref=self._hex(c1))
+        after, _ = service.get_current_branch()
+        assert after == original
+
+    def test_invalid_commit_hash_fails_gracefully(self, service_with_history):
+        service, _ = service_with_history
+        result = service.create_branch("from-bad-hash", from_ref="0" * 40)
+        assert result.success is False
+        assert result.error
+
+
+class TestBranchServiceAutoMatchToggle:
+    """Tests for the branch-match enforcement on/off switch.
+
+    Backs `memoir branch-match on|off|status`, the /api/branch-match-config
+    endpoints, and the UI's toggle button — all three read/write the same
+    per-store marker file so they agree on one piece of state.
+    """
+
+    def test_enabled_by_default(self, branch_service):
+        assert branch_service.is_auto_match_enabled() is True
+
+    def test_disable_then_status_reflects_it(self, branch_service):
+        result = branch_service.set_auto_match_enabled(False)
+        assert result is False
+        assert branch_service.is_auto_match_enabled() is False
+
+    def test_re_enable_removes_marker(self, branch_service):
+        branch_service.set_auto_match_enabled(False)
+        result = branch_service.set_auto_match_enabled(True)
+        assert result is True
+        assert branch_service.is_auto_match_enabled() is True
+        assert not (
+            Path(branch_service.store_path) / ".git" / "plugin-auto-match-disabled"
+        ).exists()
+
+    def test_state_is_a_marker_file_under_dot_git(self, branch_service):
+        """Hooks (bash) read this file directly rather than shelling out to
+        the CLI, so the exact filename/location is part of the contract."""
+        branch_service.set_auto_match_enabled(False)
+        marker = Path(branch_service.store_path) / ".git" / "plugin-auto-match-disabled"
+        assert marker.exists()
+
+    def test_new_service_instance_sees_persisted_state(self, initialized_store):
+        """State must persist across process/service-instance boundaries —
+        the CLI, server, and hooks are all separate invocations."""
+        BranchService(initialized_store).set_auto_match_enabled(False)
+        fresh = BranchService(initialized_store)
+        assert fresh.is_auto_match_enabled() is False
+
+    def test_missing_store_raises(self):
+        from memoir.services.base import StoreNotFoundError
+
+        service = BranchService("/nonexistent/path")
+        with pytest.raises(StoreNotFoundError):
+            service.set_auto_match_enabled(False)
+
+    def test_missing_store_raises_on_read_too(self):
+        """`is_auto_match_enabled` must fail the same way `set_...` does for
+        a nonexistent store — a bare `.exists()` check on the marker path
+        would otherwise silently report "enabled" for a store that isn't
+        there at all."""
+        from memoir.services.base import StoreNotFoundError
+
+        service = BranchService("/nonexistent/path")
+        with pytest.raises(StoreNotFoundError):
+            service.is_auto_match_enabled()
 
 
 if __name__ == "__main__":

@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useStore } from "../state/storeSlice";
 import { useUI } from "../state/uiSlice";
 import BranchSwitcher from "./BranchSwitcher";
+import BranchMatchToggle from "./BranchMatchToggle";
 import "./TopBar.css";
 
 export default function TopBar() {
@@ -64,6 +65,15 @@ export default function TopBar() {
             {storePath ?? "not connected"}
           </code>
         </div>
+
+        {branch && (
+          <div className="topbar-branch">
+            <span className="eyebrow">Branch</span>
+            <code className="branch-name" data-status={status} title={`Current branch: ${branch}`}>
+              {branch}
+            </code>
+          </div>
+        )}
       </div>
 
       <div className="topbar-right">
@@ -123,6 +133,7 @@ export default function TopBar() {
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
           </svg>
         </button>
+        <BranchMatchToggle />
         <div className="topbar-switcher-wrap">
           <button
             ref={switcherAnchorRef}

@@ -3,6 +3,7 @@ import type {
   BlameResponse,
   BranchesResponse,
   BranchesStatusResponse,
+  BranchMatchConfigResponse,
   BranchMergePreviewResponse,
   CommitsResponse,
   CurrentBranchResponse,
@@ -318,6 +319,18 @@ export const api = {
       "/api/merge-branch",
       { path, source },
     ),
+
+  /** Whether the memoir-branch-follows-code-branch hook enforcement is on
+   * for this store. See `memoir branch-match --help`. */
+  getBranchMatchConfig: (path: string) =>
+    getJSON<BranchMatchConfigResponse>("/api/branch-match-config", { path }),
+
+  /** Enable or disable branch auto-matching for this store. */
+  setBranchMatchConfig: (path: string, enabled: boolean) =>
+    postJSON<BranchMatchConfigResponse>("/api/branch-match-config", {
+      path,
+      enabled,
+    }),
 
   // ---------- Watch / Search ---------------------------------------------
 

@@ -340,6 +340,7 @@ load_custom_taxonomy_files() {
 # File locations inside the store's .git/ — these files are local-only state,
 # not tracked because they live under .git.
 _sticky_file() { printf '%s' "$MEMOIR_STORE_PATH/.git/plugin-sticky-branch"; }
+_auto_match_disabled_file() { printf '%s' "$MEMOIR_STORE_PATH/.git/plugin-auto-match-disabled"; }
 _ignored_branches_file() { printf '%s' "$MEMOIR_STORE_PATH/.git/plugin-ignored-branches"; }
 _heartbeats_dir() { printf '%s' "$MEMOIR_STORE_PATH/.git/plugin-active-sessions"; }
 _synced_dir() { printf '%s' "$MEMOIR_STORE_PATH/.git/plugin-synced-branches"; }
@@ -396,6 +397,16 @@ set_sticky_branch() {
   fi
 }
 
+# auto_match_enabled — 0 (true) unless the user has turned enforcement off
+# via `memoir branch-match off` or the UI toggle. Same marker file
+# (<store>/.git/plugin-auto-match-disabled) is read/written by
+# BranchService.is_auto_match_enabled()/set_auto_match_enabled() in Python,
+# so the CLI command, HTTP API, UI button, and this hook all agree on one
+# piece of state — presence of the file means disabled.
+auto_match_enabled() {
+  [ ! -f "$(_auto_match_disabled_file)" ]
+}
+
 # is_branch_ignored <name> — user-maintained silence list.
 is_branch_ignored() {
   local name="$1"
@@ -420,13 +431,15 @@ except Exception:
 " "$name"
 }
 
-# auto_match_memoir_branch — if auto-match isn't sticky-disabled and the
-# current code branch differs from the checked-out memoir branch, create
-# the memoir branch (forked from main) if needed and check it out.
-# Emits nothing on stdout (all output routed to /dev/null); returns 0 on
-# success, non-zero if memoir is missing or the operations failed.
+# auto_match_memoir_branch — if auto-match isn't globally disabled
+# (`memoir branch-match off`) or sticky-disabled (a one-off manual branch
+# pick) and the current code branch differs from the checked-out memoir
+# branch, create the memoir branch (forked from main) if needed and check
+# it out. Emits nothing on stdout (all output routed to /dev/null); returns
+# 0 on success, non-zero if memoir is missing or the operations failed.
 auto_match_memoir_branch() {
   [ -z "$MEMOIR_CMD" ] && return 1
+  auto_match_enabled || return 0   # user disabled enforcement; leave branch alone
   local code_branch sticky current
   code_branch=$(code_git_branch)
   [ -z "$code_branch" ] && return 0          # no code branch (detached or non-git)

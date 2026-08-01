@@ -412,6 +412,7 @@ cli.add_command(branch.merge)
 cli.add_command(branch.sync_branch)
 cli.add_command(branch.time_travel)
 cli.add_command(branch.diff)
+cli.add_command(branch.branch_match)
 
 # Crypto commands
 cli.add_command(crypto.proof)
