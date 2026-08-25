@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Smoke tests for the memoir MCP server (FastMCP).
+"""Smoke tests for the memoir MCP server.
 
-Exercises the tool logic (LLM-free) and the FastMCP registration/dispatch layer.
+Exercises the tool logic (LLM-free) and the MCP registration/dispatch layer.
 Skipped entirely when the optional ``mcp`` SDK isn't installed.
 """
 
@@ -82,7 +82,8 @@ def test_recall_mode_default_and_env(monkeypatch, tmp_path):
         async def run():
             tools = await srv.list_tools()
             recall = next(t for t in tools if t.name == "memoir_recall")
-            return recall.inputSchema["properties"]["mode"].get("default")
+            schema = getattr(recall, "input_schema", None) or recall.inputSchema
+            return schema["properties"]["mode"].get("default")
 
         return asyncio.run(run())
 
@@ -194,11 +195,23 @@ def test_fastmcp_registration_and_dispatch(store):
             "memoir_commits",
         } <= names
         ann = {t.name: t.annotations for t in tools}
-        assert ann["memoir_summarize"].readOnlyHint is True
-        assert ann["memoir_get"].readOnlyHint is True
+        assert (
+            getattr(ann["memoir_summarize"], "read_only_hint", None)
+            or ann["memoir_summarize"].readOnlyHint
+        ) is True
+        assert (
+            getattr(ann["memoir_get"], "read_only_hint", None)
+            or ann["memoir_get"].readOnlyHint
+        ) is True
         ann = {t.name: t.annotations for t in tools}
-        assert ann["memoir_recall"].readOnlyHint is True
-        assert ann["memoir_forget"].destructiveHint is True
+        assert (
+            getattr(ann["memoir_recall"], "read_only_hint", None)
+            or ann["memoir_recall"].readOnlyHint
+        ) is True
+        assert (
+            getattr(ann["memoir_forget"], "destructive_hint", None)
+            or ann["memoir_forget"].destructiveHint
+        ) is True
         # dispatch a read-only tool through the FastMCP layer
         result = await srv.call_tool("memoir_status", {})
         assert result  # non-empty content
