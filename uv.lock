@@ -2227,7 +2227,7 @@ requires-dist = [
     { name = "litellm", marker = "extra == 'all'", specifier = ">=1.0.0" },
     { name = "markitdown", extras = ["docx", "pdf"], marker = "extra == 'all'", specifier = ">=0.1.0" },
     { name = "markitdown", extras = ["docx", "pdf"], marker = "extra == 'watch'", specifier = ">=0.1.0" },
-    { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.2.0" },
+    { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.2.0,<3" },
     { name = "mkdocs", marker = "extra == 'docs'", specifier = ">=1.6.0" },
     { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.5.0" },
     { name = "mkdocstrings", extras = ["python"], marker = "extra == 'docs'", specifier = ">=0.26.0" },
