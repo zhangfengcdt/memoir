@@ -356,14 +356,19 @@ def commits(store_path: str, limit: int = 10) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# FastMCP server assembly (lazy ``mcp`` import — only when the server runs).
+# MCP server assembly (lazy ``mcp`` import — only when the server runs).
 # ---------------------------------------------------------------------------
 
 
 def build_server(store_path: str):
-    """Construct a FastMCP server exposing the memoir tools for ``store_path``."""
+    """Construct an MCP server exposing the memoir tools for ``store_path``."""
     try:
-        from mcp.server.fastmcp import FastMCP
+        # MCP SDK 2 renamed FastMCP to MCPServer and removed the old module.
+        # Keep the fallback while the supported dependency range includes v1.
+        try:
+            from mcp.server import MCPServer as FastMCP
+        except ImportError:  # pragma: no cover - exercised by SDK v1 installs
+            from mcp.server.fastmcp import FastMCP
         from mcp.types import ToolAnnotations
     except ModuleNotFoundError as e:  # pragma: no cover - exercised via main()
         raise SystemExit(
