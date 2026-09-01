@@ -125,6 +125,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         elif parsed_path.path == "/api/branches-status":
             self._ensure_handlers_initialized()
             self.branch_handler.handle_branches_status_api(parsed_path)
+        elif parsed_path.path == "/api/branch-match-config":
+            self._ensure_handlers_initialized()
+            self.branch_handler.handle_branch_match_config_api(parsed_path)
         elif parsed_path.path == "/api/timeline":
             self.handle_timeline_get_api(parsed_path)
         elif parsed_path.path == "/api/location":
@@ -142,6 +145,8 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
             self.handle_diff_api(parsed_path)
         elif parsed_path.path == "/api/commit-range-diff":
             self.handle_commit_range_diff_api(parsed_path)
+        elif parsed_path.path == "/api/commit-snapshot":
+            self.handle_commit_snapshot_api(parsed_path)
         elif parsed_path.path == "/api/branch-merge-preview":
             self.handle_branch_merge_preview_api(parsed_path)
         elif parsed_path.path == "/api/statistics":
@@ -231,6 +236,9 @@ class MemoryStoreHandler(http.server.SimpleHTTPRequestHandler):
         elif parsed_path.path == "/api/delete-branch":
             self._ensure_handlers_initialized()
             self.branch_handler.handle_delete_branch_api()
+        elif parsed_path.path == "/api/branch-match-config":
+            self._ensure_handlers_initialized()
+            self.branch_handler.handle_set_branch_match_config_api()
         elif parsed_path.path == "/api/timeline":
             self.handle_timeline_post_api()
         elif parsed_path.path == "/api/location":
@@ -1735,6 +1743,63 @@ Answer:"""
                 stats[c["type"]] += 1
         return changes, stats
 
+    def _generate_commit_snapshot(self, store_path, ref):
+        """Return the full default-namespace memory state exactly as of `ref`.
+
+        Unlike `_generate_commit_range_diff` (only as complete as whatever
+        commit window the caller walked), this reads state directly via
+        prollytree's `get_keys_at_ref` — no checkout, no diff accumulation,
+        and correct however deep `ref` is in history (including the true
+        root commit, which a `from..to` diff range can never include since
+        it has no parent to diff against).
+        """
+        self._ensure_handlers_initialized()
+        try:
+            store = ProllyTreeStore(
+                path=store_path,
+                enable_versioning=True,
+                auto_commit=False,
+                cache_size=10000,
+            )
+
+            if not hasattr(store.tree, "get_keys_at_ref"):
+                return {
+                    "success": False,
+                    "error": "VersionedKvStore get_keys_at_ref not available",
+                }
+
+            extract = self.utility_handler.extract_memory_content
+            memories = []
+            for key_bytes, value_bytes in store.tree.get_keys_at_ref(ref):
+                key_str = (
+                    key_bytes.decode("utf-8")
+                    if isinstance(key_bytes, bytes)
+                    else str(key_bytes)
+                )
+                namespace, path = "default", key_str
+                if ":" in key_str:
+                    parts = key_str.split(":", 1)
+                    if len(parts) == 2:
+                        namespace, path = parts
+                # History view only reconstructs the default namespace, matching
+                # `_generate_commit_range_diff`'s promote_branch-aligned scope.
+                if namespace != "default":
+                    continue
+                try:
+                    # Decoded dict, not raw bytes — extract_memory_content (not
+                    # extract_diff_content) is the variant that takes one directly.
+                    content = extract(store._decode_value(value_bytes))
+                except Exception:
+                    content = None
+                memories.append(
+                    {"path": path, "namespace": namespace, "content": content}
+                )
+
+            return {"success": True, "ref": ref, "memories": memories}
+
+        except Exception as e:
+            return {"success": False, "error": str(e)}
+
     def _generate_commit_range_diff(self, store_path, from_ref, to_ref):
         """Return per-commit diffs for the range from_ref..to_ref.
 
@@ -1898,6 +1963,58 @@ Answer:"""
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps(payload).encode())
+        except Exception as e:
+            import traceback
+
+            traceback.print_exc()
+            self.send_response(500)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode())
+
+    def handle_commit_snapshot_api(self, parsed_path):
+        """Return the full memory state as of a given commit: ?path=...&ref=..."""
+        try:
+            query_params = parse_qs(parsed_path.query)
+            store_path = query_params.get("path", [""])[0]
+            ref = query_params.get("ref", [None])[0]
+
+            if not store_path:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps({"success": False, "error": "path is required"}).encode()
+                )
+                return
+
+            if not ref:
+                self.send_response(400)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps({"success": False, "error": "ref is required"}).encode()
+                )
+                return
+
+            if not Path(store_path).exists():
+                self.send_response(404)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(
+                    json.dumps(
+                        {"success": False, "error": "Store path does not exist"}
+                    ).encode()
+                )
+                return
+
+            response_data = self._generate_commit_snapshot(store_path, ref)
+            status = 200 if response_data.get("success") else 500
+
+            self.send_response(status)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(response_data).encode())
         except Exception as e:
             import traceback
 

@@ -1,0 +1,149 @@
+.category-tree {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.category-tree-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+}
+
+.category-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.category-legend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.category-tree-namespace {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.tree-namespace-header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.tree-namespace-name {
+  font-family: var(--font-mono);
+  color: var(--fg-1);
+  font-size: var(--text-xs);
+}
+
+.tree-namespace-count {
+  font-size: var(--text-xs);
+  color: var(--fg-3);
+}
+
+.category-tree-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.category-tree-children {
+  margin-left: 0;
+}
+
+.category-node-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.2rem 0.4rem;
+  border-radius: var(--radius-sm);
+  cursor: default;
+  border-left: 2px solid transparent;
+}
+
+.category-node-row[role="button"] {
+  cursor: pointer;
+}
+
+.category-node-row:hover {
+  background: var(--bg-2);
+}
+
+.category-node-toggle {
+  display: inline-block;
+  width: 0.9em;
+  flex-shrink: 0;
+  color: var(--fg-3);
+  font-size: var(--text-xs);
+}
+
+.category-node-swatch {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--node-color, var(--fg-3));
+  flex-shrink: 0;
+}
+
+.category-node-name {
+  color: var(--fg-1);
+  font-size: var(--text-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-node-count {
+  margin-left: auto;
+  color: var(--fg-3);
+  font-size: var(--text-xs);
+  flex-shrink: 0;
+}
+
+/* Change overlay — a second, independent axis from the category swatch
+ * (same two-axis pattern as TaxonomyGraph's tier + selection classes). */
+.category-node-row.changed {
+  border-left-color: var(--node-color);
+  background: color-mix(in srgb, var(--node-color) 10%, transparent);
+}
+
+.category-node-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.1em;
+  height: 1.1em;
+  border-radius: 50%;
+  font-size: var(--text-xs);
+  font-family: var(--font-mono);
+  flex-shrink: 0;
+}
+
+.category-node-badge.tag-added {
+  background: rgba(0, 214, 143, 0.18);
+  color: var(--accent);
+}
+
+.category-node-badge.tag-modified {
+  background: rgba(255, 184, 77, 0.18);
+  color: var(--warning);
+}
+
+.category-node-badge.tag-deleted {
+  background: rgba(255, 107, 107, 0.18);
+  color: var(--danger);
+}
+
+.category-node-badge.tag-kept {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--fg-1);
+}

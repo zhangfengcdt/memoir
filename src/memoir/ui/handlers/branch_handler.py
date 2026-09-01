@@ -452,6 +452,75 @@ class BranchHandler(BaseAPIHandler):
         except Exception as e:
             self.handler.send_error(500, f"Error deleting branch: {e!s}")
 
+    def handle_branch_match_config_api(self, parsed_path):
+        """Get whether branch auto-matching (memoir branch follows code
+        branch) is enabled for this store."""
+        from memoir.services.branch_service import BranchService
+
+        query_params = parse_qs(parsed_path.query)
+        store_path = query_params.get("path", [None])[0]
+
+        if not store_path:
+            self.handler.send_error(400, "Missing 'path' parameter")
+            return
+
+        if not Path(store_path).exists():
+            self.handler.send_error(404, f"Store path does not exist: {store_path}")
+            return
+
+        try:
+            service = BranchService(store_path)
+            enabled = service.is_auto_match_enabled()
+
+            body = {"success": True, "enabled": enabled}
+
+            self.handler.send_response(200)
+            self.handler.send_header("Content-Type", "application/json")
+            self.handler.send_header("Access-Control-Allow-Origin", "*")
+            self.handler.end_headers()
+            self.handler.wfile.write(json.dumps(body, indent=2).encode())
+
+        except Exception as e:
+            self.handler.send_error(500, f"Error getting branch-match config: {e!s}")
+
+    def handle_set_branch_match_config_api(self):
+        """Enable or disable branch auto-matching for this store."""
+        from memoir.services.branch_service import BranchService
+
+        try:
+            content_length = int(self.handler.headers["Content-Length"])
+            post_data = self.handler.rfile.read(content_length)
+            data = json.loads(post_data.decode("utf-8"))
+
+            store_path = data.get("path")
+            enabled = data.get("enabled")
+
+            if not store_path:
+                self.handler.send_error(400, "Missing 'path' parameter")
+                return
+
+            if not isinstance(enabled, bool):
+                self.handler.send_error(400, "'enabled' must be a boolean")
+                return
+
+            if not Path(store_path).exists():
+                self.handler.send_error(404, f"Store path does not exist: {store_path}")
+                return
+
+            service = BranchService(store_path)
+            result_enabled = service.set_auto_match_enabled(enabled)
+
+            body = {"success": True, "enabled": result_enabled}
+
+            self.handler.send_response(200)
+            self.handler.send_header("Content-Type", "application/json")
+            self.handler.send_header("Access-Control-Allow-Origin", "*")
+            self.handler.end_headers()
+            self.handler.wfile.write(json.dumps(body, indent=2).encode())
+
+        except Exception as e:
+            self.handler.send_error(500, f"Error setting branch-match config: {e!s}")
+
     def end_headers(self):
         # Add CORS headers
         self.handler.send_header("Access-Control-Allow-Origin", "*")

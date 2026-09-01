@@ -451,11 +451,14 @@ class BranchService(BaseService):
         from_ref: str | None = None,
     ) -> CheckoutResult:
         """
-        Create a new branch using VersionedKvStore.
+        Create a new branch. Never switches the checkout — the caller's
+        current branch is unchanged after this returns; call `checkout()`
+        separately to switch to it.
 
         Args:
             branch_name: Name for the new branch
-            from_ref: Reference to create branch from (currently creates from current state)
+            from_ref: Branch name, tag, or commit hash to create the branch
+                from. Defaults to current HEAD.
 
         Returns:
             CheckoutResult with success status
@@ -469,7 +472,6 @@ class BranchService(BaseService):
         try:
             store = self._get_store()
 
-            # Save current branch to restore later
             original_branch = None
             try:
                 original_branch = store.tree.current_branch()
@@ -478,37 +480,28 @@ class BranchService(BaseService):
             except Exception:
                 pass
 
-            # If from_ref specified, checkout that first
+            # `git branch <name> [<ref>]` creates the branch pointing at any
+            # commit-ish (branch name, tag, or bare commit hash) — or at
+            # current HEAD when no ref is given — without ever touching the
+            # checkout. Deliberately NOT `store.tree.create_branch()`: it
+            # actually behaves like `git checkout -b` and switches HEAD to
+            # the new branch. `store.tree.checkout()` also only resolves
+            # branch names despite its `branch_or_commit` parameter name, so
+            # `create_branch()` failed whenever `from_ref` was a bare
+            # commit hash
+            git_args = ["branch", branch_name]
             if from_ref and from_ref != "HEAD":
-                try:
-                    store.tree.checkout(from_ref)
-                except Exception as e:
-                    return CheckoutResult(
-                        success=False,
-                        target=branch_name,
-                        current_branch=original_branch or "",
-                        error=f"Cannot checkout '{from_ref}': {e}",
-                    )
-
-            # Create the branch
-            try:
-                store.tree.create_branch(branch_name)
-            except Exception as e:
-                # Restore original branch on failure
-                if original_branch and from_ref:
-                    with contextlib.suppress(Exception):
-                        store.tree.checkout(original_branch)
+                git_args.append(from_ref)
+            result = self._run_git_command(git_args, check=False)
+            if result.returncode != 0:
                 return CheckoutResult(
                     success=False,
                     target=branch_name,
                     current_branch=original_branch or "",
-                    error=str(e),
+                    error=result.stderr.strip()
+                    or f"Cannot create branch '{branch_name}'"
+                    + (f" from '{from_ref}'" if from_ref else ""),
                 )
-
-            # Restore original branch after creating new branch
-            if original_branch and from_ref:
-                with contextlib.suppress(Exception):
-                    store.tree.checkout(original_branch)
 
             # Get current branch
             try:
@@ -1516,3 +1509,53 @@ class BranchService(BaseService):
     # `service.get_diff(...)`. Rather than touching two call sites, expose
     # both names. New callers should prefer `diff()`.
     get_diff = diff
+
+    # --- branch auto-match enforcement toggle ---
+    #
+    # `plugins/claude-code/hooks/common.sh` (and the codex mirror) forces the
+    # checked-out memoir branch to follow the project's code branch on every
+    # SessionStart/UserPromptSubmit/Stop hook. Some workflows (multi-agent
+    # sessions routing via `--branch`/`MEMOIR_BRANCH`, deliberately working a
+    # memoir branch that doesn't match code) want that off. The marker file
+    # below is the persisted, per-store on/off switch: its *presence* means
+    # disabled, following the same "local state under .git/" convention as
+    # the existing sticky-branch/ignored-branches files the hooks already
+    # use. The hook and this service both read/write the same file so a CLI
+    # command, the HTTP API, and the UI button all agree on one source of
+    # truth without either side calling into the other.
+    _AUTO_MATCH_MARKER = "plugin-auto-match-disabled"
+
+    def _auto_match_marker_path(self) -> Path:
+        return Path(self.store_path) / ".git" / self._AUTO_MATCH_MARKER
+
+    def is_auto_match_enabled(self) -> bool:
+        """
+        Whether memoir-branch-follows-code-branch enforcement is active.
+
+        Raises:
+            StoreNotFoundError: If store path doesn't exist.
+        """
+        if not Path(self.store_path).exists():
+            raise StoreNotFoundError(self.store_path)
+        return not self._auto_match_marker_path().exists()
+
+    def set_auto_match_enabled(self, enabled: bool) -> bool:
+        """
+        Enable or disable branch auto-matching for this store.
+
+        Returns:
+            The resulting enabled state.
+
+        Raises:
+            StoreNotFoundError: If store path doesn't exist.
+        """
+        if not Path(self.store_path).exists():
+            raise StoreNotFoundError(self.store_path)
+
+        marker = self._auto_match_marker_path()
+        if enabled:
+            marker.unlink(missing_ok=True)
+        else:
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            marker.write_text("disabled\n", encoding="utf-8")
+        return self.is_auto_match_enabled()

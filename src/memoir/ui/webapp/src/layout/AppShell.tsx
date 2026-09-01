@@ -14,6 +14,8 @@ import StatsModal from "../modals/StatsModal";
 import CommandReferenceModal from "../modals/CommandReferenceModal";
 import SyncBranchesModal from "../modals/SyncBranchesModal";
 import BranchCommitsModal from "../modals/BranchCommitsModal";
+import BranchFromCommitModal from "../modals/BranchFromCommitModal";
+import BringOverMemoriesModal from "../modals/BringOverMemoriesModal";
 import LiveAnnouncer from "./LiveAnnouncer";
 import { useUI, VISIBLE_VIEW_KEYS, isDrawerOpen } from "../state/uiSlice";
 import { useConfig } from "../state/configSlice";
@@ -139,6 +141,8 @@ export default function AppShell() {
       <CommandReferenceModal />
       <SyncBranchesModal />
       <BranchCommitsModal />
+      <BranchFromCommitModal />
+      <BringOverMemoriesModal />
       <LiveAnnouncer />
     </div>
   );

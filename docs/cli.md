@@ -2,7 +2,7 @@
 
 The `memoir` command is the primary shell interface to a memory store. It exposes every retrieval and mutation pipeline the Python SDK supports, plus taxonomy-inspection primitives designed for agentic callers.
 
-This page documents the search-adjacent commands — `recall`, `get`, and `summarize` — in depth. For mutation (`remember`, `forget`), versioning (`branch`, `checkout`, `merge`, `time-travel`), and crypto (`proof`, `verify`, `blame`) commands, use `memoir <command> --help` or see the API reference.
+This page documents the search-adjacent commands — `recall`, `get`, and `summarize` — in depth. For mutation (`remember`, `forget`), versioning (`branch`, `checkout`, `merge`, `time-travel`, `branch-match`), and crypto (`proof`, `verify`, `blame`) commands, use `memoir <command> --help` or see the API reference.
 
 ## Setup
 
@@ -277,7 +277,7 @@ The rest of the CLI surface is documented inline via `--help`. Command groups at
 |---|---|---|
 | Store | `new`, `connect`, `status`, `refresh` | `memoir new --help` |
 | Memory | `remember`, `recall`, `get`, `forget` | `memoir remember --help` |
-| Branch | `branch`, `checkout`, `merge`, `time-travel`, `diff` | `memoir branch --help` |
+| Branch | `branch`, `checkout`, `merge`, `time-travel`, `diff`, `branch-match` | `memoir branch --help` |
 | Crypto | `proof`, `verify`, `blame` | `memoir proof --help` |
 | Analysis | `summarize` | `memoir summarize --help` |
 

@@ -2,7 +2,7 @@
 """
 Branch commands for memoir CLI.
 
-Commands: branch, checkout, merge, time-travel, diff
+Commands: branch, checkout, merge, time-travel, diff, branch-match
 """
 
 import click
@@ -514,3 +514,46 @@ def diff(ctx: MemoirContext, commit1: str, commit2: str, stat: bool):
 
     except Exception as e:
         ctx.error(f"Diff failed: {e}", EXIT_GIT_FAILED)
+
+
+@click.command("branch-match")
+@click.argument("action", required=False, type=click.Choice(["on", "off", "status"]))
+@pass_context
+def branch_match(ctx: MemoirContext, action: str | None):
+    """Enable, disable, or show memoir-branch-follows-code-branch enforcement.
+
+    The Claude Code / Codex plugin hooks normally keep the checked-out memoir
+    branch in sync with your project's git branch. Turn this off if you want
+    to work a memoir branch that deliberately doesn't match your code branch
+    (e.g. multi-agent sessions routing via --branch/MEMOIR_BRANCH).
+
+    \b
+    Examples:
+      memoir branch-match           # Show current status
+      memoir branch-match off       # Disable auto-matching for this store
+      memoir branch-match on        # Re-enable auto-matching
+    """
+    if not ctx.store_path:
+        ctx.error(
+            "No store configured. Pass -s <path>, set MEMOIR_STORE, or cd into a memoir store.",
+            EXIT_NO_STORE,
+        )
+
+    from memoir.services.branch_service import BranchService
+
+    service = BranchService(ctx.store_path)
+
+    try:
+        if action in (None, "status"):
+            enabled = service.is_auto_match_enabled()
+        else:
+            enabled = service.set_auto_match_enabled(action == "on")
+
+        if ctx.json_output:
+            ctx.output({"enabled": enabled})
+        else:
+            state = "enabled" if enabled else "disabled"
+            click.echo(f"Branch auto-matching is {state}")
+
+    except Exception as e:
+        ctx.error(f"branch-match failed: {e}", EXIT_ERROR)

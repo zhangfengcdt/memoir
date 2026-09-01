@@ -178,6 +178,8 @@ This is just the index — agents `memoir get <key>` the ones they care about, p
 
 Memory branches auto-track code branches, so unmerged captures accumulate on `feature/*` memoir branches until they're promoted to `main`. `/memoir:sync` is the guided promotion flow, and three lifecycle mechanisms keep the branch population from overwhelming users over time.
 
+**Turning off auto-matching.** `memoir branch-match off` disables the SessionStart/UserPromptSubmit/Stop hooks' branch-following behavior for the current store (`memoir branch-match on` re-enables it, `memoir branch-match` alone reports status). Useful when deliberately working a memoir branch that doesn't match the code branch. The web UI exposes the same toggle as a button. State is a marker file, `plugin-auto-match-disabled`, alongside the other per-store files below.
+
 **The command.** `/memoir:sync` drives the whole flow through Claude Code's select UI (`AskUserQuestion`) — this is why it's a slash command rather than a hook or forked skill: the select UI is a model tool available only in the main conversation.
 
 ```text
@@ -210,6 +212,7 @@ Merging shows a dry-run preview (`+N new keys, M updated`) and then applies — 
 | `plugin-synced-branches/<branch>` | Epoch of the last successful promote (written by the CLI). |
 | `plugin-ignored-branches` | One branch name per line; delete a line to unignore. |
 | `plugin-merge-prompt-cooldown` | Line 1: snoozed-until epoch. Line 2: consecutive-decline count. |
+| `plugin-auto-match-disabled` | Presence disables branch auto-matching (`memoir branch-match off` / UI toggle); absence (default) means enabled. |
 
 ## Codebase snapshot (`codebase:onboard`)
 

@@ -3,8 +3,10 @@ import type {
   BlameResponse,
   BranchesResponse,
   BranchesStatusResponse,
+  BranchMatchConfigResponse,
   BranchMergePreviewResponse,
   CommitsResponse,
+  CommitSnapshotResponse,
   CurrentBranchResponse,
   LocationResponse,
   MetricsResponse,
@@ -181,6 +183,13 @@ export const api = {
     return { ...rest, fromRef: from, toRef: to };
   },
 
+  /** Full default-namespace memory state exactly as of `ref` — no diff
+   * accumulation, no checkout, no commit-window bound. Used by the History
+   * view's "as of commit" tree (see `commit-snapshot`'s docstring in
+   * `ui/server.py` for why this beats walking `rangeDiff`). */
+  commitSnapshot: (path: string, ref: string) =>
+    getJSON<CommitSnapshotResponse>("/api/commit-snapshot", { path, ref }),
+
   /** Flat-by-key preview of what ``promote_branch(to → from)`` would carry,
    * with BEFORE/AFTER content. Same semantics as the merge confirmation
    * panel — added/modified only, default namespace only, deletions skipped. */
@@ -318,6 +327,18 @@ export const api = {
       "/api/merge-branch",
       { path, source },
     ),
+
+  /** Whether the memoir-branch-follows-code-branch hook enforcement is on
+   * for this store. See `memoir branch-match --help`. */
+  getBranchMatchConfig: (path: string) =>
+    getJSON<BranchMatchConfigResponse>("/api/branch-match-config", { path }),
+
+  /** Enable or disable branch auto-matching for this store. */
+  setBranchMatchConfig: (path: string, enabled: boolean) =>
+    postJSON<BranchMatchConfigResponse>("/api/branch-match-config", {
+      path,
+      enabled,
+    }),
 
   // ---------- Watch / Search ---------------------------------------------
 

@@ -14,6 +14,7 @@ export type ViewKey =
   | "tree"
   | "graph"
   | "watch"
+  | "history"
   | "timeline"
   | "places";
 
@@ -24,6 +25,7 @@ export const VIEW_KEYS: ViewKey[] = [
   "tree",
   "graph",
   "watch",
+  "history",
   "timeline",
   "places",
 ];
@@ -31,7 +33,13 @@ export const VIEW_KEYS: ViewKey[] = [
 /** Subset rendered in the tab bar and the collapsed-rail. Timeline and
  * Places are deferred for a later phase — their views still compile so
  * we don't have to delete the work. */
-export const VISIBLE_VIEW_KEYS: ViewKey[] = ["commits", "tree", "graph", "watch"];
+export const VISIBLE_VIEW_KEYS: ViewKey[] = [
+  "commits",
+  "tree",
+  "graph",
+  "watch",
+  "history",
+];
 
 /** Views where the left-pane namespace filter actually changes what's shown.
  * Other views either ignore it (Commits — commits span all namespaces) or
@@ -51,6 +59,8 @@ export function namespaceFilterDisabledReason(view: ViewKey): string | null {
       return "Commits span all namespaces; filter has no effect here.";
     case "watch":
       return "Watch is pinned to the 'watch' namespace.";
+    case "history":
+      return "History shows commit-level changes across all namespaces.";
     case "timeline":
       return "Timeline reads cross-namespace 'timeline.*' events.";
     case "places":
@@ -178,6 +188,17 @@ interface UISlice {
   /** Name of the branch whose unmerged commits are shown in the
    * BranchCommitsModal. ``null`` = modal closed. */
   branchCommitsTarget: string | null;
+  /** Commit to branch from (History view's "Branch from here" action),
+   * plus the branch the click happened on — needed because after the
+   * checkout that creates+switches to the new branch, `current_branch`
+   * no longer identifies where the work-in-progress being forked from
+   * lives. ``null`` = modal closed. */
+  branchFromCommitTarget: { commit: Commit; sourceBranch: string } | null;
+  /** Branches to preview/bring memories between, after a branch-from-commit
+   * completes: `source` is the branch the work continued on (e.g. main),
+   * `target` is the freshly created branch rooted at the historical
+   * commit. ``null`` = modal closed. */
+  bringOverTarget: { source: string; target: string } | null;
   /** When true, the active view re-fetches every ``AUTO_REFRESH_MS``.
    * Session-only — not persisted, since polling has a real cost and
    * silently surviving reloads would surprise users. */
@@ -213,6 +234,10 @@ interface UISlice {
   toggleBranches: () => void;
   openBranchCommits: (branch: string) => void;
   closeBranchCommits: () => void;
+  openBranchFromCommit: (commit: Commit, sourceBranch: string) => void;
+  closeBranchFromCommit: () => void;
+  openBringOver: (source: string, target: string) => void;
+  closeBringOver: () => void;
   setAutoRefresh: (on: boolean) => void;
   toggleAutoRefresh: () => void;
 
@@ -266,6 +291,8 @@ export const useUI = create<UISlice>((set) => ({
   helpOpen: false,
   branchesOpen: false,
   branchCommitsTarget: null,
+  branchFromCommitTarget: null,
+  bringOverTarget: null,
   autoRefresh: false,
   selectedNamespace: initial.selectedNamespace,
   keyInclude: initial.keyInclude,
@@ -336,6 +363,18 @@ export const useUI = create<UISlice>((set) => ({
   },
   closeBranchCommits() {
     set({ branchCommitsTarget: null });
+  },
+  openBranchFromCommit(commit, sourceBranch) {
+    set({ branchFromCommitTarget: { commit, sourceBranch } });
+  },
+  closeBranchFromCommit() {
+    set({ branchFromCommitTarget: null });
+  },
+  openBringOver(source, target) {
+    set({ bringOverTarget: { source, target } });
+  },
+  closeBringOver() {
+    set({ bringOverTarget: null });
   },
   setAutoRefresh(on) {
     set({ autoRefresh: on });

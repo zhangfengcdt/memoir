@@ -1,0 +1,158 @@
+.history-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  height: 100%;
+  min-height: 0;
+}
+
+.history-branch-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  flex-shrink: 0;
+}
+
+/* Qualified with the `.history-branch-strip` ancestor (not just
+ * `.history-branch-chip` alone) to out-specificity the shared `.chip` /
+ * `.chip.accent` rules in global.css — at equal specificity those were
+ * winning the cascade tie-break in the bundled output, silently
+ * overriding this border with `.chip`'s own, so nothing showed. */
+.history-branch-strip .history-branch-chip {
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-bottom: 3px solid transparent;
+  background: var(--bg-2);
+}
+
+/* The branch whose commits are currently displayed — a colored bottom
+ * edge, same "selected tab" idiom as the main view-tab strip, so it
+ * reads clearly even when this chip isn't also the checked-out branch
+ * (which gets its own solid-fill treatment from `.chip.accent.current`,
+ * shared with commit-row ref badges — see CommitRow.css). Deliberately a
+ * *different* color (warning amber, not accent green): both can be true
+ * on the same chip at once (viewing your own current branch — the
+ * default, most common state), and an accent-on-accent edge would be
+ * invisible against the solid accent fill in that case. */
+.history-branch-strip .history-branch-chip.is-viewed {
+  border-bottom-color: var(--warning);
+}
+
+/* Background bump only when NOT also the solid-filled current branch —
+ * `:not(.current)` keeps this from tying in specificity with (and
+ * sometimes winning over) `.chip.accent.current`'s solid accent
+ * background, which must stay the one source of truth for "checked out". */
+.history-branch-strip .history-branch-chip.is-viewed:not(.current) {
+  background: var(--bg-3);
+}
+
+.history-branch-strip .history-branch-chip.current {
+  font-weight: 600;
+}
+
+.history-branch-chip-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.history-branch-checkout-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-2);
+  color: var(--fg-2);
+  font-size: var(--text-xs);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.history-branch-checkout-btn:hover:not(:disabled) {
+  background: var(--bg-3);
+  color: var(--fg-0);
+  border-color: var(--accent);
+}
+
+.history-branch-checkout-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.history-checkout-error {
+  color: var(--danger);
+}
+
+.history-body {
+  display: flex;
+  gap: var(--space-4);
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.history-commits {
+  flex: 1 1 40%;
+  min-width: 280px;
+  overflow-y: auto;
+}
+
+.history-detail {
+  flex: 1 1 60%;
+  min-width: 320px;
+  overflow-y: auto;
+  border-left: 1px solid var(--border);
+  padding-left: var(--space-4);
+}
+
+.history-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.history-detail-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.history-detail-hash {
+  font-family: var(--font-mono);
+  color: var(--accent);
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  padding: 0.1rem 0.45rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--text-xs);
+  flex-shrink: 0;
+}
+
+.history-detail-message {
+  color: var(--fg-0);
+  font-size: var(--text-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-detail-note {
+  font-size: var(--text-xs);
+  color: var(--fg-2);
+  margin: 0 0 var(--space-3);
+}
+
+.history-detail-note code {
+  color: var(--accent);
+}
+
+.history-detail-empty {
+  color: var(--fg-2);
+  text-align: center;
+  padding: var(--space-8);
+}
