@@ -275,10 +275,11 @@ The rest of the CLI surface is documented inline via `--help`. Command groups at
 
 | Group | Commands | `--help` |
 |---|---|---|
-| Store | `new`, `connect`, `status`, `refresh` | `memoir new --help` |
+| Store | `new`, `connect`, `status`, `refresh`, `store-path`, `ensure-store` | `memoir new --help` |
 | Memory | `remember`, `recall`, `get`, `forget` | `memoir remember --help` |
 | Branch | `branch`, `checkout`, `merge`, `time-travel`, `diff`, `branch-match` | `memoir branch --help` |
 | Crypto | `proof`, `verify`, `blame` | `memoir proof --help` |
 | Analysis | `summarize` | `memoir summarize --help` |
+| Utility | `ui`, `ui-start`, `ui-status`, `ui-stop`, `tui` | `memoir ui --help` |
 
 For the underlying Python APIs these commands call into, see the [API Reference](api/memoir.md).

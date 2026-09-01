@@ -15,14 +15,15 @@
 #         stdout iff this call is what materialized it, empty otherwise.
 #         Callers gate one-time setup (custom-taxonomy load, store-mode
 #         marker write) on that string.
-#   1   — `memoir new` failed.
+#   1   — store creation failed.
 #   2   — missing argument.
 #   127 — no memoir CLI available (PATH + uv chain both empty).
 #
-# Safety: only ever runs `memoir new` when <STORE>/.git/ does NOT exist.
-# That guard prevents `StoreService.create_store()` from materializing a
-# prolly-tree inside an unrelated git repo if MEMOIR_STORE is misconfigured
-# (the documented hazard, see knowledge.technical.store).
+# Thin wrapper: the actual creation (idempotency check, taxonomy install,
+# the scratch-dir workaround for non-git callers) now lives in memoir-ai
+# core as `memoir ensure-store`, shared by every host plugin instead of
+# each carrying its own copy. See src/memoir/cli/commands/store.py in the
+# memoir-ai package.
 
 set -e
 
@@ -49,42 +50,11 @@ if [ "${#MEMOIR_CMD_ARGV[@]}" -eq 0 ]; then
   exit 127
 fi
 
-# Existing store — nothing to do. Empty stdout signals "found existing".
-if [ -d "$STORE/.git" ]; then
-  exit 0
-fi
+result="$("${MEMOIR_CMD_ARGV[@]}" --json ensure-store "$STORE")" || {
+  echo "ensure-store.sh: failed to create store at $STORE" >&2
+  exit 1
+}
 
-mkdir -p "$(dirname "$STORE")"
-
-# `memoir new --taxonomy-builtin` writes both the store git repo AND the
-# builtin taxonomy. The taxonomy install runs against the store's git
-# backend, which only works when the calling process's cwd is itself
-# inside a git working tree. In a non-git project folder that's not
-# guaranteed, so we cd into a throwaway git-init'd scratch dir first.
-#
-# Note: no `--no-connect` flag — it was deliberately removed when memoir
-# eliminated the global ~/.config/memoir/config.json default (see
-# src/memoir/cli/main.py:177). `memoir new` now always behaves as
-# "no-connect" and the flag would error.
-_scratch=$(mktemp -d -t memoir-scratch.XXXXXX 2>/dev/null || echo "")
-if [ -n "$_scratch" ]; then
-  git init -q "$_scratch" 2>/dev/null || true
-  ( cd "$_scratch" \
-    && "${MEMOIR_CMD_ARGV[@]}" new "$STORE" --taxonomy-builtin ) >/dev/null 2>&1
-  rc=$?
-  rm -rf "$_scratch"
-  if [ "$rc" -ne 0 ]; then
-    echo "ensure-store.sh: failed to create store at $STORE" >&2
-    exit 1
-  fi
-else
-  # mktemp failed — fall back to running from current cwd. May produce a
-  # store without a fully loaded taxonomy in non-git folders, but the
-  # store itself will be created so subsequent ops can recover.
-  "${MEMOIR_CMD_ARGV[@]}" new "$STORE" --taxonomy-builtin >/dev/null 2>&1 || {
-    echo "ensure-store.sh: failed to create store at $STORE" >&2
-    exit 1
-  }
-fi
-
-echo "created"
+created=$(printf '%s' "$result" | python3 -c 'import json, sys; print(json.load(sys.stdin).get("created", False))')
+[ "$created" = "True" ] && echo "created"
+exit 0
