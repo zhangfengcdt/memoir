@@ -23,7 +23,7 @@
       
       
       <link rel="icon" href="../_static/memoir.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.6">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.7">
     
     
       
@@ -31,7 +31,7 @@
       
     
     
-      <link rel="stylesheet" href="../assets/stylesheets/main.484c7ddc.min.css">
+      <link rel="stylesheet" href="../assets/stylesheets/main.ec1eaa64.min.css">
       
         
         <link rel="stylesheet" href="../assets/stylesheets/palette.ab4e12ef.min.css">
@@ -2365,7 +2365,7 @@
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>rm<span class="w"> </span>-rf<span class="w"> </span>~/.hermes/plugins/memoir/tests<span class="w"> </span>~/.hermes/plugins/memoir/__pycache__
 </span></code></pre></div>
 <h3 id="3-activate-it">3. Activate it<a class="headerlink" href="#3-activate-it" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>hermes<span class="w"> </span>memory<span class="w"> </span>setup<span class="w">        </span><span class="c1"># interactive picker — choose &quot;memoir&quot;</span>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>hermes<span class="w"> </span>memory<span class="w"> </span>setup<span class="w">        </span><span class="c1"># interactive picker — choose "memoir"</span>
 </span></code></pre></div>
 <p><code>hermes memory setup</code> writes <code>memory.provider: memoir</code> to <code>~/.hermes/config.yaml</code>. (You can also set that key by hand.) Activating memoir <strong>displaces any other external provider</strong> (<code>mem0</code>, <code>honcho</code>, …) — only one runs at a time.</p>
 <p>The store is created automatically on first run at <code>&lt;hermes_home&gt;/memoir-store</code> (override with <code>store_path</code> in config). You'll need a provider API key in the Hermes environment — see <a href="#llm-backend">LLM backend</a>.</p>
@@ -2494,7 +2494,7 @@ see <a href="#the-memoir-command">The <code>/memoir</code> command</a>.</p>
 your store — handy for inspecting memory without leaving the chat:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>/memoir status
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>/memoir summarize --depth 3
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>/memoir recall &quot;travel plans&quot;
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>/memoir recall "travel plans"
 </span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>/memoir branch
 </span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a>/memoir blame profile.personal.identity
 </span></code></pre></div>
@@ -2554,7 +2554,7 @@ the load context and registers the provider or the command accordingly.)</p>
 </tbody>
 </table>
 <p>Example — pin cheap Haiku for per-turn capture regardless of your chat model:</p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;model&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;claude-haiku-4-5&quot;</span><span class="w"> </span><span class="p">}</span>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"model"</span><span class="p">:</span><span class="w"> </span><span class="s2">"claude-haiku-4-5"</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
 <h2 id="model-selection">Model selection<a class="headerlink" href="#model-selection" title="Permanent link">&para;</a></h2>
 <p>memoir resolves the capture/classification model in this order:</p>
@@ -2687,7 +2687,7 @@ sessions is future work — the namespace primitive supports it.</p>
 <p>Recall is LLM-free, so it works even without a provider key. Auto-capture and explicit <code>memoir_remember</code> classification do need one.</p>
 <h3 id="routing-through-a-proxy">Routing through a proxy<a class="headerlink" href="#routing-through-a-proxy" title="Permanent link">&para;</a></h3>
 <p>By default memoir calls the provider directly (e.g. <code>api.anthropic.com</code>) and does <strong>not</strong> route through any gateway Hermes itself uses — Hermes keeps its gateway/base-URL internal to its own client and never exports it to the environment. To send memoir's calls through a proxy/gateway too, set <code>base_url</code> in <code>memoir.json</code>:</p>
-<div class="language-json highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">&quot;base_url&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;https://your-gateway/v1&quot;</span><span class="w"> </span><span class="p">}</span>
+<div class="language-json highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="p">{</span><span class="w"> </span><span class="nt">"base_url"</span><span class="p">:</span><span class="w"> </span><span class="s2">"https://your-gateway/v1"</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
 <p>The bridge exports this as <code>MEMOIR_LLM_BASE_URL</code>; the credential in the environment must be valid for that endpoint.</p>
 <h2 id="verify">Verify<a class="headerlink" href="#verify" title="Permanent link">&para;</a></h2>
@@ -2733,7 +2733,7 @@ sessions is future work — the namespace primitive supports it.</p>
 <p><code>plugins/hermes/plugin.yaml</code>:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="nt">name</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">memoir</span>
 </span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="nt">version</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">0.1.0</span>
-</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">&quot;Memoir</span><span class="nv"> </span><span class="s">—</span><span class="nv"> </span><span class="s">versioned,</span><span class="nv"> </span><span class="s">semantic</span><span class="nv"> </span><span class="s">long-term</span><span class="nv"> </span><span class="s">memory</span><span class="nv"> </span><span class="s">with</span><span class="nv"> </span><span class="s">git-like</span><span class="nv"> </span><span class="s">branch/commit/merge</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">cryptographic</span><span class="nv"> </span><span class="s">provenance.</span><span class="nv"> </span><span class="s">Shells</span><span class="nv"> </span><span class="s">out</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">memoir</span><span class="nv"> </span><span class="s">CLI;</span><span class="nv"> </span><span class="s">no</span><span class="nv"> </span><span class="s">Python</span><span class="nv"> </span><span class="s">deps.&quot;</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3" href="#__codelineno-10-3"></a><span class="nt">description</span><span class="p">:</span><span class="w"> </span><span class="s">"Memoir</span><span class="nv"> </span><span class="s">—</span><span class="nv"> </span><span class="s">versioned,</span><span class="nv"> </span><span class="s">semantic</span><span class="nv"> </span><span class="s">long-term</span><span class="nv"> </span><span class="s">memory</span><span class="nv"> </span><span class="s">with</span><span class="nv"> </span><span class="s">git-like</span><span class="nv"> </span><span class="s">branch/commit/merge</span><span class="nv"> </span><span class="s">and</span><span class="nv"> </span><span class="s">cryptographic</span><span class="nv"> </span><span class="s">provenance.</span><span class="nv"> </span><span class="s">Shells</span><span class="nv"> </span><span class="s">out</span><span class="nv"> </span><span class="s">to</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">memoir</span><span class="nv"> </span><span class="s">CLI;</span><span class="nv"> </span><span class="s">no</span><span class="nv"> </span><span class="s">Python</span><span class="nv"> </span><span class="s">deps."</span>
 </span></code></pre></div>
 <p>No <code>pip_dependencies</code>: the provider talks to the <code>memoir</code> CLI over a subprocess bridge (PATH <code>memoir</code>, else a pinned <code>uvx --from memoir-ai</code>).</p>
 <h2 id="limitations-v1">Limitations (v1)<a class="headerlink" href="#limitations-v1" title="Permanent link">&para;</a></h2>
@@ -2821,7 +2821,7 @@ sessions is future work — the namespace primitive supports it.</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.tabs", "navigation.sections", "navigation.top", "navigation.tracking", "navigation.indexes", "toc.follow", "search.suggest", "search.highlight", "search.share", "content.code.copy", "content.code.annotate", "content.action.edit"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
-      <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
+      <script src="../assets/javascripts/bundle.d7400e89.min.js"></script>
       
     
   </body>
