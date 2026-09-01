@@ -3,6 +3,7 @@ import {
   isHiddenNamespace,
   namespaceFilterDisabledReason,
   useUI,
+  VISIBLE_VIEW_KEYS,
 } from "../state/uiSlice";
 import type { ViewKey } from "../state/uiSlice";
 import "./LeftPane.css";
@@ -15,26 +16,30 @@ export default function LeftPane() {
   const setActiveView = useUI((s) => s.setActiveView);
 
   if (collapsed) {
-    // Match the visible tab bar — timeline + places are hidden for now
-    // and live behind slash commands only.
-    const rail: { key: ViewKey; title: string; icon: RailIconKind }[] = [
-      { key: "commits", title: "Commits (⌘1)", icon: "commits" },
-      { key: "tree", title: "Tree (⌘2)", icon: "tree" },
-      { key: "graph", title: "Graph (⌘3)", icon: "graph" },
+    // Match the visible tab bar — watch, timeline + places are hidden for
+    // now and live behind slash commands only. Shortcut numbers are derived
+    // from VISIBLE_VIEW_KEYS so they stay correct when tabs are reordered.
+    const rail: { key: ViewKey; label: string; icon: RailIconKind }[] = [
+      { key: "commits", label: "Commits", icon: "commits" },
+      { key: "tree", label: "Tree", icon: "tree" },
+      { key: "graph", label: "Graph", icon: "graph" },
     ];
     return (
       <aside className="leftpane leftpane-collapsed" aria-label="Navigation rail">
-        {rail.map((r) => (
+        {rail.map((r) => {
+          const title = `${r.label} (⌘${VISIBLE_VIEW_KEYS.indexOf(r.key) + 1})`;
+          return (
           <button
             key={r.key}
             className={`rail-btn${activeView === r.key ? " active" : ""}`}
-            title={r.title}
+            title={title}
             onClick={() => setActiveView(r.key)}
-            aria-label={r.title}
+            aria-label={title}
           >
             <RailIcon kind={r.icon} />
           </button>
-        ))}
+          );
+        })}
       </aside>
     );
   }

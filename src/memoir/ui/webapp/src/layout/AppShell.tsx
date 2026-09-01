@@ -50,7 +50,7 @@ export default function AppShell() {
   // surface elsewhere (TopBar buttons, view tabs, autocomplete).
   const useLLM = useConfig((s) => s.useLLM);
 
-  // Global keyboard shortcuts — ⌘B / ⌘1..5 / Esc-closes-drawer.
+  // Global keyboard shortcuts — ⌘B / ⌘1..N / Esc-closes-drawer.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.metaKey || e.ctrlKey;

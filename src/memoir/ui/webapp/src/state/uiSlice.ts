@@ -30,15 +30,14 @@ export const VIEW_KEYS: ViewKey[] = [
   "places",
 ];
 
-/** Subset rendered in the tab bar and the collapsed-rail. Timeline and
- * Places are deferred for a later phase — their views still compile so
- * we don't have to delete the work. */
+/** Subset rendered in the tab bar and the collapsed-rail. Watch, Timeline
+ * and Places are deferred for a later phase — their views still compile and
+ * stay reachable via slash commands, so we don't have to delete the work. */
 export const VISIBLE_VIEW_KEYS: ViewKey[] = [
   "commits",
+  "history",
   "tree",
   "graph",
-  "watch",
-  "history",
 ];
 
 /** Views where the left-pane namespace filter actually changes what's shown.
