@@ -216,6 +216,22 @@ export interface RangeDiffResponse {
   commits: CommitDiff[];
 }
 
+// --- /api/commit-snapshot --------------------------------------------------
+// Full default-namespace memory state exactly as of one commit, read
+// directly (no diff accumulation, no checkout) via prollytree's
+// `get_keys_at_ref` — used by the History view's "as of commit" tree.
+export interface CommitSnapshotEntry {
+  path: string;
+  namespace: string;
+  content: string | null;
+}
+
+export interface CommitSnapshotResponse {
+  success: boolean;
+  ref: string;
+  memories: CommitSnapshotEntry[];
+}
+
 // --- /api/branch-merge-preview --------------------------------------------
 // Flat-by-key view of what ``promote_branch(to → from)`` would carry.
 // Backs BranchCommitsModal — renders the same add/update operations the

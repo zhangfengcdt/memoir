@@ -169,71 +169,42 @@ export default function HistoryView() {
   //  - Fast path: the selected commit is the tip of the branch we're
   //    actually checked out on, so `data.memories` (already loaded,
   //    exact) *is* the state as of that commit — no extra request.
-  //  - General path: accumulate it by range-diffing from the oldest
-  //    commit we've loaded (limit 50) forward through the selected one
-  //    (`git log --reverse` order server-side), applying each commit's
-  //    added/modified as upserts and deleted as removals in order. This
-  //    is only as complete as the loaded commit window — if the oldest
-  //    loaded commit still has a parent, there's earlier history we
-  //    don't know about, and any path untouched since before that
-  //    boundary won't appear. `asOfComplete` tracks which case we're in
-  //    so the UI can say so.
-  const [asOf, setAsOf] = useState<{ memories: Memory[]; complete: boolean } | null>(
-    null,
-  );
+  //  - General path: `api.commitSnapshot`, which reads the exact state at
+  //    that commit directly via prollytree's `get_keys_at_ref` (no
+  //    checkout). Unlike accumulating over `rangeDiff`, this isn't bounded
+  //    by the loaded commit window and has no gap at the true root commit
+  //    (which a `from..to` diff range can never include, since it has no
+  //    parent to diff against) — it's always exact.
+  const [asOf, setAsOf] = useState<Memory[] | null>(null);
   const [asOfLoading, setAsOfLoading] = useState(false);
   useEffect(() => {
     let cancelled = false;
-    if (!storePath || !selectedCommit || !commits || commits.length === 0) {
+    if (!storePath || !selectedCommit) {
       setAsOf(null);
       return;
     }
 
     const isHeadOfCurrent =
-      viewedBranch === currentBranch && commits[0]?.hash === selectedCommit.hash;
+      viewedBranch === currentBranch && commits?.[0]?.hash === selectedCommit.hash;
     if (isHeadOfCurrent) {
-      setAsOf({ memories: data?.memories ?? [], complete: true });
+      setAsOf(data?.memories ?? []);
       return;
     }
 
-    const oldest = commits[commits.length - 1];
-    const isTrueRoot = oldest.parents.length === 0;
-    const baseRef = oldest.parents[0] ?? oldest.hash;
     setAsOfLoading(true);
     api
-      .rangeDiff(storePath, baseRef, selectedCommit.hash)
+      .commitSnapshot(storePath, selectedCommit.hash)
       .then((res) => {
         if (cancelled) return;
-        const state = new Map<string, string | null>();
-        // Server returns oldest→newest (git log --reverse); apply in
-        // order so later changes correctly overwrite/remove earlier ones.
-        for (const commitDiff of res.commits) {
-          for (const change of commitDiff.changes) {
-            if (change.type === "deleted") {
-              state.delete(change.path);
-            } else {
-              state.set(change.path, change.new_content ?? null);
-            }
-          }
-        }
-        setAsOf({
-          memories: Array.from(state.entries()).map(([path, content]) => ({
-            key: `default:${path}`,
-            namespace: "default",
-            path,
-            content,
+        setAsOf(
+          res.memories.map((m) => ({
+            key: `${m.namespace}:${m.path}`,
+            namespace: m.namespace,
+            path: m.path,
+            content: m.content,
             value: {},
           })),
-          // "Complete" means we've loaded this branch's *entire* history
-          // (oldest fetched commit has no parent, i.e. it's the true
-          // root) — the only remaining gap is root's own diff, which
-          // can't be computed without a parent to diff against (same
-          // accepted limitation as the single-commit view below). When
-          // `oldest` still has a parent, there's real unknown history
-          // before our fetch window and paths untouched since before it
-          // won't appear at all.
-          complete: isTrueRoot,
-        });
+        );
         setAsOfLoading(false);
       })
       .catch(() => {
@@ -246,7 +217,28 @@ export default function HistoryView() {
     };
   }, [storePath, selectedCommit, commits, viewedBranch, currentBranch, data]);
 
-  const treeMemories = asOf?.memories ?? [];
+  // `asOf` is the state as of the selected commit — a path this commit
+  // deleted is correctly absent from it. But that means, on its own,
+  // there'd be no tree node left to carry the "−" badge `changedPaths`
+  // wants to show for it. Add display-only ghost entries for exactly
+  // those paths (the selected commit's own deletions) so the badge has
+  // somewhere to render; every other change type already has a live node.
+  const treeMemories = useMemo(() => {
+    const base = asOf ?? [];
+    const deletedHere = (diffChanges ?? []).filter((c) => c.type === "deleted");
+    if (deletedHere.length === 0) return base;
+    const present = new Set(base.map((m) => m.path));
+    const ghosts = deletedHere
+      .filter((c) => !present.has(c.path))
+      .map((c) => ({
+        key: `default:${c.path}`,
+        namespace: "default",
+        path: c.path,
+        content: c.content,
+        value: {},
+      }));
+    return ghosts.length > 0 ? [...base, ...ghosts] : base;
+  }, [asOf, diffChanges]);
 
   // Stable basis for category→color assignment. `assignCategoryColors`
   // ranks categories alphabetically to pick palette slots, so if the input
@@ -267,8 +259,12 @@ export default function HistoryView() {
   }, [data, treeMemories]);
 
   const onBranchFromHere = () => {
-    if (!selectedCommit || !currentBranch) return;
-    useUI.getState().openBranchFromCommit(selectedCommit, currentBranch);
+    // `sourceBranch` drives the follow-up "bring memories forward" preview,
+    // which needs to preview *the branch this commit actually lives on*
+    // (`viewedBranch`) — not necessarily the checked-out `currentBranch`,
+    // which can be a different branch entirely while merely inspecting.
+    if (!selectedCommit || !viewedBranch) return;
+    useUI.getState().openBranchFromCommit(selectedCommit, viewedBranch);
   };
 
   const [checkingOut, setCheckingOut] = useState<string | null>(null);
@@ -390,19 +386,12 @@ export default function HistoryView() {
                   type="button"
                   className="btn btn-primary btn-sm"
                   onClick={onBranchFromHere}
-                  disabled={!currentBranch}
+                  disabled={!viewedBranch}
                   title={`Create a new branch rooted at ${selectedCommit.short_hash} and switch to it`}
                 >
                   Branch from here
                 </button>
               </div>
-              {asOf && !asOf.complete && (
-                <p className="history-detail-note">
-                  Tree reflects the last {commits?.length ?? 0} loaded commits — history
-                  before that isn't included, so long-untouched paths from further back
-                  may be missing.
-                </p>
-              )}
               {(diffLoading || asOfLoading) && (
                 <p className="drawer-empty-hint">Loading changes…</p>
               )}

@@ -6,6 +6,7 @@ import type {
   BranchMatchConfigResponse,
   BranchMergePreviewResponse,
   CommitsResponse,
+  CommitSnapshotResponse,
   CurrentBranchResponse,
   LocationResponse,
   MetricsResponse,
@@ -181,6 +182,13 @@ export const api = {
     const { from, to, ...rest } = raw;
     return { ...rest, fromRef: from, toRef: to };
   },
+
+  /** Full default-namespace memory state exactly as of `ref` — no diff
+   * accumulation, no checkout, no commit-window bound. Used by the History
+   * view's "as of commit" tree (see `commit-snapshot`'s docstring in
+   * `ui/server.py` for why this beats walking `rangeDiff`). */
+  commitSnapshot: (path: string, ref: string) =>
+    getJSON<CommitSnapshotResponse>("/api/commit-snapshot", { path, ref }),
 
   /** Flat-by-key preview of what ``promote_branch(to → from)`` would carry,
    * with BEFORE/AFTER content. Same semantics as the merge confirmation
