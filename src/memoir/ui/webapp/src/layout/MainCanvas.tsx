@@ -13,14 +13,17 @@ import ViewToolbar from "./ViewToolbar";
 import FilterBar from "./FilterBar";
 import "./MainCanvas.css";
 
-const VIEW_LABELS: Record<ViewKey, { label: string; shortcut: string }> = {
-  commits: { label: "Commits", shortcut: "⌘1" },
-  tree: { label: "Outline", shortcut: "⌘2" },
-  graph: { label: "Map", shortcut: "⌘3" },
-  watch: { label: "Watch", shortcut: "⌘4" },
-  history: { label: "History", shortcut: "⌘5" },
-  timeline: { label: "Timeline", shortcut: "⌘6" },
-  places: { label: "Places", shortcut: "⌘7" },
+// Shortcut numbers are positional — AppShell binds ⌘1..N onto
+// VISIBLE_VIEW_KEYS — so the tooltip derives them from the rendered index
+// rather than hardcoding numbers that go stale when tabs move or hide.
+const VIEW_LABELS: Record<ViewKey, { label: string }> = {
+  commits: { label: "Commits" },
+  tree: { label: "Outline" },
+  graph: { label: "Map" },
+  watch: { label: "Watch" },
+  history: { label: "History" },
+  timeline: { label: "Timeline" },
+  places: { label: "Places" },
 };
 
 // Octicon-style inline icons. Sized via currentColor so they inherit tab color.
@@ -104,28 +107,30 @@ export default function MainCanvas() {
 
   return (
     <main className="main-canvas" aria-label="Main content">
-      <nav className="view-tabs" role="tablist" aria-label="View tabs">
-        {VISIBLE_VIEW_KEYS.map((key) => {
-          const meta = VIEW_LABELS[key];
-          const count = tabCount(key, data);
-          return (
-            <Fragment key={key}>
-              <button
-                role="tab"
-                aria-selected={active === key}
-                className={`view-tab ${active === key ? "active" : ""}`}
-                onClick={() => setActive(key)}
-                title={`${meta.label} (${meta.shortcut})`}
-              >
-                <span className="view-tab-icon">{VIEW_ICONS[key]}</span>
-                <span className="view-tab-label">{meta.label}</span>
-                {count !== null && <span className="view-tab-count">{count}</span>}
-              </button>
-              {key === "graph" && <ViewToolbar />}
-            </Fragment>
-          );
-        })}
-      </nav>
+      <div className="view-tabs-scroll">
+        <nav className="view-tabs" role="tablist" aria-label="View tabs">
+          {VISIBLE_VIEW_KEYS.map((key, i) => {
+            const meta = VIEW_LABELS[key];
+            const count = tabCount(key, data);
+            return (
+              <Fragment key={key}>
+                <button
+                  role="tab"
+                  aria-selected={active === key}
+                  className={`view-tab ${active === key ? "active" : ""}`}
+                  onClick={() => setActive(key)}
+                  title={`${meta.label} (⌘${i + 1})`}
+                >
+                  <span className="view-tab-icon">{VIEW_ICONS[key]}</span>
+                  <span className="view-tab-label">{meta.label}</span>
+                  {count !== null && <span className="view-tab-count">{count}</span>}
+                </button>
+                {key === "graph" && <ViewToolbar />}
+              </Fragment>
+            );
+          })}
+        </nav>
+      </div>
 
       {connected && (active === "tree" || active === "graph") && <FilterBar />}
 

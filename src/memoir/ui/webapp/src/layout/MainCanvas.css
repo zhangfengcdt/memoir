@@ -14,11 +14,26 @@
   border-bottom: 1px solid var(--border);
   background: var(--bg-0);
   flex: 0 0 auto;
+  /* Span the scroller's full content width so border-bottom doesn't stop
+     short once the strip is scrolled. */
+  min-width: max-content;
+}
+
+/* Scrolls rather than silently clipping when the tab strip outgrows the
+   viewport -- .main-canvas has overflow:hidden, which would otherwise swallow
+   the trailing tabs (History is last) with no affordance. The border-bottom
+   stays on .view-tabs inside, so the active tab's -1px overlap is never
+   clipped by this scrollport. */
+.view-tabs-scroll {
+  flex: 0 0 auto;
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 
 .view-tab {
   display: inline-flex;
   align-items: center;
+  flex: 0 0 auto;
   gap: var(--space-2);
   padding: 0.55rem var(--space-3);
   color: var(--fg-2);

@@ -65,15 +65,6 @@ export default function TopBar() {
             {storePath ?? "not connected"}
           </code>
         </div>
-
-        {branch && (
-          <div className="topbar-branch">
-            <span className="eyebrow">Branch</span>
-            <code className="branch-name" data-status={status} title={`Current branch: ${branch}`}>
-              {branch}
-            </code>
-          </div>
-        )}
       </div>
 
       <div className="topbar-right">
