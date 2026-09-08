@@ -13,7 +13,7 @@
 #       memoir-claude-code-test bash /test.sh
 FROM node:22-bookworm-slim
 
-ARG MEMOIR_AI_VERSION=0.2.3
+ARG MEMOIR_AI_VERSION=0.2.5
 ARG MEMOIR_REF=main
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

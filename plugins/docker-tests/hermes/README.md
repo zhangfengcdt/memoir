@@ -26,7 +26,7 @@ and activates it (`memory.provider: memoir`, `plugins.enabled: [memoir]`).
 > `--build-arg HERMES_REF=<tag>` once a release includes it.
 
 Build args: `HERMES_REF` (default `main`), `MEMOIR_AI_VERSION` (default
-`0.2.3`), `MEMOIR_PLUGIN` (default `zhangfengcdt/memoir/plugins/hermes`).
+`0.2.5`), `MEMOIR_PLUGIN` (default `zhangfengcdt/memoir/plugins/hermes`).
 
 ## Run the smoke test
 

@@ -18,7 +18,7 @@
 FROM python:3.12-slim
 
 ARG HERMES_REF=main
-ARG MEMOIR_AI_VERSION=0.2.3
+ARG MEMOIR_AI_VERSION=0.2.5
 ARG MEMOIR_REPO=zhangfengcdt/memoir
 ARG MEMOIR_PLUGIN=zhangfengcdt/memoir/plugins/hermes
 
