@@ -84,6 +84,15 @@ class FakeCloudState:
             check=True,
             capture_output=True,
         )
+        # Worst case for clients: the advertised HEAD names a branch that
+        # does not exist (what an unset init.defaultBranch gives on CI). A
+        # plain `git clone` then lands on an unborn branch; the client must
+        # recover by checking out `main` itself.
+        subprocess.run(
+            ["git", "-C", str(repo), "symbolic-ref", "HEAD", "refs/heads/master"],
+            check=True,
+            capture_output=True,
+        )
         store = {
             "id": store_id,
             "name": name,

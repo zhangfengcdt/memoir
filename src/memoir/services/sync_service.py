@@ -613,6 +613,30 @@ class SyncService(BaseService):
                 list(pool.map(download, wanted))
         return len(wanted)
 
+    def _checkout_default_branch(self) -> None:
+        """After `git clone`: if HEAD is unborn (the server advertised no
+        usable HEAD), check out ``main`` or, failing that, the first user
+        branch the cloud has. An empty cloud store is left as is."""
+        if self._ref_exists("HEAD"):
+            return
+        remote_branches = [
+            ref.split("/", 1)[1]
+            for ref in self._git(
+                [
+                    "for-each-ref",
+                    "--format=%(refname:short)",
+                    f"refs/remotes/{REMOTE_NAME}/",
+                ]
+            ).stdout.split()
+            if "/" in ref
+            and not ref.endswith("/HEAD")
+            and not ref.split("/", 1)[1].startswith(CLOUD_BRANCH_PREFIX)
+        ]
+        if not remote_branches:
+            return
+        branch = "main" if "main" in remote_branches else sorted(remote_branches)[0]
+        self._git(["checkout", "-q", "-B", branch, f"{REMOTE_NAME}/{branch}"])
+
     def root_hash(self) -> str | None:
         """Hex root hash from the tracked ``data/prolly_config_tree_config``."""
         config = Path(self.store_path) / "data" / "prolly_config_tree_config"
@@ -811,6 +835,7 @@ def clone(
     service = SyncService(str(target))
     service._nodes_dir().mkdir(parents=True, exist_ok=True)
     service._ensure_cloud_refspec()
+    service._checkout_default_branch()
     with service._client(gateway) as client:
         downloaded = service._download_chunks(client, format_address(owner, store_name))
     service._verify_root_chunk()

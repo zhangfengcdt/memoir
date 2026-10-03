@@ -585,6 +585,43 @@ class TestRoundTrip:
         assert "run tests" in res.output
         assert SyncService(str(dest)).root_hash() in _nodes(dest)
 
+    def test_clone_recovers_unborn_head(self, store, tmp_root):
+        """Older git leaves HEAD on a nonexistent branch when the server
+        advertises no usable HEAD (CI's default branch is `master`). The
+        client must check out `main` itself. Built over file:// because that
+        transport yields the unborn state deterministically on every git."""
+        bare = tmp_root / "bare"
+        _git(tmp_root, "init", "-q", "--bare", str(bare))
+        _git(bare, "symbolic-ref", "HEAD", "refs/heads/master")
+        _git(store, "push", "-q", str(bare), "main:main")
+        dest = tmp_root / "unborn"
+        subprocess.run(
+            ["git", "clone", "-q", "--origin", "origin", str(bare), str(dest)],
+            check=True,
+            capture_output=True,
+        )
+        service = SyncService(str(dest))
+        assert not service._ref_exists("HEAD")
+        assert service._current_branch() == "master"
+
+        service._checkout_default_branch()
+        assert service._current_branch() == "main"
+        assert _git(dest, "rev-parse", "HEAD") == _git(store, "rev-parse", "main")
+
+        # Idempotent, and a no-op on an empty cloud store.
+        service._checkout_default_branch()
+        assert service._current_branch() == "main"
+        empty = tmp_root / "empty-bare"
+        _git(tmp_root, "init", "-q", "--bare", str(empty))
+        dest2 = tmp_root / "empty-clone"
+        subprocess.run(
+            ["git", "clone", "-q", str(empty), str(dest2)],
+            check=True,
+            capture_output=True,
+        )
+        SyncService(str(dest2))._checkout_default_branch()
+        assert not SyncService(str(dest2))._ref_exists("HEAD")
+
     def test_clone_prints_address_in_human_mode(
         self, runner, linked_store, cloud, env, tmp_root
     ):
