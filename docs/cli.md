@@ -25,7 +25,7 @@ Add `--json` at the group level for machine-readable output (recommended when sc
 | `MEMOIR_MERGE_POLICY` | Global conflict-resolution strategy for `remember` when a key already exists, overriding the per-type default but below an explicit `--merge-policy`. `=replace` restores the old overwrite-everywhere behaviour. See [Conflict resolution](#memoir-remember-conflict-resolution). |
 | `MEMOIR_FACET_MAX_ENTRIES` | Cap on facet entries per key for append-style writes (oldest pruned). Default `50`; `0`/`none` disables capping. |
 | `MEMOIR_RECALL_MERGE` | If `llm`, enables merge-on-read: a multi-entry key's content is LLM-consolidated at read time. Off by default (the deterministic projection is used). |
-| `MEMORY_API_KEY` | memoir-cloud API key. Unlocks the cloud sync commands (`remote`, `push`, `pull`, `fetch`, `clone`). Unset = COMMUNITY tier, no behaviour change. Never written to disk. See [Cloud Sync](cloud.md). |
+| `MEMOIR_API_KEY` | memoir-cloud API key. Unlocks the cloud sync commands (`remote`, `push`, `pull`, `fetch`, `clone`). Unset = COMMUNITY tier, no behaviour change. Never written to disk. See [Cloud Sync](cloud.md). |
 | `MEMOIR_CLOUD_URL` | memoir-cloud gateway URL for `remote add` / `clone` when `--url` is not passed. Default: the production gateway. |
 
 ### Global flags
@@ -273,10 +273,10 @@ memoir --json get preferences.coding.style preferences.tools.editor
 
 ## Cloud sync commands
 
-`memoir remote`, `push`, `pull`, `fetch`, and `clone` round-trip a local store with [memoir-cloud](https://github.com/zhangfengcdt/memoir-cloud), so the same memories follow your agent across machines. They are gated on `MEMORY_API_KEY`: without it every cloud command exits 1 with `Cloud sync requires MEMORY_API_KEY (PRO)` and nothing else in memoir changes. The rules behind the commands (what syncs, fast-forward only, key handling) are in the [Cloud Sync](cloud.md) reference; this section is a hands-on guide.
+`memoir remote`, `push`, `pull`, `fetch`, and `clone` round-trip a local store with [memoir-cloud](https://github.com/zhangfengcdt/memoir-cloud), so the same memories follow your agent across machines. They are gated on `MEMOIR_API_KEY`: without it every cloud command exits 1 with `Cloud sync requires MEMOIR_API_KEY (PRO)` and nothing else in memoir changes. The rules behind the commands (what syncs, fast-forward only, key handling) are in the [Cloud Sync](cloud.md) reference; this section is a hands-on guide.
 
 ```bash
-export MEMORY_API_KEY=mk_...     # created on the gateway's API-keys page
+export MEMOIR_API_KEY=mk_...     # created on the gateway's API-keys page
 ```
 
 | Command | What it does |
@@ -344,7 +344,7 @@ Keep the store id from `remote show`. You need it on the other machine.
 Export the same key and clone into a fresh directory:
 
 ```bash
-export MEMORY_API_KEY=mk_...
+export MEMOIR_API_KEY=mk_...
 memoir clone str_K3mQx9...Yw ~/memories
 ```
 
@@ -477,8 +477,8 @@ To use a different gateway, such as a staging deployment, pass `--url` to `remot
 
 | Message | Cause | What to do |
 |---|---|---|
-| `Cloud sync requires MEMORY_API_KEY (PRO)` | The variable is unset in this shell. | `export MEMORY_API_KEY=...` |
-| `MEMORY_API_KEY is missing or invalid` | The gateway returned 401. | Check for a typo or an expired key. |
+| `Cloud sync requires MEMOIR_API_KEY (PRO)` | The variable is unset in this shell. | `export MEMOIR_API_KEY=...` |
+| `MEMOIR_API_KEY is missing or invalid` | The gateway returned 401. | Check for a typo or an expired key. |
 | `GET /stores/str_... → 404` | Unknown store id, or a store owned by another account. | Copy the id from `memoir remote show` on the machine that created it. |
 | `remote 'memoir-cloud' already exists; pass --force to replace it` | The store is linked already. | Use `remote show`, or `remote add ... --force` to relink. |
 | `remote has commits you don't have; run memoir pull first` (exit 6) | The cloud is ahead. | `memoir pull`, then push again. |
@@ -498,6 +498,6 @@ The rest of the CLI surface is documented inline via `--help`. Command groups at
 | Branch | `branch`, `checkout`, `merge`, `time-travel`, `diff`, `branch-match` | `memoir branch --help` |
 | Crypto | `proof`, `verify`, `blame` | `memoir proof --help` |
 | Analysis | `summarize` | `memoir summarize --help` |
-| Cloud sync | `remote`, `push`, `pull`, `fetch`, `clone` (requires `MEMORY_API_KEY`; see [Cloud Sync](cloud.md)) | `memoir push --help` |
+| Cloud sync | `remote`, `push`, `pull`, `fetch`, `clone` (requires `MEMOIR_API_KEY`; see [Cloud Sync](cloud.md)) | `memoir push --help` |
 
 For the underlying Python APIs these commands call into, see the [API Reference](api/memoir.md).

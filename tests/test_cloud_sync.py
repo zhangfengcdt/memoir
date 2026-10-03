@@ -58,7 +58,7 @@ def cloud(tmp_root):
 @pytest.fixture
 def env(cloud):
     """Env for CliRunner: key set, gateway pointed at the fake."""
-    return {"MEMORY_API_KEY": API_KEY, "MEMOIR_CLOUD_URL": cloud.url}
+    return {"MEMOIR_API_KEY": API_KEY, "MEMOIR_CLOUD_URL": cloud.url}
 
 
 @pytest.fixture
@@ -121,29 +121,29 @@ class TestGating:
         ],
     )
     def test_commands_require_key(self, runner, store, args, monkeypatch):
-        monkeypatch.delenv("MEMORY_API_KEY", raising=False)
+        monkeypatch.delenv("MEMOIR_API_KEY", raising=False)
         res = runner.invoke(cli, ["-s", str(store), *args])
         assert res.exit_code == 1
-        assert "requires MEMORY_API_KEY (PRO)" in res.output
+        assert "requires MEMOIR_API_KEY (PRO)" in res.output
 
     def test_clone_requires_key(self, runner, tmp_root, monkeypatch):
-        monkeypatch.delenv("MEMORY_API_KEY", raising=False)
+        monkeypatch.delenv("MEMOIR_API_KEY", raising=False)
         res = runner.invoke(cli, ["clone", STORE_ID, str(tmp_root / "x")])
         assert res.exit_code == 1
-        assert "requires MEMORY_API_KEY (PRO)" in res.output
+        assert "requires MEMOIR_API_KEY (PRO)" in res.output
 
     def test_existing_commands_unaffected(self, runner, store, monkeypatch):
-        monkeypatch.delenv("MEMORY_API_KEY", raising=False)
+        monkeypatch.delenv("MEMOIR_API_KEY", raising=False)
         res = runner.invoke(cli, ["-s", str(store), "status"])
         assert res.exit_code == 0
         assert "Initialized" in res.output
 
     def test_cloud_enabled_helper(self, monkeypatch):
-        monkeypatch.delenv("MEMORY_API_KEY", raising=False)
+        monkeypatch.delenv("MEMOIR_API_KEY", raising=False)
         assert sync_service.cloud_enabled() is False
-        monkeypatch.setenv("MEMORY_API_KEY", "   ")
+        monkeypatch.setenv("MEMOIR_API_KEY", "   ")
         assert sync_service.cloud_enabled() is False
-        monkeypatch.setenv("MEMORY_API_KEY", "k")
+        monkeypatch.setenv("MEMOIR_API_KEY", "k")
         assert sync_service.cloud_enabled() is True
 
     def test_machine_readable_lists_cloud_group_and_exit_code(self, runner):
@@ -157,7 +157,7 @@ class TestGating:
             "fetch",
             "clone",
         }
-        assert "MEMORY_API_KEY" in data["env_vars"]
+        assert "MEMOIR_API_KEY" in data["env_vars"]
         assert "MEMOIR_CLOUD_URL" in data["env_vars"]
 
 
@@ -188,10 +188,10 @@ class TestRemote:
         res = runner.invoke(
             cli,
             ["-s", str(store), "remote", "add", STORE_ID],
-            env={**env, "MEMORY_API_KEY": "wrong"},
+            env={**env, "MEMOIR_API_KEY": "wrong"},
         )
         assert res.exit_code == 1
-        assert "MEMORY_API_KEY is missing or invalid" in res.output
+        assert "MEMOIR_API_KEY is missing or invalid" in res.output
 
     def test_add_twice_requires_force(self, runner, linked_store, env, cloud):
         cloud.state.create_store("str_other")
@@ -363,10 +363,10 @@ class TestPush:
         res = runner.invoke(
             cli,
             ["-s", str(linked_store), "push"],
-            env={**env, "MEMORY_API_KEY": "wrong"},
+            env={**env, "MEMOIR_API_KEY": "wrong"},
         )
         assert res.exit_code == 1
-        assert "MEMORY_API_KEY is missing or invalid" in res.output
+        assert "MEMOIR_API_KEY is missing or invalid" in res.output
         assert all("git-" not in p for p in cloud.state.paths())
 
 
@@ -419,11 +419,11 @@ class TestRoundTrip:
         res = runner.invoke(
             cli,
             ["clone", STORE_ID, str(tmp_root / "c")],
-            env={**env, "MEMORY_API_KEY": "bad"},
+            env={**env, "MEMOIR_API_KEY": "bad"},
         )
         assert res.exit_code == 1
-        assert "MEMORY_API_KEY is missing or invalid" in res.output
-        assert "bad" not in res.output.replace("MEMORY_API_KEY", "")
+        assert "MEMOIR_API_KEY is missing or invalid" in res.output
+        assert "bad" not in res.output.replace("MEMOIR_API_KEY", "")
 
     def test_fetch_pull_fast_forwards_clone(
         self, runner, linked_store, cloud, env, tmp_root
@@ -586,7 +586,7 @@ class TestKeyHygiene:
 
     def test_git_error_output_is_redacted(self, runner, linked_store, env, monkeypatch):
         service = SyncService(str(linked_store))
-        monkeypatch.setenv("MEMORY_API_KEY", API_KEY)
+        monkeypatch.setenv("MEMOIR_API_KEY", API_KEY)
         service._key = API_KEY
 
         class Fake:

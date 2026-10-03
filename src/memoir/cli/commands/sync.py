@@ -4,9 +4,9 @@ Cloud sync commands for memoir CLI.
 
 Commands: remote (add/show/remove), push, pull, fetch, clone
 
-All of them are gated on ``MEMORY_API_KEY``. Without it memoir behaves
+All of them are gated on ``MEMOIR_API_KEY``. Without it memoir behaves
 exactly as before (COMMUNITY tier) and these commands exit 1 with a
-"requires MEMORY_API_KEY (PRO)" message.
+"requires MEMOIR_API_KEY (PRO)" message.
 """
 
 from collections.abc import Callable
@@ -65,7 +65,7 @@ def remote():
       memoir remote show
       memoir remote remove
 
-    Requires MEMORY_API_KEY. The key is never written to disk.
+    Requires MEMOIR_API_KEY. The key is never written to disk.
     """
 
 
@@ -89,7 +89,7 @@ def remote_add(
     INPUT: A cloud store id (str_...), or --create to make one.
     OUTPUT: Gateway, store id, and the cloud store summary.
 
-    Verifies MEMORY_API_KEY against the gateway, verifies the store exists
+    Verifies MEMOIR_API_KEY against the gateway, verifies the store exists
     and belongs to you, then adds an ordinary git remote named
     `memoir-cloud` with URL <gateway>/sync/<store_id>.
 

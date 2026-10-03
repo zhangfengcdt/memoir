@@ -138,7 +138,7 @@ def get_cli_schema(group: click.Group) -> dict[str, Any]:
                 "(git, file, rocksdb). Default: file. The volatile "
                 "InMemory backend cannot be persisted and is rejected."
             ),
-            "MEMORY_API_KEY": (
+            "MEMOIR_API_KEY": (
                 "memoir-cloud API key. Enables the cloud sync commands "
                 "(remote, push, pull, fetch, clone). Unset = COMMUNITY tier."
             ),
@@ -337,7 +337,7 @@ def cli(
       Branch:   branch, checkout, merge, sync-branch, time-travel, diff
       Crypto:   proof, verify, blame
       Analysis: summarize
-      Cloud:    remote, push, pull, fetch, clone  (requires MEMORY_API_KEY)
+      Cloud:    remote, push, pull, fetch, clone  (requires MEMOIR_API_KEY)
       Utility:  ui, tui
 
     \b
@@ -363,7 +363,7 @@ def cli(
       MEMOIR_LLM_BACKEND   Force LLM backend: 'claude-cli' or 'litellm'
       MEMOIR_LLM_BASE_URL  Custom provider endpoint (LLM gateway/proxy) for
                            the litellm backend; unset = provider default
-      MEMORY_API_KEY       memoir-cloud API key; unlocks remote/push/pull/
+      MEMOIR_API_KEY       memoir-cloud API key; unlocks remote/push/pull/
                            fetch/clone (PRO). Never written to disk.
       MEMOIR_CLOUD_URL     memoir-cloud gateway URL (default: production)
 
@@ -443,7 +443,7 @@ cli.add_command(analysis.summarize)
 cli.add_command(watch.watch)
 cli.add_command(search.search)
 
-# Cloud sync (gated on MEMORY_API_KEY)
+# Cloud sync (gated on MEMOIR_API_KEY)
 cli.add_command(sync.remote)
 cli.add_command(sync.push)
 cli.add_command(sync.pull)

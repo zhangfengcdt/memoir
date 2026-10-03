@@ -19,7 +19,7 @@ Push ordering is mandatory: every chunk PUT must succeed before ``git push``
 runs, because the server refuses to advance a ref whose root chunk is not
 resident.
 
-The API key is read from ``MEMORY_API_KEY`` only. It is never written to
+The API key is read from ``MEMOIR_API_KEY`` only. It is never written to
 ``.git/config`` or any other file; git receives it per invocation via
 ``-c http.extraHeader=...`` and it is redacted from any surfaced output.
 """
@@ -50,7 +50,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-API_KEY_ENV = "MEMORY_API_KEY"
+API_KEY_ENV = "MEMOIR_API_KEY"
 GATEWAY_ENV = "MEMOIR_CLOUD_URL"
 DEFAULT_GATEWAY = "https://api-gateway-production-ab56.up.railway.app"
 REMOTE_NAME = "memoir-cloud"
@@ -75,7 +75,7 @@ BAD_KEY_MESSAGE = f"{API_KEY_ENV} is missing or invalid"
 
 
 def cloud_enabled() -> bool:
-    """True iff ``MEMORY_API_KEY`` is set (PRO tier). Nothing else is checked."""
+    """True iff ``MEMOIR_API_KEY`` is set (PRO tier). Nothing else is checked."""
     return bool(os.environ.get(API_KEY_ENV, "").strip())
 
 

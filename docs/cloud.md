@@ -1,9 +1,9 @@
 # Cloud Sync
 
-`memoir remote`, `push`, `pull`, `fetch`, and `clone` round-trip a local memoir store with [memoir-cloud](https://github.com/zhangfengcdt/memoir-cloud). The commands exist in every install but are gated on `MEMORY_API_KEY`: without the variable, memoir behaves exactly as before (COMMUNITY tier) and the cloud commands exit 1 with `Cloud sync requires MEMORY_API_KEY (PRO)`.
+`memoir remote`, `push`, `pull`, `fetch`, and `clone` round-trip a local memoir store with [memoir-cloud](https://github.com/zhangfengcdt/memoir-cloud). The commands exist in every install but are gated on `MEMOIR_API_KEY`: without the variable, memoir behaves exactly as before (COMMUNITY tier) and the cloud commands exit 1 with `Cloud sync requires MEMOIR_API_KEY (PRO)`.
 
 ```bash
-export MEMORY_API_KEY=mk_...        # from the gateway's /app/keys page
+export MEMOIR_API_KEY=mk_...        # from the gateway's /app/keys page
 memoir remote add --create --name "laptop"   # or: memoir remote add str_<id>
 memoir push
 
@@ -50,16 +50,16 @@ All commands support `--json`.
 
 ## Key handling
 
-- The API key is read from `MEMORY_API_KEY` only. It is never written to `.git/config` or any other file.
+- The API key is read from `MEMOIR_API_KEY` only. It is never written to `.git/config` or any other file.
 - Git gets it per invocation as `-c http.extraHeader="Authorization: Bearer <key>"`; git runs with `GIT_TERMINAL_PROMPT=0` so an invalid key fails fast instead of prompting.
 - The key is redacted from any error output that echoes a command.
-- A 401 from the gateway is reported as `MEMORY_API_KEY is missing or invalid`.
+- A 401 from the gateway is reported as `MEMOIR_API_KEY is missing or invalid`.
 
 ## Environment variables
 
 | Variable | Effect |
 |---|---|
-| `MEMORY_API_KEY` | Enables the cloud commands (PRO tier). |
+| `MEMOIR_API_KEY` | Enables the cloud commands (PRO tier). |
 | `MEMOIR_CLOUD_URL` | Gateway URL used by `remote add` and `clone` when `--url` is not passed. Default: the production gateway. After `remote add`, the URL is read back from the git remote. |
 
 ## Exit codes
