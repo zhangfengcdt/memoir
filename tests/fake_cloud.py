@@ -1,29 +1,32 @@
 # SPDX-License-Identifier: Apache-2.0
 """In-process fake of the memoir-cloud api-gateway for cloud-sync tests.
 
-Implements the subset of the gateway contract that ``SyncService`` talks to:
+Implements the subset of the gateway contract that ``SyncService`` talks to,
+with GitHub-style ``<owner>/<store>`` addressing:
 
-- ``GET  /auth/whoami``
-- ``GET|POST /stores``, ``GET /stores/{id}``
-- ``POST /sync/{id}/chunks/negotiate``, ``GET /sync/{id}/chunks``,
-  ``PUT|GET /sync/{id}/chunks/{hash}``
-- ``GET /sync/{id}/info/refs``, ``POST /sync/{id}/git-receive-pack``,
-  ``POST /sync/{id}/git-upload-pack`` — delegated to the real
-  ``git http-backend`` CGI over a bare repo at ``<repos>/<id>``, so the git
-  half of push/fetch/clone is exercised with the real ``git`` binary and no
-  network.
+- ``GET  /auth/whoami`` (``handle`` configurable, ``None`` → ``null``)
+- ``POST /stores`` (422 on an invalid name, 409 on a duplicate),
+  ``GET /stores``, ``GET /stores/by-name/{owner}/{store}`` (404 for unknown
+  **or** not-owned)
+- ``POST /{owner}/{store}/chunks/negotiate``, ``GET /{owner}/{store}/chunks``,
+  ``PUT|GET /{owner}/{store}/chunks/{hash}``
+- ``GET /{owner}/{store}/info/refs``, ``POST .../git-receive-pack``,
+  ``POST .../git-upload-pack`` — delegated to the real ``git http-backend``
+  CGI over a bare repo, so the git half of push/fetch/clone is exercised with
+  the real ``git`` binary and no network.
 
-Every request is recorded (method, path, headers) so tests can assert on
-ordering (chunk PUTs before receive-pack), batching, and that the bearer
+Every request is recorded (method, path, headers, body) so tests can assert
+on ordering (chunk PUTs before receive-pack), batching, and that the bearer
 header actually arrives. Fault injection: ``fail_puts`` (always 500 for
-those hashes), ``flaky_puts`` (500 once, then succeed), ``page_size``
-(cap on chunk-listing pages, to exercise pagination).
+those hashes), ``flaky_puts`` (500 once, then succeed), ``page_size`` (cap on
+chunk-listing pages, to exercise pagination).
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import threading
 from dataclasses import dataclass, field
@@ -34,7 +37,15 @@ from urllib.parse import parse_qs, urlsplit
 if TYPE_CHECKING:
     from pathlib import Path
 
-API_KEY = "mk_test_secret_key_DO_NOT_LEAK"
+API_KEY = "mck_test_secret_key_DO_NOT_LEAK"
+HANDLE = "feng-zhang"
+OTHER_HANDLE = "someone-else"
+
+_STORE_NAME_RE = re.compile(r"^(?!\.)[A-Za-z0-9._-]{1,100}$")
+_STORE_NAME_RULES = (
+    "store names are 1-100 letters, digits, '.', '_' or '-'; "
+    "not starting with '.'; not ending in .git"
+)
 
 
 @dataclass
@@ -49,7 +60,10 @@ class Recorded:
 class FakeCloudState:
     repos_root: Path
     api_key: str = API_KEY
+    handle: str | None = HANDLE
+    # store_id -> store object (incl. owner_handle)
     stores: dict[str, dict] = field(default_factory=dict)
+    # store_id -> {hash: bytes}
     chunks: dict[str, dict[str, bytes]] = field(default_factory=dict)
     requests: list[Recorded] = field(default_factory=list)
     fail_puts: set[str] = field(default_factory=set)
@@ -57,7 +71,9 @@ class FakeCloudState:
     page_size: int | None = None
     lock: threading.Lock = field(default_factory=threading.Lock)
 
-    def create_store(self, store_id: str, name: str = "test") -> dict:
+    def create_store(self, name: str, owner_handle: str | None = None) -> dict:
+        owner_handle = owner_handle or self.handle or HANDLE
+        store_id = f"str_{len(self.stores) + 1:04d}"
         repo = self.repos_root / store_id
         repo.mkdir(parents=True, exist_ok=True)
         subprocess.run(
@@ -71,12 +87,34 @@ class FakeCloudState:
         store = {
             "id": store_id,
             "name": name,
-            "owner_user_id": "usr_test",
+            "owner_user_id": f"usr_{owner_handle}",
+            "owner_handle": owner_handle,
             "created_at": "2026-10-03T00:00:00Z",
         }
         self.stores[store_id] = store
         self.chunks.setdefault(store_id, {})
         return store
+
+    def lookup(self, owner: str, name: str) -> dict | None:
+        """Owner-scoped, case-insensitive resolution (None if not yours)."""
+        for s in self.stores.values():
+            if (
+                s["owner_handle"].lower() == owner.lower()
+                and s["name"].lower() == name.lower()
+                and s["owner_handle"] == self.handle
+            ):
+                return s
+        return None
+
+    def repo_for(self, owner: str, name: str) -> Path:
+        store = self.lookup(owner, name)
+        assert store is not None
+        return self.repos_root / store["id"]
+
+    def chunks_for(self, owner: str, name: str) -> dict[str, bytes]:
+        store = self.lookup(owner, name)
+        assert store is not None
+        return self.chunks[store["id"]]
 
     def paths(self, method: str | None = None) -> list[str]:
         return [r.path for r in self.requests if method is None or r.method == method]
@@ -86,8 +124,7 @@ class _Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
     state: FakeCloudState  # set by the server factory
 
-    # Silence the default stderr access log.
-    def log_message(self, *_args):
+    def log_message(self, *_args):  # silence the default access log
         pass
 
     # ---- helpers -------------------------------------------------------
@@ -112,12 +149,7 @@ class _Handler(BaseHTTPRequestHandler):
     def _record(self, body: bytes) -> None:
         with self.state.lock:
             self.state.requests.append(
-                Recorded(
-                    self.command,
-                    self.path,
-                    dict(self.headers.items()),
-                    body,
-                )
+                Recorded(self.command, self.path, dict(self.headers.items()), body)
             )
 
     # ---- dispatch ------------------------------------------------------
@@ -146,51 +178,85 @@ class _Handler(BaseHTTPRequestHandler):
                 {
                     "user_id": "usr_test",
                     "key_id": "k_test",
-                    "scopes": ["stores:rw"],
+                    "scopes": ["read", "write"],
                     "expires_at": None,
                     "tier": "PRO",
+                    "handle": self.state.handle,
                 },
             )
             return
 
         if path == "/stores":
             if self.command == "POST":
-                payload = json.loads(body or b"{}")
-                store_id = f"str_{len(self.state.stores) + 1:04d}"
-                store = self.state.create_store(store_id, payload.get("name", ""))
-                self._json(201, store)
+                name = json.loads(body or b"{}").get("name", "")
+                if (
+                    not _STORE_NAME_RE.match(name)
+                    or name.lower().endswith(".git")
+                    or name in (".", "..")
+                ):
+                    self._json(
+                        422,
+                        {
+                            "detail": [
+                                {
+                                    "type": "value_error",
+                                    "loc": ["body", "name"],
+                                    "msg": f"Value error, {_STORE_NAME_RULES}",
+                                }
+                            ]
+                        },
+                    )
+                    return
+                if any(
+                    s["owner_handle"] == self.state.handle
+                    and s["name"].lower() == name.lower()
+                    for s in self.state.stores.values()
+                ):
+                    self._json(409, {"detail": "store name already exists"})
+                    return
+                self._json(201, self.state.create_store(name))
             else:
-                self._json(200, list(self.state.stores.values()))
+                self._json(
+                    200,
+                    [
+                        s
+                        for s in self.state.stores.values()
+                        if s["owner_handle"] == self.state.handle
+                    ],
+                )
             return
 
-        if path.startswith("/stores/"):
-            store_id = path.split("/", 2)[2]
-            store = self.state.stores.get(store_id)
+        if path.startswith("/stores/by-name/"):
+            segs = path[len("/stores/by-name/") :].split("/")
+            store = self.state.lookup(*segs) if len(segs) == 2 else None
             if store is None:
                 self._json(404, {"detail": "store not found"})
             else:
                 self._json(200, store)
             return
 
-        if path.startswith("/sync/"):
-            rest = path[len("/sync/") :]
-            store_id, _, tail = rest.partition("/")
-            if store_id not in self.state.stores:
+        # /{owner}/{store}/...
+        segs = path.strip("/").split("/", 2)
+        if len(segs) == 3:
+            owner, name, tail = segs
+            if self.state.lookup(owner, name) is None:
                 self._json(404, {"detail": "store not found"})
                 return
             if tail.startswith("chunks"):
-                self._chunks(store_id, tail, query, body)
+                self._chunks(owner, name, tail, query, body)
             elif tail in ("info/refs", "git-receive-pack", "git-upload-pack"):
-                self._git_cgi(store_id, tail, parts.query, body)
+                self._git_cgi(owner, name, tail, parts.query, body)
             else:
-                self._json(404, {"detail": "unknown sync route"})
+                self._json(404, {"detail": "unknown route"})
             return
 
         self._json(404, {"detail": "not found"})
 
     # ---- chunk protocol ------------------------------------------------
-    def _chunks(self, store_id: str, tail: str, query: dict, body: bytes) -> None:
-        store_chunks = self.state.chunks.setdefault(store_id, {})
+    def _chunks(
+        self, owner: str, name: str, tail: str, query: dict, body: bytes
+    ) -> None:
+        store_chunks = self.state.chunks_for(owner, name)
         if tail == "chunks/negotiate" and self.command == "POST":
             req = json.loads(body or b"{}")
             have = req.get("have", [])
@@ -249,12 +315,15 @@ class _Handler(BaseHTTPRequestHandler):
         self._json(404, {"detail": "unknown chunk route"})
 
     # ---- git smart-HTTP via git http-backend ---------------------------
-    def _git_cgi(self, store_id: str, tail: str, query: str, body: bytes) -> None:
+    def _git_cgi(
+        self, owner: str, name: str, tail: str, query: str, body: bytes
+    ) -> None:
+        repo = self.state.repo_for(owner, name)
         env = {
             **os.environ,
-            "GIT_PROJECT_ROOT": str(self.state.repos_root),
+            "GIT_PROJECT_ROOT": str(repo.parent),
             "GIT_HTTP_EXPORT_ALL": "1",
-            "PATH_INFO": f"/{store_id}/{tail}",
+            "PATH_INFO": f"/{repo.name}/{tail}",
             "REQUEST_METHOD": self.command,
             "QUERY_STRING": query,
             "CONTENT_TYPE": self.headers.get("Content-Type", ""),
@@ -277,15 +346,15 @@ class _Handler(BaseHTTPRequestHandler):
         status = 200
         headers: list[tuple[str, str]] = []
         for line in head.decode("latin-1").splitlines():
-            name, _, value = line.partition(":")
+            key, _, value = line.partition(":")
             value = value.strip()
-            if name.lower() == "status":
+            if key.lower() == "status":
                 status = int(value.split()[0])
             else:
-                headers.append((name, value))
+                headers.append((key, value))
         self.send_response(status)
-        for name, value in headers:
-            self.send_header(name, value)
+        for key, value in headers:
+            self.send_header(key, value)
         self.send_header("Content-Length", str(len(payload)))
         self.end_headers()
         if payload:

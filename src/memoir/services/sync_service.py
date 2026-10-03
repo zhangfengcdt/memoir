@@ -9,11 +9,16 @@ data itself lives in the untracked node files under
 cloud serves both:
 
 1. **Git half** — standard smart-HTTP with the ``git`` binary memoir already
-   requires. The remote is an ordinary git remote named ``memoir-cloud``
-   whose URL is ``<gateway>/sync/<store_id>``.
+   requires. The remote is the ordinary git remote ``origin`` whose URL is
+   the store's GitHub-style address, ``https://<gateway>/<owner>/<store>``.
 2. **Chunk half** — a small HTTP protocol for the node files, keyed by
-   filename (negotiate → PUT missing → GET missing). Filenames are opaque
+   filename, under the same address (``.../chunks/negotiate``, ``PUT``/``GET``
+   ``.../chunks/<hash>``, paginated ``GET .../chunks``). Filenames are opaque
    prollytree node hashes; nothing is re-hashed.
+
+Cloud stores are addressed as ``<owner>/<store>`` everywhere a user types or
+reads something. The server's opaque ``str_…`` id is never printed, stored
+in user-visible config, or accepted as input.
 
 Push ordering is mandatory: every chunk PUT must succeed before ``git push``
 runs, because the server refuses to advance a ref whose root chunk is not
@@ -35,6 +40,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlsplit
 
 from memoir.services.base import BaseService, GitOperationError, ServiceError
 from memoir.services.models import (
@@ -53,7 +59,7 @@ logger = logging.getLogger(__name__)
 API_KEY_ENV = "MEMOIR_API_KEY"
 GATEWAY_ENV = "MEMOIR_CLOUD_URL"
 DEFAULT_GATEWAY = "https://api-gateway-production-ab56.up.railway.app"
-REMOTE_NAME = "memoir-cloud"
+REMOTE_NAME = "origin"
 CLOUD_BRANCH_PREFIX = "cloud/"
 EXIT_NON_FF = 6
 
@@ -66,7 +72,16 @@ CHUNK_TIMEOUT = 60.0
 RETRIES = 3
 
 PRO_REQUIRED_MESSAGE = f"Cloud sync requires {API_KEY_ENV} (PRO)"
-BAD_KEY_MESSAGE = f"{API_KEY_ENV} is missing or invalid"
+NOT_SIGNED_IN_MESSAGE = f"not signed in: set {API_KEY_ENV}"
+
+# GitHub-shaped naming rules, mirrored from memoir-cloud ``shared/naming.py``.
+HANDLE_RE = re.compile(r"^(?!-)(?!.*--)[A-Za-z0-9-]{1,39}(?<!-)$")
+STORE_NAME_RE = re.compile(r"^(?!\.)[A-Za-z0-9._-]{1,100}$")
+HANDLE_RULES = "1-39 letters, digits or hyphens; no leading, trailing or double hyphen"
+STORE_NAME_RULES = (
+    "1-100 letters, digits, '.', '_' or '-'; not starting with '.'; not ending in .git"
+)
+ADDRESS_FORM = "<owner>/<store>, e.g. feng-zhang/demo"
 
 
 # --------------------------------------------------------------------------
@@ -88,25 +103,91 @@ def resolve_gateway(url: str | None = None) -> str:
     return (url or os.environ.get(GATEWAY_ENV) or DEFAULT_GATEWAY).rstrip("/")
 
 
-def remote_url(gateway: str, store_id: str) -> str:
-    return f"{gateway.rstrip('/')}/sync/{store_id}"
-
-
-def parse_remote_url(url: str) -> tuple[str, str]:
-    """Split ``<gateway>/sync/<store_id>`` back into ``(gateway, store_id)``."""
-    gateway, sep, store_id = url.rstrip("/").rpartition("/sync/")
-    if not sep or not store_id or "/" in store_id:
-        raise ServiceError(
-            f"remote '{REMOTE_NAME}' has an unexpected URL (expected "
-            f"<gateway>/sync/<store_id>): {url}"
-        )
-    return gateway, store_id
-
-
 def redact(text: str, key: str | None = None) -> str:
     """Strip the API key from anything that may be shown to the user."""
     key = key if key is not None else api_key()
     return text.replace(key, "***") if key else text
+
+
+# --------------------------------------------------------------------------
+# Addresses
+# --------------------------------------------------------------------------
+
+
+def validate_handle(handle: str) -> str | None:
+    """Return an error message, or None when ``handle`` is acceptable."""
+    if not HANDLE_RE.match(handle):
+        return f"handles are {HANDLE_RULES}"
+    return None
+
+
+def validate_store_name(name: str) -> str | None:
+    """Return an error message, or None when ``name`` is acceptable."""
+    if (
+        name in (".", "..")
+        or name.lower().endswith(".git")
+        or not STORE_NAME_RE.match(name)
+    ):
+        return f"store names are {STORE_NAME_RULES}"
+    return None
+
+
+def parse_address(text: str) -> tuple[str, str]:
+    """Parse ``<owner>/<store>`` (or ``https://<host>/<owner>/<store>``).
+
+    Validates both halves locally before any network call. Opaque ids
+    (``str_…``) and the legacy ``/sync/<id>`` URL form are rejected with a
+    message pointing at the address form.
+    """
+    raw = text.strip()
+    if raw.startswith("str_") or "/sync/" in raw:
+        raise ServiceError(
+            f'"{raw}" is a store id; cloud stores are addressed as {ADDRESS_FORM}'
+        )
+    candidate = raw
+    if "://" in raw:
+        path = urlsplit(raw).path.strip("/")
+        if path.endswith(".git"):
+            path = path[:-4]
+        candidate = path
+    parts = candidate.strip("/").split("/")
+    if len(parts) != 2 or not all(parts):
+        raise ServiceError(f'"{raw}" is not a valid address: expected {ADDRESS_FORM}')
+    owner, store = parts
+    error = validate_handle(owner) or validate_store_name(store)
+    if error:
+        raise ServiceError(f'"{raw}" is not a valid address: {error}')
+    return owner, store
+
+
+def format_address(owner: str, store: str) -> str:
+    return f"{owner}/{store}"
+
+
+def remote_url(gateway: str, owner: str, store: str) -> str:
+    return f"{gateway.rstrip('/')}/{owner}/{store}"
+
+
+def parse_remote_url(url: str) -> tuple[str, str, str]:
+    """Split ``https://<gateway>/<owner>/<store>`` into its three parts."""
+    if "/sync/" in url:
+        raise ServiceError(
+            f"remote '{REMOTE_NAME}' uses the legacy id-based URL ({url}); "
+            f"run `memoir remote add {ADDRESS_FORM} --force` to relink"
+        )
+    parts = urlsplit(url.rstrip("/"))
+    segments = parts.path.strip("/").split("/")
+    if len(segments) < 2 or not parts.scheme or not parts.netloc:
+        raise ServiceError(
+            f"remote '{REMOTE_NAME}' has an unexpected URL (expected "
+            f"https://<gateway>/<owner>/<store>): {url}"
+        )
+    owner, store = segments[-2], segments[-1]
+    gateway_path = "/".join(segments[:-2])
+    gateway = f"{parts.scheme}://{parts.netloc}" + (
+        f"/{gateway_path}" if gateway_path else ""
+    )
+    return gateway, owner, store
 
 
 # --------------------------------------------------------------------------
@@ -124,7 +205,12 @@ class CloudError(ServiceError):
 
 class CloudAuthError(CloudError):
     def __init__(self, status: int = 401):
-        super().__init__(BAD_KEY_MESSAGE, status=status)
+        super().__init__(NOT_SIGNED_IN_MESSAGE, status=status)
+
+
+class StoreNotFound(CloudError):
+    def __init__(self, address: str):
+        super().__init__(f"store {address} not found (or you don't own it)", status=404)
 
 
 class NonFastForwardError(ServiceError):
@@ -142,9 +228,9 @@ class NonFastForwardError(ServiceError):
 class CloudClient:
     """Thin httpx wrapper over the memoir-cloud gateway.
 
-    4xx auth/ownership failures raise immediately; 5xx and connection
-    errors are retried a few times with a short backoff. The shared
-    ``httpx.Client`` is thread-safe, so chunk transfers can fan out.
+    4xx failures raise immediately; 5xx and connection errors are retried a
+    few times with a short backoff. The shared ``httpx.Client`` is
+    thread-safe, so chunk transfers can fan out.
     """
 
     def __init__(self, gateway: str, key: str):
@@ -172,6 +258,11 @@ class CloudClient:
     def _request(
         self, method: str, path: str, *, ok: tuple[int, ...], **kw: Any
     ) -> httpx.Response:
+        """Issue a request; return the response if its status is in ``ok``.
+
+        Raises ``CloudAuthError`` on 401 and ``CloudError`` on any other 4xx
+        (never retried). 5xx and connection errors are retried.
+        """
         import httpx
 
         last_error: Exception | None = None
@@ -186,22 +277,15 @@ class CloudClient:
             else:
                 if resp.status_code in ok:
                     return resp
-                if resp.status_code in (401,):
-                    raise CloudAuthError(resp.status_code)
-                if resp.status_code in (403, 404, 400, 413):
-                    raise CloudError(
-                        f"{method} {path} → {resp.status_code}: {_detail(resp)}",
-                        status=resp.status_code,
-                    )
-                if resp.status_code < 500:
-                    raise CloudError(
-                        f"{method} {path} → {resp.status_code}: {_detail(resp)}",
-                        status=resp.status_code,
-                    )
-                last_error = CloudError(
+                if resp.status_code == 401:
+                    raise CloudAuthError()
+                error = CloudError(
                     f"{method} {path} → {resp.status_code}: {_detail(resp)}",
                     status=resp.status_code,
                 )
+                if resp.status_code < 500:
+                    raise error
+                last_error = error
             if attempt + 1 < RETRIES:
                 time.sleep(0.2 * (attempt + 1))
         if isinstance(last_error, CloudError):
@@ -215,40 +299,63 @@ class CloudClient:
     def whoami(self) -> dict[str, Any]:
         return dict(self._request("GET", "/auth/whoami", ok=(200,)).json())
 
-    def get_store(self, store_id: str) -> dict[str, Any]:
-        return dict(self._request("GET", f"/stores/{store_id}", ok=(200,)).json())
+    def handle(self) -> str:
+        """The signed-in user's handle; error if none has been chosen yet."""
+        handle = self.whoami().get("handle")
+        if not handle:
+            raise ServiceError(
+                f"your account has no handle yet; open {self.gateway}/app in a "
+                f"browser and choose one, then retry"
+            )
+        return str(handle)
+
+    def resolve(self, owner: str, store: str) -> dict[str, Any]:
+        """Resolve an address; 404 covers both unknown and not-owned."""
+        try:
+            resp = self._request("GET", f"/stores/by-name/{owner}/{store}", ok=(200,))
+        except CloudError as e:
+            if e.status == 404:
+                raise StoreNotFound(format_address(owner, store)) from None
+            raise
+        return dict(resp.json())
 
     def create_store(self, name: str) -> dict[str, Any]:
-        return dict(
-            self._request("POST", "/stores", ok=(200, 201), json={"name": name}).json()
-        )
+        try:
+            resp = self._request("POST", "/stores", ok=(200, 201), json={"name": name})
+        except CloudError as e:
+            if e.status == 409:
+                raise CloudError("store name already exists", status=409) from None
+            if e.status == 422:
+                raise CloudError(e.message.split(": ", 1)[-1], status=422) from None
+            raise
+        return dict(resp.json())
 
-    # -- chunks ------------------------------------------------------------
+    # -- chunks (address-based routes) -------------------------------------
 
     def negotiate(
-        self, store_id: str, have: list[str], want: list[str] | None = None
+        self, address: str, have: list[str], want: list[str] | None = None
     ) -> dict[str, list[str]]:
         return dict(
             self._request(
                 "POST",
-                f"/sync/{store_id}/chunks/negotiate",
+                f"/{address}/chunks/negotiate",
                 ok=(200,),
                 json={"have": have, "want": want or []},
             ).json()
         )
 
-    def missing_on_server(self, store_id: str, hashes: list[str]) -> list[str]:
+    def missing_on_server(self, address: str, hashes: list[str]) -> list[str]:
         missing: list[str] = []
         for i in range(0, len(hashes), NEGOTIATE_BATCH):
             batch = hashes[i : i + NEGOTIATE_BATCH]
-            missing.extend(self.negotiate(store_id, batch)["missing_on_server"])
+            missing.extend(self.negotiate(address, batch)["missing_on_server"])
         return missing
 
-    def put_chunk(self, store_id: str, chunk_hash: str, data: bytes) -> bool:
+    def put_chunk(self, address: str, chunk_hash: str, data: bytes) -> bool:
         """Upload one chunk. Returns True if newly created, False if present."""
         resp = self._request(
             "PUT",
-            f"/sync/{store_id}/chunks/{chunk_hash}",
+            f"/{address}/chunks/{chunk_hash}",
             ok=(200, 201),
             content=data,
             headers={"Content-Type": "application/octet-stream"},
@@ -256,17 +363,17 @@ class CloudClient:
         )
         return bool(resp.status_code == 201)
 
-    def get_chunk(self, store_id: str, chunk_hash: str) -> bytes:
+    def get_chunk(self, address: str, chunk_hash: str) -> bytes:
         return bytes(
             self._request(
                 "GET",
-                f"/sync/{store_id}/chunks/{chunk_hash}",
+                f"/{address}/chunks/{chunk_hash}",
                 ok=(200,),
                 timeout=CHUNK_TIMEOUT,
             ).content
         )
 
-    def list_chunks(self, store_id: str) -> list[str]:
+    def list_chunks(self, address: str) -> list[str]:
         hashes: list[str] = []
         after: str | None = None
         while True:
@@ -274,7 +381,7 @@ class CloudClient:
             if after:
                 params["after"] = after
             page = self._request(
-                "GET", f"/sync/{store_id}/chunks", ok=(200,), params=params
+                "GET", f"/{address}/chunks", ok=(200,), params=params
             ).json()
             hashes.extend(page.get("hashes", []))
             after = page.get("next")
@@ -284,9 +391,22 @@ class CloudClient:
 
 def _detail(resp) -> str:
     try:
-        return str(resp.json().get("detail", resp.text))
+        detail = resp.json().get("detail", resp.text)
     except Exception:
         return str(resp.text[:200])
+    if isinstance(detail, list):  # FastAPI validation errors
+        msgs = [str(d.get("msg", d)) for d in detail if isinstance(d, dict)]
+        detail = "; ".join(m.removeprefix("Value error, ") for m in msgs) or detail
+    return str(detail)
+
+
+def public_store(store: dict[str, Any]) -> dict[str, Any]:
+    """The user-facing subset of a store object: never the opaque id."""
+    return {
+        k: v
+        for k, v in store.items()
+        if k not in ("id", "owner_user_id") and v is not None
+    }
 
 
 # --------------------------------------------------------------------------
@@ -335,6 +455,11 @@ class SyncService(BaseService):
         return Path(self.store_path) / ".git" / "prolly" / "nodes" / "files"
 
     def _current_branch(self) -> str:
+        # symbolic-ref works on an unborn branch (fresh `memoir new`, no
+        # commit yet); rev-parse covers a detached HEAD.
+        result = self._git(["symbolic-ref", "--short", "-q", "HEAD"], check=False)
+        if result.returncode == 0 and result.stdout.strip():
+            return str(result.stdout.strip())
         result = self._git(["rev-parse", "--abbrev-ref", "HEAD"])
         return str(result.stdout.strip())
 
@@ -346,13 +471,24 @@ class SyncService(BaseService):
 
     # -- remote configuration --------------------------------------------
 
-    def _remote(self) -> tuple[str, str]:
-        """``(gateway, store_id)`` of the configured remote, or raise."""
+    def remote_address(self) -> str | None:
+        """``owner/store`` of the configured remote, or None. No network."""
+        result = self._git(["remote", "get-url", REMOTE_NAME], check=False)
+        if result.returncode != 0:
+            return None
+        try:
+            _, owner, store = parse_remote_url(result.stdout.strip())
+        except ServiceError:
+            return None
+        return format_address(owner, store)
+
+    def _remote(self) -> tuple[str, str, str]:
+        """``(gateway, owner, store)`` of the configured remote, or raise."""
         result = self._git(["remote", "get-url", REMOTE_NAME], check=False)
         if result.returncode != 0:
             raise ServiceError(
-                "no cloud remote configured; run `memoir remote add <store_id>` "
-                "or `memoir remote add --create`"
+                f"no cloud remote configured; run `memoir remote add {ADDRESS_FORM}` "
+                f"or `memoir push --create <store>`"
             )
         return parse_remote_url(result.stdout.strip())
 
@@ -365,7 +501,9 @@ class SyncService(BaseService):
         )
         if exists and not force:
             raise ServiceError(
-                f"remote '{REMOTE_NAME}' already exists; pass --force to replace it"
+                f"remote '{REMOTE_NAME}' already exists "
+                f"({self.remote_address() or 'non-cloud URL'}); "
+                f"pass --force to replace it"
             )
         if exists:
             self._git(["remote", "set-url", REMOTE_NAME, url])
@@ -382,53 +520,51 @@ class SyncService(BaseService):
         if cloud_spec not in current:
             self._git(["config", "--add", f"remote.{REMOTE_NAME}.fetch", cloud_spec])
 
-    def remote_add(
-        self, store_id: str, gateway: str | None = None, force: bool = False
-    ) -> RemoteInfo:
+    def default_address(self, gateway: str | None = None) -> str:
+        """``<handle>/<store directory name>`` for `remote add` with no argument."""
         gateway = resolve_gateway(gateway)
+        name = Path(self.store_path).name
+        error = validate_store_name(name)
+        if error:
+            raise ServiceError(
+                f'directory name "{name}" is not usable as a store name ({error}); '
+                f"pass an explicit address"
+            )
         with self._client(gateway) as client:
-            client.whoami()
-            store = client.get_store(store_id)
-        self._set_remote(remote_url(gateway, store_id), force)
-        return RemoteInfo(
-            gateway=gateway,
-            store_id=store_id,
-            branch=self._current_branch(),
-            store=store,
-        )
+            handle = client.handle()
+        return format_address(handle, name)
 
-    def remote_create(
-        self, name: str | None = None, gateway: str | None = None, force: bool = False
+    def remote_add(
+        self, address: str, gateway: str | None = None, force: bool = False
     ) -> RemoteInfo:
         gateway = resolve_gateway(gateway)
-        name = name or Path(self.store_path).name
+        owner, store_name = parse_address(address)
         with self._client(gateway) as client:
-            client.whoami()
-            store = client.create_store(name)
-        store_id = store["id"]
-        self._set_remote(remote_url(gateway, store_id), force)
+            client.handle()
+            store = client.resolve(owner, store_name)
+        self._set_remote(remote_url(gateway, owner, store_name), force)
         return RemoteInfo(
+            address=format_address(owner, store_name),
             gateway=gateway,
-            store_id=store_id,
             branch=self._current_branch(),
-            store=store,
+            store=public_store(store),
         )
 
     def remote_show(self) -> RemoteInfo:
-        gateway, store_id = self._remote()
+        gateway, owner, store_name = self._remote()
         with self._client(gateway) as client:
-            store = client.get_store(store_id)
+            store = client.resolve(owner, store_name)
         return RemoteInfo(
+            address=format_address(owner, store_name),
             gateway=gateway,
-            store_id=store_id,
             branch=self._current_branch(),
-            store=store,
+            store=public_store(store),
         )
 
     def remote_remove(self) -> str:
-        _, store_id = self._remote()
+        _, owner, store_name = self._remote()
         self._git(["remote", "remove", REMOTE_NAME])
-        return store_id
+        return format_address(owner, store_name)
 
     # -- chunks ------------------------------------------------------------
 
@@ -442,32 +578,32 @@ class SyncService(BaseService):
             if p.is_file() and CHUNK_HASH_RE.match(p.name)
         }
 
-    def _upload_chunks(self, client: CloudClient, store_id: str) -> tuple[int, int]:
+    def _upload_chunks(self, client: CloudClient, address: str) -> tuple[int, int]:
         local = sorted(self.local_chunks())
-        missing = client.missing_on_server(store_id, local)
+        missing = client.missing_on_server(address, local)
         nodes = self._nodes_dir()
 
         def upload(chunk_hash: str) -> bool:
             return client.put_chunk(
-                store_id, chunk_hash, (nodes / chunk_hash).read_bytes()
+                address, chunk_hash, (nodes / chunk_hash).read_bytes()
             )
 
         created = 0
         if missing:
             with ThreadPoolExecutor(max_workers=CHUNK_CONCURRENCY) as pool:
-                # list() re-raises the first worker exception, so a single
-                # failed PUT aborts the push before any git activity.
+                # Iterating the map re-raises the first worker exception, so a
+                # single failed PUT aborts the push before any git activity.
                 created = sum(1 for ok in pool.map(upload, missing) if ok)
         return created, len(local) - len(missing)
 
-    def _download_chunks(self, client: CloudClient, store_id: str) -> int:
-        remote = set(client.list_chunks(store_id))
+    def _download_chunks(self, client: CloudClient, address: str) -> int:
+        remote = set(client.list_chunks(address))
         wanted = sorted(remote - self.local_chunks())
         nodes = self._nodes_dir()
         nodes.mkdir(parents=True, exist_ok=True)
 
         def download(chunk_hash: str) -> None:
-            data = client.get_chunk(store_id, chunk_hash)
+            data = client.get_chunk(address, chunk_hash)
             tmp = nodes / f"{chunk_hash}.partial.{os.getpid()}"
             tmp.write_bytes(data)
             os.replace(tmp, nodes / chunk_hash)
@@ -495,8 +631,16 @@ class SyncService(BaseService):
 
     # -- verbs --------------------------------------------------------------
 
-    def push(self, branch: str | None = None) -> PushResult:
-        gateway, store_id = self._remote()
+    def push(
+        self,
+        branch: str | None = None,
+        create: str | None = None,
+        gateway: str | None = None,
+    ) -> PushResult:
+        if create is not None:
+            self._create_and_link(create, gateway)
+        gateway, owner, store_name = self._remote()
+        address = format_address(owner, store_name)
         branch = branch or self._current_branch()
         if branch.startswith(CLOUD_BRANCH_PREFIX):
             raise ServiceError(
@@ -506,7 +650,8 @@ class SyncService(BaseService):
             raise ServiceError(f"branch '{branch}' does not exist locally", code=2)
 
         with self._client(gateway) as client:
-            uploaded, present = self._upload_chunks(client, store_id)
+            client.handle()
+            uploaded, present = self._upload_chunks(client, address)
 
         # Only after every chunk is resident on the server.
         result = self._git(
@@ -520,14 +665,46 @@ class SyncService(BaseService):
                 )
             raise GitOperationError(f"git push failed: {stderr.strip()}")
         return PushResult(
-            branch=branch, chunks_uploaded=uploaded, chunks_present=present, pushed=True
+            branch=branch,
+            address=address,
+            chunks_uploaded=uploaded,
+            chunks_present=present,
+            pushed=True,
         )
 
-    def fetch(self) -> FetchResult:
-        gateway, store_id = self._remote()
-        self._git(["fetch", "--tags", REMOTE_NAME], auth=True)
+    def _create_and_link(self, name: str, gateway: str | None) -> None:
+        """``push --create <store>``: validate locally, create, set origin."""
+        error = validate_store_name(name)
+        if error:
+            raise ServiceError(f'"{name}" is not a valid store name: {error}')
+        existing = self.remote_address()
+        if existing:
+            raise ServiceError(
+                f"this store is already linked to {existing}; "
+                f"run `memoir remote remove` first to relink"
+            )
+        gateway = resolve_gateway(gateway)
         with self._client(gateway) as client:
-            downloaded = self._download_chunks(client, store_id)
+            handle = client.handle()
+            try:
+                store = client.create_store(name)
+            except CloudError as e:
+                if e.status == 409:
+                    raise ServiceError(
+                        f"store name already exists; pick another or run "
+                        f"`memoir remote add {handle}/{name}`"
+                    ) from None
+                raise
+        owner = store.get("owner_handle") or handle
+        self._set_remote(remote_url(gateway, owner, store["name"]), force=False)
+
+    def fetch(self) -> FetchResult:
+        gateway, owner, store_name = self._remote()
+        address = format_address(owner, store_name)
+        with self._client(gateway) as client:
+            client.handle()
+            self._git(["fetch", "--tags", REMOTE_NAME], auth=True)
+            downloaded = self._download_chunks(client, address)
         refs = self._git(
             [
                 "for-each-ref",
@@ -535,7 +712,9 @@ class SyncService(BaseService):
                 f"refs/remotes/{REMOTE_NAME}/",
             ]
         ).stdout.split()
-        return FetchResult(chunks_downloaded=downloaded, remote_refs=refs)
+        return FetchResult(
+            address=address, chunks_downloaded=downloaded, remote_refs=refs
+        )
 
     def _raise_pull_failure(self, result: subprocess.CompletedProcess, op: str) -> None:
         if result.returncode == 0:
@@ -580,27 +759,33 @@ class SyncService(BaseService):
         tip = self._git(["rev-parse", "--short", f"refs/heads/{branch}"]).stdout.strip()
         return PullResult(
             branch=branch,
+            address=fetched.address,
             chunks_downloaded=fetched.chunks_downloaded,
             created=created,
             tip=tip,
         )
 
 
-def clone(store_id: str, path: str, gateway: str | None = None) -> CloneResult:
-    """Clone a cloud store into ``path`` and make it a usable memoir store."""
+def clone(
+    address: str, path: str | None = None, gateway: str | None = None
+) -> CloneResult:
+    """Clone a cloud store into ``path`` and make it a usable memoir store.
+
+    The address is resolved before anything touches disk, so an unknown or
+    not-owned store leaves no partial directory behind.
+    """
     gateway = resolve_gateway(gateway)
     key = api_key()
-    target = Path(path).expanduser().resolve()
+    owner, store_name = parse_address(address)
+    target = Path(path or store_name).expanduser().resolve()
     if target.exists() and any(target.iterdir()):
         raise ServiceError(f"destination already exists and is not empty: {target}")
 
-    # Validate key + ownership up front so auth failures get the standard
-    # message instead of whatever git prints for an HTTP 401/404.
     with CloudClient(gateway, key) as client:
-        client.whoami()
-        client.get_store(store_id)
+        client.handle()
+        client.resolve(owner, store_name)
 
-    url = remote_url(gateway, store_id)
+    url = remote_url(gateway, owner, store_name)
     result = subprocess.run(
         [
             "git",
@@ -627,11 +812,11 @@ def clone(store_id: str, path: str, gateway: str | None = None) -> CloneResult:
     service._nodes_dir().mkdir(parents=True, exist_ok=True)
     service._ensure_cloud_refspec()
     with service._client(gateway) as client:
-        downloaded = service._download_chunks(client, store_id)
+        downloaded = service._download_chunks(client, format_address(owner, store_name))
     service._verify_root_chunk()
     return CloneResult(
         path=str(target),
-        store_id=store_id,
+        address=format_address(owner, store_name),
         branch=service._current_branch(),
         chunks_downloaded=downloaded,
     )

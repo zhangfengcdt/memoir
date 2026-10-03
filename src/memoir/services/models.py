@@ -354,6 +354,8 @@ class StoreInfo:
     commit_count: int = 0
     memory_count: int = 0
     namespaces: list[str] = field(default_factory=list)
+    # ``<owner>/<store>`` of the cloud remote, if one is configured.
+    origin: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -365,6 +367,7 @@ class StoreInfo:
             "commit_count": self.commit_count,
             "memory_count": self.memory_count,
             "namespaces": self.namespaces,
+            "origin": self.origin,
         }
 
 
@@ -622,19 +625,22 @@ class SearchResult:
 # --------------------------------------------------------------------------
 # Cloud sync (services/sync_service.py)
 # --------------------------------------------------------------------------
+#
+# ``address`` is always the GitHub-style ``<owner>/<store>``; the cloud's
+# opaque store id is never carried in these results.
 
 
 @dataclass
 class RemoteInfo:
+    address: str
     gateway: str
-    store_id: str
     branch: str
     store: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "origin": self.address,
             "gateway": self.gateway,
-            "store_id": self.store_id,
             "branch": self.branch,
             "store": self.store,
         }
@@ -643,6 +649,7 @@ class RemoteInfo:
 @dataclass
 class PushResult:
     branch: str
+    address: str
     chunks_uploaded: int
     chunks_present: int
     pushed: bool
@@ -650,6 +657,7 @@ class PushResult:
     def to_dict(self) -> dict[str, Any]:
         return {
             "branch": self.branch,
+            "origin": self.address,
             "chunks_uploaded": self.chunks_uploaded,
             "chunks_present": self.chunks_present,
             "pushed": self.pushed,
@@ -658,11 +666,13 @@ class PushResult:
 
 @dataclass
 class FetchResult:
+    address: str
     chunks_downloaded: int
     remote_refs: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "origin": self.address,
             "chunks_downloaded": self.chunks_downloaded,
             "remote_refs": list(self.remote_refs),
         }
@@ -671,6 +681,7 @@ class FetchResult:
 @dataclass
 class PullResult:
     branch: str
+    address: str
     chunks_downloaded: int
     created: bool
     tip: str
@@ -678,6 +689,7 @@ class PullResult:
     def to_dict(self) -> dict[str, Any]:
         return {
             "branch": self.branch,
+            "origin": self.address,
             "chunks_downloaded": self.chunks_downloaded,
             "created": self.created,
             "tip": self.tip,
@@ -687,14 +699,14 @@ class PullResult:
 @dataclass
 class CloneResult:
     path: str
-    store_id: str
+    address: str
     branch: str
     chunks_downloaded: int
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "path": self.path,
-            "store_id": self.store_id,
+            "origin": self.address,
             "branch": self.branch,
             "chunks_downloaded": self.chunks_downloaded,
         }

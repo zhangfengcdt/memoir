@@ -143,8 +143,9 @@ def get_cli_schema(group: click.Group) -> dict[str, Any]:
                 "(remote, push, pull, fetch, clone). Unset = COMMUNITY tier."
             ),
             "MEMOIR_CLOUD_URL": (
-                "memoir-cloud gateway URL used by `memoir remote add` and "
-                "`memoir clone` (default: production gateway)."
+                "memoir-cloud gateway URL used by `memoir remote add`, "
+                "`memoir push --create` and `memoir clone` (default: "
+                "production gateway)."
             ),
         },
         "global_options": [],
