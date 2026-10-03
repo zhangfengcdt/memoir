@@ -102,6 +102,7 @@ nav:
       - Conflict & Merge: theory/conflict-merge.md
       - Related Work: theory/related-work.md
   - CLI: cli.md
+  - Cloud Sync: cloud.md
   - Watch & Search: watch.md
   - UI: ui.md
   - Claude Code: claude_code.md

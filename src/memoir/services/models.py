@@ -617,3 +617,84 @@ class SearchResult:
             "timing_ms": self.timing_ms,
             "error": self.error,
         }
+
+
+# --------------------------------------------------------------------------
+# Cloud sync (services/sync_service.py)
+# --------------------------------------------------------------------------
+
+
+@dataclass
+class RemoteInfo:
+    gateway: str
+    store_id: str
+    branch: str
+    store: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "gateway": self.gateway,
+            "store_id": self.store_id,
+            "branch": self.branch,
+            "store": self.store,
+        }
+
+
+@dataclass
+class PushResult:
+    branch: str
+    chunks_uploaded: int
+    chunks_present: int
+    pushed: bool
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "branch": self.branch,
+            "chunks_uploaded": self.chunks_uploaded,
+            "chunks_present": self.chunks_present,
+            "pushed": self.pushed,
+        }
+
+
+@dataclass
+class FetchResult:
+    chunks_downloaded: int
+    remote_refs: list[str] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "chunks_downloaded": self.chunks_downloaded,
+            "remote_refs": list(self.remote_refs),
+        }
+
+
+@dataclass
+class PullResult:
+    branch: str
+    chunks_downloaded: int
+    created: bool
+    tip: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "branch": self.branch,
+            "chunks_downloaded": self.chunks_downloaded,
+            "created": self.created,
+            "tip": self.tip,
+        }
+
+
+@dataclass
+class CloneResult:
+    path: str
+    store_id: str
+    branch: str
+    chunks_downloaded: int
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "path": self.path,
+            "store_id": self.store_id,
+            "branch": self.branch,
+            "chunks_downloaded": self.chunks_downloaded,
+        }

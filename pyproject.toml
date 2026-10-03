@@ -41,6 +41,10 @@ dependencies = [
     # install — memoir's other features (-p paths, get, branch, etc.) keep
     # working because the import is lazy.
     "litellm>=1.0.0",
+    # HTTP client for cloud sync (`memoir remote/push/pull/fetch/clone`
+    # against memoir-cloud). Already present transitively via litellm;
+    # declared so the chunk protocol doesn't depend on that accident.
+    "httpx>=0.27.0",
 ]
 
 [project.scripts]

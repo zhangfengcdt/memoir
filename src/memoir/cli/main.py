@@ -40,6 +40,7 @@ EXIT_NOT_FOUND = 2
 EXIT_NO_STORE = 3
 EXIT_CLASSIFICATION_FAILED = 4
 EXIT_GIT_FAILED = 5
+EXIT_NON_FF = 6  # cloud sync: local and cloud histories disagree (push/pull)
 
 
 def get_command_schema(cmd: click.Command, name: str) -> dict[str, Any]:
@@ -126,6 +127,7 @@ def get_cli_schema(group: click.Group) -> dict[str, Any]:
             "3": "no_store",
             "4": "classification_failed",
             "5": "git_failed",
+            "6": "non_fast_forward",
         },
         "env_vars": {
             "MEMOIR_STORE": "Default store path",
@@ -135,6 +137,14 @@ def get_cli_schema(group: click.Group) -> dict[str, Any]:
                 "Default prollytree storage backend for new stores "
                 "(git, file, rocksdb). Default: file. The volatile "
                 "InMemory backend cannot be persisted and is rejected."
+            ),
+            "MEMORY_API_KEY": (
+                "memoir-cloud API key. Enables the cloud sync commands "
+                "(remote, push, pull, fetch, clone). Unset = COMMUNITY tier."
+            ),
+            "MEMOIR_CLOUD_URL": (
+                "memoir-cloud gateway URL used by `memoir remote add` and "
+                "`memoir clone` (default: production gateway)."
             ),
         },
         "global_options": [],
@@ -178,6 +188,7 @@ def get_cli_schema(group: click.Group) -> dict[str, Any]:
         "crypto": ["proof", "verify", "blame"],
         "analysis": ["summarize"],
         "taxonomy": ["taxonomy"],
+        "cloud": ["remote", "push", "pull", "fetch", "clone"],
         "utility": ["ui", "tui"],
     }
 
@@ -326,6 +337,7 @@ def cli(
       Branch:   branch, checkout, merge, sync-branch, time-travel, diff
       Crypto:   proof, verify, blame
       Analysis: summarize
+      Cloud:    remote, push, pull, fetch, clone  (requires MEMORY_API_KEY)
       Utility:  ui, tui
 
     \b
@@ -339,7 +351,8 @@ def cli(
       - Use --json flag for machine-readable output
       - Set MEMOIR_STORE env var to avoid -s flag on every command
       - Use 'checkout --create-if-missing' for auto-creating context branches
-      - Exit codes: 0=success, 1=error, 2=not found, 3=no store, 5=git error
+      - Exit codes: 0=success, 1=error, 2=not found, 3=no store, 5=git error,
+                    6=non-fast-forward (cloud push/pull)
 
     \b
     ENVIRONMENT VARIABLES:
@@ -350,6 +363,9 @@ def cli(
       MEMOIR_LLM_BACKEND   Force LLM backend: 'claude-cli' or 'litellm'
       MEMOIR_LLM_BASE_URL  Custom provider endpoint (LLM gateway/proxy) for
                            the litellm backend; unset = provider default
+      MEMORY_API_KEY       memoir-cloud API key; unlocks remote/push/pull/
+                           fetch/clone (PRO). Never written to disk.
+      MEMOIR_CLOUD_URL     memoir-cloud gateway URL (default: production)
 
     \b
     LLM RESOLUTION (shared by `remember`, `watch add`, `watch scan`, ...):
@@ -384,6 +400,7 @@ from memoir.cli.commands import (  # noqa: E402
     memory,
     search,
     store,
+    sync,
     taxonomy,
     tui,
     ui,
@@ -425,6 +442,13 @@ cli.add_command(analysis.summarize)
 # Watch + search (file/folder ingestion + vector search)
 cli.add_command(watch.watch)
 cli.add_command(search.search)
+
+# Cloud sync (gated on MEMORY_API_KEY)
+cli.add_command(sync.remote)
+cli.add_command(sync.push)
+cli.add_command(sync.pull)
+cli.add_command(sync.fetch)
+cli.add_command(sync.clone)
 
 # Utility commands
 cli.add_command(ui.ui)
