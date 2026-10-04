@@ -132,7 +132,7 @@ The same built webapp serves two hosts. Locally, `memoir ui` serves it with the 
 Without the object the app behaves exactly as before. With `profile: "cloud"`:
 
 - The tabs are Outline, Map, Commits and History, plus Branches (branch status and the merge preview) from the top bar. The top bar shows the store address and a "Back to store" link.
-- Switching branches is a read: the app passes `ref` on `store`, `commits` and `current-branch` instead of posting a checkout.
+- Switching branches is a read: the app passes `ref` on `store`, `commits` and `current-branch` instead of posting a checkout. This covers the top-bar switcher, the History chips and the `/checkout` command; `/time-travel` creates a branch and stays unavailable.
 - Features the cloud does not serve are hidden and never requested: memory edits, sync/checkout/create/delete/merge, branch auto-match, Watch, the LLM commands, Statistics, Timeline and Places. The only endpoints used are `store`, `branches`, `current-branch`, `branches-status`, `commits`, `commit-snapshot`, `commit-range-diff` and `branch-merge-preview`.
 
 `readonly` is enforced on the client in every profile: with it set, no write control renders (Save/Forget, checkout, Branch from here, Bring over, Revert, Merge, Delete, auto-match, Watch add/scan/remove, and the mutating slash commands are all withheld). The local server itself still enforces nothing; launch it with `--readonly` when that matters.

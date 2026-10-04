@@ -22,6 +22,9 @@ export default function CommitList({ limit = 50 }: CommitListProps) {
   const storePath = useStore((s) => s.storePath);
   const connected = useStore((s) => s.status === "connected");
   const currentBranch = useStore((s) => s.data?.current_branch ?? null);
+  // Cloud profile pins reads to a branch via `ref` (no checkout); locally
+  // this is null and the server's HEAD is what we want.
+  const ref = useStore((s) => s.ref);
   // Bumps every time storeSlice.refresh() succeeds — so a Refresh
   // click (manual or auto-poll) re-runs our /api/commits fetch too.
   const revision = useStore((s) => s.revision);
@@ -41,7 +44,7 @@ export default function CommitList({ limit = 50 }: CommitListProps) {
     setLoading(true);
     setError(null);
     api
-      .commits(storePath, { limit })
+      .commits(storePath, { limit, ...(ref ? { branch: ref } : {}) })
       .then((res) => {
         if (cancelled) return;
         setCommits(res.commits);
@@ -55,7 +58,7 @@ export default function CommitList({ limit = 50 }: CommitListProps) {
     return () => {
       cancelled = true;
     };
-  }, [storePath, connected, limit, revision]);
+  }, [storePath, connected, limit, revision, ref]);
 
   const orderedHashes = useMemo(
     () => (commits ? commits.map((c) => c.hash) : []),

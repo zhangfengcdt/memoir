@@ -1206,3 +1206,16 @@
   font-size: 0.8rem;
   color: var(--fg-1);
 }
+
+/* Read-only rendering of a memory's content (no editor). */
+.memory-content-readonly {
+  margin: 0;
+  padding: 10px 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font: inherit;
+  background: var(--surface-2, rgba(127, 127, 127, 0.08));
+  border-radius: 6px;
+  max-height: 60vh;
+  overflow: auto;
+}

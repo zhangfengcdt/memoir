@@ -2,6 +2,7 @@ import { useStore } from "../state/storeSlice";
 import { useUI } from "../state/uiSlice";
 import { useSelection } from "../state/selectionSlice";
 import { useConfig, type ConfigSlice } from "../state/configSlice";
+import { branchSwitchIsRead } from "../config/runtime";
 import { api, MemoirApiError } from "../api/client";
 
 /**
@@ -701,6 +702,16 @@ register({
     const path = requireStorePath(input);
     if (!path) return;
     try {
+      if (branchSwitchIsRead()) {
+        // Cloud: no checkout endpoint; pin the reads to the branch instead.
+        await useStore.getState().switchRef(target);
+        useStore.getState().pushHistory({
+          input,
+          level: "success",
+          lines: [`Viewing ${target}`],
+        });
+        return;
+      }
       const res = await api.checkout(path, target);
       useStore.getState().pushHistory({
         input,
@@ -983,7 +994,11 @@ export function unavailableReason(
   def: CommandDef,
   config: Pick<ConfigSlice, "writable" | "useLLM" | "profile"> = useConfig.getState(),
 ): string | null {
-  if (def.tags.includes("mutating") && !config.writable) return "this session is read-only";
+  // `/checkout` is a read on the cloud (it pins `ref`), so it survives read-only there.
+  const readSwitch = def.name === "checkout" && branchSwitchIsRead(config.profile);
+  if (def.tags.includes("mutating") && !config.writable && !readSwitch) {
+    return "this session is read-only";
+  }
   if (def.tags.includes("llm") && !config.useLLM) return "LLM features are off";
   if (config.profile === "cloud" && CLOUD_UNAVAILABLE.has(def.name)) {
     return "not served by memoir-cloud";

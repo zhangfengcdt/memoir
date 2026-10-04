@@ -25,7 +25,11 @@ describe("command availability", () => {
     );
     for (const def of mutating) {
       expect(unavailableReason(def, READONLY_LOCAL)).toMatch(/read-only/);
-      expect(unavailableReason(def, CLOUD)).toMatch(/read-only/);
+    }
+    // On the cloud, /checkout is a read (it pins `ref`); the rest stay blocked.
+    for (const def of mutating) {
+      if (def.name === "checkout") expect(unavailableReason(def, CLOUD)).toBeNull();
+      else expect(unavailableReason(def, CLOUD)).toMatch(/read-only/);
     }
   });
 

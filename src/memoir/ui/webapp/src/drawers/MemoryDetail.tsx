@@ -200,27 +200,42 @@ export default function MemoryDetail({ memory }: MemoryDetailProps) {
         </div>
       </section>
 
-      {/* Editable content */}
+      {/* Content: an editor when writes are allowed, plain text otherwise.
+       * Read-only sessions (``--readonly`` locally, always on the cloud)
+       * render no write control at all — not even a disabled one. */}
       <section className="drawer-panel-section">
-        <label className="memory-edit-label" htmlFor="memory-content-edit">
-          Edit content for <code>{memory.key}</code>
-        </label>
-        <textarea
-          id="memory-content-edit"
-          className="memory-edit-textarea"
-          value={content}
-          onChange={(e) => onContentChange(e.target.value)}
-          spellCheck
-          rows={12}
-          placeholder="(no textual content)"
-        />
+        {writable ? (
+          <>
+            <label className="memory-edit-label" htmlFor="memory-content-edit">
+              Edit content for <code>{memory.key}</code>
+            </label>
+            <textarea
+              id="memory-content-edit"
+              className="memory-edit-textarea"
+              value={content}
+              onChange={(e) => onContentChange(e.target.value)}
+              spellCheck
+              rows={12}
+              placeholder="(no textual content)"
+            />
+          </>
+        ) : (
+          <>
+            <span className="memory-edit-label">
+              Content of <code>{memory.key}</code>
+            </span>
+            <pre className="memory-content-readonly" data-testid="memory-content-readonly">
+              {content || "(no textual content)"}
+            </pre>
+          </>
+        )}
       </section>
 
       {/* LLM rewrite — only when the server was started with --usellm.
        * Without that flag the /api/rewrite-memory endpoint will fail,
        * so hiding the input is honest about what's available rather
        * than letting users type into a dead box. */}
-      {useLLM && (
+      {useLLM && writable && (
         <section className="drawer-panel-section">
           <label className="memory-edit-label" htmlFor="memory-rewrite-instructions">
             Or describe how to change it (uses an LLM):
@@ -250,35 +265,30 @@ export default function MemoryDetail({ memory }: MemoryDetailProps) {
         <p className="drawer-error">{error}</p>
       )}
 
-      {/* Save / Cancel / Forget — Save+Forget gated client-side in readonly
-       * mode. Backend currently has no readonly enforcement; the UI honors
-       * the contract and disables destructive actions when readonly. */}
+      {/* Actions. Read-only sessions get only "View"; the write controls
+       * (Revert / Update / Forget) do not render at all. */}
       <section className="drawer-panel-section memory-action-row">
-        {!writable && (
-          <span
-            className="memory-readonly-note"
-            title="Server is in readonly mode (relaunch with --no-readonly to enable edits)"
+        {writable && (
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={onCancel}
+            disabled={!dirty || saving}
+            title="Discard unsaved edits and restore the saved value"
           >
-            readonly mode — edits disabled
-          </span>
+            Revert
+          </button>
         )}
-        <button
-          type="button"
-          className="btn btn-secondary btn-sm"
-          onClick={onCancel}
-          disabled={!dirty || saving}
-          title="Discard unsaved edits and restore the saved value"
-        >
-          Revert
-        </button>
-        <button
-          type="button"
-          className="btn btn-sm memory-update-btn"
-          onClick={onSave}
-          disabled={!dirty || saving || !writable}
-        >
-          {saving ? "Updating…" : "Update"}
-        </button>
+        {writable && (
+          <button
+            type="button"
+            className="btn btn-sm memory-update-btn"
+            onClick={onSave}
+            disabled={!dirty || saving}
+          >
+            {saving ? "Updating…" : "Update"}
+          </button>
+        )}
         <button
           type="button"
           className="btn btn-secondary btn-sm"
@@ -288,15 +298,17 @@ export default function MemoryDetail({ memory }: MemoryDetailProps) {
         >
           View
         </button>
-        <button
-          type="button"
-          className="btn btn-sm memory-forget-btn"
-          onClick={onForgetClick}
-          disabled={!writable || saving || forgetting}
-          title="Delete this memory and land a forget commit"
-        >
-          {confirmingForget ? "Cancel forget" : "Forget"}
-        </button>
+        {writable && (
+          <button
+            type="button"
+            className="btn btn-sm memory-forget-btn"
+            onClick={onForgetClick}
+            disabled={saving || forgetting}
+            title="Delete this memory and land a forget commit"
+          >
+            {confirmingForget ? "Cancel forget" : "Forget"}
+          </button>
+        )}
       </section>
 
       {confirmingForget && (
