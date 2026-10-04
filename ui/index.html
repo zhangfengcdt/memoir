@@ -1399,6 +1399,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#running-the-bundle-on-memoir-cloud-workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running the bundle on memoir-cloud (Workspace)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#related" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2186,6 +2197,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#running-the-bundle-on-memoir-cloud-workspace" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Running the bundle on memoir-cloud (Workspace)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#related" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2363,6 +2385,52 @@
 <h2 id="slash-commands-in-the-ui">Slash commands in the UI<a class="headerlink" href="#slash-commands-in-the-ui" title="Permanent link">&para;</a></h2>
 <p>The command input accepts the same mutation and inspection verbs as the CLI — <code>/connect</code>, <code>/new</code>, <code>/remember</code>, <code>/forget</code>, <code>/branch</code>, <code>/checkout</code>, <code>/merge</code>, <code>/commits</code>, <code>/blame</code>, <code>/proof</code>, <code>/verify</code>, <code>/stats</code>, <code>/help</code>, and more. Type <code>/help</code> to open the full command reference with examples.</p>
 <p>Plain text (no leading <code>/</code>) is treated as a search query against the current store.</p>
+<h2 id="running-the-bundle-on-memoir-cloud-workspace">Running the bundle on memoir-cloud (Workspace)<a class="headerlink" href="#running-the-bundle-on-memoir-cloud-workspace" title="Permanent link">&para;</a></h2>
+<p>The same built webapp serves two hosts. Locally, <code>memoir ui</code> serves it with the <code>/api/*</code> endpoints and configures it through URL parameters (<code>?store=&lt;path&gt;&amp;readonly=&lt;0|1&gt;&amp;usellm=&lt;0|1&gt;</code>). On memoir-cloud, a store's <strong>Workspace</strong> page (<code>https://&lt;gateway&gt;/&lt;owner&gt;/&lt;store&gt;/workspace</code>) serves the bundle built with <code>pnpm run build -- --base=/workspace/</code> and injects one config object before <code>&lt;/head&gt;</code>:</p>
+<div class="language-html highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="p">&lt;</span><span class="nt">script</span><span class="p">&gt;</span><span class="nb">window</span><span class="p">.</span><span class="nx">__MEMOIR__</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="s2">"apiBase"</span><span class="o">:</span><span class="w"> </span><span class="s2">"/&lt;owner&gt;/&lt;store&gt;/api"</span><span class="p">,</span><span class="w"> </span><span class="s2">"store"</span><span class="o">:</span><span class="w"> </span><span class="s2">"&lt;owner&gt;/&lt;store&gt;"</span><span class="p">,</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="s2">"ref"</span><span class="o">:</span><span class="w"> </span><span class="s2">"main"</span><span class="p">,</span><span class="w"> </span><span class="s2">"readonly"</span><span class="o">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span><span class="w"> </span><span class="s2">"profile"</span><span class="o">:</span><span class="w"> </span><span class="s2">"cloud"</span><span class="p">,</span><span class="w"> </span><span class="s2">"backUrl"</span><span class="o">:</span><span class="w"> </span><span class="s2">"/&lt;owner&gt;/&lt;store&gt;"</span><span class="p">};&lt;/</span><span class="nt">script</span><span class="p">&gt;</span>
+</span></code></pre></div>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>apiBase</code></td>
+<td>Replaces the local <code>/api</code> prefix on every request (<code>&lt;apiBase&gt;/store</code>, <code>&lt;apiBase&gt;/commits</code>, …). Requests stay same-origin, so the cloud's session cookie is sent.</td>
+</tr>
+<tr>
+<td><code>store</code></td>
+<td>Seeds the connected store (the address, not a path).</td>
+</tr>
+<tr>
+<td><code>ref</code></td>
+<td>Branch to show first; <code>null</code> means the server's default.</td>
+</tr>
+<tr>
+<td><code>readonly</code></td>
+<td>When set, wins over the URL parameter.</td>
+</tr>
+<tr>
+<td><code>profile</code></td>
+<td><code>"local"</code> (default) or <code>"cloud"</code>.</td>
+</tr>
+<tr>
+<td><code>backUrl</code></td>
+<td>Cloud profile: target of the "Back to store" link in the top bar.</td>
+</tr>
+</tbody>
+</table>
+<p>Without the object the app behaves exactly as before. With <code>profile: "cloud"</code>:</p>
+<ul>
+<li>The tabs are Outline, Map, Commits and History, plus Branches (branch status and the merge preview) from the top bar. The top bar shows the store address and a "Back to store" link.</li>
+<li>Switching branches is a read: the app passes <code>ref</code> on <code>store</code>, <code>commits</code> and <code>current-branch</code> instead of posting a checkout. This covers the top-bar switcher, the History chips and the <code>/checkout</code> command; <code>/time-travel</code> creates a branch and stays unavailable.</li>
+<li>Features the cloud does not serve are hidden and never requested: memory edits, sync/checkout/create/delete/merge, branch auto-match, Watch, the LLM commands, Statistics, Timeline and Places. The only endpoints used are <code>store</code>, <code>branches</code>, <code>current-branch</code>, <code>branches-status</code>, <code>commits</code>, <code>commit-snapshot</code>, <code>commit-range-diff</code> and <code>branch-merge-preview</code>.</li>
+</ul>
+<p><code>readonly</code> is enforced on the client in every profile: with it set, no write control renders (Save/Forget, checkout, Branch from here, Bring over, Revert, Merge, Delete, auto-match, Watch add/scan/remove, and the mutating slash commands are all withheld). The local server itself still enforces nothing; launch it with <code>--readonly</code> when that matters.</p>
 <h2 id="related">Related<a class="headerlink" href="#related" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../cli/">CLI Reference</a> — the non-visual interface to the same store operations.</li>
