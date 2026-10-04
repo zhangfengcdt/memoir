@@ -801,24 +801,32 @@ class SyncService(BaseService):
             raise ServiceError(f"branch '{branch}' does not exist locally", code=2)
 
         started = time.monotonic()
+        git_seconds = 0.0
         with self._client(gateway) as client:
             client.handle()
             uploaded, present = self._upload_chunks(client, address)
+            chunk_seconds = time.monotonic() - started
 
             # Only after every chunk is resident on the server.
+            t_git = time.monotonic()
             result = self._git(
                 ["push", REMOTE_NAME, f"{branch}:{branch}"], auth=True, check=False
             )
+            git_seconds += time.monotonic() - t_git
             if result.returncode != 0 and "missing chunk" in result.stderr:
                 # The pushed record disagreed with the server (e.g. it was
                 # written on another machine, or the server lost objects):
                 # negotiate everything, rebuild the record, push once more.
+                t_more = time.monotonic()
                 more, _ = self._upload_chunks(client, address, negotiate=True)
+                chunk_seconds += time.monotonic() - t_more
                 uploaded += more
                 present -= more
+                t_git = time.monotonic()
                 result = self._git(
                     ["push", REMOTE_NAME, f"{branch}:{branch}"], auth=True, check=False
                 )
+                git_seconds += time.monotonic() - t_git
         if result.returncode != 0:
             stderr = redact(result.stderr, self._key)
             if "non-fast-forward" in stderr or "fetch first" in stderr:
@@ -833,6 +841,8 @@ class SyncService(BaseService):
             chunks_present=present,
             pushed=True,
             seconds=time.monotonic() - started,
+            chunk_seconds=chunk_seconds,
+            git_seconds=git_seconds,
         )
 
     def _create_and_link(self, name: str, gateway: str | None) -> None:

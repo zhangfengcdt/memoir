@@ -310,13 +310,13 @@ memoir push --create memories
 ```
 
 ```text
-✓ pushed main to feng-zhang/memories: 3 chunks (3 new, 0 already on server) in 2 s
+✓ pushed main to feng-zhang/memories: 3 chunks (3 new) in 1.4 s, git in 2.6 s
 ```
 
 Behind the scenes this validated the name locally, created the cloud store, set the git remote `origin` to `https://<gateway>/feng-zhang/memories`, uploaded the chunks the cloud lacked in multipart batches, and only then pushed the git history. The chunks are the ProllyTree node files that hold the actual memories. If a chunk upload fails, the git push is never attempted, so the cloud never points at data it does not have. Memoir also records which hashes the server confirmed under `.git/memoir-cloud/pushed-origin`, so a second push right away needs no round trip to find out that nothing is new:
 
 ```text
-✓ pushed main to feng-zhang/memories: 3 chunks (0 new, 3 already on server) in 1 s
+✓ pushed main to feng-zhang/memories: 3 chunks (0 new) in 0.0 s, git in 0.9 s
 ```
 
 `memoir status` and `memoir remote show` both tell you the address:
@@ -463,13 +463,15 @@ fi
 ```json
 {
   "success": true,
-  "message": "pushed main to feng-zhang/memories: 4 chunks (1 new, 3 already on server) in 1 s",
+  "message": "pushed main to feng-zhang/memories: 4 chunks (1 new) in 1.1 s, git in 2.4 s",
   "branch": "main",
   "origin": "feng-zhang/memories",
   "chunks_uploaded": 1,
   "chunks_present": 3,
   "pushed": true,
-  "seconds": 1.2
+  "seconds": 3.6,
+  "chunk_seconds": 1.1,
+  "git_seconds": 2.4
 }
 ```
 

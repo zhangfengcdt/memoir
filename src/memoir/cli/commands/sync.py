@@ -194,7 +194,7 @@ def push(
 
     \b
     JSON output includes: origin, branch, chunks_uploaded, chunks_present, pushed,
-    seconds
+    seconds, chunk_seconds, git_seconds
     """
     _require_store(ctx)
     _require_cloud(ctx)
@@ -202,8 +202,8 @@ def push(
     ctx.success(
         f"pushed {result.branch} to {result.address}: "
         f"{result.chunks_uploaded + result.chunks_present:,} chunks "
-        f"({result.chunks_uploaded:,} new, {result.chunks_present:,} already on "
-        f"server) in {result.seconds:.0f} s",
+        f"({result.chunks_uploaded:,} new) in {result.chunk_seconds:.1f} s, "
+        f"git in {result.git_seconds:.1f} s",
         result.to_dict(),
     )
 

@@ -653,7 +653,9 @@ class PushResult:
     chunks_uploaded: int
     chunks_present: int
     pushed: bool
-    seconds: float = 0.0
+    seconds: float = 0.0  # whole push
+    chunk_seconds: float = 0.0  # negotiate/diff + batch uploads
+    git_seconds: float = 0.0  # git push (including a missing-chunk retry)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -663,6 +665,8 @@ class PushResult:
             "chunks_present": self.chunks_present,
             "pushed": self.pushed,
             "seconds": round(self.seconds, 1),
+            "chunk_seconds": round(self.chunk_seconds, 1),
+            "git_seconds": round(self.git_seconds, 1),
         }
 
 

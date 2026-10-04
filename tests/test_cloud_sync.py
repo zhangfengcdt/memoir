@@ -430,7 +430,8 @@ class TestPush:
         assert data["origin"] == ADDRESS
         assert data["chunks_uploaded"] == len(local)
         assert data["chunks_present"] == 0
-        assert data["seconds"] >= 0
+        assert data["seconds"] >= data["chunk_seconds"] + data["git_seconds"] - 0.2
+        assert data["git_seconds"] > 0
         _assert_no_ids(res.output)
 
         server_chunks = cloud.state.chunks_for(HANDLE, "demo")
