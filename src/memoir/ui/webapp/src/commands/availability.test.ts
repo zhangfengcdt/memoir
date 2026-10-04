@@ -53,4 +53,12 @@ describe("command availability", () => {
       expect(unavailableReason(byName(name), CLOUD)).toBeNull();
     }
   });
+
+  it("/stats follows the host's declared features on the cloud", () => {
+    const stats = byName("stats");
+    expect(unavailableReason(stats, { ...CLOUD, features: ["statistics"] })).toBeNull();
+    expect(unavailableReason(stats, { ...CLOUD, features: [] })).toMatch(/memoir-cloud/);
+    expect(unavailableReason(stats, { ...CLOUD, features: null })).toMatch(/memoir-cloud/);
+    expect(unavailableReason(stats, CLOUD)).toMatch(/memoir-cloud/);
+  });
 });

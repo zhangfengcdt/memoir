@@ -25,6 +25,8 @@ export interface ConfigSlice {
   profile: Profile;
   /** Cloud profile: where the "Back to store" link goes. */
   backUrl: string | null;
+  /** Optional features the host declared (``window.__MEMOIR__.features``). */
+  features: string[] | null;
 }
 
 function parseFlag(value: string | null, defaultValue: boolean): boolean {
@@ -49,6 +51,7 @@ export function initialConfig(
     useLLM,
     profile: rt.profile,
     backUrl: rt.backUrl,
+    features: rt.features,
   };
 }
 

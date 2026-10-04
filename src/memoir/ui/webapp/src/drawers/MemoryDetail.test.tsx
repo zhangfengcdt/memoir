@@ -36,7 +36,7 @@ afterEach(() => {
 
 describe("MemoryDetail read-only", () => {
   it("writable: renders the editor and the Update / Forget / Revert controls", () => {
-    useConfig.setState({ writable: true, useLLM: false, profile: "local", backUrl: null });
+    useConfig.setState({ writable: true, useLLM: false, profile: "local", backUrl: null, features: null });
     connected("/tmp/store");
     render(<MemoryDetail memory={MEMORY} />);
     expect(screen.getByLabelText(/Edit content for/)).toBeTruthy();
@@ -48,7 +48,7 @@ describe("MemoryDetail read-only", () => {
 
   it("read-only (any profile): no editor and no write control, not even disabled", () => {
     for (const profile of ["local", "cloud"] as const) {
-      useConfig.setState({ writable: false, useLLM: false, profile, backUrl: null });
+      useConfig.setState({ writable: false, useLLM: false, profile, backUrl: null, features: null });
       connected("feng-zhang/demo");
       render(<MemoryDetail memory={MEMORY} />);
       expect(screen.queryByRole("textbox")).toBeNull();
@@ -64,7 +64,7 @@ describe("MemoryDetail read-only", () => {
   });
 
   it("the LLM rewrite box needs both useLLM and writable", () => {
-    useConfig.setState({ writable: false, useLLM: true, profile: "local", backUrl: null });
+    useConfig.setState({ writable: false, useLLM: true, profile: "local", backUrl: null, features: null });
     connected("/tmp/store");
     render(<MemoryDetail memory={MEMORY} />);
     expect(screen.queryByText(/Rewrite with AI/)).toBeNull();

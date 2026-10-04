@@ -44,6 +44,8 @@ export default function StatsModal() {
   // metrics.code.<branch> entries so the Code Changes tab matches the
   // active branch the same way metrics.turn.<branch> does on the server.
   const currentBranch = useStore((s) => s.data?.current_branch ?? null);
+  // Cloud profile: the branch the reads are pinned to (null locally).
+  const ref = useStore((s) => s.ref);
 
   const [data, setData] = useState<StatisticsResponse | null>(null);
   const [onboardData, setOnboardData] = useState<OnboardResponse | null>(null);
@@ -70,7 +72,7 @@ export default function StatsModal() {
     setProjectOnboardData(null);
     setMetricsData(null);
     api
-      .statistics(storePath)
+      .statistics(storePath, ref)
       .then((res) => {
         if (cancelled) return;
         setData(res);
@@ -98,7 +100,7 @@ export default function StatsModal() {
         /* optional — keep tab hidden on failure */
       });
     api
-      .metrics(storePath)
+      .metrics(storePath, ref)
       .then((res) => {
         if (!cancelled) setMetricsData(res);
       })
@@ -108,7 +110,7 @@ export default function StatsModal() {
     return () => {
       cancelled = true;
     };
-  }, [open, storePath]);
+  }, [open, storePath, ref]);
 
   // Focus management: trap focus inside the dialog while open, return
   // it to the trigger on close.

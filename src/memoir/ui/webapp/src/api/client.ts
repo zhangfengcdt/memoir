@@ -144,8 +144,8 @@ export const api = {
       limit: String(opts.limit ?? 20),
     }),
 
-  statistics: (path: string) =>
-    getJSON<StatisticsResponse>("statistics", { path }),
+  statistics: (path: string, ref?: string | null) =>
+    getJSON<StatisticsResponse>("statistics", params({ path, ref })),
 
   onboard: (path: string) =>
     getJSON<OnboardResponse>("onboard", { path }),
@@ -153,8 +153,8 @@ export const api = {
   projectOnboard: (path: string) =>
     getJSON<ProjectOnboardResponse>("project-onboard", { path }),
 
-  metrics: (path: string) =>
-    getJSON<MetricsResponse>("metrics", { path }),
+  metrics: (path: string, ref?: string | null) =>
+    getJSON<MetricsResponse>("metrics", params({ path, ref })),
 
   /**
    * Timeline + location endpoints can 500 on stores that have no

@@ -15,6 +15,7 @@ export default function TopBar() {
   const writable = useConfig((s) => s.writable);
   const profile = useConfig((s) => s.profile);
   const backUrl = useConfig((s) => s.backUrl);
+  const features = useConfig((s) => s.features);
   const cloud = profile === "cloud";
   // Switching branches is a write locally (checkout) and a read on the cloud.
   const canSwitchBranch = writable || branchSwitchIsRead(profile);
@@ -98,12 +99,12 @@ export default function TopBar() {
             Read-only
           </span>
         )}
-        {branch && !featureEnabled("statistics", profile) && (
+        {branch && !featureEnabled("statistics", profile, features) && (
           <span className="topbar-branch" title="Current branch">
             {branch}
           </span>
         )}
-        {branch && featureEnabled("statistics", profile) && (
+        {branch && featureEnabled("statistics", profile, features) && (
           <button
             className="btn btn-ghost btn-sm"
             onClick={openStats}

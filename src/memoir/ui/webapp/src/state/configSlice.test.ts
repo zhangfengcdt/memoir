@@ -10,6 +10,7 @@ const LOCAL: RuntimeConfig = {
   profile: "local",
   backUrl: null,
   injected: false,
+  features: null,
 };
 
 const CLOUD: RuntimeConfig = {
@@ -20,6 +21,7 @@ const CLOUD: RuntimeConfig = {
   profile: "cloud",
   backUrl: "/feng-zhang/demo",
   injected: true,
+  features: null,
 };
 
 describe("initialConfig", () => {
@@ -29,12 +31,14 @@ describe("initialConfig", () => {
       useLLM: false,
       profile: "local",
       backUrl: null,
+      features: null,
     });
     expect(initialConfig(LOCAL, "http://x/?store=/s&readonly=1&usellm=1")).toEqual({
       writable: false,
       useLLM: true,
       profile: "local",
       backUrl: null,
+      features: null,
     });
   });
 
@@ -44,6 +48,7 @@ describe("initialConfig", () => {
       useLLM: false,
       profile: "cloud",
       backUrl: "/feng-zhang/demo",
+      features: null,
     });
   });
 

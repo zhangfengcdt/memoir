@@ -28,7 +28,7 @@ afterEach(() => {
 
 describe("TopBar profiles", () => {
   it("local writable: statistics, branch switcher and sync are offered; no back link", () => {
-    useConfig.setState({ writable: true, useLLM: false, profile: "local", backUrl: null });
+    useConfig.setState({ writable: true, useLLM: false, profile: "local", backUrl: null, features: null });
     connected("/tmp/store");
     render(<TopBar />);
     expect(screen.getByLabelText("Open statistics")).toBeTruthy();
@@ -39,7 +39,7 @@ describe("TopBar profiles", () => {
   });
 
   it("local read-only: no branch switcher (checkout is a write), read-only badge shown", () => {
-    useConfig.setState({ writable: false, useLLM: false, profile: "local", backUrl: null });
+    useConfig.setState({ writable: false, useLLM: false, profile: "local", backUrl: null, features: null });
     connected("/tmp/store");
     render(<TopBar />);
     expect(screen.queryByLabelText("Switch branch")).toBeNull();
@@ -54,6 +54,7 @@ describe("TopBar profiles", () => {
       useLLM: false,
       profile: "cloud",
       backUrl: "/feng-zhang/demo",
+      features: null,
     });
     connected("feng-zhang/demo");
     render(<TopBar />);
@@ -68,9 +69,23 @@ describe("TopBar profiles", () => {
   });
 
   it("the logo resolves against Vite's base so /workspace/ builds find it", () => {
-    useConfig.setState({ writable: true, useLLM: false, profile: "local", backUrl: null });
+    useConfig.setState({ writable: true, useLLM: false, profile: "local", backUrl: null, features: null });
     render(<TopBar />);
     const img = screen.getByAltText("Memoir") as HTMLImageElement;
     expect(img.getAttribute("src")).toBe(`${import.meta.env.BASE_URL}memoir.png`);
+  });
+
+  it("cloud with features: [\"statistics\"] shows the Statistics button", () => {
+    useConfig.setState({
+      writable: false,
+      useLLM: false,
+      profile: "cloud",
+      backUrl: "/feng-zhang/demo",
+      features: ["statistics"],
+    });
+    connected("feng-zhang/demo");
+    render(<TopBar />);
+    expect(screen.getByLabelText("Open statistics")).toBeTruthy();
+    expect(screen.queryByTitle("Current branch")).toBeNull();
   });
 });

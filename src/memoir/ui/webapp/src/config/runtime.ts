@@ -40,6 +40,12 @@ export interface RuntimeConfig {
   backUrl: string | null;
   /** True when `window.__MEMOIR__` was present. */
   injected: boolean;
+  /**
+   * Optional features the host declares it serves (cloud only), e.g.
+   * `["statistics"]`. `null` means "not declared": the cloud then falls
+   * back to the built-in list of what it lacks.
+   */
+  features: string[] | null;
 }
 
 interface InjectedConfig {
@@ -49,6 +55,7 @@ interface InjectedConfig {
   readonly?: unknown;
   profile?: unknown;
   backUrl?: unknown;
+  features?: unknown;
 }
 
 declare global {
@@ -65,6 +72,7 @@ const DEFAULTS: RuntimeConfig = {
   profile: "local",
   backUrl: null,
   injected: false,
+  features: null,
 };
 
 function str(value: unknown): string | null {
@@ -84,6 +92,9 @@ export function readRuntimeConfig(win: Window | undefined = globalWindow()): Run
     profile: injected.profile === "cloud" ? "cloud" : "local",
     backUrl: str(injected.backUrl),
     injected: true,
+    features: Array.isArray(injected.features)
+      ? injected.features.filter((f): f is string => typeof f === "string")
+      : null,
   };
 }
 
@@ -132,8 +143,19 @@ const CLOUD_DISABLED: ReadonlySet<Feature> = new Set<Feature>([
   "code-repo",
 ]);
 
-export function featureEnabled(feature: Feature, profile: Profile = runtime.profile): boolean {
-  return profile === "local" || !CLOUD_DISABLED.has(feature);
+/**
+ * Whether ``feature`` is available. Local: always. Cloud: when the host
+ * declared a ``features`` list, exactly what it lists; otherwise everything
+ * except the built-in ``CLOUD_DISABLED`` set (today's behaviour).
+ */
+export function featureEnabled(
+  feature: Feature,
+  profile: Profile = runtime.profile,
+  features: readonly string[] | null = runtime.features,
+): boolean {
+  if (profile === "local") return true;
+  if (features) return features.includes(feature);
+  return !CLOUD_DISABLED.has(feature);
 }
 
 /** In the cloud profile a branch switch is a read (`ref` on the next

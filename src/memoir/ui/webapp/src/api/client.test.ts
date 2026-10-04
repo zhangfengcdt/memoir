@@ -71,6 +71,16 @@ describe("api client request URLs", () => {
     for (const call of fetchSpy.mock.calls) expect(String(call[0])).toMatch(/^\//);
   });
 
+  it("passes ref on statistics and metrics (Statistics dialog after a branch switch)", async () => {
+    const { api } = await loadClientWith({ apiBase: "/h/n/api", profile: "cloud", features: ["statistics"] });
+    await api.statistics("h/n", "experiments");
+    expect(calledUrl()).toBe("/h/n/api/statistics?path=h%2Fn&ref=experiments");
+    await api.metrics("h/n", "experiments");
+    expect(calledUrl(1)).toBe("/h/n/api/metrics?path=h%2Fn&ref=experiments");
+    await api.statistics("h/n");
+    expect(calledUrl(2)).toBe("/h/n/api/statistics?path=h%2Fn");
+  });
+
   it("omits ref entirely when it is null or undefined", async () => {
     const { api } = await loadClientWith({ apiBase: "/h/n/api", profile: "cloud" });
     await api.store("h/n", null);

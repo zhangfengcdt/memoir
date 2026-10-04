@@ -2,7 +2,7 @@ import { useStore } from "../state/storeSlice";
 import { useUI } from "../state/uiSlice";
 import { useSelection } from "../state/selectionSlice";
 import { useConfig, type ConfigSlice } from "../state/configSlice";
-import { branchSwitchIsRead } from "../config/runtime";
+import { branchSwitchIsRead, featureEnabled, type Feature } from "../config/runtime";
 import { api, MemoirApiError } from "../api/client";
 
 /**
@@ -978,11 +978,15 @@ const CLOUD_UNAVAILABLE: ReadonlySet<string> = new Set([
   "places",
   "proof",
   "recall",
-  "stats",
   "summarize",
   "timeline",
   "verify",
 ]);
+
+/** Commands backed by an optional feature the host may declare. */
+const COMMAND_FEATURE: Readonly<Record<string, Feature>> = {
+  stats: "statistics",
+};
 
 /**
  * Why ``def`` cannot run in this session, or ``null`` when it can.
@@ -992,7 +996,8 @@ const CLOUD_UNAVAILABLE: ReadonlySet<string> = new Set([
  */
 export function unavailableReason(
   def: CommandDef,
-  config: Pick<ConfigSlice, "writable" | "useLLM" | "profile"> = useConfig.getState(),
+  config: Pick<ConfigSlice, "writable" | "useLLM" | "profile"> &
+    Partial<Pick<ConfigSlice, "features">> = useConfig.getState(),
 ): string | null {
   // `/checkout` is a read on the cloud (it pins `ref`), so it survives read-only there.
   const readSwitch = def.name === "checkout" && branchSwitchIsRead(config.profile);
@@ -1000,6 +1005,10 @@ export function unavailableReason(
     return "this session is read-only";
   }
   if (def.tags.includes("llm") && !config.useLLM) return "LLM features are off";
+  const feature = COMMAND_FEATURE[def.name];
+  if (feature && !featureEnabled(feature, config.profile, config.features ?? null)) {
+    return "not served by memoir-cloud";
+  }
   if (config.profile === "cloud" && CLOUD_UNAVAILABLE.has(def.name)) {
     return "not served by memoir-cloud";
   }

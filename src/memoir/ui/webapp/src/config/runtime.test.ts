@@ -21,6 +21,7 @@ describe("readRuntimeConfig", () => {
       profile: "local",
       backUrl: null,
       injected: false,
+      features: null,
     });
     expect(readRuntimeConfig({} as Window).injected).toBe(false);
   });
@@ -44,6 +45,7 @@ describe("readRuntimeConfig", () => {
       profile: "cloud",
       backUrl: "/feng-zhang/demo",
       injected: true,
+      features: null,
     });
   });
 
@@ -89,5 +91,24 @@ describe("profiles", () => {
   it("branch switching is a read only on the cloud", () => {
     expect(branchSwitchIsRead("cloud")).toBe(true);
     expect(branchSwitchIsRead("local")).toBe(false);
+  });
+});
+
+describe("declared features", () => {
+  it("parses features as a string array and drops non-strings", () => {
+    const rt = readRuntimeConfig(fakeWindow({ profile: "cloud", features: ["statistics", 3, "x"] }));
+    expect(rt.features).toEqual(["statistics", "x"]);
+    expect(readRuntimeConfig(fakeWindow({ profile: "cloud", features: "statistics" })).features).toBeNull();
+  });
+
+  it("cloud with a features list enables exactly what it lists", () => {
+    expect(featureEnabled("statistics", "cloud", ["statistics"])).toBe(true);
+    expect(featureEnabled("watch", "cloud", ["statistics"])).toBe(false);
+    expect(featureEnabled("statistics", "cloud", [])).toBe(false);
+  });
+
+  it("cloud without the field keeps today's rule; local ignores it", () => {
+    expect(featureEnabled("statistics", "cloud", null)).toBe(false);
+    expect(featureEnabled("statistics", "local", [])).toBe(true);
   });
 });
