@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 """
-Cloud sync tests: memoir remote / push / pull / fetch / clone.
+Cloud sync tests: memoir remote / push / pull / fetch.
 
 Cloud stores are addressed GitHub-style as ``<owner>/<store>``. The chunk,
 auth, and store endpoints are served by ``tests/fake_cloud.py``; the git half
 goes through the real ``git`` binary against ``git http-backend``, so push /
-fetch / pull / clone and non-fast-forward rejection are exercised end to end
+fetch / pull and non-fast-forward rejection are exercised end to end
 without a network.
 
 Run with: pytest tests/test_cloud_sync.py -v
@@ -94,6 +94,22 @@ def linked_store(store, runner, env):
     return store
 
 
+def _second_machine(runner, env, path: Path, address: str = ADDRESS) -> Path:
+    """What a second machine looks like: a store that already exists (the
+    plugin creates it, and the first command opens it, so it already has
+    prollytree's initial commit), then `remote add` + `pull`."""
+    res = _invoke(runner, ["new", str(path)])
+    assert res.exit_code == 0, res.output
+    res = _invoke(runner, ["-s", str(path), "status"])  # opens → initial commit
+    assert res.exit_code == 0, res.output
+    assert _git(path, "rev-list", "--count", "HEAD") == "1"
+    res = _invoke(runner, ["-s", str(path), "remote", "add", address], env=env)
+    assert res.exit_code == 0, res.output
+    res = _invoke(runner, ["-s", str(path), "--json", "pull"], env=env)
+    assert res.exit_code == 0, res.output
+    return path
+
+
 def _nodes(path: Path) -> set[str]:
     nodes = path / ".git" / "prolly" / "nodes" / "files"
     return {p.name for p in nodes.iterdir() if sync_service.CHUNK_HASH_RE.match(p.name)}
@@ -132,12 +148,6 @@ class TestGating:
         assert res.exit_code == 1
         assert "requires MEMOIR_API_KEY (PRO)" in res.output
 
-    def test_clone_requires_key(self, runner, tmp_root, monkeypatch):
-        monkeypatch.delenv("MEMOIR_API_KEY", raising=False)
-        res = runner.invoke(cli, ["clone", ADDRESS, str(tmp_root / "x")])
-        assert res.exit_code == 1
-        assert "requires MEMOIR_API_KEY (PRO)" in res.output
-
     def test_existing_commands_unaffected(self, runner, store, monkeypatch):
         monkeypatch.delenv("MEMOIR_API_KEY", raising=False)
         res = runner.invoke(cli, ["-s", str(store), "status"])
@@ -162,7 +172,6 @@ class TestGating:
             "push",
             "pull",
             "fetch",
-            "clone",
         }
         assert "MEMOIR_API_KEY" in data["env_vars"]
         assert "MEMOIR_CLOUD_URL" in data["env_vars"]
@@ -188,12 +197,6 @@ class TestGating:
         assert res.exit_code == 1
         assert f"{cloud.url}/app" in res.output
         assert "handle" in res.output
-
-    def test_no_handle_clone(self, runner, cloud, env, tmp_root):
-        cloud.state.handle = None
-        res = runner.invoke(cli, ["clone", ADDRESS, str(tmp_root / "c")], env=env)
-        assert res.exit_code == 1
-        assert f"{cloud.url}/app" in res.output
 
 
 # --------------------------------------------------------------------------
@@ -250,15 +253,17 @@ class TestAddresses:
             parse_remote_url("https://g.example/sync/str_x")
         assert "legacy" in exc.value.message
 
-    def test_store_id_rejected_before_any_request(self, runner, tmp_root, cloud, env):
+    def test_store_id_rejected_before_any_request(self, runner, store, cloud, env):
         """Acceptance 3."""
         res = runner.invoke(
-            cli, ["clone", "str_MKD2ZN-OOxq6ACtrrtJk_A", str(tmp_root / "c")], env=env
+            cli,
+            ["-s", str(store), "remote", "add", "str_MKD2ZN-OOxq6ACtrrtJk_A"],
+            env=env,
         )
         assert res.exit_code == 1
         assert "<owner>/<store>" in res.output
         assert cloud.state.requests == []
-        assert not (tmp_root / "c").exists()
+        assert _git(store, "remote") == ""
 
 
 # --------------------------------------------------------------------------
@@ -324,30 +329,45 @@ class TestRemote:
         assert res.exit_code == 0
         assert _git(linked_store, "remote", "get-url", "origin").endswith("/other")
 
-    def test_add_without_argument_defaults_and_confirms(
-        self, runner, tmp_root, cloud, env
+    def test_add_without_argument_defaults_to_cwd_name(
+        self, runner, tmp_root, cloud, env, monkeypatch
     ):
-        path = tmp_root / "demo"  # directory name == store name
-        _invoke(runner, ["new", str(path)])
-        res = _invoke(runner, ["-s", str(path), "remote", "add"], env=env, input="y\n")
+        """The proposed name is the project directory (cwd), not the store
+        directory: plugin stores live under ~/.memoir/<path-slug>."""
+        project = tmp_root / "demo"
+        project.mkdir()
+        monkeypatch.chdir(project)
+        store = tmp_root / "-Users-me-demo"  # a plugin-style store slug
+        _invoke(runner, ["new", str(store)])
+        res = _invoke(runner, ["-s", str(store), "remote", "add"], env=env, input="y\n")
         assert res.exit_code == 0, res.output
         assert f"Link this store to {ADDRESS}?" in res.output
-        assert _git(path, "remote", "get-url", "origin") == f"{cloud.url}/{ADDRESS}"
+        assert _git(store, "remote", "get-url", "origin") == f"{cloud.url}/{ADDRESS}"
 
-    def test_add_without_argument_declined(self, runner, tmp_root, cloud, env):
-        path = tmp_root / "demo"
-        _invoke(runner, ["new", str(path)])
+    def test_add_without_argument_declined(
+        self, runner, tmp_root, cloud, env, monkeypatch
+    ):
+        project = tmp_root / "demo"
+        project.mkdir()
+        monkeypatch.chdir(project)
+        store = tmp_root / "s"
+        _invoke(runner, ["new", str(store)])
         res = runner.invoke(
-            cli, ["-s", str(path), "remote", "add"], env=env, input="n\n"
+            cli, ["-s", str(store), "remote", "add"], env=env, input="n\n"
         )
         assert res.exit_code == 1
-        assert _git(path, "remote") == ""
+        assert _git(store, "remote") == ""
 
-    def test_add_without_argument_bad_dirname(self, runner, tmp_root, cloud, env):
-        path = tmp_root / "My Store"
-        _invoke(runner, ["new", str(path)])
+    def test_add_without_argument_bad_dirname(
+        self, runner, tmp_root, cloud, env, monkeypatch
+    ):
+        project = tmp_root / "My Store"
+        project.mkdir()
+        monkeypatch.chdir(project)
+        store = tmp_root / "s"
+        _invoke(runner, ["new", str(store)])
         res = runner.invoke(
-            cli, ["-s", str(path), "remote", "add"], env=env, input="y\n"
+            cli, ["-s", str(store), "remote", "add"], env=env, input="y\n"
         )
         assert res.exit_code == 1
         assert "not usable as a store name" in res.output
@@ -549,34 +569,43 @@ class TestPushCreate:
 
 
 # --------------------------------------------------------------------------
-# fetch / pull / clone / non-FF
+# fetch / pull / non-FF
 # --------------------------------------------------------------------------
 
 
 class TestRoundTrip:
-    def test_clone_round_trips_memories(
+    def test_second_machine_remote_add_pull_round_trips(
         self, runner, linked_store, cloud, env, tmp_root
     ):
-        """Acceptance 1 + 7."""
+        """Acceptance 1 + 7, plugin-style: the local store already exists and
+        has been opened (initial commit) before it is linked and pulled."""
         _remember(runner, linked_store, "workflow.coding.gates", "run tests")
         _invoke(runner, ["-s", str(linked_store), "push"], env=env)
 
-        dest = tmp_root / "clone"
-        res = _invoke(runner, ["--json", "clone", ADDRESS, str(dest)], env=env)
+        dest = tmp_root / "desktop"
+        _invoke(runner, ["new", str(dest)])
+        _invoke(runner, ["-s", str(dest), "status"])
+        assert _git(dest, "rev-list", "--count", "HEAD") == "1"  # pristine
+        already_local = _nodes(dest)  # the empty-tree root from the initial commit
+
+        res = _invoke(runner, ["-s", str(dest), "remote", "add", ADDRESS], env=env)
+        assert f"origin: {ADDRESS}" in res.output
+        res = _invoke(runner, ["-s", str(dest), "--json", "pull"], env=env)
         assert res.exit_code == 0, res.output
         data = json.loads(res.output)
         assert data["origin"] == ADDRESS
-        assert data["chunks_downloaded"] == len(_nodes(linked_store))
-        assert data["branch"] == "main"
+        assert data["created"] is True  # adopted the cloud history
+        assert data["chunks_downloaded"] == len(_nodes(linked_store) - already_local)
         _assert_no_ids(res.output)
 
-        assert (dest / ".git" / "memoir-backend").read_text().strip() == "file"
-        assert _git(dest, "remote") == "origin"
+        assert _git(dest, "rev-parse", "main") == _git(
+            linked_store, "rev-parse", "main"
+        )
         assert _git(dest, "remote", "get-url", "origin") == f"{cloud.url}/{ADDRESS}"
         assert "+refs/cloud/*" in _git(
             dest, "config", "--get-all", "remote.origin.fetch"
         )
-        assert _nodes(dest) == _nodes(linked_store)
+        assert _nodes(dest) >= _nodes(linked_store)
 
         res = _invoke(runner, ["-s", str(dest), "status"])
         assert "Memories: 2" in res.output
@@ -585,97 +614,141 @@ class TestRoundTrip:
         assert "run tests" in res.output
         assert SyncService(str(dest)).root_hash() in _nodes(dest)
 
-    def test_clone_recovers_unborn_head(self, store, tmp_root):
-        """Older git leaves HEAD on a nonexistent branch when the server
-        advertises no usable HEAD (CI's default branch is `master`). The
-        client must check out `main` itself. Built over file:// because that
-        transport yields the unborn state deterministically on every git."""
-        bare = tmp_root / "bare"
-        _git(tmp_root, "init", "-q", "--bare", str(bare))
-        _git(bare, "symbolic-ref", "HEAD", "refs/heads/master")
-        _git(store, "push", "-q", str(bare), "main:main")
-        dest = tmp_root / "unborn"
-        subprocess.run(
-            ["git", "clone", "-q", "--origin", "origin", str(bare), str(dest)],
-            check=True,
-            capture_output=True,
+    def test_pull_into_unopened_new_store(
+        self, runner, linked_store, cloud, env, tmp_root
+    ):
+        """`memoir new` without any open leaves HEAD unborn; pull creates main."""
+        _invoke(runner, ["-s", str(linked_store), "push"], env=env)
+        dest = tmp_root / "fresh"
+        _invoke(runner, ["new", str(dest)])
+        _invoke(runner, ["-s", str(dest), "remote", "add", ADDRESS], env=env)
+        res = _invoke(runner, ["-s", str(dest), "--json", "pull"], env=env)
+        assert res.exit_code == 0, res.output
+        assert json.loads(res.output)["created"] is True
+        assert _git(dest, "rev-parse", "main") == _git(
+            linked_store, "rev-parse", "main"
         )
-        service = SyncService(str(dest))
-        assert not service._ref_exists("HEAD")
-        assert service._current_branch() == "master"
+        res = _invoke(runner, ["-s", str(dest), "get", "workflow.coding.style"])
+        assert "use black" in res.output
 
-        service._checkout_default_branch()
-        assert service._current_branch() == "main"
-        assert _git(dest, "rev-parse", "HEAD") == _git(store, "rev-parse", "main")
+    def test_pull_into_store_with_own_memories_is_refused_cleanly(
+        self, runner, linked_store, cloud, env, tmp_root
+    ):
+        """Not pristine (has a real memory) + a cloud history it never saw →
+        exit 6 with the adopt-the-cloud hint, never a raw git error; local
+        history untouched."""
+        _invoke(runner, ["-s", str(linked_store), "push"], env=env)
+        dest = tmp_root / "busy"
+        _invoke(runner, ["new", str(dest)])
+        _remember(runner, dest, "workflow.local", "mine")
+        _invoke(runner, ["-s", str(dest), "remote", "add", ADDRESS], env=env)
+        res = runner.invoke(cli, ["-s", str(dest), "pull"], env=env)
+        assert res.exit_code == EXIT_NON_FF
+        assert "diverged" in res.output
+        assert "memoir pull --force --branch main" in res.output
+        assert "fatal" not in res.output
+        res = _invoke(runner, ["-s", str(dest), "get", "workflow.local"])
+        assert "mine" in res.output
 
-        # Idempotent, and a no-op on an empty cloud store.
-        service._checkout_default_branch()
-        assert service._current_branch() == "main"
-        empty = tmp_root / "empty-bare"
-        _git(tmp_root, "init", "-q", "--bare", str(empty))
-        dest2 = tmp_root / "empty-clone"
-        subprocess.run(
-            ["git", "clone", "-q", str(empty), str(dest2)],
-            check=True,
-            capture_output=True,
+    def test_pull_force_replaces_local_branch(
+        self, runner, linked_store, cloud, env, tmp_root
+    ):
+        """--force: local main := cloud main; previous tip reported and kept
+        under refs/memoir/backup/main; local-only memory gone, cloud memory in."""
+        _invoke(runner, ["-s", str(linked_store), "push"], env=env)
+        dest = tmp_root / "busy"
+        _invoke(runner, ["new", str(dest)])
+        _remember(runner, dest, "workflow.local", "mine")
+        old_tip = _git(dest, "rev-parse", "main")
+        _invoke(runner, ["-s", str(dest), "remote", "add", ADDRESS], env=env)
+
+        res = _invoke(runner, ["-s", str(dest), "--json", "pull", "--force"], env=env)
+        assert res.exit_code == 0, res.output
+        data = json.loads(res.output)
+        assert data["forced"] is True
+        assert data["created"] is False
+        assert old_tip.startswith(data["previous_tip"])
+        assert "replaced main (was" in data["message"]
+        _assert_no_ids(res.output)
+
+        assert _git(dest, "rev-parse", "main") == _git(
+            linked_store, "rev-parse", "main"
         )
-        SyncService(str(dest2))._checkout_default_branch()
-        assert not SyncService(str(dest2))._ref_exists("HEAD")
+        res = _invoke(runner, ["-s", str(dest), "get", "workflow.coding.style"])
+        assert "use black" in res.output
+        res = runner.invoke(cli, ["-s", str(dest), "get", "workflow.local"])
+        assert "mine" not in res.output
+        # the old tip is parked under a hidden ref for recovery (prollytree
+        # commits bypass git's reflog, so this is the only handle on it)
+        assert data["backup_ref"] == "refs/memoir/backup/main"
+        assert _git(dest, "rev-parse", "refs/memoir/backup/main") == old_tip
+        assert "backup" not in _git(dest, "branch", "--list")
+        _git(dest, "branch", "recovered", "refs/memoir/backup/main")
+        assert _git(dest, "rev-parse", "recovered") == old_tip
+        assert SyncService(str(dest)).root_hash() in _nodes(dest)
 
-    def test_clone_prints_address_in_human_mode(
+        # A plain pull afterwards is a no-op fast-forward.
+        res = _invoke(runner, ["-s", str(dest), "--json", "pull"], env=env)
+        assert json.loads(res.output)["forced"] is False
+
+    def test_pull_force_non_current_branch(
         self, runner, linked_store, cloud, env, tmp_root
     ):
         _invoke(runner, ["-s", str(linked_store), "push"], env=env)
-        res = _invoke(runner, ["clone", ADDRESS, str(tmp_root / "c")], env=env)
-        assert f"origin: {ADDRESS}" in res.output
-        _assert_no_ids(res.output)
+        dest = _second_machine(runner, env, tmp_root / "desktop")
+        # desktop diverges on a side branch that also exists on the cloud
+        _git(linked_store, "branch", "side")
+        _invoke(runner, ["-s", str(linked_store), "push", "--branch", "side"], env=env)
+        _git(dest, "branch", "side")
+        _git(dest, "commit", "-q", "--allow-empty", "-m", "local side work")
+        _git(dest, "branch", "-f", "side", "HEAD")
+        _git(dest, "reset", "-q", "--hard", "HEAD~1")
 
-    def test_clone_default_path_is_store_name(
-        self, runner, linked_store, cloud, env, tmp_root, monkeypatch
+        res = runner.invoke(cli, ["-s", str(dest), "pull", "--branch", "side"], env=env)
+        assert res.exit_code == EXIT_NON_FF
+        assert "--force --branch side" in res.output
+        res = _invoke(
+            runner,
+            ["-s", str(dest), "--json", "pull", "--branch", "side", "--force"],
+            env=env,
+        )
+        assert json.loads(res.output)["forced"] is True
+        assert _git(dest, "rev-parse", "side") == _git(
+            linked_store, "rev-parse", "side"
+        )
+        assert _git(dest, "symbolic-ref", "--short", "HEAD") == "main"  # untouched
+
+    def test_diverged_pull_force_after_both_sides_commit(
+        self, runner, linked_store, cloud, env, tmp_root
     ):
         _invoke(runner, ["-s", str(linked_store), "push"], env=env)
-        monkeypatch.chdir(tmp_root)
-        res = _invoke(runner, ["clone", ADDRESS], env=env)
+        dest = _second_machine(runner, env, tmp_root / "desktop")
+        _remember(runner, linked_store, "workflow.a", "one")
+        _invoke(runner, ["-s", str(linked_store), "push"], env=env)
+        _remember(runner, dest, "workflow.b", "two")
+
+        res = runner.invoke(cli, ["-s", str(dest), "pull"], env=env)
+        assert res.exit_code == EXIT_NON_FF
+        res = _invoke(runner, ["-s", str(dest), "pull", "--force"], env=env)
         assert res.exit_code == 0, res.output
-        assert (tmp_root / "demo" / ".git" / "memoir-backend").exists()
+        assert "replaced main" in res.output
+        res = _invoke(runner, ["-s", str(dest), "get", "workflow.a"])
+        assert "one" in res.output
+        res = runner.invoke(cli, ["-s", str(dest), "get", "workflow.b"])
+        assert "two" not in res.output
 
-    def test_clone_not_found_leaves_nothing_behind(self, runner, cloud, env, tmp_root):
-        """Acceptance 2."""
-        dest = tmp_root / "nope"
+    def test_pull_bad_key(self, runner, linked_store, env):
         res = runner.invoke(
-            cli, ["clone", f"{HANDLE}/does-not-exist", str(dest)], env=env
-        )
-        assert res.exit_code == 1
-        assert (
-            f"store {HANDLE}/does-not-exist not found (or you don't own it)"
-            in res.output
-        )
-        assert not dest.exists()
-        assert all("git" not in p for p in cloud.state.paths())
-
-    def test_clone_into_nonempty_dir_fails(self, runner, env, tmp_root):
-        dest = tmp_root / "busy"
-        dest.mkdir()
-        (dest / "x").write_text("x")
-        res = runner.invoke(cli, ["clone", ADDRESS, str(dest)], env=env)
-        assert res.exit_code == 1
-        assert "not empty" in res.output
-
-    def test_clone_bad_key(self, runner, env, tmp_root):
-        res = runner.invoke(
-            cli,
-            ["clone", ADDRESS, str(tmp_root / "c")],
-            env={**env, "MEMOIR_API_KEY": "bad"},
+            cli, ["-s", str(linked_store), "pull"], env={**env, "MEMOIR_API_KEY": "bad"}
         )
         assert res.exit_code == 1
         assert "not signed in: set MEMOIR_API_KEY" in res.output
 
-    def test_fetch_pull_fast_forwards_clone(
+    def test_fetch_pull_fast_forwards_second_machine(
         self, runner, linked_store, cloud, env, tmp_root
     ):
         _invoke(runner, ["-s", str(linked_store), "push"], env=env)
-        dest = tmp_root / "clone"
-        _invoke(runner, ["clone", ADDRESS, str(dest)], env=env)
+        dest = _second_machine(runner, env, tmp_root / "desktop")
 
         _remember(runner, linked_store, "workflow.coding.gates", "run tests")
         _invoke(runner, ["-s", str(linked_store), "push"], env=env)
@@ -701,8 +774,7 @@ class TestRoundTrip:
         self, runner, linked_store, cloud, env, tmp_root
     ):
         _invoke(runner, ["-s", str(linked_store), "push"], env=env)
-        dest = tmp_root / "clone"
-        _invoke(runner, ["clone", ADDRESS, str(dest)], env=env)
+        dest = _second_machine(runner, env, tmp_root / "desktop")
 
         _git(linked_store, "branch", "experiments")
         _invoke(
@@ -733,8 +805,7 @@ class TestRoundTrip:
         self, runner, linked_store, cloud, env, tmp_root
     ):
         _invoke(runner, ["-s", str(linked_store), "push"], env=env)
-        dest = tmp_root / "clone"
-        _invoke(runner, ["clone", ADDRESS, str(dest)], env=env)
+        dest = _second_machine(runner, env, tmp_root / "desktop")
 
         _remember(runner, linked_store, "workflow.coding.gates", "run tests")
         _invoke(runner, ["-s", str(linked_store), "push"], env=env)
@@ -745,7 +816,7 @@ class TestRoundTrip:
 
         res = _invoke(runner, ["-s", str(dest), "pull"], env=env)
         assert res.exit_code == 0, res.output
-        _remember(runner, dest, "workflow.x", "from clone")
+        _remember(runner, dest, "workflow.x", "from desktop")
         res = _invoke(runner, ["-s", str(dest), "push"], env=env)
         assert res.exit_code == 0, res.output
         assert _git(cloud.state.repo_for(HANDLE, "demo"), "rev-parse", "main") == _git(
@@ -754,8 +825,7 @@ class TestRoundTrip:
 
     def test_diverged_pull_rejected(self, runner, linked_store, cloud, env, tmp_root):
         _invoke(runner, ["-s", str(linked_store), "push"], env=env)
-        dest = tmp_root / "clone"
-        _invoke(runner, ["clone", ADDRESS, str(dest)], env=env)
+        dest = _second_machine(runner, env, tmp_root / "desktop")
 
         _remember(runner, linked_store, "workflow.a", "one")
         _invoke(runner, ["-s", str(linked_store), "push"], env=env)
@@ -773,8 +843,10 @@ class TestRoundTrip:
         _invoke(runner, ["-s", str(linked_store), "push"], env=env)
         cloud.state.page_size = 2
 
-        dest = tmp_root / "clone"
-        res = _invoke(runner, ["--json", "clone", ADDRESS, str(dest)], env=env)
+        dest = tmp_root / "desktop"
+        _invoke(runner, ["new", str(dest)])
+        _invoke(runner, ["-s", str(dest), "remote", "add", ADDRESS], env=env)
+        res = _invoke(runner, ["-s", str(dest), "--json", "pull"], env=env)
         assert res.exit_code == 0, res.output
         server_chunks = cloud.state.chunks_for(HANDLE, "demo")
         total = len(server_chunks)
@@ -783,7 +855,7 @@ class TestRoundTrip:
             p for p in cloud.state.paths("GET") if p.startswith(f"/{ADDRESS}/chunks?")
         ]
         assert len(listings) == -(-total // 2) + (1 if total % 2 == 0 else 0)
-        assert _nodes(dest) == set(server_chunks)
+        assert _nodes(dest) >= set(server_chunks)
         assert not list((dest / ".git/prolly/nodes/files").glob("*.partial.*"))
 
 
@@ -805,13 +877,11 @@ class TestKeyHygiene:
                 runner, ["-s", str(linked_store), "--json", "remote", "show"], env=env
             ).output
         )
-        dest = tmp_root / "clone"
-        outputs.append(
-            _invoke(runner, ["--json", "clone", ADDRESS, str(dest)], env=env).output
-        )
+        dest = _second_machine(runner, env, tmp_root / "desktop")
         outputs.append(
             _invoke(runner, ["-s", str(dest), "--json", "pull"], env=env).output
         )
+        outputs.append(_invoke(runner, ["-s", str(dest), "--json", "status"]).output)
 
         for out in outputs:
             assert API_KEY not in out

@@ -24,7 +24,7 @@ Any other MCP host: the **[MCP server](mcp.md)** (`memoir-mcp`) plugs memoir int
 
 Community: **[opencode-memoir](https://github.com/disafronov/opencode-memoir)** brings memoir to OpenCode.
 
-Across machines: **[Cloud Sync](cloud.md)** (`memoir push` / `pull` / `clone` against memoir-cloud, stores addressed as `<owner>/<store>`) keeps one store in step on every machine you work from. Requires `MEMOIR_API_KEY`.
+Across machines: **[Cloud Sync](cloud.md)** (`memoir push` / `pull` against memoir-cloud, stores addressed as `<owner>/<store>`) keeps one store in step on every machine you work from. Requires `MEMOIR_API_KEY`.
 
 ## Quick Example
 

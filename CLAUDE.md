@@ -49,7 +49,7 @@ pytest tests/ -k "test_function_name"
 - `src/memoir/search/` — single-stage `IntelligentSearchEngine`, taxonomy cached into the system prompt.
 - `src/memoir/core/` — `ProllyTreeMemoryStoreManager` (drop-in LangMem replacement), `ProfileMemento`, `TimelineMemento`.
 - `src/memoir/services/` — `StoreService`, `MemoryService`, `BranchService`, `CryptoService`, `SyncService` (reusable business logic). `SyncService` is the memoir-cloud client: stores addressed as `<owner>/<store>`, git remote `origin`, chunks before refs, gated on `MEMOIR_API_KEY`.
-- `src/memoir/cli/` — Click CLI (`memoir` entry point). Supports `--json` and the agent env vars `MEMOIR_STORE`, `MEMOIR_JSON`. Cloud verbs (`remote`, `push`, `pull`, `fetch`, `clone`) live in `cli/commands/sync.py`; tests use the fake gateway in `tests/fake_cloud.py` (real `git http-backend`, no network).
+- `src/memoir/cli/` — Click CLI (`memoir` entry point). Supports `--json` and the agent env vars `MEMOIR_STORE`, `MEMOIR_JSON`. Cloud verbs (`remote`, `push`, `pull`, `fetch`) live in `cli/commands/sync.py`; tests use the fake gateway in `tests/fake_cloud.py` (real `git http-backend`, no network).
 - `src/memoir/ui/` — web UI (Python HTTP server + React/Vite SPA). Handlers under `ui/handlers/`, frontend source under `ui/webapp/src/`, built bundle at `ui/webapp/dist/`.
 - `plugins/claude-code/` — Claude Code plugin: slash commands, skills, hooks.
 - `tests/` — unit + integration + versioning + CLI tests. Run with `pytest`.

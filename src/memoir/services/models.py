@@ -685,6 +685,11 @@ class PullResult:
     chunks_downloaded: int
     created: bool
     tip: str
+    # ``--force``: the local branch was replaced by the cloud copy; the tip it
+    # had before (short SHA) is kept at ``backup_ref`` so it can be recovered.
+    forced: bool = False
+    previous_tip: str | None = None
+    backup_ref: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -693,20 +698,7 @@ class PullResult:
             "chunks_downloaded": self.chunks_downloaded,
             "created": self.created,
             "tip": self.tip,
-        }
-
-
-@dataclass
-class CloneResult:
-    path: str
-    address: str
-    branch: str
-    chunks_downloaded: int
-
-    def to_dict(self) -> dict[str, Any]:
-        return {
-            "path": self.path,
-            "origin": self.address,
-            "branch": self.branch,
-            "chunks_downloaded": self.chunks_downloaded,
+            "forced": self.forced,
+            "previous_tip": self.previous_tip,
+            "backup_ref": self.backup_ref,
         }

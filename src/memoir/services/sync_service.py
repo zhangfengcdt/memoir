@@ -17,7 +17,11 @@ cloud serves both:
    prollytree node hashes; nothing is re-hashed.
 
 Cloud stores are addressed as ``<owner>/<store>`` everywhere a user types or
-reads something. The server's opaque ``str_…`` id is never printed, stored
+reads something. There is deliberately no ``clone``: local stores are created
+automatically (plugin SessionStart, or the first memoir command), so the
+second-machine flow is ``memoir remote add <owner>/<store>`` then
+``memoir pull``, and ``pull`` adopts the cloud history when the local store
+is still pristine. The server's opaque ``str_…`` id is never printed, stored
 in user-visible config, or accepted as input.
 
 Push ordering is mandatory: every chunk PUT must succeed before ``git push``
@@ -44,7 +48,6 @@ from urllib.parse import urlsplit
 
 from memoir.services.base import BaseService, GitOperationError, ServiceError
 from memoir.services.models import (
-    CloneResult,
     FetchResult,
     PullResult,
     PushResult,
@@ -60,10 +63,14 @@ API_KEY_ENV = "MEMOIR_API_KEY"
 GATEWAY_ENV = "MEMOIR_CLOUD_URL"
 DEFAULT_GATEWAY = "https://api-gateway-production-ab56.up.railway.app"
 REMOTE_NAME = "origin"
+BACKUP_REF_PREFIX = "refs/memoir/backup/"  # where `pull --force` parks the old tip
 CLOUD_BRANCH_PREFIX = "cloud/"
 EXIT_NON_FF = 6
 
 CHUNK_HASH_RE = re.compile(r"^[0-9a-f]{16,128}$")
+# Root hash of prollytree's empty tree (sha256 of nothing): what a brand-new
+# store's auto-generated initial commit points at.
+EMPTY_ROOT_HASH = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 NEGOTIATE_BATCH = 500
 LIST_PAGE = 1000
 CHUNK_CONCURRENCY = 8
@@ -521,9 +528,14 @@ class SyncService(BaseService):
             self._git(["config", "--add", f"remote.{REMOTE_NAME}.fetch", cloud_spec])
 
     def default_address(self, gateway: str | None = None) -> str:
-        """``<handle>/<store directory name>`` for `remote add` with no argument."""
+        """``<handle>/<directory name>`` for `remote add` with no argument.
+
+        The directory is the current working directory (the project the
+        user is in), not the store directory: plugin-managed stores live
+        under ``~/.memoir/<path-slug>`` and that slug is not a useful name.
+        """
         gateway = resolve_gateway(gateway)
-        name = Path(self.store_path).name
+        name = Path.cwd().name
         error = validate_store_name(name)
         if error:
             raise ServiceError(
@@ -612,30 +624,6 @@ class SyncService(BaseService):
             with ThreadPoolExecutor(max_workers=CHUNK_CONCURRENCY) as pool:
                 list(pool.map(download, wanted))
         return len(wanted)
-
-    def _checkout_default_branch(self) -> None:
-        """After `git clone`: if HEAD is unborn (the server advertised no
-        usable HEAD), check out ``main`` or, failing that, the first user
-        branch the cloud has. An empty cloud store is left as is."""
-        if self._ref_exists("HEAD"):
-            return
-        remote_branches = [
-            ref.split("/", 1)[1]
-            for ref in self._git(
-                [
-                    "for-each-ref",
-                    "--format=%(refname:short)",
-                    f"refs/remotes/{REMOTE_NAME}/",
-                ]
-            ).stdout.split()
-            if "/" in ref
-            and not ref.endswith("/HEAD")
-            and not ref.split("/", 1)[1].startswith(CLOUD_BRANCH_PREFIX)
-        ]
-        if not remote_branches:
-            return
-        branch = "main" if "main" in remote_branches else sorted(remote_branches)[0]
-        self._git(["checkout", "-q", "-B", branch, f"{REMOTE_NAME}/{branch}"])
 
     def root_hash(self) -> str | None:
         """Hex root hash from the tracked ``data/prolly_config_tree_config``."""
@@ -740,18 +728,68 @@ class SyncService(BaseService):
             address=address, chunks_downloaded=downloaded, remote_refs=refs
         )
 
-    def _raise_pull_failure(self, result: subprocess.CompletedProcess, op: str) -> None:
+    @staticmethod
+    def _diverged_message(branch: str) -> str:
+        """Both the "grew its own memories before linking" case and the
+        "both machines committed since the last sync" case end here: the
+        local branch has commits the cloud does not, and vice versa."""
+        return (
+            "local and cloud histories have diverged; cloud merge is not "
+            "available yet. To discard the local memories on this branch and "
+            f"adopt the cloud copy: memoir pull --force --branch {branch}"
+        )
+
+    def _raise_pull_failure(
+        self, result: subprocess.CompletedProcess, op: str, branch: str
+    ) -> None:
         if result.returncode == 0:
             return
         stderr = redact(result.stderr, self._key)
         if "fast-forward" in stderr or "rejected" in stderr:
-            raise NonFastForwardError(
-                "local and cloud histories have diverged; "
-                "cloud merge is not available yet"
-            )
+            raise NonFastForwardError(self._diverged_message(branch))
         raise GitOperationError(f"{op} failed: {stderr.strip()}")
 
-    def pull(self, branch: str | None = None) -> PullResult:
+    def _shares_history(self, branch: str, remote_ref: str) -> bool:
+        """False when the two refs have no common ancestor (unrelated
+        histories): a store that grew its own memories before being linked."""
+        result = self._git(
+            ["merge-base", f"refs/heads/{branch}", remote_ref], check=False
+        )
+        return result.returncode == 0
+
+    def _is_pristine(self, branch: str) -> bool:
+        """True iff ``branch`` holds only prollytree's auto-generated initial
+        commit (the empty tree) and nothing else.
+
+        Local stores are created automatically (by the plugin on
+        SessionStart, or by the first memoir command), so a never-used
+        store already has one commit by the time it is linked. Pulling
+        into it must adopt the cloud history rather than refuse to merge
+        unrelated histories.
+        """
+        count = self._git(["rev-list", "--count", f"refs/heads/{branch}"]).stdout
+        if count.strip() != "1":
+            return False
+        config = self._git(
+            ["show", f"refs/heads/{branch}:data/prolly_config_tree_config"],
+            check=False,
+        )
+        if config.returncode != 0:
+            return False
+        root = json.loads(config.stdout).get("root_hash")
+        return bool(root) and bytes(root).hex() == EMPTY_ROOT_HASH
+
+    def pull(self, branch: str | None = None, force: bool = False) -> PullResult:
+        """Fetch, then move ``branch`` to the cloud tip.
+
+        Fast-forward only, with two exceptions: a branch that does not exist
+        locally is created, and a pristine local store (only prollytree's
+        initial commit) adopts the cloud history. Anything else that is not
+        a fast-forward is rejected unless ``force`` is set, in which case the
+        local branch is replaced by the cloud copy; the previous tip is
+        kept under ``refs/memoir/backup/<branch>`` and reported so it can be
+        recovered (``git branch <name> refs/memoir/backup/<branch>``).
+        """
         fetched = self.fetch()
         current = self._current_branch()
         branch = branch or current
@@ -760,19 +798,39 @@ class SyncService(BaseService):
             raise ServiceError(f"cloud has no branch '{branch}'", code=2)
 
         created = False
+        forced = False
+        previous_tip: str | None = None
+        backup_ref: str | None = None
         if not self._ref_exists(f"refs/heads/{branch}"):
             self._git(["branch", branch, remote_ref])
             created = True
+        elif self._is_pristine(branch):
+            # Never-used local store: adopt the cloud history outright.
+            self._replace_branch(branch, remote_ref, current)
+            created = True
+        elif force:
+            previous_tip = self._git(
+                ["rev-parse", "--short", f"refs/heads/{branch}"]
+            ).stdout.strip()
+            # prollytree writes commits without touching git's reflog, so
+            # the old tip would otherwise be unreferenced. Keep it under a
+            # hidden ref (not a branch, so it never shows up in listings).
+            backup_ref = f"{BACKUP_REF_PREFIX}{branch}"
+            self._git(["update-ref", backup_ref, f"refs/heads/{branch}"])
+            self._replace_branch(branch, remote_ref, current)
+            forced = True
+        elif not self._shares_history(branch, remote_ref):
+            raise NonFastForwardError(self._diverged_message(branch))
         elif branch == current:
             result = self._git(["merge", "--ff-only", remote_ref], check=False)
-            self._raise_pull_failure(result, "git merge --ff-only")
+            self._raise_pull_failure(result, "git merge --ff-only", branch)
         else:
             # Fast-forward a non-checked-out branch; a plain (non-`+`) refspec
             # is rejected by git unless the update is a fast-forward.
             result = self._git(
                 ["fetch", ".", f"{remote_ref}:refs/heads/{branch}"], check=False
             )
-            self._raise_pull_failure(result, "git fetch")
+            self._raise_pull_failure(result, "git fetch", branch)
 
         if branch == current:
             # Same pattern BranchService uses: make the working tree match HEAD
@@ -787,61 +845,15 @@ class SyncService(BaseService):
             chunks_downloaded=fetched.chunks_downloaded,
             created=created,
             tip=tip,
+            forced=forced,
+            previous_tip=previous_tip,
+            backup_ref=backup_ref,
         )
 
-
-def clone(
-    address: str, path: str | None = None, gateway: str | None = None
-) -> CloneResult:
-    """Clone a cloud store into ``path`` and make it a usable memoir store.
-
-    The address is resolved before anything touches disk, so an unknown or
-    not-owned store leaves no partial directory behind.
-    """
-    gateway = resolve_gateway(gateway)
-    key = api_key()
-    owner, store_name = parse_address(address)
-    target = Path(path or store_name).expanduser().resolve()
-    if target.exists() and any(target.iterdir()):
-        raise ServiceError(f"destination already exists and is not empty: {target}")
-
-    with CloudClient(gateway, key) as client:
-        client.handle()
-        client.resolve(owner, store_name)
-
-    url = remote_url(gateway, owner, store_name)
-    result = subprocess.run(
-        [
-            "git",
-            "-c",
-            f"http.extraHeader=Authorization: Bearer {key}",
-            "clone",
-            "--origin",
-            REMOTE_NAME,
-            url,
-            str(target),
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-        env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
-    )
-    if result.returncode != 0:
-        raise GitOperationError(
-            f"git clone failed: {redact(result.stderr.strip(), key)}"
-        )
-
-    (target / ".git" / "memoir-backend").write_text("file\n")
-    service = SyncService(str(target))
-    service._nodes_dir().mkdir(parents=True, exist_ok=True)
-    service._ensure_cloud_refspec()
-    service._checkout_default_branch()
-    with service._client(gateway) as client:
-        downloaded = service._download_chunks(client, format_address(owner, store_name))
-    service._verify_root_chunk()
-    return CloneResult(
-        path=str(target),
-        address=format_address(owner, store_name),
-        branch=service._current_branch(),
-        chunks_downloaded=downloaded,
-    )
+    def _replace_branch(self, branch: str, remote_ref: str, current: str) -> None:
+        """Point ``branch`` at ``remote_ref``, updating the working tree when
+        it is the checked-out branch."""
+        if branch == current:
+            self._git(["reset", "-q", "--hard", remote_ref])
+        else:
+            self._git(["branch", "-f", branch, remote_ref])

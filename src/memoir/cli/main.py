@@ -140,12 +140,11 @@ def get_cli_schema(group: click.Group) -> dict[str, Any]:
             ),
             "MEMOIR_API_KEY": (
                 "memoir-cloud API key. Enables the cloud sync commands "
-                "(remote, push, pull, fetch, clone). Unset = COMMUNITY tier."
+                "(remote, push, pull, fetch). Unset = COMMUNITY tier."
             ),
             "MEMOIR_CLOUD_URL": (
-                "memoir-cloud gateway URL used by `memoir remote add`, "
-                "`memoir push --create` and `memoir clone` (default: "
-                "production gateway)."
+                "memoir-cloud gateway URL used by `memoir remote add` and "
+                "`memoir push --create` (default: production gateway)."
             ),
         },
         "global_options": [],
@@ -189,7 +188,7 @@ def get_cli_schema(group: click.Group) -> dict[str, Any]:
         "crypto": ["proof", "verify", "blame"],
         "analysis": ["summarize"],
         "taxonomy": ["taxonomy"],
-        "cloud": ["remote", "push", "pull", "fetch", "clone"],
+        "cloud": ["remote", "push", "pull", "fetch"],
         "utility": ["ui", "tui"],
     }
 
@@ -338,7 +337,7 @@ def cli(
       Branch:   branch, checkout, merge, sync-branch, time-travel, diff
       Crypto:   proof, verify, blame
       Analysis: summarize
-      Cloud:    remote, push, pull, fetch, clone  (requires MEMOIR_API_KEY)
+      Cloud:    remote, push, pull, fetch  (requires MEMOIR_API_KEY)
       Utility:  ui, tui
 
     \b
@@ -365,7 +364,7 @@ def cli(
       MEMOIR_LLM_BASE_URL  Custom provider endpoint (LLM gateway/proxy) for
                            the litellm backend; unset = provider default
       MEMOIR_API_KEY       memoir-cloud API key; unlocks remote/push/pull/
-                           fetch/clone (PRO). Never written to disk.
+                           fetch (PRO). Never written to disk.
       MEMOIR_CLOUD_URL     memoir-cloud gateway URL (default: production)
 
     \b
@@ -449,7 +448,6 @@ cli.add_command(sync.remote)
 cli.add_command(sync.push)
 cli.add_command(sync.pull)
 cli.add_command(sync.fetch)
-cli.add_command(sync.clone)
 
 # Utility commands
 cli.add_command(ui.ui)

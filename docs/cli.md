@@ -25,8 +25,8 @@ Add `--json` at the group level for machine-readable output (recommended when sc
 | `MEMOIR_MERGE_POLICY` | Global conflict-resolution strategy for `remember` when a key already exists, overriding the per-type default but below an explicit `--merge-policy`. `=replace` restores the old overwrite-everywhere behaviour. See [Conflict resolution](#memoir-remember-conflict-resolution). |
 | `MEMOIR_FACET_MAX_ENTRIES` | Cap on facet entries per key for append-style writes (oldest pruned). Default `50`; `0`/`none` disables capping. |
 | `MEMOIR_RECALL_MERGE` | If `llm`, enables merge-on-read: a multi-entry key's content is LLM-consolidated at read time. Off by default (the deterministic projection is used). |
-| `MEMOIR_API_KEY` | memoir-cloud API key. Unlocks the cloud sync commands (`remote`, `push`, `pull`, `fetch`, `clone`). Unset = COMMUNITY tier, no behaviour change. Never written to disk. See [Cloud Sync](cloud.md). |
-| `MEMOIR_CLOUD_URL` | memoir-cloud gateway URL for `remote add` / `clone` when `--url` is not passed. Default: the production gateway. |
+| `MEMOIR_API_KEY` | memoir-cloud API key. Unlocks the cloud sync commands (`remote`, `push`, `pull`, `fetch`). Unset = COMMUNITY tier, no behaviour change. Never written to disk. See [Cloud Sync](cloud.md). |
+| `MEMOIR_CLOUD_URL` | memoir-cloud gateway URL for `remote add` / `push --create` when `--url` is not passed. Default: the production gateway. |
 
 ### Global flags
 
@@ -273,7 +273,7 @@ memoir --json get preferences.coding.style preferences.tools.editor
 
 ## Cloud sync commands
 
-`memoir remote`, `push`, `pull`, `fetch`, and `clone` round-trip a local store with [memoir-cloud](https://github.com/zhangfengcdt/memoir-cloud), so the same memories follow your agent across machines. They are gated on `MEMOIR_API_KEY`: without it every cloud command exits 1 with `Cloud sync requires MEMOIR_API_KEY (PRO)` and nothing else in memoir changes. The rules behind the commands (addresses, what syncs, fast-forward only, key handling) are in the [Cloud Sync](cloud.md) reference; this section is a hands-on guide.
+`memoir remote`, `push`, `pull`, and `fetch` round-trip a local store with [memoir-cloud](https://github.com/zhangfengcdt/memoir-cloud), so the same memories follow your agent across machines. They are gated on `MEMOIR_API_KEY`: without it every cloud command exits 1 with `Cloud sync requires MEMOIR_API_KEY (PRO)` and nothing else in memoir changes. The rules behind the commands (addresses, what syncs, fast-forward only, key handling) are in the [Cloud Sync](cloud.md) reference; this section is a hands-on guide.
 
 ```bash
 export MEMOIR_API_KEY=mck_...     # created on the gateway's API-keys page
@@ -288,8 +288,7 @@ Cloud stores are addressed GitHub-style as `<owner>/<store>`, where `owner` is y
 | `memoir remote show` / `memoir remote remove` | Show the address, gateway, branch and cloud summary; or unlink. |
 | `memoir push [--branch <b>]` | Upload the chunks the cloud is missing, **then** `git push`. Default: current branch. |
 | `memoir fetch` | Download new refs and chunks. Moves no local branch. |
-| `memoir pull [--branch <b>]` | `fetch`, then fast-forward the branch (created from the cloud if missing locally). |
-| `memoir clone <owner>/<store> [path]` | Clone a cloud store into a new, ready-to-use local store (default path: the store name). |
+| `memoir pull [--branch <b>] [--force]` | `fetch`, then fast-forward the branch. Creates it from the cloud if missing locally; a never-used local store adopts the cloud history. `--force` replaces the local branch with the cloud copy. |
 | `memoir status` | Adds `origin: <owner>/<store>` when a cloud remote is configured. |
 
 All of them accept `--json`.
@@ -333,39 +332,39 @@ If the name is taken you get `store name already exists; pick another or run mem
 
 ### Pick it up on your desktop
 
-Export the same key and clone by address. The destination defaults to the store name:
+You never create the local store by hand. The Claude Code plugin creates one per project on session start, and any memoir command creates one on first use. So on the second machine, open the same project, export the same key, link the store that is already there, and pull:
 
 ```bash
 export MEMOIR_API_KEY=mck_...
-memoir clone feng-zhang/memories ~/memories
-```
-
-```text
-✓ cloned feng-zhang/memories into /Users/you/memories (3 chunks)
-→ origin: feng-zhang/memories
-→ To use this store: export MEMOIR_STORE=/Users/you/memories
-```
-
-The clone is a complete memoir store with `origin` already set, so no `remote add` is needed:
-
-```bash
-export MEMOIR_STORE=~/memories
-memoir status
-memoir recall "lint"
-```
-
-`clone` resolves the address before writing anything. An unknown store, or one you do not own, fails with `store feng-zhang/typo not found (or you don't own it)` and leaves no directory behind. It also checks that the chunk named by the store's root hash was downloaded.
-
-### Linking an existing local store
-
-If a local store already exists on the second machine and you want it to follow a cloud store instead of cloning, link it:
-
-```bash
 memoir remote add feng-zhang/memories
 memoir pull
 ```
 
-Run `memoir remote add` with no argument and it proposes `<your handle>/<directory name>` and asks before resolving. A full `https://<gateway>/<owner>/<store>` URL is accepted in place of the address.
+```text
+✓ origin: feng-zhang/memories
+✓ created main to 7d3f1a9 (3 new chunks)
+```
+
+Because the local store had never been used, `pull` adopted the cloud history outright. From here `status`, `recall`, and `get` see the laptop's memories:
+
+```bash
+memoir status
+memoir recall "lint"
+```
+
+`remote add` resolves the address first. An unknown store, or one you do not own, fails with `store feng-zhang/typo not found (or you don't own it)` and nothing is written. After `pull`, memoir also checks that the chunk named by the store's root hash was downloaded.
+
+If the local store already holds memories of its own, `pull` refuses rather than guess:
+
+```text
+✗ local and cloud histories have diverged; cloud merge is not available yet. To discard the local memories on this branch and adopt the cloud copy: memoir pull --force --branch main
+```
+
+Either push those memories to their own cloud store (`memoir remote remove`, then `memoir push --create <other-name>`), or adopt the cloud copy with `memoir pull --force`, which replaces the local branch and keeps the tip it had before under `refs/memoir/backup/<branch>` (recover with `git branch <name> refs/memoir/backup/<branch>`).
+
+### Linking without typing the address
+
+Run `memoir remote add` with no argument and it proposes `<your handle>/<current directory name>` and asks before resolving. In a project folder called `memories` that is `feng-zhang/memories`. A full `https://<gateway>/<owner>/<store>` URL is accepted in place of the address.
 
 ### The daily loop
 
@@ -403,15 +402,18 @@ If both machines committed since the last sync, the histories have diverged and 
 ✗ local and cloud histories have diverged; cloud merge is not available yet
 ```
 
-Cloud-side merge is planned but not available yet. Until then, pick a side. To keep the cloud version and reapply your local memories on top, use git inside the store (a memoir store is an ordinary git repo):
+Cloud-side merge is planned but not available yet. Until then, pick a side. To keep the cloud version, force-pull. Look at what you are giving up first; afterwards the old tip is kept under `refs/memoir/backup/main` in case you need it:
 
 ```bash
 memoir fetch                                  # cloud refs + chunks are now local
-git -C "$MEMOIR_STORE" branch local-work      # keep a copy of your local history
-git -C "$MEMOIR_STORE" reset --hard origin/main   # move main to the cloud tip
-memoir diff local-work main                   # see what to carry over
-memoir remember "..."                         # re-add what matters
+memoir diff main origin/main                  # see what differs before deciding
+memoir pull --force                           # main := origin/main
+memoir remember "..."                         # re-add anything that mattered
 memoir push
+```
+
+```text
+✓ replaced main (was 3f9c2b1, kept at refs/memoir/backup/main) with origin/main at 9c1e2f0 (2 new chunks)
 ```
 
 To keep the local version instead, unlink with `memoir remote remove` and start a new cloud store with `memoir push --create <new-name>`.
@@ -470,9 +472,9 @@ fi
 }
 ```
 
-Every JSON result carries the address as `origin`. `fetch` adds `chunks_downloaded` and `remote_refs`; `pull` adds `branch`, `created`, and `tip`; `clone` adds `path`, `branch`, and `chunks_downloaded`.
+Every JSON result carries the address as `origin`. `fetch` adds `chunks_downloaded` and `remote_refs`; `pull` adds `branch`, `created`, `tip`, `chunks_downloaded`, `forced`, `previous_tip`, and `backup_ref`.
 
-To use a different gateway, such as a staging deployment, pass `--url` to `remote add`, `push --create`, or `clone`, or set `MEMOIR_CLOUD_URL` once. After linking, the gateway lives on the `origin` URL, so the other verbs need neither.
+To use a different gateway, such as a staging deployment, pass `--url` to `remote add` or `push --create`, or set `MEMOIR_CLOUD_URL` once. After linking, the gateway lives on the `origin` URL, so the other verbs need neither.
 
 ### Unlinking
 
@@ -490,7 +492,7 @@ To use a different gateway, such as a staging deployment, pass `--url` to `remot
 | `store name already exists` | `--create` with a name you already use. | Pick another name, or `memoir remote add <handle>/<name>`. |
 | `remote 'origin' already exists (...); pass --force to replace it` | The store is linked already. | Use `remote show`, or `remote add ... --force` to relink. |
 | `remote has commits you don't have; run memoir pull first` (exit 6) | The cloud is ahead. | `memoir pull`, then push again. |
-| `local and cloud histories have diverged` (exit 6) | Both sides committed since the last sync. | See "When the cloud is ahead" above. |
+| `local and cloud histories have diverged` (exit 6) | Both sides have commits the other lacks: both machines captured since the last sync, or the local store grew memories before it was linked. | See "When the cloud is ahead" above, or adopt the cloud copy with `memoir pull --force`. |
 | `root chunk ... is missing locally after sync` | A chunk download did not complete. | Run `memoir fetch` again. |
 
 Memoir never writes the key to disk and never prints the cloud's internal store ids. If either ever appears in output, that is a bug: please report it.
@@ -506,6 +508,6 @@ The rest of the CLI surface is documented inline via `--help`. Command groups at
 | Branch | `branch`, `checkout`, `merge`, `time-travel`, `diff`, `branch-match` | `memoir branch --help` |
 | Crypto | `proof`, `verify`, `blame` | `memoir proof --help` |
 | Analysis | `summarize` | `memoir summarize --help` |
-| Cloud sync | `remote`, `push`, `pull`, `fetch`, `clone` — stores addressed as `<owner>/<store>` (requires `MEMOIR_API_KEY`; see [Cloud Sync](cloud.md)) | `memoir push --help` |
+| Cloud sync | `remote`, `push`, `pull`, `fetch` — stores addressed as `<owner>/<store>` (requires `MEMOIR_API_KEY`; see [Cloud Sync](cloud.md)) | `memoir push --help` |
 
 For the underlying Python APIs these commands call into, see the [API Reference](api/memoir.md).

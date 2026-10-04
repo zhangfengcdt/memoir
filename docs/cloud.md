@@ -1,16 +1,18 @@
 # Cloud Sync
 
-`memoir remote`, `push`, `pull`, `fetch`, and `clone` round-trip a local memoir store with [memoir-cloud](https://github.com/zhangfengcdt/memoir-cloud). The commands exist in every install but are gated on `MEMOIR_API_KEY`: without the variable, memoir behaves exactly as before (COMMUNITY tier) and the cloud commands exit 1 with `Cloud sync requires MEMOIR_API_KEY (PRO)`.
+`memoir remote`, `push`, `pull`, and `fetch` round-trip a local memoir store with [memoir-cloud](https://github.com/zhangfengcdt/memoir-cloud). The commands exist in every install but are gated on `MEMOIR_API_KEY`: without the variable, memoir behaves exactly as before (COMMUNITY tier) and the cloud commands exit 1 with `Cloud sync requires MEMOIR_API_KEY (PRO)`.
 
 ```bash
 export MEMOIR_API_KEY=mck_...        # from the gateway's API-keys page
 memoir push --create memories        # create <your-handle>/memories and push
 
-# on another machine
-memoir clone feng-zhang/memories ~/memories
-export MEMOIR_STORE=~/memories
+# on another machine, in the same project (the plugin already created the store)
+memoir remote add feng-zhang/memories
+memoir pull
 memoir recall "preferences"
 ```
+
+There is no `clone`. Local stores are created automatically (by the Claude Code plugin on session start, or by the first memoir command), so linking is always done on a store that already exists, and `pull` adopts the cloud history when that store is still empty.
 
 For a hands-on walkthrough see [Cloud sync commands](cli.md#cloud-sync-commands) on the CLI page.
 
@@ -44,23 +46,20 @@ Node filenames are prollytree node hashes and are treated as opaque identifiers;
 | `memoir remote show` / `remove` | Print the address, gateway, branch and cloud summary; or unlink. |
 | `memoir push [--branch <b>] [--create <store>]` | Upload every chunk the cloud is missing, **then** `git push`. `--create <store>` first creates that cloud store under your handle and links it as `origin`. Default branch: current. |
 | `memoir fetch` | `git fetch` all branches, tags, and `refs/cloud/*`; download every chunk not present locally. Moves no local branch. |
-| `memoir pull [--branch <b>]` | `fetch`, then fast-forward the branch (creating it from the cloud if it does not exist locally). |
-| `memoir clone <owner>/<store> [path] [--url <gateway>]` | Resolve the address, `git clone`, mark the store file-backed, download all chunks, verify the root chunk. Default path: the store name. |
+| `memoir pull [--branch <b>] [--force]` | `fetch`, then fast-forward the branch. A branch that does not exist locally is created from the cloud; a pristine local store (only prollytree's initial commit, no memories) adopts the cloud history. `--force` replaces the local branch with the cloud copy, discarding local memories on it; the previous tip is kept under `refs/memoir/backup/<branch>` and printed. |
 | `memoir status` | Shows `origin: <owner>/<store>` when a cloud remote is configured. |
 
 All commands support `--json`; the JSON carries the address as `origin`, never an id.
 
 ## Rules
 
-**Fast-forward only.** User branches on the cloud never rewind. If the cloud is ahead, `memoir push` exits with code 6 and `remote has commits you don't have; run memoir pull first`. If local and cloud histories have diverged, `memoir pull` also exits 6 (`local and cloud histories have diverged; cloud merge is not available yet`). Cloud-side merge is planned; memoir does not attempt a local merge of cloud history.
+**Fast-forward only.** User branches on the cloud never rewind. If the cloud is ahead, `memoir push` exits with code 6 and `remote has commits you don't have; run memoir pull first`. If local and cloud histories have diverged, `memoir pull` also exits 6 (`local and cloud histories have diverged; cloud merge is not available yet`) and points at `memoir pull --force`, the one explicit way to discard the local memories on that branch and take the cloud copy. Linking a store that already holds its own memories to a cloud store with a different history is the same situation and gets the same answer. Cloud-side merge is planned; memoir does not attempt a local merge of cloud history.
 
 **Chunks before refs.** `push` only runs `git push` after every chunk upload has succeeded. A failed upload never results in a git push, so no cloud ref ever points at a commit whose root chunk is missing. The server enforces the same invariant: it refuses to advance a ref unless the root hash in the pushed commit is an uploaded chunk.
 
 **`cloud/*` branches are read-only locally.** Branches under `refs/cloud/*` are cloud-owned proposal branches. `fetch` makes them visible as `origin/cloud/...`; `push` refuses a branch whose name starts with `cloud/`.
 
-**Root chunk check.** After `pull` and `clone`, memoir verifies that the chunk named by the tracked root hash exists locally and errors otherwise, so the store is never left pointing at missing data.
-
-**No partial clones.** `clone` resolves the address before touching disk, so an unknown or not-owned store leaves no directory behind.
+**Root chunk check.** After `pull`, memoir verifies that the chunk named by the tracked root hash exists locally and errors otherwise, so the store is never left pointing at missing data.
 
 ## Key handling
 
@@ -74,7 +73,7 @@ All commands support `--json`; the JSON carries the address as `origin`, never a
 | Variable | Effect |
 |---|---|
 | `MEMOIR_API_KEY` | Enables the cloud commands (PRO tier). |
-| `MEMOIR_CLOUD_URL` | Gateway URL used by `remote add`, `push --create` and `clone` when `--url` is not passed. Default: the production gateway. After linking, the gateway is read back from the `origin` URL. |
+| `MEMOIR_CLOUD_URL` | Gateway URL used by `remote add` and `push --create` when `--url` is not passed. Default: the production gateway. After linking, the gateway is read back from the `origin` URL. |
 
 ## Exit codes
 

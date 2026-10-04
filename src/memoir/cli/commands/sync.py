@@ -2,7 +2,7 @@
 """
 Cloud sync commands for memoir CLI.
 
-Commands: remote (add/show/remove), push, pull, fetch, clone
+Commands: remote (add/show/remove), push, pull, fetch
 
 Cloud stores are addressed GitHub-style as ``<owner>/<store>``. All of these
 commands are gated on ``MEMOIR_API_KEY``; without it memoir behaves exactly
@@ -154,7 +154,7 @@ def remote_remove(ctx: MemoirContext):
 
 
 # --------------------------------------------------------------------------
-# push / fetch / pull / clone
+# push / fetch / pull
 # --------------------------------------------------------------------------
 
 
@@ -229,71 +229,49 @@ def fetch(ctx: MemoirContext):
 
 @click.command()
 @click.option("-b", "--branch", help="Branch to pull (default: current)")
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Replace the local branch with the cloud copy, discarding local memories",
+)
 @pass_context
-def pull(ctx: MemoirContext, branch: str | None):
+def pull(ctx: MemoirContext, branch: str | None, force: bool):
     """Fetch and fast-forward a branch to the cloud tip.
 
     INPUT: Optional branch name (default: current branch).
     OUTPUT: Branch, new tip, chunks downloaded.
 
-    Runs `memoir fetch`, then fast-forwards the branch (creating it from the
-    cloud if it does not exist locally). Diverged histories are rejected with
-    exit code 6 — cloud merge is a later feature.
+    Runs `memoir fetch`, then fast-forwards the branch. A branch missing
+    locally is created from the cloud; a never-used local store adopts the
+    cloud history. Anything else that is not a fast-forward (both sides have
+    commits the other lacks) is rejected with exit code 6 — cloud merge is a
+    later feature. Pass --force to discard the local memories on that branch
+    and take the cloud copy instead; the previous tip is kept under
+    refs/memoir/backup/<branch> and printed.
 
     \b
     Examples:
       memoir pull
       memoir pull --branch experiments
+      memoir pull --force              # local main := cloud main
 
     \b
-    JSON output includes: origin, branch, chunks_downloaded, created, tip
+    JSON output includes: origin, branch, chunks_downloaded, created, tip,
+    forced, previous_tip, backup_ref
     """
     _require_store(ctx)
     _require_cloud(ctx)
-    result = _run(ctx, lambda: _service(ctx).pull(branch))
-    verb = "created" if result.created else "fast-forwarded"
-    ctx.success(
-        f"{verb} {result.branch} to {result.tip} "
-        f"({result.chunks_downloaded} new chunks)",
-        result.to_dict(),
-    )
-
-
-@click.command()
-@click.argument("address")
-@click.argument("path", required=False)
-@click.option("--url", help="Gateway URL (default: MEMOIR_CLOUD_URL or production)")
-@pass_context
-def clone(ctx: MemoirContext, address: str, path: str | None, url: str | None):
-    """Clone a cloud store into a new local memoir store.
-
-    INPUT: Cloud store address <owner>/<store> (a https://<gateway>/<owner>/<store>
-    URL is accepted too) and an optional destination (default: the store name).
-    OUTPUT: Path, branch, chunks downloaded.
-
-    Resolves the address first (nothing is written for an unknown store), then
-    runs git clone, marks the store file-backed, downloads every chunk, and
-    verifies the root chunk is present. The remote is `origin`, so push, pull,
-    and fetch work immediately.
-
-    \b
-    Examples:
-      memoir clone feng-zhang/demo
-      memoir clone feng-zhang/demo ~/memories
-      export MEMOIR_STORE=~/memories && memoir recall "preferences"
-
-    \b
-    JSON output includes: path, origin, branch, chunks_downloaded
-    """
-    _require_cloud(ctx)
-    from memoir.services import sync_service
-
-    result = _run(ctx, lambda: sync_service.clone(address, path, url))
-    ctx.success(
-        f"cloned {result.address} into {result.path} "
-        f"({result.chunks_downloaded} chunks)",
-        result.to_dict(),
-    )
-    if not ctx.json_output:
-        ctx.info(f"origin: {result.address}")
-        ctx.info(f"To use this store: export MEMOIR_STORE={result.path}")
+    result = _run(ctx, lambda: _service(ctx).pull(branch, force))
+    if result.forced:
+        message = (
+            f"replaced {result.branch} (was {result.previous_tip}, kept at "
+            f"{result.backup_ref}) with origin/{result.branch} at {result.tip} "
+            f"({result.chunks_downloaded} new chunks)"
+        )
+    else:
+        verb = "created" if result.created else "fast-forwarded"
+        message = (
+            f"{verb} {result.branch} to {result.tip} "
+            f"({result.chunks_downloaded} new chunks)"
+        )
+    ctx.success(message, result.to_dict())

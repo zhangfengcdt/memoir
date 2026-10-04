@@ -12,7 +12,7 @@ with GitHub-style ``<owner>/<store>`` addressing:
   ``PUT|GET /{owner}/{store}/chunks/{hash}``
 - ``GET /{owner}/{store}/info/refs``, ``POST .../git-receive-pack``,
   ``POST .../git-upload-pack`` — delegated to the real ``git http-backend``
-  CGI over a bare repo, so the git half of push/fetch/clone is exercised with
+  CGI over a bare repo, so the git half of push/fetch/pull is exercised with
   the real ``git`` binary and no network.
 
 Every request is recorded (method, path, headers, body) so tests can assert
@@ -81,15 +81,6 @@ class FakeCloudState:
         )
         subprocess.run(
             ["git", "-C", str(repo), "config", "http.receivepack", "true"],
-            check=True,
-            capture_output=True,
-        )
-        # Worst case for clients: the advertised HEAD names a branch that
-        # does not exist (what an unset init.defaultBranch gives on CI). A
-        # plain `git clone` then lands on an unborn branch; the client must
-        # recover by checking out `main` itself.
-        subprocess.run(
-            ["git", "-C", str(repo), "symbolic-ref", "HEAD", "refs/heads/master"],
             check=True,
             capture_output=True,
         )
