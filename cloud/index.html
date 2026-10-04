@@ -10,13 +10,13 @@
       
       
       
-        <link rel="canonical" href="https://zhangfengcdt.github.io/memoir/installation/">
+        <link rel="canonical" href="https://zhangfengcdt.github.io/memoir/cloud/">
       
       
-        <link rel="prev" href="../quickstart/">
+        <link rel="prev" href="../cli/">
       
       
-        <link rel="next" href="../basic_usage/">
+        <link rel="next" href="../watch/">
       
       
         
@@ -27,7 +27,7 @@
     
     
       
-        <title>Installation - Memoir</title>
+        <title>Cloud Sync - Memoir</title>
       
     
     
@@ -82,7 +82,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#installation" class="md-skip">
+        <a href="#cloud-sync" class="md-skip">
           Skip to content
         </a>
       
@@ -115,7 +115,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Installation
+              Cloud Sync
             
           </span>
         </div>
@@ -250,12 +250,10 @@
   
   
   
-    
-  
   
     
     
-      <li class="md-tabs__item md-tabs__item--active">
+      <li class="md-tabs__item">
         <a href="../quickstart/" class="md-tabs__link">
           
   
@@ -337,9 +335,11 @@
   
   
   
+    
   
-    <li class="md-tabs__item">
-      <a href="../cloud/" class="md-tabs__link">
+  
+    <li class="md-tabs__item md-tabs__item--active">
+      <a href="./" class="md-tabs__link">
         
   
   
@@ -604,10 +604,8 @@
       
   
   
-    
   
   
-  
     
     
       
@@ -621,22 +619,19 @@
     
     
       
-        
-        
-      
       
         
       
     
     
-    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" checked>
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
         
           
-          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="">
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
             
   
   
@@ -654,7 +649,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="true">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
           <label class="md-nav__title" for="__nav_2">
             <span class="md-nav__icon md-icon"></span>
             
@@ -697,37 +692,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-    Installation
-  
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="./" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../installation/" class="md-nav__link">
         
   
   
@@ -743,181 +711,6 @@
   
 
       </a>
-      
-        
-
-<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      Table of contents
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#requirements" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Requirements
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#basic-installation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Basic Installation
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Basic Installation">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#recommended-uv" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Recommended: uv
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#alternative-pipx" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Alternative: pipx
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#universal-fallback-pip" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Universal fallback: pip
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#development-installation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Development Installation
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#optional-dependencies" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Optional Dependencies
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Optional Dependencies">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#other-extras" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Other extras
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#environment-setup" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Environment Setup
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#verification" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Verification
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#docker-installation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Docker Installation
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#troubleshooting" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Troubleshooting
-      
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#building-the-docs-locally" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Building the Docs Locally
-      
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1334,10 +1127,37 @@
       
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../cloud/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Cloud Sync
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1353,6 +1173,114 @@
   
 
       </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#addresses" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Addresses
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#what-syncs" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What syncs
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#commands" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Commands
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#rules" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Rules
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#key-handling" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Key handling
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#environment-variables" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Environment variables
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#exit-codes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Exit codes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#out-of-scope-for-now" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of scope for now
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -2025,10 +1953,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#requirements" class="md-nav__link">
+  <a href="#addresses" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Requirements
+        Addresses
       
     </span>
   </a>
@@ -2036,60 +1964,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#basic-installation" class="md-nav__link">
+  <a href="#what-syncs" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Basic Installation
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Basic Installation">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#recommended-uv" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Recommended: uv
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#alternative-pipx" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Alternative: pipx
-      
-    </span>
-  </a>
-  
-</li>
-        
-          <li class="md-nav__item">
-  <a href="#universal-fallback-pip" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Universal fallback: pip
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#development-installation" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Development Installation
+        What syncs
       
     </span>
   </a>
@@ -2097,38 +1975,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#optional-dependencies" class="md-nav__link">
+  <a href="#commands" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Optional Dependencies
-      
-    </span>
-  </a>
-  
-    <nav class="md-nav" aria-label="Optional Dependencies">
-      <ul class="md-nav__list">
-        
-          <li class="md-nav__item">
-  <a href="#other-extras" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Other extras
-      
-    </span>
-  </a>
-  
-</li>
-        
-      </ul>
-    </nav>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#environment-setup" class="md-nav__link">
-    <span class="md-ellipsis">
-      
-        Environment Setup
+        Commands
       
     </span>
   </a>
@@ -2136,10 +1986,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#verification" class="md-nav__link">
+  <a href="#rules" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Verification
+        Rules
       
     </span>
   </a>
@@ -2147,10 +1997,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#docker-installation" class="md-nav__link">
+  <a href="#key-handling" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Docker Installation
+        Key handling
       
     </span>
   </a>
@@ -2158,10 +2008,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#troubleshooting" class="md-nav__link">
+  <a href="#environment-variables" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Troubleshooting
+        Environment variables
       
     </span>
   </a>
@@ -2169,10 +2019,21 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#building-the-docs-locally" class="md-nav__link">
+  <a href="#exit-codes" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Building the Docs Locally
+        Exit codes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#out-of-scope-for-now" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Out of scope for now
       
     </span>
   </a>
@@ -2196,7 +2057,7 @@
 
 
   
-    <a href="https://github.com/zhangfengcdt/memoir/edit/main/docs/installation.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
+    <a href="https://github.com/zhangfengcdt/memoir/edit/main/docs/cloud.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M10 20H6V4h7v5h5v3.1l2-2V8l-6-6H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h4zm10.2-7c.1 0 .3.1.4.2l1.3 1.3c.2.2.2.6 0 .8l-1 1-2.1-2.1 1-1c.1-.1.2-.2.4-.2m0 3.9L14.1 23H12v-2.1l6.1-6.1z"/></svg>
     </a>
@@ -2204,114 +2065,163 @@
   
 
 
-<h1 id="installation">Installation<a class="headerlink" href="#installation" title="Permanent link">&para;</a></h1>
-<h2 id="requirements">Requirements<a class="headerlink" href="#requirements" title="Permanent link">&para;</a></h2>
+<h1 id="cloud-sync">Cloud Sync<a class="headerlink" href="#cloud-sync" title="Permanent link">&para;</a></h1>
+<p><code>memoir remote</code>, <code>push</code>, <code>pull</code>, and <code>fetch</code> round-trip a local memoir store with <a href="https://github.com/zhangfengcdt/memoir-cloud">memoir-cloud</a>. The commands exist in every install but are gated on <code>MEMOIR_API_KEY</code>: without the variable, memoir behaves exactly as before (COMMUNITY tier) and the cloud commands exit 1 with <code>Cloud sync requires MEMOIR_API_KEY (PRO)</code>.</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">MEMOIR_API_KEY</span><span class="o">=</span>mck_...<span class="w">        </span><span class="c1"># from the gateway's API-keys page</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>memoir<span class="w"> </span>push<span class="w"> </span>--create<span class="w"> </span>memories<span class="w">        </span><span class="c1"># create &lt;your-handle&gt;/memories and push</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># on another machine, in the same project (the plugin already created the store)</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>memoir<span class="w"> </span>remote<span class="w"> </span>add<span class="w"> </span>feng-zhang/memories
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>memoir<span class="w"> </span>pull
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>memoir<span class="w"> </span>recall<span class="w"> </span><span class="s2">"preferences"</span>
+</span></code></pre></div>
+<p>There is no <code>clone</code>. Local stores are created automatically (by the Claude Code plugin on session start, or by the first memoir command), so linking is always done on a store that already exists, and <code>pull</code> adopts the cloud history when that store is still empty.</p>
+<p>For a hands-on walkthrough see <a href="../cli/#cloud-sync-commands">Cloud sync commands</a> on the CLI page.</p>
+<h2 id="addresses">Addresses<a class="headerlink" href="#addresses" title="Permanent link">&para;</a></h2>
+<p>A cloud store is addressed GitHub-style as <code>&lt;owner&gt;/&lt;store&gt;</code>, for example <code>feng-zhang/demo</code>. <code>owner</code> is your handle (chosen once in the gateway's web app), <code>store</code> is the store name. The address is also a URL: <code>https://&lt;gateway&gt;/feng-zhang/demo</code> opens the store page in a browser and is the git remote memoir configures.</p>
+<table>
+<thead>
+<tr>
+<th>Part</th>
+<th>Rules</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>handle</td>
+<td>1–39 letters, digits or hyphens; no leading, trailing or double hyphen</td>
+</tr>
+<tr>
+<td>store name</td>
+<td>1–100 letters, digits, <code>.</code>, <code>_</code> or <code>-</code>; not starting with <code>.</code>; not ending in <code>.git</code></td>
+</tr>
+</tbody>
+</table>
+<p>Both are matched case-insensitively by the server. Memoir validates an address locally before any network call and rejects the server's internal <code>str_...</code> ids with a message pointing at the address form. If your account has no handle yet, every cloud command tells you to choose one at <code>&lt;gateway&gt;/app</code>.</p>
+<h2 id="what-syncs">What syncs<a class="headerlink" href="#what-syncs" title="Permanent link">&para;</a></h2>
+<p>A memoir store is an ordinary non-bare git repo. Its commits track one file, <code>data/prolly_config_tree_config</code>, which holds the ProllyTree root hash. The memory data itself lives in node files under <code>.git/prolly/nodes/files/&lt;hash&gt;</code>, which git does not track. Sync therefore has two halves, and the cloud serves both under the store's address:</p>
+<table>
+<thead>
+<tr>
+<th>Half</th>
+<th>Carries</th>
+<th>Transport</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Git</td>
+<td>commits, branches, tags</td>
+<td>standard git smart-HTTP via the <code>git</code> binary memoir already requires</td>
+</tr>
+<tr>
+<td>Chunks</td>
+<td>the node files, keyed by filename</td>
+<td>a small HTTP protocol under <code>&lt;address&gt;/chunks</code>: negotiate → upload the missing ones in multipart batches (up to 500 per request, 4 in flight) → download missing</td>
+</tr>
+</tbody>
+</table>
+<p>Node filenames are prollytree node hashes and are treated as opaque identifiers; nothing is re-hashed. v1 syncs the whole node directory. Repeat pushes are incremental twice over: after a successful push (or a fetch) memoir records the hashes the server confirmed under <code>.git/memoir-cloud/pushed-origin</code>, so the next push computes what is new locally and sends only that, with no negotiate round trip. If that record is missing, or the server rejects a ref with <code>missing chunk</code>, memoir falls back to negotiating the whole set and rebuilds the record.</p>
+<h2 id="commands">Commands<a class="headerlink" href="#commands" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Command</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>memoir remote add [&lt;owner&gt;/&lt;store&gt;] [--url &lt;gateway&gt;] [--force]</code></td>
+<td>Resolve the address (404 → <code>store &lt;owner&gt;/&lt;store&gt; not found (or you don't own it)</code>), then set the git remote <code>origin</code> to <code>https://&lt;gateway&gt;/&lt;owner&gt;/&lt;store&gt;</code>. With no argument, proposes <code>&lt;your handle&gt;/&lt;store directory name&gt;</code> and asks before resolving.</td>
+</tr>
+<tr>
+<td><code>memoir remote show</code> / <code>remove</code></td>
+<td>Print the address, gateway, branch and cloud summary; or unlink.</td>
+</tr>
+<tr>
+<td><code>memoir push [--branch &lt;b&gt;] [--create &lt;store&gt;]</code></td>
+<td>Upload every chunk the cloud is missing (batched), <strong>then</strong> <code>git push</code>. <code>--create &lt;store&gt;</code> first creates that cloud store under your handle and links it as <code>origin</code>. Default branch: current. Prints <code>pushed main to &lt;owner&gt;/&lt;store&gt;: 7,361 chunks (6,900 new) in 41.2 s, git in 2.4 s</code>.</td>
+</tr>
+<tr>
+<td><code>memoir fetch</code></td>
+<td><code>git fetch</code> all branches, tags, and <code>refs/cloud/*</code>; download every chunk not present locally. Moves no local branch.</td>
+</tr>
+<tr>
+<td><code>memoir pull [--branch &lt;b&gt;] [--force]</code></td>
+<td><code>fetch</code>, then fast-forward the branch. A branch that does not exist locally is created from the cloud; a pristine local store (only prollytree's initial commit, no memories) adopts the cloud history. <code>--force</code> replaces the local branch with the cloud copy, discarding local memories on it; the previous tip is kept under <code>refs/memoir/backup/&lt;branch&gt;</code> and printed.</td>
+</tr>
+<tr>
+<td><code>memoir status</code></td>
+<td>Shows <code>origin: &lt;owner&gt;/&lt;store&gt;</code> when a cloud remote is configured.</td>
+</tr>
+</tbody>
+</table>
+<p>All commands support <code>--json</code>; the JSON carries the address as <code>origin</code>, never an id.</p>
+<h2 id="rules">Rules<a class="headerlink" href="#rules" title="Permanent link">&para;</a></h2>
+<p><strong>Fast-forward only.</strong> User branches on the cloud never rewind. If the cloud is ahead, <code>memoir push</code> exits with code 6 and <code>remote has commits you don't have; run memoir pull first</code>. If local and cloud histories have diverged, <code>memoir pull</code> also exits 6 (<code>local and cloud histories have diverged; cloud merge is not available yet</code>) and points at <code>memoir pull --force</code>, the one explicit way to discard the local memories on that branch and take the cloud copy. Linking a store that already holds its own memories to a cloud store with a different history is the same situation and gets the same answer. Cloud-side merge is planned; memoir does not attempt a local merge of cloud history.</p>
+<p><strong>Chunks before refs.</strong> <code>push</code> only runs <code>git push</code> after every batch has succeeded. A failed upload never results in a git push, so no cloud ref ever points at a commit whose root chunk is missing. The server enforces the same invariant: it refuses to advance a ref unless the root hash in the pushed commit is an uploaded chunk. A 502 (<code>object store unavailable</code>) is retried with backoff and then surfaced as <code>object store unavailable, retry later</code>; an interrupted push simply resumes on the next run, with already-written chunks reported as existing. A chunk the server rejects fails the push and is named in the error.</p>
+<p><strong><code>cloud/*</code> branches are read-only locally.</strong> Branches under <code>refs/cloud/*</code> are cloud-owned proposal branches. <code>fetch</code> makes them visible as <code>origin/cloud/...</code>; <code>push</code> refuses a branch whose name starts with <code>cloud/</code>.</p>
+<p><strong>Root chunk check.</strong> After <code>pull</code>, memoir verifies that the chunk named by the tracked root hash exists locally and errors otherwise, so the store is never left pointing at missing data.</p>
+<h2 id="key-handling">Key handling<a class="headerlink" href="#key-handling" title="Permanent link">&para;</a></h2>
 <ul>
-<li>Python 3.10 or higher</li>
-<li>Git (for versioning features)</li>
+<li>The API key is read from <code>MEMOIR_API_KEY</code> only. It is never written to <code>.git/config</code> or any other file.</li>
+<li>Git gets it per invocation as <code>-c http.extraHeader="Authorization: Bearer &lt;key&gt;"</code>; git runs with <code>GIT_TERMINAL_PROMPT=0</code> so an invalid key fails fast instead of prompting.</li>
+<li>The key is redacted from any error output that echoes a command.</li>
+<li>A 401 from the gateway is reported as <code>not signed in: set MEMOIR_API_KEY</code>.</li>
 </ul>
-<h2 id="basic-installation">Basic Installation<a class="headerlink" href="#basic-installation" title="Permanent link">&para;</a></h2>
-<p>Pick one — they all install the same <code>memoir</code> CLI.</p>
-<h3 id="recommended-uv">Recommended: <code>uv</code><a class="headerlink" href="#recommended-uv" title="Permanent link">&para;</a></h3>
-<p>If you don't already have <code>uv</code>, install it first (one-line, no Python required):</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>curl<span class="w"> </span>-LsSf<span class="w"> </span>https://astral.sh/uv/install.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>sh
-</span></code></pre></div>
-<p>Then either install memoir as a tool, or just run it on demand via <code>uvx</code>:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Persistent install (recommended for daily use)</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>uv<span class="w"> </span>tool<span class="w"> </span>install<span class="w"> </span>memoir-ai
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="c1"># OR — try without installing (one-shot, ephemeral venv)</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>uvx<span class="w"> </span>--from<span class="w"> </span>memoir-ai<span class="w"> </span>memoir<span class="w"> </span>--help
-</span></code></pre></div>
-<p><code>uv</code> is significantly faster than <code>pip</code> and isolates the CLI from your project Python environments. <strong>If you have <code>uv</code>, you do not need to <code>pip install memoir-ai</code></strong> — the Claude Code plugin's auto-fallback also uses <code>uvx --from memoir-ai memoir</code> transparently when the bare <code>memoir</code> binary isn't on PATH.</p>
-<h3 id="alternative-pipx">Alternative: <code>pipx</code><a class="headerlink" href="#alternative-pipx" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>pipx<span class="w"> </span>install<span class="w"> </span>memoir-ai
-</span></code></pre></div>
-<h3 id="universal-fallback-pip">Universal fallback: <code>pip</code><a class="headerlink" href="#universal-fallback-pip" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>pip<span class="w"> </span>install<span class="w"> </span>memoir-ai
-</span></code></pre></div>
-<p>The distribution name on PyPI is <code>memoir-ai</code> (the <code>memoir</code> name was already taken). After install, the Python import is still <code>import memoir</code> and the CLI command is <code>memoir</code>.</p>
-<h2 id="development-installation">Development Installation<a class="headerlink" href="#development-installation" title="Permanent link">&para;</a></h2>
-<p>For development or contributing to Memoir:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># Clone the repository</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>git<span class="w"> </span>clone<span class="w"> </span>https://github.com/zhangfengcdt/memoir.git
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="nb">cd</span><span class="w"> </span>memoir
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="c1"># Install in development mode with all dependencies</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a>pip<span class="w"> </span>install<span class="w"> </span>-e<span class="w"> </span><span class="s2">".[dev,docs]"</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="c1"># Install pre-commit hooks</span>
-</span><span id="__span-4-9"><a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>make<span class="w"> </span>pre-commit
-</span></code></pre></div>
-<h2 id="optional-dependencies">Optional Dependencies<a class="headerlink" href="#optional-dependencies" title="Permanent link">&para;</a></h2>
-<p>As of <strong>v0.1.7</strong>, <a href="https://docs.litellm.ai/"><code>litellm</code></a> (the LLM router
-used by <code>recall</code> and auto-classification in <code>remember</code>) is a <strong>default
-dependency</strong> — <code>pip install memoir-ai</code> is enough for both LLM-backed
-and direct-path commands.</p>
-<p>If you don't need LLM features and want to trim the install footprint,
-<code>pip uninstall litellm</code> after install — memoir's other features
-(<code>-p</code> paths, <code>get</code>, <code>forget</code>, <code>branch</code>, <code>checkout</code>, etc.) keep working
-because the import is lazy. The <code>[litellm]</code> extra is preserved as a
-no-op alias for backward-compat scripts.</p>
-<h3 id="other-extras">Other extras<a class="headerlink" href="#other-extras" title="Permanent link">&para;</a></h3>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">'memoir-ai[tui]'</span><span class="w">         </span><span class="c1"># Terminal UI (textual-based)</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">'memoir-ai[langmem]'</span><span class="w">     </span><span class="c1"># ProllyTreeMemoryStoreManager (LangMem drop-in)</span>
-</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>pip<span class="w"> </span>install<span class="w"> </span><span class="s1">'memoir-ai[all]'</span><span class="w">         </span><span class="c1"># tui + langmem + litellm</span>
-</span></code></pre></div>
-<h2 id="environment-setup">Environment Setup<a class="headerlink" href="#environment-setup" title="Permanent link">&para;</a></h2>
-<p>Memoir's CLI defaults to <strong>Anthropic Claude (<code>claude-haiku-4-5</code>)</strong> for
-LLM-backed commands as of v0.1.6. Set the corresponding key:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="c1"># Default — Anthropic (Haiku)</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="nb">export</span><span class="w"> </span><span class="nv">ANTHROPIC_API_KEY</span><span class="o">=</span><span class="s2">"your-anthropic-api-key"</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="c1"># OR if you want to keep using OpenAI (memoir's default before v0.1.6)</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="nb">export</span><span class="w"> </span><span class="nv">OPENAI_API_KEY</span><span class="o">=</span><span class="s2">"your-openai-api-key"</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="nb">export</span><span class="w"> </span><span class="nv">MEMOIR_LLM_MODEL</span><span class="o">=</span><span class="s2">"gpt-4o-mini"</span><span class="w">   </span><span class="c1"># or pass --model gpt-4o-mini per call</span>
-</span></code></pre></div>
-<p>Resolution order for the model used by <code>recall</code> / <code>remember</code> (no <code>-p</code>):</p>
-<ol>
-<li><code>--model &lt;name&gt;</code> flag on the command (highest priority)</li>
-<li><code>MEMOIR_LLM_MODEL</code> env var</li>
-<li><code>claude-haiku-4-5</code> default</li>
-</ol>
-<p>The same env var also drives the UI's default model (<code>memoir ui --usellm</code>).</p>
-<h2 id="verification">Verification<a class="headerlink" href="#verification" title="Permanent link">&para;</a></h2>
-<p>Test your installation:</p>
-<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">memoir</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"Memoir version: </span><span class="si">{</span><span class="n">memoir</span><span class="o">.</span><span class="n">__version__</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="c1"># Test basic components</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a><span class="kn">from</span><span class="w"> </span><span class="nn">memoir</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProllyTreeStore</span><span class="p">,</span> <span class="n">SemanticClassifier</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a><span class="nb">print</span><span class="p">(</span><span class="s2">"Installation successful!"</span><span class="p">)</span>
-</span></code></pre></div>
-<h2 id="docker-installation">Docker Installation<a class="headerlink" href="#docker-installation" title="Permanent link">&para;</a></h2>
-<p>Run Memoir in a Docker container:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1"># Build the Docker image</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a>docker<span class="w"> </span>build<span class="w"> </span>-t<span class="w"> </span>memoir<span class="w"> </span>.
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1"># Run with mounted data directory</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a>docker<span class="w"> </span>run<span class="w"> </span>-v<span class="w"> </span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span>/data:/app/data<span class="w"> </span>memoir
-</span></code></pre></div>
-<h2 id="troubleshooting">Troubleshooting<a class="headerlink" href="#troubleshooting" title="Permanent link">&para;</a></h2>
-<p><strong>Common Issues</strong>:</p>
-<ol>
-<li><strong>Git not found</strong>: Install Git for version control features</li>
-<li><strong>LLM errors</strong>: Ensure API keys are set correctly</li>
-<li><strong>Permission errors</strong>: Use virtual environments</li>
-</ol>
-<p>For more help, see the <a href="../faq/">FAQ</a> or
-<a href="https://github.com/zhangfengcdt/memoir/issues">open an issue</a>.</p>
-<h2 id="building-the-docs-locally">Building the Docs Locally<a class="headerlink" href="#building-the-docs-locally" title="Permanent link">&para;</a></h2>
-<p>The site is built with <a href="https://squidfunk.github.io/mkdocs-material/">mkdocs-material</a>. After <code>pip install -e ".[docs]"</code>:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1"># Build the static site into ./site</span>
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>make<span class="w"> </span>docs
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1"># Start the live-reload dev server</span>
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a>make<span class="w"> </span>docs-live
-</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a>
-</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="c1"># Clean the build output</span>
-</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a>make<span class="w"> </span>docs-clean
-</span></code></pre></div>
+<h2 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>MEMOIR_API_KEY</code></td>
+<td>Enables the cloud commands (PRO tier).</td>
+</tr>
+<tr>
+<td><code>MEMOIR_CLOUD_URL</code></td>
+<td>Gateway URL used by <code>remote add</code> and <code>push --create</code> when <code>--url</code> is not passed. Default: the production gateway. After linking, the gateway is read back from the <code>origin</code> URL.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="exit-codes">Exit codes<a class="headerlink" href="#exit-codes" title="Permanent link">&para;</a></h2>
+<table>
+<thead>
+<tr>
+<th>Code</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>HTTP / auth / address error, or cloud sync not enabled</td>
+</tr>
+<tr>
+<td>2</td>
+<td>branch not found (locally for <code>push</code>, on the cloud for <code>pull</code>)</td>
+</tr>
+<tr>
+<td>3</td>
+<td>no store configured</td>
+</tr>
+<tr>
+<td>5</td>
+<td>git operation failed</td>
+</tr>
+<tr>
+<td>6</td>
+<td>non-fast-forward: cloud is ahead (<code>push</code>) or histories diverged (<code>pull</code>)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="out-of-scope-for-now">Out of scope for now<a class="headerlink" href="#out-of-scope-for-now" title="Permanent link">&para;</a></h2>
+<p>Merging diverged histories, a reachability walk so only chunks referenced by the pushed commit are synced, and proposal review from the CLI.</p>
 
 
 
