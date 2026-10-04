@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { api, MemoirApiError } from "../../api/client";
 import type { ChangeType, Commit, Memory } from "../../api/types";
 import { useStore } from "../../state/storeSlice";
+import { useConfig } from "../../state/configSlice";
+import { branchSwitchIsRead } from "../../config/runtime";
 import { useUI } from "../../state/uiSlice";
 import { useHistorySelection } from "../../state/historySelectionSlice";
 import CommitRow from "../commits/CommitRow";
@@ -276,14 +278,21 @@ export default function HistoryView() {
     setCheckingOut(branch);
     setCheckoutError(null);
     try {
-      await api.checkout(storePath, branch);
-      await useStore.getState().refresh();
+      if (branchSwitchIsRead()) {
+        await useStore.getState().switchRef(branch);
+      } else {
+        await api.checkout(storePath, branch);
+        await useStore.getState().refresh();
+      }
     } catch (err) {
       setCheckoutError(err instanceof MemoirApiError ? err.message : String(err));
     } finally {
       setCheckingOut(null);
     }
   };
+  const writable = useConfig((s) => s.writable);
+  // Locally a checkout writes the store's HEAD; on the cloud it's a read.
+  const canSwitchBranch = writable || branchSwitchIsRead();
 
   if (!connected) return null;
 
@@ -315,7 +324,7 @@ export default function HistoryView() {
             >
               {b}
             </button>
-            {b !== currentBranch && (
+            {b !== currentBranch && canSwitchBranch && (
               <button
                 type="button"
                 className="history-branch-checkout-btn"
@@ -382,15 +391,17 @@ export default function HistoryView() {
                     {selectedCommit.message}
                   </span>
                 </div>
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={onBranchFromHere}
-                  disabled={!viewedBranch}
-                  title={`Create a new branch rooted at ${selectedCommit.short_hash} and switch to it`}
-                >
-                  Branch from here
-                </button>
+                {writable && (
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={onBranchFromHere}
+                    disabled={!viewedBranch}
+                    title={`Create a new branch rooted at ${selectedCommit.short_hash} and switch to it`}
+                  >
+                    Branch from here
+                  </button>
+                )}
               </div>
               {(diffLoading || asOfLoading) && (
                 <p className="drawer-empty-hint">Loading changes…</p>

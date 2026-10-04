@@ -265,6 +265,7 @@ export default function SyncBranchesModal() {
                 branch={branch}
                 defaultBranch={data.default}
                 disabled={!writable || busyBranch !== null}
+                writable={writable}
                 isBusy={busyBranch === branch.name}
                 isConfirmingDelete={confirmingDelete === branch.name}
                 mergePreview={
@@ -303,6 +304,8 @@ interface BranchRowProps {
   branch: BranchStatus;
   defaultBranch: string;
   disabled: boolean;
+  /** Render the Merge/Delete controls at all (false = read-only session). */
+  writable: boolean;
   isBusy: boolean;
   isConfirmingDelete: boolean;
   mergePreview: {
@@ -324,6 +327,7 @@ function BranchRow({
   branch,
   defaultBranch,
   disabled,
+  writable,
   isBusy,
   isConfirmingDelete,
   mergePreview,
@@ -385,38 +389,42 @@ function BranchRow({
               ↑ ahead
             </button>
           )}
-          <button
-            type="button"
-            className="sync-btn merge"
-            onClick={() => onMerge(branch)}
-            disabled={!canMerge || disabled}
-            title={
-              !canMerge
-                ? isDefault
-                  ? "This is the default branch"
-                  : !isCurrent
-                    ? `Switch to ${branch.name} first to merge it into ${defaultBranch}`
-                    : "Already merged into the default branch"
-                : `Merge ${branch.name} into ${defaultBranch}`
-            }
-          >
-            {isBusy ? "Merging…" : `Merge into ${defaultBranch}`}
-          </button>
-          <button
-            type="button"
-            className="sync-btn delete"
-            onClick={() => onDeleteClick(branch)}
-            disabled={!canDelete || disabled}
-            title={
-              !canDelete
-                ? isCurrent
-                  ? "Can't delete the current branch"
-                  : "Can't delete the default branch"
-                : `Delete ${branch.name}`
-            }
-          >
-            {isBusy ? "…" : "Delete"}
-          </button>
+          {writable && (
+            <>
+              <button
+                type="button"
+                className="sync-btn merge"
+                onClick={() => onMerge(branch)}
+                disabled={!canMerge || disabled}
+                title={
+                  !canMerge
+                    ? isDefault
+                      ? "This is the default branch"
+                      : !isCurrent
+                        ? `Switch to ${branch.name} first to merge it into ${defaultBranch}`
+                        : "Already merged into the default branch"
+                    : `Merge ${branch.name} into ${defaultBranch}`
+                }
+              >
+                {isBusy ? "Merging…" : `Merge into ${defaultBranch}`}
+              </button>
+              <button
+                type="button"
+                className="sync-btn delete"
+                onClick={() => onDeleteClick(branch)}
+                disabled={!canDelete || disabled}
+                title={
+                  !canDelete
+                    ? isCurrent
+                      ? "Can't delete the current branch"
+                      : "Can't delete the default branch"
+                    : `Delete ${branch.name}`
+                }
+              >
+                {isBusy ? "…" : "Delete"}
+              </button>
+            </>
+          )}
         </div>
       </div>
 

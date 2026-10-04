@@ -1,12 +1,23 @@
 import { useRef, useState } from "react";
 import { useStore } from "../state/storeSlice";
 import { useUI } from "../state/uiSlice";
+import { useConfig } from "../state/configSlice";
+import { branchSwitchIsRead, featureEnabled } from "../config/runtime";
 import BranchSwitcher from "./BranchSwitcher";
 import BranchMatchToggle from "./BranchMatchToggle";
 import "./TopBar.css";
 
+// Resolved against Vite's `base` so the logo works under `/workspace/` too.
+const LOGO_URL = `${import.meta.env.BASE_URL}memoir.png`;
+
 export default function TopBar() {
   const storePath = useStore((s) => s.storePath);
+  const writable = useConfig((s) => s.writable);
+  const profile = useConfig((s) => s.profile);
+  const backUrl = useConfig((s) => s.backUrl);
+  const cloud = profile === "cloud";
+  // Switching branches is a write locally (checkout) and a read on the cloud.
+  const canSwitchBranch = writable || branchSwitchIsRead(profile);
   const status = useStore((s) => s.status);
   const data = useStore((s) => s.data);
   const leftCollapsed = useUI((s) => s.leftCollapsed);
@@ -48,7 +59,7 @@ export default function TopBar() {
         </button>
         <div className="topbar-brand">
           <img
-            src="/memoir.png"
+            src={LOGO_URL}
             alt="Memoir"
             className="brand-logo"
             draggable={false}
@@ -64,18 +75,35 @@ export default function TopBar() {
           >
             {storePath ?? "not connected"}
           </code>
+          {cloud && backUrl && (
+            <a className="topbar-back" href={backUrl} title="Back to the store page">
+              ← Back to store
+            </a>
+          )}
         </div>
       </div>
 
       <div className="topbar-right">
-        <span
-          className="topbar-edition"
-          title="Memoir Community Version"
-          aria-label="Memoir Community Version"
-        >
-          Community Version
-        </span>
-        {branch && (
+        {!cloud && (
+          <span
+            className="topbar-edition"
+            title="Memoir Community Version"
+            aria-label="Memoir Community Version"
+          >
+            Community Version
+          </span>
+        )}
+        {!writable && (
+          <span className="topbar-edition" title="Read-only: no changes can be made here">
+            Read-only
+          </span>
+        )}
+        {branch && !featureEnabled("statistics", profile) && (
+          <span className="topbar-branch" title="Current branch">
+            {branch}
+          </span>
+        )}
+        {branch && featureEnabled("statistics", profile) && (
           <button
             className="btn btn-ghost btn-sm"
             onClick={openStats}
@@ -125,13 +153,14 @@ export default function TopBar() {
           </svg>
         </button>
         <BranchMatchToggle />
+        {canSwitchBranch && (
         <div className="topbar-switcher-wrap">
           <button
             ref={switcherAnchorRef}
             className="btn btn-ghost btn-sm"
             onClick={() => setSwitcherOpen((v) => !v)}
-            title="Switch branch"
-            aria-label="Switch branch"
+            title={cloud ? "View another branch" : "Switch branch"}
+            aria-label={cloud ? "View another branch" : "Switch branch"}
             aria-haspopup="listbox"
             aria-expanded={switcherOpen}
             disabled={!storePath || isRefreshing}
@@ -156,11 +185,12 @@ export default function TopBar() {
             anchorRef={switcherAnchorRef}
           />
         </div>
+        )}
         <button
           className="btn btn-ghost btn-sm"
           onClick={openBranches}
-          title="Sync branches (/branches)"
-          aria-label="Open branch management"
+          title={writable ? "Sync branches (/branches)" : "Branches (/branches)"}
+          aria-label={writable ? "Open branch management" : "Open branches"}
           disabled={!storePath}
         >
           {/* Two-arrow sync icon — top arrow goes right, bottom goes left */}

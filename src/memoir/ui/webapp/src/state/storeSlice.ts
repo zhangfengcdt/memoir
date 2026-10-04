@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { api, MemoirApiError } from "../api/client";
 import type { StoreResponse } from "../api/types";
+import { runtime } from "../config/runtime";
 
 export type ConnectionStatus = "idle" | "connecting" | "connected" | "error";
 
@@ -18,6 +19,12 @@ export interface HistoryEntry {
 interface StoreSlice {
   // Connection
   storePath: string | null;
+  /**
+   * Branch the reads are pinned to, or null for the server's current/default
+   * branch. Only the cloud profile sets this (branch switching there is a
+   * read: ``ref`` travels on ``store`` / ``commits`` instead of a checkout).
+   */
+  ref: string | null;
   status: ConnectionStatus;
   error: string | null;
   // Last fetched payload — null before connect, populated by connect/refresh
@@ -43,16 +50,19 @@ interface StoreSlice {
    */
   refresh: (opts?: { silent?: boolean }) => Promise<void>;
   disconnect: () => void;
+  /** Cloud profile: point the reads at ``branch`` and reload. No write. */
+  switchRef: (branch: string) => Promise<void>;
   pushHistory: (entry: Omit<HistoryEntry, "id" | "timestamp">) => void;
   clearHistory: () => void;
 }
 
 let nextHistoryId = 1;
 
-// Rehydrate `storePath` from URL on first load — `memoir ui` passes the
-// connected store as `?store=<path>` and we want the shell to auto-connect
-// without requiring the user to retype it.
+// Rehydrate `storePath` on first load so the shell auto-connects without
+// the user retyping it: the cloud injects it in `window.__MEMOIR__.store`;
+// `memoir ui` passes it as `?store=<path>`.
 function initialStorePath(): string | null {
+  if (runtime.store) return runtime.store;
   if (typeof window === "undefined") return null;
   const p = new URL(window.location.href).searchParams.get("store");
   return p && p.length > 0 ? p : null;
@@ -100,6 +110,7 @@ function isMaterialChange(
 
 export const useStore = create<StoreSlice>((set, get) => ({
   storePath: initialStorePath(),
+  ref: runtime.ref,
   status: "idle",
   error: null,
   data: null,
@@ -109,7 +120,7 @@ export const useStore = create<StoreSlice>((set, get) => ({
   async connect(path: string) {
     set({ status: "connecting", error: null, storePath: path });
     try {
-      const data = await api.store(path);
+      const data = await api.store(path, get().ref);
       set((s) => ({
         status: "connected",
         data,
@@ -152,7 +163,7 @@ export const useStore = create<StoreSlice>((set, get) => ({
     // only shows for user-initiated refreshes.
     if (!silent) set({ status: "connecting", error: null });
     try {
-      const data = await api.store(path);
+      const data = await api.store(path, get().ref);
       const changed = isMaterialChange(get().data, data);
       if (!changed && silent) {
         // No-op for silent polls when nothing changed: keep state
@@ -190,6 +201,11 @@ export const useStore = create<StoreSlice>((set, get) => ({
         lines: [message],
       });
     }
+  },
+
+  async switchRef(branch: string) {
+    set({ ref: branch });
+    await get().refresh();
   },
 
   disconnect() {

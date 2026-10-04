@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, MemoirApiError } from "../api/client";
 import type { BranchMergePreviewResponse } from "../api/types";
 import { useStore } from "../state/storeSlice";
+import { useConfig } from "../state/configSlice";
 import { useUI } from "../state/uiSlice";
 import "../drawers/DrawerPanels.css";
 import "./BranchCommitsModal.css";
@@ -210,6 +211,7 @@ function ChangeCard({
   // already on the branch they're viewing — cross-branch writes would
   // require server-side checkout/restore, which v1 doesn't do.
   const canRevert = currentBranch === viewedBranch;
+  const writable = useConfig((s) => s.writable);
   const [confirmState, setConfirmState] = useState<"idle" | "confirm" | "loading">(
     "idle",
   );
@@ -273,15 +275,17 @@ function ChangeCard({
         </span>
         <code className="diff-card-path">{path}</code>
         <span className={`diff-card-tag tag-${type}`}>{type.toUpperCase()}</span>
-        <button
-          type="button"
-          className={`diff-card-revert${confirmState === "confirm" ? " is-confirm" : ""}`}
-          disabled={!canRevert || confirmState === "loading"}
-          onClick={onRevertClick}
-          title={revertTitle}
-        >
-          {revertLabel}
-        </button>
+        {writable && (
+          <button
+            type="button"
+            className={`diff-card-revert${confirmState === "confirm" ? " is-confirm" : ""}`}
+            disabled={!canRevert || confirmState === "loading"}
+            onClick={onRevertClick}
+            title={revertTitle}
+          >
+            {revertLabel}
+          </button>
+        )}
       </header>
       {type === "modified" && oldContent && (
         <div className="diff-card-section">

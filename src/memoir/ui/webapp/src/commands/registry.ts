@@ -1,6 +1,7 @@
 import { useStore } from "../state/storeSlice";
 import { useUI } from "../state/uiSlice";
 import { useSelection } from "../state/selectionSlice";
+import { useConfig, type ConfigSlice } from "../state/configSlice";
 import { api, MemoirApiError } from "../api/client";
 
 /**
@@ -943,7 +944,51 @@ export async function dispatch(input: string): Promise<void> {
     });
     return;
   }
+  const blocked = unavailableReason(def);
+  if (blocked) {
+    useStore.getState().pushHistory({
+      input: `/${parsed.name}`,
+      level: "warning",
+      lines: [`/${def.name} is not available: ${blocked}`],
+    });
+    return;
+  }
   await def.run(parsed.args);
+}
+
+/**
+ * Commands that call endpoints the cloud profile does not serve, by name.
+ * Branch switching stays available there (it's a read in that profile);
+ * everything mutating is already excluded by the ``writable`` gate.
+ */
+const CLOUD_UNAVAILABLE: ReadonlySet<string> = new Set([
+  "blame",
+  "location",
+  "places",
+  "proof",
+  "recall",
+  "stats",
+  "summarize",
+  "timeline",
+  "verify",
+]);
+
+/**
+ * Why ``def`` cannot run in this session, or ``null`` when it can.
+ * Mutating commands need ``writable``; LLM commands need ``useLLM``; a few
+ * read commands have no endpoint on the cloud. Pass ``config`` to evaluate
+ * against something other than the live slice (tests).
+ */
+export function unavailableReason(
+  def: CommandDef,
+  config: Pick<ConfigSlice, "writable" | "useLLM" | "profile"> = useConfig.getState(),
+): string | null {
+  if (def.tags.includes("mutating") && !config.writable) return "this session is read-only";
+  if (def.tags.includes("llm") && !config.useLLM) return "LLM features are off";
+  if (config.profile === "cloud" && CLOUD_UNAVAILABLE.has(def.name)) {
+    return "not served by memoir-cloud";
+  }
+  return null;
 }
 
 export function commandNames(): string[] {
@@ -974,9 +1019,14 @@ const HIDDEN_NAMES: ReadonlySet<string> = new Set([
   "verify",
 ]);
 
-/** True when this command should be hidden from help and autocomplete. */
+/** True when this command should be hidden from help and autocomplete:
+ * curated out of the discovery surfaces, or unavailable in this session. */
 export function isHiddenFromDiscovery(def: CommandDef): boolean {
-  return HIDDEN_CATEGORIES.has(def.category) || HIDDEN_NAMES.has(def.name);
+  return (
+    HIDDEN_CATEGORIES.has(def.category) ||
+    HIDDEN_NAMES.has(def.name) ||
+    unavailableReason(def) !== null
+  );
 }
 
 /**

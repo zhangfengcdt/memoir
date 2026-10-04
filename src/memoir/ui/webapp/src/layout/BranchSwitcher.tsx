@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api, MemoirApiError } from "../api/client";
 import { useStore } from "../state/storeSlice";
+import { branchSwitchIsRead } from "../config/runtime";
 import "./BranchSwitcher.css";
 
 interface BranchSwitcherProps {
@@ -82,8 +83,13 @@ export default function BranchSwitcher({
     setError(null);
     setSwitching(true);
     try {
-      await api.checkout(storePath, branch);
-      await useStore.getState().refresh();
+      if (branchSwitchIsRead()) {
+        // Cloud: no checkout endpoint; pin the reads to the branch instead.
+        await useStore.getState().switchRef(branch);
+      } else {
+        await api.checkout(storePath, branch);
+        await useStore.getState().refresh();
+      }
       onClose();
     } catch (err) {
       setError(err instanceof MemoirApiError ? err.message : String(err));

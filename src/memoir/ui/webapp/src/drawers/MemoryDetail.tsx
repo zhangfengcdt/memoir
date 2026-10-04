@@ -4,6 +4,7 @@ import type { BlameEntry, FacetEntry, Memory } from "../api/types";
 import { api, MemoirApiError } from "../api/client";
 import { useStore } from "../state/storeSlice";
 import { useConfig } from "../state/configSlice";
+import { featureEnabled } from "../config/runtime";
 import { useMemorySelection } from "../state/memorySelectionSlice";
 import { useUI } from "../state/uiSlice";
 import { relativeTimeFromISO } from "../lib/time";
@@ -346,7 +347,7 @@ export default function MemoryDetail({ memory }: MemoryDetailProps) {
       {/* Commit history for this key — git-blame-style. Refetches when the
        * user picks a different memory; not auto-refreshed on save (the
        * Commits tab is the live picture). */}
-      <HistorySection memory={memory} />
+      {featureEnabled("blame") && <HistorySection memory={memory} />}
 
       {/* Related keys — sibling paths this content was co-saved under. Empty
        * for single-key memories. Each chip navigates the drawer to that key

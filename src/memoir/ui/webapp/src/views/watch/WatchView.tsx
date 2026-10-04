@@ -7,6 +7,7 @@ import {
   type WatchSearchResponse,
 } from "../../api/client";
 import { useStore } from "../../state/storeSlice";
+import { useConfig } from "../../state/configSlice";
 import "./WatchView.css";
 
 /** Format a byte count compactly. */
@@ -41,6 +42,7 @@ function formatTime(s: string | null | undefined): string {
 
 export default function WatchView() {
   const storePath = useStore((s) => s.storePath);
+  const writable = useConfig((s) => s.writable);
   const connected = useStore((s) => s.status === "connected");
 
   const [listData, setListData] = useState<WatchListResponse | null>(null);
@@ -322,37 +324,39 @@ export default function WatchView() {
             <span className="watch-count">{listData.count} registered</span>
           )}
         </header>
-        <form className="watch-add-form" onSubmit={onAddFile}>
-          <input
-            type="text"
-            value={addPath}
-            onChange={(e) => setAddPath(e.target.value)}
-            placeholder="Absolute path to a file (e.g. /Users/you/Desktop/notes.md)"
-            className="watch-add-input"
-            disabled={adding}
-          />
-          <button
-            type="submit"
-            disabled={adding || !addPath.trim()}
-            className="btn watch-add-button"
-            title="Kick off indexing for this file. Returns immediately; the row shows 'indexing…' until the server finishes."
-          >
-            {adding ? "Adding…" : "Add file"}
-          </button>
-          <button
-            type="button"
-            onClick={onScanAll}
-            disabled={
-              !listData ||
-              listData.entries.length === 0 ||
-              (listData.entries ?? []).some((e) => e.indexing)
-            }
-            className="btn watch-scan-all-button"
-            title="Re-scan every registered file, one at a time. Each row lights up 'indexing…' as the server gets to it."
-          >
-            Scan all
-          </button>
-        </form>
+        {writable && (
+          <form className="watch-add-form" onSubmit={onAddFile}>
+            <input
+              type="text"
+              value={addPath}
+              onChange={(e) => setAddPath(e.target.value)}
+              placeholder="Absolute path to a file (e.g. /Users/you/Desktop/notes.md)"
+              className="watch-add-input"
+              disabled={adding}
+            />
+            <button
+              type="submit"
+              disabled={adding || !addPath.trim()}
+              className="btn watch-add-button"
+              title="Kick off indexing for this file. Returns immediately; the row shows 'indexing…' until the server finishes."
+            >
+              {adding ? "Adding…" : "Add file"}
+            </button>
+            <button
+              type="button"
+              onClick={onScanAll}
+              disabled={
+                !listData ||
+                listData.entries.length === 0 ||
+                (listData.entries ?? []).some((e) => e.indexing)
+              }
+              className="btn watch-scan-all-button"
+              title="Re-scan every registered file, one at a time. Each row lights up 'indexing…' as the server gets to it."
+            >
+              Scan all
+            </button>
+          </form>
+        )}
         {formats && formats.length > 0 && (
           <p className="watch-formats-hint">
             Supported formats:{" "}
@@ -431,24 +435,30 @@ export default function WatchView() {
                       <td>{formatTime(e.last_scan)}</td>
                       <td>{formatTime(e.added_at)}</td>
                       <td className="watch-actions-col">
-                        <button
-                          type="button"
-                          className="btn btn-sm watch-row-action"
-                          onClick={(ev) => onScanRow(ev, e.path)}
-                          disabled={e.indexing || removing.has(e.path)}
-                          title="Re-index this file. Picks up content changes; same indexing pipeline as the initial add."
-                        >
-                          Scan
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-sm watch-row-action watch-row-action-danger"
-                          onClick={(ev) => onRemoveRow(ev, e.path)}
-                          disabled={e.indexing || removing.has(e.path)}
-                          title="Unregister this file and purge every raw.<file>.* key from KV + vector. Cannot be undone."
-                        >
-                          {removing.has(e.path) ? "Removing…" : "Remove"}
-                        </button>
+                        {writable ? (
+                          <>
+                            <button
+                              type="button"
+                              className="btn btn-sm watch-row-action"
+                              onClick={(ev) => onScanRow(ev, e.path)}
+                              disabled={e.indexing || removing.has(e.path)}
+                              title="Re-index this file. Picks up content changes; same indexing pipeline as the initial add."
+                            >
+                              Scan
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-sm watch-row-action watch-row-action-danger"
+                              onClick={(ev) => onRemoveRow(ev, e.path)}
+                              disabled={e.indexing || removing.has(e.path)}
+                              title="Unregister this file and purge every raw.<file>.* key from KV + vector. Cannot be undone."
+                            >
+                              {removing.has(e.path) ? "Removing…" : "Remove"}
+                            </button>
+                          </>
+                        ) : (
+                          <span className="watch-readonly-note">read-only</span>
+                        )}
                       </td>
                     </tr>
                     {isFolder && isOpen && (

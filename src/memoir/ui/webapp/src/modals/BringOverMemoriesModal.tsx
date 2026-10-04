@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, MemoirApiError } from "../api/client";
 import type { BranchMergePreviewResponse } from "../api/types";
 import { useStore } from "../state/storeSlice";
+import { useConfig } from "../state/configSlice";
 import { useUI } from "../state/uiSlice";
 import "../drawers/DrawerPanels.css";
 import "./BranchCommitsModal.css";
@@ -17,6 +18,7 @@ export default function BringOverMemoriesModal() {
   const target = useUI((s) => s.bringOverTarget);
   const close = useUI((s) => s.closeBringOver);
   const storePath = useStore((s) => s.storePath);
+  const writable = useConfig((s) => s.writable);
   const refresh = useStore((s) => s.refresh);
 
   const dialogRef = useRef<HTMLDivElement | null>(null);
@@ -227,7 +229,7 @@ export default function BringOverMemoriesModal() {
           <button type="button" className="btn btn-ghost btn-sm" onClick={close} disabled={applying}>
             {totalChanges === 0 ? "Close" : "Skip — leave branch as-is"}
           </button>
-          {preview && totalChanges > 0 && (
+          {preview && totalChanges > 0 && writable && (
             <button
               type="button"
               className="btn btn-primary btn-sm"

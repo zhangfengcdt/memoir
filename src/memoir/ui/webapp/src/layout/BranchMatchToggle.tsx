@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api, MemoirApiError } from "../api/client";
 import { useStore } from "../state/storeSlice";
+import { useConfig } from "../state/configSlice";
+import { featureEnabled } from "../config/runtime";
 
 /**
  * Toggles the memoir-branch-follows-code-branch enforcement the Claude
@@ -12,13 +14,17 @@ import { useStore } from "../state/storeSlice";
 export default function BranchMatchToggle() {
   const storePath = useStore((s) => s.storePath);
   const status = useStore((s) => s.status);
+  const writable = useConfig((s) => s.writable);
+  // The toggle both reads and writes branch-match-config; neither exists
+  // on the cloud, and the write is pointless when read-only.
+  const enabledHere = writable && featureEnabled("branch-match");
   const [enabled, setEnabled] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    if (!storePath || status !== "connected") {
+    if (!enabledHere || !storePath || status !== "connected") {
       setEnabled(null);
       return;
     }
@@ -33,9 +39,9 @@ export default function BranchMatchToggle() {
     return () => {
       cancelled = true;
     };
-  }, [storePath, status]);
+  }, [enabledHere, storePath, status]);
 
-  if (!storePath || status !== "connected" || enabled === null) return null;
+  if (!enabledHere || !storePath || status !== "connected" || enabled === null) return null;
 
   const onClick = async () => {
     setBusy(true);

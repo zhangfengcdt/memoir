@@ -17,13 +17,23 @@ import type {
   StoreResponse,
   TimelineResponse,
 } from "./types";
+import { apiUrl } from "../config/runtime";
 
 /**
- * Thin typed wrapper around `fetch` for memoir's `/api/*` endpoints.
+ * Thin typed wrapper around `fetch` for memoir's API endpoints.
+ *
+ * Endpoint names are relative (`store`, `commits`, `watch/list`); `apiUrl`
+ * prefixes them with `/api` locally or with the cloud's injected `apiBase`
+ * (`/<handle>/<name>/api`). Requests are same-origin either way, so the
+ * cloud's session cookie travels with fetch's default credentials mode.
  *
  * All reads require a `path` query parameter pointing at a memoir store
  * on disk — that's the backend contract, not a UI-level convenience. The
  * client sends the path as-is; URL encoding happens in `URLSearchParams`.
+ * (The cloud accepts and ignores `path`; the address in `apiBase` is the
+ * store.) An optional `ref` on `store`, `commits` and `current-branch`
+ * selects a branch without a checkout — how the cloud profile switches
+ * branches.
  *
  * Errors are raised as `MemoirApiError`. Callers handle them with a
  * try/catch and a toast; the command registry centralises this so
@@ -41,9 +51,10 @@ export class MemoirApiError extends Error {
   }
 }
 
-async function getJSON<T>(path: string, params: Record<string, string>): Promise<T> {
+async function getJSON<T>(endpoint: string, params: Record<string, string>): Promise<T> {
   const qs = new URLSearchParams(params).toString();
-  const url = qs ? `${path}?${qs}` : path;
+  const base = apiUrl(endpoint);
+  const url = qs ? `${base}?${qs}` : base;
   const res = await fetch(url, {
     method: "GET",
     headers: { Accept: "application/json" },
@@ -51,13 +62,23 @@ async function getJSON<T>(path: string, params: Record<string, string>): Promise
   return parseResponse<T>(res, url);
 }
 
-async function postJSON<T>(path: string, body: unknown): Promise<T> {
-  const res = await fetch(path, {
+async function postJSON<T>(endpoint: string, body: unknown): Promise<T> {
+  const url = apiUrl(endpoint);
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json", Accept: "application/json" },
     body: JSON.stringify(body),
   });
-  return parseResponse<T>(res, path);
+  return parseResponse<T>(res, url);
+}
+
+/** Drop `undefined`/`null` values so optional params never serialize as "undefined". */
+function params(obj: Record<string, string | number | null | undefined>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined && v !== null) out[k] = String(v);
+  }
+  return out;
 }
 
 async function parseResponse<T>(res: Response, url: string): Promise<T> {
@@ -76,12 +97,13 @@ async function parseResponse<T>(res: Response, url: string): Promise<T> {
 }
 
 export const api = {
-  store: (path: string) => getJSON<StoreResponse>("/api/store", { path }),
+  store: (path: string, ref?: string | null) =>
+    getJSON<StoreResponse>("store", params({ path, ref })),
 
-  branches: (path: string) => getJSON<BranchesResponse>("/api/branches", { path }),
+  branches: (path: string) => getJSON<BranchesResponse>("branches", { path }),
 
   branchesStatus: (path: string) =>
-    getJSON<BranchesStatusResponse>("/api/branches-status", { path }),
+    getJSON<BranchesStatusResponse>("branches-status", { path }),
 
   /** Promote ``source``'s default-namespace memories into ``target``
    * (default ``main``). Pass ``{ dryRun: true }`` for a preview that
@@ -101,7 +123,7 @@ export const api = {
       updated_keys?: string[];
       dry_run?: boolean;
       commit_hash?: string | null;
-    }>("/api/sync-branches", {
+    }>("sync-branches", {
       path,
       source,
       target,
@@ -112,27 +134,27 @@ export const api = {
         : {}),
     }),
 
-  currentBranch: (path: string) =>
-    getJSON<CurrentBranchResponse>("/api/current-branch", { path }),
+  currentBranch: (path: string, ref?: string | null) =>
+    getJSON<CurrentBranchResponse>("current-branch", params({ path, ref })),
 
   commits: (path: string, opts: { branch?: string; limit?: number } = {}) =>
-    getJSON<CommitsResponse>("/api/commits", {
+    getJSON<CommitsResponse>("commits", {
       path,
       branch: opts.branch ?? "HEAD",
       limit: String(opts.limit ?? 20),
     }),
 
   statistics: (path: string) =>
-    getJSON<StatisticsResponse>("/api/statistics", { path }),
+    getJSON<StatisticsResponse>("statistics", { path }),
 
   onboard: (path: string) =>
-    getJSON<OnboardResponse>("/api/onboard", { path }),
+    getJSON<OnboardResponse>("onboard", { path }),
 
   projectOnboard: (path: string) =>
-    getJSON<ProjectOnboardResponse>("/api/project-onboard", { path }),
+    getJSON<ProjectOnboardResponse>("project-onboard", { path }),
 
   metrics: (path: string) =>
-    getJSON<MetricsResponse>("/api/metrics", { path }),
+    getJSON<MetricsResponse>("metrics", { path }),
 
   /**
    * Timeline + location endpoints can 500 on stores that have no
@@ -142,7 +164,7 @@ export const api = {
    */
   timeline: async (path: string): Promise<TimelineResponse> => {
     try {
-      return await getJSON<TimelineResponse>("/api/timeline", { path });
+      return await getJSON<TimelineResponse>("timeline", { path });
     } catch (err) {
       if (err instanceof MemoirApiError && err.status >= 500) {
         return {
@@ -159,7 +181,7 @@ export const api = {
 
   locations: async (path: string): Promise<LocationResponse> => {
     try {
-      return await getJSON<LocationResponse>("/api/location", { path });
+      return await getJSON<LocationResponse>("location", { path });
     } catch (err) {
       if (err instanceof MemoirApiError && err.status >= 500) {
         return { success: true, summary: null, location_data: {} };
@@ -178,7 +200,7 @@ export const api = {
     const raw = await getJSON<Omit<RangeDiffResponse, "fromRef" | "toRef"> & {
       from: string;
       to: string;
-    }>("/api/commit-range-diff", { path, from: fromRef, to: toRef });
+    }>("commit-range-diff", { path, from: fromRef, to: toRef });
     const { from, to, ...rest } = raw;
     return { ...rest, fromRef: from, toRef: to };
   },
@@ -188,7 +210,7 @@ export const api = {
    * view's "as of commit" tree (see `commit-snapshot`'s docstring in
    * `ui/server.py` for why this beats walking `rangeDiff`). */
   commitSnapshot: (path: string, ref: string) =>
-    getJSON<CommitSnapshotResponse>("/api/commit-snapshot", { path, ref }),
+    getJSON<CommitSnapshotResponse>("commit-snapshot", { path, ref }),
 
   /** Flat-by-key preview of what ``promote_branch(to → from)`` would carry,
    * with BEFORE/AFTER content. Same semantics as the merge confirmation
@@ -198,7 +220,7 @@ export const api = {
     fromRef: string,
     toRef: string,
   ): Promise<BranchMergePreviewResponse> =>
-    getJSON<BranchMergePreviewResponse>("/api/branch-merge-preview", {
+    getJSON<BranchMergePreviewResponse>("branch-merge-preview", {
       path,
       from: fromRef,
       to: toRef,
@@ -211,7 +233,7 @@ export const api = {
   // commit" in an unrelated git repo when a path resolves wrong.
 
   remember: (path: string, content: string, namespace = "default") =>
-    postJSON<Record<string, unknown>>("/api/remember", {
+    postJSON<Record<string, unknown>>("remember", {
       path,
       content,
       namespace,
@@ -239,7 +261,7 @@ export const api = {
       namespace: string;
       commit_hash?: string;
       message?: string;
-    }>("/api/update-memory", {
+    }>("update-memory", {
       path,
       key,
       content,
@@ -254,7 +276,7 @@ export const api = {
    * it into an editor and saves via ``updateMemory`` when ready.
    */
   rewriteMemory: (currentContent: string, instructions: string, key?: string) =>
-    postJSON<{ success: boolean; new_content: string }>("/api/rewrite-memory", {
+    postJSON<{ success: boolean; new_content: string }>("rewrite-memory", {
       current_content: currentContent,
       instructions,
       key: key ?? "",
@@ -262,18 +284,18 @@ export const api = {
 
   forget: (path: string, key: string, namespace = "default") =>
     postJSON<{ success: boolean; key: string; message?: string }>(
-      "/api/forget",
+      "forget",
       { path, key, namespace },
     ),
 
   recall: (path: string, query: string, mode: "single" | "tiered" = "single") =>
-    getJSON<Record<string, unknown>>("/api/recall", { path, query, mode }),
+    getJSON<Record<string, unknown>>("recall", { path, query, mode }),
 
   summarize: (
     path: string,
     opts: { type?: string; pattern?: string } = {},
   ) =>
-    getJSON<Record<string, unknown>>("/api/summarize", {
+    getJSON<Record<string, unknown>>("summarize", {
       path,
       ...(opts.type ? { type: opts.type } : {}),
       ...(opts.pattern ? { pattern: opts.pattern } : {}),
@@ -282,10 +304,10 @@ export const api = {
   // ---------------- Crypto ----------------
 
   proof: (path: string, key: string, namespace = "default") =>
-    getJSON<Record<string, unknown>>("/api/proof", { path, key, namespace }),
+    getJSON<Record<string, unknown>>("proof", { path, key, namespace }),
 
   verify: (path: string, key: string, proof: string, namespace = "default") =>
-    getJSON<Record<string, unknown>>("/api/verify", {
+    getJSON<Record<string, unknown>>("verify", {
       path,
       key,
       proof,
@@ -293,19 +315,19 @@ export const api = {
     }),
 
   blame: (path: string, key: string, namespace = "default") =>
-    getJSON<BlameResponse>("/api/blame", { path, key, namespace }),
+    getJSON<BlameResponse>("blame", { path, key, namespace }),
 
   // ---------------- Branch ops ----------------
 
   checkout: (path: string, target: string, createBranch?: string) =>
     postJSON<{ success: boolean; message: string; current_branch: string }>(
-      "/api/checkout",
+      "checkout",
       { path, target, create_branch: createBranch },
     ),
 
   createBranch: (path: string, branch: string, from = "HEAD") =>
     postJSON<{ success: boolean; message: string; branch: string }>(
-      "/api/create-branch",
+      "create-branch",
       { path, branch, from },
     ),
 
@@ -316,7 +338,7 @@ export const api = {
    * to git, which would otherwise block the delete.
    */
   deleteBranch: (path: string, branch: string, opts: { force?: boolean } = {}) =>
-    postJSON<{ success: boolean; message?: string }>("/api/delete-branch", {
+    postJSON<{ success: boolean; message?: string }>("delete-branch", {
       path,
       branch,
       force: opts.force ?? true,
@@ -324,18 +346,18 @@ export const api = {
 
   mergeBranch: (path: string, source: string) =>
     postJSON<{ success: boolean; message?: string; conflict?: boolean }>(
-      "/api/merge-branch",
+      "merge-branch",
       { path, source },
     ),
 
   /** Whether the memoir-branch-follows-code-branch hook enforcement is on
    * for this store. See `memoir branch-match --help`. */
   getBranchMatchConfig: (path: string) =>
-    getJSON<BranchMatchConfigResponse>("/api/branch-match-config", { path }),
+    getJSON<BranchMatchConfigResponse>("branch-match-config", { path }),
 
   /** Enable or disable branch auto-matching for this store. */
   setBranchMatchConfig: (path: string, enabled: boolean) =>
-    postJSON<BranchMatchConfigResponse>("/api/branch-match-config", {
+    postJSON<BranchMatchConfigResponse>("branch-match-config", {
       path,
       enabled,
     }),
@@ -343,15 +365,15 @@ export const api = {
   // ---------- Watch / Search ---------------------------------------------
 
   watchList: (path: string) =>
-    getJSON<WatchListResponse>("/api/watch/list", { path }),
+    getJSON<WatchListResponse>("watch/list", { path }),
 
   watchFiles: (path: string, watched: string) =>
-    getJSON<WatchFilesResponse>("/api/watch/files", { path, watched }),
+    getJSON<WatchFilesResponse>("watch/files", { path, watched }),
 
   /** File extensions the watch pipeline can ingest. Static — fetched
    * once per WatchView mount. Mirrors `memoir watch formats`. */
   watchFormats: () =>
-    getJSON<{ extensions: string[]; count: number }>("/api/watch/formats", {}),
+    getJSON<{ extensions: string[]; count: number }>("watch/formats", {}),
 
   /** Kick off indexing in the background. Returns 202 with `indexing: true`;
    * the row will keep `indexing: true` in subsequent /api/watch/list polls
@@ -367,7 +389,7 @@ export const api = {
       indexing: boolean;
       already_in_flight?: boolean;
       error?: string;
-    }>("/api/watch/add", {
+    }>("watch/add", {
       store,
       file,
       namespace: opts.namespace ?? "watch",
@@ -384,7 +406,7 @@ export const api = {
       files_removed: number;
       purge: boolean;
       error?: string;
-    }>("/api/watch/remove", { store, file }),
+    }>("watch/remove", { store, file }),
 
   /** Re-scan a registered watched file in the background. Same async
    * semantics as ``watchAddPath``: returns 202 with ``indexing: true``;
@@ -401,7 +423,7 @@ export const api = {
       indexing: boolean;
       already_in_flight?: boolean;
       error?: string;
-    }>("/api/watch/scan", {
+    }>("watch/scan", {
       store,
       file,
       namespace: opts.namespace ?? "watch",
@@ -419,7 +441,7 @@ export const api = {
       paths: string[];
       indexing: boolean;
       error?: string;
-    }>("/api/watch/scan-all", {
+    }>("watch/scan-all", {
       store,
       ...(opts.model ? { model: opts.model } : {}),
     }),
@@ -429,7 +451,7 @@ export const api = {
     query: string,
     opts: { namespace?: string; k?: number } = {},
   ) =>
-    getJSON<WatchSearchResponse>("/api/watch/search", {
+    getJSON<WatchSearchResponse>("watch/search", {
       path,
       query,
       namespace: opts.namespace ?? "default",

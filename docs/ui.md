@@ -111,6 +111,32 @@ The command input accepts the same mutation and inspection verbs as the CLI — 
 
 Plain text (no leading `/`) is treated as a search query against the current store.
 
+## Running the bundle on memoir-cloud (Workspace)
+
+The same built webapp serves two hosts. Locally, `memoir ui` serves it with the `/api/*` endpoints and configures it through URL parameters (`?store=<path>&readonly=<0|1>&usellm=<0|1>`). On memoir-cloud, a store's **Workspace** page (`https://<gateway>/<owner>/<store>/workspace`) serves the bundle built with `pnpm run build -- --base=/workspace/` and injects one config object before `</head>`:
+
+```html
+<script>window.__MEMOIR__ = {"apiBase": "/<owner>/<store>/api", "store": "<owner>/<store>",
+  "ref": "main", "readonly": true, "profile": "cloud", "backUrl": "/<owner>/<store>"};</script>
+```
+
+| Field | Effect |
+|---|---|
+| `apiBase` | Replaces the local `/api` prefix on every request (`<apiBase>/store`, `<apiBase>/commits`, …). Requests stay same-origin, so the cloud's session cookie is sent. |
+| `store` | Seeds the connected store (the address, not a path). |
+| `ref` | Branch to show first; `null` means the server's default. |
+| `readonly` | When set, wins over the URL parameter. |
+| `profile` | `"local"` (default) or `"cloud"`. |
+| `backUrl` | Cloud profile: target of the "Back to store" link in the top bar. |
+
+Without the object the app behaves exactly as before. With `profile: "cloud"`:
+
+- The tabs are Outline, Map, Commits and History, plus Branches (branch status and the merge preview) from the top bar. The top bar shows the store address and a "Back to store" link.
+- Switching branches is a read: the app passes `ref` on `store`, `commits` and `current-branch` instead of posting a checkout.
+- Features the cloud does not serve are hidden and never requested: memory edits, sync/checkout/create/delete/merge, branch auto-match, Watch, the LLM commands, Statistics, Timeline and Places. The only endpoints used are `store`, `branches`, `current-branch`, `branches-status`, `commits`, `commit-snapshot`, `commit-range-diff` and `branch-merge-preview`.
+
+`readonly` is enforced on the client in every profile: with it set, no write control renders (Save/Forget, checkout, Branch from here, Bring over, Revert, Merge, Delete, auto-match, Watch add/scan/remove, and the mutating slash commands are all withheld). The local server itself still enforces nothing; launch it with `--readonly` when that matters.
+
 ## Related
 
 - [CLI Reference](cli.md) — the non-visual interface to the same store operations.

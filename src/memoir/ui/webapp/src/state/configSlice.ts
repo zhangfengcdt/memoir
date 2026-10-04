@@ -1,22 +1,30 @@
 import { create } from "zustand";
+import { runtime, type Profile } from "../config/runtime";
 
 /**
- * Server-set feature flags read from the URL on first load.
+ * Host-set feature flags, fixed for the lifetime of the session.
  *
- * The CLI launches ``memoir ui --v2 [--no-readonly] [--usellm]`` and
- * encodes the resulting flags into the URL it opens:
+ * Locally the CLI launches ``memoir ui [--no-readonly] [--usellm]`` and
+ * encodes the flags into the URL it opens:
  *   ``http://…/?store=<path>&readonly=<0|1>&usellm=<0|1>``
+ * On the cloud the Workspace page injects ``window.__MEMOIR__`` instead
+ * (see ``config/runtime.ts``); its ``readonly`` wins over the URL.
  *
- * Once parsed, these flags don't change for the lifetime of the
- * session — they reflect how the *server* was started, not user
- * preference. UI elements that depend on them (LLM-driven editors,
- * mutating actions) read this slice to decide whether to render.
+ * UI elements that depend on these read this slice to decide whether to
+ * render. ``writable`` is the one gate for every write control: when it is
+ * false no button, chip or command that would POST a change renders, in
+ * any profile. (The local server enforces nothing itself; that is
+ * unchanged.)
  */
 export interface ConfigSlice {
-  /** ``true`` when the server allows mutating writes (``--no-readonly``). */
+  /** ``true`` when the host allows mutating writes. */
   writable: boolean;
   /** ``true`` when LLM features (recall, summarize, rewrite) are enabled. */
   useLLM: boolean;
+  /** ``"local"`` (``memoir ui``) or ``"cloud"`` (memoir-cloud Workspace). */
+  profile: Profile;
+  /** Cloud profile: where the "Back to store" link goes. */
+  backUrl: string | null;
 }
 
 function parseFlag(value: string | null, defaultValue: boolean): boolean {
@@ -24,18 +32,24 @@ function parseFlag(value: string | null, defaultValue: boolean): boolean {
   return value === "1" || value.toLowerCase() === "true";
 }
 
-function initial(): ConfigSlice {
-  if (typeof window === "undefined") {
-    return { writable: false, useLLM: false };
-  }
-  const params = new URL(window.location.href).searchParams;
+export function initialConfig(
+  rt = runtime,
+  href: string | null = typeof window === "undefined" ? null : window.location.href,
+): ConfigSlice {
+  const params = href ? new URL(href).searchParams : new URLSearchParams();
   // The query string uses ``readonly=1`` for readonly mode; we flip
   // semantics to ``writable`` because every consumer asks "can I write?".
-  // Default to ``writable`` (readonly=false) when the param is absent,
+  // Default to ``writable`` (readonly=false) when nothing says otherwise,
   // matching the CLI's --readonly/--no-readonly default.
-  const readonly = parseFlag(params.get("readonly"), false);
-  const useLLM = parseFlag(params.get("usellm"), false);
-  return { writable: !readonly, useLLM };
+  const readonly = rt.readonly ?? parseFlag(params.get("readonly"), false);
+  // The cloud has no LLM endpoints, whatever the URL says.
+  const useLLM = rt.profile === "cloud" ? false : parseFlag(params.get("usellm"), false);
+  return {
+    writable: !readonly,
+    useLLM,
+    profile: rt.profile,
+    backUrl: rt.backUrl,
+  };
 }
 
-export const useConfig = create<ConfigSlice>(() => initial());
+export const useConfig = create<ConfigSlice>(() => initialConfig());

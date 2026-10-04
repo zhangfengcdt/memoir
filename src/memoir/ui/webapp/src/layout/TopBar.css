@@ -128,3 +128,23 @@
     transform: rotate(360deg);
   }
 }
+
+/* Cloud profile: link back to the store page, next to the address. */
+.topbar-back {
+  margin-left: 10px;
+  font-size: 12px;
+  color: var(--text-muted, inherit);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.topbar-back:hover {
+  text-decoration: underline;
+}
+
+/* Branch name shown as text where the Statistics button (its usual home) is absent. */
+.topbar-branch {
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  padding: 0 6px;
+  color: var(--text-muted, inherit);
+}

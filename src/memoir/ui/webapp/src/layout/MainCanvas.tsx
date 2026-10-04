@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from "react";
 import { useStore } from "../state/storeSlice";
 import { useUI, VISIBLE_VIEW_KEYS, type ViewKey } from "../state/uiSlice";
 import { dispatch } from "../commands/registry";
+import { featureEnabled, type Feature } from "../config/runtime";
 import CommitList from "../views/commits/CommitList";
 import TaxonomyTree from "../views/tree/TaxonomyTree";
 import TaxonomyGraph from "../views/graph/TaxonomyGraph";
@@ -162,7 +163,27 @@ function tabCount(
   }
 }
 
+/** Views reachable only via slash commands that the cloud profile does not
+ * serve (their endpoints answer 404 there). Rendering them would make
+ * requests the host can't answer, so they get an explanatory stub. */
+const VIEW_FEATURE: Partial<Record<ViewKey, Feature>> = {
+  watch: "watch",
+  timeline: "timeline",
+  places: "places",
+};
+
 function ViewBody({ view }: { view: ViewKey }) {
+  const feature = VIEW_FEATURE[view];
+  if (feature && !featureEnabled(feature)) {
+    return (
+      <div className="empty-state">
+        <h2 className="empty-title">Not available here</h2>
+        <p className="empty-lead">
+          The {VIEW_LABELS[view].label} view needs a local <code>memoir ui</code>.
+        </p>
+      </div>
+    );
+  }
   switch (view) {
     case "commits":
       return <CommitList />;
