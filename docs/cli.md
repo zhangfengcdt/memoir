@@ -310,13 +310,13 @@ memoir push --create memories
 ```
 
 ```text
-✓ pushed main to feng-zhang/memories (3 new chunks, 0 already present)
+✓ pushed main to feng-zhang/memories: 3 chunks (3 new, 0 already on server) in 2 s
 ```
 
-Behind the scenes this validated the name locally, created the cloud store, set the git remote `origin` to `https://<gateway>/feng-zhang/memories`, uploaded the chunks the cloud lacked, and only then pushed the git history. The chunks are the ProllyTree node files that hold the actual memories. If a chunk upload fails, the git push is never attempted, so the cloud never points at data it does not have. A second push right away moves nothing:
+Behind the scenes this validated the name locally, created the cloud store, set the git remote `origin` to `https://<gateway>/feng-zhang/memories`, uploaded the chunks the cloud lacked in multipart batches, and only then pushed the git history. The chunks are the ProllyTree node files that hold the actual memories. If a chunk upload fails, the git push is never attempted, so the cloud never points at data it does not have. Memoir also records which hashes the server confirmed under `.git/memoir-cloud/pushed-origin`, so a second push right away needs no round trip to find out that nothing is new:
 
 ```text
-✓ pushed main to feng-zhang/memories (0 new chunks, 3 already present)
+✓ pushed main to feng-zhang/memories: 3 chunks (0 new, 3 already on server) in 1 s
 ```
 
 `memoir status` and `memoir remote show` both tell you the address:
@@ -463,12 +463,13 @@ fi
 ```json
 {
   "success": true,
-  "message": "pushed main to feng-zhang/memories (1 new chunks, 3 already present)",
+  "message": "pushed main to feng-zhang/memories: 4 chunks (1 new, 3 already on server) in 1 s",
   "branch": "main",
   "origin": "feng-zhang/memories",
   "chunks_uploaded": 1,
   "chunks_present": 3,
-  "pushed": true
+  "pushed": true,
+  "seconds": 1.2
 }
 ```
 
@@ -494,6 +495,8 @@ To use a different gateway, such as a staging deployment, pass `--url` to `remot
 | `remote has commits you don't have; run memoir pull first` (exit 6) | The cloud is ahead. | `memoir pull`, then push again. |
 | `local and cloud histories have diverged` (exit 6) | Both sides have commits the other lacks: both machines captured since the last sync, or the local store grew memories before it was linked. | See "When the cloud is ahead" above, or adopt the cloud copy with `memoir pull --force`. |
 | `root chunk ... is missing locally after sync` | A chunk download did not complete. | Run `memoir fetch` again. |
+| `object store unavailable, retry later` | The cloud's object store answered 502 three times in a row. | Wait a little and run `memoir push` again; chunks already written are not re-sent. |
+| `server rejected N chunk(s)` | The server refused some chunk parts (reason listed per chunk). | Nothing was pushed to git. Fix or report the listed chunks, then push again. |
 
 Memoir never writes the key to disk and never prints the cloud's internal store ids. If either ever appears in output, that is a bug: please report it.
 

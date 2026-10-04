@@ -653,6 +653,7 @@ class PushResult:
     chunks_uploaded: int
     chunks_present: int
     pushed: bool
+    seconds: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -661,6 +662,7 @@ class PushResult:
             "chunks_uploaded": self.chunks_uploaded,
             "chunks_present": self.chunks_present,
             "pushed": self.pushed,
+            "seconds": round(self.seconds, 1),
         }
 
 

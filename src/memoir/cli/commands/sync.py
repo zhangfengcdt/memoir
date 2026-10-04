@@ -178,8 +178,11 @@ def push(
     link it as origin.
     OUTPUT: Address, branch pushed, chunks uploaded / already present.
 
-    Uploads every node file the cloud is missing first, and only then runs
-    the git push. A chunk failure never results in a git push. Branches are
+    Uploads the node files the cloud is missing first (multipart batches of
+    up to 500 chunks, 4 in flight), and only then runs the git push. A chunk
+    failure never results in a git push. After a successful push the server-
+    confirmed hashes are recorded under .git/memoir-cloud/, so the next push
+    skips negotiation entirely and sends only new chunks. Branches are
     fast-forward only: if the cloud is ahead, exit code 6 and a hint to run
     `memoir pull`. `cloud/*` branches are cloud-owned and cannot be pushed.
 
@@ -190,14 +193,17 @@ def push(
       memoir push --branch experiments
 
     \b
-    JSON output includes: origin, branch, chunks_uploaded, chunks_present, pushed
+    JSON output includes: origin, branch, chunks_uploaded, chunks_present, pushed,
+    seconds
     """
     _require_store(ctx)
     _require_cloud(ctx)
     result = _run(ctx, lambda: _service(ctx).push(branch, create_name, url))
     ctx.success(
-        f"pushed {result.branch} to {result.address} ({result.chunks_uploaded} "
-        f"new chunks, {result.chunks_present} already present)",
+        f"pushed {result.branch} to {result.address}: "
+        f"{result.chunks_uploaded + result.chunks_present:,} chunks "
+        f"({result.chunks_uploaded:,} new, {result.chunks_present:,} already on "
+        f"server) in {result.seconds:.0f} s",
         result.to_dict(),
     )
 

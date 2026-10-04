@@ -430,6 +430,7 @@ class TestPush:
         assert data["origin"] == ADDRESS
         assert data["chunks_uploaded"] == len(local)
         assert data["chunks_present"] == 0
+        assert data["seconds"] >= 0
         _assert_no_ids(res.output)
 
         server_chunks = cloud.state.chunks_for(HANDLE, "demo")
@@ -440,48 +441,184 @@ class TestPush:
                 == (linked_store / ".git/prolly/nodes/files" / h).read_bytes()
             )
 
-        # Address-based routes only, and every PUT precedes receive-pack.
+        # Address-based routes only; uploads go through the batch endpoint,
+        # and every batch precedes receive-pack.
         paths = cloud.state.paths()
         assert all(not p.startswith("/sync/") for p in paths)
-        last_put = max(i for i, p in enumerate(paths) if f"/{ADDRESS}/chunks/" in p)
+        assert not cloud.state.paths("PUT")
+        batches = [i for i, p in enumerate(paths) if p == f"/{ADDRESS}/chunks/batch"]
+        assert len(batches) == 1  # a small store fits one batch
         receive = paths.index(f"/{ADDRESS}/git-receive-pack")
-        assert last_put < receive
+        assert max(batches) < receive
+
+        # The server-confirmed set is recorded for the next push.
+        record = linked_store / ".git" / "memoir-cloud" / "pushed-origin"
+        assert set(record.read_text().split()) == local
 
         bare = cloud.state.repo_for(HANDLE, "demo")
         assert _git(bare, "rev-parse", "main") == _git(
             linked_store, "rev-parse", "main"
         )
 
-    def test_second_push_is_incremental(self, runner, linked_store, cloud, env):
+    def test_second_push_is_incremental_without_negotiate(
+        self, runner, linked_store, cloud, env
+    ):
+        """Acceptance 2: with the pushed record, a no-op push makes zero
+        negotiate and zero batch requests; a push with one new memory makes
+        one batch and still no negotiate."""
         _invoke(runner, ["-s", str(linked_store), "push"], env=env)
         before = len(cloud.state.chunks_for(HANDLE, "demo"))
+        cloud.state.requests.clear()
+
+        res = _invoke(runner, ["-s", str(linked_store), "--json", "push"], env=env)
+        data = json.loads(res.output)
+        assert data["chunks_uploaded"] == 0
+        assert data["chunks_present"] == before
+        posts = cloud.state.paths("POST")
+        assert not [
+            p for p in posts if p.endswith("/negotiate") or p.endswith("/batch")
+        ]
+
         _remember(runner, linked_store, "workflow.coding.gates", "run tests")
+        cloud.state.requests.clear()
         res = _invoke(runner, ["-s", str(linked_store), "--json", "push"], env=env)
         data = json.loads(res.output)
         assert data["chunks_present"] == before
-        assert data["chunks_uploaded"] == len(_nodes(linked_store)) - before
-        assert data["chunks_uploaded"] >= 1
+        assert data["chunks_uploaded"] == len(_nodes(linked_store)) - before >= 1
+        posts = cloud.state.paths("POST")
+        assert len([p for p in posts if p.endswith("/batch")]) == 1
+        assert not [p for p in posts if p.endswith("/negotiate")]
+        record = linked_store / ".git" / "memoir-cloud" / "pushed-origin"
+        assert set(record.read_text().split()) == _nodes(linked_store)
 
-    def test_failed_chunk_upload_never_pushes_git(
+    def test_push_without_record_negotiates_once(
         self, runner, linked_store, cloud, env
     ):
-        victim = sorted(_nodes(linked_store))[0]
-        cloud.state.fail_puts.add(victim)
+        _invoke(runner, ["-s", str(linked_store), "push"], env=env)
+        (linked_store / ".git" / "memoir-cloud" / "pushed-origin").unlink()
+        cloud.state.requests.clear()
+        res = _invoke(runner, ["-s", str(linked_store), "--json", "push"], env=env)
+        assert json.loads(res.output)["chunks_uploaded"] == 0
+        posts = cloud.state.paths("POST")
+        assert len([p for p in posts if p.endswith("/negotiate")]) == 1
+        assert not [p for p in posts if p.endswith("/batch")]
+
+    def test_failed_chunk_upload_never_pushes_git(
+        self, runner, linked_store, cloud, env, monkeypatch
+    ):
+        """Acceptance 5: persistent 502 → retried, then surfaced; no git push."""
+        monkeypatch.setattr(sync_service, "BATCH_BACKOFF", (0.01, 0.01, 0.01))
+        cloud.state.batch_fail_502 = -1
         res = runner.invoke(cli, ["-s", str(linked_store), "push"], env=env)
         assert res.exit_code == 1
-        assert "500" in res.output
+        assert "object store unavailable, retry later" in res.output
         assert not any(
             "git-receive-pack" in p or "info/refs" in p for p in cloud.state.paths()
         )
         assert _git(cloud.state.repo_for(HANDLE, "demo"), "for-each-ref") == ""
+        assert not (linked_store / ".git" / "memoir-cloud" / "pushed-origin").exists()
 
-    def test_transient_5xx_is_retried(self, runner, linked_store, cloud, env):
-        victim = sorted(_nodes(linked_store))[0]
-        cloud.state.flaky_puts.add(victim)
+    def test_transient_502_is_retried(
+        self, runner, linked_store, cloud, env, monkeypatch
+    ):
+        monkeypatch.setattr(sync_service, "BATCH_BACKOFF", (0.01, 0.01, 0.01))
+        cloud.state.batch_fail_502 = 1
         res = _invoke(runner, ["-s", str(linked_store), "--json", "push"], env=env)
         assert res.exit_code == 0, res.output
-        puts = [p for p in cloud.state.paths("PUT") if p.endswith(victim)]
-        assert len(puts) == 2
+        assert len([p for p in cloud.state.paths("POST") if p.endswith("/batch")]) == 2
+        assert json.loads(res.output)["chunks_uploaded"] == len(_nodes(linked_store))
+
+    def test_413_splits_the_batch(self, runner, linked_store, cloud, env):
+        cloud.state.batch_max_parts = 1
+        n = len(_nodes(linked_store))
+        res = _invoke(runner, ["-s", str(linked_store), "--json", "push"], env=env)
+        assert res.exit_code == 0, res.output
+        assert json.loads(res.output)["chunks_uploaded"] == n
+        assert set(cloud.state.chunks_for(HANDLE, "demo")) == _nodes(linked_store)
+        batch_posts = [p for p in cloud.state.paths("POST") if p.endswith("/batch")]
+        assert len(batch_posts) >= n  # one 413 per split, then one per chunk
+
+    def test_rejected_chunk_fails_push_before_git(
+        self, runner, linked_store, cloud, env
+    ):
+        victim = sorted(_nodes(linked_store))[0]
+        cloud.state.reject_hashes.add(victim)
+        res = runner.invoke(cli, ["-s", str(linked_store), "push"], env=env)
+        assert res.exit_code == 1
+        assert "rejected 1 chunk" in res.output
+        assert victim[:12] in res.output
+        assert "injected" in res.output
+        assert not any("git-receive-pack" in p for p in cloud.state.paths())
+        # the other chunks did land and are recorded, so a fixed retry is cheap
+        assert set(cloud.state.chunks_for(HANDLE, "demo")) == _nodes(linked_store) - {
+            victim
+        }
+
+    def test_resume_after_interrupted_push(
+        self, runner, linked_store, cloud, env, monkeypatch
+    ):
+        """Acceptance 3: a push cut off after some batches resumes; earlier
+        chunks come back as `existing`, never re-stored."""
+        for i in range(3):
+            _remember(runner, linked_store, f"workflow.k{i}", f"v{i}")
+        monkeypatch.setattr(sync_service, "BATCH_MAX_PARTS", 2)
+        monkeypatch.setattr(sync_service, "BATCH_WORKERS", 1)
+        monkeypatch.setattr(sync_service, "BATCH_BACKOFF", (0.01, 0.01, 0.01))
+        cloud.state.batch_fail_after_ok = 1
+        res = runner.invoke(cli, ["-s", str(linked_store), "push"], env=env)
+        assert res.exit_code == 1
+        assert "object store unavailable" in res.output
+        landed = set(cloud.state.chunks_for(HANDLE, "demo"))
+        assert 0 < len(landed) < len(_nodes(linked_store))
+        assert not any("git-receive-pack" in p for p in cloud.state.paths())
+
+        cloud.state.batch_fail_after_ok = None
+        cloud.state.requests.clear()
+        res = _invoke(runner, ["-s", str(linked_store), "--json", "push"], env=env)
+        assert res.exit_code == 0, res.output
+        data = json.loads(res.output)
+        assert data["chunks_present"] >= len(landed)
+        assert set(cloud.state.chunks_for(HANDLE, "demo")) == _nodes(linked_store)
+        assert _git(cloud.state.repo_for(HANDLE, "demo"), "rev-parse", "main") == _git(
+            linked_store, "rev-parse", "main"
+        )
+
+    def test_missing_chunk_on_git_push_falls_back_to_negotiate(
+        self, runner, linked_store, cloud, env, monkeypatch
+    ):
+        """A stale pushed record (e.g. copied from another machine) claims the
+        server has chunks it lacks: the server rejects the ref with
+        `missing chunk`, the client negotiates everything and retries."""
+        record = linked_store / ".git" / "memoir-cloud"
+        record.mkdir()
+        (record / "pushed-origin").write_text(
+            "".join(f"{h}\n" for h in _nodes(linked_store))
+        )
+
+        real_git = SyncService._git
+        state = {"pushes": 0}
+
+        def fake_git(self, args, **kw):
+            if args[:1] == ["push"]:
+                state["pushes"] += 1
+                if state["pushes"] == 1:
+                    return subprocess.CompletedProcess(
+                        args,
+                        1,
+                        "",
+                        "! [remote rejected] main -> main (missing chunk abc)",
+                    )
+            return real_git(self, args, **kw)
+
+        monkeypatch.setattr(SyncService, "_git", fake_git)
+        res = _invoke(runner, ["-s", str(linked_store), "--json", "push"], env=env)
+        assert res.exit_code == 0, res.output
+        data = json.loads(res.output)
+        assert data["chunks_uploaded"] == len(_nodes(linked_store))
+        posts = cloud.state.paths("POST")
+        assert len([p for p in posts if p.endswith("/negotiate")]) == 1
+        assert state["pushes"] == 2
+        assert set(cloud.state.chunks_for(HANDLE, "demo")) == _nodes(linked_store)
 
     def test_push_refuses_cloud_branch(self, runner, linked_store, env, cloud):
         _git(linked_store, "branch", "cloud/feature/x")
@@ -768,6 +905,9 @@ class TestRoundTrip:
         assert data["chunks_downloaded"] >= 1
         assert "origin/main" in data["remote_refs"]
         assert _git(dest, "rev-parse", "main") != new_tip
+        # downloaded chunks are known to be on the server: recorded as pushed
+        record = set((dest / ".git/memoir-cloud/pushed-origin").read_text().split())
+        assert record >= set(cloud.state.chunks_for(HANDLE, "demo"))
 
         res = _invoke(runner, ["-s", str(dest), "--json", "pull"], env=env)
         data = json.loads(res.output)
@@ -926,14 +1066,38 @@ class TestKeyHygiene:
 
 
 class TestCloudClient:
-    def test_negotiate_batches_of_500(self, cloud):
+    def test_negotiate_batches_of_1000(self, cloud):
         hashes = [f"{i:064x}" for i in range(1201)]
         with CloudClient(cloud.url, API_KEY) as client:
             missing = client.missing_on_server(ADDRESS, hashes)
         assert missing == hashes
         negotiates = [r for r in cloud.state.requests if r.path.endswith("/negotiate")]
         sizes = [len(json.loads(r.body)["have"]) for r in negotiates]
-        assert sizes == [500, 500, 201]
+        assert sizes == [1000, 201]
+
+    def test_upload_batch_reports_stored_existing_rejected(self, cloud):
+        a, b = "a" * 64, "b" * 64
+        with CloudClient(cloud.url, API_KEY) as client:
+            client.put_chunk(ADDRESS, a, b"old")
+            cloud.state.reject_hashes.add("c" * 64)
+            body = client.upload_batch(
+                ADDRESS, [(a, b"old"), (b, b"new"), ("c" * 64, b"x")]
+            )
+        assert body["existing"] == [a]
+        assert body["stored"] == [b]
+        assert body["rejected"] == {"c" * 64: "injected"}
+        assert cloud.state.chunks_for(HANDLE, "demo")[b] == b"new"
+
+    def test_upload_batch_502_retried_then_unavailable(self, cloud, monkeypatch):
+        monkeypatch.setattr(sync_service, "BATCH_BACKOFF", (0.01, 0.01, 0.01))
+        cloud.state.batch_fail_502 = -1
+        with (
+            CloudClient(cloud.url, API_KEY) as client,
+            pytest.raises(CloudError) as exc,
+        ):
+            client.upload_batch(ADDRESS, [("d" * 64, b"x")])
+        assert "object store unavailable, retry later" in exc.value.message
+        assert len([p for p in cloud.state.paths("POST") if p.endswith("/batch")]) == 4
 
     def test_put_is_idempotent(self, cloud):
         h = "a" * 64

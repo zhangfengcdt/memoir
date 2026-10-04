@@ -9,7 +9,8 @@ with GitHub-style ``<owner>/<store>`` addressing:
   ``GET /stores``, ``GET /stores/by-name/{owner}/{store}`` (404 for unknown
   **or** not-owned)
 - ``POST /{owner}/{store}/chunks/negotiate``, ``GET /{owner}/{store}/chunks``,
-  ``PUT|GET /{owner}/{store}/chunks/{hash}``
+  ``PUT|GET /{owner}/{store}/chunks/{hash}``, ``POST /{owner}/{store}/chunks/batch``
+  (multipart; ``stored`` / ``existing`` / ``rejected`` exactly like production)
 - ``GET /{owner}/{store}/info/refs``, ``POST .../git-receive-pack``,
   ``POST .../git-upload-pack`` — delegated to the real ``git http-backend``
   CGI over a bare repo, so the git half of push/fetch/pull is exercised with
@@ -19,11 +20,17 @@ Every request is recorded (method, path, headers, body) so tests can assert
 on ordering (chunk PUTs before receive-pack), batching, and that the bearer
 header actually arrives. Fault injection: ``fail_puts`` (always 500 for
 those hashes), ``flaky_puts`` (500 once, then succeed), ``page_size`` (cap on
-chunk-listing pages, to exercise pagination).
+chunk-listing pages, to exercise pagination), ``batch_fail_502`` (the next N
+batch requests answer 502 "object store unavailable"; ``-1`` = forever),
+``batch_fail_after_ok`` (502 forever once that many batches succeeded, to
+simulate a network cut mid-push), ``batch_max_parts`` (413 above it, to
+exercise splitting), ``reject_hashes`` (reported in ``rejected``).
 """
 
 from __future__ import annotations
 
+import email.parser
+import email.policy
 import json
 import os
 import re
@@ -69,6 +76,11 @@ class FakeCloudState:
     fail_puts: set[str] = field(default_factory=set)
     flaky_puts: set[str] = field(default_factory=set)
     page_size: int | None = None
+    batch_fail_502: int = 0
+    batch_fail_after_ok: int | None = None
+    batch_max_parts: int | None = None
+    reject_hashes: set[str] = field(default_factory=set)
+    batches_ok: int = 0
     lock: threading.Lock = field(default_factory=threading.Lock)
 
     def create_store(self, name: str, owner_handle: str | None = None) -> dict:
@@ -261,7 +273,7 @@ class _Handler(BaseHTTPRequestHandler):
             req = json.loads(body or b"{}")
             have = req.get("have", [])
             want = req.get("want", [])
-            if len(have) + len(want) > 500:
+            if len(have) + len(want) > 1000:
                 self._json(400, {"detail": "batch too large"})
                 return
             self._json(
@@ -271,6 +283,9 @@ class _Handler(BaseHTTPRequestHandler):
                     "present_on_server": [h for h in want if h in store_chunks],
                 },
             )
+            return
+        if tail == "chunks/batch" and self.command == "POST":
+            self._batch(store_chunks, body)
             return
         if tail == "chunks" and self.command == "GET":
             limit = int(query.get("limit", ["1000"])[0])
@@ -313,6 +328,61 @@ class _Handler(BaseHTTPRequestHandler):
                     self._send(200, data, "application/octet-stream")
                 return
         self._json(404, {"detail": "unknown chunk route"})
+
+    def _batch(self, store_chunks: dict[str, bytes], body: bytes) -> None:
+        st = self.state
+        if "Content-Length" not in self.headers:
+            self._json(411, {"detail": "Content-Length required"})
+            return
+        with st.lock:
+            if st.batch_fail_502 != 0 or (
+                st.batch_fail_after_ok is not None
+                and st.batches_ok >= st.batch_fail_after_ok
+            ):
+                if st.batch_fail_502 > 0:
+                    st.batch_fail_502 -= 1
+                fail = True
+            else:
+                fail = False
+        if fail:
+            self._json(502, {"detail": "object store unavailable"})
+            return
+        ctype = self.headers.get("Content-Type", "")
+        msg = email.parser.BytesParser(policy=email.policy.HTTP).parsebytes(
+            f"Content-Type: {ctype}\r\nMIME-Version: 1.0\r\n\r\n".encode() + body
+        )
+        parts = list(msg.iter_parts()) if msg.is_multipart() else []
+        if len(parts) > (st.batch_max_parts or 500) or len(body) > 32 * 1024 * 1024:
+            self._json(413, {"detail": "too many parts or bytes"})
+            return
+        stored: list[str] = []
+        existing: list[str] = []
+        rejected: dict[str, str] = {}
+        for part in parts:
+            name = part.get_param("name", header="content-disposition") or ""
+            has_file = (
+                part.get_param("filename", header="content-disposition") is not None
+            )
+            data = part.get_payload(decode=True) or b""
+            if not has_file:
+                rejected[name] = "not a file part"
+            elif not re.match(r"^[0-9a-f]{16,128}$", name):
+                rejected[name] = "bad hash"
+            elif len(data) > 8 * 1024 * 1024:
+                rejected[name] = "too large"
+            elif name in st.reject_hashes:
+                rejected[name] = "injected"
+            else:
+                with st.lock:
+                    if name in store_chunks:
+                        if name not in existing and name not in stored:
+                            existing.append(name)
+                    else:
+                        store_chunks[name] = data
+                        stored.append(name)
+        with st.lock:
+            st.batches_ok += 1
+        self._json(200, {"stored": stored, "existing": existing, "rejected": rejected})
 
     # ---- git smart-HTTP via git http-backend ---------------------------
     def _git_cgi(

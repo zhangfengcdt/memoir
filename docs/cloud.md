@@ -34,9 +34,9 @@ A memoir store is an ordinary non-bare git repo. Its commits track one file, `da
 | Half | Carries | Transport |
 |---|---|---|
 | Git | commits, branches, tags | standard git smart-HTTP via the `git` binary memoir already requires |
-| Chunks | the node files, keyed by filename | a small HTTP protocol under `<address>/chunks`: negotiate → upload missing → download missing |
+| Chunks | the node files, keyed by filename | a small HTTP protocol under `<address>/chunks`: negotiate → upload the missing ones in multipart batches (up to 500 per request, 4 in flight) → download missing |
 
-Node filenames are prollytree node hashes and are treated as opaque identifiers; nothing is re-hashed. v1 syncs the whole node directory, and negotiation makes repeat pushes incremental (only chunks the server lacks are uploaded).
+Node filenames are prollytree node hashes and are treated as opaque identifiers; nothing is re-hashed. v1 syncs the whole node directory. Repeat pushes are incremental twice over: after a successful push (or a fetch) memoir records the hashes the server confirmed under `.git/memoir-cloud/pushed-origin`, so the next push computes what is new locally and sends only that, with no negotiate round trip. If that record is missing, or the server rejects a ref with `missing chunk`, memoir falls back to negotiating the whole set and rebuilds the record.
 
 ## Commands
 
@@ -44,7 +44,7 @@ Node filenames are prollytree node hashes and are treated as opaque identifiers;
 |---|---|
 | `memoir remote add [<owner>/<store>] [--url <gateway>] [--force]` | Resolve the address (404 → `store <owner>/<store> not found (or you don't own it)`), then set the git remote `origin` to `https://<gateway>/<owner>/<store>`. With no argument, proposes `<your handle>/<store directory name>` and asks before resolving. |
 | `memoir remote show` / `remove` | Print the address, gateway, branch and cloud summary; or unlink. |
-| `memoir push [--branch <b>] [--create <store>]` | Upload every chunk the cloud is missing, **then** `git push`. `--create <store>` first creates that cloud store under your handle and links it as `origin`. Default branch: current. |
+| `memoir push [--branch <b>] [--create <store>]` | Upload every chunk the cloud is missing (batched), **then** `git push`. `--create <store>` first creates that cloud store under your handle and links it as `origin`. Default branch: current. Prints `pushed main to <owner>/<store>: 7,361 chunks (6,900 new, 461 already on server) in 43 s`. |
 | `memoir fetch` | `git fetch` all branches, tags, and `refs/cloud/*`; download every chunk not present locally. Moves no local branch. |
 | `memoir pull [--branch <b>] [--force]` | `fetch`, then fast-forward the branch. A branch that does not exist locally is created from the cloud; a pristine local store (only prollytree's initial commit, no memories) adopts the cloud history. `--force` replaces the local branch with the cloud copy, discarding local memories on it; the previous tip is kept under `refs/memoir/backup/<branch>` and printed. |
 | `memoir status` | Shows `origin: <owner>/<store>` when a cloud remote is configured. |
@@ -55,7 +55,7 @@ All commands support `--json`; the JSON carries the address as `origin`, never a
 
 **Fast-forward only.** User branches on the cloud never rewind. If the cloud is ahead, `memoir push` exits with code 6 and `remote has commits you don't have; run memoir pull first`. If local and cloud histories have diverged, `memoir pull` also exits 6 (`local and cloud histories have diverged; cloud merge is not available yet`) and points at `memoir pull --force`, the one explicit way to discard the local memories on that branch and take the cloud copy. Linking a store that already holds its own memories to a cloud store with a different history is the same situation and gets the same answer. Cloud-side merge is planned; memoir does not attempt a local merge of cloud history.
 
-**Chunks before refs.** `push` only runs `git push` after every chunk upload has succeeded. A failed upload never results in a git push, so no cloud ref ever points at a commit whose root chunk is missing. The server enforces the same invariant: it refuses to advance a ref unless the root hash in the pushed commit is an uploaded chunk.
+**Chunks before refs.** `push` only runs `git push` after every batch has succeeded. A failed upload never results in a git push, so no cloud ref ever points at a commit whose root chunk is missing. The server enforces the same invariant: it refuses to advance a ref unless the root hash in the pushed commit is an uploaded chunk. A 502 (`object store unavailable`) is retried with backoff and then surfaced as `object store unavailable, retry later`; an interrupted push simply resumes on the next run, with already-written chunks reported as existing. A chunk the server rejects fails the push and is named in the error.
 
 **`cloud/*` branches are read-only locally.** Branches under `refs/cloud/*` are cloud-owned proposal branches. `fetch` makes them visible as `origin/cloud/...`; `push` refuses a branch whose name starts with `cloud/`.
 

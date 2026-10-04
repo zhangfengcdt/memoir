@@ -69,9 +69,19 @@ EXIT_NON_FF = 6
 
 CHUNK_HASH_RE = re.compile(r"^[0-9a-f]{16,128}$")
 DEFAULT_BRANCH = "main"  # what prollytree creates on a store's first open
-NEGOTIATE_BATCH = 500
+NEGOTIATE_BATCH = 1000
 LIST_PAGE = 1000
-CHUNK_CONCURRENCY = 8
+CHUNK_CONCURRENCY = 8  # parallel chunk downloads (fetch / pull)
+# Push uploads go through POST .../chunks/batch (multipart, many chunks per
+# request). Server limits: 500 parts, 32 MiB per request; stay under both.
+BATCH_MAX_PARTS = 500
+BATCH_MAX_BYTES = 24 * 1024 * 1024
+BATCH_WORKERS = 4  # more buys little: the bucket's write bandwidth is the ceiling
+BATCH_TIMEOUT = 300.0
+BATCH_BACKOFF = (1.0, 2.0, 4.0)
+# Hashes the server has confirmed (stored or existing) are recorded here so
+# the next push needs no negotiate round at all.
+PUSHED_RECORD = Path(".git") / "memoir-cloud" / f"pushed-{REMOTE_NAME}"
 DEFAULT_TIMEOUT = 10.0
 CHUNK_TIMEOUT = 60.0
 RETRIES = 3
@@ -216,6 +226,13 @@ class CloudAuthError(CloudError):
 class StoreNotFound(CloudError):
     def __init__(self, address: str):
         super().__init__(f"store {address} not found (or you don't own it)", status=404)
+
+
+class BatchTooLarge(CloudError):
+    """413 from the batch endpoint: split the batch and retry both halves."""
+
+    def __init__(self) -> None:
+        super().__init__("batch too large", status=413)
 
 
 class NonFastForwardError(ServiceError):
@@ -367,6 +384,46 @@ class CloudClient:
             timeout=CHUNK_TIMEOUT,
         )
         return bool(resp.status_code == 201)
+
+    def upload_batch(
+        self, address: str, parts: list[tuple[str, bytes]]
+    ) -> dict[str, Any]:
+        """``POST .../chunks/batch``: one multipart request, many chunks.
+
+        Returns ``{"stored": [...], "existing": [...], "rejected": {...}}``.
+        502 and connection errors are retried with 1/2/4 s backoff (the
+        server is idempotent: a retried batch reports already-written chunks
+        as ``existing``). 413 raises ``BatchTooLarge`` so the caller can
+        split. Other 4xx raise ``CloudError`` with the server's detail.
+        """
+        import httpx
+
+        files = [(h, (h, data, "application/octet-stream")) for h, data in parts]
+        for attempt, backoff in enumerate((*BATCH_BACKOFF, None)):
+            try:
+                resp = self._client.post(
+                    f"/{address}/chunks/batch", files=files, timeout=BATCH_TIMEOUT
+                )
+            except httpx.HTTPError as e:
+                logger.debug("batch upload attempt %d failed: %s", attempt, e)
+            else:
+                if resp.status_code == 200:
+                    return dict(resp.json())
+                if resp.status_code == 401:
+                    raise CloudAuthError()
+                if resp.status_code == 413:
+                    raise BatchTooLarge()
+                if resp.status_code < 500:
+                    raise CloudError(
+                        f"POST /{address}/chunks/batch → {resp.status_code}: "
+                        f"{_detail(resp)}",
+                        status=resp.status_code,
+                    )
+                logger.debug("batch upload attempt %d → %s", attempt, resp.status_code)
+            if backoff is None:
+                break
+            time.sleep(backoff)
+        raise CloudError("object store unavailable, retry later", status=502)
 
     def get_chunk(self, address: str, chunk_hash: str) -> bytes:
         return bytes(
@@ -588,26 +645,106 @@ class SyncService(BaseService):
             if p.is_file() and CHUNK_HASH_RE.match(p.name)
         }
 
-    def _upload_chunks(self, client: CloudClient, address: str) -> tuple[int, int]:
-        local = sorted(self.local_chunks())
-        missing = client.missing_on_server(address, local)
+    # -- pushed record (what the server has confirmed) ----------------------
+
+    def _pushed_record_path(self) -> Path:
+        return Path(self.store_path) / PUSHED_RECORD
+
+    def _read_pushed(self) -> set[str] | None:
+        """Hashes the server is known to hold, or None if never recorded."""
+        path = self._pushed_record_path()
+        if not path.exists():
+            return None
+        return {line.strip() for line in path.read_text().splitlines() if line.strip()}
+
+    def _write_pushed(self, hashes: set[str]) -> None:
+        path = self._pushed_record_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(f".tmp.{os.getpid()}")
+        tmp.write_text("".join(f"{h}\n" for h in sorted(hashes)))
+        os.replace(tmp, path)
+
+    def _remember_pushed(self, hashes: set[str]) -> None:
+        self._write_pushed((self._read_pushed() or set()) | hashes)
+
+    # -- upload --------------------------------------------------------------
+
+    def _upload_chunks(
+        self, client: CloudClient, address: str, *, negotiate: bool | None = None
+    ) -> tuple[int, int]:
+        """Upload every local chunk the server lacks, in multipart batches.
+
+        Returns ``(uploaded, already_present)``. ``negotiate`` defaults to
+        "only if there is no pushed record": with a record, ``missing`` is
+        computed locally and no negotiate round trip happens at all.
+        """
         nodes = self._nodes_dir()
+        local = {h: (nodes / h).stat().st_size for h in self.local_chunks()}
+        pushed = self._read_pushed()
+        if negotiate is None:
+            negotiate = pushed is None
+        if negotiate:
+            missing = set(client.missing_on_server(address, sorted(local)))
+        else:
+            missing = set(local) - (pushed or set())
 
-        def upload(chunk_hash: str) -> bool:
-            return client.put_chunk(
-                address, chunk_hash, (nodes / chunk_hash).read_bytes()
+        # Biggest first so one large chunk never strands a batch.
+        batches: list[list[str]] = []
+        batch: list[str] = []
+        size = 0
+        for h in sorted(missing, key=lambda h: -local[h]):
+            if batch and (
+                len(batch) >= BATCH_MAX_PARTS or size + local[h] > BATCH_MAX_BYTES
+            ):
+                batches.append(batch)
+                batch, size = [], 0
+            batch.append(h)
+            size += local[h]
+        if batch:
+            batches.append(batch)
+
+        stored: set[str] = set()
+        existing: set[str] = set()
+        rejected: dict[str, str] = {}
+
+        def send(hashes: list[str]) -> None:
+            parts = [(h, (nodes / h).read_bytes()) for h in hashes]
+            try:
+                body = client.upload_batch(address, parts)
+            except BatchTooLarge:
+                if len(hashes) == 1:
+                    raise CloudError(
+                        f"chunk {hashes[0][:12]}… is too large for the server"
+                    ) from None
+                half = len(hashes) // 2
+                send(hashes[:half])
+                send(hashes[half:])
+                return
+            stored.update(body.get("stored", []))
+            existing.update(body.get("existing", []))
+            rejected.update(body.get("rejected", {}))
+
+        if batches:
+            with ThreadPoolExecutor(max_workers=BATCH_WORKERS) as pool:
+                # Iterating re-raises the first worker exception, so an
+                # unavailable object store aborts before any git activity.
+                list(pool.map(send, batches))
+
+        confirmed = (set(local) - missing) | stored | existing
+        self._remember_pushed(confirmed)
+        if rejected:
+            listed = "; ".join(
+                f"{h[:12]}…: {why}" for h, why in sorted(rejected.items())
             )
-
-        created = 0
-        if missing:
-            with ThreadPoolExecutor(max_workers=CHUNK_CONCURRENCY) as pool:
-                # Iterating the map re-raises the first worker exception, so a
-                # single failed PUT aborts the push before any git activity.
-                created = sum(1 for ok in pool.map(upload, missing) if ok)
-        return created, len(local) - len(missing)
+            raise CloudError(
+                f"server rejected {len(rejected)} chunk(s), the root may be "
+                f"unreachable there: {listed}"
+            )
+        return len(stored), len(local) - len(stored)
 
     def _download_chunks(self, client: CloudClient, address: str) -> int:
         remote = set(client.list_chunks(address))
+        self._remember_pushed(remote)  # the server has these; no need to re-send
         wanted = sorted(remote - self.local_chunks())
         nodes = self._nodes_dir()
         nodes.mkdir(parents=True, exist_ok=True)
@@ -663,14 +800,25 @@ class SyncService(BaseService):
         if not self._ref_exists(f"refs/heads/{branch}"):
             raise ServiceError(f"branch '{branch}' does not exist locally", code=2)
 
+        started = time.monotonic()
         with self._client(gateway) as client:
             client.handle()
             uploaded, present = self._upload_chunks(client, address)
 
-        # Only after every chunk is resident on the server.
-        result = self._git(
-            ["push", REMOTE_NAME, f"{branch}:{branch}"], auth=True, check=False
-        )
+            # Only after every chunk is resident on the server.
+            result = self._git(
+                ["push", REMOTE_NAME, f"{branch}:{branch}"], auth=True, check=False
+            )
+            if result.returncode != 0 and "missing chunk" in result.stderr:
+                # The pushed record disagreed with the server (e.g. it was
+                # written on another machine, or the server lost objects):
+                # negotiate everything, rebuild the record, push once more.
+                more, _ = self._upload_chunks(client, address, negotiate=True)
+                uploaded += more
+                present -= more
+                result = self._git(
+                    ["push", REMOTE_NAME, f"{branch}:{branch}"], auth=True, check=False
+                )
         if result.returncode != 0:
             stderr = redact(result.stderr, self._key)
             if "non-fast-forward" in stderr or "fetch first" in stderr:
@@ -684,6 +832,7 @@ class SyncService(BaseService):
             chunks_uploaded=uploaded,
             chunks_present=present,
             pushed=True,
+            seconds=time.monotonic() - started,
         )
 
     def _create_and_link(self, name: str, gateway: str | None) -> None:
