@@ -68,9 +68,7 @@ CLOUD_BRANCH_PREFIX = "cloud/"
 EXIT_NON_FF = 6
 
 CHUNK_HASH_RE = re.compile(r"^[0-9a-f]{16,128}$")
-# Root hash of prollytree's empty tree (sha256 of nothing): what a brand-new
-# store's auto-generated initial commit points at.
-EMPTY_ROOT_HASH = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+DEFAULT_BRANCH = "main"  # what prollytree creates on a store's first open
 NEGOTIATE_BATCH = 500
 LIST_PAGE = 1000
 CHUNK_CONCURRENCY = 8
@@ -653,6 +651,10 @@ class SyncService(BaseService):
             self._create_and_link(create, gateway)
         gateway, owner, store_name = self._remote()
         address = format_address(owner, store_name)
+        if not self._ref_exists("HEAD") and branch is None:
+            raise ServiceError(
+                "this store has no memories yet; nothing to push", code=2
+            )
         branch = branch or self._current_branch()
         if branch.startswith(CLOUD_BRANCH_PREFIX):
             raise ServiceError(
@@ -758,26 +760,26 @@ class SyncService(BaseService):
         return result.returncode == 0
 
     def _is_pristine(self, branch: str) -> bool:
-        """True iff ``branch`` holds only prollytree's auto-generated initial
-        commit (the empty tree) and nothing else.
+        """True iff ``branch`` holds only prollytree's auto-generated
+        "Initial commit" and the working tree has nothing uncommitted.
 
         Local stores are created automatically (by the plugin on
         SessionStart, or by the first memoir command), so a never-used
         store already has one commit by the time it is linked. Pulling
         into it must adopt the cloud history rather than refuse to merge
         unrelated histories.
+
+        Every memory write is auto-committed, so "exactly one commit" means
+        "no memories". This deliberately does not look at the root hash:
+        the empty-tree hash differs between prollytree versions.
         """
-        count = self._git(["rev-list", "--count", f"refs/heads/{branch}"]).stdout
-        if count.strip() != "1":
+        log = self._git(
+            ["log", "--format=%s", f"refs/heads/{branch}"], check=False
+        ).stdout.splitlines()
+        if len(log) != 1 or not log[0].startswith("Initial commit"):
             return False
-        config = self._git(
-            ["show", f"refs/heads/{branch}:data/prolly_config_tree_config"],
-            check=False,
-        )
-        if config.returncode != 0:
-            return False
-        root = json.loads(config.stdout).get("root_hash")
-        return bool(root) and bytes(root).hex() == EMPTY_ROOT_HASH
+        dirty = self._git(["status", "--porcelain", "--", "data/"]).stdout.strip()
+        return not dirty
 
     def pull(self, branch: str | None = None, force: bool = False) -> PullResult:
         """Fetch, then move ``branch`` to the cloud tip.
@@ -791,7 +793,11 @@ class SyncService(BaseService):
         recovered (``git branch <name> refs/memoir/backup/<branch>``).
         """
         fetched = self.fetch()
-        current = self._current_branch()
+        unborn = not self._ref_exists("HEAD")
+        # A never-opened store has an unborn HEAD named by git's default
+        # (often `master`); prollytree would create `main` on first open,
+        # so that is the branch a bare `memoir pull` means.
+        current = DEFAULT_BRANCH if unborn else self._current_branch()
         branch = branch or current
         remote_ref = f"refs/remotes/{REMOTE_NAME}/{branch}"
         if not self._ref_exists(remote_ref):
@@ -801,7 +807,11 @@ class SyncService(BaseService):
         forced = False
         previous_tip: str | None = None
         backup_ref: str | None = None
-        if not self._ref_exists(f"refs/heads/{branch}"):
+        if unborn and branch == current:
+            # Nothing local yet: make `branch` the checked-out branch.
+            self._git(["checkout", "-q", "-f", "-B", branch, remote_ref])
+            created = True
+        elif not self._ref_exists(f"refs/heads/{branch}"):
             self._git(["branch", branch, remote_ref])
             created = True
         elif self._is_pristine(branch):

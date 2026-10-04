@@ -617,14 +617,22 @@ class TestRoundTrip:
     def test_pull_into_unopened_new_store(
         self, runner, linked_store, cloud, env, tmp_root
     ):
-        """`memoir new` without any open leaves HEAD unborn; pull creates main."""
+        """`memoir new` without any open leaves HEAD unborn, named by git's
+        default branch (whatever it is); pull means `main` and checks it out."""
         _invoke(runner, ["-s", str(linked_store), "push"], env=env)
         dest = tmp_root / "fresh"
         _invoke(runner, ["new", str(dest)])
+        _git(dest, "symbolic-ref", "HEAD", "refs/heads/master")  # CI-style default
         _invoke(runner, ["-s", str(dest), "remote", "add", ADDRESS], env=env)
+        res = runner.invoke(cli, ["-s", str(dest), "push"], env=env)
+        assert res.exit_code == 2
+        assert "no memories yet" in res.output
         res = _invoke(runner, ["-s", str(dest), "--json", "pull"], env=env)
         assert res.exit_code == 0, res.output
-        assert json.loads(res.output)["created"] is True
+        data = json.loads(res.output)
+        assert data["created"] is True
+        assert data["branch"] == "main"
+        assert _git(dest, "symbolic-ref", "--short", "HEAD") == "main"
         assert _git(dest, "rev-parse", "main") == _git(
             linked_store, "rev-parse", "main"
         )
