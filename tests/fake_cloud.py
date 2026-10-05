@@ -89,6 +89,13 @@ class FakeCloudState:
     # (a server that misadvertised); `advertise_gzip=False` is an old server.
     advertise_gzip: bool = True
     reject_gzip: bool = False
+    # Device login (`memoir login`, issue #168): polls answer "pending" this
+    # many times, then `login_outcome` ("approved" | "denied" | "expired").
+    login_pending_polls: int = 1
+    login_outcome: str = "approved"
+    login_polls: int = 0
+    login_starts: list[dict] = field(default_factory=list)
+    revoked_keys: list[str] = field(default_factory=list)
     patch_status: int | None = None
     batches_ok: int = 0
     lock: threading.Lock = field(default_factory=threading.Lock)
@@ -197,8 +204,52 @@ class _Handler(BaseHTTPRequestHandler):
         path = parts.path
         query = parse_qs(parts.query)
 
+        if path == "/auth/cli/start" and self.command == "POST":
+            req = json.loads(body or b"{}")
+            with self.state.lock:
+                self.state.login_starts.append(req)
+            self._json(
+                200,
+                {
+                    "device_code": "dev-code-1",
+                    "user_code": "ABCD-EFGH",
+                    "verification_url": "http://fake/cli/login",
+                    "verification_url_complete": "http://fake/cli/login?code=ABCD-EFGH",
+                    "expires_in": 600,
+                    "interval": 0,
+                },
+            )
+            return
+        if path == "/auth/cli/poll" and self.command == "POST":
+            req = json.loads(body or b"{}")
+            if req.get("device_code") != "dev-code-1":
+                self._json(404, {"detail": "unknown device code"})
+                return
+            with self.state.lock:
+                self.state.login_polls += 1
+                polls = self.state.login_polls
+            if polls <= self.state.login_pending_polls:
+                self._json(200, {"status": "pending"})
+            elif self.state.login_outcome == "approved":
+                self._json(
+                    200,
+                    {
+                        "status": "approved",
+                        "api_key": self.state.api_key,
+                        "handle": self.state.handle,
+                        "gateway": f"http://{self.headers.get('Host')}",
+                    },
+                )
+            else:
+                self._json(200, {"status": self.state.login_outcome})
+            return
         if not self._authed():
             self._json(401, {"detail": "invalid or missing API key"})
+            return
+        if path == "/auth/keys/self/revoke" and self.command == "POST":
+            with self.state.lock:
+                self.state.revoked_keys.append(self.state.api_key)
+            self._send(204)
             return
 
         if path == "/auth/whoami":

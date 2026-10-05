@@ -90,8 +90,10 @@ DEFAULT_TIMEOUT = 10.0
 CHUNK_TIMEOUT = 60.0
 RETRIES = 3
 
-PRO_REQUIRED_MESSAGE = f"Cloud sync requires {API_KEY_ENV} (PRO)"
-NOT_SIGNED_IN_MESSAGE = f"not signed in: set {API_KEY_ENV}"
+PRO_REQUIRED_MESSAGE = (
+    f"Cloud sync requires a login: run `memoir login` (or set {API_KEY_ENV})"
+)
+NOT_SIGNED_IN_MESSAGE = f"not signed in: run `memoir login` (or set {API_KEY_ENV})"
 
 # GitHub-shaped naming rules, mirrored from memoir-cloud ``shared/naming.py``.
 HANDLE_RE = re.compile(r"^(?!-)(?!.*--)[A-Za-z0-9-]{1,39}(?<!-)$")
@@ -109,17 +111,27 @@ ADDRESS_FORM = "<owner>/<store>, e.g. feng-zhang/demo"
 
 
 def cloud_enabled() -> bool:
-    """True iff ``MEMOIR_API_KEY`` is set (PRO tier). Nothing else is checked."""
-    return bool(os.environ.get(API_KEY_ENV, "").strip())
+    """True when a key is available: ``MEMOIR_API_KEY`` or a saved login."""
+    return bool(api_key())
 
 
 def api_key() -> str:
-    return os.environ.get(API_KEY_ENV, "").strip()
+    """``MEMOIR_API_KEY`` (wins) → the key saved by ``memoir login``."""
+    env = os.environ.get(API_KEY_ENV, "").strip()
+    if env:
+        return env
+    from memoir.services import cloud_auth
+
+    return cloud_auth.saved_key()
 
 
 def resolve_gateway(url: str | None = None) -> str:
-    """``--url`` flag → ``MEMOIR_CLOUD_URL`` env → production default."""
-    return (url or os.environ.get(GATEWAY_ENV) or DEFAULT_GATEWAY).rstrip("/")
+    """``--url`` → ``MEMOIR_CLOUD_URL`` → the gateway of ``memoir login`` → production."""
+    if url or os.environ.get(GATEWAY_ENV):
+        return (url or os.environ[GATEWAY_ENV]).rstrip("/")
+    from memoir.services import cloud_auth
+
+    return cloud_auth.saved_gateway() or DEFAULT_GATEWAY
 
 
 def redact(text: str, key: str | None = None) -> str:
@@ -651,7 +663,9 @@ class SyncService(BaseService):
         if cloud_spec not in current:
             self._git(["config", "--add", f"remote.{REMOTE_NAME}.fetch", cloud_spec])
 
-    def default_address(self, gateway: str | None = None) -> str:
+    def default_address(
+        self, gateway: str | None = None, name: str | None = None
+    ) -> str:
         """``<handle>/<directory name>`` for `remote add` with no argument.
 
         The directory is the current working directory (the project the
@@ -659,7 +673,7 @@ class SyncService(BaseService):
         under ``~/.memoir/<path-slug>`` and that slug is not a useful name.
         """
         gateway = resolve_gateway(gateway)
-        name = Path.cwd().name
+        name = name or Path.cwd().name
         error = validate_store_name(name)
         if error:
             raise ServiceError(

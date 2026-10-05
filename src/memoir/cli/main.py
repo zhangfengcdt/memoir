@@ -139,8 +139,8 @@ def get_cli_schema(group: click.Group) -> dict[str, Any]:
                 "InMemory backend cannot be persisted and is rejected."
             ),
             "MEMOIR_API_KEY": (
-                "memoir-cloud API key. Enables the cloud sync commands "
-                "(remote, push, pull, fetch). Unset = COMMUNITY tier."
+                "memoir-cloud API key; overrides the key saved by `memoir login`. "
+                "Without either, the cloud commands are unavailable (COMMUNITY tier)."
             ),
             "MEMOIR_CLOUD_URL": (
                 "memoir-cloud gateway URL used by `memoir remote add` and "
@@ -188,7 +188,7 @@ def get_cli_schema(group: click.Group) -> dict[str, Any]:
         "crypto": ["proof", "verify", "blame"],
         "analysis": ["summarize"],
         "taxonomy": ["taxonomy"],
-        "cloud": ["remote", "push", "pull", "fetch"],
+        "cloud": ["login", "logout", "remote", "push", "pull", "fetch"],
         "utility": ["ui", "tui"],
     }
 
@@ -218,6 +218,8 @@ class MemoirContext:
 
     def __init__(self):
         self.store_path: str | None = None
+        # Set when the store was inferred from the code repo (repo mode).
+        self.repo: Any = None
         self.json_output: bool = False
         self.quiet: bool = False
         self.verbose: bool = False
@@ -300,6 +302,13 @@ def print_machine_readable(ctx: click.Context, _param: click.Parameter, value: b
     help="Enable verbose output",
 )
 @click.option(
+    "--repo",
+    "repo_flag",
+    is_flag=True,
+    help="Use the store of the code repo you're in (~/.memoir/<slug>), "
+    "ignoring MEMOIR_STORE",
+)
+@click.option(
     "--machine-readable",
     "--json-schema",
     is_flag=True,
@@ -316,6 +325,7 @@ def cli(
     json_output: bool,
     quiet: bool,
     verbose: bool,
+    repo_flag: bool,
 ):
     """Memoir - Git for AI Memory.
 
@@ -337,14 +347,16 @@ def cli(
       Branch:   branch, checkout, merge, sync-branch, time-travel, diff
       Crypto:   proof, verify, blame
       Analysis: summarize
-      Cloud:    remote, push, pull, fetch  (requires MEMOIR_API_KEY)
+      Cloud:    login, logout, remote, push, pull, fetch
       Utility:  ui, tui
 
     \b
     STORE RESOLUTION (no hidden global default):
       1. -s / --store flag
       2. MEMOIR_STORE env var
-      3. current working directory (cd into a memoir store and just run)
+      3. repo mode: inside a code repo, its store ~/.memoir/<slug> (the
+         Claude Code plugin's store for that repo); --repo forces this
+      4. current working directory (cd into a memoir store and just run)
 
     \b
     AGENT TIPS:
@@ -363,9 +375,10 @@ def cli(
       MEMOIR_LLM_BACKEND   Force LLM backend: 'claude-cli' or 'litellm'
       MEMOIR_LLM_BASE_URL  Custom provider endpoint (LLM gateway/proxy) for
                            the litellm backend; unset = provider default
-      MEMOIR_API_KEY       memoir-cloud API key; unlocks remote/push/pull/
-                           fetch (PRO). Never written to disk.
-      MEMOIR_CLOUD_URL     memoir-cloud gateway URL (default: production)
+      MEMOIR_API_KEY       memoir-cloud API key; overrides the one saved by
+                           `memoir login` (~/.config/memoir/cloud.json, 0600)
+      MEMOIR_CLOUD_URL     memoir-cloud gateway URL (default: the one from
+                           `memoir login`, else production)
 
     \b
     LLM RESOLUTION (shared by `remember`, `watch add`, `watch scan`, ...):
@@ -385,10 +398,44 @@ def cli(
     # Resolution: -s flag (or MEMOIR_STORE via Click envvar=) → cwd → command-time error.
     # Click already folds MEMOIR_STORE into `store` via envvar="MEMOIR_STORE", so by the
     # time we're here `store` is None only when neither was set.
-    ctx.store_path = store or os.getcwd()
     ctx.json_output = json_output
     ctx.quiet = quiet
     ctx.verbose = verbose
+    click_ctx = click.get_current_context()
+    store_from_flag = (
+        click_ctx.get_parameter_source("store")
+        == click.core.ParameterSource.COMMANDLINE
+    )
+    if repo_flag and store_from_flag:
+        ctx.error("pass either -s/--store or --repo, not both", EXIT_ERROR)
+    if store and not repo_flag:
+        ctx.store_path = store
+        return
+
+    from memoir.store import repo_mode
+
+    repo = repo_mode.detect()
+    if repo is None:
+        if repo_flag:
+            ctx.error(
+                "--repo: not inside a git work tree (or it is itself a memoir store)",
+                EXIT_NO_STORE,
+            )
+        ctx.store_path = os.getcwd()
+        return
+    ctx.repo = repo
+    ctx.store_path = str(repo.store)
+    # Commands that create the store on first use, or don't need one.
+    creates_or_ignores = {"remote", "pull", "new", "login", "logout", None}
+    if (
+        not repo.store.exists()
+        and click_ctx.invoked_subcommand not in creates_or_ignores
+    ):
+        ctx.warn(
+            f"no memoir store for repo {repo.name} yet ({repo_mode.display(repo.store)}); "
+            "start a Claude Code session here, or link a cloud store with "
+            "`memoir remote add <owner>/<store> && memoir pull`"
+        )
 
 
 # Import and register command groups
@@ -443,7 +490,9 @@ cli.add_command(analysis.summarize)
 cli.add_command(watch.watch)
 cli.add_command(search.search)
 
-# Cloud sync (gated on MEMOIR_API_KEY)
+# Cloud sync (gated on a login or MEMOIR_API_KEY)
+cli.add_command(sync.login)
+cli.add_command(sync.logout)
 cli.add_command(sync.remote)
 cli.add_command(sync.push)
 cli.add_command(sync.pull)

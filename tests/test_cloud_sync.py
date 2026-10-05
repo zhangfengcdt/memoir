@@ -147,7 +147,7 @@ class TestGating:
         monkeypatch.delenv("MEMOIR_API_KEY", raising=False)
         res = runner.invoke(cli, ["-s", str(store), *args])
         assert res.exit_code == 1
-        assert "requires MEMOIR_API_KEY (PRO)" in res.output
+        assert "Cloud sync requires a login: run `memoir login`" in res.output
 
     def test_existing_commands_unaffected(self, runner, store, monkeypatch):
         monkeypatch.delenv("MEMOIR_API_KEY", raising=False)
@@ -169,6 +169,8 @@ class TestGating:
         data = json.loads(res.output)
         assert data["exit_codes"]["6"] == "non_fast_forward"
         assert {c["name"] for c in data["commands"]["cloud"]} == {
+            "login",
+            "logout",
             "remote",
             "push",
             "pull",
@@ -312,7 +314,7 @@ class TestRemote:
             env={**env, "MEMOIR_API_KEY": "wrong"},
         )
         assert res.exit_code == 1
-        assert "not signed in: set MEMOIR_API_KEY" in res.output
+        assert "not signed in: run `memoir login`" in res.output
 
     def test_add_twice_requires_force(self, runner, linked_store, env, cloud):
         cloud.state.create_store("other")
@@ -647,7 +649,7 @@ class TestPush:
             env={**env, "MEMOIR_API_KEY": "wrong"},
         )
         assert res.exit_code == 1
-        assert "not signed in: set MEMOIR_API_KEY" in res.output
+        assert "not signed in: run `memoir login`" in res.output
         assert all("git-" not in p for p in cloud.state.paths())
 
     def test_push_without_remote(self, runner, store, env):
@@ -889,7 +891,7 @@ class TestRoundTrip:
             cli, ["-s", str(linked_store), "pull"], env={**env, "MEMOIR_API_KEY": "bad"}
         )
         assert res.exit_code == 1
-        assert "not signed in: set MEMOIR_API_KEY" in res.output
+        assert "not signed in: run `memoir login`" in res.output
 
     def test_fetch_pull_fast_forwards_second_machine(
         self, runner, linked_store, cloud, env, tmp_root

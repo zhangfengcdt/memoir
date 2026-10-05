@@ -40,3 +40,10 @@ def delete_output_dir(output_config):
     """Fixture that can be used to clean up output after tests."""
     return output_config
     # Cleanup is handled by output_config fixture
+
+
+@pytest.fixture(autouse=True)
+def _isolate_cloud_login(tmp_path_factory, monkeypatch):
+    """Never read or write the developer's real ~/.config/memoir/cloud.json
+    (`memoir login`): point XDG_CONFIG_HOME at an empty per-test directory."""
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path_factory.mktemp("xdg")))

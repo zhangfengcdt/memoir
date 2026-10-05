@@ -25,7 +25,7 @@ Add `--json` at the group level for machine-readable output (recommended when sc
 | `MEMOIR_MERGE_POLICY` | Global conflict-resolution strategy for `remember` when a key already exists, overriding the per-type default but below an explicit `--merge-policy`. `=replace` restores the old overwrite-everywhere behaviour. See [Conflict resolution](#memoir-remember-conflict-resolution). |
 | `MEMOIR_FACET_MAX_ENTRIES` | Cap on facet entries per key for append-style writes (oldest pruned). Default `50`; `0`/`none` disables capping. |
 | `MEMOIR_RECALL_MERGE` | If `llm`, enables merge-on-read: a multi-entry key's content is LLM-consolidated at read time. Off by default (the deterministic projection is used). |
-| `MEMOIR_API_KEY` | memoir-cloud API key. Unlocks the cloud sync commands (`remote`, `push`, `pull`, `fetch`). Unset = COMMUNITY tier, no behaviour change. Never written to disk. See [Cloud Sync](cloud.md). |
+| `MEMOIR_API_KEY` | memoir-cloud API key; overrides the one saved by `memoir login`. Unlocks the cloud sync commands (`remote`, `push`, `pull`, `fetch`). Unset = COMMUNITY tier, no behaviour change. Never written to disk. See [Cloud Sync](cloud.md). |
 | `MEMOIR_CLOUD_URL` | memoir-cloud gateway URL for `remote add` / `push --create` when `--url` is not passed. Default: the production gateway. |
 
 ### Global flags
@@ -273,17 +273,25 @@ memoir --json get preferences.coding.style preferences.tools.editor
 
 ## Cloud sync commands
 
-`memoir remote`, `push`, `pull`, and `fetch` round-trip a local store with [memoir-cloud](https://github.com/zhangfengcdt/memoir-cloud), so the same memories follow your agent across machines. They are gated on `MEMOIR_API_KEY`: without it every cloud command exits 1 with `Cloud sync requires MEMOIR_API_KEY (PRO)` and nothing else in memoir changes. The rules behind the commands (addresses, what syncs, fast-forward only, key handling) are in the [Cloud Sync](cloud.md) reference; this section is a hands-on guide.
+`memoir remote`, `push`, `pull`, and `fetch` round-trip a local store with [memoir-cloud](https://github.com/zhangfengcdt/memoir-cloud), so the same memories follow your agent across machines. They need a login: without one every cloud command exits 1 asking you to run `memoir login`, and nothing else in memoir changes. The rules behind the commands (addresses, what syncs, fast-forward only, key handling) are in the [Cloud Sync](cloud.md) reference; this section is a hands-on guide.
+
+From the root of a clone of your code repo, the whole setup is:
 
 ```bash
-export MEMOIR_API_KEY=mck_...     # created on the gateway's API-keys page
+memoir login                 # once per machine: approve in the browser
+memoir push --create         # New: create <handle>/<repo name> from this repo's memories
+# or
+memoir remote add <owner>/<store> && memoir pull   # Open: link an existing cloud store
 ```
+
+Inside a code repo memoir uses that repo's store, the one Claude Code uses (`~/.memoir/<slug>`), so neither `MEMOIR_STORE` nor `-s` is needed; `memoir login` remembers the gateway, so `--url` isn't either. On a headless machine use `echo "$KEY" | memoir login --with-key`; `MEMOIR_API_KEY` still works and overrides the saved login. The walkthrough below uses explicit names and addresses so each step is visible.
 
 Cloud stores are addressed GitHub-style as `<owner>/<store>`, where `owner` is your handle and `store` is the store name, for example `feng-zhang/demo`. That address is what you type, what memoir prints, and (prefixed with the gateway) the git remote `origin`.
 
 | Command | What it does |
 |---|---|
-| `memoir push --create <store>` | Create `<your handle>/<store>` in the cloud, link it as `origin`, and push. The usual first step. |
+| `memoir login [--url <gateway>] [--with-key]` / `memoir logout` | Save a key for this machine after approving in the browser (or from stdin); remove it and revoke it on the cloud. |
+| `memoir push --create [<store>]` | Create `<your handle>/<store>` in the cloud (default name: the code repo's), link it as `origin`, and push. The usual first step. |
 | `memoir remote add [<owner>/<store>] [--url <gateway>] [--force]` | Link an existing cloud store. With no argument, proposes `<your handle>/<directory name>` and asks first. |
 | `memoir remote show` / `memoir remote remove` | Show the address, gateway, branch and cloud summary; or unlink. |
 | `memoir push [--branch <b>]` | Upload the chunks the cloud is missing, **then** `git push`. Default: current branch. |
@@ -487,8 +495,8 @@ To use a different gateway, such as a staging deployment, pass `--url` to `remot
 
 | Message | Cause | What to do |
 |---|---|---|
-| `Cloud sync requires MEMOIR_API_KEY (PRO)` | The variable is unset in this shell. | `export MEMOIR_API_KEY=...` |
-| `not signed in: set MEMOIR_API_KEY` | The gateway returned 401. | Check for a typo or an expired key. |
+| `Cloud sync requires a login` | No saved login and no `MEMOIR_API_KEY`. | `memoir login` (or `export MEMOIR_API_KEY=...`) |
+| `not signed in: run memoir login` | The gateway returned 401. | The key is wrong, expired or revoked: `memoir login` again. |
 | `your account has no handle yet` | You have not chosen a handle. | Open `<gateway>/app` in a browser and pick one. |
 | `store <owner>/<store> not found (or you don't own it)` | Unknown address, or a store belonging to someone else. | Check the address with `memoir remote show` on the machine that created it. |
 | `"str_..." is a store id` | You pasted an internal id. | Use the `<owner>/<store>` address instead. |

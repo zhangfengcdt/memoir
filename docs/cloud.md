@@ -1,20 +1,38 @@
 # Cloud Sync
 
-`memoir remote`, `push`, `pull`, and `fetch` round-trip a local memoir store with [memoir-cloud](https://github.com/zhangfengcdt/memoir-cloud). The commands exist in every install but are gated on `MEMOIR_API_KEY`: without the variable, memoir behaves exactly as before (COMMUNITY tier) and the cloud commands exit 1 with `Cloud sync requires MEMOIR_API_KEY (PRO)`.
+`memoir remote`, `push`, `pull`, and `fetch` round-trip a local memoir store with [memoir-cloud](https://github.com/zhangfengcdt/memoir-cloud). The commands exist in every install but need a login (or `MEMOIR_API_KEY`); without one, memoir behaves exactly as before (COMMUNITY tier) and the cloud commands exit 1 asking you to run `memoir login`.
+
+From the root of a local clone of your code repo:
 
 ```bash
-export MEMOIR_API_KEY=mck_...        # from the gateway's API-keys page
-memoir push --create memories        # create <your-handle>/memories and push
-
-# on another machine, in the same project (the plugin already created the store)
-memoir remote add feng-zhang/memories
-memoir pull
-memoir recall "preferences"
+memoir login                 # once per machine (add --url <gateway> for a non-production gateway)
+memoir push --create         # New: create <handle>/<repo name> from this repo's memories
+# or
+memoir remote add <owner>/<store> && memoir pull   # Open: link an existing cloud store
 ```
+
+Inside a code repo, memoir uses that repo's store, `~/.memoir/<slug>`, the same one the Claude Code plugin uses there (see [Store resolution](#store-resolution)), so there is no `MEMOIR_STORE` to set. `memoir login` saves the gateway, so there is no `--url` either.
 
 There is no `clone`. Local stores are created automatically (by the Claude Code plugin on session start, or by the first memoir command), so linking is always done on a store that already exists, and `pull` adopts the cloud history when that store is still empty.
 
 For a hands-on walkthrough see [Cloud sync commands](cli.md#cloud-sync-commands) on the CLI page.
+
+## Logging in
+
+`memoir login` works like `gh auth login`: it prints a short code and a link, opens the browser, and waits while you click **Authorize** on the cloud (signed in there). The cloud mints a key named `memoir CLI (<hostname>)`, which you can see and revoke on its keys page. `memoir login --with-key` reads a key from stdin instead, for headless machines. `memoir logout` revokes the key on the cloud when reachable and deletes it locally.
+
+The key, gateway and handle are saved to `~/.config/memoir/cloud.json` (`$XDG_CONFIG_HOME/memoir/cloud.json` when that is set), mode 0600 in a 0700 directory.
+
+| What | Resolution order |
+|---|---|
+| key | `MEMOIR_API_KEY` → `cloud.json` |
+| gateway | `--url` → `MEMOIR_CLOUD_URL` → `cloud.json` → production |
+
+## Store resolution
+
+`-s` → `MEMOIR_STORE` → **repo mode** → current directory.
+
+Repo mode applies when you're inside a git work tree that is not itself a memoir store. The store is `~/.memoir/<slug>`, where the slug is the main worktree root with `/` and `.` replaced by `-` (exactly the plugin's derivation, so linked worktrees share the main repo's store). Cloud commands print it first, e.g. `store: ~/.memoir/-Users-me-code-sedona (repo sedona)`. `--repo` forces repo mode even when `MEMOIR_STORE` is set. `remote add` and `pull` create the store on first use; other commands stop with a hint when it doesn't exist yet. With no arguments, `push --create` names the cloud store after the repo, and `remote add` proposes `<handle>/<repo name>`.
 
 ## Addresses
 
@@ -71,17 +89,17 @@ When the store is the memory store of a code repo (the Claude Code plugin's `~/.
 
 ## Key handling
 
-- The API key is read from `MEMOIR_API_KEY` only. It is never written to `.git/config` or any other file.
+- The API key comes from `MEMOIR_API_KEY` or, when that is unset, from the login file `~/.config/memoir/cloud.json` (mode 0600; see [Logging in](#logging-in)). It is never written to `.git/config`, to the store, or anywhere else, and never printed.
 - Git gets it per invocation as `-c http.extraHeader="Authorization: Bearer <key>"`; git runs with `GIT_TERMINAL_PROMPT=0` so an invalid key fails fast instead of prompting.
 - The key is redacted from any error output that echoes a command.
-- A 401 from the gateway is reported as `not signed in: set MEMOIR_API_KEY`.
+- A 401 from the gateway is reported as ``not signed in: run `memoir login` (or set MEMOIR_API_KEY)``.
 
 ## Environment variables
 
 | Variable | Effect |
 |---|---|
-| `MEMOIR_API_KEY` | Enables the cloud commands (PRO tier). |
-| `MEMOIR_CLOUD_URL` | Gateway URL used by `remote add` and `push --create` when `--url` is not passed. Default: the production gateway. After linking, the gateway is read back from the `origin` URL. |
+| `MEMOIR_API_KEY` | API key; overrides the one saved by `memoir login`. |
+| `MEMOIR_CLOUD_URL` | Gateway URL used by `login`, `remote add` and `push --create` when `--url` is not passed; overrides the gateway saved by `memoir login`. Default: the production gateway. After linking, the gateway is read back from the `origin` URL. |
 
 ## Exit codes
 
