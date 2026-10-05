@@ -2422,13 +2422,17 @@
 <td><code>backUrl</code></td>
 <td>Cloud profile: target of the "Back to store" link in the top bar.</td>
 </tr>
+<tr>
+<td><code>features</code></td>
+<td>Optional list of optional features the host serves, e.g. <code>["statistics"]</code>. Cloud only: when present it decides exactly which optional features appear; when absent the cloud profile hides them all (today's behaviour).</td>
+</tr>
 </tbody>
 </table>
 <p>Without the object the app behaves exactly as before. With <code>profile: "cloud"</code>:</p>
 <ul>
 <li>The tabs are Outline, Map, Commits and History, plus Branches (branch status and the merge preview) from the top bar. The top bar shows the store address and a "Back to store" link.</li>
 <li>Switching branches is a read: the app passes <code>ref</code> on <code>store</code>, <code>commits</code> and <code>current-branch</code> instead of posting a checkout. This covers the top-bar switcher, the History chips and the <code>/checkout</code> command; <code>/time-travel</code> creates a branch and stays unavailable.</li>
-<li>Features the cloud does not serve are hidden and never requested: memory edits, sync/checkout/create/delete/merge, branch auto-match, Watch, the LLM commands, Statistics, Timeline and Places. The only endpoints used are <code>store</code>, <code>branches</code>, <code>current-branch</code>, <code>branches-status</code>, <code>commits</code>, <code>commit-snapshot</code>, <code>commit-range-diff</code> and <code>branch-merge-preview</code>.</li>
+<li>Features the cloud does not serve are hidden and never requested: memory edits, sync/checkout/create/delete/merge, branch auto-match, Watch, the LLM commands, Timeline and Places. Statistics appears when the host lists <code>"statistics"</code> in <code>features</code>; it then also requests <code>statistics</code>, <code>metrics</code>, <code>onboard</code> and <code>project-onboard</code>, with <code>ref</code> on the first two after a branch switch. Otherwise the only endpoints used are <code>store</code>, <code>branches</code>, <code>current-branch</code>, <code>branches-status</code>, <code>commits</code>, <code>commit-snapshot</code>, <code>commit-range-diff</code> and <code>branch-merge-preview</code>.</li>
 </ul>
 <p><code>readonly</code> is enforced on the client in every profile: with it set, no write control renders (Save/Forget, checkout, Branch from here, Bring over, Revert, Merge, Delete, auto-match, Watch add/scan/remove, and the mutating slash commands are all withheld). The local server itself still enforces nothing; launch it with <code>--readonly</code> when that matters.</p>
 <h2 id="related">Related<a class="headerlink" href="#related" title="Permanent link">&para;</a></h2>
