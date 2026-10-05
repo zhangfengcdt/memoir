@@ -1234,6 +1234,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#code-repo-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Code repo metadata
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#key-handling" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1997,6 +2008,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#code-repo-metadata" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Code repo metadata
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#key-handling" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2163,6 +2185,13 @@
 <p><strong>Chunks before refs.</strong> <code>push</code> only runs <code>git push</code> after every batch has succeeded. A failed upload never results in a git push, so no cloud ref ever points at a commit whose root chunk is missing. The server enforces the same invariant: it refuses to advance a ref unless the root hash in the pushed commit is an uploaded chunk. A 502 (<code>object store unavailable</code>) is retried with backoff and then surfaced as <code>object store unavailable, retry later</code>; an interrupted push simply resumes on the next run, with already-written chunks reported as existing. A chunk the server rejects fails the push and is named in the error.</p>
 <p><strong><code>cloud/*</code> branches are read-only locally.</strong> Branches under <code>refs/cloud/*</code> are cloud-owned proposal branches. <code>fetch</code> makes them visible as <code>origin/cloud/...</code>; <code>push</code> refuses a branch whose name starts with <code>cloud/</code>.</p>
 <p><strong>Root chunk check.</strong> After <code>pull</code>, memoir verifies that the chunk named by the tracked root hash exists locally and errors otherwise, so the store is never left pointing at missing data.</p>
+<h2 id="code-repo-metadata">Code repo metadata<a class="headerlink" href="#code-repo-metadata" title="Permanent link">&para;</a></h2>
+<p>When the store is the memory store of a code repo (the Claude Code plugin's <code>~/.memoir/&lt;slug&gt;</code> stores, where the slug is the repo's path), <code>memoir remote add</code> and every successful <code>memoir push</code> also report that repo to memoir-cloud, so the cloud's store list and store page can show its link, description, language and topics.</p>
+<ul>
+<li><strong>Always, from the local clone:</strong> the <code>origin</code> URL normalised to https, host, owner and name, default branch, current branch and commit, and the repo directory name.</li>
+<li><strong>For GitHub repos, when reachable within 2 seconds:</strong> description, topics, language, visibility, stars and homepage from the GitHub API, authenticated with <code>gh auth token</code> when the GitHub CLI is logged in. Offline, rate-limited or private-without-token simply means these fields are left out.</li>
+<li>The document is sent only when it changed since the last send (recorded in <code>.git/memoir-cloud/repo-meta-origin</code>). Collecting or sending it can never fail <code>remote add</code> or <code>push</code>. A store that maps to no code repo sends nothing, and nothing is written to the store itself.</li>
+</ul>
 <h2 id="key-handling">Key handling<a class="headerlink" href="#key-handling" title="Permanent link">&para;</a></h2>
 <ul>
 <li>The API key is read from <code>MEMOIR_API_KEY</code> only. It is never written to <code>.git/config</code> or any other file.</li>
