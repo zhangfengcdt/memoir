@@ -341,6 +341,15 @@ class CloudClient:
             raise
         return dict(resp.json())
 
+    def set_repo_meta(
+        self, owner: str, store: str, repo: dict[str, Any] | None
+    ) -> None:
+        """``PATCH /stores/by-name/<owner>/<store>`` with the code repo's
+        metadata (replaces the whole document; ``None`` clears it)."""
+        self._request(
+            "PATCH", f"/stores/by-name/{owner}/{store}", ok=(200,), json={"repo": repo}
+        )
+
     def create_store(self, name: str) -> dict[str, Any]:
         try:
             resp = self._request("POST", "/stores", ok=(200, 201), json={"name": name})
@@ -610,12 +619,38 @@ class SyncService(BaseService):
             client.handle()
             store = client.resolve(owner, store_name)
         self._set_remote(remote_url(gateway, owner, store_name), force)
+        self._report_repo_meta(gateway, owner, store_name)
         return RemoteInfo(
             address=format_address(owner, store_name),
             gateway=gateway,
             branch=self._current_branch(),
             store=public_store(store),
         )
+
+    def _report_repo_meta(self, gateway: str, owner: str, store_name: str) -> None:
+        """Send the code repo's metadata to the cloud (issue #164).
+
+        Best-effort by design: a store that maps to no code repo sends
+        nothing; an unchanged document is not resent; any failure while
+        collecting or sending is logged at debug and never fails the verb.
+        """
+        try:
+            from memoir.services import repo_meta
+
+            doc = repo_meta.collect(self.store_path)
+            if doc is None:
+                logger.debug(
+                    "no code repo for %s; not reporting metadata", self.store_path
+                )
+                return
+            if repo_meta.unchanged(self.store_path, REMOTE_NAME, doc):
+                logger.debug("repo metadata unchanged; not resending")
+                return
+            with self._client(gateway) as client:
+                client.set_repo_meta(owner, store_name, doc)
+            repo_meta.record_sent(self.store_path, REMOTE_NAME, doc)
+        except Exception as e:
+            logger.debug("repo metadata not reported: %s", redact(str(e), self._key))
 
     def remote_show(self) -> RemoteInfo:
         gateway, owner, store_name = self._remote()
@@ -834,6 +869,7 @@ class SyncService(BaseService):
                     "remote has commits you don't have; run `memoir pull` first"
                 )
             raise GitOperationError(f"git push failed: {stderr.strip()}")
+        self._report_repo_meta(gateway, owner, store_name)
         return PushResult(
             branch=branch,
             address=address,

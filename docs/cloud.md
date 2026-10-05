@@ -61,6 +61,14 @@ All commands support `--json`; the JSON carries the address as `origin`, never a
 
 **Root chunk check.** After `pull`, memoir verifies that the chunk named by the tracked root hash exists locally and errors otherwise, so the store is never left pointing at missing data.
 
+## Code repo metadata
+
+When the store is the memory store of a code repo (the Claude Code plugin's `~/.memoir/<slug>` stores, where the slug is the repo's path), `memoir remote add` and every successful `memoir push` also report that repo to memoir-cloud, so the cloud's store list and store page can show its link, description, language and topics.
+
+- **Always, from the local clone:** the `origin` URL normalised to https, host, owner and name, default branch, current branch and commit, and the repo directory name.
+- **For GitHub repos, when reachable within 2 seconds:** description, topics, language, visibility, stars and homepage from the GitHub API, authenticated with `gh auth token` when the GitHub CLI is logged in. Offline, rate-limited or private-without-token simply means these fields are left out.
+- The document is sent only when it changed since the last send (recorded in `.git/memoir-cloud/repo-meta-origin`). Collecting or sending it can never fail `remote add` or `push`. A store that maps to no code repo sends nothing, and nothing is written to the store itself.
+
 ## Key handling
 
 - The API key is read from `MEMOIR_API_KEY` only. It is never written to `.git/config` or any other file.

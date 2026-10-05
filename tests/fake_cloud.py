@@ -80,6 +80,10 @@ class FakeCloudState:
     batch_fail_after_ok: int | None = None
     batch_max_parts: int | None = None
     reject_hashes: set[str] = field(default_factory=set)
+    # PATCH /stores/by-name/<o>/<s>: last {"repo": ...} body per store id,
+    # and an optional forced status for failure tests.
+    repo_meta: dict[str, object] = field(default_factory=dict)
+    patch_status: int | None = None
     batches_ok: int = 0
     lock: threading.Lock = field(default_factory=threading.Lock)
 
@@ -174,6 +178,9 @@ class _Handler(BaseHTTPRequestHandler):
     def do_PUT(self):
         self._dispatch(self._read_body())
 
+    def do_PATCH(self):
+        self._dispatch(self._read_body())
+
     def _dispatch(self, body: bytes) -> None:
         self._record(body)
         parts = urlsplit(self.path)
@@ -243,8 +250,23 @@ class _Handler(BaseHTTPRequestHandler):
             store = self.state.lookup(*segs) if len(segs) == 2 else None
             if store is None:
                 self._json(404, {"detail": "store not found"})
-            else:
-                self._json(200, store)
+                return
+            if self.command == "PATCH":
+                if self.state.patch_status:
+                    self._json(self.state.patch_status, {"detail": "injected"})
+                    return
+                payload = json.loads(body or b"{}")
+                repo = payload.get("repo")
+                if repo is not None and not str(repo.get("url", "")).startswith(
+                    ("http://", "https://")
+                ):
+                    self._json(422, {"detail": "repo.url must be http(s)"})
+                    return
+                with self.state.lock:
+                    self.state.repo_meta[store["id"]] = repo
+                self._json(200, {**store, "repo": repo})
+                return
+            self._json(200, store)
             return
 
         # /{owner}/{store}/...
