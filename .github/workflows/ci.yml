@@ -48,6 +48,11 @@ jobs:
 
     - name: Upload coverage to Codecov
       if: matrix.python-version == '3.11'
+      # Coverage reporting must never turn CI red: `fail_ci_if_error: false`
+      # only covers a failed upload, while a failure fetching the uploader
+      # itself (e.g. a TLS handshake error against Codecov) still fails the
+      # step. Tests have already passed or failed in the previous step.
+      continue-on-error: true
       uses: codecov/codecov-action@v4
       with:
         file: ./coverage.xml
