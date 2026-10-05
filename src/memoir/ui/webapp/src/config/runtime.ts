@@ -154,6 +154,8 @@ export function featureEnabled(
   features: readonly string[] | null = runtime.features,
 ): boolean {
   if (profile === "local") return true;
+  // A declared list fully replaces the cloud defaults: anything not listed is
+  // off, including a feature a future release would otherwise enable by default.
   if (features) return features.includes(feature);
   return !CLOUD_DISABLED.has(feature);
 }
