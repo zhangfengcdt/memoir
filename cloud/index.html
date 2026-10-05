@@ -2143,7 +2143,7 @@
 </tr>
 </tbody>
 </table>
-<p>Node filenames are prollytree node hashes and are treated as opaque identifiers; nothing is re-hashed. v1 syncs the whole node directory. Repeat pushes are incremental twice over: after a successful push (or a fetch) memoir records the hashes the server confirmed under <code>.git/memoir-cloud/pushed-origin</code>, so the next push computes what is new locally and sends only that, with no negotiate round trip. If that record is missing, or the server rejects a ref with <code>missing chunk</code>, memoir falls back to negotiating the whole set and rebuilds the record.</p>
+<p>Node filenames are prollytree node hashes and are treated as opaque identifiers; nothing is re-hashed. When the server advertises <code>Memoir-Accept-Encoding: gzip</code> on its chunk routes, upload batches are sent gzip-compressed (<code>Content-Encoding: gzip</code>), which cuts the bytes on the wire about five-fold; against a server that doesn't, they go out raw as before. v1 syncs the whole node directory. Repeat pushes are incremental twice over: after a successful push (or a fetch) memoir records the hashes the server confirmed under <code>.git/memoir-cloud/pushed-origin</code>, so the next push computes what is new locally and sends only that, with no negotiate round trip. If that record is missing, or the server rejects a ref with <code>missing chunk</code>, memoir falls back to negotiating the whole set and rebuilds the record.</p>
 <h2 id="commands">Commands<a class="headerlink" href="#commands" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -2163,7 +2163,7 @@
 </tr>
 <tr>
 <td><code>memoir push [--branch &lt;b&gt;] [--create &lt;store&gt;]</code></td>
-<td>Upload every chunk the cloud is missing (batched), <strong>then</strong> <code>git push</code>. <code>--create &lt;store&gt;</code> first creates that cloud store under your handle and links it as <code>origin</code>. Default branch: current. Prints <code>pushed main to &lt;owner&gt;/&lt;store&gt;: 7,361 chunks (6,900 new) in 41.2 s, git in 2.4 s</code>.</td>
+<td>Upload every chunk the cloud is missing (batched), <strong>then</strong> <code>git push</code>. <code>--create &lt;store&gt;</code> first creates that cloud store under your handle and links it as <code>origin</code>. Default branch: current. Prints <code>pushed main to &lt;owner&gt;/&lt;store&gt;: 7,361 chunks (6,900 new, 41.3 MB sent (gzip)) in 41.2 s, git in 2.4 s</code>.</td>
 </tr>
 <tr>
 <td><code>memoir fetch</code></td>
