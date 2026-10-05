@@ -11,6 +11,7 @@ without a network.
 Run with: pytest tests/test_cloud_sync.py -v
 """
 
+import gzip
 import json
 import os
 import shutil
@@ -1154,3 +1155,95 @@ class TestCloudClient:
             == "https://flag.example"
         )
         assert os.environ["MEMOIR_CLOUD_URL"]
+
+
+# --------------------------------------------------------------------------
+# gzip batch bodies (issue #166)
+# --------------------------------------------------------------------------
+
+
+def _batch_requests(cloud):
+    return [r for r in cloud.state.requests if r.path.endswith("/chunks/batch")]
+
+
+class TestGzipBatches:
+    def _bulk(self, runner, store, n=20):
+        for i in range(n):
+            _remember(runner, store, f"workflow.bulk.k{i}", "same words repeated " * 40)
+
+    def test_gzip_when_advertised(self, runner, linked_store, cloud, env):
+        self._bulk(runner, linked_store)
+        res = _invoke(runner, ["-s", str(linked_store), "--json", "push"], env=env)
+        assert res.exit_code == 0, res.output
+        data = json.loads(res.output)
+        assert data["compressed"] is True
+        batches = _batch_requests(cloud)
+        assert batches
+        for r in batches:
+            assert r.headers.get("Content-Encoding") == "gzip"
+            assert int(r.headers["Content-Length"]) == len(r.body)
+            assert r.headers["Content-Type"].startswith(
+                "multipart/form-data; boundary="
+            )
+        raw_size = sum(len(gzip.decompress(r.body)) for r in batches)
+        assert data["bytes_sent"] == sum(len(r.body) for r in batches)
+        assert data["bytes_sent"] < raw_size
+        assert "sent (gzip)" in data["message"]
+        # The server got exactly the local bytes.
+        server = cloud.state.chunks_for(HANDLE, "demo")
+        assert set(server) == _nodes(linked_store)
+        for h in server:
+            assert (
+                server[h] == (linked_store / ".git/prolly/nodes/files" / h).read_bytes()
+            )
+
+    def test_raw_against_a_server_that_does_not_advertise(
+        self, runner, linked_store, cloud, env
+    ):
+        cloud.state.advertise_gzip = False
+        res = _invoke(runner, ["-s", str(linked_store), "--json", "push"], env=env)
+        assert res.exit_code == 0, res.output
+        data = json.loads(res.output)
+        assert data["compressed"] is False
+        for r in _batch_requests(cloud):
+            assert "Content-Encoding" not in r.headers
+            assert r.headers["Content-Type"].startswith("multipart/form-data")
+        assert set(cloud.state.chunks_for(HANDLE, "demo")) == _nodes(linked_store)
+
+    def test_415_resends_raw_and_stops_compressing(
+        self, runner, linked_store, cloud, env, monkeypatch
+    ):
+        monkeypatch.setattr(sync_service, "BATCH_MAX_PARTS", 1)
+        monkeypatch.setattr(sync_service, "BATCH_WORKERS", 1)
+        cloud.state.reject_gzip = True
+        res = _invoke(runner, ["-s", str(linked_store), "--json", "push"], env=env)
+        assert res.exit_code == 0, res.output
+        assert json.loads(res.output)["compressed"] is False
+        encodings = [r.headers.get("Content-Encoding") for r in _batch_requests(cloud)]
+        assert encodings[0] == "gzip"  # first try, refused
+        assert encodings[1:]
+        assert all(e is None for e in encodings[1:])
+        assert set(cloud.state.chunks_for(HANDLE, "demo")) == _nodes(linked_store)
+
+    def test_probe_when_negotiate_was_skipped(self, runner, linked_store, cloud, env):
+        """With a pushed record there is no negotiate; the client probes a
+        chunk route once before the first batch so it can still compress."""
+        _invoke(runner, ["-s", str(linked_store), "push"], env=env)
+        _remember(runner, linked_store, "workflow.later", "new memory")
+        cloud.state.requests.clear()
+        res = _invoke(runner, ["-s", str(linked_store), "--json", "push"], env=env)
+        paths = cloud.state.paths()
+        assert not any(p.endswith("/negotiate") for p in paths)
+        probe = [i for i, p in enumerate(paths) if f"/{ADDRESS}/chunks?" in p]
+        batch = [i for i, p in enumerate(paths) if p.endswith("/chunks/batch")]
+        assert probe
+        assert batch
+        assert probe[0] < batch[0]
+        assert json.loads(res.output)["compressed"] is True
+
+    def test_noop_push_reports_no_bytes(self, runner, linked_store, cloud, env):
+        _invoke(runner, ["-s", str(linked_store), "push"], env=env)
+        res = _invoke(runner, ["-s", str(linked_store), "--json", "push"], env=env)
+        data = json.loads(res.output)
+        assert data["bytes_sent"] == 0
+        assert "sent" not in data["message"]

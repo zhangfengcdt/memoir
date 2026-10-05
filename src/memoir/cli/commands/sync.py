@@ -194,7 +194,7 @@ def push(
 
     \b
     JSON output includes: origin, branch, chunks_uploaded, chunks_present, pushed,
-    seconds, chunk_seconds, git_seconds
+    seconds, chunk_seconds, git_seconds, bytes_sent, compressed
     """
     _require_store(ctx)
     _require_cloud(ctx)
@@ -202,10 +202,23 @@ def push(
     ctx.success(
         f"pushed {result.branch} to {result.address}: "
         f"{result.chunks_uploaded + result.chunks_present:,} chunks "
-        f"({result.chunks_uploaded:,} new) in {result.chunk_seconds:.1f} s, "
-        f"git in {result.git_seconds:.1f} s",
+        f"({result.chunks_uploaded:,} new{_sent(result)}) in "
+        f"{result.chunk_seconds:.1f} s, git in {result.git_seconds:.1f} s",
         result.to_dict(),
     )
+
+
+def _sent(result) -> str:
+    """``, 1.2 MB sent (gzip)`` when chunk bytes went out, else nothing."""
+    if not result.bytes_sent:
+        return ""
+    size = result.bytes_sent
+    for unit in ("B", "KB", "MB", "GB"):
+        if size < 1000 or unit == "GB":
+            break
+        size /= 1000
+    shown = f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
+    return f", {shown} sent" + (" (gzip)" if result.compressed else "")
 
 
 @click.command()

@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import email.parser
 import email.policy
+import gzip
 import json
 import os
 import re
@@ -83,6 +84,11 @@ class FakeCloudState:
     # PATCH /stores/by-name/<o>/<s>: last {"repo": ...} body per store id,
     # and an optional forced status for failure tests.
     repo_meta: dict[str, object] = field(default_factory=dict)
+    # gzip batch bodies (issue #166): advertise on chunk routes and info/refs,
+    # inflate Content-Encoding: gzip; `reject_gzip` answers 415 to gzip bodies
+    # (a server that misadvertised); `advertise_gzip=False` is an old server.
+    advertise_gzip: bool = True
+    reject_gzip: bool = False
     patch_status: int | None = None
     batches_ok: int = 0
     lock: threading.Lock = field(default_factory=threading.Lock)
@@ -150,6 +156,10 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _send(self, status: int, body: bytes = b"", ctype: str = "application/json"):
         self.send_response(status)
+        if self.state.advertise_gzip and (
+            "/chunks" in self.path or "/info/refs" in self.path
+        ):
+            self.send_header("Memoir-Accept-Encoding", "gzip")
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
@@ -356,6 +366,16 @@ class _Handler(BaseHTTPRequestHandler):
         if "Content-Length" not in self.headers:
             self._json(411, {"detail": "Content-Length required"})
             return
+        encoding = (self.headers.get("Content-Encoding") or "").lower()
+        if encoding:
+            if encoding != "gzip" or st.reject_gzip or not st.advertise_gzip:
+                self._json(415, {"detail": f"unsupported encoding {encoding}"})
+                return
+            try:
+                body = gzip.decompress(body)
+            except OSError:
+                self._json(400, {"detail": "corrupt gzip stream"})
+                return
         with st.lock:
             if st.batch_fail_502 != 0 or (
                 st.batch_fail_after_ok is not None

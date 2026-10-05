@@ -40,6 +40,7 @@ import logging
 import os
 import re
 import subprocess
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -79,6 +80,9 @@ BATCH_MAX_BYTES = 24 * 1024 * 1024
 BATCH_WORKERS = 4  # more buys little: the bucket's write bandwidth is the ceiling
 BATCH_TIMEOUT = 300.0
 BATCH_BACKOFF = (1.0, 2.0, 4.0)
+# Servers that inflate gzip batch bodies say so on every chunk route.
+GZIP_ADVERT_HEADER = "Memoir-Accept-Encoding"
+GZIP_LEVEL = 6
 # Hashes the server has confirmed (stored or existing) are recorded here so
 # the next push needs no negotiate round at all.
 PUSHED_RECORD = Path(".git") / "memoir-cloud" / f"pushed-{REMOTE_NAME}"
@@ -265,6 +269,13 @@ class CloudClient:
             headers={"Authorization": f"Bearer {key}"},
             timeout=DEFAULT_TIMEOUT,
         )
+        # Set once any response advertises ``Memoir-Accept-Encoding: gzip``;
+        # cleared for the rest of the run if a server answers 415 anyway.
+        self.gzip_ok = False
+        self._gzip_refused = False
+        # Bytes of batch bodies actually put on the wire (compressed or not).
+        self.bytes_sent = 0
+        self._lock = threading.Lock()
 
     def close(self) -> None:
         self._client.close()
@@ -291,6 +302,7 @@ class CloudClient:
         for attempt in range(RETRIES):
             try:
                 resp = self._client.request(method, path, **kw)
+                self._note_encoding(resp)
             except httpx.HTTPError as e:
                 last_error = e
                 logger.debug(
@@ -315,6 +327,25 @@ class CloudClient:
         raise CloudError(
             f"{method} {path} failed: {redact(str(last_error), self._key)}"
         )
+
+    def _note_encoding(self, resp: httpx.Response) -> None:
+        advert = resp.headers.get(GZIP_ADVERT_HEADER, "")
+        if "gzip" in [t.strip().lower() for t in advert.split(",")]:
+            self.gzip_ok = True
+
+    def probe_gzip(self, address: str) -> bool:
+        """Learn whether the server inflates gzip batch bodies, via the cheapest
+        chunk route (a one-entry listing). Used when a push skipped negotiate
+        (the pushed record made it unnecessary) and so has seen no chunk-route
+        response yet. Any failure just means "send raw"."""
+        if not self.gzip_ok:
+            try:
+                self._request(
+                    "GET", f"/{address}/chunks", ok=(200,), params={"limit": 1}
+                )
+            except ServiceError as e:
+                logger.debug("gzip probe failed: %s", e)
+        return self.gzip_ok
 
     # -- auth / stores -------------------------------------------------------
 
@@ -405,18 +436,47 @@ class CloudClient:
         as ``existing``). 413 raises ``BatchTooLarge`` so the caller can
         split. Other 4xx raise ``CloudError`` with the server's detail.
         """
+        import gzip
+
         import httpx
 
         files = [(h, (h, data, "application/octet-stream")) for h, data in parts]
+        # Build the multipart body once; the same bytes (or their gzip) go out
+        # on every attempt, with an explicit Content-Length.
+        req = self._client.build_request(
+            "POST", f"/{address}/chunks/batch", files=files
+        )
+        raw = req.read()
+        ctype = req.headers["Content-Type"]
+        compressed: bytes | None = None
         for attempt, backoff in enumerate((*BATCH_BACKOFF, None)):
+            use_gzip = self.gzip_ok and not self._gzip_refused
+            if use_gzip and compressed is None:
+                compressed = gzip.compress(raw, compresslevel=GZIP_LEVEL)
+            body = compressed if use_gzip and compressed is not None else raw
+            headers = {"Content-Type": ctype}
+            if use_gzip:
+                headers["Content-Encoding"] = "gzip"
             try:
                 resp = self._client.post(
-                    f"/{address}/chunks/batch", files=files, timeout=BATCH_TIMEOUT
+                    f"/{address}/chunks/batch",
+                    content=body,
+                    headers=headers,
+                    timeout=BATCH_TIMEOUT,
                 )
             except httpx.HTTPError as e:
                 logger.debug("batch upload attempt %d failed: %s", attempt, e)
             else:
+                self._note_encoding(resp)
+                if resp.status_code == 415 and use_gzip:
+                    # Defensive: a server that advertised gzip never says this.
+                    # Resend raw now and for the rest of the run.
+                    logger.debug("server refused gzip batch; sending raw from now on")
+                    self._gzip_refused = True
+                    continue
                 if resp.status_code == 200:
+                    with self._lock:
+                        self.bytes_sent += len(body)
                     return dict(resp.json())
                 if resp.status_code == 401:
                     raise CloudAuthError()
@@ -760,6 +820,9 @@ class SyncService(BaseService):
             rejected.update(body.get("rejected", {}))
 
         if batches:
+            # Learn whether the server inflates gzip bodies before the first
+            # batch, if no chunk-route response has told us yet.
+            client.probe_gzip(address)
             with ThreadPoolExecutor(max_workers=BATCH_WORKERS) as pool:
                 # Iterating re-raises the first worker exception, so an
                 # unavailable object store aborts before any git activity.
@@ -862,6 +925,8 @@ class SyncService(BaseService):
                     ["push", REMOTE_NAME, f"{branch}:{branch}"], auth=True, check=False
                 )
                 git_seconds += time.monotonic() - t_git
+            bytes_sent = client.bytes_sent
+            compressed = client.gzip_ok and not client._gzip_refused and bytes_sent > 0
         if result.returncode != 0:
             stderr = redact(result.stderr, self._key)
             if "non-fast-forward" in stderr or "fetch first" in stderr:
@@ -879,6 +944,8 @@ class SyncService(BaseService):
             seconds=time.monotonic() - started,
             chunk_seconds=chunk_seconds,
             git_seconds=git_seconds,
+            bytes_sent=bytes_sent,
+            compressed=compressed,
         )
 
     def _create_and_link(self, name: str, gateway: str | None) -> None:

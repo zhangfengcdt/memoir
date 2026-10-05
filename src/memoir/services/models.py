@@ -656,6 +656,8 @@ class PushResult:
     seconds: float = 0.0  # whole push
     chunk_seconds: float = 0.0  # negotiate/diff + batch uploads
     git_seconds: float = 0.0  # git push (including a missing-chunk retry)
+    bytes_sent: int = 0  # chunk batch bodies as sent on the wire
+    compressed: bool = False  # batches went gzip-compressed
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -667,6 +669,8 @@ class PushResult:
             "seconds": round(self.seconds, 1),
             "chunk_seconds": round(self.chunk_seconds, 1),
             "git_seconds": round(self.git_seconds, 1),
+            "bytes_sent": self.bytes_sent,
+            "compressed": self.compressed,
         }
 
 
