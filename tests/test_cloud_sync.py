@@ -706,7 +706,7 @@ class TestPushCreate:
             cli, ["-s", str(linked_store), "push", "--create", "x"], env=env
         )
         assert res.exit_code == 1
-        assert f"already linked to {ADDRESS}" in res.output
+        assert f"already links this store to {ADDRESS}" in res.output
 
 
 # --------------------------------------------------------------------------

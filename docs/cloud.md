@@ -21,14 +21,39 @@ For a hands-on walkthrough see [Cloud sync commands](cli.md#cloud-sync-commands)
 
 `memoir login` works like `gh auth login`: it prints a short code and a link, opens the browser, and waits while you click **Authorize** on the cloud (signed in there). The cloud mints a key named `memoir CLI (<hostname>)`, which you can see and revoke on its keys page. `memoir login --with-key` reads a key from stdin instead, for headless machines. `memoir logout` revokes the key on the cloud when reachable and deletes it locally.
 
-The key, gateway and handle are saved to `~/.config/memoir/cloud.json` (`$XDG_CONFIG_HOME/memoir/cloud.json` when that is set), mode 0600 in a 0700 directory.
+Logins are kept **per gateway** in `~/.config/memoir/cloud.json` (`$XDG_CONFIG_HOME/memoir/cloud.json` when that is set), mode 0600 in a 0700 directory, like `gh`'s hosts file. You can be logged in to production and staging side by side:
 
-| What | Resolution order |
+```bash
+memoir login                                   # production (the first login becomes the default)
+memoir login --url https://api-gateway-staging-3ce9.up.railway.app
+memoir login --status                          # lists both, * marks the default
+memoir logout --url https://api-gateway-staging-3ce9.up.railway.app   # just that one
+memoir logout --all
+```
+
+`--default` makes a login's gateway the default for new links. A file written by an older memoir (one login) is read as a single entry and rewritten in the new shape on the next login.
+
+| What | Resolution |
 |---|---|
-| key | `MEMOIR_API_KEY` → `cloud.json`, only for the gateway it was issued by |
-| gateway | `--url` → `MEMOIR_CLOUD_URL` → `cloud.json` (only when `MEMOIR_API_KEY` is unset) → production |
+| key for a request to gateway G | `MEMOIR_API_KEY` (wins for every gateway) → the login saved for G → none: the command stops before any request with ``not logged in to G: run `memoir login --url G` `` |
+| gateway for a new link (`push --create`, `remote add`) | `--url` → `MEMOIR_CLOUD_URL` → the saved default (only while `MEMOIR_API_KEY` is unset) → production |
 
-The saved key is bound to its gateway, the way `gh` scopes tokens per host. A store whose `origin` points at a different gateway, or a `--url` naming one, never receives it; the command stops with ``your saved login is for <gateway>; run `memoir login --url <other>` ``. `MEMOIR_API_KEY` is not bound and is sent to whichever gateway is targeted, as before, and when it is set the saved login's gateway is no longer the default.
+A saved key is only ever sent to the gateway that issued it. Gateways are compared as scheme + host[:port], case-insensitively. Once a store is linked, its remote's URL decides the gateway, and therefore the key.
+
+## Remotes
+
+A store can link to several cloud stores, like `git remote`. The default remote is `origin`; add more with `--name` and pick one with `--remote`:
+
+```bash
+memoir remote add zhangfengcdt/demo --name staging --url https://api-gateway-staging-3ce9.up.railway.app
+memoir remote list                 # name, address, gateway, logged in?
+memoir push                        # to origin, with origin's gateway key
+memoir push --remote staging       # to staging, with staging's key
+memoir pull --remote staging
+memoir remote remove staging
+```
+
+Each remote keeps its own state: branches under `refs/remotes/<remote>/…` (proposal branches under `<remote>/cloud/…`), the pushed record `.git/memoir-cloud/pushed-<remote>`, and the repo-metadata record `repo-meta-<remote>`. `memoir status` lists every remote as `<name>: <owner>/<store> @ <gateway>`.
 
 ## Store resolution
 

@@ -290,13 +290,14 @@ Cloud stores are addressed GitHub-style as `<owner>/<store>`, where `owner` is y
 
 | Command | What it does |
 |---|---|
-| `memoir login [--url <gateway>] [--with-key]` / `memoir logout` | Save a key for this machine after approving in the browser (or from stdin); remove it and revoke it on the cloud. |
+| `memoir login [--url <gateway>] [--with-key] [--default] [--status]` / `memoir logout [--url <gateway>] [--all]` | Save a key per gateway after approving in the browser (or from stdin); list them; remove one (or all) and revoke it on the cloud. |
 | `memoir push --create [<store>]` | Create `<your handle>/<store>` in the cloud (default name: the code repo's), link it as `origin`, and push. The usual first step. |
 | `memoir remote add [<owner>/<store>] [--url <gateway>] [--force]` | Link an existing cloud store. With no argument, proposes `<your handle>/<directory name>` and asks first. |
-| `memoir remote show` / `memoir remote remove` | Show the address, gateway, branch and cloud summary; or unlink. |
-| `memoir push [--branch <b>]` | Upload the chunks the cloud is missing, **then** `git push`. Default: current branch. |
-| `memoir fetch` | Download new refs and chunks. Moves no local branch. |
-| `memoir pull [--branch <b>] [--force]` | `fetch`, then fast-forward the branch. Creates it from the cloud if missing locally; a never-used local store adopts the cloud history. `--force` replaces the local branch with the cloud copy. |
+| `memoir remote add … --name <remote>` / `memoir remote list` | Link another cloud store under its own name (e.g. `staging`); list every remote with its gateway and login state. |
+| `memoir remote show [<remote>]` / `memoir remote remove [<remote>]` | Show the address, gateway, branch and cloud summary; or unlink. Default remote: `origin`. |
+| `memoir push [--branch <b>] [--remote <name>]` | Upload the chunks the cloud is missing, **then** `git push`. Default: current branch. |
+| `memoir fetch [--remote <name>]` | Download new refs and chunks. Moves no local branch. |
+| `memoir pull [--branch <b>] [--force] [--remote <name>]` | `fetch`, then fast-forward the branch. Creates it from the cloud if missing locally; a never-used local store adopts the cloud history. `--force` replaces the local branch with the cloud copy. |
 | `memoir status` | Adds `origin: <owner>/<store>` when a cloud remote is configured. |
 
 All of them accept `--json`.
@@ -497,6 +498,7 @@ To use a different gateway, such as a staging deployment, pass `--url` to `remot
 |---|---|---|
 | `Cloud sync requires a login` | No saved login and no `MEMOIR_API_KEY`. | `memoir login` (or `export MEMOIR_API_KEY=...`) |
 | `not signed in: run memoir login` | The gateway returned 401. | The key is wrong, expired or revoked: `memoir login` again. |
+| `not logged in to <gateway>` | No saved login for the gateway this remote (or `--url`) points at. | `memoir login --url <gateway>`; `memoir login --status` shows what's saved. |
 | `your account has no handle yet` | You have not chosen a handle. | Open `<gateway>/app` in a browser and pick one. |
 | `store <owner>/<store> not found (or you don't own it)` | Unknown address, or a store belonging to someone else. | Check the address with `memoir remote show` on the machine that created it. |
 | `"str_..." is a store id` | You pasted an internal id. | Use the `<owner>/<store>` address instead. |

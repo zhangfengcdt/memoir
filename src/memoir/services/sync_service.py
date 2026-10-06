@@ -83,9 +83,8 @@ BATCH_BACKOFF = (1.0, 2.0, 4.0)
 # Servers that inflate gzip batch bodies say so on every chunk route.
 GZIP_ADVERT_HEADER = "Memoir-Accept-Encoding"
 GZIP_LEVEL = 6
-# Hashes the server has confirmed (stored or existing) are recorded here so
-# the next push needs no negotiate round at all.
-PUSHED_RECORD = Path(".git") / "memoir-cloud" / f"pushed-{REMOTE_NAME}"
+# Hashes the server has confirmed (stored or existing) are recorded per remote
+# in .git/memoir-cloud/pushed-<remote>, so the next push needs no negotiate.
 DEFAULT_TIMEOUT = 10.0
 CHUNK_TIMEOUT = 60.0
 RETRIES = 3
@@ -111,94 +110,88 @@ ADDRESS_FORM = "<owner>/<store>, e.g. feng-zhang/demo"
 
 
 def cloud_enabled() -> bool:
-    """True when some key is available: ``MEMOIR_API_KEY`` or a saved login.
+    """True when some key is available: ``MEMOIR_API_KEY`` or any saved login.
 
-    Whether it applies to a particular gateway is decided later by
+    Whether one applies to a particular gateway is decided later by
     ``api_key(gateway)``; this only gates the cloud commands as a whole.
     """
-    return bool(_env_key()) or bool(_saved_login())
+    from memoir.services import cloud_auth
+
+    return bool(_env_key()) or bool(cloud_auth.load_all()["gateways"])
 
 
 def _env_key() -> str:
     return os.environ.get(API_KEY_ENV, "").strip()
 
 
-def _saved_login() -> tuple[str, str] | None:
-    """``(gateway, key)`` saved by ``memoir login``, or None."""
-    from memoir.services import cloud_auth
-
-    key, gateway = cloud_auth.saved_key(), cloud_auth.saved_gateway()
-    return (gateway, key) if key and gateway else None
-
-
 def same_gateway(a: str, b: str) -> bool:
-    """Gateways are equal up to a trailing slash and the case of scheme/host."""
-    from urllib.parse import urlsplit
+    """Same gateway: scheme + host[:port], case-insensitive, path ignored."""
+    from memoir.services.cloud_auth import normalize_gateway
 
-    pa, pb = urlsplit(a.rstrip("/")), urlsplit(b.rstrip("/"))
-    return (pa.scheme.lower(), (pa.netloc or "").lower(), pa.path) == (
-        pb.scheme.lower(),
-        (pb.netloc or "").lower(),
-        pb.path,
-    )
+    return normalize_gateway(a) == normalize_gateway(b)
 
 
 def api_key(gateway: str | None = None) -> str:
     """The key to send to ``gateway``.
 
-    ``MEMOIR_API_KEY`` wins, for any gateway (as it always has). The key
-    saved by ``memoir login`` is bound to the gateway it was issued by, like
-    ``gh`` scopes tokens per host: it is only returned when ``gateway`` is
-    that one, so a store whose ``origin`` (or a ``--url``) points elsewhere
-    never receives it. With no ``gateway`` there is no saved-key fallback.
+    ``MEMOIR_API_KEY`` wins, for any gateway (as it always has). Otherwise
+    the login saved for exactly that gateway (``memoir login --url G``),
+    like ``gh`` scopes tokens per host. A saved key is never sent to any
+    other gateway; with no ``gateway`` there is no saved-key fallback.
     """
     env = _env_key()
     if env:
         return env
-    saved = _saved_login()
-    if saved and gateway and same_gateway(saved[0], gateway):
-        return saved[1]
-    return ""
+    if not gateway:
+        return ""
+    from memoir.services import cloud_auth
+
+    found = cloud_auth.entry(gateway)
+    return str(found["api_key"]) if found else ""
 
 
 def resolve_gateway(url: str | None = None) -> str:
-    """``--url`` → ``MEMOIR_CLOUD_URL`` → the login's gateway → production.
+    """For commands without a remote yet: ``--url`` → ``MEMOIR_CLOUD_URL`` →
+    the saved default gateway → production.
 
-    The login's gateway is only a default when the login's key is the one in
-    use: with ``MEMOIR_API_KEY`` set, its own default (production, or
+    The saved default only applies while saved logins are in use: with
+    ``MEMOIR_API_KEY`` set, its own default (production, or
     ``MEMOIR_CLOUD_URL``) applies, so an env key is never aimed at the
     gateway of an unrelated saved login.
     """
     if url or os.environ.get(GATEWAY_ENV):
         return (url or os.environ[GATEWAY_ENV]).rstrip("/")
     if not _env_key():
-        saved = _saved_login()
-        if saved:
-            return saved[0]
+        from memoir.services import cloud_auth
+
+        default = cloud_auth.default_gateway()
+        if default:
+            return default
     return DEFAULT_GATEWAY
 
 
 def redact(text: str, key: str | None = None) -> str:
     """Strip API keys from anything that may be shown to the user: the given
-    one, or the env key and the saved key when none is given."""
+    one, or the env key and every saved key when none is given."""
     if key is not None:
         keys = [key]
     else:
-        saved = _saved_login()
-        keys = [_env_key(), saved[1] if saved else ""]
+        from memoir.services import cloud_auth
+
+        keys = [_env_key(), *cloud_auth.saved_keys()]
     for k in keys:
         if k:
             text = text.replace(k, "***")
     return text
 
 
-class NoKeyForGateway(ServiceError):
-    """A saved login exists, but for a different gateway than the target."""
+class NotLoggedInTo(ServiceError):
+    """No key applies to the target gateway (and MEMOIR_API_KEY is unset)."""
 
-    def __init__(self, gateway: str, saved_gateway: str):
+    def __init__(self, gateway: str):
         super().__init__(
-            f"your saved login is for {saved_gateway}, not {gateway}; "
-            f"run `memoir login --url {gateway}` (or set {API_KEY_ENV})",
+            f"not logged in to {gateway}: run `memoir login --url {gateway}` "
+            f"(or set {API_KEY_ENV})",
             code=1,
         )
 
@@ -262,18 +255,31 @@ def remote_url(gateway: str, owner: str, store: str) -> str:
     return f"{gateway.rstrip('/')}/{owner}/{store}"
 
 
-def parse_remote_url(url: str) -> tuple[str, str, str]:
+REMOTE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+
+
+def validate_remote_name(name: str) -> str | None:
+    """Remote names are git-ref safe: letters, digits, '.', '_', '-'."""
+    if not REMOTE_NAME_RE.match(name) or name.endswith((".", ".lock")) or ".." in name:
+        return (
+            f'"{name}" is not a valid remote name: use 1-64 letters, digits, '
+            "'.', '_' or '-', starting with a letter or digit"
+        )
+    return None
+
+
+def parse_remote_url(url: str, remote: str = REMOTE_NAME) -> tuple[str, str, str]:
     """Split ``https://<gateway>/<owner>/<store>`` into its three parts."""
     if "/sync/" in url:
         raise ServiceError(
-            f"remote '{REMOTE_NAME}' uses the legacy id-based URL ({url}); "
+            f"remote '{remote}' uses the legacy id-based URL ({url}); "
             f"run `memoir remote add {ADDRESS_FORM} --force` to relink"
         )
     parts = urlsplit(url.rstrip("/"))
     segments = parts.path.strip("/").split("/")
     if len(segments) < 2 or not parts.scheme or not parts.netloc:
         raise ServiceError(
-            f"remote '{REMOTE_NAME}' has an unexpected URL (expected "
+            f"remote '{remote}' has an unexpected URL (expected "
             f"https://<gateway>/<owner>/<store>): {url}"
         )
     owner, store = segments[-2], segments[-1]
@@ -627,8 +633,13 @@ class SyncService(BaseService):
     ``.code`` to the process exit code.
     """
 
-    def __init__(self, store_path: str):
+    def __init__(self, store_path: str, remote: str = REMOTE_NAME):
         super().__init__(store_path)
+        error = validate_remote_name(remote)
+        if error:
+            raise ServiceError(error)
+        # Which git remote this instance syncs with; ``origin`` by default.
+        self.remote = remote
         # Bound per target gateway in ``_client``; git calls that need auth
         # always run after a ``_client`` for the same gateway.
         self._key = ""
@@ -681,60 +692,89 @@ class SyncService(BaseService):
 
     def remote_address(self) -> str | None:
         """``owner/store`` of the configured remote, or None. No network."""
-        result = self._git(["remote", "get-url", REMOTE_NAME], check=False)
+        result = self._git(["remote", "get-url", self.remote], check=False)
         if result.returncode != 0:
             return None
         try:
-            _, owner, store = parse_remote_url(result.stdout.strip())
+            _, owner, store = parse_remote_url(result.stdout.strip(), self.remote)
         except ServiceError:
             return None
         return format_address(owner, store)
 
     def _remote(self) -> tuple[str, str, str]:
         """``(gateway, owner, store)`` of the configured remote, or raise."""
-        result = self._git(["remote", "get-url", REMOTE_NAME], check=False)
+        result = self._git(["remote", "get-url", self.remote], check=False)
         if result.returncode != 0:
+            if self.remote == REMOTE_NAME:
+                raise ServiceError(
+                    f"no cloud remote configured; run `memoir remote add {ADDRESS_FORM}` "
+                    f"or `memoir push --create <store>`"
+                )
             raise ServiceError(
-                f"no cloud remote configured; run `memoir remote add {ADDRESS_FORM}` "
-                f"or `memoir push --create <store>`"
+                f"no remote named '{self.remote}'; run "
+                f"`memoir remote add <owner>/<store> --name {self.remote}` "
+                "(`memoir remote list` shows the configured ones)"
             )
-        return parse_remote_url(result.stdout.strip())
+        return parse_remote_url(result.stdout.strip(), self.remote)
+
+    def list_remotes(self) -> list[dict[str, Any]]:
+        """Every cloud remote of this store: name, address, gateway, and
+        whether a key applies to that gateway. Non-cloud remotes (URLs that
+        aren't ``<gateway>/<owner>/<store>``) are skipped."""
+        result = self._git(
+            ["config", "--get-regexp", r"^remote\..*\.url$"], check=False
+        )
+        rows: list[dict[str, Any]] = []
+        for line in result.stdout.splitlines():
+            key, _, url = line.partition(" ")
+            name = key[len("remote.") : -len(".url")]
+            try:
+                gateway, owner, store = parse_remote_url(url.strip(), name)
+            except ServiceError:
+                continue
+            rows.append(
+                {
+                    "name": name,
+                    "address": format_address(owner, store),
+                    "gateway": gateway,
+                    "logged_in": bool(api_key(gateway)),
+                }
+            )
+        rows.sort(key=lambda r: (r["name"] != REMOTE_NAME, r["name"]))
+        return rows
 
     def _client(self, gateway: str) -> CloudClient:
         """A client for ``gateway`` carrying the key that applies to it (see
         ``api_key``); also sets the key the authenticated git calls use."""
         self._key = api_key(gateway)
         if not self._key:
-            saved = _saved_login()
-            if saved:
-                raise NoKeyForGateway(gateway, saved[0])
-            raise CloudAuthError()
+            raise NotLoggedInTo(gateway)
         return CloudClient(gateway, self._key)
 
     def _set_remote(self, url: str, force: bool) -> None:
         exists = (
-            self._git(["remote", "get-url", REMOTE_NAME], check=False).returncode == 0
+            self._git(["remote", "get-url", self.remote], check=False).returncode == 0
         )
         if exists and not force:
             raise ServiceError(
-                f"remote '{REMOTE_NAME}' already exists "
+                f"remote '{self.remote}' already exists "
                 f"({self.remote_address() or 'non-cloud URL'}); "
                 f"pass --force to replace it"
             )
         if exists:
-            self._git(["remote", "set-url", REMOTE_NAME, url])
+            self._git(["remote", "set-url", self.remote, url])
         else:
-            self._git(["remote", "add", REMOTE_NAME, url])
+            self._git(["remote", "add", self.remote, url])
         self._ensure_cloud_refspec()
 
     def _ensure_cloud_refspec(self) -> None:
         """Fetch ``refs/cloud/*`` (cloud-owned proposal branches) too."""
-        cloud_spec = f"+refs/cloud/*:refs/remotes/{REMOTE_NAME}/cloud/*"
+        cloud_spec = f"+refs/cloud/*:refs/remotes/{self.remote}/cloud/*"
         current = self._git(
-            ["config", "--get-all", f"remote.{REMOTE_NAME}.fetch"], check=False
+            ["config", "--get-all", f"remote.{self.remote}.fetch"], check=False
         ).stdout.split()
         if cloud_spec not in current:
-            self._git(["config", "--add", f"remote.{REMOTE_NAME}.fetch", cloud_spec])
+            self._git(["config", "--add", f"remote.{self.remote}.fetch", cloud_spec])
 
     def default_address(
         self, gateway: str | None = None, name: str | None = None
@@ -790,12 +830,12 @@ class SyncService(BaseService):
                     "no code repo for %s; not reporting metadata", self.store_path
                 )
                 return
-            if repo_meta.unchanged(self.store_path, REMOTE_NAME, doc):
+            if repo_meta.unchanged(self.store_path, self.remote, doc):
                 logger.debug("repo metadata unchanged; not resending")
                 return
             with self._client(gateway) as client:
                 client.set_repo_meta(owner, store_name, doc)
-            repo_meta.record_sent(self.store_path, REMOTE_NAME, doc)
+            repo_meta.record_sent(self.store_path, self.remote, doc)
         except Exception as e:
             logger.debug("repo metadata not reported: %s", redact(str(e), self._key))
 
@@ -812,7 +852,7 @@ class SyncService(BaseService):
 
     def remote_remove(self) -> str:
         _, owner, store_name = self._remote()
-        self._git(["remote", "remove", REMOTE_NAME])
+        self._git(["remote", "remove", self.remote])
         return format_address(owner, store_name)
 
     # -- chunks ------------------------------------------------------------
@@ -830,7 +870,7 @@ class SyncService(BaseService):
     # -- pushed record (what the server has confirmed) ----------------------
 
     def _pushed_record_path(self) -> Path:
-        return Path(self.store_path) / PUSHED_RECORD
+        return Path(self.store_path) / ".git" / "memoir-cloud" / f"pushed-{self.remote}"
 
     def _read_pushed(self) -> set[str] | None:
         """Hashes the server is known to hold, or None if never recorded."""
@@ -995,7 +1035,7 @@ class SyncService(BaseService):
             # Only after every chunk is resident on the server.
             t_git = time.monotonic()
             result = self._git(
-                ["push", REMOTE_NAME, f"{branch}:{branch}"], auth=True, check=False
+                ["push", self.remote, f"{branch}:{branch}"], auth=True, check=False
             )
             git_seconds += time.monotonic() - t_git
             if result.returncode != 0 and "missing chunk" in result.stderr:
@@ -1009,7 +1049,7 @@ class SyncService(BaseService):
                 present -= more
                 t_git = time.monotonic()
                 result = self._git(
-                    ["push", REMOTE_NAME, f"{branch}:{branch}"], auth=True, check=False
+                    ["push", self.remote, f"{branch}:{branch}"], auth=True, check=False
                 )
                 git_seconds += time.monotonic() - t_git
             bytes_sent = client.bytes_sent
@@ -1043,8 +1083,9 @@ class SyncService(BaseService):
         existing = self.remote_address()
         if existing:
             raise ServiceError(
-                f"this store is already linked to {existing}; "
-                f"run `memoir remote remove` first to relink"
+                f"remote '{self.remote}' already links this store to {existing}; "
+                f"run `memoir remote remove {self.remote}` first, or use "
+                "`--remote <other-name>`"
             )
         gateway = resolve_gateway(gateway)
         with self._client(gateway) as client:
@@ -1066,21 +1107,20 @@ class SyncService(BaseService):
         address = format_address(owner, store_name)
         with self._client(gateway) as client:
             client.handle()
-            self._git(["fetch", "--tags", REMOTE_NAME], auth=True)
+            self._git(["fetch", "--tags", self.remote], auth=True)
             downloaded = self._download_chunks(client, address)
         refs = self._git(
             [
                 "for-each-ref",
                 "--format=%(refname:short)",
-                f"refs/remotes/{REMOTE_NAME}/",
+                f"refs/remotes/{self.remote}/",
             ]
         ).stdout.split()
         return FetchResult(
             address=address, chunks_downloaded=downloaded, remote_refs=refs
         )
 
-    @staticmethod
-    def _diverged_message(branch: str) -> str:
+    def _diverged_message(self, branch: str) -> str:
         """Both the "grew its own memories before linking" case and the
         "both machines committed since the last sync" case end here: the
         local branch has commits the cloud does not, and vice versa."""
@@ -1148,7 +1188,7 @@ class SyncService(BaseService):
         # so that is the branch a bare `memoir pull` means.
         current = DEFAULT_BRANCH if unborn else self._current_branch()
         branch = branch or current
-        remote_ref = f"refs/remotes/{REMOTE_NAME}/{branch}"
+        remote_ref = f"refs/remotes/{self.remote}/{branch}"
         if not self._ref_exists(remote_ref):
             raise ServiceError(f"cloud has no branch '{branch}'", code=2)
 

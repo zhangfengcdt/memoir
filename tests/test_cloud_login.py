@@ -90,20 +90,22 @@ class TestConfig:
         assert stat.S_IMODE(path.stat().st_mode) == 0o600
         assert stat.S_IMODE(path.parent.stat().st_mode) == 0o700
         assert json.loads(path.read_text()) == {
-            "gateway": "https://gw.example",
-            "api_key": "mck_secret",
-            "handle": "feng",
+            "default": "https://gw.example",
+            "gateways": {
+                "https://gw.example": {"api_key": "mck_secret", "handle": "feng"}
+            },
         }
-        assert cloud_auth.saved_key() == "mck_secret"
-        assert cloud_auth.saved_gateway() == "https://gw.example"
-        assert cloud_auth.delete() is True
-        assert cloud_auth.load() is None
-        assert cloud_auth.delete() is False
+        assert cloud_auth.entry("https://gw.example")["api_key"] == "mck_secret"
+        assert cloud_auth.default_gateway() == "https://gw.example"
+        assert cloud_auth.remove("https://gw.example") is not None
+        assert cloud_auth.load_all()["gateways"] == {}
+        assert not path.exists()
+        assert cloud_auth.remove("https://gw.example") is None
 
     def test_unreadable_file_is_ignored(self, home):
         cloud_auth.config_dir().mkdir(parents=True)
         cloud_auth.config_path().write_text("{not json")
-        assert cloud_auth.load() is None
+        assert cloud_auth.load_all()["gateways"] == {}
         assert sync_service.cloud_enabled() is False
 
     def test_key_precedence(self, home, monkeypatch):
@@ -120,7 +122,7 @@ class TestConfig:
         assert sync_service.api_key("https://gw.example/") == "mck_file"
         assert sync_service.api_key("HTTPS://GW.EXAMPLE") == "mck_file"
         assert sync_service.api_key("https://other.example") == ""
-        assert sync_service.api_key("https://gw.example/sub") == ""
+        assert sync_service.api_key("https://gw.example:8443") == ""
         assert sync_service.api_key(None) == ""
 
     def test_gateway_precedence(self, home, monkeypatch):
@@ -167,8 +169,8 @@ class TestLogin:
         assert API_KEY not in res.output
         assert opened == ["http://fake/cli/login?code=ABCD-EFGH"]
         assert cloud.state.login_starts[0]["client_name"]
-        saved = cloud_auth.load()
-        assert saved == {"gateway": cloud.url, "api_key": API_KEY, "handle": HANDLE}
+        assert cloud_auth.entry(cloud.url) == {"api_key": API_KEY, "handle": HANDLE}
+        assert cloud_auth.default_gateway() == cloud.url
         assert stat.S_IMODE(cloud_auth.config_path().stat().st_mode) == 0o600
 
     def test_no_browser_and_json(self, runner, cloud, monkeypatch):
@@ -195,7 +197,7 @@ class TestLogin:
         res = runner.invoke(cli, ["login", "--url", cloud.url])
         assert res.exit_code == 1
         assert fragment in res.output
-        assert cloud_auth.load() is None
+        assert cloud_auth.load_all()["gateways"] == {}
 
     def test_with_key_from_stdin(self, runner, cloud):
         res = runner.invoke(
@@ -205,7 +207,7 @@ class TestLogin:
             catch_exceptions=False,
         )
         assert res.exit_code == 0, res.output
-        assert cloud_auth.load()["handle"] == HANDLE
+        assert cloud_auth.entry(cloud.url)["handle"] == HANDLE
         assert API_KEY not in res.output
 
     def test_with_bad_key(self, runner, cloud):
@@ -215,7 +217,7 @@ class TestLogin:
         assert res.exit_code == 1
         assert "not signed in" in res.output
         assert "mck_wrong" not in res.output
-        assert cloud_auth.load() is None
+        assert cloud_auth.load_all()["gateways"] == {}
 
     def test_logout_revokes_and_removes(self, runner, cloud):
         _login(cloud)
@@ -223,7 +225,7 @@ class TestLogin:
         assert res.exit_code == 0, res.output
         assert "key revoked" in res.output
         assert cloud.state.revoked_keys == [API_KEY]
-        assert cloud_auth.load() is None
+        assert cloud_auth.load_all()["gateways"] == {}
         res = runner.invoke(cli, ["logout"], catch_exceptions=False)
         assert "not logged in" in res.output
 
@@ -232,7 +234,7 @@ class TestLogin:
         res = runner.invoke(cli, ["logout"], catch_exceptions=False)
         assert res.exit_code == 0
         assert "revoke it on the keys page" in res.output
-        assert cloud_auth.load() is None
+        assert cloud_auth.load_all()["gateways"] == {}
 
     def test_cloud_commands_use_the_saved_login(self, runner, cloud, home):
         """No MEMOIR_API_KEY, no MEMOIR_CLOUD_URL: the login supplies both."""
@@ -273,7 +275,7 @@ class TestLogin:
             for args in (["push"], ["fetch"], ["pull"], ["remote", "show"]):
                 res = runner.invoke(cli, ["-s", str(store), *args])
                 assert res.exit_code == 1, (args, res.output)
-                assert f"your saved login is for {a.url}" in res.output
+                assert f"not logged in to {b.url}" in res.output
                 assert f"memoir login --url {b.url}" in res.output
                 assert API_KEY not in res.output
             leaked = [
@@ -297,7 +299,7 @@ class TestLogin:
                 ],
             )
             assert res.exit_code == 1
-            assert "your saved login is for" in res.output
+            assert f"not logged in to {b.url}" in res.output
             assert not [
                 r
                 for r in b.state.requests

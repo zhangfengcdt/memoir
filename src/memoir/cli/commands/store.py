@@ -131,7 +131,8 @@ def status(ctx: MemoirContext):
 
     \b
     JSON output includes: path, initialized, branch, commit_count, memory_count, namespaces,
-    origin (the cloud remote's <owner>/<store>, or null)
+    origin (the cloud remote's <owner>/<store>, or null), remotes[{name, address,
+    gateway, logged_in}]
     """
     if not ctx.store_path:
         ctx.error(
@@ -146,7 +147,9 @@ def status(ctx: MemoirContext):
     if info.initialized:
         from memoir.services.sync_service import SyncService
 
-        info.origin = SyncService(str(ctx.store_path)).remote_address()
+        sync = SyncService(str(ctx.store_path))
+        info.origin = sync.remote_address()
+        info.remotes = sync.list_remotes()
 
     if ctx.json_output:
         ctx.output(info.to_dict())
@@ -163,8 +166,8 @@ def status(ctx: MemoirContext):
             click.echo(f"Memories: {info.memory_count}")
         if info.namespaces:
             click.echo(f"Namespaces: {', '.join(info.namespaces)}")
-        if info.origin:
-            click.echo(f"origin: {info.origin}")
+        for r in info.remotes or []:
+            click.echo(f"{r['name']}: {r['address']} @ {r['gateway']}")
 
 
 @click.command()

@@ -356,6 +356,8 @@ class StoreInfo:
     namespaces: list[str] = field(default_factory=list)
     # ``<owner>/<store>`` of the cloud remote, if one is configured.
     origin: str | None = None
+    # Every cloud remote: {name, address, gateway, logged_in}.
+    remotes: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
@@ -368,6 +370,7 @@ class StoreInfo:
             "memory_count": self.memory_count,
             "namespaces": self.namespaces,
             "origin": self.origin,
+            "remotes": self.remotes,
         }
 
 
