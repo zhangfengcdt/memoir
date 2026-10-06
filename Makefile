@@ -121,8 +121,11 @@ pre-commit:
 	pre-commit install
 	pre-commit run --all-files
 
+# Build sdist and wheel independently from the source tree, as the release
+# workflow does. Plain `python -m build` builds the wheel *from the sdist*,
+# which excludes the webapp dist/ bundle, so the wheel would ship without it.
 build:
-	python -m build
+	python -m build --sdist --wheel
 
 publish: build
 	twine upload dist/*

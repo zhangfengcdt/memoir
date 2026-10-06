@@ -146,6 +146,7 @@ exclude = [
     "src/memoir/ui/webapp/src",
     "src/memoir/ui/webapp/package.json",
     "src/memoir/ui/webapp/pnpm-lock.yaml",
+    "src/memoir/ui/webapp/pnpm-workspace.yaml",
     "src/memoir/ui/webapp/package-lock.json",
     "src/memoir/ui/webapp/tsconfig.json",
     "src/memoir/ui/webapp/tsconfig.tsbuildinfo",
