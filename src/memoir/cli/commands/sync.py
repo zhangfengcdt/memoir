@@ -52,7 +52,7 @@ def _require_store(ctx: MemoirContext, *, create: bool = False) -> None:
     if not create:
         ctx.error(
             f"no memoir store for repo {repo.name} yet ({repo_mode.display(repo.store)}); "
-            "link a cloud store with `memoir remote add <owner>/<store> && memoir pull`, "
+            "link a cloud store with `memoir pull <owner>/<store>`, "
             "or start a Claude Code session here",
             EXIT_NO_STORE,
         )
@@ -256,7 +256,7 @@ def remote_remove(ctx: MemoirContext, remote_name: str):
     default=None,
     metavar="[<store>]",
     help="Create a cloud store (default name: the code repo's, else the store "
-    "directory's), link it as origin, then push",
+    "directory's), link it under --remote (default origin), then push",
 )
 @click.option("--url", help="Gateway URL for --create (default: MEMOIR_CLOUD_URL)")
 @click.option("--remote", "remote_name", default="origin", help=REMOTE_OPTION_HELP)
@@ -272,7 +272,7 @@ def push(
 
     INPUT: Optional branch name (default: current branch). With
     --create <store>, first create that cloud store under your handle and
-    link it as origin.
+    link it under --remote (default `origin`).
     OUTPUT: Address, branch pushed, chunks uploaded / already present.
 
     Uploads the node files the cloud is missing first (multipart batches of
@@ -359,12 +359,34 @@ def fetch(ctx: MemoirContext, remote_name: str):
     help="Replace the local branch with the cloud copy, discarding local memories",
 )
 @click.option("--remote", "remote_name", default="origin", help=REMOTE_OPTION_HELP)
+@click.option(
+    "--url",
+    help="Gateway for a remote that `pull <address>` creates "
+    "(default: MEMOIR_CLOUD_URL, else the saved default)",
+)
+@click.argument("address", required=False)
 @pass_context
-def pull(ctx: MemoirContext, branch: str | None, force: bool, remote_name: str):
+def pull(
+    ctx: MemoirContext,
+    branch: str | None,
+    force: bool,
+    remote_name: str,
+    url: str | None,
+    address: str | None,
+):
     """Fetch and fast-forward a branch to the cloud tip.
 
-    INPUT: Optional branch name (default: current branch).
-    OUTPUT: Branch, new tip, chunks downloaded.
+    INPUT: Optional <owner>/<store> to pull from (links the remote first
+    when it doesn't exist yet); optional branch name (default: current).
+    OUTPUT: Branch, new tip, chunks downloaded, whether the remote was linked.
+
+    With an address, `pull` is the one-command way to start from an existing
+    cloud store: when the remote (default `origin`, or --remote) doesn't
+    exist it is linked exactly as `memoir remote add` would (and in a code
+    repo the repo's store is created), then pulled. If the remote already
+    points at that address, it just pulls, so repeating the command is
+    harmless. If it points at a different store or gateway, nothing changes
+    and the command exits 1: pull never relinks silently.
 
     Runs `memoir fetch`, then fast-forwards the branch. A branch missing
     locally is created from the cloud; a never-used local store adopts the
@@ -376,21 +398,38 @@ def pull(ctx: MemoirContext, branch: str | None, force: bool, remote_name: str):
 
     \b
     Examples:
+      memoir pull zhangfengcdt/sedona   # link origin to that store and pull
+      memoir pull zhangfengcdt/sedona --remote staging --url https://staging.example
       memoir pull
       memoir pull --branch experiments
       memoir pull --force              # local main := cloud main
 
     \b
     JSON output includes: origin, branch, chunks_downloaded, created, tip,
-    forced, previous_tip, backup_ref
+    forced, previous_tip, backup_ref, linked
     """
+    if address is not None:
+        from memoir.services.base import ServiceError
+        from memoir.services.sync_service import parse_address
+
+        try:  # validate locally before anything touches disk or the network
+            parse_address(address)
+        except ServiceError as e:
+            ctx.error(e.message, e.code)
     _require_cloud(ctx)
     _require_store(ctx, create=True)
-    result = _run(ctx, lambda: _service(ctx, remote_name).pull(branch, force))
+    service = _service(ctx, remote_name)
+    linked = False
+    if address is not None:
+        linked = _run(ctx, lambda: service.ensure_linked(address, url))
+        if linked:
+            ctx.info(f"linked {remote_name} to {address}")
+    result = _run(ctx, lambda: service.pull(branch, force))
+    result.linked = linked
     if result.forced:
         message = (
             f"replaced {result.branch} (was {result.previous_tip}, kept at "
-            f"{result.backup_ref}) with origin/{result.branch} at {result.tip} "
+            f"{result.backup_ref}) with {remote_name}/{result.branch} at {result.tip} "
             f"({result.chunks_downloaded} new chunks)"
         )
     else:

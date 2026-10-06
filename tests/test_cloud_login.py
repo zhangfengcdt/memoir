@@ -418,6 +418,35 @@ class TestRepoModeCLI:
         # the same store the plugin would use
         assert store == repo_mode.detect(repo, home=home).store
 
+    def test_pull_address_in_a_fresh_clone(self, runner, cloud, home, monkeypatch):
+        """#172 acceptance 1: one command creates the store, links, pulls."""
+        _login(cloud)
+        src = home / "elsewhere"
+        runner.invoke(cli, ["new", str(src)], catch_exceptions=False)
+        runner.invoke(
+            cli,
+            ["-s", str(src), "remember", "-p", "workflow.shared", "from cloud"],
+            catch_exceptions=False,
+        )
+        assert (
+            runner.invoke(cli, ["-s", str(src), "push", "--create", "proj9"]).exit_code
+            == 0
+        )
+        repo = _repo(home / "code" / "proj9")
+        store = repo_mode.store_for_repo(repo, home)
+        monkeypatch.chdir(repo)
+        res = runner.invoke(
+            cli,
+            ["pull", f"{HANDLE}/proj9", "--remote", "staging", "--url", cloud.url],
+            catch_exceptions=False,
+        )
+        assert res.exit_code == 0, res.output
+        assert store.exists()
+        assert f"linked staging to {HANDLE}/proj9" in res.output
+        assert _git(store, "remote") == "staging"
+        res = runner.invoke(cli, ["get", "workflow.shared"], catch_exceptions=False)
+        assert "from cloud" in res.output
+
     def test_remote_add_proposes_handle_slash_repo_name(
         self, runner, cloud, home, monkeypatch
     ):
@@ -437,7 +466,7 @@ class TestRepoModeCLI:
         monkeypatch.chdir(repo)
         res = runner.invoke(cli, ["push"])
         assert res.exit_code == EXIT_NO_STORE
-        assert "memoir remote add" in res.output
+        assert "memoir pull <owner>/<store>" in res.output
         assert not repo_mode.store_for_repo(repo, home).exists()
 
     def test_explicit_store_and_env_are_unchanged(self, runner, home, monkeypatch):

@@ -434,7 +434,7 @@ def cli(
         ctx.warn(
             f"no memoir store for repo {repo.name} yet ({repo_mode.display(repo.store)}); "
             "start a Claude Code session here, or link a cloud store with "
-            "`memoir remote add <owner>/<store> && memoir pull`"
+            "`memoir pull <owner>/<store>`"
         )
 
 

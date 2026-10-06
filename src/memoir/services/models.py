@@ -703,6 +703,8 @@ class PullResult:
     forced: bool = False
     previous_tip: str | None = None
     backup_ref: str | None = None
+    # ``pull <address>``: this run created the remote before pulling.
+    linked: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -714,4 +716,5 @@ class PullResult:
             "forced": self.forced,
             "previous_tip": self.previous_tip,
             "backup_ref": self.backup_ref,
+            "linked": self.linked,
         }

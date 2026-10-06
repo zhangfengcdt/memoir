@@ -1249,3 +1249,156 @@ class TestGzipBatches:
         data = json.loads(res.output)
         assert data["bytes_sent"] == 0
         assert "sent" not in data["message"]
+
+
+# --------------------------------------------------------------------------
+# pull <owner>/<store>: link when missing, never relink (issue #172)
+# --------------------------------------------------------------------------
+
+
+class TestPullLinks:
+    def _pushed(self, runner, linked_store, env):
+        res = _invoke(runner, ["-s", str(linked_store), "push"], env=env)
+        assert res.exit_code == 0, res.output
+
+    def test_links_missing_remote_then_pulls(
+        self, runner, linked_store, cloud, env, tmp_root
+    ):
+        self._pushed(runner, linked_store, env)
+        dest = tmp_root / "fresh"
+        _invoke(runner, ["new", str(dest)])
+        res = _invoke(runner, ["-s", str(dest), "--json", "pull", ADDRESS], env=env)
+        assert res.exit_code == 0, res.output
+        data = json.loads(res.output)
+        assert data["linked"] is True
+        assert data["created"] is True
+        assert _git(dest, "remote", "get-url", "origin") == f"{cloud.url}/{ADDRESS}"
+        assert "+refs/cloud/*" in _git(
+            dest, "config", "--get-all", "remote.origin.fetch"
+        )
+        assert _git(dest, "rev-parse", "main") == _git(
+            linked_store, "rev-parse", "main"
+        )
+
+        # Acceptance 2: the same command again just pulls, no error.
+        _remember(runner, linked_store, "workflow.later", "new memory")
+        self._pushed(runner, linked_store, env)
+        res = _invoke(runner, ["-s", str(dest), "--json", "pull", ADDRESS], env=env)
+        assert res.exit_code == 0, res.output
+        data = json.loads(res.output)
+        assert data["linked"] is False
+        assert data["chunks_downloaded"] >= 1
+        assert _git(dest, "rev-parse", "main") == _git(
+            linked_store, "rev-parse", "main"
+        )
+
+    def test_same_address_is_case_and_slash_insensitive(
+        self, runner, linked_store, cloud, env
+    ):
+        self._pushed(runner, linked_store, env)
+        res = _invoke(
+            runner,
+            [
+                "-s",
+                str(linked_store),
+                "--json",
+                "pull",
+                ADDRESS.upper(),
+                "--url",
+                cloud.url + "/",
+            ],
+            env=env,
+        )
+        assert res.exit_code == 0, res.output
+        assert json.loads(res.output)["linked"] is False
+
+    def test_different_store_never_relinks(self, runner, linked_store, cloud, env):
+        """Acceptance 3."""
+        cloud.state.create_store("other")
+        before_remotes = _git(linked_store, "remote", "-v")
+        before_requests = len(cloud.state.requests)
+        res = runner.invoke(
+            cli, ["-s", str(linked_store), "pull", f"{HANDLE}/other"], env=env
+        )
+        assert res.exit_code == 1
+        assert f"origin is {ADDRESS} @ {cloud.url}" in res.output
+        assert "use --remote <other name> to add a second store" in res.output
+        assert f"memoir remote add {HANDLE}/other --force" in res.output
+        assert _git(linked_store, "remote", "-v") == before_remotes
+        # nothing was fetched or pulled
+        assert not any(
+            "git-upload-pack" in p for p in cloud.state.paths()[before_requests:]
+        )
+
+    def test_disagreeing_url_counts_as_different(self, runner, linked_store, env):
+        res = runner.invoke(
+            cli,
+            [
+                "-s",
+                str(linked_store),
+                "pull",
+                ADDRESS,
+                "--url",
+                "https://elsewhere.example",
+            ],
+            env=env,
+        )
+        assert res.exit_code == 1
+        assert f"origin is {ADDRESS}" in res.output
+
+    def test_invalid_address_fails_before_any_request(
+        self, runner, linked_store, cloud, env
+    ):
+        before = len(cloud.state.requests)
+        res = runner.invoke(
+            cli, ["-s", str(linked_store), "pull", "str_abc123"], env=env
+        )
+        assert res.exit_code == 1
+        assert "<owner>/<store>" in res.output
+        assert len(cloud.state.requests) == before
+
+    def test_unknown_store_is_not_found(self, runner, store, env):
+        res = runner.invoke(
+            cli, ["-s", str(store), "pull", f"{HANDLE}/missing"], env=env
+        )
+        assert res.exit_code == 1
+        assert f"store {HANDLE}/missing not found (or you don't own it)" in res.output
+        assert _git(store, "remote") == ""
+
+    def test_named_remote_next_to_origin(self, runner, linked_store, cloud, env):
+        cloud.state.create_store("second")
+        other = linked_store.parent / "pusher"
+        _invoke(runner, ["new", str(other)])
+        _remember(runner, other, "workflow.second", "from second")
+        _invoke(runner, ["-s", str(other), "push", "--create", "second2"], env=env)
+        res = _invoke(
+            runner,
+            [
+                "-s",
+                str(linked_store),
+                "--json",
+                "pull",
+                f"{HANDLE}/second2",
+                "--remote",
+                "side",
+                "--force",
+            ],
+            env=env,
+        )
+        assert res.exit_code == 0, res.output
+        assert json.loads(res.output)["linked"] is True
+        assert (
+            _git(linked_store, "remote", "get-url", "origin")
+            == f"{cloud.url}/{ADDRESS}"
+        )
+        assert (
+            _git(linked_store, "remote", "get-url", "side")
+            == f"{cloud.url}/{HANDLE}/second2"
+        )
+
+    def test_no_address_is_unchanged(self, runner, linked_store, env):
+        """Acceptance 4 (the rest of this file covers plain pull, -s and MEMOIR_STORE)."""
+        self._pushed(runner, linked_store, env)
+        res = _invoke(runner, ["-s", str(linked_store), "--json", "pull"], env=env)
+        assert res.exit_code == 0, res.output
+        assert json.loads(res.output)["linked"] is False

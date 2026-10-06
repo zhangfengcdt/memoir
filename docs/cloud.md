@@ -8,7 +8,7 @@ From the root of a local clone of your code repo:
 memoir login                 # once per machine (add --url <gateway> for a non-production gateway)
 memoir push --create         # New: create <handle>/<repo name> from this repo's memories
 # or
-memoir remote add <owner>/<store> && memoir pull   # Open: link an existing cloud store
+memoir pull <owner>/<store>  # Open: link an existing cloud store and pull it
 ```
 
 Inside a code repo, memoir uses that repo's store, `~/.memoir/<slug>`, the same one the Claude Code plugin uses there (see [Store resolution](#store-resolution)), so there is no `MEMOIR_STORE` to set. `memoir login` saves the gateway, so there is no `--url` either.
@@ -89,9 +89,9 @@ Node filenames are prollytree node hashes and are treated as opaque identifiers;
 |---|---|
 | `memoir remote add [<owner>/<store>] [--url <gateway>] [--force]` | Resolve the address (404 → `store <owner>/<store> not found (or you don't own it)`), then set the git remote `origin` to `https://<gateway>/<owner>/<store>`. With no argument, proposes `<your handle>/<store directory name>` and asks before resolving. |
 | `memoir remote show` / `remove` | Print the address, gateway, branch and cloud summary; or unlink. |
-| `memoir push [--branch <b>] [--create <store>]` | Upload every chunk the cloud is missing (batched), **then** `git push`. `--create <store>` first creates that cloud store under your handle and links it as `origin`. Default branch: current. Prints `pushed main to <owner>/<store>: 7,361 chunks (6,900 new, 41.3 MB sent (gzip)) in 41.2 s, git in 2.4 s`. |
+| `memoir push [--branch <b>] [--create <store>]` | Upload every chunk the cloud is missing (batched), **then** `git push`. `--create <store>` first creates that cloud store under your handle and links it under `--remote` (default `origin`). Default branch: current. Prints `pushed main to <owner>/<store>: 7,361 chunks (6,900 new, 41.3 MB sent (gzip)) in 41.2 s, git in 2.4 s`. |
 | `memoir fetch` | `git fetch` all branches, tags, and `refs/cloud/*`; download every chunk not present locally. Moves no local branch. |
-| `memoir pull [--branch <b>] [--force]` | `fetch`, then fast-forward the branch. A branch that does not exist locally is created from the cloud; a pristine local store (only prollytree's initial commit, no memories) adopts the cloud history. `--force` replaces the local branch with the cloud copy, discarding local memories on it; the previous tip is kept under `refs/memoir/backup/<branch>` and printed. |
+| `memoir pull [<owner>/<store>] [--remote <name>] [--url <gateway>] [--branch <b>] [--force]` | With an address, links the remote first when it doesn't exist yet (as `remote add` would; in a code repo the store is created too), so `memoir pull <owner>/<store>` is the one-command way to start from an existing cloud store. If the remote already points at that address it just pulls; if it points at a different store or gateway, nothing changes and the command exits 1 (pull never relinks silently). Then `fetch`, then fast-forward the branch. A branch that does not exist locally is created from the cloud; a pristine local store (only prollytree's initial commit, no memories) adopts the cloud history. `--force` replaces the local branch with the cloud copy, discarding local memories on it; the previous tip is kept under `refs/memoir/backup/<branch>` and printed. |
 | `memoir status` | Shows `origin: <owner>/<store>` when a cloud remote is configured. |
 
 All commands support `--json`; the JSON carries the address as `origin`, never an id.

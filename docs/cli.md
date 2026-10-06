@@ -281,7 +281,7 @@ From the root of a clone of your code repo, the whole setup is:
 memoir login                 # once per machine: approve in the browser
 memoir push --create         # New: create <handle>/<repo name> from this repo's memories
 # or
-memoir remote add <owner>/<store> && memoir pull   # Open: link an existing cloud store
+memoir pull <owner>/<store>  # Open: link an existing cloud store and pull it
 ```
 
 Inside a code repo memoir uses that repo's store, the one Claude Code uses (`~/.memoir/<slug>`), so neither `MEMOIR_STORE` nor `-s` is needed; `memoir login` remembers the gateway, so `--url` isn't either. On a headless machine use `echo "$KEY" | memoir login --with-key`; `MEMOIR_API_KEY` still works and overrides the saved login. The walkthrough below uses explicit names and addresses so each step is visible.
@@ -297,7 +297,7 @@ Cloud stores are addressed GitHub-style as `<owner>/<store>`, where `owner` is y
 | `memoir remote show [<remote>]` / `memoir remote remove [<remote>]` | Show the address, gateway, branch and cloud summary; or unlink. Default remote: `origin`. |
 | `memoir push [--branch <b>] [--remote <name>]` | Upload the chunks the cloud is missing, **then** `git push`. Default: current branch. |
 | `memoir fetch [--remote <name>]` | Download new refs and chunks. Moves no local branch. |
-| `memoir pull [--branch <b>] [--force] [--remote <name>]` | `fetch`, then fast-forward the branch. Creates it from the cloud if missing locally; a never-used local store adopts the cloud history. `--force` replaces the local branch with the cloud copy. |
+| `memoir pull [<owner>/<store>] [--remote <name>] [--url <gateway>] [--branch <b>] [--force]` | With an address, links the remote first when it's missing (never relinks one that points elsewhere). Then `fetch`, then fast-forward the branch. Creates it from the cloud if missing locally; a never-used local store adopts the cloud history. `--force` replaces the local branch with the cloud copy. |
 | `memoir status` | Adds `origin: <owner>/<store>` when a cloud remote is configured. |
 
 All of them accept `--json`.
@@ -341,18 +341,19 @@ If the name is taken you get `store name already exists; pick another or run mem
 
 ### Pick it up on your desktop
 
-You never create the local store by hand. The Claude Code plugin creates one per project on session start, and any memoir command creates one on first use. So on the second machine, open the same project, export the same key, link the store that is already there, and pull:
+You never create the local store by hand. The Claude Code plugin creates one per project on session start, and memoir creates one on first use. So on the second machine, open the same project, log in, and pull the cloud store by its address. With an address, `pull` links the remote first when it doesn't exist yet:
 
 ```bash
-export MEMOIR_API_KEY=mck_...
-memoir remote add feng-zhang/memories
-memoir pull
+memoir login
+memoir pull feng-zhang/memories
 ```
 
 ```text
-✓ origin: feng-zhang/memories
+→ linked origin to feng-zhang/memories
 ✓ created main to 7d3f1a9 (3 new chunks)
 ```
+
+Running the same command again just pulls what's new. If `origin` already points at a *different* cloud store, `pull` changes nothing and exits 1 with a hint: use `--remote <other name>` to add a second store, or `memoir remote add <address> --force` to switch. `memoir remote add <address>` followed by `memoir pull` still works if you prefer two steps.
 
 Because the local store had never been used, `pull` adopted the cloud history outright. From here `status`, `recall`, and `get` see the laptop's memories:
 
@@ -361,7 +362,7 @@ memoir status
 memoir recall "lint"
 ```
 
-`remote add` resolves the address first. An unknown store, or one you do not own, fails with `store feng-zhang/typo not found (or you don't own it)` and nothing is written. After `pull`, memoir also checks that the chunk named by the store's root hash was downloaded.
+Linking resolves the address first. An unknown store, or one you do not own, fails with `store feng-zhang/typo not found (or you don't own it)` and nothing is written. After `pull`, memoir also checks that the chunk named by the store's root hash was downloaded.
 
 If the local store already holds memories of its own, `pull` refuses rather than guess:
 

@@ -839,6 +839,39 @@ class SyncService(BaseService):
         except Exception as e:
             logger.debug("repo metadata not reported: %s", redact(str(e), self._key))
 
+    def ensure_linked(self, address: str, gateway: str | None = None) -> bool:
+        """Make this remote point at ``address`` (``pull <address>``).
+
+        - remote missing: link it exactly as ``remote_add`` does (key check,
+          address resolution, refspecs); returns True.
+        - remote already at the same address on the same gateway: no-op;
+          returns False, so repeating the command is harmless.
+        - remote at a different store or gateway: raise with nothing changed;
+          a pull must never relink silently, or the next push would go to a
+          different cloud store.
+
+        ``gateway`` (``--url``) only matters when the remote is created; when
+        it exists, a disagreeing ``--url`` counts as "different".
+        """
+        owner, store_name = parse_address(address)  # local validation first
+        wanted = format_address(owner, store_name)
+        exists = self._git(["remote", "get-url", self.remote], check=False)
+        if exists.returncode != 0:
+            self.remote_add(wanted, gateway)
+            return True
+        current_gw, cur_owner, cur_store = self._remote()
+        same_address = format_address(cur_owner, cur_store).lower() == wanted.lower()
+        same_gw = gateway is None or same_gateway(current_gw, gateway)
+        if same_address and same_gw:
+            return False
+        current = format_address(cur_owner, cur_store)
+        raise ServiceError(
+            f"{self.remote} is {current} @ {current_gw}; use --remote <other name> "
+            f"to add a second store, or `memoir remote add {wanted} "
+            f"{'' if self.remote == REMOTE_NAME else f'--name {self.remote} '}--force` "
+            "to switch"
+        )
+
     def remote_show(self) -> RemoteInfo:
         gateway, owner, store_name = self._remote()
         with self._client(gateway) as client:
