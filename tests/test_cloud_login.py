@@ -107,12 +107,21 @@ class TestConfig:
         assert sync_service.cloud_enabled() is False
 
     def test_key_precedence(self, home, monkeypatch):
-        assert sync_service.api_key() == ""
+        assert sync_service.api_key("https://gw.example") == ""
         cloud_auth.save("https://gw.example", "mck_file", "feng")
-        assert sync_service.api_key() == "mck_file"
+        assert sync_service.api_key("https://gw.example") == "mck_file"
         assert sync_service.cloud_enabled() is True
         monkeypatch.setenv("MEMOIR_API_KEY", "mck_env")
-        assert sync_service.api_key() == "mck_env"  # env wins
+        assert sync_service.api_key("https://gw.example") == "mck_env"  # env wins
+        assert sync_service.api_key("https://other.example") == "mck_env"
+
+    def test_saved_key_is_bound_to_its_gateway(self, home):
+        cloud_auth.save("https://gw.example", "mck_file", "feng")
+        assert sync_service.api_key("https://gw.example/") == "mck_file"
+        assert sync_service.api_key("HTTPS://GW.EXAMPLE") == "mck_file"
+        assert sync_service.api_key("https://other.example") == ""
+        assert sync_service.api_key("https://gw.example/sub") == ""
+        assert sync_service.api_key(None) == ""
 
     def test_gateway_precedence(self, home, monkeypatch):
         assert sync_service.resolve_gateway() == sync_service.DEFAULT_GATEWAY
@@ -125,9 +134,21 @@ class TestConfig:
             == "https://flag.example"
         )
 
-    def test_redaction_covers_the_saved_key(self, home):
+    def test_env_key_ignores_the_logins_gateway(self, home, monkeypatch):
+        """A production env key plus a staging login: the env key is not
+        aimed at the staging gateway by default."""
+        cloud_auth.save("https://staging.example", "mck_staging", "feng")
+        monkeypatch.setenv("MEMOIR_API_KEY", "mck_prod")
+        assert sync_service.resolve_gateway() == sync_service.DEFAULT_GATEWAY
+        monkeypatch.setenv("MEMOIR_CLOUD_URL", "https://env.example")
+        assert sync_service.resolve_gateway() == "https://env.example"
+
+    def test_redaction_covers_the_saved_key(self, home, monkeypatch):
         cloud_auth.save("https://gw.example", "mck_file_secret", "feng")
-        assert "mck_file_secret" not in sync_service.redact("boom mck_file_secret boom")
+        monkeypatch.setenv("MEMOIR_API_KEY", "mck_env_secret")
+        out = sync_service.redact("a mck_file_secret b mck_env_secret c")
+        assert "mck_file_secret" not in out
+        assert "mck_env_secret" not in out
 
 
 # --------------------------------------------------------------------------
@@ -229,6 +250,59 @@ class TestLogin:
             _git(store, "remote", "get-url", "origin") == f"{cloud.url}/{HANDLE}/demo"
         )
         assert API_KEY not in (store / ".git" / "config").read_text()
+
+    def test_saved_key_never_reaches_another_gateway(self, runner, home):
+        """Login on gateway A; a store whose origin is gateway B: no request
+        to B carries A's key, and the error says which login is missing."""
+        (home / "ra").mkdir()
+        (home / "rb").mkdir()
+        with (
+            FakeCloud(repos_root=home / "ra") as a,
+            FakeCloud(repos_root=home / "rb") as b,
+        ):
+            b.state.create_store("demo")
+            cloud_auth.save(a.url, API_KEY, HANDLE)
+            store = home / "store-b"
+            runner.invoke(cli, ["new", str(store)], catch_exceptions=False)
+            runner.invoke(
+                cli,
+                ["-s", str(store), "remember", "-p", "workflow.x", "y"],
+                catch_exceptions=False,
+            )
+            _git(store, "remote", "add", "origin", f"{b.url}/{HANDLE}/demo")
+            for args in (["push"], ["fetch"], ["pull"], ["remote", "show"]):
+                res = runner.invoke(cli, ["-s", str(store), *args])
+                assert res.exit_code == 1, (args, res.output)
+                assert f"your saved login is for {a.url}" in res.output
+                assert f"memoir login --url {b.url}" in res.output
+                assert API_KEY not in res.output
+            leaked = [
+                r
+                for r in b.state.requests
+                if API_KEY in r.headers.get("Authorization", "")
+            ]
+            assert leaked == []
+            # --url pointing elsewhere is refused the same way
+            res = runner.invoke(
+                cli,
+                [
+                    "-s",
+                    str(store),
+                    "remote",
+                    "add",
+                    f"{HANDLE}/demo",
+                    "--url",
+                    b.url,
+                    "--force",
+                ],
+            )
+            assert res.exit_code == 1
+            assert "your saved login is for" in res.output
+            assert not [
+                r
+                for r in b.state.requests
+                if API_KEY in r.headers.get("Authorization", "")
+            ]
 
     def test_without_login_the_hint_says_login(self, runner, home):
         res = runner.invoke(cli, ["-s", str(home), "push"])

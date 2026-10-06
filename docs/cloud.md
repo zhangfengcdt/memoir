@@ -25,8 +25,10 @@ The key, gateway and handle are saved to `~/.config/memoir/cloud.json` (`$XDG_CO
 
 | What | Resolution order |
 |---|---|
-| key | `MEMOIR_API_KEY` → `cloud.json` |
-| gateway | `--url` → `MEMOIR_CLOUD_URL` → `cloud.json` → production |
+| key | `MEMOIR_API_KEY` → `cloud.json`, only for the gateway it was issued by |
+| gateway | `--url` → `MEMOIR_CLOUD_URL` → `cloud.json` (only when `MEMOIR_API_KEY` is unset) → production |
+
+The saved key is bound to its gateway, the way `gh` scopes tokens per host. A store whose `origin` points at a different gateway, or a `--url` naming one, never receives it; the command stops with ``your saved login is for <gateway>; run `memoir login --url <other>` ``. `MEMOIR_API_KEY` is not bound and is sent to whichever gateway is targeted, as before, and when it is set the saved login's gateway is no longer the default.
 
 ## Store resolution
 

@@ -111,33 +111,96 @@ ADDRESS_FORM = "<owner>/<store>, e.g. feng-zhang/demo"
 
 
 def cloud_enabled() -> bool:
-    """True when a key is available: ``MEMOIR_API_KEY`` or a saved login."""
-    return bool(api_key())
+    """True when some key is available: ``MEMOIR_API_KEY`` or a saved login.
+
+    Whether it applies to a particular gateway is decided later by
+    ``api_key(gateway)``; this only gates the cloud commands as a whole.
+    """
+    return bool(_env_key()) or bool(_saved_login())
 
 
-def api_key() -> str:
-    """``MEMOIR_API_KEY`` (wins) → the key saved by ``memoir login``."""
-    env = os.environ.get(API_KEY_ENV, "").strip()
-    if env:
-        return env
+def _env_key() -> str:
+    return os.environ.get(API_KEY_ENV, "").strip()
+
+
+def _saved_login() -> tuple[str, str] | None:
+    """``(gateway, key)`` saved by ``memoir login``, or None."""
     from memoir.services import cloud_auth
 
-    return cloud_auth.saved_key()
+    key, gateway = cloud_auth.saved_key(), cloud_auth.saved_gateway()
+    return (gateway, key) if key and gateway else None
+
+
+def same_gateway(a: str, b: str) -> bool:
+    """Gateways are equal up to a trailing slash and the case of scheme/host."""
+    from urllib.parse import urlsplit
+
+    pa, pb = urlsplit(a.rstrip("/")), urlsplit(b.rstrip("/"))
+    return (pa.scheme.lower(), (pa.netloc or "").lower(), pa.path) == (
+        pb.scheme.lower(),
+        (pb.netloc or "").lower(),
+        pb.path,
+    )
+
+
+def api_key(gateway: str | None = None) -> str:
+    """The key to send to ``gateway``.
+
+    ``MEMOIR_API_KEY`` wins, for any gateway (as it always has). The key
+    saved by ``memoir login`` is bound to the gateway it was issued by, like
+    ``gh`` scopes tokens per host: it is only returned when ``gateway`` is
+    that one, so a store whose ``origin`` (or a ``--url``) points elsewhere
+    never receives it. With no ``gateway`` there is no saved-key fallback.
+    """
+    env = _env_key()
+    if env:
+        return env
+    saved = _saved_login()
+    if saved and gateway and same_gateway(saved[0], gateway):
+        return saved[1]
+    return ""
 
 
 def resolve_gateway(url: str | None = None) -> str:
-    """``--url`` → ``MEMOIR_CLOUD_URL`` → the gateway of ``memoir login`` → production."""
+    """``--url`` → ``MEMOIR_CLOUD_URL`` → the login's gateway → production.
+
+    The login's gateway is only a default when the login's key is the one in
+    use: with ``MEMOIR_API_KEY`` set, its own default (production, or
+    ``MEMOIR_CLOUD_URL``) applies, so an env key is never aimed at the
+    gateway of an unrelated saved login.
+    """
     if url or os.environ.get(GATEWAY_ENV):
         return (url or os.environ[GATEWAY_ENV]).rstrip("/")
-    from memoir.services import cloud_auth
-
-    return cloud_auth.saved_gateway() or DEFAULT_GATEWAY
+    if not _env_key():
+        saved = _saved_login()
+        if saved:
+            return saved[0]
+    return DEFAULT_GATEWAY
 
 
 def redact(text: str, key: str | None = None) -> str:
-    """Strip the API key from anything that may be shown to the user."""
-    key = key if key is not None else api_key()
-    return text.replace(key, "***") if key else text
+    """Strip API keys from anything that may be shown to the user: the given
+    one, or the env key and the saved key when none is given."""
+    if key is not None:
+        keys = [key]
+    else:
+        saved = _saved_login()
+        keys = [_env_key(), saved[1] if saved else ""]
+    for k in keys:
+        if k:
+            text = text.replace(k, "***")
+    return text
+
+
+class NoKeyForGateway(ServiceError):
+    """A saved login exists, but for a different gateway than the target."""
+
+    def __init__(self, gateway: str, saved_gateway: str):
+        super().__init__(
+            f"your saved login is for {saved_gateway}, not {gateway}; "
+            f"run `memoir login --url {gateway}` (or set {API_KEY_ENV})",
+            code=1,
+        )
 
 
 # --------------------------------------------------------------------------
@@ -566,7 +629,9 @@ class SyncService(BaseService):
 
     def __init__(self, store_path: str):
         super().__init__(store_path)
-        self._key = api_key()
+        # Bound per target gateway in ``_client``; git calls that need auth
+        # always run after a ``_client`` for the same gateway.
+        self._key = ""
 
     # -- git helpers -------------------------------------------------------
 
@@ -636,6 +701,14 @@ class SyncService(BaseService):
         return parse_remote_url(result.stdout.strip())
 
     def _client(self, gateway: str) -> CloudClient:
+        """A client for ``gateway`` carrying the key that applies to it (see
+        ``api_key``); also sets the key the authenticated git calls use."""
+        self._key = api_key(gateway)
+        if not self._key:
+            saved = _saved_login()
+            if saved:
+                raise NoKeyForGateway(gateway, saved[0])
+            raise CloudAuthError()
         return CloudClient(gateway, self._key)
 
     def _set_remote(self, url: str, force: bool) -> None:
