@@ -2728,7 +2728,7 @@ to v0.1.7 you had to add the <code>[litellm]</code> extra explicitly.)</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>memoir<span class="w"> </span>login<span class="w">                 </span><span class="c1"># once per machine: approve in the browser</span>
 </span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>memoir<span class="w"> </span>push<span class="w"> </span>--create<span class="w">         </span><span class="c1"># New: create &lt;handle&gt;/&lt;repo name&gt; from this repo's memories</span>
 </span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="c1"># or</span>
-</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>memoir<span class="w"> </span>remote<span class="w"> </span>add<span class="w"> </span>&lt;owner&gt;/&lt;store&gt;<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>memoir<span class="w"> </span>pull<span class="w">   </span><span class="c1"># Open: link an existing cloud store</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>memoir<span class="w"> </span>pull<span class="w"> </span>&lt;owner&gt;/&lt;store&gt;<span class="w">  </span><span class="c1"># Open: link an existing cloud store and pull it</span>
 </span></code></pre></div>
 <p>Inside a code repo memoir uses that repo's store, the one Claude Code uses (<code>~/.memoir/&lt;slug&gt;</code>), so neither <code>MEMOIR_STORE</code> nor <code>-s</code> is needed; <code>memoir login</code> remembers the gateway, so <code>--url</code> isn't either. On a headless machine use <code>echo "$KEY" | memoir login --with-key</code>; <code>MEMOIR_API_KEY</code> still works and overrides the saved login. The walkthrough below uses explicit names and addresses so each step is visible.</p>
 <p>Cloud stores are addressed GitHub-style as <code>&lt;owner&gt;/&lt;store&gt;</code>, where <code>owner</code> is your handle and <code>store</code> is the store name, for example <code>feng-zhang/demo</code>. That address is what you type, what memoir prints, and (prefixed with the gateway) the git remote <code>origin</code>.</p>
@@ -2769,8 +2769,8 @@ to v0.1.7 you had to add the <code>[litellm]</code> extra explicitly.)</p>
 <td>Download new refs and chunks. Moves no local branch.</td>
 </tr>
 <tr>
-<td><code>memoir pull [--branch &lt;b&gt;] [--force] [--remote &lt;name&gt;]</code></td>
-<td><code>fetch</code>, then fast-forward the branch. Creates it from the cloud if missing locally; a never-used local store adopts the cloud history. <code>--force</code> replaces the local branch with the cloud copy.</td>
+<td><code>memoir pull [&lt;owner&gt;/&lt;store&gt;] [--remote &lt;name&gt;] [--url &lt;gateway&gt;] [--branch &lt;b&gt;] [--force]</code></td>
+<td>With an address, links the remote first when it's missing (never relinks one that points elsewhere). Then <code>fetch</code>, then fast-forward the branch. Creates it from the cloud if missing locally; a never-used local store adopts the cloud history. <code>--force</code> replaces the local branch with the cloud copy.</td>
 </tr>
 <tr>
 <td><code>memoir status</code></td>
@@ -2801,19 +2801,19 @@ to v0.1.7 you had to add the <code>[litellm]</code> extra explicitly.)</p>
 </span></code></pre></div>
 <p>If the name is taken you get <code>store name already exists; pick another or run memoir remote add feng-zhang/memories</code>. If the name is invalid (spaces, a leading dot, a <code>.git</code> suffix) memoir says so before contacting the server.</p>
 <h3 id="pick-it-up-on-your-desktop">Pick it up on your desktop<a class="headerlink" href="#pick-it-up-on-your-desktop" title="Permanent link">&para;</a></h3>
-<p>You never create the local store by hand. The Claude Code plugin creates one per project on session start, and any memoir command creates one on first use. So on the second machine, open the same project, export the same key, link the store that is already there, and pull:</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">MEMOIR_API_KEY</span><span class="o">=</span>mck_...
-</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>memoir<span class="w"> </span>remote<span class="w"> </span>add<span class="w"> </span>feng-zhang/memories
-</span><span id="__span-21-3"><a id="__codelineno-21-3" name="__codelineno-21-3" href="#__codelineno-21-3"></a>memoir<span class="w"> </span>pull
+<p>You never create the local store by hand. The Claude Code plugin creates one per project on session start, and memoir creates one on first use. So on the second machine, open the same project, log in, and pull the cloud store by its address. With an address, <code>pull</code> links the remote first when it doesn't exist yet:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-21-1"><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>memoir<span class="w"> </span>login
+</span><span id="__span-21-2"><a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>memoir<span class="w"> </span>pull<span class="w"> </span>feng-zhang/memories
 </span></code></pre></div>
-<div class="language-text highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>✓ origin: feng-zhang/memories
+<div class="language-text highlight"><pre><span></span><code><span id="__span-22-1"><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a>→ linked origin to feng-zhang/memories
 </span><span id="__span-22-2"><a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>✓ created main to 7d3f1a9 (3 new chunks)
 </span></code></pre></div>
+<p>Running the same command again just pulls what's new. If <code>origin</code> already points at a <em>different</em> cloud store, <code>pull</code> changes nothing and exits 1 with a hint: use <code>--remote &lt;other name&gt;</code> to add a second store, or <code>memoir remote add &lt;address&gt; --force</code> to switch. <code>memoir remote add &lt;address&gt;</code> followed by <code>memoir pull</code> still works if you prefer two steps.</p>
 <p>Because the local store had never been used, <code>pull</code> adopted the cloud history outright. From here <code>status</code>, <code>recall</code>, and <code>get</code> see the laptop's memories:</p>
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-23-1"><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a>memoir<span class="w"> </span>status
 </span><span id="__span-23-2"><a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a>memoir<span class="w"> </span>recall<span class="w"> </span><span class="s2">"lint"</span>
 </span></code></pre></div>
-<p><code>remote add</code> resolves the address first. An unknown store, or one you do not own, fails with <code>store feng-zhang/typo not found (or you don't own it)</code> and nothing is written. After <code>pull</code>, memoir also checks that the chunk named by the store's root hash was downloaded.</p>
+<p>Linking resolves the address first. An unknown store, or one you do not own, fails with <code>store feng-zhang/typo not found (or you don't own it)</code> and nothing is written. After <code>pull</code>, memoir also checks that the chunk named by the store's root hash was downloaded.</p>
 <p>If the local store already holds memories of its own, <code>pull</code> refuses rather than guess:</p>
 <div class="language-text highlight"><pre><span></span><code><span id="__span-24-1"><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a>✗ local and cloud histories have diverged; cloud merge is not available yet. To discard the local memories on this branch and adopt the cloud copy: memoir pull --force --branch main
 </span></code></pre></div>

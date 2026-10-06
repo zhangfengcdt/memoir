@@ -2159,7 +2159,7 @@
 <div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>memoir<span class="w"> </span>login<span class="w">                 </span><span class="c1"># once per machine (add --url &lt;gateway&gt; for a non-production gateway)</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>memoir<span class="w"> </span>push<span class="w"> </span>--create<span class="w">         </span><span class="c1"># New: create &lt;handle&gt;/&lt;repo name&gt; from this repo's memories</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># or</span>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>memoir<span class="w"> </span>remote<span class="w"> </span>add<span class="w"> </span>&lt;owner&gt;/&lt;store&gt;<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>memoir<span class="w"> </span>pull<span class="w">   </span><span class="c1"># Open: link an existing cloud store</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>memoir<span class="w"> </span>pull<span class="w"> </span>&lt;owner&gt;/&lt;store&gt;<span class="w">  </span><span class="c1"># Open: link an existing cloud store and pull it</span>
 </span></code></pre></div>
 <p>Inside a code repo, memoir uses that repo's store, <code>~/.memoir/&lt;slug&gt;</code>, the same one the Claude Code plugin uses there (see <a href="#store-resolution">Store resolution</a>), so there is no <code>MEMOIR_STORE</code> to set. <code>memoir login</code> saves the gateway, so there is no <code>--url</code> either.</p>
 <p>There is no <code>clone</code>. Local stores are created automatically (by the Claude Code plugin on session start, or by the first memoir command), so linking is always done on a store that already exists, and <code>pull</code> adopts the cloud history when that store is still empty.</p>
@@ -2270,15 +2270,15 @@
 </tr>
 <tr>
 <td><code>memoir push [--branch &lt;b&gt;] [--create &lt;store&gt;]</code></td>
-<td>Upload every chunk the cloud is missing (batched), <strong>then</strong> <code>git push</code>. <code>--create &lt;store&gt;</code> first creates that cloud store under your handle and links it as <code>origin</code>. Default branch: current. Prints <code>pushed main to &lt;owner&gt;/&lt;store&gt;: 7,361 chunks (6,900 new, 41.3 MB sent (gzip)) in 41.2 s, git in 2.4 s</code>.</td>
+<td>Upload every chunk the cloud is missing (batched), <strong>then</strong> <code>git push</code>. <code>--create &lt;store&gt;</code> first creates that cloud store under your handle and links it under <code>--remote</code> (default <code>origin</code>). Default branch: current. Prints <code>pushed main to &lt;owner&gt;/&lt;store&gt;: 7,361 chunks (6,900 new, 41.3 MB sent (gzip)) in 41.2 s, git in 2.4 s</code>.</td>
 </tr>
 <tr>
 <td><code>memoir fetch</code></td>
 <td><code>git fetch</code> all branches, tags, and <code>refs/cloud/*</code>; download every chunk not present locally. Moves no local branch.</td>
 </tr>
 <tr>
-<td><code>memoir pull [--branch &lt;b&gt;] [--force]</code></td>
-<td><code>fetch</code>, then fast-forward the branch. A branch that does not exist locally is created from the cloud; a pristine local store (only prollytree's initial commit, no memories) adopts the cloud history. <code>--force</code> replaces the local branch with the cloud copy, discarding local memories on it; the previous tip is kept under <code>refs/memoir/backup/&lt;branch&gt;</code> and printed.</td>
+<td><code>memoir pull [&lt;owner&gt;/&lt;store&gt;] [--remote &lt;name&gt;] [--url &lt;gateway&gt;] [--branch &lt;b&gt;] [--force]</code></td>
+<td>With an address, links the remote first when it doesn't exist yet (as <code>remote add</code> would; in a code repo the store is created too), so <code>memoir pull &lt;owner&gt;/&lt;store&gt;</code> is the one-command way to start from an existing cloud store. If the remote already points at that address it just pulls; if it points at a different store or gateway, nothing changes and the command exits 1 (pull never relinks silently). Then <code>fetch</code>, then fast-forward the branch. A branch that does not exist locally is created from the cloud; a pristine local store (only prollytree's initial commit, no memories) adopts the cloud history. <code>--force</code> replaces the local branch with the cloud copy, discarding local memories on it; the previous tip is kept under <code>refs/memoir/backup/&lt;branch&gt;</code> and printed.</td>
 </tr>
 <tr>
 <td><code>memoir status</code></td>
