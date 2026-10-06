@@ -1190,6 +1190,28 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#logging-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Logging in
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#store-resolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Store resolution
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#addresses" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1964,6 +1986,28 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#logging-in" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Logging in
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#store-resolution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Store resolution
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#addresses" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2088,17 +2132,41 @@
 
 
 <h1 id="cloud-sync">Cloud Sync<a class="headerlink" href="#cloud-sync" title="Permanent link">&para;</a></h1>
-<p><code>memoir remote</code>, <code>push</code>, <code>pull</code>, and <code>fetch</code> round-trip a local memoir store with <a href="https://github.com/zhangfengcdt/memoir-cloud">memoir-cloud</a>. The commands exist in every install but are gated on <code>MEMOIR_API_KEY</code>: without the variable, memoir behaves exactly as before (COMMUNITY tier) and the cloud commands exit 1 with <code>Cloud sync requires MEMOIR_API_KEY (PRO)</code>.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">MEMOIR_API_KEY</span><span class="o">=</span>mck_...<span class="w">        </span><span class="c1"># from the gateway's API-keys page</span>
-</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>memoir<span class="w"> </span>push<span class="w"> </span>--create<span class="w"> </span>memories<span class="w">        </span><span class="c1"># create &lt;your-handle&gt;/memories and push</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>
-</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a><span class="c1"># on another machine, in the same project (the plugin already created the store)</span>
-</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>memoir<span class="w"> </span>remote<span class="w"> </span>add<span class="w"> </span>feng-zhang/memories
-</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>memoir<span class="w"> </span>pull
-</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>memoir<span class="w"> </span>recall<span class="w"> </span><span class="s2">"preferences"</span>
+<p><code>memoir remote</code>, <code>push</code>, <code>pull</code>, and <code>fetch</code> round-trip a local memoir store with <a href="https://github.com/zhangfengcdt/memoir-cloud">memoir-cloud</a>. The commands exist in every install but need a login (or <code>MEMOIR_API_KEY</code>); without one, memoir behaves exactly as before (COMMUNITY tier) and the cloud commands exit 1 asking you to run <code>memoir login</code>.</p>
+<p>From the root of a local clone of your code repo:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>memoir<span class="w"> </span>login<span class="w">                 </span><span class="c1"># once per machine (add --url &lt;gateway&gt; for a non-production gateway)</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>memoir<span class="w"> </span>push<span class="w"> </span>--create<span class="w">         </span><span class="c1"># New: create &lt;handle&gt;/&lt;repo name&gt; from this repo's memories</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="c1"># or</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>memoir<span class="w"> </span>remote<span class="w"> </span>add<span class="w"> </span>&lt;owner&gt;/&lt;store&gt;<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>memoir<span class="w"> </span>pull<span class="w">   </span><span class="c1"># Open: link an existing cloud store</span>
 </span></code></pre></div>
+<p>Inside a code repo, memoir uses that repo's store, <code>~/.memoir/&lt;slug&gt;</code>, the same one the Claude Code plugin uses there (see <a href="#store-resolution">Store resolution</a>), so there is no <code>MEMOIR_STORE</code> to set. <code>memoir login</code> saves the gateway, so there is no <code>--url</code> either.</p>
 <p>There is no <code>clone</code>. Local stores are created automatically (by the Claude Code plugin on session start, or by the first memoir command), so linking is always done on a store that already exists, and <code>pull</code> adopts the cloud history when that store is still empty.</p>
 <p>For a hands-on walkthrough see <a href="../cli/#cloud-sync-commands">Cloud sync commands</a> on the CLI page.</p>
+<h2 id="logging-in">Logging in<a class="headerlink" href="#logging-in" title="Permanent link">&para;</a></h2>
+<p><code>memoir login</code> works like <code>gh auth login</code>: it prints a short code and a link, opens the browser, and waits while you click <strong>Authorize</strong> on the cloud (signed in there). The cloud mints a key named <code>memoir CLI (&lt;hostname&gt;)</code>, which you can see and revoke on its keys page. <code>memoir login --with-key</code> reads a key from stdin instead, for headless machines. <code>memoir logout</code> revokes the key on the cloud when reachable and deletes it locally.</p>
+<p>The key, gateway and handle are saved to <code>~/.config/memoir/cloud.json</code> (<code>$XDG_CONFIG_HOME/memoir/cloud.json</code> when that is set), mode 0600 in a 0700 directory.</p>
+<table>
+<thead>
+<tr>
+<th>What</th>
+<th>Resolution order</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>key</td>
+<td><code>MEMOIR_API_KEY</code> → <code>cloud.json</code>, only for the gateway it was issued by</td>
+</tr>
+<tr>
+<td>gateway</td>
+<td><code>--url</code> → <code>MEMOIR_CLOUD_URL</code> → <code>cloud.json</code> (only when <code>MEMOIR_API_KEY</code> is unset) → production</td>
+</tr>
+</tbody>
+</table>
+<p>The saved key is bound to its gateway, the way <code>gh</code> scopes tokens per host. A store whose <code>origin</code> points at a different gateway, or a <code>--url</code> naming one, never receives it; the command stops with <code>your saved login is for &lt;gateway&gt;; run `memoir login --url &lt;other&gt;`</code>. <code>MEMOIR_API_KEY</code> is not bound and is sent to whichever gateway is targeted, as before, and when it is set the saved login's gateway is no longer the default.</p>
+<h2 id="store-resolution">Store resolution<a class="headerlink" href="#store-resolution" title="Permanent link">&para;</a></h2>
+<p><code>-s</code> → <code>MEMOIR_STORE</code> → <strong>repo mode</strong> → current directory.</p>
+<p>Repo mode applies when you're inside a git work tree that is not itself a memoir store. The store is <code>~/.memoir/&lt;slug&gt;</code>, where the slug is the main worktree root with <code>/</code> and <code>.</code> replaced by <code>-</code> (exactly the plugin's derivation, so linked worktrees share the main repo's store). Cloud commands print it first, e.g. <code>store: ~/.memoir/-Users-me-code-sedona (repo sedona)</code>. <code>--repo</code> forces repo mode even when <code>MEMOIR_STORE</code> is set. <code>remote add</code> and <code>pull</code> create the store on first use; other commands stop with a hint when it doesn't exist yet. With no arguments, <code>push --create</code> names the cloud store after the repo, and <code>remote add</code> proposes <code>&lt;handle&gt;/&lt;repo name&gt;</code>.</p>
 <h2 id="addresses">Addresses<a class="headerlink" href="#addresses" title="Permanent link">&para;</a></h2>
 <p>A cloud store is addressed GitHub-style as <code>&lt;owner&gt;/&lt;store&gt;</code>, for example <code>feng-zhang/demo</code>. <code>owner</code> is your handle (chosen once in the gateway's web app), <code>store</code> is the store name. The address is also a URL: <code>https://&lt;gateway&gt;/feng-zhang/demo</code> opens the store page in a browser and is the git remote memoir configures.</p>
 <table>
@@ -2194,10 +2262,10 @@
 </ul>
 <h2 id="key-handling">Key handling<a class="headerlink" href="#key-handling" title="Permanent link">&para;</a></h2>
 <ul>
-<li>The API key is read from <code>MEMOIR_API_KEY</code> only. It is never written to <code>.git/config</code> or any other file.</li>
+<li>The API key comes from <code>MEMOIR_API_KEY</code> or, when that is unset, from the login file <code>~/.config/memoir/cloud.json</code> (mode 0600; see <a href="#logging-in">Logging in</a>). It is never written to <code>.git/config</code>, to the store, or anywhere else, and never printed.</li>
 <li>Git gets it per invocation as <code>-c http.extraHeader="Authorization: Bearer &lt;key&gt;"</code>; git runs with <code>GIT_TERMINAL_PROMPT=0</code> so an invalid key fails fast instead of prompting.</li>
 <li>The key is redacted from any error output that echoes a command.</li>
-<li>A 401 from the gateway is reported as <code>not signed in: set MEMOIR_API_KEY</code>.</li>
+<li>A 401 from the gateway is reported as <code>not signed in: run `memoir login` (or set MEMOIR_API_KEY)</code>.</li>
 </ul>
 <h2 id="environment-variables">Environment variables<a class="headerlink" href="#environment-variables" title="Permanent link">&para;</a></h2>
 <table>
@@ -2210,11 +2278,11 @@
 <tbody>
 <tr>
 <td><code>MEMOIR_API_KEY</code></td>
-<td>Enables the cloud commands (PRO tier).</td>
+<td>API key; overrides the one saved by <code>memoir login</code>.</td>
 </tr>
 <tr>
 <td><code>MEMOIR_CLOUD_URL</code></td>
-<td>Gateway URL used by <code>remote add</code> and <code>push --create</code> when <code>--url</code> is not passed. Default: the production gateway. After linking, the gateway is read back from the <code>origin</code> URL.</td>
+<td>Gateway URL used by <code>login</code>, <code>remote add</code> and <code>push --create</code> when <code>--url</code> is not passed; overrides the gateway saved by <code>memoir login</code>. Default: the production gateway. After linking, the gateway is read back from the <code>origin</code> URL.</td>
 </tr>
 </tbody>
 </table>

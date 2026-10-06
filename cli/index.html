@@ -2468,7 +2468,7 @@
 </tr>
 <tr>
 <td><code>MEMOIR_API_KEY</code></td>
-<td>memoir-cloud API key. Unlocks the cloud sync commands (<code>remote</code>, <code>push</code>, <code>pull</code>, <code>fetch</code>). Unset = COMMUNITY tier, no behaviour change. Never written to disk. See <a href="../cloud/">Cloud Sync</a>.</td>
+<td>memoir-cloud API key; overrides the one saved by <code>memoir login</code>. Unlocks the cloud sync commands (<code>remote</code>, <code>push</code>, <code>pull</code>, <code>fetch</code>). Unset = COMMUNITY tier, no behaviour change. Never written to disk. See <a href="../cloud/">Cloud Sync</a>.</td>
 </tr>
 <tr>
 <td><code>MEMOIR_CLOUD_URL</code></td>
@@ -2723,9 +2723,14 @@ to v0.1.7 you had to add the <code>[litellm]</code> extra explicitly.)</p>
 <li>You're scripting an <strong>agent / LLM caller</strong> and want to avoid a nested LLM call on memoir's side → compose <code>summarize</code> + <code>get</code> yourself; this is exactly what the <code>memory-recall</code> skill does.</li>
 </ul>
 <h2 id="cloud-sync-commands">Cloud sync commands<a class="headerlink" href="#cloud-sync-commands" title="Permanent link">&para;</a></h2>
-<p><code>memoir remote</code>, <code>push</code>, <code>pull</code>, and <code>fetch</code> round-trip a local store with <a href="https://github.com/zhangfengcdt/memoir-cloud">memoir-cloud</a>, so the same memories follow your agent across machines. They are gated on <code>MEMOIR_API_KEY</code>: without it every cloud command exits 1 with <code>Cloud sync requires MEMOIR_API_KEY (PRO)</code> and nothing else in memoir changes. The rules behind the commands (addresses, what syncs, fast-forward only, key handling) are in the <a href="../cloud/">Cloud Sync</a> reference; this section is a hands-on guide.</p>
-<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a><span class="nb">export</span><span class="w"> </span><span class="nv">MEMOIR_API_KEY</span><span class="o">=</span>mck_...<span class="w">     </span><span class="c1"># created on the gateway's API-keys page</span>
+<p><code>memoir remote</code>, <code>push</code>, <code>pull</code>, and <code>fetch</code> round-trip a local store with <a href="https://github.com/zhangfengcdt/memoir-cloud">memoir-cloud</a>, so the same memories follow your agent across machines. They need a login: without one every cloud command exits 1 asking you to run <code>memoir login</code>, and nothing else in memoir changes. The rules behind the commands (addresses, what syncs, fast-forward only, key handling) are in the <a href="../cloud/">Cloud Sync</a> reference; this section is a hands-on guide.</p>
+<p>From the root of a clone of your code repo, the whole setup is:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-15-1"><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>memoir<span class="w"> </span>login<span class="w">                 </span><span class="c1"># once per machine: approve in the browser</span>
+</span><span id="__span-15-2"><a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>memoir<span class="w"> </span>push<span class="w"> </span>--create<span class="w">         </span><span class="c1"># New: create &lt;handle&gt;/&lt;repo name&gt; from this repo's memories</span>
+</span><span id="__span-15-3"><a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a><span class="c1"># or</span>
+</span><span id="__span-15-4"><a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a>memoir<span class="w"> </span>remote<span class="w"> </span>add<span class="w"> </span>&lt;owner&gt;/&lt;store&gt;<span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span>memoir<span class="w"> </span>pull<span class="w">   </span><span class="c1"># Open: link an existing cloud store</span>
 </span></code></pre></div>
+<p>Inside a code repo memoir uses that repo's store, the one Claude Code uses (<code>~/.memoir/&lt;slug&gt;</code>), so neither <code>MEMOIR_STORE</code> nor <code>-s</code> is needed; <code>memoir login</code> remembers the gateway, so <code>--url</code> isn't either. On a headless machine use <code>echo "$KEY" | memoir login --with-key</code>; <code>MEMOIR_API_KEY</code> still works and overrides the saved login. The walkthrough below uses explicit names and addresses so each step is visible.</p>
 <p>Cloud stores are addressed GitHub-style as <code>&lt;owner&gt;/&lt;store&gt;</code>, where <code>owner</code> is your handle and <code>store</code> is the store name, for example <code>feng-zhang/demo</code>. That address is what you type, what memoir prints, and (prefixed with the gateway) the git remote <code>origin</code>.</p>
 <table>
 <thead>
@@ -2736,8 +2741,12 @@ to v0.1.7 you had to add the <code>[litellm]</code> extra explicitly.)</p>
 </thead>
 <tbody>
 <tr>
-<td><code>memoir push --create &lt;store&gt;</code></td>
-<td>Create <code>&lt;your handle&gt;/&lt;store&gt;</code> in the cloud, link it as <code>origin</code>, and push. The usual first step.</td>
+<td><code>memoir login [--url &lt;gateway&gt;] [--with-key]</code> / <code>memoir logout</code></td>
+<td>Save a key for this machine after approving in the browser (or from stdin); remove it and revoke it on the cloud.</td>
+</tr>
+<tr>
+<td><code>memoir push --create [&lt;store&gt;]</code></td>
+<td>Create <code>&lt;your handle&gt;/&lt;store&gt;</code> in the cloud (default name: the code repo's), link it as <code>origin</code>, and push. The usual first step.</td>
 </tr>
 <tr>
 <td><code>memoir remote add [&lt;owner&gt;/&lt;store&gt;] [--url &lt;gateway&gt;] [--force]</code></td>
@@ -2890,14 +2899,14 @@ to v0.1.7 you had to add the <code>[litellm]</code> extra explicitly.)</p>
 </thead>
 <tbody>
 <tr>
-<td><code>Cloud sync requires MEMOIR_API_KEY (PRO)</code></td>
-<td>The variable is unset in this shell.</td>
-<td><code>export MEMOIR_API_KEY=...</code></td>
+<td><code>Cloud sync requires a login</code></td>
+<td>No saved login and no <code>MEMOIR_API_KEY</code>.</td>
+<td><code>memoir login</code> (or <code>export MEMOIR_API_KEY=...</code>)</td>
 </tr>
 <tr>
-<td><code>not signed in: set MEMOIR_API_KEY</code></td>
+<td><code>not signed in: run memoir login</code></td>
 <td>The gateway returned 401.</td>
-<td>Check for a typo or an expired key.</td>
+<td>The key is wrong, expired or revoked: <code>memoir login</code> again.</td>
 </tr>
 <tr>
 <td><code>your account has no handle yet</code></td>
