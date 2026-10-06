@@ -1,2 +1,6 @@
+# pnpm 9 (the release workflow) needs `packages` to accept this file;
+# pnpm 10+ needs `allowBuilds` to run esbuild's install script.
+packages:
+  - "."
 allowBuilds:
   esbuild: true
