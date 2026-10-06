@@ -1201,6 +1201,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#remotes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Remotes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#store-resolution" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1997,6 +2008,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#remotes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Remotes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#store-resolution" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -2144,26 +2166,43 @@
 <p>For a hands-on walkthrough see <a href="../cli/#cloud-sync-commands">Cloud sync commands</a> on the CLI page.</p>
 <h2 id="logging-in">Logging in<a class="headerlink" href="#logging-in" title="Permanent link">&para;</a></h2>
 <p><code>memoir login</code> works like <code>gh auth login</code>: it prints a short code and a link, opens the browser, and waits while you click <strong>Authorize</strong> on the cloud (signed in there). The cloud mints a key named <code>memoir CLI (&lt;hostname&gt;)</code>, which you can see and revoke on its keys page. <code>memoir login --with-key</code> reads a key from stdin instead, for headless machines. <code>memoir logout</code> revokes the key on the cloud when reachable and deletes it locally.</p>
-<p>The key, gateway and handle are saved to <code>~/.config/memoir/cloud.json</code> (<code>$XDG_CONFIG_HOME/memoir/cloud.json</code> when that is set), mode 0600 in a 0700 directory.</p>
+<p>Logins are kept <strong>per gateway</strong> in <code>~/.config/memoir/cloud.json</code> (<code>$XDG_CONFIG_HOME/memoir/cloud.json</code> when that is set), mode 0600 in a 0700 directory, like <code>gh</code>'s hosts file. You can be logged in to production and staging side by side:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>memoir<span class="w"> </span>login<span class="w">                                   </span><span class="c1"># production (the first login becomes the default)</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>memoir<span class="w"> </span>login<span class="w"> </span>--url<span class="w"> </span>https://api-gateway-staging-3ce9.up.railway.app
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a>memoir<span class="w"> </span>login<span class="w"> </span>--status<span class="w">                          </span><span class="c1"># lists both, * marks the default</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>memoir<span class="w"> </span><span class="nb">logout</span><span class="w"> </span>--url<span class="w"> </span>https://api-gateway-staging-3ce9.up.railway.app<span class="w">   </span><span class="c1"># just that one</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>memoir<span class="w"> </span><span class="nb">logout</span><span class="w"> </span>--all
+</span></code></pre></div>
+<p><code>--default</code> makes a login's gateway the default for new links. A file written by an older memoir (one login) is read as a single entry and rewritten in the new shape on the next login.</p>
 <table>
 <thead>
 <tr>
 <th>What</th>
-<th>Resolution order</th>
+<th>Resolution</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>key</td>
-<td><code>MEMOIR_API_KEY</code> → <code>cloud.json</code>, only for the gateway it was issued by</td>
+<td>key for a request to gateway G</td>
+<td><code>MEMOIR_API_KEY</code> (wins for every gateway) → the login saved for G → none: the command stops before any request with <code>not logged in to G: run `memoir login --url G`</code></td>
 </tr>
 <tr>
-<td>gateway</td>
-<td><code>--url</code> → <code>MEMOIR_CLOUD_URL</code> → <code>cloud.json</code> (only when <code>MEMOIR_API_KEY</code> is unset) → production</td>
+<td>gateway for a new link (<code>push --create</code>, <code>remote add</code>)</td>
+<td><code>--url</code> → <code>MEMOIR_CLOUD_URL</code> → the saved default (only while <code>MEMOIR_API_KEY</code> is unset) → production</td>
 </tr>
 </tbody>
 </table>
-<p>The saved key is bound to its gateway, the way <code>gh</code> scopes tokens per host. A store whose <code>origin</code> points at a different gateway, or a <code>--url</code> naming one, never receives it; the command stops with <code>your saved login is for &lt;gateway&gt;; run `memoir login --url &lt;other&gt;`</code>. <code>MEMOIR_API_KEY</code> is not bound and is sent to whichever gateway is targeted, as before, and when it is set the saved login's gateway is no longer the default.</p>
+<p>A saved key is only ever sent to the gateway that issued it. Gateways are compared as scheme + host[:port], case-insensitively. Once a store is linked, its remote's URL decides the gateway, and therefore the key.</p>
+<h2 id="remotes">Remotes<a class="headerlink" href="#remotes" title="Permanent link">&para;</a></h2>
+<p>A store can link to several cloud stores, like <code>git remote</code>. The default remote is <code>origin</code>; add more with <code>--name</code> and pick one with <code>--remote</code>:</p>
+<div class="language-bash highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>memoir<span class="w"> </span>remote<span class="w"> </span>add<span class="w"> </span>zhangfengcdt/demo<span class="w"> </span>--name<span class="w"> </span>staging<span class="w"> </span>--url<span class="w"> </span>https://api-gateway-staging-3ce9.up.railway.app
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>memoir<span class="w"> </span>remote<span class="w"> </span>list<span class="w">                 </span><span class="c1"># name, address, gateway, logged in?</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>memoir<span class="w"> </span>push<span class="w">                        </span><span class="c1"># to origin, with origin's gateway key</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a>memoir<span class="w"> </span>push<span class="w"> </span>--remote<span class="w"> </span>staging<span class="w">       </span><span class="c1"># to staging, with staging's key</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>memoir<span class="w"> </span>pull<span class="w"> </span>--remote<span class="w"> </span>staging
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>memoir<span class="w"> </span>remote<span class="w"> </span>remove<span class="w"> </span>staging
+</span></code></pre></div>
+<p>Each remote keeps its own state: branches under <code>refs/remotes/&lt;remote&gt;/…</code> (proposal branches under <code>&lt;remote&gt;/cloud/…</code>), the pushed record <code>.git/memoir-cloud/pushed-&lt;remote&gt;</code>, and the repo-metadata record <code>repo-meta-&lt;remote&gt;</code>. <code>memoir status</code> lists every remote as <code>&lt;name&gt;: &lt;owner&gt;/&lt;store&gt; @ &lt;gateway&gt;</code>.</p>
 <h2 id="store-resolution">Store resolution<a class="headerlink" href="#store-resolution" title="Permanent link">&para;</a></h2>
 <p><code>-s</code> → <code>MEMOIR_STORE</code> → <strong>repo mode</strong> → current directory.</p>
 <p>Repo mode applies when you're inside a git work tree that is not itself a memoir store. The store is <code>~/.memoir/&lt;slug&gt;</code>, where the slug is the main worktree root with <code>/</code> and <code>.</code> replaced by <code>-</code> (exactly the plugin's derivation, so linked worktrees share the main repo's store). Cloud commands print it first, e.g. <code>store: ~/.memoir/-Users-me-code-sedona (repo sedona)</code>. <code>--repo</code> forces repo mode even when <code>MEMOIR_STORE</code> is set. <code>remote add</code> and <code>pull</code> create the store on first use; other commands stop with a hint when it doesn't exist yet. With no arguments, <code>push --create</code> names the cloud store after the repo, and <code>remote add</code> proposes <code>&lt;handle&gt;/&lt;repo name&gt;</code>.</p>

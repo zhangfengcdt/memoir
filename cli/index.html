@@ -2741,8 +2741,8 @@ to v0.1.7 you had to add the <code>[litellm]</code> extra explicitly.)</p>
 </thead>
 <tbody>
 <tr>
-<td><code>memoir login [--url &lt;gateway&gt;] [--with-key]</code> / <code>memoir logout</code></td>
-<td>Save a key for this machine after approving in the browser (or from stdin); remove it and revoke it on the cloud.</td>
+<td><code>memoir login [--url &lt;gateway&gt;] [--with-key] [--default] [--status]</code> / <code>memoir logout [--url &lt;gateway&gt;] [--all]</code></td>
+<td>Save a key per gateway after approving in the browser (or from stdin); list them; remove one (or all) and revoke it on the cloud.</td>
 </tr>
 <tr>
 <td><code>memoir push --create [&lt;store&gt;]</code></td>
@@ -2753,19 +2753,23 @@ to v0.1.7 you had to add the <code>[litellm]</code> extra explicitly.)</p>
 <td>Link an existing cloud store. With no argument, proposes <code>&lt;your handle&gt;/&lt;directory name&gt;</code> and asks first.</td>
 </tr>
 <tr>
-<td><code>memoir remote show</code> / <code>memoir remote remove</code></td>
-<td>Show the address, gateway, branch and cloud summary; or unlink.</td>
+<td><code>memoir remote add … --name &lt;remote&gt;</code> / <code>memoir remote list</code></td>
+<td>Link another cloud store under its own name (e.g. <code>staging</code>); list every remote with its gateway and login state.</td>
 </tr>
 <tr>
-<td><code>memoir push [--branch &lt;b&gt;]</code></td>
+<td><code>memoir remote show [&lt;remote&gt;]</code> / <code>memoir remote remove [&lt;remote&gt;]</code></td>
+<td>Show the address, gateway, branch and cloud summary; or unlink. Default remote: <code>origin</code>.</td>
+</tr>
+<tr>
+<td><code>memoir push [--branch &lt;b&gt;] [--remote &lt;name&gt;]</code></td>
 <td>Upload the chunks the cloud is missing, <strong>then</strong> <code>git push</code>. Default: current branch.</td>
 </tr>
 <tr>
-<td><code>memoir fetch</code></td>
+<td><code>memoir fetch [--remote &lt;name&gt;]</code></td>
 <td>Download new refs and chunks. Moves no local branch.</td>
 </tr>
 <tr>
-<td><code>memoir pull [--branch &lt;b&gt;] [--force]</code></td>
+<td><code>memoir pull [--branch &lt;b&gt;] [--force] [--remote &lt;name&gt;]</code></td>
 <td><code>fetch</code>, then fast-forward the branch. Creates it from the cloud if missing locally; a never-used local store adopts the cloud history. <code>--force</code> replaces the local branch with the cloud copy.</td>
 </tr>
 <tr>
@@ -2907,6 +2911,11 @@ to v0.1.7 you had to add the <code>[litellm]</code> extra explicitly.)</p>
 <td><code>not signed in: run memoir login</code></td>
 <td>The gateway returned 401.</td>
 <td>The key is wrong, expired or revoked: <code>memoir login</code> again.</td>
+</tr>
+<tr>
+<td><code>not logged in to &lt;gateway&gt;</code></td>
+<td>No saved login for the gateway this remote (or <code>--url</code>) points at.</td>
+<td><code>memoir login --url &lt;gateway&gt;</code>; <code>memoir login --status</code> shows what's saved.</td>
 </tr>
 <tr>
 <td><code>your account has no handle yet</code></td>
