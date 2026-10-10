@@ -1,5 +1,6 @@
 {
   "name": "memoir",
   "version": "0.3.0",
-  "description": "Git-versioned, taxonomy-structured memory for Claude Code — recall by path, branch to isolate, time-travel to audit."
+  "description": "Git-versioned, taxonomy-structured memory for Claude Code — recall by path, branch to isolate, time-travel to audit.",
+  "types": "./types/index.d.ts"
 }

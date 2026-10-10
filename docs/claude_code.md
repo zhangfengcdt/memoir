@@ -21,10 +21,11 @@ Each project gets its own memoir store under `~/.memoir/<slug>/`, derived from y
 
 | Component | Count | Role |
 |---|---|---|
-| Slash commands | 6 | Manual memory ops, branch sync, admin, UI launch |
+| Slash commands | 7 | Manual memory ops, branch sync, admin, UI launch, capture feed pane |
 | Skills | 2 | Auto-invoked: recall + codebase onboarding |
 | Lifecycle hooks | 4 | Context injection + auto-capture |
-| Helper scripts | 4 | Store path, branch sync, UI control, status line |
+| Helper scripts | 5 | Store path, branch sync, UI control, status line, pane text fallback |
+| Mod (Claude Code 2.1.287+) | 1 | In-process hooks module: `/memoir:pane` capture feed + hint-line status |
 
 ## Slash commands
 
@@ -36,6 +37,7 @@ Each project gets its own memoir store under `~/.memoir/<slug>/`, derived from y
 | `/memoir:status` | Branch, commit count, memory count, namespaces. |
 | `/memoir:sync [branch ...]` | Guided promotion of unmerged memoir branches into `main` (select UI: merge all / choose / ignore / snooze / delete branches). With arguments, merges those branches directly. See [Branch sync](#branch-sync-memoirsync). |
 | `/memoir:ui` | Launch or re-open the web UI (readonly, LLM off by default). |
+| `/memoir:pane` | Open the capture feed pane (Recent + Taxonomy tabs). Needs Claude Code 2.1.287+; older versions print a text summary. See [Capture feed pane](#capture-feed-pane-and-built-in-status-line-memoirpane). |
 
 Admin operations (`forget`, `taxonomy`) are available via the `memoir` CLI directly — they were dropped from the slash-command surface to keep the in-session UX focused on the everyday actions.
 
@@ -99,7 +101,37 @@ Shared helpers: `hooks/common.sh`, `hooks/parse-transcript.sh`.
 | `derive-store-path.sh` | Maps the current cwd to `~/.memoir/<slug>` (linked worktrees collapse onto the main worktree's slug). Respects `$MEMOIR_STORE`. |
 | `sync-cmd.sh` | Backing script for `/memoir:sync` and the session-start offer: `list` / `dry-run` / `merge` / `ignore` / `snooze` / `decline` / `prune` (branch deletion; refuses `main` and the current branch). |
 | `memoir-ui-ctl.sh` | `start` / `stop` / `status` for the web UI, with pidfile bookkeeping so repeated `/memoir:ui` calls reuse the same server. |
-| `statusline.sh` | Renders memoir state into Claude Code's status line, e.g. `memoir: feature/foo · 14 memories`. |
+| `statusline.sh` | Renders memoir state into Claude Code's status line, e.g. `memoir: feature/foo · 14 memories`. Only needed on Claude Code < 2.1.287 — newer versions get the same line from the mod with no settings edit. |
+| `pane-cmd.sh` | Text fallback for `/memoir:pane` on Claude Code < 2.1.287: status line plus the last captures, from git metadata alone. |
+
+## Capture feed pane and built-in status line (`/memoir:pane`)
+
+Auto-capture is deferred to the async `Stop` hook, so a turn's writes land in the store seconds after the turn ends and nothing in the session shows them. On **Claude Code 2.1.287 or newer** the plugin loads a [mod](https://code.claude.com/docs/en/plugins/mods/overview) — an in-process hooks module listed under `modules` in `hooks/hooks.json`, source in `hooks/mod/` — that surfaces them. It is read-only and purely additive: the four shell hooks, the skills and every other command are unchanged.
+
+**Hint line.** The line under the prompt gains a suffix, `memoir: main · 18 memories`, and `+N this turn` once the turn's non-metric captures have landed (cleared at the next turn). No store → nothing is shown. If `statusLine.command` in your settings already references `statusline.sh`, the mod skips the suffix so the state is not shown twice; `statusline.sh` stays for older Claude Code versions.
+
+**`/memoir:pane`.** Three tabs:
+
+| Tab | Shows | Keys |
+|---|---|---|
+| Recent (default) | Last ~20 captures, newest first; `●` for this turn's, `○` older; key, age, two lines of content. `metrics.*` writes hidden by default. | `1` tab · `m` toggle metrics · `r` refresh |
+| Taxonomy | Paths grouped by first segment with counts; expanded groups list their leaves. | `2` tab · Tab/↑↓ move · Enter expand |
+| Metrics | One bar chart per metric across branches, from the `metrics.turn.<branch>` accumulators: turns, tool calls, tool errors, average latency (s), output chars, tool result chars. The current branch leads every chart; a branch with no sample for a metric is left out of that chart rather than drawn as zero. The same figures as the web UI's Statistics → Metrics tab. | `3` tab · `r` refresh |
+
+The pane docks beside the transcript in a wide fullscreen terminal and seats inline above the prompt otherwise; `ctrl+x tab` focuses it, `ctrl+x x` closes it. Where nothing can draw a pane (`claude -p`, the Agent SDK) the command answers with a plain-text summary.
+
+**How it watches the store.** A 3 s timer stats `<store>/.git/HEAD` and the current branch's ref — no subprocess. Only when either moved does it run `git log --format=%H%x09%ct%x09%s -n 20`, parse the `Store <key> in <namespace>` subjects, read the memory count the shell hooks cache in `plugin-statusline-cache`, and fetch the new keys' contents in one batched `memoir --json get` through `scripts/memoir-cli.sh` (the same resolver chain as the hooks — never bare `memoir`, since hook environments lack the venv `PATH`). The same `summarize` call lists the `metrics.turn.*` keys, which are re-read whole in one more batched `get` since they change every turn. `turn.start` records the head commit as the baseline; everything committed after it is "this turn". This catches every write path: the Stop hook, `/memoir:remember`, the CLI, `memoir pull`. Drawn state lives in `$.state`, so it survives a hot reload and a `/clear` only resets the turn baseline.
+
+**Why the command is still `/memoir:pane`.** Mods register commands without a plugin prefix, so the slash command is the thin `commands/pane.md`, and the mod answers its `command.run` before the prompt runs. On a Claude Code that cannot load mods the markdown runs instead and prints `scripts/pane-cmd.sh`'s text summary — the one visible difference on old versions.
+
+**Tests.**
+
+```bash
+claude plugin validate plugins/claude-code   # lists the hooks, $ calls and state keys the module uses
+claude plugin test plugins/claude-code       # hooks/mod/*.test.tsx — no store, no memoir, no LLM
+```
+
+The tests answer the host (git, the CLI, the filesystem, settings) from memory and cover capture parsing, `metrics.*` filtering, the `+N` baseline, the no-store path, the `statusline.sh` coexistence skip, the plain-text fallback, and the pane's tabs and toggles. Claude Code lays this build's API declarations in `plugins/claude-code/.claude-plugin/types/` whenever it loads the mod from the folder; that directory is gitignored.
 
 ## Lifecycle
 

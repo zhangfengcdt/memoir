@@ -1,0 +1,4 @@
+# Laid by Claude Code when it loads the mod from this folder (--plugin-dir,
+# hot reload): this build's API declarations for the editor. Regenerated on
+# every load, so never committed.
+.claude-plugin/types/

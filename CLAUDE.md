@@ -51,7 +51,7 @@ pytest tests/ -k "test_function_name"
 - `src/memoir/services/` — `StoreService`, `MemoryService`, `BranchService`, `CryptoService`, `SyncService` (reusable business logic). `SyncService` is the memoir-cloud client: stores addressed as `<owner>/<store>`, git remote `origin`, chunks before refs, gated on `MEMOIR_API_KEY`.
 - `src/memoir/cli/` — Click CLI (`memoir` entry point). Supports `--json` and the agent env vars `MEMOIR_STORE`, `MEMOIR_JSON`. Cloud verbs (`remote`, `push`, `pull`, `fetch`) live in `cli/commands/sync.py`; tests use the fake gateway in `tests/fake_cloud.py` (real `git http-backend`, no network).
 - `src/memoir/ui/` — web UI (Python HTTP server + React/Vite SPA). Handlers under `ui/handlers/`, frontend source under `ui/webapp/src/`, built bundle at `ui/webapp/dist/`.
-- `plugins/claude-code/` — Claude Code plugin: slash commands, skills, hooks.
+- `plugins/claude-code/` — Claude Code plugin: slash commands, skills, hooks, and a mod (`hooks/mod/`, Claude Code ≥ 2.1.287) for `/memoir:pane` + the hint-line status. When touching the mod run `claude plugin validate plugins/claude-code` and `claude plugin test plugins/claude-code`; `$` never crosses a function boundary and `$.state` atoms stay in the hooks module (the validator reads both off the source).
 - `tests/` — unit + integration + versioning + CLI tests. Run with `pytest`.
 
 Deep structural details (layouts, refactor history, per-file line counts) intentionally omitted — use `rg` / `git log` when you need them.
