@@ -1,5 +1,8 @@
 {
   "description": "memoir hooks — surface branch + commit state, auto-capture durable facts into the taxonomy",
+  "modules": [
+    "./mod/register.tsx"
+  ],
   "hooks": {
     "SessionStart": [
       {
