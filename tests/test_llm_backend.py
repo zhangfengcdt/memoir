@@ -76,3 +76,29 @@ def test_explicit_base_url_arg_overrides_env(monkeypatch):
     monkeypatch.setenv("MEMOIR_LLM_BASE_URL", "https://env.example/v1")
     llm = get_llm(model="claude-haiku-4-5", base_url="https://arg.example/v1")
     assert llm.base_url == "https://arg.example/v1"
+
+
+def test_atlas_model_uses_openai_compatible_endpoint(monkeypatch):
+    monkeypatch.setenv("ATLASCLOUD_API_KEY", "atlas-test-key")
+    llm = get_llm(model="atlas/deepseek-ai/deepseek-v4-flash")
+    assert llm.model == "openai/deepseek-ai/deepseek-v4-flash"
+    assert llm.base_url == "https://api.atlascloud.ai/v1"
+    assert llm.api_key == "atlas-test-key"
+
+
+def test_atlas_model_requires_key(monkeypatch):
+    monkeypatch.delenv("ATLASCLOUD_API_KEY", raising=False)
+    with pytest.raises(ValueError, match="ATLASCLOUD_API_KEY"):
+        get_llm(model="atlas/deepseek-ai/deepseek-v4-flash")
+
+
+def test_atlas_explicit_base_url_and_key_override_env(monkeypatch):
+    monkeypatch.setenv("ATLASCLOUD_API_KEY", "env-key")
+    monkeypatch.setenv("ATLASCLOUD_LLM_BASE_URL", "https://env.atlas.example/v1")
+    llm = get_llm(
+        model="atlas/deepseek-ai/deepseek-v4-flash",
+        base_url="https://arg.atlas.example/v1",
+        api_key="arg-key",
+    )
+    assert llm.base_url == "https://arg.atlas.example/v1"
+    assert llm.api_key == "arg-key"
