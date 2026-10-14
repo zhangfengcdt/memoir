@@ -124,6 +124,13 @@ export function hintTail(status: MemoirStatus, fresh: number): string | undefine
   return parts.join(' · ')
 }
 
+/** The store path for the header: home shown as `~`, cut from the left to fit `max` columns. */
+export function storeLabel(path: string, home: string | null, max: number): string {
+  const short = home && (path === home || path.startsWith(`${home}/`)) ? `~${path.slice(home.length)}` : path
+  if (max < 2) return ''
+  return short.length <= max ? short : `…${short.slice(short.length - (max - 1))}`
+}
+
 /** True when the person's settings already route memoir into the status line. */
 export function usesStatuslineScript(settings: Readonly<Record<string, unknown>>): boolean {
   const statusLineSetting = settings['statusLine']

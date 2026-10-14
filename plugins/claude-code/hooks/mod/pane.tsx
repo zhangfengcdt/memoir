@@ -22,6 +22,8 @@ export type PaneView = {
   elements: ReturnType<EngineInterface['ui']['resolve']>
   width: number
   now: number
+  /** The person's home folder, for showing the store path as `~/…`; null when unknown. */
+  home: string | null
   status: MemoirStatus
   captures: readonly MemoirCapture[]
   order: readonly string[]
@@ -108,7 +110,15 @@ export function renderPane(view: PaneView): RenderElement {
         ))}
       </Box>
       <Box flexDirection="column">
-      <Text bold>memoir</Text>
+      {status.store ? (
+        <Box gap={2}>
+          <Text bold>memoir</Text>
+          {/* logo, gaps and the title take the rest of the row */}
+          <Text dimColor>{fmt.storeLabel(status.store, view.home, width - fmt.LOGO[0]!.length - 'memoir'.length - 4)}</Text>
+        </Box>
+      ) : (
+        <Text bold>memoir</Text>
+      )}
       <Box gap={2}>
         <Button key="tab-memories" plain hotkey="1" dimColor={view.tab === 'recent' || view.tab === 'metrics'} onPress={() => void actions.pickTab('memories')}>
           Memories

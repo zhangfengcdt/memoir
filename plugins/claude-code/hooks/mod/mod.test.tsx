@@ -139,7 +139,7 @@ function world(on: On, overrides: Partial<World> = {}) {
     ...overrides,
   }
   const clock = mock.clock(on, { now: 1700000400_000 })
-  mock.env(on, {})
+  mock.env(on, { HOME: '/home/u' })
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('turn.start', ($, e) => ({ turnId: e.turnId }))
   on('settings.read', () => ({ value: w.settings }))
@@ -378,6 +378,7 @@ test('pane: recent feed hides metrics until toggled; t shows the taxonomy above 
   // The mark and the title head the pane.
   expect((await ui.findAll({ type: 'Text', text: /^[ ┏┓┛┗━]{9}$/ })).map(t => t.text)).toEqual([' ┏━━━━━┓ ', '┏┛┏┓ ┏┓┗┓', '┗━┛┗━┛┗━┛'])
   expect(await ui.find({ type: 'Text', text: 'memoir' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: '~/.memoir/-proj' })).toBeDefined() // the store, beside the title
   expect(await ui.find({ type: 'Button', key: 'status-branch', text: 'main' })).toBeDefined()
   expect(await ui.find({ type: 'Button', key: 'status-memories', text: '18 memories' })).toBeDefined()
   expect(await ui.find({ type: 'Button', key: 'status-commits', text: '61 commits' })).toBeDefined()
@@ -421,6 +422,15 @@ test('a content read that fails while the Stop hook is still writing is retried 
   ui = await $.ui.mount(PANE)
   expect(await ui.find({ type: 'Text', text: /content unavailable/ })).toBeUndefined()
   expect(await ui.find({ type: 'Text', text: /Run make format/ })).toBeDefined()
+})
+
+test('storeLabel shortens home to ~ and cuts long paths from the left', () => {
+  expect(fmt.storeLabel('/home/u/.memoir/-proj', '/home/u', 80)).toBe('~/.memoir/-proj')
+  expect(fmt.storeLabel('/home/u', '/home/u', 80)).toBe('~')
+  expect(fmt.storeLabel('/home/u/.memoir/-proj', null, 80)).toBe('/home/u/.memoir/-proj')
+  expect(fmt.storeLabel('/home/user2/.memoir/-proj', '/home/u', 80)).toBe('/home/user2/.memoir/-proj')
+  expect(fmt.storeLabel('/home/u/.memoir/-Users-feng-githhub-memoir', '/home/u', 20)).toBe('…feng-githhub-memoir')
+  expect(fmt.storeLabel('/home/u/.memoir/-proj', '/home/u', 1)).toBe('')
 })
 
 test('turn metrics parse, format and scale', () => {

@@ -74,6 +74,7 @@ export const register: Register = on => {
   // What one commit changed, for the Recent tab's detail.
   let loadCommit: (sha: string) => Promise<MemoirCommitDetail> = async sha => ({ sha, changes: null })
   let hintSuppressed = false
+  let home: string | null = null
 
   on('session.start', async ($, e, next) => {
     const host: store.Host = {
@@ -91,6 +92,11 @@ export const register: Register = on => {
       // unset: derive it
     }
     if (!storePath) storePath = await store.deriveStore(host, e.cwd)
+    try {
+      home = (await $.env.get('HOME')) || null
+    } catch {
+      home = null
+    }
     try {
       // The person already wires scripts/statusline.sh into their status line:
       // don't show memoir's state twice.
@@ -326,6 +332,7 @@ export const register: Register = on => {
       elements: $.ui.resolve(e),
       width: e.props.bodyColumns,
       now: await $.clock.now(),
+      home,
       status: await read($, status),
       captures: await read($, captures),
       order: await read($, order),
