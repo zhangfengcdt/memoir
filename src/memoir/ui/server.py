@@ -1305,10 +1305,9 @@ Provide an informative summary in 2-3 paragraphs about the places and locations 
                 # Get all memories from default namespace
                 all_memories = []
                 try:
-                    if hasattr(store.tree, "list_keys"):
-                        # Using list_keys to get all keys
-                        keys = store.tree.list_keys()
-                        all_keys = [key.decode("utf-8") for key in keys]
+                    if hasattr(store, "all_keys"):
+                        # all_keys() is uncapped; list_keys() truncated.
+                        all_keys = store.all_keys()
 
                         for full_key in all_keys:
                             # Parse the key to extract namespace and semantic path
@@ -2204,18 +2203,13 @@ Answer:"""
                 print("Handling initial commit case - showing all data as additions")
                 # Try to get all current keys and treat them as additions
                 try:
-                    # Get current state keys
-                    if hasattr(store.tree, "list_keys"):
-                        keys = store.tree.list_keys()
+                    # Initial-commit view: uncapped enumeration.
+                    if hasattr(store, "all_keys"):
+                        keys = store.all_keys()
                         changes = []
-                        for key_bytes in keys:
+                        for key_str in keys:
                             try:
-                                key_str = (
-                                    key_bytes.decode("utf-8")
-                                    if isinstance(key_bytes, bytes)
-                                    else str(key_bytes)
-                                )
-                                value_bytes = store.tree.get(key_bytes)
+                                value_bytes = store.tree.get(key_str.encode("utf-8"))
                                 if value_bytes:
                                     value_data = store._decode_value(value_bytes)
                                     self._ensure_handlers_initialized()
@@ -2238,7 +2232,7 @@ Answer:"""
                                         }
                                     )
                             except Exception as e:
-                                print(f"Error processing key {key_bytes}: {e}")
+                                print(f"Error processing key {key_str}: {e}")
 
                         kv_diffs = changes  # Use our manually created changes
                     else:
@@ -2517,16 +2511,10 @@ Answer:"""
             all_keys = []
             namespaces = set()
 
-            # Try to list all keys if method exists
-            if hasattr(store.tree, "list_keys"):
-                keys_bytes = store.tree.list_keys()
-                for key_bytes in keys_bytes:
-                    key_str = (
-                        key_bytes.decode("utf-8")
-                        if isinstance(key_bytes, bytes)
-                        else str(key_bytes)
-                    )
-                    all_keys.append(key_str)
+            # Storage stats: uncapped enumeration.
+            if hasattr(store, "all_keys"):
+                all_keys = store.all_keys()
+                for key_str in all_keys:
                     # Extract namespace
                     if ":" in key_str:
                         namespace = key_str.split(":")[0]
@@ -2571,15 +2559,9 @@ Answer:"""
         """Analyze memory tree structure."""
         try:
             all_keys = []
-            if hasattr(store.tree, "list_keys"):
-                keys_bytes = store.tree.list_keys()
-                for key_bytes in keys_bytes:
-                    key_str = (
-                        key_bytes.decode("utf-8")
-                        if isinstance(key_bytes, bytes)
-                        else str(key_bytes)
-                    )
-                    all_keys.append(key_str)
+            # Tree analysis: uncapped enumeration.
+            if hasattr(store, "all_keys"):
+                all_keys = store.all_keys()
 
             levels = {}
             paths_by_depth = {}
@@ -2817,17 +2799,10 @@ Answer:"""
     def _get_taxonomy_statistics(self, store):
         """Get taxonomy and classification statistics."""
         try:
-            # Count paths by category
+            # Taxonomy stats: uncapped enumeration.
             all_keys = []
-            if hasattr(store.tree, "list_keys"):
-                keys_bytes = store.tree.list_keys()
-                for key_bytes in keys_bytes:
-                    key_str = (
-                        key_bytes.decode("utf-8")
-                        if isinstance(key_bytes, bytes)
-                        else str(key_bytes)
-                    )
-                    all_keys.append(key_str)
+            if hasattr(store, "all_keys"):
+                all_keys = store.all_keys()
 
             paths_by_category = {}
             for key in all_keys:
@@ -2857,11 +2832,12 @@ Answer:"""
             total_chars = 0
             memory_count = 0
 
-            if hasattr(store.tree, "list_keys"):
-                keys_bytes = store.tree.list_keys()
-                for key_bytes in keys_bytes[:100]:  # Sample first 100 for performance
+            # Content analysis: sample the first 100 keys to bound the cost.
+            if hasattr(store, "all_keys"):
+                keys = store.all_keys()
+                for key_str in keys[:100]:
                     try:
-                        value_bytes = store.tree.get(key_bytes)
+                        value_bytes = store.tree.get(key_str.encode("utf-8"))
                         if value_bytes:
                             # Try to decode and analyze
                             if isinstance(value_bytes, bytes):
@@ -2872,12 +2848,7 @@ Answer:"""
                             total_chars += len(content)
                             memory_count += 1
 
-                            # Try to determine memory type from path
-                            key_str = (
-                                key_bytes.decode("utf-8")
-                                if isinstance(key_bytes, bytes)
-                                else str(key_bytes)
-                            )
+                            # Determine memory type from path
                             if "conversation" in key_str.lower():
                                 memory_type = "conversation_memory"
                             elif "profile" in key_str.lower():

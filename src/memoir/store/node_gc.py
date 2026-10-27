@@ -21,9 +21,14 @@ import contextlib
 import json
 import logging
 import re
-import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
+
+from memoir.store.gitcmd import run_git
+
+if TYPE_CHECKING:
+    import subprocess
 
 logger = logging.getLogger(__name__)
 
@@ -36,12 +41,8 @@ def nodes_dir(store_path: str | Path) -> Path:
 
 
 def _git(store_path: str | Path, *args: str) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["git", "-C", str(store_path), *args],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    # Shared helper so UTF-8 decoding lives in one place (review #9a).
+    return run_git(store_path, *args)
 
 
 def _root_from_config(text: str) -> str | None:

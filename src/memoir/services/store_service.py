@@ -257,15 +257,12 @@ class StoreService(BaseService):
         }
 
         try:
-            # Get all keys from the store
-            if hasattr(store, "tree") and hasattr(store.tree, "list_keys"):
-                all_keys = store.tree.list_keys()
+            # all_keys() replays history; list_keys() stops at 1024.
+            if hasattr(store, "all_keys"):
+                all_keys = store.all_keys()
 
                 namespaces = {}
-                for key in all_keys:
-                    key_str = (
-                        key.decode("utf-8") if isinstance(key, bytes) else str(key)
-                    )
+                for key_str in all_keys:
                     parts = key_str.split(":")
                     if len(parts) >= 2:
                         ns = parts[0]
@@ -351,17 +348,13 @@ class StoreService(BaseService):
             if initialized:
                 try:
                     store = self._get_store()
-                    if hasattr(store, "tree") and hasattr(store.tree, "list_keys"):
-                        all_keys = store.tree.list_keys()
+                    # Same reason: count through the uncapped enumeration.
+                    if hasattr(store, "all_keys"):
+                        all_keys = store.all_keys()
                         memory_count = len(all_keys)
 
                         ns_set = set()
-                        for key in all_keys:
-                            key_str = (
-                                key.decode("utf-8")
-                                if isinstance(key, bytes)
-                                else str(key)
-                            )
+                        for key_str in all_keys:
                             parts = key_str.split(":")
                             if parts:
                                 ns_set.add(parts[0])

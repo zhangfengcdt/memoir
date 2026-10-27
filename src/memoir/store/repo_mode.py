@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from memoir.store.backend import is_memoir_store
+from memoir.store.gitcmd import run_git
 
 GIT_TIMEOUT = 5.0
 
@@ -32,14 +33,9 @@ class RepoContext:
 
 
 def _git(cwd: Path, *args: str) -> str | None:
+    # Shared helper; behaviour unchanged (None on failure or empty output).
     try:
-        result = subprocess.run(
-            ["git", "-C", str(cwd), *args],
-            capture_output=True,
-            text=True,
-            timeout=GIT_TIMEOUT,
-            check=False,
-        )
+        result = run_git(cwd, *args, timeout=GIT_TIMEOUT)
     except (OSError, subprocess.SubprocessError):
         return None
     out = result.stdout.strip()

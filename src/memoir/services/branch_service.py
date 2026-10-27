@@ -1145,31 +1145,33 @@ class BranchService(BaseService):
         Return all values stored under the ``default`` namespace on the
         currently checked-out branch as ``{key: decoded_value}``.
 
-        Walks ``store.tree.list_keys()`` and filters for the ``default:``
-        prefix, then strips the prefix to return the bare taxonomy paths
-        callers know (e.g. ``preferences.coding.style``). Used by
-        ``promote_branch`` to copy only default-namespace memories across
-        branches without touching system namespaces like ``codebase:onboard``.
+        Walks ``store.all_items()`` and filters for the ``default:`` prefix,
+        then strips the prefix to return the bare taxonomy paths callers know
+        (e.g. ``preferences.coding.style``). Used by ``promote_branch`` to
+        copy only default-namespace memories across branches without touching
+        system namespaces like ``codebase:onboard``.
+
+        ``all_items()`` (not ``tree.list_keys()``) matters here: the latter
+        stops at 1024 keys in prollytree's binding, which made ``promote``
+        silently skip everything past the cap — including, on a large store,
+        all of the source branch's new keys. It also returns the values, so
+        this is one replay instead of an enumeration plus a read per key.
         """
+        # promote_branch reads the source branch here; the capped enumeration
+        # dropped keys past 1024 and still reported success=True.
         store = self._get_store()
-        out: dict[str, Any] = {}
-        try:
-            raw_keys = (
-                store.tree.list_keys() if hasattr(store.tree, "list_keys") else []
-            )
-        except Exception as e:
-            logger.warning(f"_read_default_namespace: list_keys failed: {e}")
-            raw_keys = []
         prefix = "default:"
-        for k in raw_keys:
-            full_key = k.decode("utf-8") if isinstance(k, bytes) else str(k)
-            if not full_key.startswith(prefix):
-                continue
-            bare_key = full_key[len(prefix) :]
-            value = store.get(("default",), bare_key)
-            if value is not None:
-                out[bare_key] = value
-        return out
+        try:
+            items = store.all_items()
+        except Exception as e:
+            logger.warning(f"_read_default_namespace: enumeration failed: {e}")
+            return {}
+        # Keep the default namespace only, without the prefix.
+        return {
+            full_key[len(prefix) :]: value
+            for full_key, value in items.items()
+            if full_key.startswith(prefix)
+        }
 
     def preview_default_namespace_diff(
         self,

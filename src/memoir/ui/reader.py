@@ -160,16 +160,16 @@ def read_store_data(store_path: str):
         tree_paths = {}
 
         try:
-            # Try to get all keys using list_keys if available
+            # all_items() replays history: uncapped, stable, and it returns
+            # decoded values so we skip a tree.get() per key.
             all_keys = []
-            if hasattr(store.tree, "list_keys"):
-                # Using list_keys to get all keys
+            all_items: dict = {}
+            if hasattr(store, "all_items"):
                 try:
-                    keys = store.tree.list_keys()
-                    all_keys = [key.decode("utf-8") for key in keys]
-                    # Found {len(all_keys)} total keys in store
+                    all_items = store.all_items()
+                    all_keys = list(all_items)
                 except Exception:
-                    # Error with list_keys: {e}
+                    # Error enumerating keys
                     pass
 
             # If no list_keys, fall back to search
@@ -291,14 +291,15 @@ def read_store_data(store_path: str):
 
                         # Include all namespaces (removed hardcoded filter)
 
-                        # Get the value for this key
-                        key_bytes = full_key.encode("utf-8")
-                        value_bytes = store.tree.get(key_bytes)
-                        if not value_bytes:
-                            continue
-
-                        # Decode the value
-                        value_data = store._decode_value(value_bytes)
+                        # Prefer the value all_items() already decoded; fall
+                        # back only for keys added after enumeration.
+                        value_data = all_items.get(full_key)
+                        if value_data is None:
+                            key_bytes = full_key.encode("utf-8")
+                            value_bytes = store.tree.get(key_bytes)
+                            if not value_bytes:
+                                continue
+                            value_data = store._decode_value(value_bytes)
 
                         memory_entry = {
                             "key": full_key,

@@ -8,6 +8,7 @@ import contextlib
 import json
 import logging
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -19,6 +20,7 @@ from pydantic import BaseModel, Field
 from memoir.store.backend import is_memoir_store, resolve_backend, write_backend_lock
 from memoir.store.cwd_locked import CwdLockedTree
 from memoir.store.git_safety import harden_git_config
+from memoir.store.gitcmd import run_git
 from memoir.store.write_lock import store_write_lock
 
 # Storage layer doesn't import classification or search modules
@@ -98,6 +100,157 @@ class AggregatedMemory(BaseModel):
     last_updated: float = Field(
         default_factory=time.time, description="Last update timestamp"
     )
+
+
+# prollytree caps list_keys()/get_keys_at_ref() at 1024 keys, and the subset
+# it returns changes between calls. diff() has no such cap, so replay it from
+# the root commit to rebuild the full key set.
+
+#: The binding's cap; only used to warn when a root commit hits it.
+_PROLLYTREE_KEY_LIMIT = 1024
+
+_FULL_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+_REF_PREFIXES = ("refs/heads/", "refs/tags/", "refs/remotes/")
+
+
+def _has_revision_syntax(ref: str) -> bool:
+    """Whether ``ref`` contains git revision syntax rather than a ref name.
+
+    Must run before the full-ref early return (review #2): otherwise
+    ``refs/heads/main~1`` passes on its prefix and fails later in diff with
+    a raw git error. A bare ``@`` is fine — ``foo@bar`` is a valid branch.
+    """
+    return ref.startswith("-") or any(c in ref for c in "~^: \\") or "@{" in ref
+
+
+def _ref_exists(store_path: Path, ref: str) -> bool:
+    """Whether ``ref`` exists; ``--quiet`` mutes stderr, exit 0 means it
+    resolves (review #5)."""
+    result = run_git(store_path, "rev-parse", "--verify", "--quiet", ref)
+    return result.returncode == 0
+
+
+def _is_commit(store_path: Path, ref: str) -> bool:
+    """Whether ``ref`` resolves to a commit (review #3).
+
+    ``rev-parse --verify`` also accepts tree and blob SHAs, which make
+    rev-list return no roots and all_keys() look empty. The ``^{commit}``
+    suffix asks git to peel to a commit, which those objects cannot.
+    """
+    result = run_git(
+        store_path, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"
+    )
+    return result.returncode == 0
+
+
+def _resolve_ref(store_path: Path, ref: str) -> str | None:
+    """Return ``ref`` if prollytree can resolve it, else ``None``.
+
+    ``git rev-parse`` also accepts ``HEAD~1`` and abbreviated SHAs, which the
+    binding cannot resolve; accepting them used to fall back to the current
+    branch's data (review #2).
+    """
+    if not ref:
+        return None
+
+    # Revision syntax first, so refs/heads/main~1 cannot slip through (#2).
+    if _has_revision_syntax(ref):
+        return None
+
+    if ref == "HEAD":
+        return ref
+
+    # A full SHA must peel to a commit, not a tree or blob (#3).
+    if _FULL_SHA_RE.match(ref):
+        return ref if _is_commit(store_path, ref) else None
+
+    # A full ref form must exist; the prefix alone proves nothing (#5).
+    if ref.startswith(_REF_PREFIXES):
+        return ref if _ref_exists(store_path, ref) else None
+
+    # Branch first: git ranks refs/tags/<name> above refs/heads/<name>, so a
+    # tag shadowing a branch made ``--branch v1`` read the tag (#6).
+    branch_ref = f"refs/heads/{ref}"
+    if _ref_exists(store_path, branch_ref):
+        return branch_ref
+
+    # Not a branch: git's general resolution (tags, remotes, ...).
+    result = run_git(store_path, "rev-parse", "--symbolic-full-name", ref)
+    if result.returncode != 0:
+        return None
+
+    # Only a real refs/ path counts; a short SHA resolves to itself and is
+    # rejected here because it carries no refs/ prefix.
+    full = result.stdout.strip()
+    if not full.startswith(_REF_PREFIXES):
+        return None
+    return full if _ref_exists(store_path, full) else None
+
+
+def _git_roots(store_path: Path, ref: str) -> list[str]:
+    """Root commits reachable from ``ref``; raises when git cannot answer.
+
+    ``tree.log()`` only returns the newest 100 commits, so it cannot find the
+    root of a long history. Raising (rather than returning []) lets callers
+    tell "empty history" apart from "could not read history" (review #1).
+    """
+    result = run_git(store_path, "rev-list", "--max-parents=0", ref)
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or f"cannot resolve '{ref}'")
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
+def _replay_snapshot(tree: Any, store_path: Path, ref: str) -> dict[bytes, bytes]:
+    """Rebuild ``ref``'s full key/value state from commit history.
+
+    ``diff(root, ref)`` is the complete delta between two trees, so one root
+    reconstructs the state. An empty result is valid, not a failure (review #1).
+    """
+    roots = _git_roots(store_path, ref)
+    if not roots:
+        return {}
+    # One root is enough; accumulating across roots let one root's Removed
+    # entry suppress a key another root reported as present.
+    return _state_from_root(tree, roots[0], ref)
+
+
+def _state_from_root(tree: Any, root: str, ref: str) -> dict[bytes, bytes]:
+    """Reconstruct ``ref``'s state by replaying the delta from ``root``."""
+    data: dict[bytes, bytes] = {}
+    # Keys removed since the root must not be re-added by the fill-in below.
+    removed: set[bytes] = set()
+
+    for kv in tree.diff(root, ref):
+        key = bytes(kv.key)
+        op = kv.operation
+        kind = op.operation_type
+        if kind == "Removed":
+            data.pop(key, None)
+            removed.add(key)
+            continue
+        value = op.value if kind == "Added" else op.new_value
+        if value is not None:
+            data[key] = bytes(value)
+            removed.discard(key)
+
+    # Keys present in the root and untouched since never appear in ``diff``.
+    root_items = tree.get_keys_at_ref(root)
+    # Known limit: a root commit holding 1024+ keys is truncated here. Memoir's
+    # root is always the empty initial commit, so this only fires on rewritten
+    # history; warn rather than truncate silently (review #3).
+    if len(root_items) >= _PROLLYTREE_KEY_LIMIT:
+        logger.warning(
+            "root commit %s has at least %d keys; unchanged root keys may be "
+            "missing from this listing",
+            root[:8],
+            _PROLLYTREE_KEY_LIMIT,
+        )
+    for key, value in root_items:
+        key_bytes = bytes(key)
+        if key_bytes not in removed:
+            data.setdefault(key_bytes, bytes(value))
+
+    return data
 
 
 class ProllyTreeStore(BaseStore):
@@ -259,40 +412,158 @@ class ProllyTreeStore(BaseStore):
         if ref is not None:
             if not enable_versioning:
                 raise ValueError("ref= needs a versioned store")
-            self.tree = _SnapshotTree(self.tree, ref)
+            self.tree = _SnapshotTree(self.tree, ref, self.path)
             self.auto_commit = False
 
-        # Key registry for memory mode (since ProllyTree doesn't have list_keys in memory mode)
+        # Memory mode has no history to replay, so it tracks its own keys.
         self._keys = set()
 
-        # Populate key registry from existing data
-        self._populate_key_registry()
+        # Committed state, replayed on first use. Loading it in __init__ made
+        # every CLI call and hook pay a git subprocess plus a full replay
+        # (review #7).
+        self._items: dict[bytes, bytes] | None = None
+        # (branch, head commit) the cache was built from; a mismatch means
+        # the tree moved underneath us and the cache must be rebuilt.
+        self._cache_source: tuple[str, str] | None = None
 
         # Track aggregated memories to avoid redundant updates
         self._aggregation_cache = {}
 
-    def _populate_key_registry(self):
-        """Populate the key registry from existing data in the store."""
-        try:
-            if hasattr(self.tree, "scan"):
-                # Use scan if available to iterate through all keys
-                for key_bytes, _ in self.tree.scan():
-                    key_str = key_bytes.decode("utf-8")
-                    self._keys.add(key_str)
-            elif hasattr(self.tree, "list_keys"):
-                # Use list_keys if available
-                for key_bytes in self.tree.list_keys():
-                    key_str = key_bytes.decode("utf-8")
-                    self._keys.add(key_str)
-            else:
-                # No way to enumerate keys, registry will be empty initially
-                # Keys will be added as they are accessed via put()
-                pass
+    def _cache_key(self) -> tuple[str, str] | None:
+        """``(branch, that branch's commit)`` the cached snapshot describes.
 
-            logger.info(f"Populated key registry with {len(self._keys)} existing keys")
+        BranchService switches branches through ``tree`` directly, so call
+        sites cannot be trusted to clear the cache (#2/#3/#4). Both values
+        come from ``refs/heads/<current_branch>``: taking the branch from the
+        handle and the commit from on-disk HEAD mixed two sources (#1).
+        """
+        ref = self.tree.current_branch()
+        if isinstance(ref, bytes):
+            ref = ref.decode("utf-8")
+        ref = ref or "HEAD"
+
+        # Resolve the commit from this handle's branch, not current_commit(),
+        # which reports whatever branch the on-disk HEAD points at.
+        result = run_git(
+            self.path, "rev-parse", "--verify", "--quiet", f"refs/heads/{ref}"
+        )
+        if result.returncode != 0:
+            # No provenance: skip caching and replay every time.
+            return None
+        head = result.stdout.strip()
+        if not head:
+            return None
+        return ref, head
+
+    def _committed(self) -> dict[bytes, bytes]:
+        """Committed key/value state for this handle's branch (cached).
+
+        Reads ``current_branch()`` rather than on-disk HEAD: another process
+        moving HEAD made listing disagree with ``get()`` (review #5). A failed
+        replay returns empty for that call but is not cached.
+        """
+        if not self.enable_versioning:
+            return {}
+        if isinstance(self.tree, _SnapshotTree):
+            # A ref-scoped snapshot was replayed once and never changes.
+            if self._items is None:
+                self._items = dict(self.tree.items())
+            return self._items
+
+        # Key and replay target are the same commit, so a concurrent write
+        # between the two cannot produce a key that describes other content.
+        cache_key = self._cache_key()
+        if (
+            self._items is not None
+            and cache_key is not None
+            and self._cache_source == cache_key
+        ):
+            return self._items
+
+        if cache_key is None:
+            # No commit to pin to (branch deleted): replay by name, uncached.
+            ref = self.tree.current_branch()
+            if isinstance(ref, bytes):
+                ref = ref.decode("utf-8")
+            replay_target = ref or "HEAD"
+        else:
+            replay_target = cache_key[1]
+
+        try:
+            items = _replay_snapshot(self.tree, self.path, replay_target)
         except Exception as e:
-            logger.warning(f"Could not populate key registry: {e}")
-            # Continue without existing keys - they'll be added as accessed
+            # Empty for this call only, and never a fallback to the
+            # checked-out branch's data (review #1).
+            logger.warning("could not enumerate %r: %s", replay_target, e)
+            return {}
+
+        # Cache only when the provenance is known, so a bad result cannot
+        # become permanent.
+        if cache_key is not None:
+            self._items = items
+            self._cache_source = cache_key
+        return items
+
+    def _staged(self) -> tuple[set[str], set[str]]:
+        """Keys written and deleted since the last commit.
+
+        ``get()`` and ``list_keys()`` see the staging area; the replayed
+        history does not, so enumeration layers it on top (review #4).
+        """
+        if not self.enable_versioning or isinstance(self.tree, _SnapshotTree):
+            return set(), set()
+
+        written: set[str] = set()
+        removed: set[str] = set()
+        # ``status()`` reads the staging area and is not capped like list_keys.
+        for key, state in self.tree.status():
+            target = removed if state == "deleted" else written
+            target.add(bytes(key).decode("utf-8"))
+        return written, removed
+
+    def all_keys(self) -> list[str]:
+        """Every key in the store: committed snapshot plus staged changes.
+
+        Single entry point for enumeration; ``tree.list_keys()`` stops at 1024
+        keys and returns a different subset each call.
+        """
+        if not self.enable_versioning:
+            return sorted(self._keys)
+
+        written, removed = self._staged()
+        keys = {key.decode("utf-8") for key in self._committed()}
+        # Parentheses matter: ``keys | written - removed`` parses as
+        # ``keys | (written - removed)`` and left staged deletes in place (#1).
+        return sorted((keys | written) - removed)
+
+    def all_items(self) -> dict[str, Any]:
+        """Every key and decoded value, so callers skip a get() per key.
+
+        promote and export used to call all_keys() and then read each value;
+        the replay already has them (review #8).
+        """
+        if not self.enable_versioning:
+            items = {}
+            for key in self._keys:
+                raw = self.tree.find(key.encode("utf-8"))
+                if raw is not None:
+                    items[key] = self._decode_value(raw)
+            return dict(sorted(items.items()))
+
+        written, removed = self._staged()
+
+        items = {
+            key.decode("utf-8"): self._decode_value(value)
+            for key, value in self._committed().items()
+            if key.decode("utf-8") not in removed
+        }
+        # Staged keys are not in the replay yet; read just those.
+        for key in written:
+            raw = self.tree.get(key.encode("utf-8"))
+            if raw is not None:
+                items[key] = self._decode_value(raw)
+
+        return dict(sorted(items.items()))
 
     def _encode_value(self, value: Any) -> bytes:
         """Encode any value to bytes for storage."""
@@ -344,9 +615,10 @@ class ProllyTreeStore(BaseStore):
         results = []
 
         try:
-            # Use our key registry to find matching keys
+            # all_keys() merges committed and staged keys; the old registry
+            # was capped at 1024.
             count = 0
-            for full_key in self._keys:
+            for full_key in self.all_keys():
                 if count >= limit:
                     break
 
@@ -387,8 +659,11 @@ class ProllyTreeStore(BaseStore):
             with self._write_lock():
                 self._follow_head()
                 self._put_locked(namespace, key, key_bytes, value_bytes)
-            # Track the key in our registry
+
+            # Memory mode tracks its own keys; the replay cache is now stale.
             self._keys.add(full_key)
+            self._items = None
+            self._cache_source = None
         except Exception as e:
             logger.error(f"Error storing {full_key}: {e}")
             raise
@@ -457,8 +732,12 @@ class ProllyTreeStore(BaseStore):
             current,
         )
         self.tree.checkout(on_disk)
+
+        # Drop the cache instead of replaying now; the caller may not
+        # enumerate at all after a checkout.
         self._keys = set()
-        self._populate_key_registry()
+        self._items = None
+        self._cache_source = None
 
     def get(self, namespace: tuple, key: str) -> dict | None:
         """Retrieve a value from a namespace."""
@@ -488,10 +767,16 @@ class ProllyTreeStore(BaseStore):
             with self._write_lock():
                 self._follow_head()
                 self.tree.delete(key_bytes)
-                # Remove from key registry
+
                 self._keys.discard(full_key)
+
                 if self.enable_versioning and self.auto_commit:
                     self.tree.commit(f"Delete {key} from {':'.join(namespace)}")
+
+            # With auto_commit=False the delete lives in the staging area,
+            # which _staged() reads.
+            self._items = None
+            self._cache_source = None
         except Exception as e:
             logger.error(f"Error deleting {full_key}: {e}")
 
@@ -517,6 +802,11 @@ class ProllyTreeStore(BaseStore):
             with self._write_lock():
                 self._follow_head()
                 commit_hash = self.tree.commit(message)
+
+            # The staging area is empty now; the cached snapshot is stale.
+            self._items = None
+            self._cache_source = None
+
             logger.debug(f"Manual commit successful: {message}")
             return commit_hash
         except Exception as e:
@@ -635,11 +925,16 @@ class ProllyTreeStore(BaseStore):
             # Switch to snapshot
             self.tree.checkout(snapshot_name)
 
+            # The cached snapshot belongs to the previous branch.
+            self._items = None
+            self._cache_source = None
+
             # Get all keys in namespace
             state = {}
             namespace_prefix = ":".join(namespace) + ":"
 
-            keys = self.tree.list_keys()
+            # all_keys() rather than list_keys(), which caps at 1024.
+            keys = [key.encode("utf-8") for key in self.all_keys()]
             for key in keys:
                 key_str = key.decode("utf-8") if isinstance(key, bytes) else key
                 if key_str.startswith(namespace_prefix):
@@ -654,6 +949,8 @@ class ProllyTreeStore(BaseStore):
 
             # Return to original branch
             self.tree.checkout(current_branch)
+            self._items = None
+            self._cache_source = None
 
             return state
 
@@ -662,6 +959,10 @@ class ProllyTreeStore(BaseStore):
             # Try to return to original branch
             with contextlib.suppress(Exception):
                 self.tree.checkout(current_branch)
+            # The error path restores the branch, so the snapshot's keys
+            # must not stay cached here (review #4).
+            self._items = None
+            self._cache_source = None
             return {}
 
     # Enhanced methods for semantic memory functionality
@@ -870,10 +1171,12 @@ class ProllyTreeStore(BaseStore):
 
     def get_statistics(self) -> dict[str, Any]:
         """Get store statistics."""
+        # all_keys() counts committed plus staged keys, without the 1024 cap.
+        keys = self.all_keys()
         stats = {
             "performance": self._stats.copy(),
-            "total_keys": len(self._keys),
-            "total_namespaces": len({key.split(":")[0] for key in self._keys}),
+            "total_keys": len(keys),
+            "total_namespaces": len({key.split(":")[0] for key in keys}),
         }
 
         if self.enable_versioning and hasattr(self.tree, "get_head"):
@@ -893,15 +1196,22 @@ class ProllyTreeStore(BaseStore):
         """
         Export all memories from a namespace to JSON.
 
+        Iterates ``all_items()`` rather than ``search(..., limit=1000)``: the
+        old cap silently dropped everything past the thousandth memory, and
+        the underlying ``list_keys`` cap made that loss non-deterministic.
+
         Args:
             namespace: Namespace to export
             output_path: Path to save JSON file
         """
-        memories = {}
-        search_results = self.search((namespace,), limit=1000)
-
-        for _, key, data in search_results:
-            memories[key] = data
+        # One all_items() pass instead of all_keys() plus a get() per key,
+        # and no search(limit=1000) cap (review #8).
+        prefix = f"{namespace}:"
+        memories = {
+            full_key[len(prefix) :]: data
+            for full_key, data in self.all_items().items()
+            if full_key.startswith(prefix)
+        }
 
         with open(output_path, "w") as f:
             json.dump(
@@ -925,24 +1235,27 @@ class _SnapshotTree:
     """The key-value state of one ref, read once; the ``VersionedKvStore``
     surface the adapter's read paths use, with every write refused.
 
-    Built from ``get_keys_at_ref``, which loads the ref's committed root
-    straight from the node store: no checkout, so the store's HEAD and the
-    other processes sharing the store never notice (issue #179).
+    Built from commit history (``diff`` from the root) rather than
+    ``get_keys_at_ref`` alone, which stops at 1024 keys: no checkout, so the
+    store's HEAD and the other processes sharing the store never notice
+    (issue #179).
     """
 
-    def __init__(self, tree: Any, ref: str):
-        self._ref = ref
-        try:
-            pairs = tree.get_keys_at_ref(ref)
-        except Exception as e:
+    def __init__(self, tree: Any, ref: str, store_path: Path):
+        # _resolve_ref() rejects refs the binding cannot resolve (review #2).
+        # store_path is required now; the old None branch was unreachable and
+        # duplicated this error message (review #9b).
+        resolved = _resolve_ref(store_path, ref)
+        if resolved is None:
             raise ValueError(
                 f"Branch '{ref}' does not exist. Create it explicitly with "
                 f"`memoir branch {ref}`, or use a write command "
                 f"(e.g. `memoir remember --branch={ref} ...`) to bootstrap it."
-            ) from e
-        self._data: dict[bytes, bytes] = {}
-        for key, value in pairs:
-            self._data[bytes(key)] = bytes(value)
+            )
+
+        self._ref = ref
+        # An empty branch is a valid snapshot; no fallback to list_keys().
+        self._data = _replay_snapshot(tree, store_path, resolved)
 
     def get(self, key: bytes) -> bytes | None:
         return self._data.get(bytes(key))
@@ -952,10 +1265,15 @@ class _SnapshotTree:
     def list_keys(self) -> list[bytes]:
         return list(self._data.keys())
 
+    def items(self) -> list[tuple[bytes, bytes]]:
+        return list(self._data.items())
+
     def current_branch(self) -> str:
         return self._ref
 
     def __getattr__(self, name: str) -> Any:
+        # Anything not implemented above (status, checkout, ...) is a write
+        # attempt on a read-only view.
         raise ReadOnlyStoreError(
             f"Cannot {name}: this store is a read-only view of '{self._ref}'."
         )

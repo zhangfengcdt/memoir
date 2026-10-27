@@ -715,17 +715,15 @@ class MemoryHandler(BaseAPIHandler):
                 if not results:
                     namespace_search_start = time.time()
 
-                    # Get all unique namespaces from the keys we found
+                    # Uncapped enumeration: list_keys() could hide a whole
+                    # namespace once the store passed 1024 keys.
                     all_keys = (
-                        search_engine.store.tree.list_keys()
-                        if hasattr(search_engine.store, "tree")
+                        search_engine.store.all_keys()
+                        if hasattr(search_engine.store, "all_keys")
                         else []
                     )
                     namespaces = set()
-                    for key in all_keys:
-                        key_str = (
-                            key.decode("utf-8") if isinstance(key, bytes) else str(key)
-                        )
+                    for key_str in all_keys:
                         key_parts = key_str.split(":")
                         if len(key_parts) >= 2:
                             namespace = ":".join(

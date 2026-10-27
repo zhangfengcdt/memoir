@@ -729,13 +729,11 @@ class MemoryService(BaseService):
                 fallback_start = time.time()
                 store = self._get_store()
 
-                # Discover available namespaces
-                all_keys = store.tree.list_keys() if hasattr(store, "tree") else []
+                # all_keys() is uncapped and deterministic, so a large store
+                # cannot hide a namespace from the fallback scan.
+                all_keys = store.all_keys() if hasattr(store, "all_keys") else []
                 namespaces = set()
-                for key in all_keys:
-                    key_str = (
-                        key.decode("utf-8") if isinstance(key, bytes) else str(key)
-                    )
+                for key_str in all_keys:
                     key_parts = key_str.split(":")
                     if len(key_parts) >= 2:
                         ns = key_parts[0]
