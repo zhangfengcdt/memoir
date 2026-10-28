@@ -386,6 +386,29 @@ def get_llm(
     if base_url is None:
         base_url = os.getenv("MEMOIR_LLM_BASE_URL", "").strip() or None
 
+    # Atlas Cloud exposes an OpenAI-compatible endpoint, but its catalog model
+    # IDs include their original provider prefix. A distinct `atlas/` prefix
+    # keeps provider selection explicit while routing through LiteLLM's OpenAI
+    # adapter (for example, atlas/deepseek-ai/deepseek-v4-flash).
+    model_lower = model.lower()
+    if model_lower.startswith("atlas/"):
+        atlas_model = model.removeprefix("atlas/")
+        atlas_api_key = os.getenv("ATLASCLOUD_API_KEY", "").strip()
+        if not atlas_model:
+            raise ValueError("An Atlas Cloud model ID is required after 'atlas/'.")
+        if not atlas_api_key and not api_key:
+            raise ValueError(
+                "ATLASCLOUD_API_KEY environment variable is required for Atlas Cloud "
+                "models. Set it with: export ATLASCLOUD_API_KEY=your-api-key-here"
+            )
+        model = f"openai/{atlas_model}"
+        base_url = (
+            base_url
+            or os.getenv("ATLASCLOUD_LLM_BASE_URL", "").strip()
+            or "https://api.atlascloud.ai/v1"
+        )
+        api_key = api_key or atlas_api_key
+
     # Route to the claude-cli backend if requested. This is the zero-API-key
     # path for running memoir under Claude Code; see ClaudeCLIWrapper docstring.
     backend = os.getenv("MEMOIR_LLM_BACKEND", "").strip().lower()

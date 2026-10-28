@@ -92,7 +92,16 @@ export ANTHROPIC_API_KEY="your-anthropic-api-key"
 # OR if you want to keep using OpenAI (memoir's default before v0.1.6)
 export OPENAI_API_KEY="your-openai-api-key"
 export MEMOIR_LLM_MODEL="gpt-4o-mini"   # or pass --model gpt-4o-mini per call
+
+# OR use an Atlas Cloud model through its OpenAI-compatible endpoint
+export ATLASCLOUD_API_KEY="your-atlascloud-api-key"
+export MEMOIR_LLM_MODEL="atlas/deepseek-ai/deepseek-v4-flash"
 ```
+
+Atlas Cloud model IDs are available from its public model catalog. Prefix a
+text model ID with `atlas/`; Memoir then uses the Atlas Cloud LLM endpoint
+without changing the default provider. Set `ATLASCLOUD_LLM_BASE_URL` only when
+you need to override the default `https://api.atlascloud.ai/v1` endpoint.
 
 Resolution order for the model used by `recall` / `remember` (no `-p`):
 
