@@ -29,6 +29,13 @@
 # scripts (slash-command shims) should do the same if they want to find a
 # user-local pip install.
 
+# Plugin hosts can launch hooks with a reduced PATH that omits shell profile
+# additions such as Homebrew's prefix. Add common install locations here so
+# every resolver caller (including the pane's host-run wrapper) sees them.
+for p in "$HOME/.local/bin" "$HOME/.cargo/bin" "$HOME/bin" "/usr/local/bin" "/opt/homebrew/bin"; do
+  [[ -d "$p" ]] && [[ ":$PATH:" != *":$p:"* ]] && export PATH="$p:$PATH"
+done
+
 # Pin the published memoir-ai version that the uvx / uv-tool-run fallbacks
 # resolve to. The Claude Code plugin and the memoir-ai PyPI package version
 # independently (see scripts/check_version_consistency.py — they form two
