@@ -122,6 +122,8 @@ declare module 'claude-code' {
       expanded: string[]
       /** Full key → memory count, from `memoir summarize`. */
       taxonomy: Record<string, number>
+      /** The store's predefined taxonomy paths (`<category>.<path>`, from `taxonomy:v1:preset:*`), read once per store. */
+      predefinedTaxonomy: { store: string | null; paths: string[] }
       /** Branch → its turn accumulator, from the `metrics.turn.*` keys. */
       metrics: Record<string, MemoirTurnMetrics>
       /** Every key on the branch with its value and how it compares with main. */

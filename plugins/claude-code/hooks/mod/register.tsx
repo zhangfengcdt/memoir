@@ -48,6 +48,11 @@ const showMetrics = atom({ plugin: 'memoir', key: 'showMetrics' } as const, fals
 const showTaxonomy = atom({ plugin: 'memoir', key: 'showTaxonomy' } as const, false)
 const expanded = atom({ plugin: 'memoir', key: 'expanded' } as const, [] as string[])
 const taxonomy = atom({ plugin: 'memoir', key: 'taxonomy' } as const, {} as Record<string, number>)
+// The store's predefined taxonomy rarely changes, so it is read once per store, not on every refresh.
+const predefinedTaxonomy = atom({ plugin: 'memoir', key: 'predefinedTaxonomy' } as const, { store: null, paths: [] } as {
+  store: string | null
+  paths: string[]
+})
 const metrics = atom({ plugin: 'memoir', key: 'metrics' } as const, {} as Record<string, MemoirTurnMetrics>)
 const memoryList = atom({ plugin: 'memoir', key: 'memories' } as const, { items: [], base: null } as MemoirMemories)
 const filter = atom({ plugin: 'memoir', key: 'filter' } as const, '')
@@ -154,6 +159,9 @@ export const register: Register = on => {
       const commits = await store.countCommits(host, path, { base, since })
       const commitsWithoutMetrics = await store.countCommits(host, path, { base, since }, false)
       const tree = await store.readTaxonomy(host, path)
+      const known = await read($, predefinedTaxonomy)
+      // Re-read while empty too: a store created this session gets its taxonomy just after.
+      const predefined = known.store === path && known.paths.length > 0 ? null : await store.readPredefinedTaxonomy(host, path)
 
       // Every default-namespace key's value, in one batched `get`: the Memories
       // tab lists them, and the per-branch turn accumulators among them feed
@@ -191,6 +199,7 @@ export const register: Register = on => {
       await update($, order, () => log.order)
       await update($, captures, () => log.entries.map(c => ({ ...c, content: contents.get(c.sha) ?? null })))
       await update($, taxonomy, () => tree)
+      if (predefined) await update($, predefinedTaxonomy, () => ({ store: path, paths: predefined }))
       await update($, metrics, () => turnMetrics)
       await update($, memoryList, () => compared)
 
@@ -340,6 +349,7 @@ export const register: Register = on => {
       showMetrics: await read($, showMetrics),
       baseline: await read($, turnBaseline),
       taxonomy: await read($, taxonomy),
+      predefinedTaxonomy: (await read($, predefinedTaxonomy)).paths,
       metrics: await read($, metrics),
       memories: await read($, memoryList),
       filter: await read($, filter),

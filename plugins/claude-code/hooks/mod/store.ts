@@ -190,6 +190,40 @@ export async function readTaxonomy(host: Host, store: string): Promise<Record<st
   }
 }
 
+/** Each found key's stored value (`value.value`) in one namespace, by key. */
+async function readValues(host: Host, store: string, namespace: string, keys: readonly string[]): Promise<Map<string, unknown>> {
+  const values = new Map<string, unknown>()
+  const out = await run(host, [...cli(host, store), 'get', '-n', namespace, ...keys], store)
+  if (!out) return values
+  try {
+    const parsed = JSON.parse(out) as { items?: { key: string; found: boolean; value?: { value?: unknown } }[] }
+    for (const item of parsed.items ?? []) if (item.found) values.set(item.key, item.value?.value)
+  } catch {
+    // not JSON: nothing known
+  }
+  return values
+}
+
+/**
+ * Every predefined taxonomy path (`<category>.<path>`) from the presets the
+ * store has loaded (`taxonomy:v1:preset:*`, listed in `taxonomy:v1:index`),
+ * sorted and deduplicated. Empty when the store has no taxonomy.
+ */
+export async function readPredefinedTaxonomy(host: Host, store: string): Promise<string[]> {
+  const byType = (await readValues(host, store, 'taxonomy:v1:index', ['by-type'])).get('by-type') as { preset?: unknown } | undefined
+  const listed = Array.isArray(byType?.preset) ? byType.preset.filter((id): id is string => typeof id === 'string') : []
+  const ids = listed.length > 0 ? listed : ['simplified-preset']
+  const paths = new Set<string>()
+  for (const preset of (await readValues(host, store, 'taxonomy:v1:preset', ids)).values()) {
+    if (!preset || typeof preset !== 'object') continue
+    for (const [category, leaves] of Object.entries(preset as Record<string, unknown>)) {
+      if (!Array.isArray(leaves)) continue
+      for (const leaf of leaves) if (typeof leaf === 'string' && leaf) paths.add(`${category}.${leaf}`)
+    }
+  }
+  return [...paths].sort()
+}
+
 /**
  * Which keys this branch wrote since it left main (`main..HEAD`, or after
  * `since` once main took a merge of the branch), and which keys main's own

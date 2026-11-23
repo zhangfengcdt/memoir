@@ -32,6 +32,8 @@ export type PaneView = {
   showTaxonomy: boolean
   baseline: string | null
   taxonomy: Readonly<Record<string, number>>
+  /** Every predefined taxonomy path (`<category>.<path>`) the store's presets define. */
+  predefinedTaxonomy: readonly string[]
   metrics: Readonly<Record<string, MemoirTurnMetrics>>
   memories: MemoirMemories
   filter: string
@@ -453,7 +455,7 @@ export function renderPane(view: PaneView): RenderElement {
           </Button>
         )
       }
-      const groups = view.showTaxonomy ? fmt.groupTaxonomy(view.taxonomy, false) : []
+      const groups = view.showTaxonomy ? fmt.groupTaxonomy(view.taxonomy, false, view.predefinedTaxonomy) : []
       body = (
         <Box flexDirection="column">
           <Text dimColor>{summary}</Text>
@@ -467,7 +469,11 @@ export function renderPane(view: PaneView): RenderElement {
                     <Button key={`group-${g.name}`} plain onPress={() => void actions.toggleGroup(g.name)}>
                       {`${open.has(g.name) ? '▾' : '▸'} ${g.name.padEnd(12)} ${g.count}`}
                     </Button>
-                    {open.has(g.name) ? g.leaves.map(leaf => <Text dimColor>{`    ${leaf.path}`}</Text>) : []}
+                    {open.has(g.name)
+                      ? g.leaves.map(leaf =>
+                          leaf.count > 0 ? <Text>{`    ${leaf.path}  ${leaf.count}`}</Text> : <Text dimColor>{`    ${leaf.path}`}</Text>,
+                        )
+                      : []}
                   </Box>
                 ))
               )}

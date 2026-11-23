@@ -183,10 +183,21 @@ export type TaxonomyGroup = {
   leaves: { path: string; count: number }[]
 }
 
-/** Group leaf paths by their first segment, each group's leaves sorted. */
-export function groupTaxonomy(prefixCounts: Readonly<Record<string, number>>, showMetrics: boolean): TaxonomyGroup[] {
+/**
+ * Group leaf paths by their first segment, each group's leaves sorted. The
+ * predefined taxonomy paths are listed too, with a count of 0 until a memory
+ * is stored under them, so the full taxonomy shows before anything is captured.
+ */
+export function groupTaxonomy(
+  prefixCounts: Readonly<Record<string, number>>,
+  showMetrics: boolean,
+  predefined: readonly string[] = [],
+): TaxonomyGroup[] {
   const groups = new Map<string, TaxonomyGroup>()
-  for (const [path, count] of Object.entries(prefixCounts)) {
+  const counts: Record<string, number> = {}
+  for (const path of predefined) counts[path] = 0
+  for (const [path, count] of Object.entries(prefixCounts)) counts[path] = (counts[path] ?? 0) + count
+  for (const [path, count] of Object.entries(counts)) {
     if (!showMetrics && isMetric(path)) continue
     const dot = path.indexOf('.')
     const name = dot === -1 ? path : path.slice(0, dot)
