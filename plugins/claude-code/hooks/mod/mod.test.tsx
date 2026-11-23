@@ -80,6 +80,17 @@ const REFS = ['feat/x\t1700000350\t' + sha(7), 'main\t1700000300\t' + sha(3), 'f
 const BRANCH_SUBJECTS = ['Store knowledge.technical.build in default', 'Store knowledge.decisions.architecture in default', 'Store metrics.turn.main in default'].join('\n') + '\n'
 const MAIN_SUBJECTS = ['Store workflow.coding.gates in default', 'Store knowledge.decisions.architecture in default', 'Store metrics.turn.main in default', 'Initialize memoir store'].join('\n') + '\n'
 
+/** The store's predefined taxonomy: `taxonomy:v1:index` lists the presets, `taxonomy:v1:preset` holds their paths. */
+const TAXONOMY_VALUES: Record<string, Record<string, unknown>> = {
+  'taxonomy:v1:index': { 'by-type': { preset: ['simplified-preset'], examples: ['general-examples'] } },
+  'taxonomy:v1:preset': {
+    'simplified-preset': {
+      knowledge: ['decisions.architecture', 'technical.build', 'technical.performance'],
+      routine: ['daily.standup'],
+    },
+  },
+}
+
 const SUMMARY_JSON = JSON.stringify({
   prefix_counts: {
     default: {
@@ -171,7 +182,13 @@ function world(on: On, overrides: Partial<World> = {}) {
     else if (argv.includes(' get ') && w.cliFails) exitCode = 1
     else if (argv.includes(' get ')) {
       const keys = e.argv.slice(e.argv.indexOf('get') + 3)
-      stdout = JSON.stringify({
+      const namespace = e.argv[e.argv.indexOf('get') + 2]!
+      const taxonomyValues = TAXONOMY_VALUES[namespace]
+      if (taxonomyValues)
+        stdout = JSON.stringify({
+          items: keys.map(key => ({ key, found: key in taxonomyValues, value: { value: taxonomyValues[key] } })),
+        })
+      else stdout = JSON.stringify({
         items: keys.map(key => ({ key, found: key in CONTENT, value: { content: CONTENT[key] } })),
       })
     } else if (argv.includes(' summarize ')) stdout = SUMMARY_JSON
@@ -396,11 +413,19 @@ test('pane: recent feed hides metrics until toggled; t shows the taxonomy above 
   await ui.press({ key: 'taxonomy' })
   expect(await ui.find({ type: 'Button', text: /knowledge\s+3/ })).toBeDefined()
   expect(await ui.find({ type: 'Button', key: 'group-metrics' })).toBeUndefined()
-  // Leaves are drawn indented; the key rows below hold the full keys.
-  expect(await ui.find({ type: 'Text', text: /^    decisions\.architecture$/ })).toBeUndefined()
+  // A predefined category with nothing stored under it is listed too, at 0.
+  expect(await ui.find({ type: 'Button', key: 'group-routine', text: /routine\s+0/ })).toBeDefined()
+  // Leaves are drawn indented, stored ones with their count; the key rows below hold the full keys.
+  expect(await ui.find({ type: 'Text', text: /^    decisions\.architecture  1$/ })).toBeUndefined()
   await ui.press({ key: 'group-knowledge' })
-  expect(await ui.find({ type: 'Text', text: /^    decisions\.architecture$/ })).toBeDefined()
-  expect(await ui.find({ type: 'Text', text: /^    technical\.build$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^    decisions\.architecture  1$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^    technical\.build  2$/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /^    technical\.performance$/ })).toBeDefined()
+  // Leaves of a predefined-only category show when it opens.
+  await ui.press({ key: 'group-routine' })
+  expect(await ui.find({ type: 'Text', text: /^    daily\.standup$/ })).toBeDefined()
+  // The predefined taxonomy is read once per store, not on every refresh.
+  expect(w.runs.filter(argv => argv.includes('taxonomy:v1:preset')).length).toBe(1)
   // The keys are still listed under it.
   expect(await ui.find({ type: 'Button', key: 'mem-workflow.coding.gates' })).toBeDefined()
   await ui.press({ key: 'taxonomy' })
